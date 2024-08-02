@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+mod json_daemon;
 mod json_genesis;
 mod json_ledger;
+pub use json_daemon::Daemon;
 pub use json_genesis::Genesis;
 pub use json_ledger::{
     build_ledger_name, Account, AccountConfigError, AccountPermissions, AccountTiming, Ledger,
@@ -20,6 +22,7 @@ pub use json_ledger::{
 /// that happens, the format can be extended to accommodate.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DaemonJson {
+    pub daemon: Option<Daemon>,
     pub ledger: Option<Ledger>,
     pub genesis: Option<Genesis>,
     pub epoch_data: Option<Epochs>,
@@ -101,5 +104,10 @@ mod test {
         } else {
             panic!("Expected Timed account");
         }
+        let daemon = daemon_json.daemon.unwrap();
+        assert_eq!(daemon.tx_pool_max_size(), 3000);
+        assert_eq!(daemon.peer_list_url(), None);
+        assert_eq!(daemon.slot_tx_end(), None);
+        assert_eq!(daemon.slot_chain_end(), None);
     }
 }

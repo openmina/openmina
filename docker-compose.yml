@@ -10,6 +10,6 @@ services:
       - MINA_SNARK_WORKER_TAG=0.0.9
 
   frontend:
-    image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-0.6.1}
+    image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}
     ports:
       - "8070:80"

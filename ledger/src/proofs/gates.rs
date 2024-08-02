@@ -19,7 +19,19 @@ use mina_p2p_messages::binprot::{
     macros::{BinProtRead, BinProtWrite},
 };
 
-pub const CIRCUIT_DIRECTORY: &str = "3.0.0devnet";
+pub fn devnet_circuit_directory() -> &'static str {
+    openmina_core::network::devnet::CIRCUITS_CONFIG.directory_name
+}
+
+// TODO(tizoc): right now all tests are for devnets, and the above
+// function is used for those tests.
+// pub fn mainnet_circuit_directory() -> &'static str {
+//     openmina_core::network::devnet::CIRCUITS_CONFIG.directory_name
+// }
+//
+// pub fn circuit_directory() -> &'static str {
+//     openmina_core::NetworkConfig::global().circuits_config.directory_name
+// }
 
 struct Gates {
     step_tx_gates: Vec<CircuitGate<Fp>>,
@@ -75,8 +87,9 @@ fn read_gates() -> Gates {
         Vec<Vec<Option<V>>>,
         Vec<CircuitGate<F>>,
     ) {
+        let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let base_dir = base_dir.join(CIRCUIT_DIRECTORY);
+        let base_dir = base_dir.join(circuits_config.directory_name);
 
         let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
         let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
@@ -89,33 +102,27 @@ fn read_gates() -> Gates {
         (internal_vars_path, rows_rev_path, gates)
     }
 
-    let (step_tx_internal_vars, step_tx_rows_rev, step_tx_gates) = {
-        make("step-step-proving-key-transaction-snark-transaction-0-c33ec5211c07928c87e850a63c6a2079")
-    };
+    let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
+
+    let (step_tx_internal_vars, step_tx_rows_rev, step_tx_gates) =
+        { make(circuits_config.step_transaction_gates) };
     let (wrap_tx_internal_vars, wrap_tx_rows_rev, wrap_tx_gates) =
-        { make("wrap-wrap-proving-key-transaction-snark-b9a01295c8cc9bda6d12142a581cd305") };
-    let (step_merge_internal_vars, step_merge_rows_rev, step_merge_gates) = {
-        make("step-step-proving-key-transaction-snark-merge-1-ba1d52dfdc2dd4d2e61f6c66ff2a5b2f")
-    };
+        { make(circuits_config.wrap_transaction_gates) };
+    let (step_merge_internal_vars, step_merge_rows_rev, step_merge_gates) =
+        { make(circuits_config.step_merge_gates) };
     let (step_block_internal_vars, step_block_rows_rev, step_block_gates) =
-        { make("step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60") };
+        { make(circuits_config.step_blockchain_gates) };
     let (wrap_block_internal_vars, wrap_block_rows_rev, wrap_block_gates) =
-        { make("wrap-wrap-proving-key-blockchain-snark-bbecaf158ca543ec8ac9e7144400e669") };
+        { make(circuits_config.wrap_blockchain_gates) };
     let (
         step_opt_signed_opt_signed_internal_vars,
         step_opt_signed_opt_signed_rows_rev,
         step_opt_signed_opt_signed_gates,
-    ) = {
-        make("step-step-proving-key-transaction-snark-opt_signed-opt_signed-2-48925e6a97197028e1a7c1ecec09021d")
-    };
-    let (step_opt_signed_internal_vars, step_opt_signed_rows_rev, step_opt_signed_gates) = {
-        make(
-            "step-step-proving-key-transaction-snark-opt_signed-3-9eefed16953d2bfa78a257adece02d47",
-        )
-    };
-    let (step_proved_internal_vars, step_proved_rows_rev, step_proved_gates) = {
-        make("step-step-proving-key-transaction-snark-proved-4-0cafcbc6dffccddbc82f8c2519c16341")
-    };
+    ) = { make(circuits_config.step_transaction_opt_signed_opt_signed_gates) };
+    let (step_opt_signed_internal_vars, step_opt_signed_rows_rev, step_opt_signed_gates) =
+        { make(circuits_config.step_transaction_opt_signed_gates) };
+    let (step_proved_internal_vars, step_proved_rows_rev, step_proved_gates) =
+        { make(circuits_config.step_transaction_proved_gates) };
 
     Gates {
         step_tx_gates,

@@ -1,41 +1,40 @@
-use crate::{Data, P2pAction, P2pState, PeerId, StreamId};
+use crate::{ConnectionAddr, Data, P2pAction, P2pState, PeerId, StreamId};
 use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
 
 /// Identify stream related actions.
 #[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
 pub enum P2pNetworkIdentifyStreamAction {
     /// Creates a new stream state.
     New {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         incoming: bool,
     },
     /// Handles incoming data from the stream.
     IncomingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         data: Data,
     },
     /// Start closing the stream (send FIN).
     Close {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
     },
     /// Remote peer sent FIN to close the stream.
     RemoteClose {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
     },
     /// Removes the closed stream from the state.
     Prune {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
     },
@@ -56,7 +55,7 @@ macro_rules! enum_field {
 }
 
 impl P2pNetworkIdentifyStreamAction {
-    enum_field!(addr: SocketAddr);
+    enum_field!(addr: ConnectionAddr);
     enum_field!(peer_id: PeerId);
     enum_field!(stream_id: StreamId);
 }

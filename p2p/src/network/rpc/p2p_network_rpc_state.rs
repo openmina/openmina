@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, VecDeque},
-    net::SocketAddr,
     str,
     time::Duration,
 };
@@ -23,7 +22,7 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 #[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkRpcState {
-    pub addr: SocketAddr,
+    pub addr: ConnectionAddr,
     pub stream_id: StreamId,
     pub last_id: P2pRpcId,
     pub last_heartbeat_sent: Option<redux::Timestamp>,
@@ -37,7 +36,7 @@ pub struct P2pNetworkRpcState {
 }
 
 impl P2pNetworkRpcState {
-    pub fn new(addr: SocketAddr, stream_id: StreamId) -> Self {
+    pub fn new(addr: ConnectionAddr, stream_id: StreamId) -> Self {
         P2pNetworkRpcState {
             addr,
             stream_id,

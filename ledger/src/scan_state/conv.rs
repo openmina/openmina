@@ -9,7 +9,8 @@ use mina_p2p_messages::{
     pseq::PaddedSeq,
     string::CharString,
     v2::{
-        BlockTimeTimeStableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        self, BlockTimeTimeStableV1,
+        ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
         CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
         DataHashLibStateHashStableV1, EpochSeed, LedgerProofProdStableV2,
@@ -131,8 +132,9 @@ use super::{
         signed_command::SignedCommand,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
-            AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
+            verifiable, AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
         },
+        zkapp_statement::ZkappStatement,
         CoinbaseFeeTransfer, FeeTransfer, Memo, SingleFeeTransfer, Transaction, TransactionFailure,
         TransactionStatus, UserCommand,
     },
@@ -1214,7 +1216,6 @@ impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>
         )
     }
 }
-
 /// Notes: root
 impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
     for CallForest<AccountUpdate>
@@ -1241,6 +1242,155 @@ impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
         // call_forest.of_wire(value);
 
         call_forest
+    }
+}
+
+impl From<&v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>
+    for WithHash<VerificationKey>
+{
+    fn from(value: &v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA) -> Self {
+        let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA { data, hash } = value;
+        Self {
+            data: data.into(),
+            hash: hash.into(),
+        }
+    }
+}
+
+impl From<&WithHash<VerificationKey>>
+    for v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA
+{
+    fn from(value: &WithHash<VerificationKey>) -> Self {
+        let WithHash::<VerificationKey> { data, hash } = value;
+        Self {
+            data: data.into(),
+            hash: hash.into(),
+        }
+    }
+}
+
+/// Notes: childs for verifiable
+impl From<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>>
+    for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
+{
+    fn from(
+        value: &List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>,
+    ) -> Self {
+        Self(
+            value
+                .iter()
+                .map(|update| {
+                    let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA {
+                        elt,
+                        stack_hash,
+                    } = update;
+                    let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA {
+                        account_update: (account, vk_opt),
+                        account_update_digest,
+                        calls,
+                    } = &**elt;
+                    WithStackHash {
+                        elt: zkapp_command::Tree {
+                            account_update: (account.into(), vk_opt.as_ref().map(Into::into)),
+                            account_update_digest: account_update_digest.to_field(),
+                            calls: calls.into(),
+                        },
+                        stack_hash: stack_hash.to_field(),
+                    }
+                })
+                .collect(),
+        )
+    }
+}
+/// Notes: root for verifiable
+impl From<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
+    for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
+{
+    fn from(value: &List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>) -> Self {
+        let values = value
+            .iter()
+            .map(|update| {
+                let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA { elt, stack_hash } =
+                    update;
+                let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA {
+                    account_update: (account, vk_opt),
+                    account_update_digest,
+                    calls,
+                } = elt;
+                WithStackHash {
+                    elt: zkapp_command::Tree {
+                        account_update: (account.into(), vk_opt.as_ref().map(Into::into)),
+                        account_update_digest: account_update_digest.to_field(),
+                        calls: calls.into(),
+                    },
+                    stack_hash: stack_hash.to_field(),
+                }
+            })
+            .collect();
+
+        // There is no need to call `of_wire`, because hashes are in our serialized types (verifiables types only)
+        // call_forest.of_wire(&[]);
+
+        CallForest(values)
+    }
+}
+
+/// Childs for verifiable
+impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
+    for List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>
+{
+    fn from(value: &CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>) -> Self {
+        value
+            .0
+            .iter()
+            .map(|update| {
+                let (acc, opt) = &update.elt.account_update;
+                v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA {
+                    elt: Box::new(v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA {
+                        account_update: (acc.into(), opt.as_ref().map(Into::into)),
+                        account_update_digest:
+                            v2::MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1(
+                                update.elt.account_update_digest.into(),
+                            ),
+                        calls: (&update.elt.calls).into(),
+                    }),
+                    stack_hash: v2::MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(
+                        update.stack_hash.into(),
+                    ),
+                }
+            })
+            .collect()
+    }
+}
+/// Root
+impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
+    for List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>
+{
+    fn from(value: &CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>) -> Self {
+        value
+            .0
+            .iter()
+            .map(|update| {
+                let (acc, opt) = &update.elt.account_update;
+                v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA {
+                    elt: v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA {
+                        account_update: (acc.into(), opt.as_ref().map(Into::into)),
+                        account_update_digest:
+                            v2::MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1(
+                                update.elt.account_update_digest.into(),
+                            ),
+                        calls: (&update.elt.calls).into(),
+                    },
+                    stack_hash: v2::MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(
+                        update.stack_hash.into(),
+                    ),
+                }
+            })
+            .collect()
+
+        // There is no need to call `to_wire`, because hashes are in our serialized types (verifiables types only)
+        // value.to_wire(&mut wired);
+        // wired.into_iter().collect()
     }
 }
 
@@ -1464,6 +1614,12 @@ impl From<&Memo> for MinaBaseSignedCommandMemoStableV1 {
     }
 }
 
+impl From<MinaBaseSignedCommandStableV2> for SignedCommand {
+    fn from(value: MinaBaseSignedCommandStableV2) -> Self {
+        (&value).into()
+    }
+}
+
 impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
     fn from(cmd: &MinaBaseSignedCommandStableV2) -> Self {
         Self {
@@ -1494,6 +1650,12 @@ impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
             signer: (&cmd.signer).into(),
             signature: (&*cmd.signature).into(),
         }
+    }
+}
+
+impl From<SignedCommand> for MinaBaseSignedCommandStableV2 {
+    fn from(value: SignedCommand) -> Self {
+        (&value).into()
     }
 }
 
@@ -1540,6 +1702,38 @@ impl From<&MinaBaseZkappCommandTStableV1WireStableV1> for zkapp_command::ZkAppCo
             fee_payer: (&cmd.fee_payer).into(),
             account_updates: (&cmd.account_updates).into(),
             memo: (&cmd.memo).into(),
+        }
+    }
+}
+
+impl From<v2::MinaBaseZkappCommandVerifiableStableV1> for verifiable::ZkAppCommand {
+    fn from(value: v2::MinaBaseZkappCommandVerifiableStableV1) -> Self {
+        let v2::MinaBaseZkappCommandVerifiableStableV1 {
+            fee_payer,
+            account_updates,
+            memo,
+        } = &value;
+
+        verifiable::ZkAppCommand {
+            fee_payer: fee_payer.into(),
+            account_updates: account_updates.into(),
+            memo: memo.into(),
+        }
+    }
+}
+
+impl From<verifiable::ZkAppCommand> for v2::MinaBaseZkappCommandVerifiableStableV1 {
+    fn from(value: verifiable::ZkAppCommand) -> Self {
+        let verifiable::ZkAppCommand {
+            fee_payer,
+            account_updates,
+            memo,
+        } = &value;
+
+        v2::MinaBaseZkappCommandVerifiableStableV1 {
+            fee_payer: fee_payer.into(),
+            account_updates: account_updates.into(),
+            memo: memo.into(),
         }
     }
 }
@@ -1998,52 +2192,36 @@ impl binprot::BinProtWrite for LedgerProofWithSokMessage {
     }
 }
 
+impl From<MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
+    fn from(value: MinaBaseUserCommandStableV2) -> Self {
+        (&value).into()
+    }
+}
+
 impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
     fn from(value: &MinaBaseUserCommandStableV2) -> Self {
         match value {
             MinaBaseUserCommandStableV2::ZkappCommand(cmd) => {
                 Self::ZkAppCommand(Box::new(zkapp_command::valid::ZkAppCommand {
-                    zkapp_command: zkapp_command::ZkAppCommand {
-                        fee_payer: (&cmd.fee_payer).into(),
-                        account_updates: (&cmd.account_updates).into(),
-                        memo: (&cmd.memo).into(),
-                    },
+                    zkapp_command: cmd.into(),
                 }))
             }
             MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
-                Self::SignedCommand(Box::new(SignedCommand {
-                    payload: transaction_logic::signed_command::SignedCommandPayload {
-                        common: transaction_logic::signed_command::Common {
-                            fee: (&cmd.payload.common.fee).into(),
-                            fee_payer_pk: (&cmd.payload.common.fee_payer_pk).into(),
-                            nonce: (&cmd.payload.common.nonce).into(),
-                            valid_until: (&cmd.payload.common.valid_until).into(),
-                            memo: (&cmd.payload.common.memo).into(),
-                        },
-                        body: match &cmd.payload.body {
-                            MinaBaseSignedCommandPayloadBodyStableV2::Payment(payment) => {
-                                transaction_logic::signed_command::Body::Payment(PaymentPayload {
-                                    receiver_pk: (&payment.receiver_pk).into(),
-                                    amount: payment.amount.clone().into(),
-                                })
-                            }
-                            MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(
-                                delegation,
-                            ) => {
-                                let MinaBaseStakeDelegationStableV2::SetDelegate { new_delegate } =
-                                    &delegation;
+                Self::SignedCommand(Box::new(cmd.into()))
+            }
+        }
+    }
+}
 
-                                transaction_logic::signed_command::Body::StakeDelegation(
-                                    StakeDelegationPayload::SetDelegate {
-                                        new_delegate: new_delegate.into(),
-                                    },
-                                )
-                            }
-                        },
-                    },
-                    signer: (&cmd.signer).into(),
-                    signature: (&*cmd.signature).into(),
-                }))
+impl From<transaction_logic::valid::UserCommand> for MinaBaseUserCommandStableV2 {
+    fn from(value: transaction_logic::valid::UserCommand) -> Self {
+        match value {
+            transaction_logic::valid::UserCommand::SignedCommand(cmd) => {
+                MinaBaseUserCommandStableV2::SignedCommand((&*cmd).into())
+            }
+            transaction_logic::valid::UserCommand::ZkAppCommand(cmd) => {
+                let zkapp_command::valid::ZkAppCommand { zkapp_command } = &*cmd;
+                MinaBaseUserCommandStableV2::ZkappCommand(zkapp_command.into())
             }
         }
     }
@@ -3112,5 +3290,37 @@ impl From<&Slot> for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
 impl From<&SlotSpan> for MinaNumbersGlobalSlotSpanStableV1 {
     fn from(value: &SlotSpan) -> Self {
         Self::GlobalSlotSpan(value.as_u32().into())
+    }
+}
+
+impl From<&ZkappStatement> for v2::MinaBaseZkappStatementStableV2 {
+    fn from(value: &ZkappStatement) -> Self {
+        use transaction_logic::zkapp_statement::TransactionCommitment;
+
+        let ZkappStatement {
+            account_update: TransactionCommitment(account_update),
+            calls: TransactionCommitment(calls),
+        } = value;
+
+        v2::MinaBaseZkappStatementStableV2 {
+            account_update: account_update.into(),
+            calls: calls.into(),
+        }
+    }
+}
+
+impl From<&v2::MinaBaseZkappStatementStableV2> for ZkappStatement {
+    fn from(value: &v2::MinaBaseZkappStatementStableV2) -> Self {
+        use transaction_logic::zkapp_statement::TransactionCommitment;
+
+        let v2::MinaBaseZkappStatementStableV2 {
+            account_update,
+            calls,
+        } = value;
+
+        ZkappStatement {
+            account_update: TransactionCommitment(account_update.to_field()),
+            calls: TransactionCommitment(calls.to_field()),
+        }
     }
 }

@@ -8,7 +8,7 @@ use mina_p2p_messages::v2::{
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
-use crate::constants::CONSTRAINT_CONSTANTS;
+use crate::constants::constraint_constants;
 
 use super::{Block, BlockHash, BlockHeader};
 
@@ -16,6 +16,12 @@ use super::{Block, BlockHash, BlockHeader};
 pub struct BlockWithHash<T: AsRef<Block>> {
     pub hash: BlockHash,
     pub block: T,
+}
+
+impl<T: AsRef<Block>> std::cmp::PartialEq for BlockWithHash<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -110,7 +116,7 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
 
     pub fn is_genesis(&self) -> bool {
         self.height() == 1
-            || CONSTRAINT_CONSTANTS
+            || constraint_constants()
                 .fork
                 .as_ref()
                 .map_or(false, |fork| fork.blockchain_length + 1 == self.height())

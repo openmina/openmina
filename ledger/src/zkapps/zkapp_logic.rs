@@ -1,6 +1,6 @@
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 
 use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
 use crate::{
@@ -660,7 +660,7 @@ where
         ((), ())
     };
     let account_creation_fee =
-        Z::Amount::of_constant_fee(Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee));
+        Z::Amount::of_constant_fee(Fee::from_u64(constraint_constants().account_creation_fee));
     let implicit_account_creation_fee = account_update.implicit_account_creation_fee();
     Z::LocalState::add_check(
         local_state,
@@ -713,7 +713,7 @@ where
             Z::Balance::add_signed_amount_flagged(&a.balance(), actual_balance_change.clone(), w);
         Z::LocalState::add_check(local_state, TransactionFailure::Overflow, failed1.neg(), w);
         let account_creation_fee =
-            Z::Amount::of_constant_fee(Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee));
+            Z::Amount::of_constant_fee(Fee::from_u64(constraint_constants().account_creation_fee));
 
         // local state
         {

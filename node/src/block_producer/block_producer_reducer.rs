@@ -17,7 +17,7 @@ use openmina_core::consensus::{
     global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
     relative_sub_window,
 };
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 
 use super::{
     calc_epoch_seed, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMetaRef,
@@ -76,6 +76,37 @@ impl BlockProducerEnabled {
                     };
                 }
             }
+            BlockProducerAction::WonSlotTransactionsGet => {
+                let BlockProducerCurrentState::WonSlotProduceInit {
+                    won_slot, chain, ..
+                } = &mut self.current
+                else {
+                    return;
+                };
+
+                self.current = BlockProducerCurrentState::WonSlotTransactionsGet {
+                    time: meta.time(),
+                    won_slot: won_slot.clone(),
+                    chain: chain.clone(),
+                }
+            }
+            BlockProducerAction::WonSlotTransactionsSuccess {
+                transactions_by_fee,
+            } => {
+                let BlockProducerCurrentState::WonSlotTransactionsGet {
+                    won_slot, chain, ..
+                } = &mut self.current
+                else {
+                    return;
+                };
+
+                self.current = BlockProducerCurrentState::WonSlotTransactionsSuccess {
+                    time: meta.time(),
+                    won_slot: won_slot.clone(),
+                    chain: chain.clone(),
+                    transactions_by_fee: transactions_by_fee.clone(),
+                }
+            }
             BlockProducerAction::WonSlotProduceInit => {
                 if let Some(won_slot) = self.current.won_slot() {
                     let Some(chain) = best_chain.last().map(|best_tip| {
@@ -89,6 +120,7 @@ impl BlockProducerEnabled {
                     }) else {
                         return;
                     };
+
                     self.current = BlockProducerCurrentState::WonSlotProduceInit {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
@@ -98,8 +130,11 @@ impl BlockProducerEnabled {
             }
             BlockProducerAction::StagedLedgerDiffCreateInit => {}
             BlockProducerAction::StagedLedgerDiffCreatePending => {
-                let BlockProducerCurrentState::WonSlotProduceInit {
-                    won_slot, chain, ..
+                let BlockProducerCurrentState::WonSlotTransactionsSuccess {
+                    won_slot,
+                    chain,
+                    transactions_by_fee,
+                    ..
                 } = &mut self.current
                 else {
                     return;
@@ -108,7 +143,7 @@ impl BlockProducerEnabled {
                     time: meta.time(),
                     won_slot: won_slot.clone(),
                     chain: std::mem::take(chain),
-                    transactions: (),
+                    transactions_by_fee: transactions_by_fee.to_vec(),
                 };
             }
             BlockProducerAction::StagedLedgerDiffCreateSuccess { output } => {
@@ -173,7 +208,7 @@ impl BlockProducerEnabled {
 
                 let block_stake_winner = won_slot.delegator.0.clone();
                 let vrf_truncated_output: ConsensusVrfOutputTruncatedStableV1 =
-                    won_slot.vrf_output.clone().into();
+                    (*won_slot.vrf_output).clone().into();
                 let vrf_hash = won_slot.vrf_output.hash();
                 let block_creator = self.config.pub_key.clone();
                 let coinbase_receiver = self.config.coinbase_receiver().clone();
@@ -268,7 +303,7 @@ impl BlockProducerEnabled {
                     let is_same_global_sub_window =
                         pred_global_sub_window == next_global_sub_window;
                     let are_windows_overlapping = pred_global_sub_window
-                        + CONSTRAINT_CONSTANTS.sub_windows_per_window as u32
+                        + constraint_constants().sub_windows_per_window as u32
                         >= next_global_sub_window;
 
                     let current_sub_window_densities = pred_sub_window_densities
@@ -352,7 +387,7 @@ impl BlockProducerEnabled {
                     block_creator,
                     coinbase_receiver,
                     // TODO(binier): Staged_ledger.can_apply_supercharged_coinbase_exn
-                    supercharge_coinbase: CONSTRAINT_CONSTANTS.supercharged_coinbase_factor != 0,
+                    supercharge_coinbase: constraint_constants().supercharged_coinbase_factor != 0,
                 };
 
                 let protocol_state = MinaStateProtocolStateValueStableV2 {

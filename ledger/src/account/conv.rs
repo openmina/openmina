@@ -131,21 +131,8 @@ impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
         let MinaBaseVerificationKeyWireStableV1 {
             max_proofs_verified,
             actual_wrap_domain_size,
-            wrap_index:
-                MinaBaseVerificationKeyWireStableV1WrapIndex {
-                    sigma_comm,
-                    coefficients_comm,
-                    generic_comm,
-                    psm_comm,
-                    complete_add_comm,
-                    mul_comm,
-                    emul_comm,
-                    endomul_scalar_comm,
-                },
+            wrap_index,
         } = vk;
-
-        let sigma = array_into(sigma_comm);
-        let coefficients = array_into(coefficients_comm);
 
         VerificationKey {
             max_proofs_verified: match max_proofs_verified {
@@ -158,19 +145,43 @@ impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
                 PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
                 PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
             },
-            wrap_index: PlonkVerificationKeyEvals {
-                sigma,
-                coefficients,
-                generic: generic_comm.into(),
-                psm: psm_comm.into(),
-                complete_add: complete_add_comm.into(),
-                mul: mul_comm.into(),
-                emul: emul_comm.into(),
-                endomul_scalar: endomul_scalar_comm.into(),
-            }
-            .into(),
+            wrap_index: Box::new(wrap_index.into()),
             wrap_vk: None,
         }
+    }
+}
+
+impl From<&MinaBaseVerificationKeyWireStableV1WrapIndex> for PlonkVerificationKeyEvals<Fp> {
+    fn from(value: &MinaBaseVerificationKeyWireStableV1WrapIndex) -> Self {
+        let MinaBaseVerificationKeyWireStableV1WrapIndex {
+            sigma_comm,
+            coefficients_comm,
+            generic_comm,
+            psm_comm,
+            complete_add_comm,
+            mul_comm,
+            emul_comm,
+            endomul_scalar_comm,
+        } = value;
+
+        let sigma = array_into(sigma_comm);
+        let coefficients = array_into(coefficients_comm);
+
+        PlonkVerificationKeyEvals {
+            sigma,
+            coefficients,
+            generic: generic_comm.into(),
+            psm: psm_comm.into(),
+            complete_add: complete_add_comm.into(),
+            mul: mul_comm.into(),
+            emul: emul_comm.into(),
+            endomul_scalar: endomul_scalar_comm.into(),
+        }
+    }
+}
+impl From<MinaBaseVerificationKeyWireStableV1WrapIndex> for PlonkVerificationKeyEvals<Fp> {
+    fn from(value: MinaBaseVerificationKeyWireStableV1WrapIndex) -> Self {
+        (&value).into()
     }
 }
 
@@ -297,6 +308,11 @@ impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2
         }
     }
 }
+impl From<Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2 {
+    fn from(account: Account) -> Self {
+        (&account).into()
+    }
+}
 
 impl From<&AuthRequired> for mina_p2p_messages::v2::MinaBasePermissionsAuthRequiredStableV2 {
     fn from(perms: &AuthRequired) -> Self {
@@ -328,6 +344,13 @@ impl From<&PlonkVerificationKeyEvals<Fp>>
             emul_comm: (&vk.emul).into(),
             endomul_scalar_comm: (&vk.endomul_scalar).into(),
         }
+    }
+}
+impl From<PlonkVerificationKeyEvals<Fp>>
+    for mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1WrapIndex
+{
+    fn from(value: PlonkVerificationKeyEvals<Fp>) -> Self {
+        (&value).into()
     }
 }
 
@@ -532,6 +555,11 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
                 .into()
             }),
         }
+    }
+}
+impl From<MinaBaseAccountBinableArgStableV2> for Account {
+    fn from(account: MinaBaseAccountBinableArgStableV2) -> Self {
+        (&account).into()
     }
 }
 

@@ -13,7 +13,7 @@ use ledger::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
             transaction_partially_applied::TransactionPartiallyApplied,
-            Transaction,
+            valid, Transaction,
         },
     },
     sparse_ledger::SparseLedger,
@@ -23,7 +23,7 @@ use ledger::{
         validate_block::block_body_hash,
     },
     verifier::Verifier,
-    Account, BaseLedger, Database, Mask, UnregisterBehavior,
+    Account, AccountId, BaseLedger, Database, Mask, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -37,7 +37,7 @@ use mina_p2p_messages::{
         StateHash,
     },
 };
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 use openmina_core::snark::{Snark, SnarkJobId};
 
 use mina_signer::CompressedPubKey;
@@ -147,7 +147,8 @@ impl LedgerCtx {
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
         let hash = merkle_root(&mut mask);
-        let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask.copy()).unwrap();
+        let staged_ledger =
+            StagedLedger::create_exn(constraint_constants().clone(), mask.copy()).unwrap();
         self.snarked_ledgers.insert(hash.clone(), mask);
         self.staged_ledgers.insert(hash.clone(), staged_ledger);
     }
@@ -155,6 +156,35 @@ impl LedgerCtx {
     pub fn staged_ledger_reconstruct_result_store(&mut self, ledger: StagedLedger) {
         let hash = merkle_root(&mut ledger.ledger().clone());
         self.staged_ledgers.insert(hash, ledger);
+    }
+
+    // TODO(adonagy): Uh-oh, clean this up
+    pub fn get_accounts_for_rpc(
+        &self,
+        ledger_hash: LedgerHash,
+        requested_public_key: Option<AccountPublicKey>,
+    ) -> Vec<Account> {
+        if let Some((mask, _)) = self.mask(&ledger_hash) {
+            let mut accounts = Vec::new();
+            let mut single_account = Vec::new();
+
+            mask.iter(|account| {
+                accounts.push(account.clone());
+                if let Some(public_key) = requested_public_key.as_ref() {
+                    if public_key == &AccountPublicKey::from(account.public_key.clone()) {
+                        single_account.push(account.clone());
+                    }
+                }
+            });
+
+            if requested_public_key.is_some() {
+                single_account
+            } else {
+                accounts
+            }
+        } else {
+            vec![]
+        }
     }
 
     // TODO(tizoc): explain when `is_synced` is `true` and when it is `false`. Also use something else than a boolean.
@@ -278,7 +308,7 @@ impl LedgerCtx {
             kind = "LedgerService::push_snarked_ledger",
             summary = format!("{old_root_snarked_ledger_hash} -> {new_root_snarked_ledger_hash}"));
         // Steps 4-7 from https://github.com/openmina/mina/blob/bc812dc9b90e05898c0c36ac76ba51ccf6cac137/src/lib/transition_frontier/full_frontier/full_frontier.ml#L354-L392
-        let constraint_constants = &CONSTRAINT_CONSTANTS;
+        let constraint_constants = &constraint_constants();
 
         // Step 4: create a new temporary mask `mt` with `s` as it's parent
         let root_snarked_ledger = self
@@ -459,11 +489,14 @@ impl LedgerCtx {
             .snarked_ledger_mut(snarked_ledger_hash.clone())
             .copy();
 
-        std::thread::spawn(move || {
-            let (staged_ledger_hash, result) =
-                staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
-            callback(staged_ledger_hash, result);
-        });
+        std::thread::Builder::new()
+            .name("staged-ledger-reconstruct".into())
+            .spawn(move || {
+                let (staged_ledger_hash, result) =
+                    staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
+                callback(staged_ledger_hash, result);
+            })
+            .expect("Failed: staged ledger reconstruct thread");
     }
 
     pub fn staged_ledger_reconstruct_sync(
@@ -523,7 +556,7 @@ impl LedgerCtx {
             .apply(
                 // TODO(binier): SEC
                 Some(SkipVerification::All),
-                &CONSTRAINT_CONSTANTS,
+                constraint_constants(),
                 Slot::from_u32(global_slot),
                 diff,
                 (),
@@ -738,6 +771,31 @@ impl LedgerCtx {
         Some(accounts)
     }
 
+    pub fn get_accounts(
+        &mut self,
+        ledger_hash: v2::LedgerHash,
+        ids: Vec<AccountId>,
+    ) -> Vec<Account> {
+        let Some((mask, _)) = self.mask(&ledger_hash) else {
+            openmina_core::warn!(
+                openmina_core::log::system_time();
+                kind = "LedgerService::get_accounts",
+                summary = format!("Ledger not found: {ledger_hash:?}")
+            );
+            return Vec::new();
+        };
+        let addrs = mask
+            .location_of_account_batch(&ids)
+            .into_iter()
+            .filter_map(|(_id, addr)| addr)
+            .collect::<Vec<_>>();
+
+        mask.get_batch(&addrs)
+            .into_iter()
+            .filter_map(|(_, account)| account.map(|account| *account))
+            .collect::<Vec<_>>()
+    }
+
     pub fn staged_ledger_aux_and_pending_coinbase(
         &mut self,
         ledger_hash: LedgerHash,
@@ -773,6 +831,7 @@ impl LedgerCtx {
         coinbase_receiver: NonZeroCurvePoint,
         completed_snarks: BTreeMap<SnarkJobId, Snark>,
         supercharge_coinbase: bool,
+        transactions_by_fee: Vec<valid::UserCommand>,
     ) -> Result<StagedLedgerDiffCreateOutput, String> {
         let mut staged_ledger = self
             .staged_ledger_mut(pred_block.staged_ledger_hash())
@@ -794,15 +853,13 @@ impl LedgerCtx {
         // TODO(binier): include `invalid_txns` in output.
         let (pre_diff, _invalid_txns) = staged_ledger
             .create_diff(
-                &CONSTRAINT_CONSTANTS,
+                constraint_constants(),
                 (&global_slot_since_genesis).into(),
                 Some(true),
                 (&coinbase_receiver).into(),
                 (),
                 &protocol_state_view,
-                // TODO(binier): once we have transaction pool, pass
-                // transactions here.
-                Vec::new(),
+                transactions_by_fee,
                 |stmt| {
                     let job_id = SnarkJobId::from(stmt);
                     completed_snarks.get(&job_id).map(Into::into)
@@ -819,7 +876,7 @@ impl LedgerCtx {
 
         let res = staged_ledger
             .apply_diff_unchecked(
-                &CONSTRAINT_CONSTANTS,
+                constraint_constants(),
                 (&global_slot_since_genesis).into(),
                 pre_diff,
                 (),
@@ -982,12 +1039,12 @@ impl LedgerCtx {
                         RpcScanStateSummaryScanStateJob::Done {
                             job_id,
                             bundle_job_id,
-                            job: job_kind,
+                            job: Box::new(job_kind),
                             seq_no,
-                            snark: RpcSnarkPoolJobSnarkWorkDone {
+                            snark: Box::new(RpcSnarkPoolJobSnarkWorkDone {
                                 snarker: sok_message.prover,
                                 fee: sok_message.fee,
-                            },
+                            }),
                         }
                     } else {
                         RpcScanStateSummaryScanStateJob::Todo {
@@ -1054,7 +1111,7 @@ fn staged_ledger_reconstruct(
 
         StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
-            &CONSTRAINT_CONSTANTS,
+            constraint_constants(),
             Verifier,
             (&parts.scan_state).into(),
             snarked_ledger,
@@ -1064,7 +1121,7 @@ fn staged_ledger_reconstruct(
             |key| states.get(&key).cloned().unwrap(),
         )
     } else {
-        StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), snarked_ledger)
+        StagedLedger::create_exn(constraint_constants().clone(), snarked_ledger)
     };
 
     (staged_ledger_hash, result)

@@ -29,12 +29,13 @@ pub fn reducer<State, Action>(
             block,
             req_id,
             on_success,
-            ..
+            on_error,
         } => {
             state.jobs.add(SnarkBlockVerifyStatus::Init {
                 time: meta.time(),
                 block: block.clone(),
                 on_success: on_success.clone(),
+                on_error: on_error.clone(),
             });
 
             // Dispatch
@@ -49,33 +50,51 @@ pub fn reducer<State, Action>(
             });
             dispatcher.push(SnarkBlockVerifyAction::Pending { req_id: *req_id });
         }
-        SnarkBlockVerifyAction::Pending { req_id, .. } => {
+        SnarkBlockVerifyAction::Pending { req_id } => {
             if let Some(req) = state.jobs.get_mut(*req_id) {
                 *req = match req {
                     SnarkBlockVerifyStatus::Init {
-                        block, on_success, ..
+                        block,
+                        on_success,
+                        on_error,
+                        ..
                     } => SnarkBlockVerifyStatus::Pending {
                         time: meta.time(),
                         block: block.clone(),
                         on_success: on_success.clone(),
+                        on_error: on_error.clone(),
                     },
                     _ => return,
                 };
             }
         }
         SnarkBlockVerifyAction::Error { req_id, error, .. } => {
-            if let Some(req) = state.jobs.get_mut(*req_id) {
-                if let SnarkBlockVerifyStatus::Pending { block, .. } = req {
+            let callback_and_arg = state.jobs.get_mut(*req_id).and_then(|req| {
+                if let SnarkBlockVerifyStatus::Pending {
+                    block, on_error, ..
+                } = req
+                {
+                    let callback = on_error.clone();
+                    let block_hash = block.hash_ref().clone();
                     *req = SnarkBlockVerifyStatus::Error {
                         time: meta.time(),
                         block: block.clone(),
                         error: error.clone(),
                     };
+
+                    Some((callback, (block_hash, error.clone())))
+                } else {
+                    None
                 }
-            }
+            });
 
             // Dispatch
             let dispatcher = state_context.into_dispatcher();
+
+            if let Some((callback, args)) = callback_and_arg {
+                dispatcher.push_callback(callback, args);
+            }
+
             dispatcher.push(SnarkBlockVerifyAction::Finish { req_id: *req_id });
         }
         SnarkBlockVerifyAction::Success { req_id, .. } => {

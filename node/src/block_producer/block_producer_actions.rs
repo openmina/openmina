@@ -1,3 +1,4 @@
+use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2::MinaBaseProofStableV2;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
@@ -13,7 +14,7 @@ pub type BlockProducerActionWithMeta = redux::ActionWithMeta<BlockProducerAction
 pub type BlockProducerActionWithMetaRef<'a> = redux::ActionWithMeta<&'a BlockProducerAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(level = trace)]
+#[action_event(level = info)]
 pub enum BlockProducerAction {
     VrfEvaluator(BlockProducerVrfEvaluatorAction),
     BestTipUpdate {
@@ -37,11 +38,15 @@ pub enum BlockProducerAction {
         reason: BlockProducerWonSlotDiscardReason,
     },
     WonSlotWait,
+    WonSlotTransactionsGet,
+    WonSlotTransactionsSuccess {
+        transactions_by_fee: Vec<valid::UserCommand>,
+    },
     WonSlotProduceInit,
     StagedLedgerDiffCreateInit,
     StagedLedgerDiffCreatePending,
     StagedLedgerDiffCreateSuccess {
-        output: StagedLedgerDiffCreateOutput,
+        output: Box<StagedLedgerDiffCreateOutput>,
     },
     BlockUnprovenBuild,
     BlockProveInit,
@@ -50,6 +55,7 @@ pub enum BlockProducerAction {
         proof: Box<MinaBaseProofStableV2>,
     },
     BlockProduced,
+    #[action_event(level = trace)]
     BlockInject,
     BlockInjected,
 }
@@ -89,10 +95,10 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
             BlockProducerAction::WonSlotWait => state
                 .block_producer
                 .with(false, |this| this.current.won_slot_should_wait(time)),
-            BlockProducerAction::WonSlotProduceInit => state
+            BlockProducerAction::WonSlotProduceInit { .. } => state
                 .block_producer
                 .with(false, |this| this.current.won_slot_should_produce(time)),
-            BlockProducerAction::StagedLedgerDiffCreateInit => {
+            BlockProducerAction::WonSlotTransactionsGet => {
                 state.block_producer.with(false, |this| {
                     matches!(
                         this.current,
@@ -100,11 +106,27 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                     )
                 })
             }
+            BlockProducerAction::WonSlotTransactionsSuccess { .. } => {
+                state.block_producer.with(false, |this| {
+                    matches!(
+                        this.current,
+                        BlockProducerCurrentState::WonSlotTransactionsGet { .. }
+                    )
+                })
+            }
+            BlockProducerAction::StagedLedgerDiffCreateInit => {
+                state.block_producer.with(false, |this| {
+                    matches!(
+                        this.current,
+                        BlockProducerCurrentState::WonSlotTransactionsSuccess { .. }
+                    )
+                })
+            }
             BlockProducerAction::StagedLedgerDiffCreatePending => {
                 state.block_producer.with(false, |this| {
                     matches!(
                         this.current,
-                        BlockProducerCurrentState::WonSlotProduceInit { .. }
+                        BlockProducerCurrentState::WonSlotTransactionsSuccess { .. }
                     )
                 })
             }

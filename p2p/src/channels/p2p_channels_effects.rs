@@ -22,7 +22,7 @@ impl P2pChannelsMessageReceivedAction {
         let peer_id = self.peer_id;
         let chan_id = self.message.channel_id();
         let was_expected =
-            match self.message {
+            match *self.message {
                 ChannelMsg::BestTipPropagation(msg) => match msg {
                     BestTipPropagationChannelMsg::GetNext => {
                         store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id })
@@ -44,7 +44,7 @@ impl P2pChannelsMessageReceivedAction {
                     TransactionPropagationChannelMsg::Transaction(transaction) => {
                         store.dispatch(P2pChannelsTransactionAction::Received {
                             peer_id,
-                            transaction,
+                            transaction: Box::new(transaction),
                         })
                     }
                 },
@@ -59,7 +59,10 @@ impl P2pChannelsMessageReceivedAction {
                         })
                     }
                     SnarkPropagationChannelMsg::Snark(snark) => {
-                        store.dispatch(P2pChannelsSnarkAction::Received { peer_id, snark })
+                        store.dispatch(P2pChannelsSnarkAction::Received {
+                            peer_id,
+                            snark: Box::new(snark),
+                        })
                     }
                 },
                 ChannelMsg::SnarkJobCommitmentPropagation(msg) => {
@@ -77,7 +80,7 @@ impl P2pChannelsMessageReceivedAction {
                         SnarkJobCommitmentPropagationChannelMsg::Commitment(commitment) => store
                             .dispatch(P2pChannelsSnarkJobCommitmentAction::Received {
                                 peer_id,
-                                commitment,
+                                commitment: Box::new(commitment),
                             }),
                     }
                 }
@@ -86,14 +89,14 @@ impl P2pChannelsMessageReceivedAction {
                         store.dispatch(P2pChannelsRpcAction::RequestReceived {
                             peer_id,
                             id,
-                            request,
+                            request: Box::new(request),
                         })
                     }
                     RpcChannelMsg::Response(id, response) => {
                         store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                             peer_id,
                             id,
-                            response,
+                            response: response.map(Box::new),
                         })
                     }
                 },

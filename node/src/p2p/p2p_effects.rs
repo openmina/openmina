@@ -18,7 +18,7 @@ use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsAction,
     WatchedAccountsLedgerInitialStateGetError,
 };
-use crate::{p2p_ready, Service, Store};
+use crate::{p2p_ready, Service, Store, TransactionPoolAction};
 
 use super::channels::best_tip::P2pChannelsBestTipAction;
 use super::channels::rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse};
@@ -224,10 +224,14 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     }
                     P2pChannelsTransactionAction::Libp2pReceived {
                         peer_id: _,
-                        transaction: _,
-                        ..
+                        transaction,
+                        nonce: _,
                     } => {
-                        // TODO(sebastiencs): send transaction to pool
+                        store.dispatch(TransactionPoolAction::StartVerify {
+                            // TODO: Take multiple transactions here
+                            commands: [*transaction].into_iter().collect(),
+                            from_rpc: None,
+                        });
                     }
                     _ => {}
                 }
@@ -239,13 +243,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     P2pChannelsSnarkAction::Received { peer_id, snark } => {
                         store.dispatch(SnarkPoolCandidateAction::InfoReceived {
                             peer_id,
-                            info: snark,
+                            info: *snark,
                         });
                     }
                     P2pChannelsSnarkAction::Libp2pReceived { peer_id, snark, .. } => {
                         store.dispatch(SnarkPoolCandidateAction::WorkReceived {
                             peer_id,
-                            work: snark,
+                            work: *snark,
                         });
                     }
                     _ => {}
@@ -260,7 +264,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 } = action
                 {
                     store.dispatch(SnarkPoolAction::CommitmentAdd {
-                        commitment,
+                        commitment: *commitment,
                         sender: peer_id,
                     });
                 }
@@ -273,7 +277,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         store.dispatch(P2pChannelsRpcAction::RequestSend {
                             peer_id,
                             id: 0,
-                            request: P2pRpcRequest::BestTipWithProof,
+                            request: Box::new(P2pRpcRequest::BestTipWithProof),
                         });
 
                         store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
@@ -311,7 +315,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         id,
                         response,
                     } => {
-                        match response.as_ref() {
+                        match response.as_deref() {
                             None => {
                                 store.dispatch(
                                     TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
@@ -451,7 +455,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         id,
                         request,
                     } => {
-                        match request {
+                        match *request {
                             P2pRpcRequest::BestTipWithProof => {
                                 let best_chain = &store.state().transition_frontier.best_chain;
                                 let response = None.or_else(|| {
@@ -468,7 +472,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                         proof: (body_hashes, root_block.block.clone()),
                                     })
                                 });
-                                let response = response.map(P2pRpcResponse::BestTipWithProof);
+                                let response =
+                                    response.map(P2pRpcResponse::BestTipWithProof).map(Box::new);
                                 store.dispatch(P2pChannelsRpcAction::ResponseSend {
                                     peer_id,
                                     id,
@@ -482,7 +487,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     .rev()
                                     .find(|block| block.hash == hash)
                                     .map(|block| block.block.clone())
-                                    .map(P2pRpcResponse::Block);
+                                    .map(P2pRpcResponse::Block)
+                                    .map(Box::new);
                                 store.dispatch(P2pChannelsRpcAction::ResponseSend {
                                     peer_id,
                                     id,
@@ -502,7 +508,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                 let response = job
                                     .and_then(|job| job.snark.as_ref())
                                     .map(|snark| snark.work.clone())
-                                    .map(P2pRpcResponse::Snark);
+                                    .map(P2pRpcResponse::Snark)
+                                    .map(Box::new);
 
                                 store.dispatch(P2pChannelsRpcAction::ResponseSend {
                                     peer_id,
@@ -517,7 +524,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     .iter()
                                     .filter_map(|(_, v)| v.dial_opts.clone())
                                     .collect();
-                                let response = Some(P2pRpcResponse::InitialPeers(peers));
+                                let response = Some(Box::new(P2pRpcResponse::InitialPeers(peers)));
 
                                 store.dispatch(P2pChannelsRpcAction::ResponseSend {
                                     peer_id,

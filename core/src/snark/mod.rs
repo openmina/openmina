@@ -19,10 +19,10 @@ use mina_p2p_messages::v2::NonZeroCurvePoint;
 pub fn tie_breaker_hash(job_id: &SnarkJobId, snarker: &NonZeroCurvePoint) -> [u8; 32] {
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
-    hasher.update(job_id.source.first_pass_ledger.0.as_ref());
-    hasher.update(job_id.source.second_pass_ledger.0.as_ref());
-    hasher.update(job_id.target.first_pass_ledger.0.as_ref());
-    hasher.update(job_id.target.second_pass_ledger.0.as_ref());
-    hasher.update(snarker.x.as_ref());
+    hasher.update(job_id.source.first_pass_ledger.to_bytes());
+    hasher.update(job_id.source.second_pass_ledger.to_bytes());
+    hasher.update(job_id.target.first_pass_ledger.to_bytes());
+    hasher.update(job_id.target.second_pass_ledger.to_bytes());
+    hasher.update(snarker.x.to_bytes());
     hasher.finalize().into()
 }

@@ -105,6 +105,7 @@ where
 impl<T> From<&GroupAffineCached> for GroupAffine<T>
 where
     T: ark_ec::SWModelParameters,
+    <T as ModelParameters>::BaseField: From<ark_ff::BigInteger256>,
 {
     fn from(pallas: &GroupAffineCached) -> Self {
         Self::new(pallas.x.to_field(), pallas.y.to_field(), pallas.infinity)

@@ -34,7 +34,7 @@ use crate::{
 };
 
 use super::{
-    caching::{openmina_cache_path, verifier_index_from_bytes, verifier_index_to_bytes},
+    caching::{verifier_index_from_bytes, verifier_index_to_bytes},
     transaction::InnerCurve,
 };
 use super::{
@@ -98,6 +98,7 @@ fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Pallas> {
 
 #[cfg(not(target_family = "wasm"))]
 fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
+    use super::caching::openmina_cache_path;
     let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
         serde_json::from_str(data).unwrap();
     let mut hasher = Sha256::new();
@@ -131,18 +132,36 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
     match kind {
         VerifierKind::Blockchain => {
             cache_one!(VerifierIndex<Pallas>, {
-                make_with_ext_cache(
-                    include_str!("data/blockchain_verifier_index.json"),
-                    "block_verifier_index.bin",
-                )
+                let network_name = openmina_core::NetworkConfig::global().name;
+                let (json_data, cache_filename) = match network_name {
+                    "mainnet" => (
+                        include_str!("data/mainnet_blockchain_verifier_index.json"),
+                        "mainnet_block_verifier_index.bin",
+                    ),
+                    "devnet" => (
+                        include_str!("data/devnet_blockchain_verifier_index.json"),
+                        "devnet_block_verifier_index.bin",
+                    ),
+                    other => panic!("get_verifier_index: unknown network '{other}'"),
+                };
+                make_with_ext_cache(json_data, cache_filename)
             })
         }
         VerifierKind::Transaction => {
             cache_one!(VerifierIndex<Pallas>, {
-                make_with_ext_cache(
-                    include_str!("data/transaction_verifier_index.json"),
-                    "transaction_verifier_index.bin",
-                )
+                let network_name = openmina_core::NetworkConfig::global().name;
+                let (json_data, cache_filename) = match network_name {
+                    "mainnet" => (
+                        include_str!("data/mainnet_transaction_verifier_index.json"),
+                        "mainnet_transaction_verifier_index.bin",
+                    ),
+                    "devnet" => (
+                        include_str!("data/devnet_transaction_verifier_index.json"),
+                        "devnet_transaction_verifier_index.bin",
+                    ),
+                    other => panic!("get_verifier_index: unknown network '{other}'"),
+                };
+                make_with_ext_cache(json_data, cache_filename)
             })
         }
     }

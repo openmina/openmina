@@ -35,14 +35,14 @@ impl P2pNetworkSchedulerAction {
         Store::Service: P2pMioService + P2pCryptoService,
     {
         match self {
-            Self::InterfaceDetected { ip, .. } => {
+            P2pNetworkSchedulerAction::InterfaceDetected { ip, .. } => {
                 if let Some(port) = store.state().config.libp2p_port {
                     store
                         .service()
                         .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(ip, port)));
                 }
             }
-            Self::InterfaceExpired { .. } => {}
+            P2pNetworkSchedulerAction::InterfaceExpired { .. } => {}
             P2pNetworkSchedulerAction::ListenerReady { listener: _ } => {}
             P2pNetworkSchedulerAction::ListenerError {
                 listener: _,
@@ -50,7 +50,7 @@ impl P2pNetworkSchedulerAction {
             } => {
                 // TODO: handle this error?
             }
-            Self::IncomingConnectionIsReady { listener, .. } => {
+            P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener, .. } => {
                 let state = store.state();
                 if state.network.scheduler.connections.len()
                     >= state.config.limits.max_connections()
@@ -60,7 +60,7 @@ impl P2pNetworkSchedulerAction {
                     store.service().send_mio_cmd(MioCmd::Accept(listener));
                 }
             }
-            Self::IncomingDidAccept { addr, .. } => {
+            P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => {
                 let Some(addr) = addr else {
                     return;
                 };
@@ -72,10 +72,10 @@ impl P2pNetworkSchedulerAction {
                     incoming: true,
                 });
             }
-            Self::OutgoingConnect { addr } => {
+            P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
                 store.service().send_mio_cmd(MioCmd::Connect(addr));
             }
-            Self::OutgoingDidConnect { addr, result } => match result {
+            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => match result {
                 Ok(_) => {
                     let nonce = store.service().generate_random_nonce();
                     store.dispatch(P2pNetworkPnetAction::SetupNonce {
@@ -101,7 +101,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             },
-            Self::IncomingDataIsReady { addr } => {
+            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => {
                 let Some(state) = store.state().network.scheduler.connections.get(&addr) else {
                     return;
                 };
@@ -113,7 +113,7 @@ impl P2pNetworkSchedulerAction {
                         .send_mio_cmd(MioCmd::Recv(addr, vec![0; limit].into_boxed_slice()));
                 }
             }
-            Self::IncomingDataDidReceive { result, addr } => match result {
+            P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr } => match result {
                 Ok(data) => {
                     store.dispatch(P2pNetworkPnetAction::IncomingData {
                         addr,
@@ -127,11 +127,12 @@ impl P2pNetworkSchedulerAction {
                     });
                 }
             },
-            Self::SelectDone {
+            P2pNetworkSchedulerAction::SelectDone {
                 addr,
                 protocol,
                 kind: select_kind,
                 incoming,
+                ..
             } => {
                 use self::token::*;
 
@@ -267,7 +268,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::SelectError { addr, kind, .. } => {
+            P2pNetworkSchedulerAction::SelectError { addr, kind, .. } => {
                 match kind {
                     SelectKind::Stream(peer_id, stream_id)
                         if keep_connection_with_unknown_stream() =>
@@ -296,11 +297,11 @@ impl P2pNetworkSchedulerAction {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
                         store.service().send_mio_cmd(MioCmd::Disconnect(addr));
-                        store.dispatch(Self::Disconnected { addr, reason });
+                        store.dispatch(P2pNetworkSchedulerAction::Disconnected { addr, reason });
                     }
                 }
             }
-            Self::YamuxDidInit { peer_id, addr, .. } => {
+            P2pNetworkSchedulerAction::YamuxDidInit { peer_id, addr, .. } => {
                 if let Some(cn) = store.state().network.scheduler.connections.get(&addr) {
                     let incoming = cn.incoming;
                     if incoming {
@@ -339,23 +340,23 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::Disconnect { addr, .. } => {
+            P2pNetworkSchedulerAction::Disconnect { addr, .. } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
                         store.service().send_mio_cmd(MioCmd::Disconnect(addr));
-                        store.dispatch(Self::Disconnected { addr, reason });
+                        store.dispatch(P2pNetworkSchedulerAction::Disconnected { addr, reason });
                     }
                 }
             }
-            Self::Error { addr, .. } => {
+            P2pNetworkSchedulerAction::Error { addr, .. } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
                         store.service().send_mio_cmd(MioCmd::Disconnect(addr));
-                        store.dispatch(Self::Disconnected { addr, reason });
+                        store.dispatch(P2pNetworkSchedulerAction::Disconnected { addr, reason });
                     }
                 }
             }
-            Self::Disconnected { addr, reason } => {
+            P2pNetworkSchedulerAction::Disconnected { addr, reason } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     let incoming = conn_state.incoming;
                     let peer_with_state = store.state().peer_with_connection(addr);
@@ -412,7 +413,9 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::Prune { .. } | Self::PruneStreams { .. } | Self::PruneStream { .. } => {}
+            P2pNetworkSchedulerAction::Prune { .. }
+            | P2pNetworkSchedulerAction::PruneStreams { .. }
+            | P2pNetworkSchedulerAction::PruneStream { .. } => {}
         }
     }
 }

@@ -103,6 +103,7 @@ fn verify_digest_only(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> 
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/verifier/verifier_intf.ml#L10C1-L36C29
+#[derive(Debug)]
 pub enum VerifyCommandsResult {
     Valid(valid::UserCommand),
     ValidAssuming(
@@ -169,7 +170,7 @@ impl Verifier {
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
-                verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, &srs)
+                verification::verify_zkapp(vk, zkapp_statement, &proof, &srs)
             })
         };
 
@@ -366,11 +367,8 @@ pub mod common {
         let Pallas { x, y, .. } = pubkey.point();
         let Signature { rx, s } = signature;
 
-        // TODO: Change when it become mainnet ?
-        // let signature_testnet = create "CodaSignature"
-        // let signature_mainnet = create "MinaSignatureMainnet"
-
-        let hash = hash_with_kimchi("CodaSignature", &[**msg, *x, *y, *rx]);
+        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
+        let hash = hash_with_kimchi(signature_prefix, &[**msg, *x, *y, *rx]);
         let hash: Fq = Fq::from(hash.into_repr());
 
         let sv: CurvePoint = CurvePoint::prime_subgroup_generator().mul(*s).into_affine();

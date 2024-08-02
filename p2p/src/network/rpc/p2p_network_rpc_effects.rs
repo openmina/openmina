@@ -9,7 +9,7 @@ use mina_p2p_messages::{
     v2,
     versioned::Ver,
 };
-use openmina_core::{error, fuzz_maybe};
+use openmina_core::{error, fuzz_maybe, fuzzed_maybe};
 
 use crate::{
     channels::rpc::{
@@ -55,7 +55,7 @@ where
             store.dispatch(P2pChannelsRpcAction::RequestReceived {
                 peer_id,
                 id,
-                request: P2pRpcRequest::BestTipWithProof,
+                request: Box::new(P2pRpcRequest::BestTipWithProof),
             });
         }
         (rpc::AnswerSyncLedgerQueryV2::NAME, rpc::AnswerSyncLedgerQueryV2::VERSION) => {
@@ -65,7 +65,7 @@ where
             store.dispatch(P2pChannelsRpcAction::RequestReceived {
                 peer_id,
                 id,
-                request: P2pRpcRequest::LedgerQuery(hash, query),
+                request: Box::new(P2pRpcRequest::LedgerQuery(hash, query)),
             });
         }
         (
@@ -75,7 +75,9 @@ where
             let hash =
                 rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::query_payload(&mut bytes)?;
             let hash = v2::StateHash::from(v2::DataHashLibStateHashStableV1(hash));
-            let request = P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash);
+            let request = Box::new(P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                hash,
+            ));
 
             store.dispatch(P2pChannelsRpcAction::RequestReceived {
                 peer_id,
@@ -91,7 +93,7 @@ where
                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
                     peer_id,
                     id,
-                    request: P2pRpcRequest::Block(hash),
+                    request: Box::new(P2pRpcRequest::Block(hash)),
                 });
             }
         }
@@ -100,7 +102,7 @@ where
             store.dispatch(P2pChannelsRpcAction::RequestReceived {
                 peer_id,
                 id,
-                request: P2pRpcRequest::InitialPeers,
+                request: Box::new(P2pRpcRequest::InitialPeers),
             });
         }
         (name, version) => return Err(RpcQueryError::Unimplemented(name, version)),
@@ -125,7 +127,8 @@ where
                     best_tip: resp.data.into(),
                     proof: (resp.proof.0, resp.proof.1.into()),
                 })
-                .map(P2pRpcResponse::BestTipWithProof);
+                .map(P2pRpcResponse::BestTipWithProof)
+                .map(Box::new);
 
             store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                 peer_id,
@@ -141,7 +144,7 @@ where
                 rpc_id: rpc::AnswerSyncLedgerQueryV2::rpc_id(),
                 error: e.to_string(),
             })?;
-            let response = Some(P2pRpcResponse::LedgerQuery(response));
+            let response = Some(Box::new(P2pRpcResponse::LedgerQuery(response)));
 
             store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                 peer_id,
@@ -165,7 +168,8 @@ where
                         needed_blocks,
                     })
                 })
-                .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
+                .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock)
+                .map(Box::new);
 
             store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                 peer_id,
@@ -178,7 +182,7 @@ where
             match response {
                 Some(response) if !response.is_empty() => {
                     for block in response {
-                        let response = Some(P2pRpcResponse::Block(Arc::new(block)));
+                        let response = Some(Box::new(P2pRpcResponse::Block(Arc::new(block))));
                         store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                             peer_id,
                             id,
@@ -211,7 +215,7 @@ where
                 store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                     peer_id,
                     id,
-                    response: Some(P2pRpcResponse::InitialPeers(peers)),
+                    response: Some(Box::new(P2pRpcResponse::InitialPeers(peers))),
                 });
             }
         }
@@ -233,7 +237,7 @@ impl P2pNetworkRpcAction {
         let incoming = state.incoming.front().cloned();
 
         match self {
-            Self::Init {
+            P2pNetworkRpcAction::Init {
                 addr,
                 peer_id,
                 stream_id,
@@ -247,7 +251,7 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::IncomingData {
+            P2pNetworkRpcAction::IncomingData {
                 addr,
                 peer_id,
                 stream_id,
@@ -262,7 +266,7 @@ impl P2pNetworkRpcAction {
                     });
                 }
             }
-            Self::IncomingMessage {
+            P2pNetworkRpcAction::IncomingMessage {
                 addr,
                 peer_id,
                 stream_id,
@@ -323,8 +327,8 @@ impl P2pNetworkRpcAction {
                     });
                 }
             }
-            Self::PrunePending { .. } => {}
-            Self::HeartbeatSend {
+            P2pNetworkRpcAction::PrunePending { .. } => {}
+            P2pNetworkRpcAction::HeartbeatSend {
                 addr,
                 peer_id,
                 stream_id,
@@ -337,7 +341,7 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::OutgoingQuery {
+            P2pNetworkRpcAction::OutgoingQuery {
                 peer_id,
                 query,
                 data,
@@ -355,7 +359,7 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::OutgoingResponse {
+            P2pNetworkRpcAction::OutgoingResponse {
                 peer_id,
                 response,
                 data,
@@ -380,18 +384,20 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::OutgoingData {
+            P2pNetworkRpcAction::OutgoingData {
                 addr,
                 stream_id,
                 mut data,
                 ..
             } => {
                 fuzz_maybe!(&mut data, crate::fuzzer::mutate_rpc_data);
+                let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
+
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
                     data,
-                    flags: Default::default(),
+                    flags,
                 });
             }
         }

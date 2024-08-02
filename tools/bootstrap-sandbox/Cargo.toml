@@ -1,6 +1,6 @@
 [package]
 name = "openmina-bootstrap-sandbox"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 
 [dependencies]
@@ -25,7 +25,7 @@ libp2p-rpc-behaviour = { path = "../../p2p/libp2p-rpc-behaviour" }
 mina-transport = { path = "../transport" }
 openmina-core = { path = "../../core" }
 
-libp2p = { workspace = true }
+libp2p = { workspace = true, features = ["identify", "macros"] }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
 mina-curves = { workspace = true }

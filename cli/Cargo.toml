@@ -1,6 +1,6 @@
 [package]
 name = "cli"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -26,7 +26,7 @@ console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 anyhow = "1.0.81"
-reqwest = { version = "0.11.24", features = ["blocking"] }
+reqwest = { version = "0.11.24", features = ["blocking", "json"] }
 
 openmina-core = { path = "../core" }
 node = { path = "../node", features = ["replay"] }

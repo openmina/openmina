@@ -151,7 +151,9 @@ impl ConsensusState {
                             }),
                             None => (None, ConsensusShortRangeForkDecision::TakeNoBestTip),
                         };
-
+                    if let Some(best_tip_hash) = &best_tip_hash {
+                        openmina_core::log::info!(openmina_core::log::system_time(); best_tip_hash = best_tip_hash.to_string(), candidate_hash = candidate_hash.to_string(), decision = format!("{decision:?}"));
+                    }
                     if let Some(candidate) = state.blocks.get_mut(candidate_hash) {
                         if !decision.use_as_best_tip() {
                             candidate.chain_proof = None;

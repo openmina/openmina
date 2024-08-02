@@ -1,8 +1,10 @@
 mod ledger_read_actions;
+use ledger::{Account, AccountId};
 pub use ledger_read_actions::*;
 
 mod ledger_read_state;
 pub use ledger_read_state::*;
+use openmina_core::requests::RpcId;
 
 mod ledger_read_reducer;
 
@@ -22,10 +24,12 @@ use crate::rpc::RpcScanStateSummaryScanStateJob;
 pub enum LedgerReadKind {
     DelegatorTable,
     GetNumAccounts,
+    GetAccounts,
     GetChildHashesAtAddr,
     GetChildAccountsAtAddr,
     GetStagedLedgerAuxAndPendingCoinbases,
     ScanStateSummary,
+    AccountsForRpc,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -34,11 +38,13 @@ pub enum LedgerReadRequest {
     DelegatorTable(v2::LedgerHash, AccountPublicKey),
     // p2p rpcs
     GetNumAccounts(v2::LedgerHash),
+    GetAccounts(v2::LedgerHash, Vec<AccountId>),
     GetChildHashesAtAddr(v2::LedgerHash, LedgerAddress),
     GetChildAccountsAtAddr(v2::LedgerHash, LedgerAddress),
     GetStagedLedgerAuxAndPendingCoinbases(LedgerReadStagedLedgerAuxAndPendingCoinbases),
     // rpcs
     ScanStateSummary(v2::LedgerHash),
+    AccountsForRpc(RpcId, v2::LedgerHash, Option<AccountPublicKey>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -47,11 +53,13 @@ pub enum LedgerReadResponse {
     DelegatorTable(Option<DelegatorTable>),
     // p2p rpcs
     GetNumAccounts(Option<(u64, v2::LedgerHash)>),
+    GetAccounts(Vec<Account>),
     GetChildHashesAtAddr(Option<(v2::LedgerHash, v2::LedgerHash)>),
     GetChildAccountsAtAddr(Option<Vec<v2::MinaBaseAccountBinableArgStableV2>>),
     GetStagedLedgerAuxAndPendingCoinbases(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
     // rpcs
     ScanStateSummary(Vec<Vec<RpcScanStateSummaryScanStateJob>>),
+    AccountsForRpc(RpcId, Vec<Account>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -65,12 +73,14 @@ impl LedgerReadRequest {
         match self {
             Self::DelegatorTable(..) => LedgerReadKind::DelegatorTable,
             Self::GetNumAccounts(..) => LedgerReadKind::GetNumAccounts,
+            Self::GetAccounts(..) => LedgerReadKind::GetAccounts,
             Self::GetChildAccountsAtAddr(..) => LedgerReadKind::GetChildAccountsAtAddr,
             Self::GetChildHashesAtAddr(..) => LedgerReadKind::GetChildHashesAtAddr,
             Self::GetStagedLedgerAuxAndPendingCoinbases(..) => {
                 LedgerReadKind::GetStagedLedgerAuxAndPendingCoinbases
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
+            Self::AccountsForRpc(..) => LedgerReadKind::AccountsForRpc,
         }
     }
 
@@ -78,6 +88,7 @@ impl LedgerReadRequest {
         let cost = match self {
             Self::DelegatorTable(..) => 100,
             Self::GetNumAccounts(..) => 1,
+            Self::GetAccounts(..) => 10, // Not sure if 10 is a good number here
             Self::GetChildAccountsAtAddr(_, addr) => {
                 let height_diff = super::LEDGER_DEPTH.saturating_sub(addr.length());
                 let max_accounts_count = 2_u32.pow(height_diff as u32);
@@ -86,6 +97,8 @@ impl LedgerReadRequest {
             Self::GetChildHashesAtAddr(..) => 1,
             Self::GetStagedLedgerAuxAndPendingCoinbases(..) => 100,
             Self::ScanStateSummary(..) => 100,
+            // TODO(adonagy): not sure
+            Self::AccountsForRpc(..) => 10,
         };
         cost.max(1)
     }
@@ -96,12 +109,14 @@ impl LedgerReadResponse {
         match self {
             Self::DelegatorTable(..) => LedgerReadKind::DelegatorTable,
             Self::GetNumAccounts(..) => LedgerReadKind::GetNumAccounts,
+            Self::GetAccounts(..) => LedgerReadKind::GetAccounts,
             Self::GetChildAccountsAtAddr(..) => LedgerReadKind::GetChildAccountsAtAddr,
             Self::GetChildHashesAtAddr(..) => LedgerReadKind::GetChildHashesAtAddr,
             Self::GetStagedLedgerAuxAndPendingCoinbases(..) => {
                 LedgerReadKind::GetStagedLedgerAuxAndPendingCoinbases
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
+            Self::AccountsForRpc(..) => LedgerReadKind::AccountsForRpc,
         }
     }
 }

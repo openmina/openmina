@@ -8,10 +8,6 @@ impl P2pNetworkSelectState {
             return;
         }
 
-        if self.negotiated.is_some() {
-            self.reported = true;
-        }
-
         let (action, meta) = action.split();
         match action {
             // hack for noise
@@ -64,6 +60,7 @@ impl P2pNetworkSelectState {
                 let Some(token) = self.tokens.pop_front() else {
                     return;
                 };
+
                 self.to_send = None;
                 match &self.inner {
                     P2pNetworkSelectStateInner::Error(_) => {}
@@ -121,7 +118,9 @@ impl P2pNetworkSelectState {
                         }
                     },
                     P2pNetworkSelectStateInner::Responder => match token {
-                        token::Token::Handshake => {}
+                        token::Token::Handshake => {
+                            self.to_send = Some(token::Token::Handshake);
+                        }
                         token::Token::Na => {}
                         token::Token::SimultaneousConnect => {
                             self.to_send = Some(token::Token::Na);

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use mina_p2p_messages::v2;
-use node::transition_frontier::genesis::GenesisConfig;
+use node::transition_frontier::genesis::{GenesisConfig, NonStakers};
 use openmina_node_native::replay_state_with_input_actions;
 
 use crate::{
@@ -24,6 +24,7 @@ impl RecordReplayBlockProduction {
         let genesis_cfg = GenesisConfig::Counts {
             whales: 1,
             fish: 2,
+            non_stakers: NonStakers::None,
             constants,
         };
         let cfg = SimulatorConfig {

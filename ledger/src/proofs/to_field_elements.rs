@@ -1043,6 +1043,7 @@ impl ToFieldElements<Fp> for PerProofWitness {
                             zeta_to_domain_size,
                             perm,
                             lookup: _,
+                            feature_flags: _,
                         },
                     combined_inner_product,
                     b,

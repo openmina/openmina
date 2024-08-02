@@ -17,12 +17,21 @@ use node::rpc::{
     SyncStatsQuery,
 };
 
-use super::rpc::{
-    RpcActionStatsGetResponse, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
+use openmina_node_common::rpc::{
+    RpcActionStatsGetResponse, RpcSender, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
     RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 
-pub async fn run(port: u16, rpc_sender: super::RpcSender) {
+macro_rules! compose_route {
+    ($x:expr $(,)?) => (
+        $x
+    );
+    ($x0:expr, $($x:expr),+ $(,)?) => (
+        $x0$(.or($x))+.boxed()
+    );
+}
+
+pub async fn run(port: u16, rpc_sender: RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let signaling = {
         use node::p2p::{
@@ -100,7 +109,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .recover(state_recover);
 
     async fn state_handler(
-        rpc_sender: super::RpcSender,
+        rpc_sender: RpcSender,
         StateQueryParams { filter }: StateQueryParams,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         rpc_sender
@@ -440,35 +449,120 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
-    let cors = warp::cors().allow_any_origin();
+    let rpc_sender_clone = rpc_sender.clone();
+    let transaction_pool = warp::path!("transaction-pool")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::TransactionPoolGet)
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: node::rpc::RpcTransactionPoolResponse| {
+                            with_json_reply(&reply, StatusCode::OK)
+                        },
+                    )
+            }
+        });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let accounts = warp::path("accounts").and(warp::get()).then(move || {
+        let rpc_sender_clone = rpc_sender_clone.clone();
+
+        async move {
+            rpc_sender_clone
+                .oneshot_request(RpcRequest::LedgerAccountsGet(None))
+                .await
+                .map_or_else(
+                    dropped_channel_response,
+                    |reply: node::rpc::RpcLedgerAccountsResponse| {
+                        with_json_reply(&reply, StatusCode::OK)
+                    },
+                )
+        }
+    });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let transaction_post = warp::path("send-payment")
+        .and(warp::post())
+        .and(warp::filters::body::json())
+        .then(move |body: Vec<_>| {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+
+            async move {
+                println!("Transaction inject post: {:#?}", body);
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::TransactionInject(body))
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: node::rpc::RpcTransactionInjectResponse| {
+                            with_json_reply(&reply, StatusCode::OK)
+                        },
+                    )
+            }
+        });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let transition_frontier_user_commands = warp::path("best-chain-user-commands")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+
+            async move {
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::TransitionFrontierUserCommandsGet)
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: node::rpc::RpcTransitionFrontierUserCommandsResponse| {
+                            with_json_reply(&reply, StatusCode::OK)
+                        },
+                    )
+            }
+        });
+
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_headers(vec!["content-type"])
+        .allow_methods(vec!["GET", "POST"]);
     #[cfg(not(feature = "p2p-webrtc"))]
     let routes = state_get.or(state_post);
     #[cfg(feature = "p2p-webrtc")]
     let routes = signaling.or(state_get).or(state_post);
-    let routes = routes
-        .or(status)
-        .or(peers_get)
-        .or(message_progress_get)
-        .or(stats)
-        .or(scan_state_summary_get)
-        .or(snark_pool_jobs_get)
-        .or(snark_pool_job_get)
-        .or(snarker_config)
-        .or(snarker_job_commit)
-        .or(snarker_job_spec)
-        .or(snark_workers)
-        .or(healthcheck(rpc_sender.clone()))
-        .or(readiness(rpc_sender.clone()))
-        .or(discovery::routing_table(rpc_sender.clone()))
-        .or(discovery::bootstrap_stats(rpc_sender.clone()))
-        .or(super::graphql::routes(rpc_sender))
-        .recover(recover)
-        .with(cors);
+    let routes = compose_route!(
+        routes,
+        status,
+        peers_get,
+        message_progress_get,
+        stats,
+        scan_state_summary_get,
+        snark_pool_jobs_get,
+        snark_pool_job_get,
+        snarker_config,
+        snarker_job_commit,
+        snarker_job_spec,
+        snark_workers,
+        transaction_pool,
+        accounts,
+        transaction_post,
+        transition_frontier_user_commands,
+        healthcheck(rpc_sender.clone()),
+        readiness(rpc_sender.clone()),
+        discovery::routing_table(rpc_sender.clone()),
+        discovery::bootstrap_stats(rpc_sender.clone()),
+        super::graphql::routes(rpc_sender),
+    );
+
+    let routes = routes.recover(recover).with(cors);
+
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
 
 fn healthcheck(
-    rpc_sender: super::RpcSender,
+    rpc_sender: RpcSender,
 ) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
     warp::path!("healthz").and(warp::get()).then(move || {
         let rpc_sender = rpc_sender.clone();
@@ -493,7 +587,7 @@ fn healthcheck(
 }
 
 fn readiness(
-    rpc_sender: super::RpcSender,
+    rpc_sender: RpcSender,
 ) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
     warp::path!("readyz").and(warp::get()).then(move || {
         let rpc_sender = rpc_sender.clone();
@@ -521,14 +615,13 @@ mod discovery {
     use node::rpc::{
         RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcRequest,
     };
+    use openmina_node_common::rpc::RpcSender;
     use warp::Filter;
-
-    use super::super::RpcSender;
 
     use super::{with_rpc_sender, DroppedChannel};
 
     pub fn routing_table(
-        rpc_sender: super::super::RpcSender,
+        rpc_sender: RpcSender,
     ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("discovery" / "routing_table")
             .and(warp::get())
@@ -537,7 +630,7 @@ mod discovery {
     }
 
     pub fn bootstrap_stats(
-        rpc_sender: super::super::RpcSender,
+        rpc_sender: RpcSender,
     ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("discovery" / "bootstrap_stats")
             .and(warp::get())
@@ -569,8 +662,8 @@ mod discovery {
 }
 
 fn with_rpc_sender(
-    rpc_sender: super::RpcSender,
-) -> impl warp::Filter<Extract = (super::RpcSender,), Error = Infallible> + Clone {
+    rpc_sender: RpcSender,
+) -> impl warp::Filter<Extract = (RpcSender,), Error = Infallible> + Clone {
     warp::any().map(move || rpc_sender.clone())
 }
 

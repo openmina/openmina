@@ -1,4 +1,7 @@
-use std::net::SocketAddr;
+use self::token::{
+    AuthKind, DiscoveryAlgorithm, IdentifyAlgorithm, MuxKind, PingAlgorithm, Protocol,
+    RpcAlgorithm, StreamKind, Token,
+};
 
 use openmina_core::{fuzz_maybe, fuzzed_maybe};
 
@@ -10,86 +13,11 @@ use crate::{
 
 use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
 
-impl P2pNetworkSelectState {
-    pub fn incoming_data(
-        &self,
-        addr: SocketAddr,
-        kind: SelectKind,
-        data: Data,
-        fin: bool,
-        effects: &mut Vec<P2pNetworkSelectAction>,
-    ) {
-        fn forward_data_action(
-            addr: SocketAddr,
-            kind: SelectKind,
-            data: Data,
-            fin: bool,
-        ) -> P2pNetworkSelectAction {
-            match kind {
-                SelectKind::Authentication => P2pNetworkSelectAction::IncomingPayloadAuth {
-                    addr,
-                    fin,
-                    data: data.clone(),
-                },
-                SelectKind::Multiplexing(peer_id) => P2pNetworkSelectAction::IncomingPayloadMux {
-                    addr,
-                    peer_id: Some(peer_id),
-                    fin,
-                    data: data.clone(),
-                },
-                SelectKind::MultiplexingNoPeerId => P2pNetworkSelectAction::IncomingPayloadMux {
-                    addr,
-                    peer_id: None,
-                    fin,
-                    data: data.clone(),
-                },
-                SelectKind::Stream(peer_id, stream_id) => P2pNetworkSelectAction::IncomingPayload {
-                    addr,
-                    peer_id,
-                    stream_id,
-                    fin,
-                    data: data.clone(),
-                },
-            }
-        }
-        if matches!(&self.inner, P2pNetworkSelectStateInner::Error(..)) {
-            return;
-        }
-
-        if self.negotiated.is_some() {
-            effects.push(forward_data_action(addr, kind, data, fin));
-            return;
-        }
-
-        let payload_data = self.recv.buffer.clone();
-
-        let mut tokens_parsed = false;
-        let tokens = self.tokens.clone();
-
-        for token in tokens {
-            if !tokens_parsed {
-                tokens_parsed = matches!(
-                    token,
-                    token::Token::Protocol(..) | token::Token::UnknownProtocol(..)
-                );
-            }
-
-            effects.push(P2pNetworkSelectAction::IncomingToken { addr, kind, token });
-        }
-
-        if tokens_parsed && !payload_data.is_empty() {
-            effects.push(forward_data_action(addr, kind, payload_data.into(), fin));
-        }
-    }
-}
-
 impl P2pNetworkSelectAction {
     pub fn effects<Store, S>(self, meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
     {
-        use self::token::*;
-
         let Some(state) = store.state().network.scheduler.connections.get(self.addr()) else {
             return;
         };
@@ -101,6 +29,7 @@ impl P2pNetworkSelectAction {
                 None => return,
             },
         };
+
         let (addr, select_kind) = (*self.addr(), self.select_kind());
         if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
             store.dispatch(P2pNetworkSchedulerAction::SelectError {
@@ -110,24 +39,13 @@ impl P2pNetworkSelectAction {
             });
             return;
         }
-        let report = if state.reported {
-            None
-        } else {
-            state.negotiated
-        };
+        let report = state.negotiated;
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
-            P2pNetworkSelectAction::Init {
-                addr,
-                kind,
-                send_handshake,
-                ..
-            } => {
-                if state.negotiated.is_none() {
-                    let mut tokens = vec![];
-                    if send_handshake {
-                        tokens.push(Token::Handshake);
-                    }
+            P2pNetworkSelectAction::Init { addr, kind, .. } => {
+                if state.negotiated.is_none() && !incoming {
+                    let mut tokens = vec![Token::Handshake];
+
                     match &state.inner {
                         P2pNetworkSelectStateInner::Uncertain { proposing } => {
                             tokens.push(Token::SimultaneousConnect);
@@ -143,9 +61,7 @@ impl P2pNetworkSelectAction {
             }
             P2pNetworkSelectAction::IncomingDataAuth { addr, fin, data } => {
                 let kind = SelectKind::Authentication;
-                let mut effects = vec![];
-                state.incoming_data(addr, kind, data, fin, &mut effects);
-                for action in effects {
+                for action in state.forward_incoming_data(kind, addr, data, fin) {
                     store.dispatch(action);
                 }
             }
@@ -159,9 +75,7 @@ impl P2pNetworkSelectAction {
                     Some(peer_id) => SelectKind::Multiplexing(peer_id),
                     None => SelectKind::MultiplexingNoPeerId,
                 };
-                let mut effects = vec![];
-                state.incoming_data(addr, kind, data, fin, &mut effects);
-                for action in effects {
+                for action in state.forward_incoming_data(kind, addr, data, fin) {
                     store.dispatch(action);
                 }
             }
@@ -173,9 +87,7 @@ impl P2pNetworkSelectAction {
                 data,
             } => {
                 let kind = SelectKind::Stream(peer_id, stream_id);
-                let mut effects = vec![];
-                state.incoming_data(addr, kind, data, fin, &mut effects);
-                for action in effects {
+                for action in state.forward_incoming_data(kind, addr, data, fin) {
                     store.dispatch(action);
                 }
             }
@@ -188,23 +100,13 @@ impl P2pNetworkSelectAction {
             | P2pNetworkSelectAction::IncomingPayload {
                 addr, fin, data, ..
             } => {
-                if matches!(&state.inner, P2pNetworkSelectStateInner::Error(..)) {
-                    return;
-                }
-
                 if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
                         Protocol::Auth(AuthKind::Noise) => {
-                            store.dispatch(P2pNetworkNoiseAction::IncomingData {
-                                addr,
-                                data: data.clone(),
-                            });
+                            store.dispatch(P2pNetworkNoiseAction::IncomingData { addr, data });
                         }
                         Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0) => {
-                            store.dispatch(P2pNetworkYamuxAction::IncomingData {
-                                addr,
-                                data: data.clone(),
-                            });
+                            store.dispatch(P2pNetworkYamuxAction::IncomingData { addr, data });
                         }
                         Protocol::Stream(kind) => match select_kind {
                             SelectKind::Stream(peer_id, stream_id) => {
@@ -216,7 +118,7 @@ impl P2pNetworkSelectAction {
                                                     addr,
                                                     peer_id,
                                                     stream_id,
-                                                    data: data.clone(),
+                                                    data,
                                                 },
                                             );
                                         } else {
@@ -237,7 +139,7 @@ impl P2pNetworkSelectAction {
                                                     addr,
                                                     peer_id,
                                                     stream_id,
-                                                    data: data.clone(),
+                                                    data,
                                                 },
                                             );
                                         } else {
@@ -275,7 +177,7 @@ impl P2pNetworkSelectAction {
                                             addr,
                                             peer_id,
                                             stream_id,
-                                            data: data.clone(),
+                                            data,
                                         });
                                     }
                                 }
@@ -290,17 +192,23 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::IncomingToken { addr, kind, .. } => {
-                if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
-                    store.dispatch(P2pNetworkSchedulerAction::SelectError {
+                if let Some(token) = &state.to_send {
+                    let tokens = vec![token.clone()];
+                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens });
+                }
+
+                if let Some(protocol) = report {
+                    let expected_peer_id = store
+                        .state()
+                        .peer_with_connection(addr)
+                        .map(|(peer_id, _)| peer_id);
+
+                    store.dispatch(P2pNetworkSchedulerAction::SelectDone {
                         addr,
-                        kind,
-                        error: error.clone(),
-                    });
-                } else if let Some(token) = &state.to_send {
-                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens {
-                        addr,
-                        kind,
-                        tokens: vec![token.clone()],
+                        kind: select_kind,
+                        protocol,
+                        incoming,
+                        expected_peer_id,
                     });
                 }
             }
@@ -348,14 +256,6 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::Timeout { .. } => {}
-        }
-        if let Some(protocol) = report {
-            store.dispatch(P2pNetworkSchedulerAction::SelectDone {
-                addr,
-                kind: select_kind,
-                protocol,
-                incoming,
-            });
         }
     }
 }

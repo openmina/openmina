@@ -166,10 +166,10 @@ impl<const NBYTES: usize> From<MerkleAddressBinableArgStableV1> for Address<NBYT
 }
 
 impl<const NBYTES: usize> Address<NBYTES> {
-    pub fn to_linear_index(&self) -> usize {
+    pub fn to_linear_index(&self) -> u64 {
         let index = self.to_index();
 
-        2usize.pow(self.length as u32) + index.0 as usize - 1
+        2u64.checked_pow(self.length as u32).unwrap() + index.0 - 1
     }
 
     pub fn iter(&self) -> AddressIterator<NBYTES> {

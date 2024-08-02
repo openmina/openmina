@@ -195,8 +195,6 @@ impl Diff {
 }
 
 pub mod with_valid_signatures_and_proofs {
-    use crate::scan_state::transaction_logic::valid;
-
     use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger_diff/diff_intf.ml#L123
@@ -304,7 +302,6 @@ pub mod with_valid_signatures_and_proofs {
 
 pub mod with_valid_signatures {
     use super::*;
-    use crate::scan_state::transaction_logic::valid;
 
     pub type PreDiffWithAtMostTwoCoinbase = PreDiffTwo<work::Work, WithStatus<valid::UserCommand>>;
 

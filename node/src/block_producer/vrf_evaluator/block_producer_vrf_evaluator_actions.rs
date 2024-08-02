@@ -8,6 +8,7 @@ use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
 };
 use openmina_core::action_info;
+use openmina_core::action_trace;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
@@ -27,7 +28,7 @@ pub type BlockProducerVrfEvaluatorActionWithMetaRef<'a> =
 #[action_event(level = info)]
 pub enum BlockProducerVrfEvaluatorAction {
     /// Vrf Evaluation requested.
-    #[action_event(fields(debug(vrp_input)))]
+    #[action_event(level = trace, fields(debug(vrp_input)))]
     EvaluateSlot { vrf_input: VrfEvaluatorInput },
     /// Evaluation successful.
     #[action_event(expr(log_vrf_output(context, vrf_output)))]
@@ -49,8 +50,9 @@ pub enum BlockProducerVrfEvaluatorAction {
         current_best_tip_slot: u32,
         current_best_tip_global_slot: u32,
         next_epoch_first_slot: u32,
-        staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        staking_epoch_data:
+            Box<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>,
+        next_epoch_data: Box<ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>,
         transition_frontier_size: u32,
     },
     /// Initalize epoch vrf evaluation.
@@ -255,7 +257,7 @@ where
             vrf_output = display(vrf_output)
         ),
         VrfEvaluationOutput::SlotLost(_) => {
-            action_info!(context, summary = "Slot evaluation result - lost slot")
+            action_trace!(context, summary = "Slot evaluation result - lost slot")
         }
     }
 }

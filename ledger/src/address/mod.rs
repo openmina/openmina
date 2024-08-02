@@ -157,7 +157,7 @@ mod tests {
         .enumerate()
         {
             let addr = Address::try_from(*s).unwrap();
-            assert_eq!(index, addr.to_linear_index());
+            assert_eq!(index as u64, addr.to_linear_index());
         }
     }
 

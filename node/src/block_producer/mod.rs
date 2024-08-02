@@ -36,7 +36,7 @@ pub struct BlockProducerWonSlot {
     pub slot_time: redux::Timestamp,
     pub delegator: (v2::NonZeroCurvePoint, AccountIndex),
     pub global_slot: v2::ConsensusGlobalSlotStableV1,
-    pub vrf_output: VrfOutput,
+    pub vrf_output: Box<VrfOutput>,
     pub value_with_threshold: Option<(f64, f64)>,
     // Staking ledger which was used during vrf evaluation.
     pub staking_ledger_hash: v2::LedgerHash,
@@ -121,9 +121,9 @@ impl BlockProducerWonSlot {
 impl PartialOrd for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.global_slot().cmp(&other.global_slot()).then_with(|| {
-            v2::ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
+            v2::ConsensusVrfOutputTruncatedStableV1::from(&*self.vrf_output)
                 .blake2b()
-                .cmp(&v2::ConsensusVrfOutputTruncatedStableV1::from(&other.vrf_output).blake2b())
+                .cmp(&v2::ConsensusVrfOutputTruncatedStableV1::from(&*other.vrf_output).blake2b())
         }))
     }
 }
@@ -138,7 +138,7 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &ArcBlockWithHash) -> Option<std::cmp::Ordering> {
         // TODO(binier): this assumes short range fork
         Some(self.global_slot().cmp(&other.global_slot()).then_with(|| {
-            v2::ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
+            v2::ConsensusVrfOutputTruncatedStableV1::from(&*self.vrf_output)
                 .blake2b()
                 .cmp(
                     &other

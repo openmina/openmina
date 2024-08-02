@@ -50,8 +50,10 @@ impl TransitionFrontierSyncLedgerStagedState {
                         P2pChannelsRpcAction::RequestSend {
                             peer_id,
                             id: rpc_id,
-                            request: P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                                block_hash.clone(),
+                            request: Box::new(
+                                P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                    block_hash.clone(),
+                                ),
                             ),
                         },
                         global_state,

@@ -77,4 +77,24 @@ impl RpcService for super::NodeTestingService {
         respond_discovery_bootstrap_stats,
         node::rpc::RpcDiscoveryBoostrapStatsResponse
     );
+    to_real!(
+        respond_transaction_pool,
+        node::rpc::RpcTransactionPoolResponse
+    );
+    to_real!(
+        respond_ledger_accounts,
+        node::rpc::RpcLedgerAccountsResponse
+    );
+    to_real!(
+        respond_transaction_inject,
+        node::rpc::RpcTransactionInjectResponse
+    );
+    to_real!(
+        respond_transaction_inject_failed,
+        node::rpc::RpcTransactionInjectFailure
+    );
+    to_real!(
+        respond_transition_frontier_commands,
+        node::rpc::RpcTransitionFrontierUserCommandsResponse,
+    );
 }

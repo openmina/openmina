@@ -9,38 +9,36 @@ import { cyIsSubFeatureEnabled, stateSliceAsPromise } from '../../../support/com
 import { AppState } from '@app/app.state';
 
 const getAppState = (store: Store<MinaState>): AppState => stateSliceAsPromise<AppState>(store, () => true, 'app');
-const getConfig = () => cy.window().its('config');
-const execute = (callback: () => void) => {
-  cy.visit(Cypress.config().baseUrl)
-    .window()
-    .its('store')
-    .then(getAppState)
-    .then((state: AppState) => {
-      getConfig().then((config: any) => {
-        if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'won-slots', config.globalConfig)) {
-          cy.wait('@statsRequest')
-            .url()
-            .then((url: string) => {
-              if (url.includes('/block-production/won-slots')) {
-                callback();
-              }
-            });
-        }
-      });
-    });
-};
+
+let response: WonSlotResponse;
 
 describe('BLOCK PRODUCTION WON SLOTS APIS', () => {
-
-  it('validate epoch details json data', () => execute(() => {
-    let response: WonSlotResponse;
+  beforeEach(() => {
+    console.log('beforeEach');
     cy
-      .intercept('/stats/block_producer', (req) => {
-        req.continue(res => {
-          response = res.body;
-        });
-      })
-      .as('request')
+      .visit(Cypress.config().baseUrl)
+      .window()
+      .its('store')
+      .then(getAppState)
+      .then((state: AppState) => {
+        cy.window()
+          .its('config')
+          .then((config: any) => {
+            if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'won-slots', config.globalConfig)) {
+              cy
+                .intercept('/stats/block_producer', (req) => {
+                  req.continue(res => {
+                    response = res.body;
+                  });
+                })
+                .as('request');
+            }
+          });
+      });
+  });
+
+  it('validate block producer attempts json data', () => {
+    cy
       .visit(Cypress.config().baseUrl + '/block-production/won-slots')
       .wait('@request')
       .url()
@@ -53,6 +51,7 @@ describe('BLOCK PRODUCTION WON SLOTS APIS', () => {
           expect(response.epoch_end).to.exist;
           expect(response.attempts).to.exist;
           expect(response.future_won_slots).to.exist;
+
           if (response.attempts.length > 0) {
             const allAssertionsOk = response.attempts.every(attempt =>
               attempt.won_slot !== undefined &&
@@ -110,6 +109,24 @@ describe('BLOCK PRODUCTION WON SLOTS APIS', () => {
               expect(lastObservedConfirmationsExist ? 'lastObservedConfirmationsExist' : 'lastObservedConfirmationsDoNotExist').to.equal('lastObservedConfirmationsExist');
             }
           }
+        }
+      });
+  });
+
+  it('validate block producer future won slots json data', () => {
+    cy
+      .visit(Cypress.config().baseUrl + '/block-production/won-slots')
+      .wait('@request')
+      .url()
+      .then((url: string) => {
+        if (url.includes('/block-production/won-slots')) {
+          expect(response).to.exist;
+          expect(response.current_global_slot).to.exist;
+          expect(response.current_time).to.exist;
+          expect(response.epoch_start).to.exist;
+          expect(response.epoch_end).to.exist;
+          expect(response.attempts).to.exist;
+          expect(response.future_won_slots).to.exist;
 
           if (response.future_won_slots.length > 0) {
             const allAssertionsOk = response.future_won_slots.every(slot =>
@@ -134,10 +151,13 @@ describe('BLOCK PRODUCTION WON SLOTS APIS', () => {
               }, []);
             expect(globalSlots.every(Boolean) ? 'globalSlotsIncreasing' : 'globalSlotsNotIncreasing').to.equal('globalSlotsIncreasing');
 
+            const hasThresholdWithValue = response.future_won_slots.every(slot => slot.value_with_threshold.length === 2);
+            expect(hasThresholdWithValue ? 'hasThresholdWithValue' : 'noThresholdWithValue').to.equal('hasThresholdWithValue');
+
           }
         }
       });
-  }));
+  });
 });
 
 

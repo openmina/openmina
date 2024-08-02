@@ -5,7 +5,7 @@ use std::{
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 
 use crate::{
     scan_state::{
@@ -142,7 +142,7 @@ impl SparseLedger {
         String,
     > {
         apply_zkapp_command_first_pass_aux(
-            &CONSTRAINT_CONSTANTS,
+            constraint_constants(),
             global_slot,
             state_view,
             Vec::with_capacity(16),
@@ -193,7 +193,7 @@ impl SparseLedger {
         String,
     > {
         let (account_update_applied, mut rev_states) = apply_zkapp_command_second_pass_aux(
-            &CONSTRAINT_CONSTANTS,
+            constraint_constants(),
             init,
             |mut acc, (global_state, mut local_state)| {
                 let GlobalState {

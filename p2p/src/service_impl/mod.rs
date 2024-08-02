@@ -1,8 +1,7 @@
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 pub mod mio;
 #[cfg(feature = "p2p-webrtc")]
 pub mod webrtc;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod webrtc_with_libp2p;
 
 use std::future::Future;
@@ -46,9 +45,9 @@ pub mod webrtc {
             list: &[P2pConnectionOutgoingInitOpts],
         ) -> P2pConnectionOutgoingInitOpts;
 
-        fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event>;
+        fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event>;
 
-        fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd>;
+        fn cmd_sender(&self) -> &mpsc::UnboundedSender<Cmd>;
 
         fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
@@ -73,35 +72,5 @@ pub mod webrtc {
         fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {}
 
         fn channel_send(&mut self, peer_id: PeerId, msg_id: MsgId, msg: ChannelMsg) {}
-    }
-}
-
-#[cfg(feature = "p2p-libp2p")]
-pub mod services {
-    use crate::{P2pNetworkService, P2pNetworkServiceError};
-
-    #[derive(Default)]
-    pub struct NativeP2pNetworkService {}
-
-    impl NativeP2pNetworkService {
-        pub fn new() -> Self {
-            Default::default()
-        }
-    }
-
-    impl P2pNetworkService for NativeP2pNetworkService {
-        fn resolve_name(
-            &mut self,
-            _host: &str,
-        ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
-            // TODO: resolve host
-            Ok(Vec::new())
-        }
-
-        fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
-            let addrs = local_ip_address::list_afinet_netifas()
-                .map_err(|e| P2pNetworkServiceError::LocalIp(e.to_string()))?;
-            Ok(addrs.into_iter().map(|(_, ip)| ip).collect())
-        }
     }
 }

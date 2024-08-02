@@ -18,12 +18,15 @@
       </aside>
 
       <div class="block bg-container root-block"
-           [ngClass]="rootBlock?.status">{{ rootBlock?.height || '-' }}</div>
-      <div *ngFor="let block of blocks"
+           [ngClass]="rootBlock?.status">{{ rootBlock?.height || '-' }}
+      </div>
+      <div *ngFor="let block of blocks; trackBy: trackBlocks"
            [ngClass]="block.status"
-           class="block bg-container">{{ block.height || '-' }}</div>
+           class="block bg-container">{{ block.height || '-' }}
+      </div>
       <div class="block bg-container best-tip-block"
-           [ngClass]="bestTipBlock?.status">{{ bestTipBlock?.height || '-' }}</div>
+           [ngClass]="bestTipBlock?.status">{{ bestTipBlock?.height || '-' }}
+      </div>
     </div>
   </div>
 </div>

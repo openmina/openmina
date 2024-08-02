@@ -100,19 +100,19 @@ impl BlockProducerVrfEvaluatorState {
         } = self.status.clone()
         {
             if !self.is_epoch_evaluated(current_epoch_number) {
-                self.epoch_context = EpochContext::Current(staking_epoch_data.into())
+                self.epoch_context = EpochContext::Current((*staking_epoch_data).into())
             } else if !self.is_epoch_evaluated(current_epoch_number + 1) {
                 if let Some(last_epoch_block_height) = last_epoch_block_height {
                     if current_best_tip_height
                         >= (last_epoch_block_height + transition_frontier_size)
                     {
-                        self.epoch_context = EpochContext::Next(next_epoch_data.into())
+                        self.epoch_context = EpochContext::Next((*next_epoch_data).into())
                     } else {
                         self.epoch_context = EpochContext::Waiting
                     }
                 } else {
                     // if last_epoch_block_height is not set, we are still in genesis epoch, Next epoch evaluation is possible
-                    self.epoch_context = EpochContext::Next(next_epoch_data.into())
+                    self.epoch_context = EpochContext::Next((*next_epoch_data).into())
                 }
             } else {
                 self.epoch_context = EpochContext::Waiting
@@ -534,8 +534,8 @@ pub enum BlockProducerVrfEvaluatorStatus {
         last_evaluated_epoch: Option<u32>,
         last_epoch_block_height: Option<u32>,
         staking_epoch_data:
-            v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        next_epoch_data: v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+            Box<v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>,
+        next_epoch_data: Box<v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>,
     },
     EpochBoundsCheck {
         time: redux::Timestamp,
@@ -691,8 +691,8 @@ mod test {
                     current_best_tip_height: 1,
                     last_evaluated_epoch: None,
                     last_epoch_block_height: Some(1),
-                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+                    staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+                    next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 0,
@@ -715,8 +715,8 @@ mod test {
                     current_best_tip_height: 900,
                     last_evaluated_epoch: Some(0),
                     last_epoch_block_height: None,
-                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+                    staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+                    next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 7139,
@@ -739,8 +739,8 @@ mod test {
                     current_best_tip_height: 1500,
                     last_evaluated_epoch: Some(1),
                     last_epoch_block_height: None,
-                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+                    staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+                    next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 14279,
@@ -763,8 +763,8 @@ mod test {
                     current_best_tip_height: 15000,
                     last_evaluated_epoch: None,
                     last_epoch_block_height: Some(14500),
-                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+                    staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+                    next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 0,
@@ -787,8 +787,8 @@ mod test {
                     current_best_tip_height: 15000,
                     last_evaluated_epoch: Some(2),
                     last_epoch_block_height: Some(14900),
-                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+                    staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+                    next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 21419,
@@ -864,8 +864,8 @@ mod test {
             current_best_tip_height: 14900,
             last_evaluated_epoch: Some(2),
             last_epoch_block_height: Some(14900),
-            staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-            next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+            staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+            next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
         };
 
         vrf_evaluator_state.set_epoch_context();
@@ -884,8 +884,8 @@ mod test {
             current_best_tip_height: 15189,
             last_evaluated_epoch: Some(2),
             last_epoch_block_height: Some(14900),
-            staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-            next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+            staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+            next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
         };
 
         vrf_evaluator_state.set_epoch_context();
@@ -904,8 +904,8 @@ mod test {
             current_best_tip_height: 15190,
             last_evaluated_epoch: Some(2),
             last_epoch_block_height: Some(14900),
-            staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
-            next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+            staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+            next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
         };
 
         vrf_evaluator_state.set_epoch_context();
@@ -953,10 +953,10 @@ mod test {
             let dummy_won_slot = VrfWonSlot {
                 producer: "Dummy".to_string(),
                 winner_account: "Dummy".to_string(),
-                vrf_output: vrf::genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
-                    BigInt::zero(),
-                )))
-                .unwrap(),
+                vrf_output: Box::new(
+                    vrf::genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(BigInt::zero())))
+                        .unwrap(),
+                ),
                 global_slot: slot,
                 account_index: AccountIndex(0),
                 value_with_threshold: None,

@@ -21,15 +21,15 @@ const routes: Routes = [
       },
       {
         path: '**',
-        redirectTo: CONFIG.globalConfig.features['snarks'].includes('work-pool') ? 'work-pool' : 'scan-state',
+        redirectTo: CONFIG.globalConfig.features['snarks'][0],
         pathMatch: 'full',
       },
     ],
-  }
+  },
 ];
 
 @NgModule({
   imports: [RouterModule.forChild(routes)],
-  exports: [RouterModule]
+  exports: [RouterModule],
 })
 export class SnarksRouting {}

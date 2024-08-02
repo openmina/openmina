@@ -8,9 +8,6 @@ This demo showcases the block production capabilities of OpenMina nodes within a
     - [Docker Installation on Windows](#docker-installation-on-windows)
     - [Docker Installation on macOS](#docker-installation-on-macos)
 2. [Running the Producer Demo](#running-the-producer-demo)
-    - [Running on Debian-based Linux](#running-on-debian-based-linux)
-    - [Running on Windows](#running-on-windows)
-    - [Running on macOS](#running-on-macos)
 
 ## Prerequisites
 
@@ -78,7 +75,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 ## Running the Producer Demo
 
-### Running on Debian-based Linux
+Once pre-requisites for your OS have been completed, follow these steps (they are the same for Debian-based Linux, Windows and MacOS):
 
 1. **Clone this repository:**
     ```bash
@@ -98,46 +95,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 4. **Open you browser and visit http://localhost:8070**
 
-### Running on Windows
+You should see the following screen:
 
-1. **Open the command prompt by pressing the windows button on your keyboard and type in command prompt**
+![producer-demo](https://github.com/user-attachments/assets/f0ccc36e-0ee8-4284-a8d7-de0f9a3397d6)
 
-2. **Clone this repository:**
-    ```bash
-    git clone https://github.com/openmina/openmina.git
-    ```
-
-3. **Navigate to the repository:**
-
-    ```bash
-    cd openmina
-    ```
-
-4. **Run the following command to start the demo:**
-    ```sh
-    docker compose -f docker-compose.local.producers.yml up
-    ```
-
-5. **Open you browser and visit http://localhost:8070**
-
-### Running on macOS
-
-1. **Open a terminal by pressing command + space on your keyboard and type in terminal**
-
-2. **Clone this repository:**
-    ```bash
-    git clone https://github.com/openmina/openmina.git
-    ```
-
-3. **Navigate to the repository:**
-
-    ```bash
-    cd openmina
-    ```
-
-4. **Run the following command to start the demo:**
-    ```sh
-    docker compose -f docker-compose.local.producers.yml up
-    ```
-
-5. **Open you browser and visit http://localhost:8070**

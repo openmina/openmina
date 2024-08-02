@@ -76,6 +76,7 @@ pub struct ProducedBlock {
     pub hash: BlockHash,
     pub height: u32,
     pub transactions: ProducedBlockTransactions,
+    pub completed_works_count: usize,
     pub coinbase: u64,
     pub fees: u64,
     pub snark_fees: u64,
@@ -338,6 +339,7 @@ impl From<(&BlockHash, &BlockWithoutProof)> for ProducedBlock {
                 .blockchain_length
                 .as_u32(),
             transactions: block.into(),
+            completed_works_count: block.body.completed_works_count(),
             coinbase: block.body.coinbase_sum(),
             fees: block.body.fees_sum(),
             snark_fees: block.body.snark_fees_sum(),

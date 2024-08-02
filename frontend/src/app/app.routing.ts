@@ -13,6 +13,7 @@ export const SNARKS_TITLE: string = APP_TITLE + ' - Snarks';
 export const TESTING_TOOL_TITLE: string = APP_TITLE + ' - Testing Tool';
 export const BLOCK_PRODUCTION_TITLE: string = APP_TITLE + ' - Block Production';
 export const MEMPOOL_TITLE: string = APP_TITLE + ' - Mempool';
+export const BENCHMARKS_TITLE: string = APP_TITLE + ' - Benchmarks';
 
 
 const routes: Routes = [
@@ -61,6 +62,11 @@ const routes: Routes = [
     path: 'mempool',
     loadChildren: () => import('./features/mempool/mempool.module').then(m => m.MempoolModule),
     title: MEMPOOL_TITLE,
+  },
+  {
+    path: 'benchmarks',
+    loadChildren: () => import('./features/benchmarks/benchmarks.module').then(m => m.BenchmarksModule),
+    title: BENCHMARKS_TITLE,
   },
   {
     path: '**',

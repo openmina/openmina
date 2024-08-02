@@ -28,6 +28,10 @@ export class RustService {
     return this.http.get<T>(this.URL + path);
   }
 
+  post<T, B = string | object>(path: string, body: B): Observable<T> {
+    return this.http.post<T>(this.URL + path, body);
+  }
+
   getMemProfiler<T>(path: string): Observable<T> {
     return this.http.get<T>(this.node.memoryProfiler + path);
   }

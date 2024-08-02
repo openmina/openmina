@@ -1,14 +1,10 @@
-use std::net::SocketAddr;
-
+use super::{super::*, *};
+use crate::{Data, P2pState, PeerId};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
-use crate::{Data, P2pState, PeerId};
-
-use super::{super::*, *};
-
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(fields(display(addr), select_kind = debug(kind), debug(data), send_handshake, fin, debug(token), debug(tokens)))]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(addr), select_kind = debug(kind), debug(data), fin, debug(token), debug(tokens)))]
 pub enum P2pNetworkSelectAction {
     /// Initialize protocol selection.
     ///
@@ -17,62 +13,60 @@ pub enum P2pNetworkSelectAction {
     /// When Noise protocol is done and we have a `peer_id`.
     /// For each yamux stream opened, we have a `peer_id` and `stream_id` at this point.
     Init {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         kind: SelectKind,
         incoming: bool,
-        send_handshake: bool,
     },
     #[action_event(level = trace)]
     IncomingDataAuth {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Data,
         fin: bool,
     },
     #[action_event(level = trace)]
     IncomingDataMux {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: Option<PeerId>,
         data: Data,
         fin: bool,
     },
     #[action_event(level = trace)]
     IncomingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         data: Data,
         fin: bool,
     },
     IncomingPayloadAuth {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         fin: bool,
         data: Data,
     },
     IncomingPayloadMux {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: Option<PeerId>,
         fin: bool,
         data: Data,
     },
     IncomingPayload {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         fin: bool,
         data: Data,
     },
     IncomingToken {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         kind: SelectKind,
-        token: token::Token,
     },
     OutgoingTokens {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         kind: SelectKind,
         tokens: Vec<token::Token>,
     },
     Timeout {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         kind: SelectKind,
     },
 }
@@ -104,10 +98,42 @@ impl SelectKind {
             Self::Stream(peer_id, _) => Some(*peer_id),
         }
     }
+
+    pub(super) fn forward_data(
+        self,
+        addr: ConnectionAddr,
+        data: Data,
+        fin: bool,
+    ) -> P2pNetworkSelectAction {
+        match self {
+            SelectKind::Authentication => {
+                P2pNetworkSelectAction::IncomingPayloadAuth { addr, fin, data }
+            }
+            SelectKind::Multiplexing(peer_id) => P2pNetworkSelectAction::IncomingPayloadMux {
+                addr,
+                peer_id: Some(peer_id),
+                fin,
+                data,
+            },
+            SelectKind::MultiplexingNoPeerId => P2pNetworkSelectAction::IncomingPayloadMux {
+                addr,
+                peer_id: None,
+                fin,
+                data,
+            },
+            SelectKind::Stream(peer_id, stream_id) => P2pNetworkSelectAction::IncomingPayload {
+                addr,
+                peer_id,
+                stream_id,
+                fin,
+                data,
+            },
+        }
+    }
 }
 
 impl P2pNetworkSelectAction {
-    pub fn addr(&self) -> &SocketAddr {
+    pub fn addr(&self) -> &ConnectionAddr {
         match self {
             Self::Init { addr, .. } => addr,
             Self::IncomingDataAuth { addr, .. } => addr,

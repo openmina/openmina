@@ -10,30 +10,9 @@ pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionSta
     patch: number::Number(0),
 };
 
-// TODO(tizoc): this should be configurable at compile time
-pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
-    sub_windows_per_window: 11,
-    ledger_depth: 35,
-    work_delay: 2,
-    block_window_duration_ms: 180000,
-    transaction_capacity_log_2: 7,
-    pending_coinbase_depth: 5,
-    coinbase_amount: 720000000000,
-    supercharged_coinbase_factor: 1,
-    account_creation_fee: 1000000000,
-    // TODO(tizoc): This should come from the config file, but
-    // it affects the circuits. Since we cannot produce the circuits
-    // ourselves right now, we cannot react to changes in this value,
-    // so it will be hardcoded for now.
-    fork: Some(ForkConstants {
-        state_hash: ark_ff::field_new!(
-            Fp,
-            "7908066420535064797069631664846455037440232590837253108938061943122344055350"
-        ),
-        blockchain_length: 296371,
-        global_slot_since_genesis: 445860,
-    }),
-};
+pub fn constraint_constants() -> &'static ConstraintConstants {
+    NetworkConfig::global().constraint_constants
+}
 
 #[derive(Clone, Debug)]
 pub struct ForkConstants {
@@ -111,18 +90,20 @@ impl binprot::BinProtWrite for ConstraintConstants {
 }
 
 pub fn slots_per_window(constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1) -> u32 {
-    constants.slots_per_sub_window.as_u32() * (CONSTRAINT_CONSTANTS.sub_windows_per_window as u32)
+    constants.slots_per_sub_window.as_u32() * (constraint_constants().sub_windows_per_window as u32)
 }
 
-fn days_to_ms(days: u64) -> u64 {
+const fn days_to_ms(days: u64) -> u64 {
     days * 24 * 60 * 60 * 1000
 }
 
+pub const CHECKPOINTS_PER_YEAR: u64 = 12;
+
 pub fn checkpoint_window_size_in_slots() -> u32 {
     let one_year_ms = days_to_ms(365);
-    let slots_per_year = one_year_ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
-    let size_in_slots = slots_per_year / 12;
-    assert_eq!(slots_per_year % 12, 0);
+    let slots_per_year = one_year_ms / constraint_constants().block_window_duration_ms;
+    let size_in_slots = slots_per_year / CHECKPOINTS_PER_YEAR;
+    assert_eq!(slots_per_year % CHECKPOINTS_PER_YEAR, 0);
     size_in_slots as u32
 }
 
@@ -130,10 +111,10 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
     let slots = {
         const NUM_DAYS: u64 = 3;
         let n_days_ms = days_to_ms(NUM_DAYS);
-        let n_days = n_days_ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
+        let n_days = n_days_ms / constraint_constants().block_window_duration_ms;
         (n_days as u32).min(constants.slots_per_epoch.as_u32())
     };
-    match CONSTRAINT_CONSTANTS.fork.as_ref() {
+    match constraint_constants().fork.as_ref() {
         None => slots,
         Some(fork) => slots + fork.global_slot_since_genesis,
     }
@@ -145,19 +126,6 @@ pub const PROTOCOL_TRANSACTION_VERSION: u8 = 3;
 pub const PROTOCOL_NETWORK_VERSION: u8 = 3;
 pub const TX_POOL_MAX_SIZE: u32 = 3000;
 
-pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
-    [
-        0xb8, 0x87, 0x9f, 0x67, 0x7f, 0x62, 0x2a, 0x1d, 0x86, 0x64, 0x80, 0x30, 0x70, 0x1f, 0x43,
-        0xe1,
-    ],
-    [
-        0x3b, 0xf6, 0xbb, 0x8a, 0x97, 0x66, 0x5f, 0xe7, 0xa9, 0xdf, 0x6f, 0xc1, 0x46, 0xe4, 0xf9,
-        0x42,
-    ],
-    [
-        0xd0, 0x24, 0xa9, 0xac, 0x78, 0xd4, 0xc9, 0x3a, 0x88, 0x8b, 0x63, 0xfc, 0x85, 0xee, 0xb6,
-        0x6a,
-    ],
-];
-
 pub use v2::PROTOCOL_CONSTANTS;
+
+use crate::NetworkConfig;

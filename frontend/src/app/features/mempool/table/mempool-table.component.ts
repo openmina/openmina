@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
 import { getMergedRoute, MergedRoute, TableColumnList } from '@openmina/shared';
 import { Router } from '@angular/router';
-import { filter, take } from 'rxjs';
+import { skip, take } from 'rxjs';
 import { Routes } from '@shared/enums/routes.enum';
 import { MempoolTransaction } from '@shared/types/mempool/mempool-transaction.type';
 import { MempoolActions } from '@app/features/mempool/mempool.actions';
@@ -18,14 +18,14 @@ import { MempoolSelectors } from '@app/features/mempool/mempool.state';
 export class MempoolTableComponent extends MinaTableRustWrapper<MempoolTransaction> implements OnInit {
 
   protected readonly tableHeads: TableColumnList<MempoolTransaction> = [
-    { name: 'status' },
-    { name: 'date of arrival' },
     { name: 'kind' },
     { name: 'tx hash' },
     { name: 'sender' },
     { name: 'fee (MINA)' },
+    { name: 'amount (MINA)' },
     { name: 'nonce' },
     { name: 'memo' },
+    { name: '' },
   ];
 
   emptyBecauseOfFilters: boolean;
@@ -45,8 +45,8 @@ export class MempoolTableComponent extends MinaTableRustWrapper<MempoolTransacti
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [160, 165, 140, 130, 130, 100, 90, '1fr'];
-    this.table.minWidth = 1150;
+    this.table.gridTemplateColumns = [140, 130, 130, 100, 120, 90, 180, 80];
+    this.table.minWidth = 980;
     this.table.propertyForActiveCheck = 'txHash';
     this.table.trackByFn = (_, tx) => tx.txHash + tx.kind + tx.nonce;
   }
@@ -84,12 +84,12 @@ export class MempoolTableComponent extends MinaTableRustWrapper<MempoolTransacti
   private listenToActiveTxChange(): void {
     this.select(MempoolSelectors.activeTx, (tx: MempoolTransaction) => {
       if (!this.table.activeRow) {
-        this.fromRoute = tx.txHash;
+        this.fromRoute = tx?.txHash;
       }
       this.table.activeRow = tx;
       this.table.detect();
       this.detect();
-    }, filter(Boolean));
+    }, skip(1));
   }
 
   private scrollToElement(): void {
@@ -114,8 +114,6 @@ export class MempoolTableComponent extends MinaTableRustWrapper<MempoolTransacti
     this.dispatch2(MempoolActions.changeFilters({
       filters: {
         search: '',
-        applicable: true,
-        notApplicable: true,
         zkApp: true,
         payment: true,
         delegation: true,

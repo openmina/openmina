@@ -7,14 +7,14 @@ use std::{
     net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr},
     process,
     sync::mpsc,
-    thread,
 };
 
+use libp2p_identity::Keypair;
 use mio::net::{TcpListener, TcpStream};
 
 use thiserror::Error;
 
-use crate::{MioCmd, MioEvent};
+use crate::{ConnectionAddr, MioCmd, MioEvent};
 
 #[derive(Debug, Error)]
 enum MioError {
@@ -38,15 +38,19 @@ impl MioError {
     }
 }
 
-#[derive(Debug, Default)]
+// maximal ammount of queued data to send per peer is 64 MiB
+const MAX_QUEUED_BYTES: usize = 0x4000000;
+
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum MioService {
-    #[default]
-    Pending,
+    Pending(Keypair),
     Ready(MioRunningService),
 }
 
 #[derive(Debug)]
 pub struct MioRunningService {
+    keypair: Keypair,
     cmd_sender: mpsc::Sender<MioCmd>,
     waker: Option<mio::Waker>,
 }
@@ -55,27 +59,31 @@ impl redux::TimeService for MioService {}
 
 impl redux::Service for MioService {}
 
-// impl P2pMioService for MioMainService {
-
-//     fn start(&mut self) {
-//         todo!()
-//     }
-// }
-
 impl MioService {
-    pub fn new<F>(event_sender: F) -> Self
-    where
-        F: 'static + Send + Sync + Fn(MioEvent),
-    {
-        MioService::Ready(MioRunningService::run(event_sender))
+    pub fn pending(keypair: Keypair) -> Self {
+        Self::Pending(keypair)
     }
 
     pub fn run<F>(&mut self, event_sender: F)
     where
         F: 'static + Send + Sync + Fn(MioEvent),
     {
-        debug_assert!(matches!(self, MioService::Pending));
-        *self = MioService::Ready(MioRunningService::run(event_sender));
+        *self = match self {
+            Self::Pending(keypair) => {
+                MioService::Ready(MioRunningService::run(event_sender, keypair.clone()))
+            }
+            _ => {
+                openmina_core::warn!(openmina_core::log::system_time(); "tried to run already running mio service");
+                return;
+            }
+        }
+    }
+
+    pub fn keypair(&self) -> &Keypair {
+        match self {
+            Self::Pending(keypair) => keypair,
+            Self::Ready(s) => &s.keypair,
+        }
     }
 
     pub fn send_cmd(&mut self, cmd: MioCmd) {
@@ -89,20 +97,21 @@ impl MioService {
         }
     }
 
-    pub fn mocked() -> Self {
-        MioService::Ready(MioRunningService::mocked())
+    pub fn mocked(keypair: Keypair) -> Self {
+        MioService::Ready(MioRunningService::mocked(keypair))
     }
 }
 
 impl MioRunningService {
-    fn mocked() -> Self {
+    fn mocked(keypair: Keypair) -> Self {
         MioRunningService {
+            keypair,
             cmd_sender: mpsc::channel().0,
             waker: None,
         }
     }
 
-    fn run<F>(event_sender: F) -> Self
+    fn run<F>(event_sender: F, keypair: Keypair) -> Self
     where
         F: 'static + Send + Sync + Fn(MioEvent),
     {
@@ -134,20 +143,24 @@ impl MioRunningService {
             connections: BTreeMap::default(),
         };
 
-        thread::spawn(move || {
-            // fake interfaces, TODO: detect interfaces properly
-            inner.send(MioEvent::InterfaceDetected(IpAddr::V4(
-                Ipv4Addr::UNSPECIFIED,
-            )));
+        std::thread::Builder::new()
+            .name("mio-service".into())
+            .spawn(move || {
+                // fake interfaces, TODO: detect interfaces properly
+                inner.send(MioEvent::InterfaceDetected(IpAddr::V4(
+                    Ipv4Addr::UNSPECIFIED,
+                )));
 
-            let mut events = mio::Events::with_capacity(1024);
+                let mut events = mio::Events::with_capacity(1024);
 
-            loop {
-                inner.run(&mut events);
-            }
-        });
+                loop {
+                    inner.run(&mut events);
+                }
+            })
+            .expect("Failed: mio-service");
 
         MioRunningService {
+            keypair,
             cmd_sender: tx,
             waker: Some(waker),
         }
@@ -160,7 +173,7 @@ struct MioServiceInner<F> {
     cmd_receiver: mpsc::Receiver<MioCmd>,
     tokens: TokenRegistry,
     listeners: BTreeMap<SocketAddr, Listener>,
-    connections: BTreeMap<SocketAddr, Connection>,
+    connections: BTreeMap<ConnectionAddr, Connection>,
 }
 
 struct Listener {
@@ -171,6 +184,7 @@ struct Listener {
 struct Connection {
     stream: TcpStream,
     transmits: VecDeque<(Box<[u8]>, usize)>,
+    queued_bytes: usize,
     connected: bool,
     incoming_ready: bool,
 }
@@ -242,7 +256,7 @@ where
                             match connection.stream.peer_addr() {
                                 Ok(new_addr) => {
                                     connection.connected = true;
-                                    addr = new_addr;
+                                    addr.sock_addr = new_addr;
                                     self.send(MioEvent::OutgoingConnectionDidConnect(addr, Ok(())));
                                 }
                                 Err(err) if err.kind() == io::ErrorKind::NotConnected => {
@@ -262,8 +276,10 @@ where
                             }
                         } else {
                             while let Some((buf, mut offset)) = connection.transmits.pop_front() {
+                                connection.queued_bytes -= buf.len() - offset;
                                 match connection.stream.write(&buf[offset..]) {
                                     Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                                        connection.queued_bytes += buf.len() - offset;
                                         connection.transmits.push_front((buf, offset));
                                         rereg = true;
                                         break;
@@ -282,6 +298,7 @@ where
                                         if offset == buf.len() {
                                             self.send(MioEvent::OutgoingDataDidSend(addr, Ok(())));
                                         } else {
+                                            connection.queued_bytes += buf.len() - offset;
                                             connection.transmits.push_front((buf, offset));
                                         }
                                     }
@@ -350,6 +367,11 @@ where
                 if let Some(mut listener) = self.listeners.remove(&listener_addr) {
                     match listener.inner.accept() {
                         Ok((mut stream, addr)) => {
+                            let addr = ConnectionAddr {
+                                sock_addr: addr,
+                                incoming: true,
+                            };
+
                             listener.incomind_ready = false;
                             if let Err(err) = self.poll.registry().register(
                                 &mut stream,
@@ -368,6 +390,7 @@ where
                                 let connection = Connection {
                                     stream,
                                     transmits: VecDeque::default(),
+                                    queued_bytes: 0,
                                     connected: true,
                                     incoming_ready: false,
                                 };
@@ -379,7 +402,7 @@ where
                                 token,
                                 mio::Interest::READABLE,
                             ) {
-                                MioError::Listen(addr, err).report();
+                                MioError::Listen(listener_addr, err).report();
                             } else {
                                 self.listeners.insert(listener_addr, listener);
                             }
@@ -414,6 +437,11 @@ where
             Connect(addr) => {
                 match TcpStream::connect(addr) {
                     Ok(mut stream) => {
+                        let addr = ConnectionAddr {
+                            sock_addr: addr,
+                            incoming: false,
+                        };
+
                         if let Err(err) = self.poll.registry().register(
                             &mut stream,
                             self.tokens.register(Token::Connection(addr)),
@@ -429,6 +457,7 @@ where
                                 Connection {
                                     stream,
                                     transmits: VecDeque::default(),
+                                    queued_bytes: 0,
                                     connected: false,
                                     incoming_ready: false,
                                 },
@@ -436,7 +465,10 @@ where
                         }
                     }
                     Err(err) => self.send(MioEvent::OutgoingConnectionDidConnect(
-                        addr,
+                        ConnectionAddr {
+                            sock_addr: addr,
+                            incoming: false,
+                        },
                         Err(err.to_string()),
                     )),
                 };
@@ -493,7 +525,17 @@ where
             }
             Send(addr, buf) => {
                 if let Some(connection) = self.connections.get_mut(&addr) {
+                    connection.queued_bytes += buf.len();
                     connection.transmits.push_back((buf, 0));
+                    if connection.transmits.len() > 1 && connection.queued_bytes > MAX_QUEUED_BYTES
+                    {
+                        self.connections.remove(&addr);
+                        // the peer is too slow, it requires us to send more and more,
+                        // but cannot accept the data
+                        let msg = "probably malicious".to_string();
+                        self.send(MioEvent::ConnectionDidClose(addr, Err(msg)));
+                        return;
+                    }
                     let interests =
                         match (connection.incoming_ready, connection.transmits.is_empty()) {
                             (false, false) => {
@@ -518,12 +560,8 @@ where
                 }
             }
             Disconnect(addr) => {
-                if let Some(connection) = self.connections.remove(&addr) {
-                    connection
-                        .stream
-                        .shutdown(Shutdown::Both)
-                        .unwrap_or_default();
-                }
+                // drop the connection and destructor will close it
+                self.connections.remove(&addr);
             }
         }
     }

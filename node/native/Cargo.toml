@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-native"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -8,8 +8,10 @@ license = "Apache-2.0"
 rand = "0.8"
 serde = "1.0.158"
 serde_json = "1.0.94"
+derive_more = "0.99.17"
 rayon = "1.5"
 tokio = { version = "1.26.0", features = ["process", "macros"] }
+reqwest = { version = "0.11.24", features = ["blocking", "json"] }
 warp = "0.3"
 libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
 juniper = { version = "0.15.11" }
@@ -26,12 +28,15 @@ anyhow = "1.0.70"
 nix = { version = "0.26.2", features = ["signal"] }
 vrf = { workspace = true }
 jsonpath-rust = "0.5.0"
-openmina-core = { path = "../../core" }
+sha3 = "0.10.8"
 
+openmina-core = { path = "../../core" }
+openmina-node-common = { path = "../common" }
 node = { path = "../../node", features = ["replay"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }
+getrandom = "0.2.15"
 
 [features]
 default = ["p2p-libp2p"]

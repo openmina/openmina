@@ -1,47 +1,45 @@
-use std::net::SocketAddr;
-
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::p2p_network_yamux_state::{StreamId, YamuxFlags, YamuxFrame, YamuxPing};
-use crate::{token, Data, P2pState};
+use crate::{token, ConnectionAddr, Data, P2pState};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(addr), stream_id, debug(data), fin, debug(stream_kind)))]
 pub enum P2pNetworkYamuxAction {
     IncomingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Data,
     },
     OutgoingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         stream_id: StreamId,
         data: Data,
         flags: YamuxFlags,
     },
     #[action_event(level = trace)]
     IncomingFrame {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         frame: YamuxFrame,
     },
     #[action_event(level = trace)]
     OutgoingFrame {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         frame: YamuxFrame,
     },
     PingStream {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         ping: YamuxPing,
     },
     OpenStream {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         stream_id: StreamId,
         stream_kind: token::StreamKind,
     },
 }
 
 impl P2pNetworkYamuxAction {
-    pub fn addr(&self) -> &SocketAddr {
+    pub fn addr(&self) -> &ConnectionAddr {
         match self {
             Self::IncomingData { addr, .. } => addr,
             Self::OutgoingData { addr, .. } => addr,

@@ -9,10 +9,10 @@ use mina_p2p_messages::v2::{
 use node::{
     account::AccountSecretKey,
     block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
-    core::{channels::mpsc, constants::CONSTRAINT_CONSTANTS},
+    core::{channels::mpsc, constants::constraint_constants},
 };
 
-use crate::NodeService;
+use crate::EventSender;
 
 pub struct BlockProducerService {
     keypair: AccountSecretKey,
@@ -30,22 +30,11 @@ impl BlockProducerService {
         }
     }
 
-    pub fn keypair(&self) -> AccountSecretKey {
-        self.keypair.clone()
-    }
-}
-
-impl NodeService {
-    pub fn block_producer_start(&mut self, producer_keypair: AccountSecretKey) {
-        let event_sender = self.event_sender.clone();
+    pub fn start(event_sender: EventSender, keypair: AccountSecretKey) -> Self {
         let (vrf_evaluation_sender, vrf_evaluation_receiver) =
             mpsc::unbounded_channel::<VrfEvaluatorInput>();
 
-        self.block_producer = Some(BlockProducerService::new(
-            producer_keypair.clone(),
-            vrf_evaluation_sender,
-        ));
-
+        let producer_keypair = keypair.clone();
         std::thread::Builder::new()
             .name("openmina_vrf_evaluator".to_owned())
             .spawn(move || {
@@ -56,6 +45,12 @@ impl NodeService {
                 );
             })
             .unwrap();
+
+        BlockProducerService::new(keypair, vrf_evaluation_sender)
+    }
+
+    pub fn keypair(&self) -> AccountSecretKey {
+        self.keypair.clone()
     }
 }
 
@@ -71,7 +66,7 @@ pub fn prove(
         .blockchain_length
         .as_u32();
     let is_genesis = height == 1
-        || CONSTRAINT_CONSTANTS
+        || constraint_constants()
             .fork
             .as_ref()
             .map_or(false, |fork| fork.blockchain_length + 1 == height);
@@ -94,14 +89,14 @@ pub fn prove(
         .map(Into::into)
 }
 
-impl node::service::BlockProducerService for crate::NodeService {
+impl node::service::BlockProducerService for crate::NodeServiceCommon {
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
         if self.replayer.is_some() {
             return;
         }
         let keypair = self.block_producer.as_ref().unwrap().keypair();
 
-        let tx = self.event_sender.clone();
+        let tx = self.event_sender().clone();
         std::thread::spawn(move || {
             let res = prove(input, keypair, false).map_err(|err| format!("{err:?}"));
             let _ = tx.send(BlockProducerEvent::BlockProve(block_hash, res).into());

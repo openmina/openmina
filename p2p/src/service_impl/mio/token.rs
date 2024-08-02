@@ -1,10 +1,12 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
+use crate::ConnectionAddr;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Token {
     Waker,
     Listener(SocketAddr),
-    Connection(SocketAddr),
+    Connection(ConnectionAddr),
 }
 
 #[derive(Default)]

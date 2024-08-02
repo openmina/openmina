@@ -15,19 +15,20 @@ const execute = (callback: () => void) => {
   cy.visit(Cypress.config().baseUrl)
     .window()
     .its('store')
-    .then(getAppState).then((state: AppState) => {
-    getConfig().then((config: any) => {
-      if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'overview', config.globalConfig)) {
-        cy.wait('@slotsRequest')
-          .url()
-          .then((url: string) => {
-            if (url.includes('/block-production/overview')) {
-              callback();
-            }
-          });
-      }
+    .then(getAppState)
+    .then((state: AppState) => {
+      getConfig().then((config: any) => {
+        if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'overview', config.globalConfig)) {
+          cy.wait('@slotsRequest')
+            .url()
+            .then((url: string) => {
+              if (url.includes('/block-production/overview')) {
+                callback();
+              }
+            });
+        }
+      });
     });
-  });
 };
 
 describe('BLOCK PRODUCTION OVERVIEW APIs', () => {
@@ -263,7 +264,7 @@ describe('BLOCK PRODUCTION OVERVIEW APIs', () => {
                 typeof slot.height === 'number' || slot.state_hash === null
               ) && typeof slot.is_current_slot === 'boolean';
           });
-          // expect(areSlotsValid).to.be.true; // TODO: failing backend!
+          expect(areSlotsValid ? 'areSlotsValid' : 'areSlotsInvalid').to.equal('areSlotsValid');
           const areGlobalSlotsIncreasing = slotsResponse.every((slot, i) => {
             return i === 0 || slot.global_slot === slotsResponse[i - 1].global_slot + 1;
           });

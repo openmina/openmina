@@ -14,7 +14,7 @@ import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 })
 export class ScanStateService {
 
-  private snarkers: ScanStateWorkingSnarker[] = [];
+  private snarkers: ScanStateWorkingSnarker[];
 
   constructor(private rust: RustService,
               private http: HttpClient) { }
@@ -24,20 +24,26 @@ export class ScanStateService {
 
     return this.http.get<any>(url).pipe(
       switchMap((response: any[]) => {
-        if (this.snarkers.length) {
+        if (this.snarkers) {
           return of(response);
         }
         return forkJoin(
           CONFIG.configs.map((node: MinaNode) =>
             this.http.get<{ public_key: string }>(node.url + '/snarker/config')
               .pipe(
-                map(r => ({
-                  hash: r.public_key,
-                  name: node.name,
-                  url: node.url,
-                  local: node.url === this.rust.URL,
-                  leafs: [],
-                })),
+                map(r => {
+                  const nodeIsNotASnarker = !r;
+                  if (nodeIsNotASnarker) {
+                    return null;
+                  }
+                  return {
+                    hash: r.public_key,
+                    name: node.name,
+                    url: node.url,
+                    local: node.url === this.rust.URL,
+                    leafs: [],
+                  };
+                }),
                 catchError(err => {
                   let message = err.message;
                   if (!message.includes('Http failure') && err.statusCode < 400) {
@@ -55,7 +61,7 @@ export class ScanStateService {
               ),
           ),
         ).pipe(
-          tap((snarkers: ScanStateWorkingSnarker[]) => this.snarkers = snarkers),
+          tap((snarkers: ScanStateWorkingSnarker[]) => this.snarkers = snarkers.filter(Boolean)),
           map(() => response),
         );
       }),

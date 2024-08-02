@@ -1,18 +1,16 @@
 use std::cell::RefCell;
 
 use node::{
-    core::channels::mpsc, ledger::LedgerManager, recorder::StateWithInputActionsReader,
-    service::Recorder, snark::VerifierKind, ActionWithMeta, BuildEnv, Store,
+    recorder::StateWithInputActionsReader, snark::VerifierKind, ActionWithMeta, BuildEnv, Store,
 };
-use rand::{rngs::StdRng, SeedableRng};
 
-use crate::{rpc::RpcService, NodeService, ReplayerState};
+use crate::NodeService;
 
 pub fn replay_state_with_input_actions(
     dir: &str,
     dynamic_effects_lib: Option<String>,
     mut check_build_env: impl FnMut(&BuildEnv, &BuildEnv) -> anyhow::Result<()>,
-) -> anyhow::Result<::node::Node<NodeService>> {
+) -> anyhow::Result<crate::Node> {
     eprintln!("replaying node based on initial state and actions from the dir: {dir}");
     let reader = StateWithInputActionsReader::new(dir);
 
@@ -25,6 +23,7 @@ pub fn replay_state_with_input_actions(
         Ok(v) => v,
     };
 
+    let rng_seed = initial_state.rng_seed;
     let state = {
         let mut state = initial_state.state.into_owned();
         // TODO(binier): we shouldn't have to do this, but serialized
@@ -40,32 +39,9 @@ pub fn replay_state_with_input_actions(
         .map_or(replayer_effects, |_| replayer_effects_with_dyn_effects);
     let p2p_sec_key = initial_state.p2p_sec_key;
 
-    let service = NodeService {
-        rng: StdRng::seed_from_u64(initial_state.rng_seed),
-        event_sender: mpsc::unbounded_channel().0,
-        event_receiver: mpsc::unbounded_channel().1.into(),
-        cmd_sender: mpsc::unbounded_channel().0,
-        ledger_manager: LedgerManager::spawn(Default::default()),
-        peers: Default::default(),
-        #[cfg(feature = "p2p-libp2p")]
-        mio: node::p2p::service_impl::mio::MioService::mocked(),
-        network: Default::default(),
-        block_producer: None,
-        keypair: p2p_sec_key.into(),
-        rpc: RpcService::new(),
-        snark_worker_sender: None,
-        stats: Default::default(),
-        recorder: Recorder::None,
-        replayer: Some(ReplayerState {
-            initial_monotonic: redux::Instant::now(),
-            initial_time: state.time(),
-            expected_actions: Default::default(),
-            replay_dynamic_effects_lib: dynamic_effects_lib.unwrap_or_default(),
-        }),
-        invariants_state: Default::default(),
-    };
+    let service = NodeService::for_replay(rng_seed, state.time(), p2p_sec_key, dynamic_effects_lib);
 
-    let mut node = ::node::Node::new(state, service, Some(effects));
+    let mut node = crate::Node::new(rng_seed, state, service, Some(effects));
 
     let store = node.store_mut();
 
@@ -85,7 +61,7 @@ pub fn replay_state_with_input_actions(
         .peekable();
 
     while let Some(action) = actions.peek() {
-        let replayer = store.service.replayer.as_mut().unwrap();
+        let replayer = store.service.replayer().unwrap();
         let expected_actions = &mut replayer.expected_actions;
 
         let action = if input_action.is_none() {
@@ -137,7 +113,7 @@ fn replayer_effects_with_dyn_effects(store: &mut Store<NodeService>, action: Act
 }
 
 fn replayer_effects(store: &mut Store<NodeService>, action: ActionWithMeta) {
-    let replayer = store.service.replayer.as_mut().unwrap();
+    let replayer = store.service.replayer().unwrap();
     let (kind, meta) = match replayer.expected_actions.pop_front() {
         Some(v) => v,
         None => panic!("unexpected action: {:?}", action),
@@ -154,12 +130,7 @@ fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {
         let mut opt = cell.borrow_mut();
         let fun = match opt.as_ref() {
             None => {
-                let lib_path = &store
-                    .service
-                    .replayer
-                    .as_ref()
-                    .unwrap()
-                    .replay_dynamic_effects_lib;
+                let lib_path = &store.service.replayer().unwrap().replay_dynamic_effects_lib;
                 opt.insert(DynEffectsLib::load(lib_path)).fun
             }
             Some(lib) => lib.fun,
@@ -169,12 +140,7 @@ fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {
             0 => return,
             1 => {
                 opt.take();
-                let lib_path = &store
-                    .service
-                    .replayer
-                    .as_ref()
-                    .unwrap()
-                    .replay_dynamic_effects_lib;
+                let lib_path = &store.service.replayer().unwrap().replay_dynamic_effects_lib;
                 let query_modified = || match std::fs::metadata(lib_path).and_then(|v| v.modified())
                 {
                     Err(err) => {
@@ -225,6 +191,7 @@ impl DynEffectsLib {
 
         Self {
             handle,
+            #[allow(clippy::missing_transmute_annotations)]
             fun: unsafe { std::mem::transmute::<*mut c_void, _>(fun) },
         }
     }

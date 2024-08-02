@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2024-08-02
+
+### Added
+
+- Transaction pool (alpha).
+- Support for sending transactions, inspecting the transaction pool and the scan state to the block producer demo.
+
+### Fixed
+
+- P2P layer fixes and improvements.
+- Various internal fixes and improvements.
+
+### Changed
+
+- **Rust Toolchain**: Updated the minimum required Rust toolchain to version 1.79.
+
 ## [0.6.0] - 2024-07-01
 
 ### Added
@@ -176,7 +192,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.6.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.7.0...develop
+[0.7.0]: https://github.com/openmina/openmina/releases/tag/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/openmina/openmina/releases/tag/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/openmina/openmina/releases/tag/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/openmina/openmina/releases/tag/v0.4.0...v0.5.0

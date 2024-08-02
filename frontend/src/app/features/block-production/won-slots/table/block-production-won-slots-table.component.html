@@ -20,6 +20,7 @@
     [tooltipDisabled]="true"
     [tooltip]="row.payments + ' payments, ' + row.delegations + ' delegations, ' + row.zkapps + ' zkapps'"
   >{{ row.transactionsTotal ?? '-' }}</span>
+  <span>{{ row.completedWorksCount ?? '-' }}</span>
   <span>{{ row.snarkFees ?? '-' }}</span>
   <span>{{ row.coinbaseRewards ?? '-' }}</span>
   <span>{{ row.txFeesRewards ?? '-' }}</span>

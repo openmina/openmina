@@ -497,6 +497,25 @@ pub struct PlonkVerificationKeyEvals<F: FieldWitness> {
     pub endomul_scalar: InnerCurve<F>,
 }
 
+impl<'de> serde::Deserialize<'de> for PlonkVerificationKeyEvals<Fp> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        v2::MinaBaseVerificationKeyWireStableV1WrapIndex::deserialize(deserializer).map(Self::from)
+    }
+}
+
+impl serde::Serialize for PlonkVerificationKeyEvals<Fp> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let v: v2::MinaBaseVerificationKeyWireStableV1WrapIndex = self.into();
+        v.serialize(serializer)
+    }
+}
+
 // Here cvars are not used correctly, but it's just temporary
 #[derive(Clone, Debug)]
 pub struct CircuitPlonkVerificationKeyEvals<F: FieldWitness> {
@@ -1625,7 +1644,6 @@ pub mod legacy_input {
 pub mod poseidon {
     use std::marker::PhantomData;
 
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
     use mina_poseidon::constants::SpongeConstants;
     use mina_poseidon::poseidon::{ArithmeticSpongeParams, SpongeState};
 
@@ -2202,23 +2220,20 @@ pub mod transaction_snark {
             transaction::legacy_input::CheckedLegacyInput,
         },
         scan_state::{
-            currency::Sgn,
             fee_excess::CheckedFeeExcess,
-            pending_coinbase,
             transaction_logic::{checked_cons_signed_command_payload, Coinbase},
         },
         sparse_ledger::SparseLedger,
         AccountId, Inputs, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
     use ark_ff::Zero;
-    use mina_signer::PubKey;
 
     use crate::scan_state::{
         currency,
         transaction_logic::transaction_union_payload::{TransactionUnion, TransactionUnionPayload},
     };
     use mina_signer::Signature;
-    use openmina_core::constants::CONSTRAINT_CONSTANTS;
+    use openmina_core::constants::constraint_constants;
 
     use super::{legacy_input::LegacyInput, *};
 
@@ -2426,7 +2441,7 @@ pub mod transaction_snark {
 
                     let amount_insufficient_to_create = {
                         let creation_amount =
-                            currency::Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee);
+                            currency::Amount::from_u64(constraint_constants().account_creation_fee);
                         receiver_needs_creating
                             && payload.body.amount.checked_sub(&creation_amount).is_none()
                     };
@@ -2552,8 +2567,8 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        // TODO: Change this to `MinaSignatureMainnet` on mainnet
-        let hash = checked_legacy_hash("CodaSignature", inputs, w);
+        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
+        let hash = checked_legacy_hash(signature_prefix, inputs, w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
@@ -2614,8 +2629,8 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        // TODO: Change this to `MinaSignatureMainnet` on mainnet
-        let hash = checked_hash("CodaSignature", &inputs.to_fields(), w);
+        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
+        let hash = checked_hash(signature_prefix, &inputs.to_fields(), w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
@@ -2889,7 +2904,7 @@ pub mod transaction_snark {
         };
 
         let account_creation_amount =
-            currency::Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee).to_checked();
+            currency::Amount::from_u64(constraint_constants().account_creation_fee).to_checked();
         let is_zero_fee = fee.equal(&CheckedFee::zero(), w);
 
         let is_coinbase_or_fee_transfer = is_user_command.neg();
@@ -4035,10 +4050,6 @@ pub(super) fn generate_tx_proof(
 
 #[cfg(test)]
 mod tests_with_wasm {
-    use std::str::FromStr;
-
-    use mina_hasher::Fp;
-
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
@@ -4085,7 +4096,6 @@ mod tests_with_wasm {
 mod tests {
     use std::path::Path;
 
-    use mina_hasher::Fp;
     use mina_p2p_messages::binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
@@ -4095,7 +4105,7 @@ mod tests {
         proofs::{
             block::{generate_block_proof, BlockParams},
             constants::{StepBlockProof, StepMergeProof},
-            gates::{get_provers, Provers, CIRCUIT_DIRECTORY},
+            gates::{devnet_circuit_directory, get_provers, Provers},
             merge::{generate_merge_proof, MergeParams},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
@@ -4146,7 +4156,7 @@ mod tests {
     fn read_witnesses<F: FieldWitness>(filename: &str) -> Result<Vec<F>, ()> {
         let f = std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(CIRCUIT_DIRECTORY)
+                .join(devnet_circuit_directory())
                 .join("witnesses")
                 .join(filename),
         )
@@ -4173,7 +4183,7 @@ mod tests {
         }
 
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(CIRCUIT_DIRECTORY)
+            .join(devnet_circuit_directory())
             .join("tests");
 
         let entries = std::fs::read_dir(path)
@@ -4373,7 +4383,7 @@ mod tests {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(CIRCUIT_DIRECTORY).join("tests").join("command-0-1.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("command-0-1.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
             // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
             // std::fs::read("/tmp/coinbase_1_rampup4.bin")
@@ -4425,7 +4435,7 @@ mod tests {
     #[ignore]
     fn test_read_requests() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(CIRCUIT_DIRECTORY)
+            .join(devnet_circuit_directory())
             .join("tests");
 
         let mut files = Vec::with_capacity(1000);
@@ -4489,7 +4499,7 @@ mod tests {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("merge_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(CIRCUIT_DIRECTORY).join("tests").join("merge-100-0.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("merge-100-0.bin"))
             // std::fs::read("/tmp/minaa/mina-works-dump/merge-100-0.bin")
             // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
             // std::fs::read("/tmp/coinbase_1_rampup4.bin")
@@ -4546,7 +4556,7 @@ mod tests {
     fn test_zkapp_proof_sig() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(CIRCUIT_DIRECTORY)
+                .join(devnet_circuit_directory())
                 .join("tests")
                 .join("command-1-0.bin"),
         ) else {
@@ -4599,7 +4609,7 @@ mod tests {
     fn test_proof_zkapp_proof() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(CIRCUIT_DIRECTORY)
+                .join(devnet_circuit_directory())
                 .join("tests")
                 .join("zkapp-command-with-proof-128-1.bin"),
         ) else {
@@ -4650,7 +4660,7 @@ mod tests {
     fn test_block_proof() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(CIRCUIT_DIRECTORY)
+                .join(devnet_circuit_directory())
                 .join("tests")
                 .join("block_input-2483246-0.bin"),
         ) else {
@@ -4705,7 +4715,7 @@ mod tests {
     #[test]
     fn test_proofs() {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(CIRCUIT_DIRECTORY)
+            .join(devnet_circuit_directory())
             .join("tests");
 
         if !base_dir.exists() {

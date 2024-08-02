@@ -10,8 +10,9 @@ use node::{
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         webrtc::{Host, HttpSignalingInfo, SignalingMethod},
-        P2pConnectionEvent, P2pEvent, P2pNetworkConnectionMuxState, P2pNetworkConnectionState,
-        P2pNetworkYamuxState, P2pPeerState, P2pPeerStatus, P2pState, PeerId,
+        ConnectionAddr, P2pConnectionEvent, P2pEvent, P2pNetworkConnectionMuxState,
+        P2pNetworkConnectionState, P2pNetworkYamuxState, P2pPeerState, P2pPeerStatus, P2pState,
+        PeerId,
     },
     State,
 };
@@ -90,7 +91,7 @@ pub fn connection_finalized_event(
     }
 }
 
-fn peer_has_addr(peer: &P2pPeerState, addr: SocketAddr) -> bool {
+fn peer_has_addr(peer: &P2pPeerState, addr: ConnectionAddr) -> bool {
     match (&peer.dial_opts, addr) {
         (
             Some(P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
@@ -98,7 +99,10 @@ fn peer_has_addr(peer: &P2pPeerState, addr: SocketAddr) -> bool {
                 port,
                 ..
             })),
-            SocketAddr::V4(addr),
+            ConnectionAddr {
+                sock_addr: SocketAddr::V4(addr),
+                ..
+            },
         ) => addr.ip() == host && addr.port() == *port,
         _ => false,
     }
@@ -120,7 +124,7 @@ pub fn as_event_mio_listener_ready(event: &Event) -> Option<&std::net::SocketAdd
     }
 }
 
-pub fn as_event_mio_error(event: &Event) -> Option<SocketAddr> {
+pub fn as_event_mio_error(event: &Event) -> Option<ConnectionAddr> {
     match event {
         Event::P2p(P2pEvent::MioEvent(MioEvent::ConnectionDidClose(addr, res))) if res.is_err() => {
             Some(*addr)
@@ -129,7 +133,7 @@ pub fn as_event_mio_error(event: &Event) -> Option<SocketAddr> {
     }
 }
 
-pub fn as_event_mio_data_send_receive(event: &Event) -> Option<SocketAddr> {
+pub fn as_event_mio_data_send_receive(event: &Event) -> Option<ConnectionAddr> {
     match event {
         Event::P2p(P2pEvent::MioEvent(
             MioEvent::IncomingDataDidReceive(addr, _) | MioEvent::OutgoingDataDidSend(addr, _),
@@ -138,7 +142,7 @@ pub fn as_event_mio_data_send_receive(event: &Event) -> Option<SocketAddr> {
     }
 }
 
-pub fn as_event_mio_connection_event(event: &Event) -> Option<SocketAddr> {
+pub fn as_event_mio_connection_event(event: &Event) -> Option<ConnectionAddr> {
     match event {
         Event::P2p(P2pEvent::MioEvent(
             MioEvent::IncomingDataDidReceive(addr, _)
@@ -151,7 +155,7 @@ pub fn as_event_mio_connection_event(event: &Event) -> Option<SocketAddr> {
 
 pub fn as_event_mio_outgoing_connection(
     event: &Event,
-) -> Option<(SocketAddr, &Result<(), String>)> {
+) -> Option<(ConnectionAddr, &Result<(), String>)> {
     match event {
         Event::P2p(P2pEvent::MioEvent(MioEvent::OutgoingConnectionDidConnect(addr, result))) => {
             Some((*addr, result))

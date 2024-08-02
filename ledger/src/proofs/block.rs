@@ -3,7 +3,7 @@ use std::{rc::Rc, sync::Arc};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
-use openmina_core::constants::{ForkConstants, CONSTRAINT_CONSTANTS};
+use openmina_core::constants::{constraint_constants, ForkConstants};
 
 use crate::{
     dummy,
@@ -550,16 +550,12 @@ mod vrf {
         checked_verify_merkle_path,
         proofs::{
             field::GroupAffine,
-            numbers::nat::{CheckedNat, CheckedSlot},
             transaction::{
                 decompress_var, field_to_bits, legacy_input::to_bits, scale_known,
                 scale_non_constant, InnerCurve,
             },
         },
-        scan_state::{
-            currency::{Amount, Balance},
-            transaction_logic::protocol_state::EpochLedger,
-        },
+        scan_state::currency::{Amount, Balance},
         sparse_ledger::SparseLedger,
         AccountIndex, Address,
     };
@@ -660,7 +656,7 @@ mod vrf {
 
             let staker_addr = message.delegator;
             let staker_addr =
-                Address::from_index(staker_addr, CONSTRAINT_CONSTANTS.ledger_depth as usize);
+                Address::from_index(staker_addr, constraint_constants().ledger_depth as usize);
 
             let account = ledger.get_exn(&staker_addr);
             let path = ledger.path_exn(staker_addr.clone());
@@ -724,7 +720,7 @@ mod vrf {
     ) {
         let (winner_addr, winner_addr_bits) = {
             const LEDGER_DEPTH: usize = 35;
-            assert_eq!(CONSTRAINT_CONSTANTS.ledger_depth, LEDGER_DEPTH as u64);
+            assert_eq!(constraint_constants().ledger_depth, LEDGER_DEPTH as u64);
 
             let account_index = prover_state.delegator.as_u64();
             let bits = w.exists(to_bits::<_, LEDGER_DEPTH>(account_index));
@@ -761,13 +757,13 @@ pub mod consensus {
         proofs::{
             numbers::{
                 currency::CheckedCurrency,
-                nat::{CheckedN, CheckedN32, CheckedNat, CheckedSlot, CheckedSlotSpan},
+                nat::{CheckedN, CheckedN32, CheckedSlotSpan},
             },
             transaction::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar},
         },
         scan_state::{
             currency::{Amount, Length},
-            transaction_logic::protocol_state::{EpochData, EpochLedger},
+            transaction_logic::protocol_state::EpochData,
         },
         Account,
     };
@@ -793,6 +789,8 @@ pub mod consensus {
     /// Number of millisecond per day
     const N_MILLIS_PER_DAY: u64 = 86400000;
 
+    // Keep this in sync with the implementation of ConsensusConstants::create
+    // in ledger/src/transaction_pool.rs
     fn create_constant_prime(
         prev_state: &v2::MinaStateProtocolStateValueStableV2,
         w: &mut Witness<Fp>,
@@ -806,7 +804,7 @@ pub mod consensus {
             genesis_state_timestamp,
         } = &prev_state.body.constants;
 
-        let constraint_constants = &CONSTRAINT_CONSTANTS;
+        let constraint_constants = constraint_constants();
 
         let of_u64 = |n: u64| CheckedN::<Fp>::from_field(n.into());
         let of_u32 = |n: u32| CheckedN::<Fp>::from_field(n.into());
@@ -1574,7 +1572,7 @@ fn block_main<'a>(
         );
         let is_base_case = CircuitVar::Var(is_genesis_state_var2(&t.body.consensus_state, w));
 
-        let previous_state_hash = match CONSTRAINT_CONSTANTS.fork.as_ref() {
+        let previous_state_hash = match constraint_constants().fork.as_ref() {
             Some(ForkConstants {
                 state_hash: fork_prev,
                 ..

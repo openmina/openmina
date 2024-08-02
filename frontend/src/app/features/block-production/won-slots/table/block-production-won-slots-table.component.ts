@@ -34,7 +34,8 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
     { name: 'height' },
     { name: 'global slot', sort: 'globalSlot' },
     { name: 'transactions', sort: 'transactionsTotal' },
-    { name: 'snark fees', sort: 'snarkFees' },
+    { name: 'SNARKs', sort: 'completedWorksCount' },
+    { name: 'SNARK fees', sort: 'snarkFees' },
     { name: 'coinbase reward', sort: 'coinbaseRewards' },
     { name: 'tx fees reward', sort: 'txFeesRewards' },
   ];
@@ -55,7 +56,7 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [210, 140, 110, 120, 120, 100, 150, 150];
+    this.table.gridTemplateColumns = [210, 140, 110, 120, 120, 120, 120, 150, 150];
     this.table.propertyForActiveCheck = 'globalSlot';
     this.table.thGroupsTemplate = this.thGroupsTemplate;
     this.table.sortAction = BlockProductionWonSlotsActions.sort;

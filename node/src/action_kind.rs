@@ -54,11 +54,14 @@ use crate::p2p::{P2pAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
+use crate::snark::user_command_verify::SnarkUserCommandVerifyAction;
+use crate::snark::user_command_verify_effectful::SnarkUserCommandVerifyEffectfulAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
+use crate::transaction_pool::{TransactionPoolAction, TransactionPoolEffectfulAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
@@ -101,6 +104,8 @@ pub enum ActionKind {
     BlockProducerWonSlotDiscard,
     BlockProducerWonSlotProduceInit,
     BlockProducerWonSlotSearch,
+    BlockProducerWonSlotTransactionsGet,
+    BlockProducerWonSlotTransactionsSuccess,
     BlockProducerWonSlotWait,
     BlockProducerVrfEvaluatorBeginDelegatorTableConstruction,
     BlockProducerVrfEvaluatorBeginEpochEvaluation,
@@ -343,6 +348,9 @@ pub enum ActionKind {
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
+    RpcLedgerAccountsGetInit,
+    RpcLedgerAccountsGetPending,
+    RpcLedgerAccountsGetSuccess,
     RpcMessageProgressGet,
     RpcP2pConnectionIncomingError,
     RpcP2pConnectionIncomingInit,
@@ -367,6 +375,12 @@ pub enum ActionKind {
     RpcSnarkerWorkersGet,
     RpcStatusGet,
     RpcSyncStatsGet,
+    RpcTransactionInjectFailure,
+    RpcTransactionInjectInit,
+    RpcTransactionInjectPending,
+    RpcTransactionInjectSuccess,
+    RpcTransactionPool,
+    RpcTransitionFrontierUserCommandsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
@@ -394,12 +408,29 @@ pub enum ActionKind {
     SnarkPoolCandidateWorkVerifyPending,
     SnarkPoolCandidateWorkVerifySuccess,
     SnarkPoolEffectfulSnarkPoolJobsRandomChoose,
+    SnarkUserCommandVerifyError,
+    SnarkUserCommandVerifyFinish,
+    SnarkUserCommandVerifyInit,
+    SnarkUserCommandVerifyPending,
+    SnarkUserCommandVerifySuccess,
+    SnarkUserCommandVerifyEffectfulInit,
     SnarkWorkVerifyError,
     SnarkWorkVerifyFinish,
     SnarkWorkVerifyInit,
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
     SnarkWorkVerifyEffectfulInit,
+    TransactionPoolApplyTransitionFrontierDiff,
+    TransactionPoolApplyTransitionFrontierDiffWithAccounts,
+    TransactionPoolApplyVerifiedDiff,
+    TransactionPoolApplyVerifiedDiffWithAccounts,
+    TransactionPoolBestTipChanged,
+    TransactionPoolBestTipChangedWithAccounts,
+    TransactionPoolCollectTransactionsByFee,
+    TransactionPoolRebroadcast,
+    TransactionPoolStartVerify,
+    TransactionPoolStartVerifyWithAccounts,
+    TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -488,7 +519,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 400;
+    pub const COUNT: u16 = 428;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -509,6 +540,8 @@ impl ActionKindGet for Action {
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
             Self::SnarkPoolEffect(a) => a.kind(),
+            Self::TransactionPool(a) => a.kind(),
+            Self::TransactionPoolEffect(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -565,6 +598,8 @@ impl ActionKindGet for SnarkAction {
             Self::BlockVerifyEffect(a) => a.kind(),
             Self::WorkVerify(a) => a.kind(),
             Self::WorkVerifyEffect(a) => a.kind(),
+            Self::UserCommandVerify(a) => a.kind(),
+            Self::UserCommandVerifyEffect(a) => a.kind(),
         }
     }
 }
@@ -626,6 +661,41 @@ impl ActionKindGet for SnarkPoolEffectfulAction {
     }
 }
 
+impl ActionKindGet for TransactionPoolAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::StartVerify { .. } => ActionKind::TransactionPoolStartVerify,
+            Self::StartVerifyWithAccounts { .. } => {
+                ActionKind::TransactionPoolStartVerifyWithAccounts
+            }
+            Self::BestTipChanged { .. } => ActionKind::TransactionPoolBestTipChanged,
+            Self::BestTipChangedWithAccounts { .. } => {
+                ActionKind::TransactionPoolBestTipChangedWithAccounts
+            }
+            Self::ApplyVerifiedDiff { .. } => ActionKind::TransactionPoolApplyVerifiedDiff,
+            Self::ApplyVerifiedDiffWithAccounts { .. } => {
+                ActionKind::TransactionPoolApplyVerifiedDiffWithAccounts
+            }
+            Self::ApplyTransitionFrontierDiff { .. } => {
+                ActionKind::TransactionPoolApplyTransitionFrontierDiff
+            }
+            Self::ApplyTransitionFrontierDiffWithAccounts { .. } => {
+                ActionKind::TransactionPoolApplyTransitionFrontierDiffWithAccounts
+            }
+            Self::Rebroadcast { .. } => ActionKind::TransactionPoolRebroadcast,
+            Self::CollectTransactionsByFee => ActionKind::TransactionPoolCollectTransactionsByFee,
+        }
+    }
+}
+
+impl ActionKindGet for TransactionPoolEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::FetchAccounts { .. } => ActionKind::TransactionPoolEffectfulFetchAccounts,
+        }
+    }
+}
+
 impl ActionKindGet for ExternalSnarkWorkerAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -655,6 +725,10 @@ impl ActionKindGet for BlockProducerAction {
             Self::WonSlot { .. } => ActionKind::BlockProducerWonSlot,
             Self::WonSlotDiscard { .. } => ActionKind::BlockProducerWonSlotDiscard,
             Self::WonSlotWait => ActionKind::BlockProducerWonSlotWait,
+            Self::WonSlotTransactionsGet => ActionKind::BlockProducerWonSlotTransactionsGet,
+            Self::WonSlotTransactionsSuccess { .. } => {
+                ActionKind::BlockProducerWonSlotTransactionsSuccess
+            }
             Self::WonSlotProduceInit => ActionKind::BlockProducerWonSlotProduceInit,
             Self::StagedLedgerDiffCreateInit => ActionKind::BlockProducerStagedLedgerDiffCreateInit,
             Self::StagedLedgerDiffCreatePending => {
@@ -719,6 +793,17 @@ impl ActionKindGet for RpcAction {
             Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
             Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
             Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcDiscoveryBoostrapStats,
+            Self::TransactionPool { .. } => ActionKind::RpcTransactionPool,
+            Self::LedgerAccountsGetInit { .. } => ActionKind::RpcLedgerAccountsGetInit,
+            Self::LedgerAccountsGetPending { .. } => ActionKind::RpcLedgerAccountsGetPending,
+            Self::LedgerAccountsGetSuccess { .. } => ActionKind::RpcLedgerAccountsGetSuccess,
+            Self::TransactionInjectInit { .. } => ActionKind::RpcTransactionInjectInit,
+            Self::TransactionInjectPending { .. } => ActionKind::RpcTransactionInjectPending,
+            Self::TransactionInjectSuccess { .. } => ActionKind::RpcTransactionInjectSuccess,
+            Self::TransactionInjectFailure { .. } => ActionKind::RpcTransactionInjectFailure,
+            Self::TransitionFrontierUserCommandsGet { .. } => {
+                ActionKind::RpcTransitionFrontierUserCommandsGet
+            }
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -898,6 +983,26 @@ impl ActionKindGet for SnarkWorkVerifyEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Init { .. } => ActionKind::SnarkWorkVerifyEffectfulInit,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkUserCommandVerifyAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkUserCommandVerifyInit,
+            Self::Pending { .. } => ActionKind::SnarkUserCommandVerifyPending,
+            Self::Error { .. } => ActionKind::SnarkUserCommandVerifyError,
+            Self::Success { .. } => ActionKind::SnarkUserCommandVerifySuccess,
+            Self::Finish { .. } => ActionKind::SnarkUserCommandVerifyFinish,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkUserCommandVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkUserCommandVerifyEffectfulInit,
         }
     }
 }

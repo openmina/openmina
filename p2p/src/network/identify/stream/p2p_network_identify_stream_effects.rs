@@ -6,7 +6,7 @@ use redux::ActionMeta;
 
 use super::{
     super::{pb, P2pNetworkIdentify},
-    P2pNetworkIdentifyStreamAction,
+    P2pNetworkIdentifyStreamAction, P2pNetworkIdentifyStreamState,
 };
 use crate::{
     identify::P2pIdentifyAction, network::identify::stream::P2pNetworkIdentifyStreamError, token,
@@ -44,10 +44,7 @@ impl P2pNetworkIdentifyStreamAction {
         Store::Service: P2pNetworkService,
         Store: crate::P2pStore<S>,
     {
-        use super::P2pNetworkIdentifyStreamState as S;
-        use P2pNetworkIdentifyStreamAction as A;
-
-        if let A::Prune { .. } = self {
+        if let P2pNetworkIdentifyStreamAction::Prune { .. } = self {
             return Ok(());
         }
 
@@ -61,13 +58,13 @@ impl P2pNetworkIdentifyStreamAction {
 
         //println!("IdentifyStreamAction effects state: {:?}", state);
         match self {
-            A::New {
+            P2pNetworkIdentifyStreamAction::New {
                 addr,
                 peer_id,
                 incoming: true,
                 stream_id,
             } => {
-                if let S::SendIdentify = state {
+                if let P2pNetworkIdentifyStreamState::SendIdentify = state {
                     let mut listen_addrs = Vec::new();
                     for addr in store
                         .state()
@@ -132,11 +129,14 @@ impl P2pNetworkIdentifyStreamAction {
                         crate::fuzzer::mutate_identify_msg
                     );
 
+                    let flags =
+                        fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
+
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr,
                         stream_id,
                         data,
-                        flags: Default::default(),
+                        flags,
                     });
 
                     store.dispatch(P2pNetworkIdentifyStreamAction::Close {
@@ -150,23 +150,24 @@ impl P2pNetworkIdentifyStreamAction {
                     unreachable!()
                 }
             }
-            A::New {
+            P2pNetworkIdentifyStreamAction::New {
                 incoming: false, ..
             } => {
-                if let S::RecvIdentify = state {
+                if let P2pNetworkIdentifyStreamState::RecvIdentify = state {
                     Ok(())
                 } else {
+                    println!("STATE: {:?}", state);
                     unreachable!()
                 }
             }
-            A::IncomingData {
+            P2pNetworkIdentifyStreamAction::IncomingData {
                 addr,
                 peer_id,
                 stream_id,
                 ..
             } => match state {
-                S::IncomingPartialData { .. } => Ok(()),
-                S::IdentifyReceived { data } => {
+                P2pNetworkIdentifyStreamState::IncomingPartialData { .. } => Ok(()),
+                P2pNetworkIdentifyStreamState::IdentifyReceived { data } => {
                     store.dispatch(P2pIdentifyAction::UpdatePeerInformation {
                         peer_id,
                         info: data.clone(),
@@ -178,7 +179,7 @@ impl P2pNetworkIdentifyStreamAction {
                     });
                     Ok(())
                 }
-                S::Error(err) => {
+                P2pNetworkIdentifyStreamState::Error(err) => {
                     warn!(meta.time(); summary = "error handling Identify action", error = display(err));
                     let error = P2pNetworkIdentifyStreamError::from(err.clone()).into();
 
@@ -187,16 +188,16 @@ impl P2pNetworkIdentifyStreamAction {
                 }
                 _ => unimplemented!(),
             },
-            A::Close {
+            P2pNetworkIdentifyStreamAction::Close {
                 addr,
                 peer_id,
                 stream_id,
             } => {
                 match state {
-                    S::RecvIdentify
-                    | S::IncomingPartialData { .. }
-                    | S::IdentifyReceived { .. }
-                    | S::SendIdentify => {
+                    P2pNetworkIdentifyStreamState::RecvIdentify
+                    | P2pNetworkIdentifyStreamState::IncomingPartialData { .. }
+                    | P2pNetworkIdentifyStreamState::IdentifyReceived { .. }
+                    | P2pNetworkIdentifyStreamState::SendIdentify => {
                         // send FIN to the network
                         store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                             addr,
@@ -204,7 +205,7 @@ impl P2pNetworkIdentifyStreamAction {
                             data: Data(Box::new([])),
                             flags: YamuxFlags::FIN,
                         });
-                        store.dispatch(A::Prune {
+                        store.dispatch(P2pNetworkIdentifyStreamAction::Prune {
                             addr,
                             peer_id,
                             stream_id,
@@ -214,15 +215,15 @@ impl P2pNetworkIdentifyStreamAction {
                     _ => Err(format!("incorrect state {state:?} for action {self:?}")),
                 }
             }
-            A::RemoteClose {
+            P2pNetworkIdentifyStreamAction::RemoteClose {
                 addr,
                 peer_id,
                 stream_id,
             } => {
                 match state {
-                    S::RecvIdentify
-                    | S::IncomingPartialData { .. }
-                    | S::IdentifyReceived { .. } => {
+                    P2pNetworkIdentifyStreamState::RecvIdentify
+                    | P2pNetworkIdentifyStreamState::IncomingPartialData { .. }
+                    | P2pNetworkIdentifyStreamState::IdentifyReceived { .. } => {
                         // send FIN to the network
                         store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                             addr,
@@ -230,15 +231,15 @@ impl P2pNetworkIdentifyStreamAction {
                             data: Data(Box::new([])),
                             flags: YamuxFlags::FIN,
                         });
-                        store.dispatch(A::Prune {
+                        store.dispatch(P2pNetworkIdentifyStreamAction::Prune {
                             addr,
                             peer_id,
                             stream_id,
                         });
                         Ok(())
                     }
-                    S::SendIdentify => {
-                        store.dispatch(A::Prune {
+                    P2pNetworkIdentifyStreamState::SendIdentify => {
+                        store.dispatch(P2pNetworkIdentifyStreamAction::Prune {
                             addr,
                             peer_id,
                             stream_id,
@@ -248,7 +249,7 @@ impl P2pNetworkIdentifyStreamAction {
                     _ => Err(format!("incorrect state {state:?} for action {self:?}")),
                 }
             }
-            A::Prune { .. } => unreachable!(), // handled before match
+            P2pNetworkIdentifyStreamAction::Prune { .. } => unreachable!(), // handled before match
         }
     }
 }

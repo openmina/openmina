@@ -1,0 +1,16 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="secondary">
+    <mina-copy [value]="row.publicKey" [display]="row.publicKey | truncateMid: 15"></mina-copy>
+  </span>
+  <span>{{ row.minaTokens | number:'1.0-3':'fr' }}</span>
+  <span class="secondary">{{ row.nonce }}</span>
+  <span class="secondary">{{ row.lastTxTime || '-' }}</span>
+  <span>{{ row.lastTxMemo || '-' | truncateMid }}</span>
+  <span [tooltip]="row.errorReason">
+    <span class="status f-600 text-capitalize"
+          [ngClass]="row.lastTxStatus">{{ row.lastTxStatus || '-' }}</span>
+  </span>
+  <span>{{ row.successTx }} success, {{ row.failedTx }} failed</span>
+</ng-template>

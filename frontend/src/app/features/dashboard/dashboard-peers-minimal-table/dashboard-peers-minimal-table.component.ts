@@ -19,7 +19,7 @@ export class DashboardPeersMinimalTableComponent extends MinaTableRustWrapper<Da
   protected readonly tableHeads: TableColumnList<DashboardPeer> = [
     { name: 'peer', sort: 'status' },
     { name: 'datetime', sort: 'timestamp' },
-    { name: 'requests' },
+    { name: 'best tip', sort: 'height' },
   ];
 
   override async ngOnInit(): Promise<void> {

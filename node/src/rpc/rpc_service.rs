@@ -6,11 +6,13 @@ use crate::State;
 
 use super::{
     RpcActionStatsGetResponse, RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
-    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse,
-    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
-    RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
-    RpcStatusGetResponse, RpcSyncStatsGetResponse,
+    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcId, RpcLedgerAccountsResponse,
+    RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
+    RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
+    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
+    RpcTransactionInjectFailure, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcTransitionFrontierUserCommandsResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -142,5 +144,30 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcReadinessCheckResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_transaction_pool(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcTransactionPoolResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_ledger_accounts(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcLedgerAccountsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_transaction_inject(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcTransactionInjectResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_transaction_inject_failed(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcTransactionInjectFailure,
+    ) -> Result<(), RespondError>;
+    fn respond_transition_frontier_commands(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcTransitionFrontierUserCommandsResponse,
     ) -> Result<(), RespondError>;
 }

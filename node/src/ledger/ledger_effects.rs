@@ -45,6 +45,7 @@ pub fn ledger_effects<S: LedgerService>(store: &mut Store<S>, action: LedgerActi
             LedgerReadAction::Pending { .. } => {}
             LedgerReadAction::Success { id, response } => {
                 propagate_read_response(store, id, response);
+                store.dispatch(LedgerReadAction::Prune { id });
             }
             LedgerReadAction::Prune { .. } => {}
         },
@@ -121,7 +122,7 @@ fn propagate_write_response<S: redux::Service>(
                     Err(err) => todo!("handle staged ledger diff creation err: {err}"),
                     Ok(output) => {
                         store.dispatch(BlockProducerAction::StagedLedgerDiffCreateSuccess {
-                            output: *output,
+                            output,
                         });
                     }
                 }
@@ -251,6 +252,24 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
             return;
         }
     }
+
+    let ledger_account_rpc = store
+        .state()
+        .rpc
+        .accounts_request_rpc_ids()
+        .filter(|(.., status)| status.is_init())
+        .map(|(id, req, _)| (id, req))
+        .collect::<Vec<_>>();
+
+    for (rpc_id, req) in ledger_account_rpc {
+        store.dispatch(RpcAction::LedgerAccountsGetInit {
+            rpc_id,
+            public_key: req,
+        });
+        if !store.state().ledger.read.is_total_cost_under_limit() {
+            return;
+        }
+    }
 }
 
 fn find_peers_with_ledger_rpc(
@@ -341,12 +360,12 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.as_ref().map(|(num_accounts, hash)| {
-                        P2pRpcResponse::LedgerQuery(
+                        Box::new(P2pRpcResponse::LedgerQuery(
                             v2::MinaLedgerSyncLedgerAnswerStableV2::NumAccounts(
                                 (*num_accounts).into(),
                                 hash.clone(),
                             ),
-                        )
+                        ))
                     }),
                 });
             }
@@ -357,12 +376,12 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.as_ref().map(|(left, right)| {
-                        P2pRpcResponse::LedgerQuery(
+                        Box::new(P2pRpcResponse::LedgerQuery(
                             v2::MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(
                                 left.clone(),
                                 right.clone(),
                             ),
-                        )
+                        ))
                     }),
                 });
             }
@@ -373,11 +392,11 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.as_ref().map(|accounts| {
-                        P2pRpcResponse::LedgerQuery(
+                        Box::new(P2pRpcResponse::LedgerQuery(
                             v2::MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(
                                 accounts.iter().cloned().collect(),
                             ),
-                        )
+                        ))
                     }),
                 });
             }
@@ -388,7 +407,9 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.clone().map(|data| {
-                        P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(data)
+                        Box::new(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                            data,
+                        ))
                     }),
                 });
             }
@@ -412,5 +433,9 @@ fn propagate_read_response<S: redux::Service>(
             }
         }
         (_, LedgerReadResponse::ScanStateSummary(..)) => unreachable!(),
+        (_req, LedgerReadResponse::GetAccounts(_)) => todo!(),
+        (_, LedgerReadResponse::AccountsForRpc(rpc_id, accounts)) => {
+            store.dispatch(RpcAction::LedgerAccountsGetSuccess { rpc_id, accounts });
+        }
     }
 }

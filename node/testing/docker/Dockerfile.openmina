@@ -1,4 +1,4 @@
-FROM ubuntu:20.04 as builder
+FROM ubuntu:20.04 AS builder
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -9,7 +9,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
-RUN source ~/.cargo/env &&  rustup update 1.77
+RUN source ~/.cargo/env && rustup update 1.79
 
 RUN git clone https://github.com/openmina/openmina
 

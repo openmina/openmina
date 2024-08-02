@@ -67,7 +67,7 @@ describe('BLOCK PRODUCTION WON SLOTS FILTERS', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.success-primary')
+          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div:nth-child(2)')
             .then((div: any) => expect(div.text().trim()).equals(
               `${state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Canonical).length} Produced`,
             ));
@@ -81,7 +81,7 @@ describe('BLOCK PRODUCTION WON SLOTS FILTERS', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.aware-primary')
+          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div:nth-child(3)')
             .then((div: any) => expect(div.text().trim()).equals(
               `${state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Discarded || s.status === BlockProductionWonSlotsStatus.Orphaned).length} Dropped`,
             ));
@@ -95,7 +95,7 @@ describe('BLOCK PRODUCTION WON SLOTS FILTERS', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.bg-container')
+          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div:nth-child(4)')
             .then((div: any) => expect(div.text().trim()).equals(
               `${state.slots.filter(s => !s.status || s.status === BlockProductionWonSlotsStatus.Scheduled).length} Upcoming`,
             ));
@@ -109,16 +109,23 @@ describe('BLOCK PRODUCTION WON SLOTS FILTERS', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.aware-primary')
-            .click()
-            .get('mina-block-production-won-slots-filters .overflow-hidden > div.bg-container.primary')
-            .click()
+          if (hasDropped(state)) {
+            cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.aware-primary', { timeout: 500 })
+              .click();
+          }
+          if (hasUpcoming(state)) {
+            cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.bg-container.primary', { timeout: 500 })
+              .click();
+          }
+          cy
+            .wait(1000)
             .window()
             .its('store')
             .then(getBPWonSlots)
             .then((state: BlockProductionWonSlotsState) => {
               const producing = state.slots.filter(s => s.active || s.status === BlockProductionWonSlotsStatus.Committed).length;
-              expect(state.filteredSlots.length).equals(state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Canonical).length + producing);
+              const scheduled = state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Scheduled).length;
+              expect(state.filteredSlots.length).equals(state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Canonical).length + producing + scheduled);
             });
         }
       });
@@ -130,16 +137,23 @@ describe('BLOCK PRODUCTION WON SLOTS FILTERS', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.success-primary')
-            .click()
-            .get('mina-block-production-won-slots-filters .overflow-hidden > div.bg-container.primary')
-            .click()
+          if (hasCanonical(state)) {
+            cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.success-primary')
+              .click();
+          }
+          if (hasUpcoming(state)) {
+            cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.bg-container.primary')
+              .click();
+          }
+          cy
+            .wait(1000)
             .window()
             .its('store')
             .then(getBPWonSlots)
             .then((state: BlockProductionWonSlotsState) => {
               const producing = state.slots.filter(s => s.active || s.status === BlockProductionWonSlotsStatus.Committed).length;
-              expect(state.filteredSlots.length).equals(state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Orphaned || s.status === BlockProductionWonSlotsStatus.Discarded).length + producing);
+              const scheduled = state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Scheduled).length;
+              expect(state.filteredSlots.length).equals(state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Orphaned || s.status === BlockProductionWonSlotsStatus.Discarded).length + producing + scheduled);
             });
         }
       });
@@ -151,19 +165,38 @@ describe('BLOCK PRODUCTION WON SLOTS FILTERS', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.success-primary')
-            .click()
-            .get('mina-block-production-won-slots-filters .overflow-hidden > div.aware-primary')
-            .click()
+          if (hasCanonical(state)) {
+            cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.success-primary')
+              .click();
+          }
+          if (hasDropped(state)) {
+            cy.get('mina-block-production-won-slots-filters .overflow-hidden > div.aware-primary')
+              .click();
+          }
+          cy
+            .wait(1000)
             .window()
             .its('store')
             .then(getBPWonSlots)
             .then((state: BlockProductionWonSlotsState) => {
               const producing = state.slots.filter(s => s.active || s.status === BlockProductionWonSlotsStatus.Committed).length;
-              expect(state.filteredSlots.length).equals(state.slots.filter(s => !s.status || s.status === BlockProductionWonSlotsStatus.Scheduled).length + producing);
+              const scheduled = state.slots.filter(s => s.status === BlockProductionWonSlotsStatus.Scheduled).length;
+              expect(state.filteredSlots.length).equals(state.slots.filter(s => !s.status).length + producing + scheduled);
             });
         }
       });
   }));
 });
 
+
+function hasCanonical(state: BlockProductionWonSlotsState): boolean {
+  return state.slots.some(s => s.status === BlockProductionWonSlotsStatus.Canonical);
+}
+
+function hasDropped(state: BlockProductionWonSlotsState): boolean {
+  return state.slots.some(s => s.status === BlockProductionWonSlotsStatus.Discarded || s.status === BlockProductionWonSlotsStatus.Orphaned);
+}
+
+function hasUpcoming(state: BlockProductionWonSlotsState): boolean {
+  return state.slots.some(s => !s.status);
+}

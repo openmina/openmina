@@ -87,7 +87,7 @@ describe('NETWORK BLOCKS TABLE', () => {
       .then(networkBlocksState)
       .then((state: NetworkBlocksState) => {
         if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'date', Sort.ASC);
+          checkSorting(state.filteredBlocks, 'date', Sort.DSC);
         }
       });
   });
@@ -105,7 +105,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'date', Sort.DSC);
+                checkSorting(state.filteredBlocks, 'date', Sort.ASC);
               }
             });
         }
@@ -125,7 +125,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'hash', Sort.ASC);
+                checkSorting(state.filteredBlocks, 'hash', Sort.DSC);
               }
             });
         }
@@ -145,7 +145,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'height', Sort.ASC);
+                checkSorting(state.filteredBlocks, 'height', Sort.DSC);
               }
             });
         }
@@ -165,7 +165,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'sender', Sort.ASC);
+                checkSorting(state.filteredBlocks, 'sender', Sort.DSC);
               }
             });
         }
@@ -185,7 +185,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'receiver', Sort.ASC);
+                checkSorting(state.filteredBlocks, 'receiver', Sort.DSC);
               }
             });
         }
@@ -205,7 +205,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'receivedLatency', Sort.ASC);
+                checkSorting(state.filteredBlocks, 'receivedLatency', Sort.DSC);
               }
             });
         }
@@ -225,7 +225,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'sentLatency', Sort.ASC);
+                checkSorting(state.filteredBlocks, 'sentLatency', Sort.DSC);
               }
             });
         }
@@ -245,7 +245,7 @@ describe('NETWORK BLOCKS TABLE', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (condition(state)) {
-                checkSorting(state.filteredBlocks, 'messageKind', Sort.ASC);
+                checkSorting(state.filteredBlocks, 'messageKind', Sort.DSC);
               }
             });
         }

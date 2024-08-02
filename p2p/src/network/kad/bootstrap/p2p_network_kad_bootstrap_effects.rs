@@ -19,9 +19,8 @@ impl P2pNetworkKadBootstrapAction {
             .bootstrap_state()
             .ok_or_else(|| format!("action {self:?} is not allowed if not bootstrapping"))?;
 
-        use P2pNetworkKadBootstrapAction as A;
         match self {
-            A::CreateRequests => {
+            P2pNetworkKadBootstrapAction::CreateRequests => {
                 if bootstrap_state.requests.is_empty() {
                     // no request is added, and none is in progress -> bootstrap is done.
                     store.dispatch(P2pNetworkKademliaAction::BootstrapFinished {});
@@ -43,14 +42,14 @@ impl P2pNetworkKadBootstrapAction {
                 }
                 Ok(())
             }
-            A::RequestDone { .. } => {
+            P2pNetworkKadBootstrapAction::RequestDone { .. } => {
                 if bootstrap_state.successful_requests < 20 {
-                    store.dispatch(A::CreateRequests);
+                    store.dispatch(P2pNetworkKadBootstrapAction::CreateRequests);
                 }
                 Ok(())
             }
-            A::RequestError { .. } => {
-                store.dispatch(A::CreateRequests);
+            P2pNetworkKadBootstrapAction::RequestError { .. } => {
+                store.dispatch(P2pNetworkKadBootstrapAction::CreateRequests);
                 Ok(())
             }
         }

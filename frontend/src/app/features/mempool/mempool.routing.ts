@@ -6,6 +6,12 @@ const routes: Routes = [
   {
     path: '',
     component: MempoolComponent,
+    children: [
+      {
+        path: ':id',
+        component: MempoolComponent,
+      },
+    ],
   },
   {
     path: '**',

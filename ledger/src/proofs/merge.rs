@@ -97,6 +97,58 @@ pub fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<F
     PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
+impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags> for crate::proofs::step::FeatureFlags::<bool> {
+    fn from(value: &v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags) -> Self {
+        let v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags {
+            range_check0,
+            range_check1,
+            foreign_field_add,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables,
+        } = value;
+
+        Self {
+            range_check0: *range_check0,
+            range_check1: *range_check1,
+            foreign_field_add: *foreign_field_add,
+            foreign_field_mul: *foreign_field_mul,
+            xor: *xor,
+            rot: *rot,
+            lookup: *lookup,
+            runtime_tables: *runtime_tables,
+        }
+    }
+}
+
+impl From<&crate::proofs::step::FeatureFlags::<bool>> for v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags {
+    fn from(value: &crate::proofs::step::FeatureFlags::<bool>) -> Self {
+        let crate::proofs::step::FeatureFlags::<bool> {
+            range_check0,
+            range_check1,
+            foreign_field_add,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables,
+        } = value;
+
+        Self {
+            range_check0: *range_check0,
+            range_check1: *range_check1,
+            foreign_field_add: *foreign_field_add,
+            foreign_field_mul: *foreign_field_mul,
+            xor: *xor,
+            rot: *rot,
+            lookup: *lookup,
+            runtime_tables: *runtime_tables,
+        }
+    }
+}
+
 impl<F: FieldWitness>
     From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk>
     for PlonkMinimal<F>
@@ -110,7 +162,7 @@ impl<F: FieldWitness>
             gamma,
             zeta,
             joint_combiner,
-            feature_flags: _, // TODO: Handle features flags
+            feature_flags,
         } = value;
 
         let to_bytes = |v: &v2::LimbVectorConstantHex64StableV1| v.as_u64();
@@ -120,18 +172,22 @@ impl<F: FieldWitness>
         let gamma_bytes = gamma.each_ref().map(to_bytes);
         let zeta_bytes = zeta.inner.each_ref().map(to_bytes);
 
-        assert!(joint_combiner.is_none());
-
         PlonkMinimal::<F, 2> {
             alpha: u64_to_field(&alpha_bytes),
             beta: u64_to_field(&beta_bytes),
             gamma: u64_to_field(&gamma_bytes),
             zeta: u64_to_field(&zeta_bytes),
-            joint_combiner: None,
+            joint_combiner: joint_combiner
+                .as_ref()
+                .map(|f| u64_to_field(&f.inner.each_ref().map(to_bytes))),
             alpha_bytes,
             beta_bytes,
             gamma_bytes,
             zeta_bytes,
+            joint_combiner_bytes: joint_combiner
+                .as_ref()
+                .map(|f| f.inner.each_ref().map(to_bytes)),
+            feature_flags: feature_flags.into(),
         }
     }
 }
@@ -175,11 +231,10 @@ pub(super) fn generate_merge_proof(
 
     let (s1, s2) = merge_main(&statement_with_sok, proofs, w);
 
-    let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] = {
+    let [p1, p2]: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] = {
         let [p1, p2] = proofs;
         [&p1.0.proof, &p2.0.proof]
     };
-    let [p1, p2] = proofs;
 
     let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[p1, p2]);
 

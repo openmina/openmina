@@ -360,7 +360,9 @@ impl CallForestInterface for SnarkCallForest {
         let auth = &account_update.authorization;
         let account_update = w.exists(&account_update.body);
         let account_update = {
-            let hash = account_update.checked_hash_with_param(AccountUpdate::HASH_PARAM, w);
+            let account_update_hash_param =
+                openmina_core::NetworkConfig::global().account_update_hash_param;
+            let hash = account_update.checked_hash_with_param(account_update_hash_param, w);
             WithHash {
                 data: account_update.clone(),
                 hash,

@@ -66,6 +66,10 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::Consensus(_) => {
             // Handled by reducer
         }
+        Action::TransactionPool(_action) => {}
+        Action::TransactionPoolEffect(action) => {
+            action.effects(store);
+        }
         Action::TransitionFrontier(action) => {
             transition_frontier_effects(store, meta.with_action(action));
         }
@@ -117,7 +121,7 @@ fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: 
         store.dispatch(P2pChannelsRpcAction::RequestSend {
             peer_id,
             id,
-            request: P2pRpcRequest::BestTipWithProof,
+            request: Box::new(P2pRpcRequest::BestTipWithProof),
         });
     }
 }

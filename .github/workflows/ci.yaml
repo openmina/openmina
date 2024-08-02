@@ -6,6 +6,10 @@ on:
     paths-ignore: [ "frontend" ]
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -13,8 +17,6 @@ concurrency:
 jobs:
   ledger-tests:
     runs-on: ubuntu-20.04
-    env:
-      CARGO_TERM_COLOR: always
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -53,7 +55,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -79,7 +81,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -97,32 +99,32 @@ jobs:
           name: bin
           path: target/release/openmina
 
-  build_wasm:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
-
-      - name: Setup build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
-
-      - name: Setup Rust
-        run: |
-          rustup default 1.77
-          rustup component add rustfmt
-          rustup target add wasm32-unknown-unknown
-
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "v0"
-
-      # for now build just p2p as the rest can't yet be compiled to wasm.
-      - name: Release build
-        run: |
-          cargo build --release -p node --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
+# FIXME: re-enable once it works again https://github.com/openmina/openmina/issues/580
+#  build_wasm:
+#    runs-on: ubuntu-20.04
+#    steps:
+#      - name: Git checkout
+#        uses: actions/checkout@v4
+#
+#      - name: Setup build dependencies
+#        run: |
+#          sudo apt update
+#          sudo apt install -y protobuf-compiler
+#
+#      - name: Setup Rust
+#        run: |
+#          rustup default 1.79
+#          rustup component add rustfmt
+#          rustup target add wasm32-unknown-unknown
+#
+#      - name: Setup Rust Cache
+#        uses: Swatinem/rust-cache@v2
+#        with:
+#          prefix-key: "v0"
+#
+#      - name: Release build
+#        run: |
+#          cargo build --release -p openmina-node-common --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
 
   build-tests:
     runs-on: ubuntu-20.04
@@ -137,7 +139,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -174,7 +176,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -202,10 +204,25 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+      options: --volume debugger_data:/tmp/db
+    env:
+      BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
       matrix:
         test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub]
       fail-fast: false
+
+    services:
+      network-debugger:
+        image: openmina/mina-network-debugger:23385c61
+        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+        env:
+          SERVER_PORT: 80
+          FIREWALL_INTERFACE: lo
+          RUST_LOG: info
+          DB_PATH: /tmp/db
+        ports:
+          - 80:80
 
     steps:
       - name: Download tests
@@ -217,9 +234,21 @@ jobs:
         run: |
           chmod +x ./${{ matrix.test }}
 
+      # TODO: use curl
+      - name: Wait for the debugger
+        run: |
+          sleep 5
+
       - name: Run the test
         run: |
           ./${{ matrix.test }} --test-threads=1
+
+      - name: Archive network debugger database
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-debugger-${{ matrix.test }}
+          path: /tmp/db
+        if: ${{ always() }}
 
   k8s-peers:
     runs-on: ubuntu-20.04
@@ -255,6 +284,7 @@ jobs:
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+      options: --volume debugger_data:/tmp/db
     env:
       # to allow local addrs discovery
       OPENMINA_DISCOVERY_FILTER_ADDR: false
@@ -262,6 +292,7 @@ jobs:
       # TODO: remove when replayer supports identify
       KEEP_CONNECTION_WITH_UNKNOWN_STREAM: true
       OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
+      BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
       matrix:
         test:
@@ -271,6 +302,18 @@ jobs:
           # - webrtc_multi_node
           # - connection_discovery
       fail-fast: false
+
+    services:
+      network-debugger:
+        image: openmina/mina-network-debugger:23385c61
+        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+        env:
+          SERVER_PORT: 80
+          FIREWALL_INTERFACE: lo
+          RUST_LOG: info
+          DB_PATH: /tmp/db
+        ports:
+          - 80:80
 
     steps:
       - name: Download tests
@@ -283,9 +326,21 @@ jobs:
         run: |
           chmod +x ./${{ matrix.test }}
 
+      # TODO: use curl
+      - name: Wait for the debugger
+        run: |
+          sleep 5
+
       - name: Run the test
         run: |
           ./${{ matrix.test }} --test-threads=1
+
+      - name: Archive network debugger database
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-debugger-${{ matrix.test }}
+          path: /tmp/db
+        if: ${{ always() }}
 
   record-replay-tests:
     needs:
@@ -327,6 +382,20 @@ jobs:
       PEERS_LIST: ${{ needs.k8s-peers.outputs.peers }}
       PEER_LIST_FILE: peer-list.txt
       WORK_DIR: data
+      BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
+
+    services:
+      network-debugger:
+        image: openmina/mina-network-debugger:23385c61
+        options: --privileged --init --volume /tmp/db:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+        env:
+          SERVER_PORT: 80
+          FIREWALL_INTERFACE: lo
+          RUST_LOG: info
+          DB_PATH: /tmp/db
+        ports:
+          - 80:80
+
     steps:
       - name: Download binary
         uses: actions/download-artifact@v4
@@ -343,6 +412,11 @@ jobs:
         run: |
           chmod +x bootstrap openmina
 
+      # TODO: use curl
+      - name: Wait for the debugger
+        run: |
+          sleep 5
+
       - name: Peer List File
         run: |
           for PEER in $PEERS_LIST; do echo $PEER; done > $PEER_LIST_FILE
@@ -350,13 +424,13 @@ jobs:
 
       - name: Bootstrap node
         env:
-          OPENMINA_COMMAND: ./openmina
+          OPENMINA_COMMAND: openmina
           NO_PEER_DISCOVERY: "true"
           OUT_PATH: ${{ env.WORK_DIR }}/logs/bootstrap_output
           RECORD: state-with-input-actions
         run: |
           mkdir -p $OUT_PATH
-          OPENMINA_COMMAND=./openmina NO_PEER_DISCOVERY=true ./bootstrap --nocapture || {
+          PATH=$PATH:$(pwd) OPENMINA_COMMAND=openmina NO_PEER_DISCOVERY=true ./bootstrap --nocapture || {
             echo "::group::Stderr"
             cat $OUT_PATH.stderr
             echo "::endgroup::"
@@ -376,3 +450,10 @@ jobs:
           name: bootstrap-record
           path: ${{ env.WORK_DIR }}/recorder/*
         if: ${{ failure() }}
+
+      - name: Archive network debugger database
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-debugger-test-bootstrap
+          path: /tmp/db
+        if: ${{ always() }}

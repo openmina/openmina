@@ -36,7 +36,7 @@ use crate::{
             local_state::{
                 LocalState, LocalStateEnv, LocalStateSkeleton, StackFrame, StackFrameChecked,
             },
-            protocol_state::{protocol_state_body_view, GlobalState, GlobalStateSkeleton},
+            protocol_state::{protocol_state_body_view, GlobalStateSkeleton},
             zkapp_command::{
                 AccountUpdate, CallForest, Control, WithHash, ZkAppCommand,
                 ACCOUNT_UPDATE_CONS_HASH_PARAM,
@@ -61,7 +61,7 @@ use super::{
         WrapZkappProvedProof,
     },
     field::GroupAffine,
-    gates::CIRCUIT_DIRECTORY,
+    gates::devnet_circuit_directory,
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedSlot},
@@ -88,9 +88,8 @@ pub struct ZkappParams<'a> {
     pub proved_path: Option<&'a str>,
 }
 
-mod group {
+pub mod group {
     use super::*;
-    use crate::scan_state::transaction_logic::zkapp_command::{AccountUpdate, Control};
 
     #[derive(Debug)]
     pub enum SegmentBasic {
@@ -120,26 +119,31 @@ mod group {
     }
 
     #[derive(Debug)]
-    pub struct State {
-        pub global: GlobalState<SparseLedger>,
-        pub local: LocalStateEnv<SparseLedger>,
+    pub struct State<GlobalState, LocalState> {
+        pub global: GlobalState,
+        pub local: LocalState,
     }
 
     #[derive(Debug)]
-    pub struct ZkappCommandIntermediateState {
+    pub struct ZkappCommandIntermediateState<GlobalState, LocalState, ConnectingLedgerHash> {
         pub kind: Kind,
         pub spec: SegmentBasic,
-        pub state_before: State,
-        pub state_after: State,
-        pub connecting_ledger: Fp,
+        pub state_before: State<GlobalState, LocalState>,
+        pub state_after: State<GlobalState, LocalState>,
+        pub connecting_ledger: ConnectingLedgerHash,
     }
 
-    fn intermediate_state(
+    fn intermediate_state<GlobalState, LocalState, ConnectingLedgerHash>(
         kind: Kind,
         spec: SegmentBasic,
-        before: &(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>, Fp),
-        after: &(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>, Fp),
-    ) -> ZkappCommandIntermediateState {
+        before: &(GlobalState, LocalState, ConnectingLedgerHash),
+        after: &(GlobalState, LocalState, ConnectingLedgerHash),
+    ) -> ZkappCommandIntermediateState<GlobalState, LocalState, ConnectingLedgerHash>
+    where
+        GlobalState: Clone,
+        LocalState: Clone,
+        ConnectingLedgerHash: Clone,
+    {
         let (global_before, local_before, _) = before;
         let (global_after, local_after, connecting_ledger) = after;
         ZkappCommandIntermediateState {
@@ -153,22 +157,32 @@ mod group {
                 global: global_after.clone(),
                 local: local_after.clone(),
             },
-            connecting_ledger: *connecting_ledger,
+            connecting_ledger: connecting_ledger.clone(),
         }
     }
 
     // Note: Unlike OCaml, the returned value (the list) is not reversed, but we keep the same method name
-    pub fn group_by_zkapp_command_rev(
-        zkapp_command: Vec<&ZkAppCommand>,
-        stmtss: Vec<Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>, Fp)>>,
-    ) -> Vec<ZkappCommandIntermediateState> {
-        let mut zkapp_account_updatess = zkapp_command
-            .iter()
-            .map(|zkapp_command| zkapp_command.all_account_updates_list())
-            .collect::<Vec<_>>();
-        zkapp_account_updatess.insert(0, vec![]);
+    pub fn group_by_zkapp_command_rev<'a, I, GlobalState, LocalState, ConnectingLedgerHash>(
+        zkapp_command: I,
+        stmtss: Vec<Vec<(GlobalState, LocalState, ConnectingLedgerHash)>>,
+    ) -> Vec<ZkappCommandIntermediateState<GlobalState, LocalState, ConnectingLedgerHash>>
+    where
+        I: IntoIterator<Item = &'a ZkAppCommand>,
+        GlobalState: Clone,
+        LocalState: Clone,
+        ConnectingLedgerHash: Clone,
+    {
+        let all_account_updates_list = zkapp_command
+            .into_iter()
+            .map(|zkapp_command| zkapp_command.all_account_updates_list());
 
-        let mut acc = Vec::<ZkappCommandIntermediateState>::with_capacity(32);
+        let zkapp_account_updatess = std::iter::once(vec![])
+            .chain(all_account_updates_list)
+            .collect::<Vec<_>>();
+
+        let mut acc = Vec::<
+            ZkappCommandIntermediateState<GlobalState, LocalState, ConnectingLedgerHash>,
+        >::with_capacity(32);
 
         // Convert to slices, to allow matching below
         let zkapp_account_updatess = zkapp_account_updatess
@@ -178,11 +192,16 @@ mod group {
         let stmtss = stmtss.iter().map(|v| v.as_slice()).collect::<Vec<_>>();
 
         #[rustfmt::skip]
-        fn group_by_zkapp_command_rev_impl(
+        fn group_by_zkapp_command_rev_impl<G, L, C>(
             zkapp_commands: &[&[AccountUpdate]],
-            stmtss: &[&[(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>, Fp)]],
-            acc: &mut Vec<ZkappCommandIntermediateState>,
-        ) {
+            stmtss: &[&[(G, L, C)]],
+            acc: &mut Vec<ZkappCommandIntermediateState<G, L, C>>,
+        )
+        where
+            G: Clone,
+            L: Clone,
+            C: Clone,
+        {
             use Kind::{New, Same, TwoNew};
             use Control::{Proof, Signature, NoneGiven};
 
@@ -509,10 +528,7 @@ pub fn zkapp_command_witnesses_exn(
 
     states.insert(0, vec![states[0][0].clone()]);
     let states = group::group_by_zkapp_command_rev(
-        zkapp_commands_with_context
-            .iter()
-            .map(|v| v.zkapp_command)
-            .collect(),
+        zkapp_commands_with_context.iter().map(|v| v.zkapp_command),
         states,
     );
 
@@ -904,7 +920,7 @@ fn basic_spec(s: &SegmentBasic) -> Box<[Spec]> {
 fn read_witnesses<F: FieldWitness>(path: &str) -> Vec<F> {
     let f = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(CIRCUIT_DIRECTORY)
+            .join(devnet_circuit_directory())
             .join("witnesses")
             .join(path),
         // .join("zkapp_fps.txt"),
@@ -1464,17 +1480,13 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                                     zeta: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
                                         inner: to_padded(plonk.zeta),
                                     },
-                                    joint_combiner: None,
-                                    feature_flags: v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags {
-                                        range_check0: false,
-                                        range_check1: false,
-                                        foreign_field_add: false,
-                                        foreign_field_mul: false,
-                                        xor: false,
-                                        rot: false,
-                                        lookup: false,
-                                        runtime_tables: false,
-                                    },
+                                    // https://github.com/MinaProtocol/mina/blob/dc6bf78b8ddbbca3a1a248971b76af1514bf05aa/src/lib/pickles/composition_types/composition_types.ml#L200-L202
+                                    joint_combiner: plonk.lookup.map(|joint_combiner| {
+                                        v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
+                                            inner: to_padded(joint_combiner),
+                                        }
+                                    }),
+                                    feature_flags: (&plonk.feature_flags).into(),
                                 },
                                 bulletproof_challenges: PaddedSeq(array::from_fn(|i| {
                                     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {

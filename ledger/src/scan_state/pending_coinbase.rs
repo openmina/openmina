@@ -24,7 +24,7 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 use mina_signer::CompressedPubKey;
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -747,9 +747,9 @@ impl PendingCoinbase {
                              w: &mut Witness<Fp>| {
             let stack = update_state_stack(stack, pending_coinbase_witness, w);
             let total_coinbase_amount = {
-                let coinbase_amount = Amount::from_u64(CONSTRAINT_CONSTANTS.coinbase_amount);
+                let coinbase_amount = Amount::from_u64(constraint_constants().coinbase_amount);
                 let superchaged_coinbase = coinbase_amount
-                    .scale(CONSTRAINT_CONSTANTS.supercharged_coinbase_factor)
+                    .scale(constraint_constants().supercharged_coinbase_factor)
                     .unwrap()
                     .to_checked::<Fp>();
                 let coinbase_amount = coinbase_amount.to_checked::<Fp>();
@@ -922,12 +922,12 @@ impl PendingCoinbaseWitness {
     }
 
     fn set_oldest_coinbase_stack(&mut self, idx: Address, stack: Stack) {
-        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth;
+        let depth = constraint_constants().pending_coinbase_depth;
         self.pending_coinbase.set_stack(depth, idx, stack, false);
     }
 
     fn find_index_of_newest_stacks(&self) -> (Address, Address) {
-        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth;
+        let depth = constraint_constants().pending_coinbase_depth;
 
         let index1 = {
             let stack_id = self.pending_coinbase.latest_stack_id(self.is_new_stack);
@@ -958,7 +958,7 @@ impl PendingCoinbaseWitness {
     }
 
     fn set_coinbase_stack(&mut self, idx: Address, stack: Stack) {
-        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth;
+        let depth = constraint_constants().pending_coinbase_depth;
         self.pending_coinbase
             .set_stack(depth, idx, stack, self.is_new_stack);
     }
@@ -966,7 +966,7 @@ impl PendingCoinbaseWitness {
 
 /// Keep it a bit generic, in case we need a merkle tree somewhere else
 pub mod merkle_tree {
-    use crate::{AccountIndex, Address, AddressIterator, Direction, HashesMatrix, MerklePath};
+    use crate::{AccountIndex, AddressIterator, Direction, HashesMatrix};
 
     use super::*;
 
@@ -1251,7 +1251,7 @@ pub mod merkle_tree {
 mod tests {
     use crate::FpExt;
 
-    use super::{merkle_tree::MiniMerkleTree, *};
+    use super::*;
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;

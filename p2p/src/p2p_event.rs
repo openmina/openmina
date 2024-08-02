@@ -4,6 +4,7 @@ use std::net::{IpAddr, SocketAddr};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
+use crate::ConnectionAddr;
 use crate::{
     channels::{transaction::TransactionPropagationChannelMsg, ChannelId, ChannelMsg, MsgId},
     connection::P2pConnectionResponse,
@@ -33,19 +34,19 @@ pub enum MioEvent {
     /// The remote peer is trying to connect to us.
     IncomingConnectionIsReady { listener: SocketAddr },
     /// We accepted the connection from the remote peer.
-    IncomingConnectionDidAccept(Option<SocketAddr>, Result<(), String>),
+    IncomingConnectionDidAccept(Option<ConnectionAddr>, Result<(), String>),
     /// The remote peer is trying to send us some data.
-    IncomingDataIsReady(SocketAddr),
+    IncomingDataIsReady(ConnectionAddr),
     /// We received the data from the remote peer.
-    IncomingDataDidReceive(SocketAddr, Result<crate::Data, String>),
+    IncomingDataDidReceive(ConnectionAddr, Result<crate::Data, String>),
 
     /// We connected to the remote peer by the address.
-    OutgoingConnectionDidConnect(SocketAddr, Result<(), String>),
+    OutgoingConnectionDidConnect(ConnectionAddr, Result<(), String>),
     /// We sent some data to the remote peer.
-    OutgoingDataDidSend(SocketAddr, Result<(), String>),
+    OutgoingDataDidSend(ConnectionAddr, Result<(), String>),
 
     /// The remote peer is disconnected gracefully or with an error.
-    ConnectionDidClose(SocketAddr, Result<(), String>),
+    ConnectionDidClose(ConnectionAddr, Result<(), String>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
