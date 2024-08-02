@@ -1,44 +1,84 @@
 
 # The Open Mina Node
+## With the Rust-based Open Mina node, you can produce, validate and apply blocks
 
 [![Openmina Daily](https://github.com/openmina/openmina/actions/workflows/daily.yaml/badge.svg)](https://github.com/openmina/openmina/actions/workflows/daily.yaml) [![Changelog][changelog-badge]][changelog] [![release-badge]][release-link] [![Apache licensed]][Apache link]
+
+
+
+## Run the block producer
+
+Once you have completed the [pre-requisites](https://github.com/openmina/openmina/blob/main/docs/producer-demo.md#prerequisites) for your operating system, follow these steps:
+
+1. **Clone this repository:**
+    ```bash
+    git clone https://github.com/openmina/openmina.git
+    ```
+
+2. **Navigate to the repository:**
+
+    ```bash
+    cd openmina
+    ```
+
+3. **Run the following command to start the demo:**
+    ```sh
+    docker compose -f docker-compose.local.producers.yml up
+    ```
+
+4. **Open you browser and visit http://localhost:8070**
+
+![image](https://github.com/user-attachments/assets/c8929509-f68b-4281-bcb9-bad03029fa2f)
+
+
+## Description
+
 
 The Open Mina Node is a Mina node written completely in Rust and capable of verifying blocks of transactions, producing blocks and generating SNARKs.
 
 In the design of the Open Mina node, we are utilizing much of the same logic as in the Mina Web Node. The key difference is that unlike the Web Node, which is an in-browser node with limited resources, the Open Mina node is able to perform resource-intensive tasks such as SNARK proof generation.
 
 
+
+
 ## Overview of the Node’s current functionalities
 
-Currently, with the Open Mina node, you can:
+
+| Current functionalities | In Development | Future Plans |  
+|---------------------------------------------------------------------------------------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|  
+| &#9745; **Produce and prove blocks** (with and without transactions). | &#9744; Receiving and broadcasting transactions from/into the transaction pool. | &#9744; Direct transfer of MINA funds |  
+| &#9745; **Produce SNARK proofs** for transactions. | &#9744; A block replayer that uses data from the archive nodes| &#9744; O1JS support for Rust node (ability to directly inject simple transactions).|  
+| &#9745; **Connect to the network** and sync up to the best tip block | | |  
+| &#9745; **Validate and apply new blocks** and transactions to update consensus and ledger state. | | |  
+| &#9745; **Broadcast messages**: blocks, SNARK pool | | |
+
+Please note that receiving and broadcasting transactions from/into the transaction pool is already possible, but is still an early alpha version and needs more work.
 
 
+## Updates to the Front End
 
-* Connect to the network and sync up to the best tip block
-* Validate and apply new blocks and transactions to update consensus and ledger state.
-* Produce SNARKs to complete SNARK work.
-* Broadcast messages: blocks, SNARK pool
+We've added two new pages to the node's front end:
 
+### Mempool
 
-We are working on the following:
-
-
-* Produce SNARKs in Rust (currently we use OCaml subprocess for that)
+![image](https://github.com/user-attachments/assets/a66b993d-5a9f-42a7-a946-f19f6e18e6ab)
 
 
-In the future, we plan to implement:
+Shows a list of the transactions from the pool and a side panel detail.
 
-* Direct transfer of MINA funds
-* Block production
-* SNARK proof generation for transactions
-* SnarkyJS support for Rust node, thanks to which you will be able to directly inject simple transactions, such as transferring Mina funds from one account to another.
-* The ability to record/replay all blocks
+### Benchmarks
 
-## Producer demo
+![image](https://github.com/user-attachments/assets/5aa9f0b8-2f53-4c2e-8b60-ed2ccaa7335b)
 
-See the detailed [guide](docs/producer-demo.md).
+The benchmarks page helps us to send transactions. The transactions are signed in the front end by the Mina signer.
+Every user can send transactions and they can see in the mempool whether the transactions were sent by their node. 
 
-## How to launch (with docker compose):
+## Launch the block producer demo
+
+Run the Open Mina block producer node by following this [guide](https://github.com/openmina/openmina/blob/main/docs/producer-demo.md).
+
+
+## How to launch the node (with Docker compose):
 
 Run:
 
@@ -48,9 +88,12 @@ docker compose up
 
 Then visit http://localhost:8070 in your browser.
 
+![image](https://github.com/user-attachments/assets/b8e10a12-ec96-44a9-951a-ef0c1b291428)
+
+
 By default, `docker compose up` will use the latest node and frontend images available (tagged with `latest`), but specific versions can be selected by using the `OPENMINA_TAG` and `OPENMINA_FRONTEND_TAG` variables.
 
-## How to launch (without docker compose):
+## How to launch the node (without Docker compose):
 
 This installation guide has been tested on Debian and Ubuntu and should work on most distributions of Linux.
 
