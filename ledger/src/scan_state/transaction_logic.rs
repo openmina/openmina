@@ -4650,7 +4650,7 @@ impl UserCommand {
                         status,
                     }),
                     UserCommand::ZkAppCommand(c) => {
-                        let zkapp_verifiable = S::create_all(&*c, is_failed, &mut vk_cache)?;
+                        let zkapp_verifiable = S::create_all(&c, is_failed, &mut vk_cache)?;
                         Ok(MaybeWithStatus {
                             cmd: verifiable::UserCommand::ZkAppCommand(Box::new(zkapp_verifiable)),
                             status,

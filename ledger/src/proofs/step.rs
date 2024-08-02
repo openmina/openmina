@@ -1963,10 +1963,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
             zeta_to_domain_size,
             perm,
             feature_flags,
-            lookup: match lookup {
-                Some(_) => Some(plonk0.joint_combiner_bytes.unwrap()),
-                None => None,
-            },
+            lookup: lookup.map(|_| plonk0.joint_combiner_bytes.unwrap()),
         }
     };
 

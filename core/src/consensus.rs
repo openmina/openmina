@@ -269,7 +269,7 @@ impl ConsensusConstants {
             checkpoint_window_slots_per_year: 0,
             checkpoint_window_size_in_slots: 0,
             delta_duration,
-            genesis_state_timestamp: protocol_constants.genesis_state_timestamp.clone(),
+            genesis_state_timestamp: protocol_constants.genesis_state_timestamp,
         }
     }
 

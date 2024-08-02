@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use mina_p2p_messages::{list::List, v2};
 use serde::{Deserialize, Serialize};
 

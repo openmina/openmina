@@ -262,7 +262,7 @@ impl Cluster {
             .protocol_constants()
             .expect("wrong protocol constants");
         let consensus_consts =
-            ConsensusConstants::create(&constraint_constants(), &protocol_constants);
+            ConsensusConstants::create(constraint_constants(), &protocol_constants);
 
         let config = Config {
             ledger: LedgerConfig {},

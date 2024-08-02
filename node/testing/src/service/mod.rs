@@ -8,7 +8,6 @@ use std::{collections::BTreeMap, sync::Arc};
 use ledger::dummy::dummy_transaction_proof;
 use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
-use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
 use mina_p2p_messages::list::List;
 use mina_p2p_messages::string::ByteString;

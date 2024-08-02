@@ -1,7 +1,7 @@
 use ledger::{
     scan_state::{
         currency::{Amount, Nonce},
-        transaction_logic::{valid, verifiable, UserCommand, WithStatus},
+        transaction_logic::{verifiable, UserCommand, WithStatus},
     },
     transaction_pool::{
         diff::{self, DiffVerified},
@@ -11,7 +11,7 @@ use ledger::{
 };
 use mina_p2p_messages::v2;
 use openmina_core::{
-    consensus::ConsensusConstants, constants::constraint_constants, log::inner::dispatcher,
+    consensus::ConsensusConstants, constants::constraint_constants,
     requests::RpcId,
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
@@ -46,7 +46,7 @@ impl Clone for TransactionPoolState {
         Self {
             pool: self.pool.clone(),
             pending_actions: self.pending_actions.clone(),
-            pending_id: self.pending_id.clone(),
+            pending_id: self.pending_id,
             best_tip_hash: self.best_tip_hash.clone(),
             file: None,
         }
@@ -96,6 +96,7 @@ impl TransactionPoolState {
         id
     }
 
+    #[allow(dead_code)]
     fn rebroadcast(&self, _accepted: Vec<UserCommand>, _rejected: Vec<(UserCommand, diff::Error)>) {
         // TODO
     }
@@ -199,7 +200,7 @@ impl TransactionPoolState {
                 is_sender_local: _,
                 from_rpc,
             } => {
-                let account_ids = substate.pool.get_accounts_to_apply_diff(&diff);
+                let account_ids = substate.pool.get_accounts_to_apply_diff(diff);
                 let pending_id = substate.make_action_pending(action);
 
                 let dispatcher = state.into_dispatcher();
@@ -233,7 +234,7 @@ impl TransactionPoolState {
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
                 match substate
                     .pool
-                    .unsafe_apply(&diff, &accounts, is_sender_local)
+                    .unsafe_apply(&diff, accounts, is_sender_local)
                 {
                     Ok((ApplyDecision::Accept, accepted, rejected)) => {
                         // substate.rebroadcast(accepted, rejected);
@@ -271,7 +272,7 @@ impl TransactionPoolState {
                 assert_eq!(substate.best_tip_hash.as_ref().unwrap(), best_tip_hash);
 
                 let (account_ids, uncommitted) =
-                    substate.pool.get_accounts_to_handle_transition_diff(&diff);
+                    substate.pool.get_accounts_to_handle_transition_diff(diff);
                 let pending_id = substate.make_action_pending(action);
 
                 let dispatcher = state.into_dispatcher();
@@ -303,7 +304,7 @@ impl TransactionPoolState {
                 let collect = |set: &BTreeSet<AccountId>| {
                     set.iter()
                         .filter_map(|id| {
-                            let account = accounts.get(&id).cloned()?;
+                            let account = accounts.get(id).cloned()?;
                             Some((id.clone(), account))
                         })
                         .collect::<BTreeMap<_, _>>()
@@ -323,10 +324,10 @@ impl TransactionPoolState {
                 );
             }
             TransactionPoolAction::Rebroadcast { accepted, rejected } => {
-                let rejected = rejected.into_iter().map(|(cmd, _)| cmd.data.forget_check());
+                let rejected = rejected.iter().map(|(cmd, _)| cmd.data.forget_check());
 
                 let all_commands = accepted
-                    .into_iter()
+                    .iter()
                     .map(|cmd| cmd.data.forget_check())
                     .chain(rejected)
                     .collect::<Vec<_>>();

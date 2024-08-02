@@ -80,7 +80,7 @@ mod consensus {
                 slot_duration_ms: BlockTimeSpan::from_u64(constants.slot_duration_ms),
                 epoch_duration: BlockTimeSpan::from_u64(constants.epoch_duration),
                 delta_duration: BlockTimeSpan::from_u64(constants.delta_duration),
-                genesis_state_timestamp: constants.genesis_state_timestamp.clone().into(),
+                genesis_state_timestamp: constants.genesis_state_timestamp.into(),
             }
         }
     }
@@ -1032,7 +1032,7 @@ impl IndexedPool {
                         .checked_add(reserved_currency)
                         .ok_or(CommandError::Overflow)?;
 
-                    if !(*reserved_currency <= balance.to_amount()) {
+                    if *reserved_currency > balance.to_amount() {
                         return Err(CommandError::InsufficientFunds {
                             balance,
                             consumed: *reserved_currency,
@@ -1077,7 +1077,7 @@ impl IndexedPool {
                     // subtraction is safe.
                     {
                         let replace_fee = to_drop.fee();
-                        if !(fee >= replace_fee) {
+                        if fee < replace_fee {
                             return Err(CommandError::InsufficientReplaceFee { replace_fee, fee });
                         }
                     }
@@ -1115,7 +1115,7 @@ impl IndexedPool {
                             let cmd_unchecked = cmd.data.forget_check();
                             let replace_fee = cmd_unchecked.fee();
 
-                            increment = increment.checked_sub(&replace_fee).ok_or_else(|| {
+                            increment = increment.checked_sub(&replace_fee).ok_or({
                                 CommandError::InsufficientReplaceFee {
                                     replace_fee,
                                     fee: increment,
@@ -1147,7 +1147,7 @@ impl IndexedPool {
                         let _ = drop_tail.next();
                     }
 
-                    if !(increment >= REPLACE_FEE) {
+                    if increment < REPLACE_FEE {
                         return Err(CommandError::InsufficientReplaceFee {
                             replace_fee: REPLACE_FEE,
                             fee: increment,
@@ -1253,10 +1253,7 @@ impl IndexedPool {
             let first_cmd = queue.front().unwrap();
             let first_nonce = first_cmd.data.forget_check().applicable_at_nonce();
 
-            if !(account.has_permission_to_send() && account.has_permission_to_increment_nonce()) {
-                let this_dropped = self.remove_with_dependents_exn(first_cmd);
-                dropped.extend(this_dropped);
-            } else if account.nonce < first_nonce {
+            if !(account.has_permission_to_send() && account.has_permission_to_increment_nonce()) || account.nonce < first_nonce {
                 let this_dropped = self.remove_with_dependents_exn(first_cmd);
                 dropped.extend(this_dropped);
             } else {
@@ -1731,8 +1728,8 @@ impl TransactionPool {
                     .collect::<Vec<_>>()
             };
 
-            let mut new_commands = collect_hashed(&new_commands);
-            let mut removed_commands = collect_hashed(&removed_commands);
+            let mut new_commands = collect_hashed(new_commands);
+            let mut removed_commands = collect_hashed(removed_commands);
 
             let new_commands_set = new_commands.iter().collect::<HashSet<_>>();
             let removed_commands_set = removed_commands.iter().collect::<HashSet<_>>();
@@ -1742,8 +1739,8 @@ impl TransactionPool {
                 .map(|cmd| (*cmd).clone())
                 .collect::<HashSet<_>>();
 
-            new_commands.retain(|cmd| !duplicates.contains(&cmd));
-            removed_commands.retain(|cmd| !duplicates.contains(&cmd));
+            new_commands.retain(|cmd| !duplicates.contains(cmd));
+            removed_commands.retain(|cmd| !duplicates.contains(cmd));
             (new_commands, removed_commands)
         };
 
@@ -1959,15 +1956,14 @@ impl TransactionPool {
         let dropped_for_size = { self.drop_until_below_max_size(self.config.pool_max_size) };
 
         let all_dropped_cmds = dropped_for_add
-            .iter()
-            .map(|cmd| *cmd)
+            .iter().copied()
             .chain(dropped_for_size.iter())
             .collect::<Vec<_>>();
 
-        let _ = {
+        {
             self.verification_key_table.increment_hashed(added_cmds);
             self.verification_key_table
-                .decrement_hashed(all_dropped_cmds.iter().map(|cmd| *cmd));
+                .decrement_hashed(all_dropped_cmds.iter().copied());
         };
 
         let dropped_for_add_hashes: HashSet<&BlakeHash> =
@@ -1975,8 +1971,7 @@ impl TransactionPool {
         let dropped_for_size_hashes: HashSet<&BlakeHash> =
             dropped_for_size.iter().map(|cmd| &cmd.hash).collect();
         let all_dropped_cmd_hashes: HashSet<&BlakeHash> = dropped_for_add_hashes
-            .union(&dropped_for_size_hashes)
-            .map(|hash| *hash)
+            .union(&dropped_for_size_hashes).copied()
             .collect();
 
         // let locally_generated_dropped = all_dropped_cmds
@@ -2050,11 +2045,11 @@ impl TransactionPool {
             }
             Entry::Vacant(entry) => {
                 let batch_num = if self.remaining_in_batch > 0 {
-                    self.remaining_in_batch = self.remaining_in_batch - 1;
+                    self.remaining_in_batch -= 1;
                     self.current_batch
                 } else {
                     self.remaining_in_batch = MAX_PER_15_SECONDS - 1;
-                    self.current_batch = self.current_batch + 1;
+                    self.current_batch += 1;
                     self.current_batch
                 };
                 entry.insert((Time::now(), Batch::Of(batch_num)));

@@ -329,12 +329,9 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
         Some(_) => zk_polynomial * (minimal.zeta - w4()),
     };
 
-    let feature_flags = match minimal.joint_combiner {
-        None => None,
-        Some(_) => Some(expand_feature_flags::<F>(
+    let feature_flags = minimal.joint_combiner.map(|_| expand_feature_flags::<F>(
             &minimal.feature_flags.to_boolean(),
-        )),
-    };
+        ));
 
     let unnormalized_lagrange_basis = match minimal.joint_combiner {
         None => None,
@@ -696,7 +693,7 @@ pub fn verify_zkapp(
 
     if !ok {
         if let Err(e) =
-            dump_zkapp_verification(verification_key, &zkapp_statement, sideloaded_proof)
+            dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
         {
             eprintln!("Failed to dump zkapp verification: {:?}", e);
         }
@@ -775,7 +772,7 @@ fn dump_zkapp_verification(
 
     let filename = generate_new_filename("/tmp/verify_zapp", "binprot", &bin)?;
 
-    let mut file = std::fs::File::create(&filename)?;
+    let mut file = std::fs::File::create(filename)?;
     file.write_all(&bin)?;
     file.sync_all()?;
 

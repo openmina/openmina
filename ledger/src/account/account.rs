@@ -799,14 +799,9 @@ impl PartialEq for AccountIdOrderable {
     }
 }
 impl Ord for AccountIdOrderable {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
-    }
-}
-impl PartialOrd for AccountIdOrderable {
     /// Ignore `Self::public_key` and `Self::token_id`
     /// We only use their bigint representations
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         let Self {
             bigint_public_key_x: self_x,
             bigint_public_key_is_odd: self_is_odd,
@@ -823,15 +818,21 @@ impl PartialOrd for AccountIdOrderable {
             token_id: _,
         } = other;
 
-        match self_x.partial_cmp(other_x) {
-            None | Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
+        match self_x.cmp(other_x) {
+            std::cmp::Ordering::Equal => {},
+            non_eq => return non_eq,
         }
-        match self_is_odd.partial_cmp(other_is_odd) {
-            None | Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
+        match self_is_odd.cmp(other_is_odd) {
+            std::cmp::Ordering::Equal => {},
+            non_eq => return non_eq,
         }
-        self_token_id.partial_cmp(other_token_id)
+        self_token_id.cmp(other_token_id)
+    }
+}
+
+impl PartialOrd for AccountIdOrderable {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }
 

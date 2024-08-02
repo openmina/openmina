@@ -2,16 +2,14 @@ mod rpc_state;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
-use ledger::scan_state::currency::{Amount, Balance, Fee, Magnitude, Nonce, Slot};
+use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
-use ledger::scan_state::transaction_logic::valid::SignedCommand;
-use ledger::scan_state::transaction_logic::{self, signed_command, Memo, TransactionFailure};
+use ledger::scan_state::transaction_logic::{self, signed_command, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
-use ledger::{Account, TokenId};
+use ledger::Account;
 use mina_p2p_messages::bigint::BigInt;
-use mina_p2p_messages::list::List;
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
+    MinaBaseSignedCommandPayloadBodyStableV2,
     MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
     MinaTransactionTransactionStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
     StateHash, TransactionHash,

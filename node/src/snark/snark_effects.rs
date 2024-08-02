@@ -1,6 +1,6 @@
 use snark::work_verify::SnarkWorkVerifyAction;
 
-use crate::{snark_pool::candidate::SnarkPoolCandidateAction, Service, SnarkPoolAction, Store};
+use crate::{snark_pool::candidate::SnarkPoolCandidateAction, Service, Store};
 
 use super::{SnarkAction, SnarkActionWithMeta};
 

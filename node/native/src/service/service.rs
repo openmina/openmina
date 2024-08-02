@@ -269,10 +269,10 @@ use node::snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 impl SnarkUserCommandVerifyService for NodeService {
     fn verify_init(
         &mut self,
-        req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
-        verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
-        commands: mina_p2p_messages::list::List<mina_p2p_messages::v2::MinaBaseUserCommandStableV2>,
+        _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
+        _verifier_index: Arc<VerifierIndex>,
+        _verifier_srs: Arc<Mutex<VerifierSRS>>,
+        _commands: mina_p2p_messages::list::List<mina_p2p_messages::v2::MinaBaseUserCommandStableV2>,
     ) {
         todo!()
     }

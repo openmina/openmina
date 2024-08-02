@@ -20,6 +20,7 @@ use mina_signer::CompressedPubKey;
 /// can't be expressed in the Rust type system at the moment. For this
 /// reason this type is private while functions wrapping the whole call
 /// to the service are exposed as the service's methods.
+#[allow(dead_code)] // TODO
 pub(super) enum LedgerRequest {
     Write(LedgerWriteRequest),
     Read(LedgerReadId, LedgerReadRequest),

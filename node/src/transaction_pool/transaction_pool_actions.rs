@@ -67,16 +67,14 @@ pub enum TransactionPoolAction {
 
 impl redux::EnablingCondition<crate::State> for TransactionPoolAction {}
 
+type TransactionPoolEffectfulActionCallback = Callback<(BTreeMap<AccountId, Account>,Option<PendingId>,Option<RpcId>)>;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionPoolEffectfulAction {
     FetchAccounts {
         account_ids: BTreeSet<AccountId>,
         ledger_hash: LedgerHash,
-        on_result: Callback<(
-            BTreeMap<AccountId, Account>,
-            Option<PendingId>,
-            Option<RpcId>,
-        )>,
+        on_result: TransactionPoolEffectfulActionCallback,
         pending_id: Option<PendingId>,
         from_rpc: Option<RpcId>,
     },

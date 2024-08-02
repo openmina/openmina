@@ -2,7 +2,6 @@ use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use p2p::P2pInitializeAction;
-use snark::user_command_verify::SnarkUserCommandVerifyAction;
 
 use crate::consensus::ConsensusAction;
 use crate::rpc::RpcAction;

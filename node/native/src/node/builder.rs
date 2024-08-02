@@ -327,7 +327,7 @@ impl NodeBuilder {
         }
 
         let consensus_consts =
-            ConsensusConstants::create(&constraint_constants(), &protocol_constants);
+            ConsensusConstants::create(constraint_constants(), &protocol_constants);
 
         let service = service.build()?;
         let state = node::State::new(node_config, &consensus_consts, initial_time);

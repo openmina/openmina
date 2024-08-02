@@ -210,18 +210,18 @@ impl GenesisConfig {
                 let prebuilt = PrebuiltGenesisConfig::read(&mut bytes.as_ref())?;
                 prebuilt.load()
             }
-            Self::AccountsBinProt { bytes, constants } => {
+            Self::AccountsBinProt { bytes, .. } => {
                 let mut bytes = bytes.as_ref();
-                let expected_hash = Option::<v2::LedgerHash>::binprot_read(&mut bytes)?;
+                let _expected_hash = Option::<v2::LedgerHash>::binprot_read(&mut bytes)?;
                 let hashes = Vec::<(u64, v2::LedgerHash)>::binprot_read(&mut bytes)?
                     .into_iter()
                     .map(|(idx, hash)| (idx, hash.0.to_field()))
                     .collect();
                 let accounts = Vec::<ledger::Account>::binprot_read(&mut bytes)?;
 
-                let (mut mask, total_currency) =
+                let (mut mask, _total_currency) =
                     Self::build_ledger_from_accounts_and_hashes(accounts, hashes);
-                let ledger_hash = ledger_hash(&mut mask);
+                let _ledger_hash = ledger_hash(&mut mask);
 
                 todo!()
 

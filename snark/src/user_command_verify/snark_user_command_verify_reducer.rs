@@ -42,12 +42,14 @@ pub fn reducer<State, Action>(
             });
             dispatcher.push(SnarkUserCommandVerifyAction::Pending { req_id: *req_id });
         }
+        // TODO
+        #[allow(unreachable_code)]
         SnarkUserCommandVerifyAction::Pending { req_id } => {
             let substate = state.get_substate_mut().unwrap();
 
             if let Some(req) = substate.jobs.get_mut(*req_id) {
                 *req = match req {
-                    SnarkUserCommandVerifyStatus::Init { commands, .. } => {
+                    SnarkUserCommandVerifyStatus::Init { .. } => {
                         SnarkUserCommandVerifyStatus::Pending {
                             time: meta.time(),
                             commands: todo!(),

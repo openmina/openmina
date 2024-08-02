@@ -789,12 +789,12 @@ impl LedgerCtx {
             .into_iter()
             .filter_map(|(_id, addr)| addr)
             .collect::<Vec<_>>();
-        let accounts = mask
+        
+        mask
             .get_batch(&addrs)
             .into_iter()
             .filter_map(|(_, account)| account.map(|account| *account))
-            .collect::<Vec<_>>();
-        accounts
+            .collect::<Vec<_>>()
     }
 
     pub fn staged_ledger_aux_and_pending_coinbase(

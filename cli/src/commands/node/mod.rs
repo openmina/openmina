@@ -1,13 +1,11 @@
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Read},
     path::PathBuf,
     sync::Arc,
 };
 
 use anyhow::Context;
 use node::{account::AccountSecretKey, transition_frontier::genesis::GenesisConfig};
-use rand::prelude::*;
 
 use reqwest::Url;
 
@@ -173,21 +171,6 @@ impl Node {
 
         runtime.block_on(node.run_forever());
 
-        Ok(())
-    }
-
-    fn peers_from_reader<R: Read>(
-        peers: &mut Vec<P2pConnectionOutgoingInitOpts>,
-        read: R,
-    ) -> anyhow::Result<()> {
-        let read = BufReader::new(read);
-        for line in read.lines() {
-            let line = line.context("reading line")?;
-            let l = line.trim();
-            if !l.is_empty() {
-                peers.push(l.parse().context(anyhow::anyhow!("parsing entry"))?);
-            }
-        }
         Ok(())
     }
 }

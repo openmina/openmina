@@ -1328,11 +1328,10 @@ impl From<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
             })
             .collect();
 
-        let call_forest = CallForest(values);
         // There is no need to call `of_wire`, because hashes are in our serialized types (verifiables types only)
         // call_forest.of_wire(&[]);
 
-        call_forest
+        CallForest(values)
     }
 }
 
