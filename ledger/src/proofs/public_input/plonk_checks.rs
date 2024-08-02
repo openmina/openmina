@@ -273,7 +273,9 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
         perm: shift(perm),
-        lookup: joint_combiner.as_ref().map(|joint_combiner| *joint_combiner),
+        lookup: joint_combiner
+            .as_ref()
+            .map(|joint_combiner| *joint_combiner),
         feature_flags: actual_feature_flags.clone(),
     }
 }

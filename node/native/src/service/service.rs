@@ -272,7 +272,9 @@ impl SnarkUserCommandVerifyService for NodeService {
         _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
         _verifier_index: Arc<VerifierIndex>,
         _verifier_srs: Arc<Mutex<VerifierSRS>>,
-        _commands: mina_p2p_messages::list::List<mina_p2p_messages::v2::MinaBaseUserCommandStableV2>,
+        _commands: mina_p2p_messages::list::List<
+            mina_p2p_messages::v2::MinaBaseUserCommandStableV2,
+        >,
     ) {
         todo!()
     }

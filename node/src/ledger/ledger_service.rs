@@ -789,9 +789,8 @@ impl LedgerCtx {
             .into_iter()
             .filter_map(|(_id, addr)| addr)
             .collect::<Vec<_>>();
-        
-        mask
-            .get_batch(&addrs)
+
+        mask.get_batch(&addrs)
             .into_iter()
             .filter_map(|(_, account)| account.map(|account| *account))
             .collect::<Vec<_>>()

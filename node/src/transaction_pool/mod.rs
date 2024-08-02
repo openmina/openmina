@@ -11,8 +11,7 @@ use ledger::{
 };
 use mina_p2p_messages::v2;
 use openmina_core::{
-    consensus::ConsensusConstants, constants::constraint_constants,
-    requests::RpcId,
+    consensus::ConsensusConstants, constants::constraint_constants, requests::RpcId,
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
@@ -232,10 +231,7 @@ impl TransactionPoolState {
                 };
 
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
-                match substate
-                    .pool
-                    .unsafe_apply(&diff, accounts, is_sender_local)
-                {
+                match substate.pool.unsafe_apply(&diff, accounts, is_sender_local) {
                     Ok((ApplyDecision::Accept, accepted, rejected)) => {
                         // substate.rebroadcast(accepted, rejected);
                         if let Some(rpc_id) = from_rpc {

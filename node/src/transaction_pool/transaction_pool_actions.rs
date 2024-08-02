@@ -67,7 +67,11 @@ pub enum TransactionPoolAction {
 
 impl redux::EnablingCondition<crate::State> for TransactionPoolAction {}
 
-type TransactionPoolEffectfulActionCallback = Callback<(BTreeMap<AccountId, Account>,Option<PendingId>,Option<RpcId>)>;
+type TransactionPoolEffectfulActionCallback = Callback<(
+    BTreeMap<AccountId, Account>,
+    Option<PendingId>,
+    Option<RpcId>,
+)>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionPoolEffectfulAction {

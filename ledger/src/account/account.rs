@@ -819,11 +819,11 @@ impl Ord for AccountIdOrderable {
         } = other;
 
         match self_x.cmp(other_x) {
-            std::cmp::Ordering::Equal => {},
+            std::cmp::Ordering::Equal => {}
             non_eq => return non_eq,
         }
         match self_is_odd.cmp(other_is_odd) {
-            std::cmp::Ordering::Equal => {},
+            std::cmp::Ordering::Equal => {}
             non_eq => return non_eq,
         }
         self_token_id.cmp(other_token_id)

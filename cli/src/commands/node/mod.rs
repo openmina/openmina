@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{fs::File, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use node::{account::AccountSecretKey, transition_frontier::genesis::GenesisConfig};

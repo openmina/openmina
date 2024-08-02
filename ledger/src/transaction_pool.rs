@@ -1253,7 +1253,9 @@ impl IndexedPool {
             let first_cmd = queue.front().unwrap();
             let first_nonce = first_cmd.data.forget_check().applicable_at_nonce();
 
-            if !(account.has_permission_to_send() && account.has_permission_to_increment_nonce()) || account.nonce < first_nonce {
+            if !(account.has_permission_to_send() && account.has_permission_to_increment_nonce())
+                || account.nonce < first_nonce
+            {
                 let this_dropped = self.remove_with_dependents_exn(first_cmd);
                 dropped.extend(this_dropped);
             } else {
@@ -1956,7 +1958,8 @@ impl TransactionPool {
         let dropped_for_size = { self.drop_until_below_max_size(self.config.pool_max_size) };
 
         let all_dropped_cmds = dropped_for_add
-            .iter().copied()
+            .iter()
+            .copied()
             .chain(dropped_for_size.iter())
             .collect::<Vec<_>>();
 
@@ -1971,7 +1974,8 @@ impl TransactionPool {
         let dropped_for_size_hashes: HashSet<&BlakeHash> =
             dropped_for_size.iter().map(|cmd| &cmd.hash).collect();
         let all_dropped_cmd_hashes: HashSet<&BlakeHash> = dropped_for_add_hashes
-            .union(&dropped_for_size_hashes).copied()
+            .union(&dropped_for_size_hashes)
+            .copied()
             .collect();
 
         // let locally_generated_dropped = all_dropped_cmds

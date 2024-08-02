@@ -329,9 +329,9 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
         Some(_) => zk_polynomial * (minimal.zeta - w4()),
     };
 
-    let feature_flags = minimal.joint_combiner.map(|_| expand_feature_flags::<F>(
-            &minimal.feature_flags.to_boolean(),
-        ));
+    let feature_flags = minimal
+        .joint_combiner
+        .map(|_| expand_feature_flags::<F>(&minimal.feature_flags.to_boolean()));
 
     let unnormalized_lagrange_basis = match minimal.joint_combiner {
         None => None,
@@ -692,8 +692,7 @@ pub fn verify_zkapp(
     eprintln!("verify_zkapp OK={:?}", ok);
 
     if !ok {
-        if let Err(e) =
-            dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
+        if let Err(e) = dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
         {
             eprintln!("Failed to dump zkapp verification: {:?}", e);
         }
