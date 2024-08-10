@@ -14,7 +14,7 @@ pub struct P2pNetworkPubsubState {
     pub incoming_block: Option<(PeerId, v2::MinaBlockBlockStableV2)>,
     pub incoming_transactions: Vec<(Transaction, u32)>,
     pub incoming_snarks: Vec<(Snark, u32)>,
-    pub topics: BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientMeshState>>,
+    pub topics: BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientTopicState>>,
 }
 
 impl P2pNetworkPubsubState {
@@ -33,7 +33,7 @@ pub struct P2pNetworkPubsubClientState {
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct P2pNetworkPubsubClientMeshState {
+pub struct P2pNetworkPubsubClientTopicState {
     pub mesh: P2pNetworkPubsubClientMeshAddingState,
 }
 
@@ -46,7 +46,7 @@ pub enum P2pNetworkPubsubClientMeshAddingState {
     Added,
 }
 
-impl P2pNetworkPubsubClientMeshState {
+impl P2pNetworkPubsubClientTopicState {
     pub fn on_mesh(&self) -> bool {
         matches!(&self.mesh, P2pNetworkPubsubClientMeshAddingState::Added)
     }

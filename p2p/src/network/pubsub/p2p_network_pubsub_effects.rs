@@ -39,7 +39,12 @@ impl P2pNetworkPubsubAction {
                         };
                         Some(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id })
                     };
-                    let graft = if state.clients.len() < config.meshsub.outbound_degree_desired {
+                    let Some(map) = state.topics.get(TOPIC) else {
+                        // must have this topic already
+                        return;
+                    };
+                    let mesh_size = map.values().filter(|s| s.on_mesh()).count();
+                    let graft = if mesh_size < config.meshsub.outbound_degree_desired {
                         Some(P2pNetworkPubsubAction::Graft {
                             peer_id,
                             topic_id: TOPIC.to_owned(),
@@ -63,6 +68,27 @@ impl P2pNetworkPubsubAction {
                             topic_id: Some(dbg!(topic_id.clone())),
                         }],
                         prune: vec![],
+                    }),
+                };
+
+                store.dispatch(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
+            }
+            P2pNetworkPubsubAction::Prune { peer_id, topic_id } => {
+                let msg = pb::Rpc {
+                    subscriptions: vec![],
+                    publish: vec![],
+                    control: Some(pb::ControlMessage {
+                        ihave: vec![],
+                        iwant: vec![],
+                        graft: vec![],
+                        prune: vec![pb::ControlPrune {
+                            topic_id: Some(dbg!(topic_id.clone())),
+                            peers: vec![pb::PeerInfo {
+                                peer_id: None,
+                                signed_peer_record: None,
+                            }],
+                            backoff: None,
+                        }],
                     }),
                 };
 
@@ -95,13 +121,23 @@ impl P2pNetworkPubsubAction {
                 let incoming_transactions = state.incoming_transactions.clone();
                 let incoming_snarks = state.incoming_snarks.clone();
                 let topics = state.topics.clone();
-                let could_accept = state.clients.len() < config.meshsub.outbound_degree_high;
 
+                let mut prune_at_topics = vec![];
                 for (topic_id, map) in topics {
-                    if let Some(mesh_state) = map.get(&peer_id) {
-                        let _ = (could_accept, topic_id, mesh_state);
-                        // TODO: prune
+                    let mesh_size = map.values().filter(|s| s.on_mesh()).count();
+                    let could_accept = mesh_size < config.meshsub.outbound_degree_high;
+
+                    if !could_accept {
+                        if let Some(topic_state) = map.get(&peer_id) {
+                            if topic_state.on_mesh() {
+                                prune_at_topics.push(topic_id);
+                            }
+                        }
                     }
+                }
+
+                for topic_id in prune_at_topics {
+                    store.dispatch(Self::Prune { peer_id, topic_id });
                 }
 
                 broadcast(store);

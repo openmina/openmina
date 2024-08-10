@@ -24,6 +24,10 @@ pub enum P2pNetworkPubsubAction {
         peer_id: PeerId,
         topic_id: String,
     },
+    Prune {
+        peer_id: PeerId,
+        topic_id: String,
+    },
     Broadcast {
         message: Box<GossipNetMessageV2>,
     },
