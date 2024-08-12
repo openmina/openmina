@@ -4181,6 +4181,12 @@ pub mod zkapp_command {
                 cache
                     .find(account_id, &vk_hash)
                     .cloned()
+                    .or_else(|| {
+                        cmd.extract_vks()
+                            .iter()
+                            .find(|(id, _)| account_id == id)
+                            .map(|(_, key)| key.clone())
+                    })
                     .ok_or_else(|| "verification key not found in cache".to_string())
             })?;
             if !is_failed {
