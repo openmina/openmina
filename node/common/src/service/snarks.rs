@@ -98,6 +98,20 @@ impl node::service::SnarkWorkVerifyService for NodeService {
     }
 }
 
+impl node::service::SnarkUserCommandVerifyService for NodeService {
+    fn verify_init(
+        &mut self,
+        _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
+        _verifier_index: Arc<VerifierIndex>,
+        _verifier_srs: Arc<Mutex<VerifierSRS>>,
+        _commands: mina_p2p_messages::list::List<
+            mina_p2p_messages::v2::MinaBaseUserCommandStableV2,
+        >,
+    ) {
+        todo!()
+    }
+}
+
 impl node::service::SnarkPoolService for NodeService {
     fn random_choose<'a>(
         &mut self,
