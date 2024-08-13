@@ -6,6 +6,7 @@ use std::{
 use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use node::{
     account::AccountSecretKey,
+    core::{consensus::ConsensusConstants, constants::constraint_constants},
     p2p::{
         channels::ChannelId, connection::outgoing::P2pConnectionOutgoingInitOpts,
         identity::SecretKey as P2pSecretKey, P2pLimits, P2pTimeouts,
@@ -241,6 +242,11 @@ impl NodeBuilder {
             },
             transition_frontier: TransitionFrontierConfig::new(self.genesis_config),
             block_producer: self.block_producer,
+            tx_pool: ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: node::daemon_json::Daemon::DEFAULT.tx_pool_max_size(),
+                slot_tx_end: node::daemon_json::Daemon::DEFAULT.slot_tx_end(),
+            },
         };
 
         // build service
@@ -251,8 +257,15 @@ impl NodeBuilder {
             service.p2p_init(p2p_sec_key, P2pTaskSpawner {});
         }
 
+        let protocol_constants = node_config
+            .transition_frontier
+            .genesis
+            .protocol_constants()?;
+        let consensus_consts =
+            ConsensusConstants::create(constraint_constants(), &protocol_constants);
+
         let service = service.build()?;
-        let state = node::State::new(node_config, initial_time);
+        let state = node::State::new(node_config, &consensus_consts, initial_time);
 
         Ok(Node::new(self.rng_seed, state, service, None))
     }
