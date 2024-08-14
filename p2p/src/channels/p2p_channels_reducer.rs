@@ -18,7 +18,12 @@ impl P2pChannelsState {
                 self.snark_job_commitment.reducer(meta.with_action(action));
             }
             P2pChannelsAction::Rpc(action) => {
-                self.rpc.reducer(meta.with_action(action));
+                self.rpc
+                    .reducer(meta.with_action(action), &mut self.next_local_rpc_id);
+            }
+            P2pChannelsAction::StreamingRpc(action) => {
+                self.streaming_rpc
+                    .reducer(meta.with_action(action), &mut self.next_local_rpc_id);
             }
         }
     }

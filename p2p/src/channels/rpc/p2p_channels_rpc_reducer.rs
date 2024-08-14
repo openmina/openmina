@@ -1,12 +1,17 @@
 use std::collections::VecDeque;
 
 use super::{
-    P2pChannelsRpcAction, P2pChannelsRpcActionWithMetaRef, P2pChannelsRpcState, P2pRpcLocalState,
-    P2pRpcRemotePendingRequestState, P2pRpcRemoteState, MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS,
+    P2pChannelsRpcAction, P2pChannelsRpcActionWithMetaRef, P2pChannelsRpcState, P2pRpcId,
+    P2pRpcLocalState, P2pRpcRemotePendingRequestState, P2pRpcRemoteState,
+    MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS,
 };
 
 impl P2pChannelsRpcState {
-    pub fn reducer(&mut self, action: P2pChannelsRpcActionWithMetaRef<'_>) {
+    pub fn reducer(
+        &mut self,
+        action: P2pChannelsRpcActionWithMetaRef<'_>,
+        next_local_rpc_id: &mut P2pRpcId,
+    ) {
         let (action, meta) = action.split();
         match action {
             P2pChannelsRpcAction::Init { .. } => {
@@ -25,16 +30,10 @@ impl P2pChannelsRpcState {
                         ),
                         last_responded: redux::Timestamp::ZERO,
                     },
-                    next_local_rpc_id: 0,
                 };
             }
             P2pChannelsRpcAction::RequestSend { id, request, .. } => {
-                let Self::Ready {
-                    local,
-                    next_local_rpc_id,
-                    ..
-                } = self
-                else {
+                let Self::Ready { local, .. } = self else {
                     return;
                 };
                 *next_local_rpc_id += 1;

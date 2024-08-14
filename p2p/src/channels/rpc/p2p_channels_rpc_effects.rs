@@ -11,7 +11,6 @@ use crate::{
 
 use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};
 
-// TODO: support for webrtc peers
 impl P2pChannelsRpcAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where

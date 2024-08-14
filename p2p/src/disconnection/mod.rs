@@ -11,7 +11,10 @@ pub use p2p_disconnection_service::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{channels::ChannelId, connection::RejectionReason};
+use crate::{
+    channels::{rpc::P2pRpcKind, streaming_rpc::P2pStreamingRpcKind, ChannelId},
+    connection::RejectionReason,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, thiserror::Error)]
 pub enum P2pDisconnectionReason {
@@ -26,8 +29,14 @@ pub enum P2pDisconnectionReason {
     #[error("connection is rejected: {0}")]
     Libp2pIncomingRejected(RejectionReason),
 
-    #[error("transition frontier RPC timeout")]
-    TransitionFrontierRpcTimeout,
+    #[error("transition frontier RPC({0:?}) timeout")]
+    TransitionFrontierRpcTimeout(P2pRpcKind),
+
+    #[error("transition frontier streaming RPC({0:?}) timeout")]
+    TransitionFrontierStreamingRpcTimeout(P2pStreamingRpcKind),
+
+    #[error("received num accounts rejected")]
+    TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
 
     #[error("failed to verify snark pool diff")]
     SnarkPoolVerifyError,

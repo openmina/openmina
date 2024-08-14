@@ -55,7 +55,7 @@ impl SnarkPoolCandidatesState {
                 let Some(peer) = p2p.get_ready_peer(&peer_id) else {
                     return;
                 };
-                let rpc_id = peer.channels.rpc.next_local_rpc_id();
+                let rpc_id = peer.channels.next_local_rpc_id();
                 dispatcher.push(P2pChannelsRpcAction::RequestSend {
                     peer_id,
                     id: rpc_id,

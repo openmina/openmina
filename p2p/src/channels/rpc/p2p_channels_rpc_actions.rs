@@ -95,7 +95,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     .and_then(|p| p.status.as_ready())
                     .map_or(false, |p| matches!(
                         &p.channels.rpc,
-                        P2pChannelsRpcState::Ready { local: P2pRpcLocalState::WaitingForRequest { .. } | P2pRpcLocalState::Responded { .. }, next_local_rpc_id, .. } if next_local_rpc_id == id
+                        P2pChannelsRpcState::Ready { local: P2pRpcLocalState::WaitingForRequest { .. } | P2pRpcLocalState::Responded { .. }, .. } if p.channels.next_local_rpc_id() == *id
                     ))
             },
             P2pChannelsRpcAction::Timeout { peer_id, id } => {
