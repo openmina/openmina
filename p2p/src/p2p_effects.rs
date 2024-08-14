@@ -31,8 +31,17 @@ where
     p2p_rpc_heartbeats(store, meta);
 
     let state = store.state();
-    for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
-        store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
+    for (peer_id, id, is_streaming) in state.peer_rpc_timeouts(meta.time()) {
+        if !is_streaming {
+            store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
+        } else {
+            store.dispatch(
+                crate::channels::streaming_rpc::P2pChannelsStreamingRpcAction::Timeout {
+                    peer_id,
+                    id,
+                },
+            );
+        }
     }
 }
 
@@ -278,6 +287,7 @@ where
             P2pChannelsAction::Snark(action) => action.effects(&meta, store),
             P2pChannelsAction::SnarkJobCommitment(action) => action.effects(&meta, store),
             P2pChannelsAction::Rpc(action) => action.effects(&meta, store),
+            P2pChannelsAction::StreamingRpc(action) => action.effects(&meta, store),
         },
         P2pAction::Peer(action) => action.effects(&meta, store),
         P2pAction::Identify(_action) => {

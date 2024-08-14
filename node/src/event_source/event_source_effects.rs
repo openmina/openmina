@@ -1,4 +1,5 @@
 use p2p::channels::snark::P2pChannelsSnarkAction;
+use p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
 
@@ -190,28 +191,27 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             openmina_core::log::warn!(meta.time(); kind = "P2pChannelEvent::Opened", peer_id = peer_id.to_string(), error = err);
                             // TODO(binier): dispatch error action.
                         }
+                        // TODO(binier): maybe dispatch success and then ready.
                         Ok(_) => match chan_id {
                             ChannelId::BestTipPropagation => {
-                                // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsBestTipAction::Ready { peer_id });
                             }
                             ChannelId::TransactionPropagation => {
-                                // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsTransactionAction::Ready { peer_id });
                             }
                             ChannelId::SnarkPropagation => {
-                                // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsSnarkAction::Ready { peer_id });
                             }
                             ChannelId::SnarkJobCommitmentPropagation => {
-                                // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsSnarkJobCommitmentAction::Ready {
                                     peer_id,
                                 });
                             }
                             ChannelId::Rpc => {
-                                // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsRpcAction::Ready { peer_id });
+                            }
+                            ChannelId::StreamingRpc => {
+                                store.dispatch(P2pChannelsStreamingRpcAction::Ready { peer_id });
                             }
                         },
                     },

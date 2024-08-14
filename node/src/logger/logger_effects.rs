@@ -61,6 +61,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pChannelsAction::Snark(action) => action.action_event(&context),
                 P2pChannelsAction::SnarkJobCommitment(action) => action.action_event(&context),
                 P2pChannelsAction::Rpc(action) => action.action_event(&context),
+                P2pChannelsAction::StreamingRpc(action) => action.action_event(&context),
             },
             P2pAction::Peer(action) => action.action_event(&context),
             P2pAction::Network(action) => match action {

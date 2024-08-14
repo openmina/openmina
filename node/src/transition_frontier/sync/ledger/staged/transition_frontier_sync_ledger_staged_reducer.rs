@@ -1,6 +1,9 @@
 use ledger::scan_state::protocol_state::MinaHash;
 use mina_p2p_messages::{list::List, v2};
-use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
+use p2p::channels::{
+    rpc::{P2pChannelsRpcAction, P2pRpcRequest},
+    streaming_rpc::{P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest},
+};
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 
@@ -44,21 +47,38 @@ impl TransitionFrontierSyncLedgerStagedState {
                     .collect::<Vec<_>>();
 
                 for (peer_id, rpc_id) in ready_peers {
+                    let enqueued = if p2p.is_libp2p_peer(&peer_id) {
+                        // use old heavy rpc for libp2p peers.
+                        dispatcher.push_if_enabled(
+                            P2pChannelsRpcAction::RequestSend {
+                                peer_id,
+                                id: rpc_id,
+                                request: Box::new(
+                                    P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                        block_hash.clone(),
+                                    ),
+                                ),
+                            },
+                            global_state,
+                            meta.time(),
+                        )
+                    } else {
+                        // use streaming rpc for webrtc peers.
+                        dispatcher.push_if_enabled(
+                            P2pChannelsStreamingRpcAction::RequestSend {
+                                peer_id,
+                                id: rpc_id,
+                                request: Box::new(P2pStreamingRpcRequest::StagedLedgerParts(
+                                    block_hash.clone(),
+                                )),
+                            },
+                            global_state,
+                            meta.time(),
+                        )
+                    };
                     // TODO(binier): maybe
                     // Enabling condition is true if the peer exists and is able to handle this request
-                    if dispatcher.push_if_enabled(
-                        P2pChannelsRpcAction::RequestSend {
-                            peer_id,
-                            id: rpc_id,
-                            request: Box::new(
-                                P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                                    block_hash.clone(),
-                                ),
-                            ),
-                        },
-                        global_state,
-                        meta.time(),
-                    ) {
+                    if enqueued {
                         dispatcher.push(
                             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending {
                                 peer_id,
