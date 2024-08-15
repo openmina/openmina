@@ -8,7 +8,7 @@ use crate::{
     ConnectionAddr, P2pAction, P2pNetworkAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId,
 };
 
-use super::bootstrap::P2pNetworkKadBootstrapAction;
+use super::{bootstrap::P2pNetworkKadBootstrapAction, CID};
 
 /// Kademlia actions.
 #[derive(Debug, Clone, Serialize, Deserialize, derive_more::From, ActionEvent)]
@@ -42,7 +42,7 @@ impl From<P2pNetworkKadAction> for P2pAction {
     display(addr),
     display(peer_id),
     stream_id,
-    display(key),
+    debug(key),
     debug(closest_peers),
     debug(addrs)
 ))]
@@ -54,7 +54,7 @@ pub enum P2pNetworkKademliaAction {
         addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
-        key: PeerId,
+        key: CID,
     },
     /// Udate result of scheduled outgoing `FIND_NODE`.
     ///

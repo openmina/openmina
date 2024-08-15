@@ -21,7 +21,7 @@ impl P2pNetworkKadRequestState {
                 self.status = super::P2pNetworkKadRequestStatus::WaitingForKadStream(*stream_id)
             }
             P2pNetworkKadRequestAction::StreamReady { .. } => {
-                let find_node = P2pNetworkKademliaRpcRequest::FindNode { key: self.key };
+                let find_node = P2pNetworkKademliaRpcRequest::find_node(self.key);
                 let message = super::super::Message::from(&find_node);
                 self.status = quick_protobuf::serialize_into_vec(&message).map_or_else(
                     |e| {
