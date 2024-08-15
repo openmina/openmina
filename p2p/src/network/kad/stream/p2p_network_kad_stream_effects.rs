@@ -57,7 +57,7 @@ impl P2pNetworkKademliaStreamAction {
                     },
                 ),
             ) => {
-                let key = *key;
+                let key = key.clone();
                 store.dispatch(P2pNetworkKademliaStreamAction::WaitOutgoing {
                     addr,
                     peer_id,
@@ -155,7 +155,9 @@ impl P2pNetworkKademliaStreamAction {
             ) => Ok(()),
             (
                 P2pNetworkKademliaStreamAction::Close {
-                    addr, stream_id, ..
+                    addr,
+                    stream_id,
+                    peer_id,
                 },
                 P2pNetworkKadStreamState::Incoming(
                     P2pNetworkKadIncomingStreamState::ResponseBytesAreReady { bytes },
@@ -170,6 +172,11 @@ impl P2pNetworkKademliaStreamAction {
                     stream_id,
                     data: Data(Box::new([0; 0])),
                     flags: YamuxFlags::FIN,
+                });
+                store.dispatch(P2pNetworkKademliaStreamAction::Prune {
+                    addr,
+                    peer_id,
+                    stream_id,
                 });
                 Ok(())
             }

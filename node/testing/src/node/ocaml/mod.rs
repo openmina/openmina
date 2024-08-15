@@ -403,11 +403,8 @@ impl Drop for OcamlNode {
     }
 }
 
-#[cfg(test)]
 #[test]
 fn run_ocaml() {
-    use std::io::{BufRead, BufReader};
-
     use crate::node::DaemonJson;
 
     let mut node = OcamlNode::start(OcamlNodeConfig {
@@ -422,12 +419,6 @@ fn run_ocaml() {
         block_producer: None,
     })
     .unwrap();
-    let stdout = node.child.stdout.take().unwrap();
-    std::thread::spawn(move || {
-        for line in BufRead::lines(BufReader::new(stdout)) {
-            println!("{}", line.unwrap());
-        }
-    });
 
     node.child.wait().unwrap();
 }
