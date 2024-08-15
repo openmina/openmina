@@ -48,7 +48,6 @@ pub struct CommandScenariosRun {
 
 impl Command {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        unsafe { backtrace_on_stack_overflow::enable() };
         let rt = setup();
         let _rt_guard = rt.enter();
 
