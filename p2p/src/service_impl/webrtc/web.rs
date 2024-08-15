@@ -153,7 +153,7 @@ impl RTCChannel {
                 if let Ok(arraybuf) = event.data().dyn_into::<js_sys::ArrayBuffer>() {
                     let uarray = js_sys::Uint8Array::new(&arraybuf);
                     let data = uarray.to_vec();
-                    spawn_local(f(data));
+                    spawn_local(f(data.as_ref()));
                 } else {
                     openmina_core::log::error!(redux::Timestamp::global_now(); "`event.data()` failed to cast to `ArrayBuffer`. {:?}", event.data());
                 }

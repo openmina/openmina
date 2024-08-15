@@ -584,11 +584,9 @@ async fn peer_loop(
                     let mut buf = Vec::new();
                     let event_sender = event_sender.clone();
 
-                    chan.on_message(move |data| {
-                        let mut data_ref = &data[..];
-                        while !data_ref.is_empty() {
-                            let res = match process_msg(chan_id, &mut buf, &mut len, &mut data_ref)
-                            {
+                    chan.on_message(move |mut data| {
+                        while !data.is_empty() {
+                            let res = match process_msg(chan_id, &mut buf, &mut len, &mut data) {
                                 Ok(None) => continue,
                                 Ok(Some(msg)) => Ok(msg),
                                 Err(err) => Err(err),
