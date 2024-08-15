@@ -1,3 +1,5 @@
+#![cfg(target_family = "wasm")]
+
 pub use openmina_node_common::*;
 
 mod rayon;
