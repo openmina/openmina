@@ -53,10 +53,10 @@ steps:
       - cp /usr/local/bin/mina cli/bin/
 
   - name: build
-    image: rust:1.79-bullseye
+    image: rust:1.80-bullseye
     commands:
       - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq protobuf-compiler
-      - rustup update 1.79 && rustup default 1.79
+      - rustup update 1.80 && rustup default 1.80
       - rustup component add rustfmt
       # just to be sure it builds without errors
       - cargo build

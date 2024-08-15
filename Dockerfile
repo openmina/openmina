@@ -2,7 +2,7 @@ ARG MINA_SNARK_WORKER_TAG=0.0.9
 
 FROM rust:buster AS build
 RUN apt-get update && apt-get install -y protobuf-compiler && apt-get clean
-RUN rustup default 1.79 && rustup component add rustfmt
+RUN rustup default 1.80 && rustup component add rustfmt
 WORKDIR /openmina
 COPY . .
 RUN cargo build --release --package=cli --bin=openmina

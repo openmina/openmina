@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Rust Toolchain**: Updated the minimum required Rust toolchain to version 1.80.
+
 ## [0.7.0] - 2024-08-02
 
 ### Added
