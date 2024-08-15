@@ -22,6 +22,7 @@ macro_rules! scenario_test {
             };
             use std::io::Write;
 
+            unsafe { backtrace_on_stack_overflow::enable() };
             setup_without_rt();
             let w = wait_for_other_tests().await;
 
