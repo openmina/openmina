@@ -128,8 +128,8 @@ Open up the command line and enter the following:
 And then:
 
 ```sh
-# Install rustup and set the default Rust toolchain to 1.79 (newer versions work too)
-curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.79
+# Install rustup and set the default Rust toolchain to 1.80 (newer versions work too)
+curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.80
 # Setup the current shell with rustup
 source "$HOME/.cargo/env"
 # Clone the openmina repository
