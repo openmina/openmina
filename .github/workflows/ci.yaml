@@ -139,7 +139,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.79
+          rustup default 1.77
           rustup component add rustfmt
 
       - name: Setup Rust Cache
