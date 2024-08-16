@@ -4739,12 +4739,17 @@ impl UserCommand {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, thiserror::Error)]
 pub enum WellFormednessError {
+    #[error("Insufficient Fee")]
     InsufficientFee,
+    #[error("Zero vesting period")]
     ZeroVestingPeriod,
+    #[error("Zkapp too big: {0}")]
     ZkappTooBig(String),
+    #[error("Transaction type disabled")]
     TransactionTypeDisabled,
+    #[error("Incompatible version")]
     IncompatibleVersion,
 }
 

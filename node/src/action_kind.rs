@@ -395,6 +395,7 @@ pub enum ActionKind {
     RpcTransactionInjectFailure,
     RpcTransactionInjectInit,
     RpcTransactionInjectPending,
+    RpcTransactionInjectRejected,
     RpcTransactionInjectSuccess,
     RpcTransactionPool,
     RpcTransitionFrontierUserCommandsGet,
@@ -447,6 +448,7 @@ pub enum ActionKind {
     TransactionPoolRebroadcast,
     TransactionPoolStartVerify,
     TransactionPoolStartVerifyWithAccounts,
+    TransactionPoolVerifyError,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
@@ -685,6 +687,7 @@ impl ActionKindGet for TransactionPoolAction {
             Self::StartVerifyWithAccounts { .. } => {
                 ActionKind::TransactionPoolStartVerifyWithAccounts
             }
+            Self::VerifyError { .. } => ActionKind::TransactionPoolVerifyError,
             Self::BestTipChanged { .. } => ActionKind::TransactionPoolBestTipChanged,
             Self::BestTipChangedWithAccounts { .. } => {
                 ActionKind::TransactionPoolBestTipChangedWithAccounts
@@ -817,6 +820,7 @@ impl ActionKindGet for RpcAction {
             Self::TransactionInjectInit { .. } => ActionKind::RpcTransactionInjectInit,
             Self::TransactionInjectPending { .. } => ActionKind::RpcTransactionInjectPending,
             Self::TransactionInjectSuccess { .. } => ActionKind::RpcTransactionInjectSuccess,
+            Self::TransactionInjectRejected { .. } => ActionKind::RpcTransactionInjectRejected,
             Self::TransactionInjectFailure { .. } => ActionKind::RpcTransactionInjectFailure,
             Self::TransitionFrontierUserCommandsGet { .. } => {
                 ActionKind::RpcTransitionFrontierUserCommandsGet

@@ -13,7 +13,10 @@ use crate::ledger::read::{LedgerReadAction, LedgerReadRequest};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionResponse;
-use crate::rpc::{AccountSlim, PeerConnectionStatus, RpcPeerInfo, RpcTransactionInjectResponse};
+use crate::rpc::{
+    AccountSlim, PeerConnectionStatus, RpcPeerInfo, RpcTransactionInjectResponse,
+    RpcTransactionInjectSuccess,
+};
 use crate::snark_pool::SnarkPoolAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
 use crate::transition_frontier::sync::TransitionFrontierSyncState;
@@ -28,7 +31,7 @@ use super::{
     RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
     RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull,
     RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
-    RpcSnarkerJobSpecResponse, RpcTransactionInjectFailure,
+    RpcSnarkerJobSpecResponse, RpcTransactionInjectFailure, RpcTransactionInjectRejected,
 };
 
 macro_rules! respond_or_log {
@@ -707,22 +710,37 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::TransactionInjectPending { .. } => {}
         RpcAction::TransactionInjectSuccess { rpc_id, response } => {
-            let response: RpcTransactionInjectResponse =
+            let response: RpcTransactionInjectSuccess =
                 response.into_iter().map(|cmd| cmd.into()).collect();
             respond_or_log!(
-                store.service().respond_transaction_inject(rpc_id, response),
+                store.service().respond_transaction_inject(
+                    rpc_id,
+                    RpcTransactionInjectResponse::Success(response)
+                ),
                 meta.time()
             )
         }
-        RpcAction::TransactionInjectFailure { rpc_id, response } => {
-            let response: RpcTransactionInjectFailure = response
+        RpcAction::TransactionInjectRejected { rpc_id, response } => {
+            let response: RpcTransactionInjectRejected = response
                 .into_iter()
                 .map(|(cmd, failure)| (cmd.into(), failure))
                 .collect();
             respond_or_log!(
-                store
-                    .service()
-                    .respond_transaction_inject_failed(rpc_id, response),
+                store.service().respond_transaction_inject(
+                    rpc_id,
+                    RpcTransactionInjectResponse::Rejected(response)
+                ),
+                meta.time()
+            )
+        }
+        RpcAction::TransactionInjectFailure { rpc_id, errors } => {
+            let response: RpcTransactionInjectFailure = errors;
+
+            respond_or_log!(
+                store.service().respond_transaction_inject(
+                    rpc_id,
+                    RpcTransactionInjectResponse::Failure(response)
+                ),
                 meta.time()
             )
         }

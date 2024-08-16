@@ -31,6 +31,10 @@ pub enum TransactionPoolAction {
         pending_id: PendingId,
         from_rpc: Option<RpcId>,
     },
+    #[action_event(level = warn, fields(debug(errors)))]
+    VerifyError {
+        errors: Vec<String>,
+    },
     BestTipChanged {
         best_tip_hash: LedgerHash,
     },

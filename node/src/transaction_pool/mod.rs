@@ -5,7 +5,7 @@ use ledger::{
     },
     transaction_pool::{
         diff::{self, DiffVerified},
-        transaction_hash, ApplyDecision, Config, ValidCommandWithHash,
+        transaction_hash, ApplyDecision, Config, TransactionPoolErrors, ValidCommandWithHash,
     },
     Account, AccountId,
 };
@@ -170,21 +170,46 @@ impl TransactionPoolState {
                 let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
                 let diff = diff::Diff { list: commands };
 
-                let valids = substate.pool.verify(diff, accounts).unwrap(); // TODO: Handle invalids
-                let valids = valids
-                    .into_iter()
-                    .map(transaction_hash::hash_command)
-                    .collect::<Vec<_>>();
-                let best_tip_hash = substate.best_tip_hash.clone().unwrap();
-                let diff = DiffVerified { list: valids };
+                match substate.pool.verify(diff, accounts) {
+                    Ok(valids) => {
+                        let valids = valids
+                            .into_iter()
+                            .map(transaction_hash::hash_command)
+                            .collect::<Vec<_>>();
+                        let best_tip_hash = substate.best_tip_hash.clone().unwrap();
+                        let diff = DiffVerified { list: valids };
 
-                let dispatcher = state.into_dispatcher();
-                dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
-                    best_tip_hash,
-                    diff,
-                    is_sender_local: from_rpc.is_some(),
-                    from_rpc: *from_rpc,
-                });
+                        let dispatcher = state.into_dispatcher();
+                        dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
+                            best_tip_hash,
+                            diff,
+                            is_sender_local: from_rpc.is_some(),
+                            from_rpc: *from_rpc,
+                        });
+                    }
+                    Err(e) => match e {
+                        TransactionPoolErrors::BatchedErrors(errors) => {
+                            let dispatcher = state.into_dispatcher();
+                            let errors: Vec<_> =
+                                errors.into_iter().map(|e| e.to_string()).collect();
+                            dispatcher.push(TransactionPoolAction::VerifyError {
+                                errors: errors.clone(),
+                            });
+                            if let Some(rpc_id) = from_rpc {
+                                dispatcher.push(RpcAction::TransactionInjectFailure {
+                                    rpc_id: *rpc_id,
+                                    errors,
+                                })
+                            }
+                        }
+                        TransactionPoolErrors::Unexpected(es) => {
+                            panic!("{es}")
+                        }
+                    },
+                }
+            }
+            TransactionPoolAction::VerifyError { .. } => {
+                // just logging the errors
             }
             TransactionPoolAction::BestTipChanged { best_tip_hash } => {
                 let account_ids = substate.pool.get_accounts_to_revalidate_on_new_best_tip();
@@ -269,7 +294,7 @@ impl TransactionPoolState {
                         if let Some(rpc_id) = from_rpc {
                             let dispatcher = state.into_dispatcher();
 
-                            dispatcher.push(RpcAction::TransactionInjectFailure {
+                            dispatcher.push(RpcAction::TransactionInjectRejected {
                                 rpc_id,
                                 response: rejected.clone(),
                             });

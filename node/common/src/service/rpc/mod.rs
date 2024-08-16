@@ -8,7 +8,8 @@ use node::rpc::{
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
     RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest,
     RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectFailure,
-    RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
+    RpcTransactionInjectRejected, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +20,7 @@ pub use node::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
     RpcP2pConnectionOutgoingResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
     RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse,
-    RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
+    RpcSyncStatsGetResponse, RpcTransactionInjectSuccess,
 };
 use node::State;
 use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
@@ -96,9 +97,9 @@ macro_rules! rpc_service_impl {
             let chan = entry.ok_or(RespondError::UnknownRpcId)?;
             let chan = chan
                 .downcast::<oneshot::Sender<$ty>>()
-                .or(Err(RespondError::UnexpectedResponseType))?;
+                .map_err(|_| RespondError::UnexpectedResponseType)?;
             chan.send(response)
-                .or(Err(RespondError::RespondingFailed))?;
+                .map_err(|_| RespondError::RespondingFailed)?;
             Ok(())
         }
     };
@@ -287,10 +288,6 @@ impl node::rpc::RpcService for NodeService {
     rpc_service_impl!(respond_transaction_pool, RpcTransactionPoolResponse);
     rpc_service_impl!(respond_ledger_accounts, RpcLedgerAccountsResponse);
     rpc_service_impl!(respond_transaction_inject, RpcTransactionInjectResponse);
-    rpc_service_impl!(
-        respond_transaction_inject_failed,
-        RpcTransactionInjectFailure
-    );
     rpc_service_impl!(
         respond_transition_frontier_commands,
         RpcTransitionFrontierUserCommandsResponse

@@ -170,9 +170,14 @@ pub enum RpcAction {
         response: Vec<ValidCommandWithHash>,
     },
     #[action_event(level = info)]
-    TransactionInjectFailure {
+    TransactionInjectRejected {
         rpc_id: RpcId,
         response: Vec<(ValidCommandWithHash, diff::Error)>,
+    },
+    #[action_event(level = warn)]
+    TransactionInjectFailure {
+        rpc_id: RpcId,
+        errors: Vec<String>,
     },
     #[action_event(level = info)]
     TransitionFrontierUserCommandsGet {
@@ -283,6 +288,11 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .get(rpc_id)
                 .map_or(false, |v| v.status.is_init()),
             RpcAction::TransactionInjectSuccess { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_pending()),
+            RpcAction::TransactionInjectRejected { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)

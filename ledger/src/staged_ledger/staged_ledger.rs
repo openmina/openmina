@@ -1222,30 +1222,6 @@ impl StagedLedger {
         verifier
             .verify_commands(cs, skip_verification)
             .into_iter()
-            .map(|x| {
-                use crate::verifier::VerifyCommandsResult::*;
-                match x {
-                    Valid(x) => Ok(x),
-                    InvalidKeys(invalid)
-                    | InvalidSignature(invalid)
-                    | MissingVerificationKey(invalid)
-                    | UnexpectedVerificationKey(invalid)
-                    | MismatchedVerificationKey(invalid)
-                    | MismatchedAuthorizationKind(invalid) => {
-                        Err(VerifierError::VerificationFailed(format!(
-                            "verification failed on command: {:?}",
-                            invalid
-                        )))
-                    }
-                    InvalidProof(invalid) => Err(VerifierError::VerificationFailed(format!(
-                        "verification failed on command: {:?}",
-                        invalid
-                    ))),
-                    ValidAssuming(_) => Err(VerifierError::VerificationFailed(
-                        "batch verification failed".to_string(),
-                    )),
-                }
-            })
             .collect()
     }
 
