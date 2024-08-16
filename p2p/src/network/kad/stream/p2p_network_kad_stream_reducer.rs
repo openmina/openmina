@@ -17,32 +17,39 @@ impl P2pNetworkKadIncomingStreamState {
         action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
         limits: &P2pLimits,
     ) -> Result<(), String> {
-        use super::P2pNetworkKadIncomingStreamState as S;
-        use super::P2pNetworkKademliaStreamAction as A;
-
         let (action, _meta) = action.split();
 
         match (&self, action) {
-            (S::Default, A::New { incoming, .. }) if *incoming => {
-                *self = S::WaitingForRequest {
+            (
+                P2pNetworkKadIncomingStreamState::Default,
+                P2pNetworkKademliaStreamAction::New { incoming, .. },
+            ) if *incoming => {
+                *self = P2pNetworkKadIncomingStreamState::WaitingForRequest {
                     expect_close: false,
                 };
                 Ok(())
             }
-            (S::WaitingForRequest { .. }, A::IncomingData { data, .. }) => {
+            (
+                P2pNetworkKadIncomingStreamState::WaitingForRequest { .. },
+                P2pNetworkKademliaStreamAction::IncomingData { data, .. },
+            ) => {
                 let data = &data.0;
                 let mut reader = BytesReader::from_bytes(data);
 
                 let Ok(encoded_len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    *self = S::Error(P2pNetworkStreamProtobufError::MessageLength);
+                    *self = P2pNetworkKadIncomingStreamState::Error(
+                        P2pNetworkStreamProtobufError::MessageLength,
+                    );
                     return Ok(());
                 };
 
                 if encoded_len > limits.kademlia_request() {
-                    *self = S::Error(P2pNetworkStreamProtobufError::Limit(
-                        encoded_len,
-                        limits.kademlia_request(),
-                    ));
+                    *self = P2pNetworkKadIncomingStreamState::Error(
+                        P2pNetworkStreamProtobufError::Limit(
+                            encoded_len,
+                            limits.kademlia_request(),
+                        ),
+                    );
                     return Ok(());
                 }
 
@@ -50,7 +57,7 @@ impl P2pNetworkKadIncomingStreamState {
 
                 if let Some(remaining_data) = data.get(data.len() - remaining_len..) {
                     if encoded_len > remaining_len {
-                        *self = S::PartialRequestReceived {
+                        *self = P2pNetworkKadIncomingStreamState::PartialRequestReceived {
                             len: encoded_len,
                             data: remaining_data.to_vec(),
                         };
@@ -59,39 +66,57 @@ impl P2pNetworkKadIncomingStreamState {
 
                     self.handle_incoming_request(encoded_len, remaining_data)
                 } else {
-                    *self = S::Error(P2pNetworkStreamProtobufError::Message(
-                        "out of bounds".to_owned(),
-                    ));
+                    *self = P2pNetworkKadIncomingStreamState::Error(
+                        P2pNetworkStreamProtobufError::Message("out of bounds".to_owned()),
+                    );
                     Ok(())
                 }
             }
-            (S::PartialRequestReceived { len, data }, A::IncomingData { data: new_data, .. }) => {
+            (
+                P2pNetworkKadIncomingStreamState::PartialRequestReceived { len, data },
+                P2pNetworkKademliaStreamAction::IncomingData { data: new_data, .. },
+            ) => {
                 let mut data = data.clone();
                 data.extend_from_slice(&new_data.0);
 
                 if *len > data.len() {
-                    *self = S::PartialRequestReceived { len: *len, data };
+                    *self = P2pNetworkKadIncomingStreamState::PartialRequestReceived {
+                        len: *len,
+                        data,
+                    };
                     return Ok(());
                 }
 
                 self.handle_incoming_request(*len, &data)
             }
-            (S::RequestIsReady { .. }, A::WaitOutgoing { .. }) => {
-                *self = S::WaitingForReply;
+            (
+                P2pNetworkKadIncomingStreamState::RequestIsReady { .. },
+                P2pNetworkKademliaStreamAction::WaitOutgoing { .. },
+            ) => {
+                *self = P2pNetworkKadIncomingStreamState::WaitingForReply;
                 Ok(())
             }
-            (S::WaitingForReply, A::SendResponse { data, .. }) => {
+            (
+                P2pNetworkKadIncomingStreamState::WaitingForReply,
+                P2pNetworkKademliaStreamAction::SendResponse { data, .. },
+            ) => {
                 let message = Message::from(data);
                 let bytes = serialize_into_vec(&message).map_err(|e| format!("{e}"))?;
-                *self = S::ResponseBytesAreReady { bytes };
+                *self = P2pNetworkKadIncomingStreamState::ResponseBytesAreReady { bytes };
                 Ok(())
             }
-            (S::ResponseBytesAreReady { .. }, A::WaitIncoming { .. }) => {
-                *self = S::WaitingForRequest { expect_close: true };
+            (
+                P2pNetworkKadIncomingStreamState::ResponseBytesAreReady { .. },
+                P2pNetworkKademliaStreamAction::WaitIncoming { .. },
+            ) => {
+                *self = P2pNetworkKadIncomingStreamState::WaitingForRequest { expect_close: true };
                 Ok(())
             }
-            (S::WaitingForRequest { expect_close, .. }, A::RemoteClose { .. }) if *expect_close => {
-                *self = S::Closing;
+            (
+                P2pNetworkKadIncomingStreamState::WaitingForRequest { expect_close, .. },
+                P2pNetworkKademliaStreamAction::RemoteClose { .. },
+            ) if *expect_close => {
+                *self = P2pNetworkKadIncomingStreamState::Closing;
                 Ok(())
             }
             _ => Err(format!(
@@ -101,14 +126,14 @@ impl P2pNetworkKadIncomingStreamState {
     }
 
     fn handle_incoming_request(&mut self, len: usize, data: &[u8]) -> Result<(), String> {
-        use super::P2pNetworkKadIncomingStreamState::*;
-
         let mut reader = BytesReader::from_bytes(data);
 
         let message = match reader.read_message_by_len::<Message>(data, len) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(P2pNetworkStreamProtobufError::Message(e.to_string()));
+                *self = P2pNetworkKadIncomingStreamState::Error(
+                    P2pNetworkStreamProtobufError::Message(e.to_string()),
+                );
                 return Ok(());
             }
         };
@@ -116,7 +141,7 @@ impl P2pNetworkKadIncomingStreamState {
         let data = match P2pNetworkKademliaRpcRequest::try_from(message.clone()) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(e.into());
+                *self = P2pNetworkKadIncomingStreamState::Error(e.into());
                 return Ok(());
             }
         };
@@ -132,42 +157,56 @@ impl P2pNetworkKadOutgoingStreamState {
         action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
         limits: &P2pLimits,
     ) -> Result<(), String> {
-        use super::P2pNetworkKadOutgoingStreamState as S;
-        use super::P2pNetworkKademliaStreamAction as A;
         let (action, _meta) = action.split();
         match (&self, action) {
-            (S::Default, A::New { incoming, .. }) if !*incoming => {
-                *self = S::WaitingForRequest {
+            (
+                P2pNetworkKadOutgoingStreamState::Default,
+                P2pNetworkKademliaStreamAction::New { incoming, .. },
+            ) if !*incoming => {
+                *self = P2pNetworkKadOutgoingStreamState::WaitingForRequest {
                     expect_close: false,
                 };
                 Ok(())
             }
 
-            (S::WaitingForRequest { .. }, A::SendRequest { data, .. }) => {
+            (
+                P2pNetworkKadOutgoingStreamState::WaitingForRequest { .. },
+                P2pNetworkKademliaStreamAction::SendRequest { data, .. },
+            ) => {
                 let message = Message::from(data);
                 let bytes = serialize_into_vec(&message).map_err(|e| format!("{e}"))?;
-                *self = S::RequestBytesAreReady { bytes };
+                *self = P2pNetworkKadOutgoingStreamState::RequestBytesAreReady { bytes };
                 Ok(())
             }
-            (S::RequestBytesAreReady { .. }, A::WaitIncoming { .. }) => {
-                *self = S::WaitingForReply;
+            (
+                P2pNetworkKadOutgoingStreamState::RequestBytesAreReady { .. },
+                P2pNetworkKademliaStreamAction::WaitIncoming { .. },
+            ) => {
+                *self = P2pNetworkKadOutgoingStreamState::WaitingForReply;
                 Ok(())
             }
 
-            (S::WaitingForReply { .. }, A::IncomingData { data, .. }) => {
+            (
+                P2pNetworkKadOutgoingStreamState::WaitingForReply { .. },
+                P2pNetworkKademliaStreamAction::IncomingData { data, .. },
+            ) => {
                 let data = &data.0;
 
                 let mut reader = BytesReader::from_bytes(data);
                 let Ok(encoded_len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    *self = S::Error(P2pNetworkStreamProtobufError::MessageLength);
+                    *self = P2pNetworkKadOutgoingStreamState::Error(
+                        P2pNetworkStreamProtobufError::MessageLength,
+                    );
                     return Ok(());
                 };
 
                 if encoded_len > limits.kademlia_response() {
-                    *self = S::Error(P2pNetworkStreamProtobufError::Limit(
-                        encoded_len,
-                        limits.kademlia_response(),
-                    ));
+                    *self = P2pNetworkKadOutgoingStreamState::Error(
+                        P2pNetworkStreamProtobufError::Limit(
+                            encoded_len,
+                            limits.kademlia_response(),
+                        ),
+                    );
                     return Ok(());
                 }
 
@@ -175,7 +214,7 @@ impl P2pNetworkKadOutgoingStreamState {
 
                 if let Some(remaining_data) = data.get(data.len() - remaining_len..) {
                     if encoded_len > remaining_len {
-                        *self = S::PartialReplyReceived {
+                        *self = P2pNetworkKadOutgoingStreamState::PartialReplyReceived {
                             len: encoded_len,
                             data: remaining_data.to_vec(),
                         };
@@ -184,33 +223,47 @@ impl P2pNetworkKadOutgoingStreamState {
 
                     self.handle_incoming_response(encoded_len, remaining_data)
                 } else {
-                    *self = S::Error(P2pNetworkStreamProtobufError::Message(
-                        "out of bounds".to_owned(),
-                    ));
+                    *self = P2pNetworkKadOutgoingStreamState::Error(
+                        P2pNetworkStreamProtobufError::Message("out of bounds".to_owned()),
+                    );
                     Ok(())
                 }
             }
-            (S::PartialReplyReceived { len, data }, A::IncomingData { data: new_data, .. }) => {
+            (
+                P2pNetworkKadOutgoingStreamState::PartialReplyReceived { len, data },
+                P2pNetworkKademliaStreamAction::IncomingData { data: new_data, .. },
+            ) => {
                 let mut data = data.clone();
                 data.extend_from_slice(&new_data.0);
 
                 if *len > data.len() {
-                    *self = S::PartialReplyReceived { len: *len, data };
+                    *self =
+                        P2pNetworkKadOutgoingStreamState::PartialReplyReceived { len: *len, data };
                     return Ok(());
                 }
 
                 self.handle_incoming_response(*len, &data)
             }
-            (S::ResponseIsReady { .. }, A::WaitOutgoing { .. }) => {
-                *self = S::WaitingForRequest { expect_close: true };
+            (
+                P2pNetworkKadOutgoingStreamState::ResponseIsReady { .. },
+                P2pNetworkKademliaStreamAction::WaitOutgoing { .. },
+            ) => {
+                *self = P2pNetworkKadOutgoingStreamState::WaitingForRequest { expect_close: true };
                 Ok(())
             }
-            (S::WaitingForRequest { expect_close }, A::Close { .. }) if *expect_close => {
-                *self = S::RequestBytesAreReady { bytes: Vec::new() };
+            (
+                P2pNetworkKadOutgoingStreamState::WaitingForRequest { expect_close },
+                P2pNetworkKademliaStreamAction::Close { .. },
+            ) if *expect_close => {
+                *self =
+                    P2pNetworkKadOutgoingStreamState::RequestBytesAreReady { bytes: Vec::new() };
                 Ok(())
             }
-            (S::Closing, A::RemoteClose { .. }) => {
-                *self = S::Closed;
+            (
+                P2pNetworkKadOutgoingStreamState::Closing,
+                P2pNetworkKademliaStreamAction::RemoteClose { .. },
+            ) => {
+                *self = P2pNetworkKadOutgoingStreamState::Closed;
                 Ok(())
             }
             _ => Err(format!(
@@ -220,14 +273,14 @@ impl P2pNetworkKadOutgoingStreamState {
     }
 
     fn handle_incoming_response(&mut self, len: usize, data: &[u8]) -> Result<(), String> {
-        use super::P2pNetworkKadOutgoingStreamState::*;
-
         let mut reader = BytesReader::from_bytes(data);
 
         let message = match reader.read_message_by_len::<Message>(data, len) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(P2pNetworkStreamProtobufError::Message(e.to_string()));
+                *self = P2pNetworkKadOutgoingStreamState::Error(
+                    P2pNetworkStreamProtobufError::Message(e.to_string()),
+                );
                 return Ok(());
             }
         };
@@ -235,7 +288,7 @@ impl P2pNetworkKadOutgoingStreamState {
         let data = match P2pNetworkKademliaRpcReply::try_from(message.clone()) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(e.into());
+                *self = P2pNetworkKadOutgoingStreamState::Error(e.into());
                 return Ok(());
             }
         };

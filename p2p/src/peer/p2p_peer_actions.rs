@@ -36,10 +36,13 @@ impl P2pPeerAction {
 impl redux::EnablingCondition<P2pState> for P2pPeerAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
-            Self::Discovered { peer_id, .. } => state
-                .peers
-                .get(peer_id)
-                .map_or(true, |p| p.dial_opts.is_none()),
+            Self::Discovered { peer_id, .. } => {
+                peer_id != &state.my_id()
+                    && state
+                        .peers
+                        .get(peer_id)
+                        .map_or(true, |p| p.dial_opts.is_none())
+            }
             Self::Ready { peer_id, .. } => state
                 .peers
                 .get(peer_id)

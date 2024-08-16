@@ -13,9 +13,14 @@ use redux::{ActionMeta, EnablingCondition, SubStore};
 
 use crate::service::ClusterService;
 
-pub(crate) struct State(pub(crate) P2pState);
+pub struct State(pub(crate) P2pState);
+pub type Store = redux::Store<State, ClusterService, Action>;
 
-pub(crate) type Store = redux::Store<State, ClusterService, Action>;
+impl State {
+    pub fn state(&self) -> &P2pState {
+        &self.0
+    }
+}
 
 impl EnablingCondition<State> for Action {
     fn is_enabled(&self, state: &State, time: redux::Timestamp) -> bool {
@@ -69,7 +74,7 @@ impl SubstateAccess<P2pState> for State {
 }
 
 #[derive(Debug, derive_more::From)]
-pub(crate) enum Action {
+pub enum Action {
     P2p(P2pAction),
     Idle(IdleAction),
 }
@@ -81,7 +86,7 @@ impl From<redux::AnyAction> for Action {
 }
 
 #[derive(Debug)]
-pub(crate) struct IdleAction;
+pub struct IdleAction;
 
 impl EnablingCondition<State> for IdleAction {
     fn is_enabled(&self, _state: &State, _time: redux::Timestamp) -> bool {

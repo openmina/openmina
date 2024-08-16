@@ -66,7 +66,8 @@ impl P2pNetworkState {
                 };
                 let time = meta.time();
                 if let Err(err) = state.reducer(meta.with_action(a), limits) {
-                    error!(time; "{err}");
+                    let self_id = self.scheduler.local_pk.peer_id();
+                    error!(time; "node_id: {self_id}, {err}");
                 }
             }
             P2pNetworkAction::Pubsub(a) => {

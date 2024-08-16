@@ -6,14 +6,14 @@ use std::{
 
 use futures::Stream;
 use p2p::{P2pAction, P2pEvent, P2pLimits, P2pState, P2pTimeouts, PeerId};
-use redux::{EnablingCondition, SubStore};
+use redux::{Effects, EnablingCondition, SubStore};
 use tokio::sync::mpsc;
 
 use crate::{
     cluster::{Listener, PeerIdConfig},
     event::RustNodeEvent,
-    redux::IdleAction,
-    redux::Store,
+    redux::{Action, IdleAction, State, Store},
+    service::ClusterService,
     test_node::TestNode,
 };
 
@@ -27,6 +27,7 @@ pub struct RustNodeConfig {
     pub timeouts: P2pTimeouts,
     pub limits: P2pLimits,
     pub discovery: bool,
+    pub override_fn: Option<Effects<State, ClusterService, Action>>,
 }
 
 impl RustNodeConfig {
@@ -55,6 +56,11 @@ impl RustNodeConfig {
 
     pub fn with_discovery(mut self, discovery: bool) -> Self {
         self.discovery = discovery;
+        self
+    }
+
+    pub fn with_override(mut self, override_fn: Effects<State, ClusterService, Action>) -> Self {
+        self.override_fn = Some(override_fn);
         self
     }
 }

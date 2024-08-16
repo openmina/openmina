@@ -71,7 +71,7 @@ pub(super) trait RustNodeEventStore {
     fn store_event(&mut self, event: RustNodeEvent);
 }
 
-pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
+pub fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
     let store_event = |store: &mut super::redux::Store, event| store.service().store_event(event);
     match action {
         P2pAction::Peer(P2pPeerAction::Ready { peer_id, incoming }) => {

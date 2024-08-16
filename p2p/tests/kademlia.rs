@@ -1,16 +1,24 @@
-use p2p::{identity::SecretKey, P2pNetworkKadBucket, PeerId};
+use p2p::{
+    identity::SecretKey, p2p_effects, p2p_timeout_effects, P2pAction, P2pNetworkAction,
+    P2pNetworkKadAction, P2pNetworkKadBucket, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
+    P2pNetworkKademliaStreamAction, PeerId,
+};
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, Listener},
-    event::{allow_disconnections, RustNodeEvent},
-    futures::TryStreamExt,
+    event::{allow_disconnections, event_mapper_effect, RustNodeEvent},
+    futures::{StreamExt, TryStreamExt},
     predicates::kad_finished_bootstrap,
+    redux::{Action, State},
     rust_node::{RustNodeConfig, RustNodeId},
+    service::ClusterService,
     stream::ClusterStreamExt,
+    test_node::TestNode,
     utils::{
         peer_ids, try_wait_for_all_nodes_with_value, try_wait_for_nodes_to_connect,
         try_wait_for_nodes_to_listen,
     },
 };
+use redux::{ActionWithMeta, Store};
 use std::{future::ready, net::Ipv4Addr, time::Duration};
 
 #[tokio::test]
@@ -300,6 +308,102 @@ async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
     );
 
     Ok(())
+}
+
+#[tokio::test]
+async fn test_bad_node() -> anyhow::Result<()> {
+    std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", "false");
+
+    let mut cluster = ClusterBuilder::new()
+        .ports_with_len(100)
+        .idle_duration(Duration::from_millis(100))
+        .start()
+        .await?;
+
+    let bad_node = cluster.add_rust_node(
+        RustNodeConfig::default()
+            .with_discovery(true)
+            .with_override(bad_node_effects),
+    )?;
+
+    let node = cluster.add_rust_node(
+        RustNodeConfig::default()
+            .with_discovery(true)
+            .with_initial_peers([Listener::Rust(bad_node)]),
+    )?;
+    let node_peer_id = cluster.rust_node(node).peer_id();
+
+    let mut stream = cluster.take_during(Duration::from_secs(30));
+    while let Some(event) = stream.next().await {
+        let ClusterEvent::Rust {
+            id: _,
+            event: RustNodeEvent::PeerDisconnected { peer_id, reason },
+        } = event
+        else {
+            continue;
+        };
+
+        if peer_id == node_peer_id && reason == "connection is rejected: self connection detected" {
+            panic!("Node tried to connect to itself");
+        }
+    }
+
+    Ok(())
+}
+
+fn bad_node_effects(
+    store: &mut Store<State, ClusterService, Action>,
+    action: ActionWithMeta<Action>,
+) {
+    {
+        let (action, meta) = action.split();
+        match action {
+            Action::P2p(a) => {
+                match a.clone() {
+                    P2pAction::Network(P2pNetworkAction::Kad(P2pNetworkKadAction::System(
+                        P2pNetworkKademliaAction::AnswerFindNodeRequest {
+                            addr,
+                            peer_id,
+                            stream_id,
+                            ..
+                        },
+                    ))) => {
+                        let closer_peers = store
+                            .state
+                            .get()
+                            .state()
+                            .network
+                            .scheduler
+                            .discovery_state()
+                            .expect("Error getting discovery state")
+                            .routing_table
+                            .buckets
+                            .iter()
+                            .flat_map(|bucket| bucket.clone().into_iter())
+                            .collect();
+
+                        let message = P2pNetworkKademliaRpcReply::FindNode { closer_peers };
+                        store.dispatch(Action::P2p(
+                            P2pNetworkKademliaStreamAction::SendResponse {
+                                addr,
+                                peer_id,
+                                stream_id,
+                                data: message,
+                            }
+                            .into(),
+                        ));
+                    }
+                    a => {
+                        p2p_effects(store, meta.with_action(a.clone()));
+                    }
+                }
+                event_mapper_effect(store, a);
+            }
+            Action::Idle(_) => {
+                p2p_timeout_effects(store, &meta);
+            }
+        };
+    }
 }
 
 async fn wait_for_identify<I>(cluster: &mut Cluster, nodes_peers: I, time: Duration)
