@@ -366,6 +366,7 @@ impl Cluster {
     }
 
     pub fn add_rust_node(&mut self, config: RustNodeConfig) -> Result<RustNodeId> {
+        let override_fn = config.override_fn;
         let node_idx = self.rust_nodes.len();
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         let (config, secret_key) = self.rust_node_config(config)?;
@@ -389,7 +390,7 @@ impl Cluster {
                     )
                 }
             },
-            |store, action| {
+            override_fn.unwrap_or(|store, action| {
                 let (action, meta) = action.split();
                 match action {
                     Action::P2p(a) => {
@@ -398,7 +399,7 @@ impl Cluster {
                     }
                     Action::Idle(_) => p2p_timeout_effects(store, &meta),
                 }
-            },
+            }),
             service,
             SystemTime::now(),
             State(P2pState::new(config, &self.chain_id)),

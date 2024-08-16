@@ -29,15 +29,13 @@ impl P2pNetworkKademliaAction {
     where
         Store: crate::P2pStore<S>,
     {
-        // use super::P2pNetworkKadStatus::*;
-        use super::P2pNetworkKademliaAction::*;
         let Some(state) = &store.state().network.scheduler.discovery_state else {
             return Err(String::from("peer discovery is not configured"));
         };
 
         match (self, &state.status) {
             (
-                AnswerFindNodeRequest {
+                P2pNetworkKademliaAction::AnswerFindNodeRequest {
                     addr,
                     peer_id,
                     stream_id,
@@ -63,7 +61,7 @@ impl P2pNetworkKademliaAction {
                 Ok(())
             }
             (
-                UpdateFindNodeRequest {
+                P2pNetworkKademliaAction::UpdateFindNodeRequest {
                     addr: _,
                     peer_id,
                     stream_id,
@@ -79,7 +77,7 @@ impl P2pNetworkKademliaAction {
                 });
                 Ok(())
             }
-            (StartBootstrap { .. }, _) => {
+            (P2pNetworkKademliaAction::StartBootstrap { .. }, _) => {
                 if store
                     .state()
                     .network
@@ -94,8 +92,8 @@ impl P2pNetworkKademliaAction {
 
                 Ok(())
             }
-            (BootstrapFinished {}, _) => Ok(()),
-            (UpdateRoutingTable { .. }, _) => Ok(()),
+            (P2pNetworkKademliaAction::BootstrapFinished {}, _) => Ok(()),
+            (P2pNetworkKademliaAction::UpdateRoutingTable { .. }, _) => Ok(()),
         }
     }
 }
