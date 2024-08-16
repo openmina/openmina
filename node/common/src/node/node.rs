@@ -4,14 +4,14 @@ use node::{Effects, EventSourceAction, Service, State, Store};
 
 use crate::{
     rpc::{RpcReceiver, RpcSender},
-    EventReceiver, NodeServiceCommon,
+    EventReceiver, NodeService,
 };
 
 pub struct Node<Serv> {
     store: Store<Serv>,
 }
 
-impl<Serv: Service + AsMut<NodeServiceCommon>> Node<Serv> {
+impl<Serv: Service + AsMut<NodeService>> Node<Serv> {
     pub fn new(
         rng_seed: [u8; 32],
         initial_state: State,
@@ -54,7 +54,7 @@ impl<Serv: Service + AsMut<NodeServiceCommon>> Node<Serv> {
         &mut self.store.service
     }
 
-    fn service_common_mut(&mut self) -> &mut NodeServiceCommon {
+    fn service_common_mut(&mut self) -> &mut NodeService {
         self.service_mut().as_mut()
     }
 
@@ -79,7 +79,13 @@ impl<Serv: Service + AsMut<NodeServiceCommon>> Node<Serv> {
                     None => std::future::pending().await,
                 }
             };
-            let timeout = tokio::time::sleep(Duration::from_millis(100));
+
+            let timeout = Duration::from_millis(100);
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let timeout = tokio::time::sleep(timeout);
+            #[cfg(target_arch = "wasm32")]
+            let timeout = gloo_timers::future::TimeoutFuture::new(timeout.as_millis() as u32);
 
             tokio::select! {
                 _ = wait_for_events => {

@@ -2,6 +2,7 @@ pub mod best_tip;
 pub mod rpc;
 pub mod snark;
 pub mod snark_job_commitment;
+pub mod streaming_rpc;
 pub mod transaction;
 
 mod p2p_channels_state;
@@ -27,6 +28,7 @@ use self::best_tip::BestTipPropagationChannelMsg;
 use self::rpc::RpcChannelMsg;
 use self::snark::SnarkPropagationChannelMsg;
 use self::snark_job_commitment::SnarkJobCommitmentPropagationChannelMsg;
+use self::streaming_rpc::StreamingRpcChannelMsg;
 use self::transaction::TransactionPropagationChannelMsg;
 
 #[derive(Serialize, Deserialize, EnumIter, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
@@ -37,6 +39,7 @@ pub enum ChannelId {
     SnarkPropagation = 4,
     SnarkJobCommitmentPropagation = 5,
     Rpc = 100,
+    StreamingRpc = 101,
 }
 
 impl ChannelId {
@@ -57,6 +60,7 @@ impl ChannelId {
             Self::SnarkPropagation => "snark/propagation",
             Self::SnarkJobCommitmentPropagation => "snark_job_commitment/propagation",
             Self::Rpc => "rpc",
+            Self::StreamingRpc => "rpc/streaming",
         }
     }
 
@@ -67,6 +71,7 @@ impl ChannelId {
             Self::SnarkPropagation => true,
             Self::SnarkJobCommitmentPropagation => false,
             Self::Rpc => true,
+            Self::StreamingRpc => false,
         }
     }
 
@@ -79,6 +84,7 @@ impl ChannelId {
             Self::SnarkPropagation => 1024,               // 1KB - just snark info.
             Self::SnarkJobCommitmentPropagation => 2 * 1024, // 2KB,
             Self::Rpc => 256 * 1024 * 1024,               // 256MB,
+            Self::StreamingRpc => 16 * 1024 * 1024,       // 16MB,
         }
     }
 
@@ -117,6 +123,7 @@ pub enum ChannelMsg {
     SnarkPropagation(SnarkPropagationChannelMsg),
     SnarkJobCommitmentPropagation(SnarkJobCommitmentPropagationChannelMsg),
     Rpc(RpcChannelMsg),
+    StreamingRpc(StreamingRpcChannelMsg),
 }
 
 impl ChannelMsg {
@@ -127,6 +134,7 @@ impl ChannelMsg {
             Self::SnarkPropagation(_) => ChannelId::SnarkPropagation,
             Self::SnarkJobCommitmentPropagation(_) => ChannelId::SnarkJobCommitmentPropagation,
             Self::Rpc(_) => ChannelId::Rpc,
+            Self::StreamingRpc(_) => ChannelId::StreamingRpc,
         }
     }
 
@@ -140,6 +148,7 @@ impl ChannelMsg {
             Self::SnarkPropagation(v) => v.binprot_write(w),
             Self::SnarkJobCommitmentPropagation(v) => v.binprot_write(w),
             Self::Rpc(v) => v.binprot_write(w),
+            Self::StreamingRpc(v) => v.binprot_write(w),
         }
     }
 
@@ -162,6 +171,7 @@ impl ChannelMsg {
                 SnarkJobCommitmentPropagationChannelMsg::binprot_read(r).map(|v| v.into())
             }
             ChannelId::Rpc => RpcChannelMsg::binprot_read(r).map(|v| v.into()),
+            ChannelId::StreamingRpc => StreamingRpcChannelMsg::binprot_read(r).map(|v| v.into()),
         }
     }
 }

@@ -23,11 +23,10 @@ mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
-linkme = { workspace = true }
 
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
-p2p = { path = "../p2p", default-features = false }
+p2p = { path = "../p2p" }
 openmina-node-account = { path = "./account" }
 tokio = { version = "1.26.0" }
 postcard = { version = "1.0.8", features = ["use-std"] }
@@ -39,10 +38,10 @@ rust-format = "0.3"
 vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rustc"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
+linkme = { workspace = true }
 redux = { workspace = true, features=["serializable_callbacks"] }
 
 [features]
-default = ["p2p-libp2p"]
 replay = []
 p2p-webrtc = ["p2p/p2p-webrtc"]
 p2p-libp2p = ["p2p/p2p-libp2p"]

@@ -5,7 +5,7 @@ use node::p2p::{
     connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
     PeerId,
 };
-use openmina_core::ChainId;
+use openmina_core::{thread, ChainId};
 
 use std::{
     path::{Path, PathBuf},
@@ -139,12 +139,12 @@ impl OcamlNode {
 
         let prefix = format!("[localhost:{}] ", config.libp2p_port);
         let prefix2 = prefix.clone();
-        std::thread::spawn(
+        thread::spawn(
             move || {
                 if Self::read_stream(stdout, std::io::stdout(), &prefix).is_err() {}
             },
         );
-        std::thread::spawn(
+        thread::spawn(
             move || {
                 if Self::read_stream(stderr, std::io::stderr(), &prefix2).is_err() {}
             },

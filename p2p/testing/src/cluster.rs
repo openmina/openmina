@@ -351,7 +351,7 @@ impl Cluster {
             .collect::<Result<_>>()?;
         let config = P2pConfig {
             libp2p_port: Some(libp2p_port),
-            listen_port,
+            listen_port: Some(listen_port),
             identity_pub_key: secret_key.public_key(),
             initial_peers,
             ask_initial_peers_interval: Duration::from_secs(5),

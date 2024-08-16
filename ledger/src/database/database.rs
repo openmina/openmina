@@ -395,8 +395,8 @@ mod tests {
     fn test_hashing_tree_with_web_workers() {
         use web_sys::console;
 
+        use openmina_core::thread;
         use std::time::Duration;
-        use wasm_thread as thread;
 
         use crate::account;
 
@@ -506,7 +506,7 @@ export function performance_now() {
     fn test_hashing_tree() {
         const NACCOUNTS: u64 = 1_000;
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         let mut db = Database::<V2>::create(20);
 
         elog!("{:?} accounts natively", NACCOUNTS);
@@ -522,7 +522,7 @@ export function performance_now() {
         elog!("generate random accounts {:?}", now.elapsed());
         assert_eq!(db.naccounts(), NACCOUNTS as usize);
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         db.merkle_root();
         elog!("compute merkle root {:?}", now.elapsed());
     }

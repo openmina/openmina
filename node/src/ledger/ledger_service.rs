@@ -39,6 +39,7 @@ use mina_p2p_messages::{
 };
 use openmina_core::constants::constraint_constants;
 use openmina_core::snark::{Snark, SnarkJobId};
+use openmina_core::thread;
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
@@ -489,7 +490,7 @@ impl LedgerCtx {
             .snarked_ledger_mut(snarked_ledger_hash.clone())
             .copy();
 
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name("staged-ledger-reconstruct".into())
             .spawn(move || {
                 let (staged_ledger_hash, result) =
@@ -729,7 +730,13 @@ impl LedgerCtx {
             .mask(&ledger_hash)
             .filter(|(_, is_synced)| *is_synced)?;
         // fix(binier): incorrect ledger hash, must be a hash of a populated subtree.
-        Some((mask.num_accounts() as u64, ledger_hash))
+
+        let num_accounts = mask.num_accounts() as u64;
+        let first_node_addr = ledger::Address::first(
+            LEDGER_DEPTH - super::tree_height_for_num_accounts(num_accounts),
+        );
+        let hash = LedgerHash::from_fp(mask.get_hash(first_node_addr)?);
+        Some((num_accounts, hash))
     }
 
     pub fn get_child_hashes(

@@ -4,6 +4,7 @@ use std::net::{IpAddr, SocketAddr};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
+use crate::channels::streaming_rpc::StreamingRpcChannelMsg;
 use crate::ConnectionAddr;
 use crate::{
     channels::{transaction::TransactionPropagationChannelMsg, ChannelId, ChannelMsg, MsgId},
@@ -201,6 +202,21 @@ impl fmt::Display for P2pChannelEvent {
                             write!(f, "Request, id: {id}, {req}")
                         }
                         RpcChannelMsg::Response(id, resp) => {
+                            write!(f, "Response, id: {id}, ")?;
+                            match resp {
+                                None => write!(f, "None"),
+                                Some(resp) => write!(f, "{:?}", resp.kind()),
+                            }
+                        }
+                    },
+                    ChannelMsg::StreamingRpc(v) => match v {
+                        StreamingRpcChannelMsg::Next(id) => {
+                            write!(f, "Next, id: {id}")
+                        }
+                        StreamingRpcChannelMsg::Request(id, req) => {
+                            write!(f, "Request, id: {id}, {req}")
+                        }
+                        StreamingRpcChannelMsg::Response(id, resp) => {
                             write!(f, "Response, id: {id}, ")?;
                             match resp {
                                 None => write!(f, "None"),

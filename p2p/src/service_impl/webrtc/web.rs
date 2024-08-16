@@ -106,9 +106,9 @@ impl RTCConnection {
     }
 
     pub fn on_connection_state_change(&self, mut f: OnConnectionStateChangeHdlrFn) {
-        // Closure::wrap(data)
-        let callback = Closure::new(move |state: RTCConnectionState| {
-            spawn_local(f(state));
+        let conn = self.0.clone();
+        let callback = Closure::new(move || {
+            spawn_local(f(conn.connection_state()));
         });
         self.0
             .set_onconnectionstatechange(Some(callback.as_ref().unchecked_ref()));
@@ -148,12 +148,14 @@ impl RTCChannel {
         Fut: Future<Output = ()> + Send + 'static,
     {
         leaking_channel_event_handler(
-            |f| self.0.set_onopen(f),
+            |f| self.0.set_onmessage(f),
             move |event: MessageEvent| {
                 if let Ok(arraybuf) = event.data().dyn_into::<js_sys::ArrayBuffer>() {
                     let uarray = js_sys::Uint8Array::new(&arraybuf);
                     let data = uarray.to_vec();
-                    spawn_local(f(data));
+                    spawn_local(f(data.as_ref()));
+                } else {
+                    openmina_core::log::error!(redux::Timestamp::global_now(); "`event.data()` failed to cast to `ArrayBuffer`. {:?}", event.data());
                 }
             },
         );
@@ -198,7 +200,9 @@ impl RTCChannel {
 
     pub async fn send(&self, data: &bytes::Bytes) -> Result<usize> {
         let len = data.len();
-        self.0.send_with_u8_array(data).map(|_| len)
+        let array = js_sys::Uint8Array::new_with_length(len as u32);
+        array.copy_from(&data);
+        self.0.send_with_array_buffer(&array.buffer()).map(|_| len)
     }
 
     pub async fn close(&self) {
@@ -214,9 +218,8 @@ pub async fn webrtc_signal_send(
 
     let mut opts = RequestInit::new();
     opts.method("POST");
-    opts.body(Some(&JsValue::from_serde(&offer)?));
+    opts.body(Some(&JsValue::from(serde_json::to_string(&offer)?)));
     let request = Request::new_with_str_and_init(url, &opts)?;
-
     request.headers().set("content-type", "application/json")?;
 
     let window = web_sys::window().unwrap();

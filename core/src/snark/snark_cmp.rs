@@ -4,7 +4,7 @@ use mina_p2p_messages::v2::NonZeroCurvePoint;
 
 use super::{Snark, SnarkInfo, SnarkJobCommitment, SnarkJobId};
 
-#[derive(Debug, Ord, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct SnarkCmp<'a> {
     pub job_id: Cow<'a, SnarkJobId>,
     pub fee: u64,
@@ -17,15 +17,18 @@ impl<'a> SnarkCmp<'a> {
     }
 }
 
-#[allow(clippy::non_canonical_partial_ord_impl)]
+impl<'a> Ord for SnarkCmp<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.job_id
+            .cmp(&other.job_id)
+            .then_with(|| self.fee.cmp(&other.fee).reverse())
+            .then_with(|| self.tie_breaker_hash().cmp(&other.tie_breaker_hash()))
+    }
+}
+
 impl<'a> PartialOrd for SnarkCmp<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(
-            self.job_id
-                .cmp(&other.job_id)
-                .then_with(|| self.fee.cmp(&other.fee).reverse())
-                .then_with(|| self.tie_breaker_hash().cmp(&other.tie_breaker_hash())),
-        )
+        Some(self.cmp(other))
     }
 }
 

@@ -290,7 +290,7 @@ impl NodeBuilder {
             },
             p2p: P2pConfig {
                 libp2p_port: self.p2p_libp2p_port,
-                listen_port: self.http_port.unwrap_or(3000),
+                listen_port: self.http_port,
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
                 ask_initial_peers_interval: Duration::from_secs(3600),

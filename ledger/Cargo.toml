@@ -18,6 +18,7 @@ crate-type = ["staticlib", "cdylib", "lib"]
 
 [dependencies]
 openmina-core = { path = "../core" }
+redux = { workspace = true }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 mina-curves = { workspace = true }
@@ -31,7 +32,6 @@ mina-p2p-messages = { workspace = true, features = ["hashing"] }
 
 sha2 = "0.10"
 base64 = "0.13"
-static_assertions = "1.1"
 lazy_static = "1.4.0"
 libc = "0.2"
 
@@ -40,7 +40,6 @@ libc = "0.2"
 # o1-utils = { path = "../utils" }
 
 itertools = "0.10"
-tuple-map = "0.4.0"
 
 ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
 ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
@@ -63,11 +62,8 @@ postcard = { version = "1.0.8", features = ["use-std"] }
 
 backtrace = "0.3"
 derive_more = "0.99.17"
-rand_pcg = "0.3"
-rand_seeder = "0.2"
 blake2 = "0.10"
 crc32fast = "1"
-chrono = "0.4"
 serde_with = "3.6.1"
 anyhow = "1.0.75"
 thiserror = "1.0.60"
@@ -75,7 +71,6 @@ fraction = { version = "=0.15.1", default-features = false, features = ["with-se
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
-wasm_thread = { version = "0.2", features = [ "es_modules" ] }
 wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
@@ -83,6 +78,11 @@ zstd = { version = "0.12", optional = true }
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values", optional = true }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
+
+[dev-dependencies]
+rand_pcg = "0.3"
+rand_seeder = "0.2"
+tuple-map = "0.4.0"
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

@@ -22,7 +22,6 @@ pub enum P2pChannelsRpcState {
         local: P2pRpcLocalState,
         /// We are the responders here.
         remote: P2pRpcRemoteState,
-        next_local_rpc_id: P2pRpcId,
     },
 }
 
@@ -65,15 +64,6 @@ pub struct P2pRpcRemotePendingRequestState {
 impl P2pChannelsRpcState {
     pub fn is_ready(&self) -> bool {
         matches!(self, Self::Ready { .. })
-    }
-
-    pub fn next_local_rpc_id(&self) -> P2pRpcId {
-        match self {
-            Self::Ready {
-                next_local_rpc_id, ..
-            } => *next_local_rpc_id,
-            _ => 0,
-        }
     }
 
     pub fn can_send_request(&self) -> bool {

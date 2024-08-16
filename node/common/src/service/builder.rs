@@ -19,7 +19,7 @@ use sha3::{
 
 use crate::{
     rpc::{RpcSender, RpcService},
-    EventReceiver, EventSender, NodeServiceCommon,
+    EventReceiver, EventSender, NodeService,
 };
 
 use super::block_producer::BlockProducerService;
@@ -90,7 +90,7 @@ impl NodeServiceCommonBuilder {
         secret_key: P2pSecretKey,
         task_spawner: S,
     ) -> &mut Self {
-        self.p2p = Some(<NodeServiceCommon as P2pServiceWebrtcWithLibp2p>::init(
+        self.p2p = Some(<NodeService as P2pServiceWebrtcWithLibp2p>::init(
             secret_key.clone(),
             task_spawner,
         ));
@@ -102,13 +102,13 @@ impl NodeServiceCommonBuilder {
         self
     }
 
-    pub fn build(self) -> Result<NodeServiceCommon, NodeServiceCommonBuildError> {
+    pub fn build(self) -> Result<NodeService, NodeServiceCommonBuildError> {
         let ledger_manager = self
             .ledger_manager
             .ok_or(NodeServiceCommonBuildError::LedgerNotInit)?;
         let p2p = self.p2p.ok_or(NodeServiceCommonBuildError::P2pNotInit)?;
 
-        Ok(NodeServiceCommon {
+        Ok(NodeService {
             rng_seed: self.rng_seed,
             rng_ephemeral: Shake256::default()
                 .chain(self.rng_seed)
@@ -126,6 +126,7 @@ impl NodeServiceCommonBuilder {
             p2p,
             stats: self.gather_stats.then(Stats::new),
             rpc: self.rpc,
+            recorder: Default::default(),
             replayer: None,
             invariants_state: Default::default(),
         })

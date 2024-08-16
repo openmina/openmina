@@ -16,7 +16,7 @@ pub struct Offer {
     /// Host name or IP of the signaling server of the offerer.
     pub host: Host,
     /// Port of the signaling server of the offerer.
-    pub listen_port: u16,
+    pub listen_port: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]

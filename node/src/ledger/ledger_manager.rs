@@ -1,8 +1,9 @@
+use std::collections::BTreeMap;
+
 use ledger::staged_ledger::staged_ledger::StagedLedger;
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
 use openmina_core::channels::mpsc;
-use std::collections::BTreeMap;
-use std::thread;
+use openmina_core::thread;
 
 use super::ledger_service::LedgerCtx;
 use super::read::{LedgerReadId, LedgerReadRequest, LedgerReadResponse};
@@ -337,7 +338,7 @@ impl LedgerManager {
             }
             ledger_ctx
         };
-        let join_handle = std::thread::Builder::new()
+        let join_handle = thread::Builder::new()
             .name("ledger-manager".into())
             .spawn(ledger_manager_loop)
             .expect("Failed: ledger manager");
@@ -358,7 +359,7 @@ impl LedgerManager {
         self.caller.call_sync(request)
     }
 
-    pub async fn wait_for_stop(self) -> std::thread::Result<LedgerCtx> {
+    pub async fn wait_for_stop(self) -> thread::Result<LedgerCtx> {
         self.join_handle.join()
     }
 

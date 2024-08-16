@@ -3,9 +3,10 @@ use std::{
     fs::{self, File},
     io,
     process::{self, Child, Command, Stdio},
-    thread,
     time::Duration,
 };
+
+use node::core::thread;
 
 fn main() {
     let mut debugger = Command::new("bpf-recorder")

@@ -1,5 +1,6 @@
 use mina_p2p_messages::v2;
 use p2p::channels::rpc::P2pRpcRequest;
+use p2p::channels::streaming_rpc::{P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest};
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcResponse};
@@ -156,10 +157,6 @@ fn propagate_write_response<S: redux::Service>(
 }
 
 fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
-    if !store.state().ledger.read.is_total_cost_under_limit() {
-        return;
-    }
-
     // fetching delegator table
     store.dispatch(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
 
@@ -174,12 +171,13 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
                 .remote_todo_requests_iter()
                 .next()
                 .is_some()
+                || peer.channels.streaming_rpc.remote_todo_request().is_some()
         })
-        .map(|(peer_id, peer)| (*peer_id, peer.channels.rpc.remote_last_responded()))
+        .map(|(peer_id, peer)| (*peer_id, peer.channels.rpc_remote_last_responded()))
         .collect::<Vec<_>>();
     peers.sort_by_key(|(_, last_responded)| *last_responded);
     for (peer_id, _) in peers {
-        let Some((id, request)) = None.or_else(|| {
+        let Some((id, request, is_streaming)) = None.or_else(|| {
             let peer = store.state().p2p.ready()?.get_ready_peer(&peer_id)?;
             let mut reqs = peer.channels.rpc.remote_todo_requests_iter();
             reqs.find_map(|req| {
@@ -196,41 +194,31 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
                         }
                     },
                     P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(block_hash) => {
-                        let tf = &store.state().transition_frontier;
-                        let ledger_hash = tf
-                            .best_chain
-                            .iter()
-                            .find(|b| &b.hash == block_hash)
-                            .map(|b| b.staged_ledger_hash().clone())?;
-                        let protocol_states = tf
-                            .needed_protocol_states
-                            .iter()
-                            .map(|(hash, b)| (hash.clone(), b.clone()))
-                            .chain(
-                                tf.best_chain
-                                    .iter()
-                                    .take_while(|b| b.hash() != block_hash)
-                                    .map(|b| (b.hash().clone(), b.header().protocol_state.clone())),
-                            )
-                            .collect();
-
-                        LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(
-                            LedgerReadStagedLedgerAuxAndPendingCoinbases {
-                                ledger_hash,
-                                protocol_states,
-                            },
-                        )
+                        build_staged_ledger_parts_request(store.state(), block_hash)?
                     }
                     _ => return None,
                 };
 
-                Some((req.id, ledger_request))
+                Some((req.id, ledger_request, false))
+            })
+            .or_else(|| {
+                let (id, req) = peer.channels.streaming_rpc.remote_todo_request()?;
+                let ledger_request = match req {
+                    P2pStreamingRpcRequest::StagedLedgerParts(block_hash) => {
+                        build_staged_ledger_parts_request(store.state(), block_hash)?
+                    }
+                };
+                Some((id, ledger_request, true))
             })
         }) else {
             continue;
         };
         if store.dispatch(LedgerReadAction::Init { request }) {
-            store.dispatch(P2pChannelsRpcAction::ResponsePending { peer_id, id });
+            if !is_streaming {
+                store.dispatch(P2pChannelsRpcAction::ResponsePending { peer_id, id });
+            } else {
+                store.dispatch(P2pChannelsStreamingRpcAction::ResponsePending { peer_id, id });
+            }
         }
         if !store.state().ledger.read.is_total_cost_under_limit() {
             return;
@@ -272,52 +260,106 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
     }
 }
 
+fn build_staged_ledger_parts_request(
+    state: &crate::State,
+    block_hash: &v2::StateHash,
+) -> Option<LedgerReadRequest> {
+    let tf = &state.transition_frontier;
+    let ledger_hash = tf
+        .best_chain
+        .iter()
+        .find(|b| &b.hash == block_hash)
+        .map(|b| b.staged_ledger_hash().clone())?;
+    let protocol_states = tf
+        .needed_protocol_states
+        .iter()
+        .map(|(hash, b)| (hash.clone(), b.clone()))
+        .chain(
+            tf.best_chain
+                .iter()
+                .take_while(|b| b.hash() != block_hash)
+                .map(|b| (b.hash().clone(), b.header().protocol_state.clone())),
+        )
+        .collect();
+
+    Some(LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(
+        LedgerReadStagedLedgerAuxAndPendingCoinbases {
+            ledger_hash,
+            protocol_states,
+        },
+    ))
+}
+
 fn find_peers_with_ledger_rpc(
     state: &crate::State,
     req: &LedgerReadRequest,
-) -> Vec<(PeerId, P2pRpcId)> {
+) -> Vec<(PeerId, P2pRpcId, bool)> {
     let Some(p2p) = state.p2p.ready() else {
         return Vec::new();
     };
     p2p.ready_peers_iter()
-        .flat_map(|(peer_id, state)| {
-            state
+        .flat_map(|(peer_id, peer)| {
+            let rpcs = peer
                 .channels
                 .rpc
                 .remote_pending_requests_iter()
                 .map(move |req| (peer_id, req.id, &req.request))
+                .filter(|(_, _, peer_req)| match (req, peer_req) {
+                    (
+                        LedgerReadRequest::GetNumAccounts(h1),
+                        P2pRpcRequest::LedgerQuery(
+                            h2,
+                            v2::MinaLedgerSyncLedgerQueryStableV1::NumAccounts,
+                        ),
+                    ) => h1 == h2,
+                    (
+                        LedgerReadRequest::GetChildHashesAtAddr(h1, addr1),
+                        P2pRpcRequest::LedgerQuery(
+                            h2,
+                            v2::MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr2),
+                        ),
+                    ) => h1 == h2 && addr1 == &LedgerAddress::from(addr2),
+                    (
+                        LedgerReadRequest::GetChildAccountsAtAddr(h1, addr1),
+                        P2pRpcRequest::LedgerQuery(
+                            h2,
+                            v2::MinaLedgerSyncLedgerQueryStableV1::WhatContents(addr2),
+                        ),
+                    ) => h1 == h2 && addr1 == &LedgerAddress::from(addr2),
+                    (
+                        LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(data),
+                        P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(block_hash),
+                    ) => state
+                        .transition_frontier
+                        .get_state_body(block_hash)
+                        .map_or(false, |b| {
+                            b.blockchain_state.staged_ledger_hash.non_snark.ledger_hash
+                                == data.ledger_hash
+                        }),
+                    _ => false,
+                })
+                .map(|(peer_id, rpc_id, _)| (*peer_id, rpc_id, false));
+            let streaming_rpcs = peer
+                .channels
+                .streaming_rpc
+                .remote_pending_request()
+                .into_iter()
+                .filter(|(_, peer_req)| match (req, peer_req) {
+                    (
+                        LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(data),
+                        P2pStreamingRpcRequest::StagedLedgerParts(block_hash),
+                    ) => state
+                        .transition_frontier
+                        .get_state_body(block_hash)
+                        .map_or(false, |b| {
+                            b.blockchain_state.staged_ledger_hash.non_snark.ledger_hash
+                                == data.ledger_hash
+                        }),
+                    _ => false,
+                })
+                .map(|(rpc_id, _)| (*peer_id, rpc_id, true));
+            rpcs.chain(streaming_rpcs)
         })
-        .filter(|(_, _, peer_req)| match (req, peer_req) {
-            (
-                LedgerReadRequest::GetNumAccounts(h1),
-                P2pRpcRequest::LedgerQuery(h2, v2::MinaLedgerSyncLedgerQueryStableV1::NumAccounts),
-            ) => h1 == h2,
-            (
-                LedgerReadRequest::GetChildHashesAtAddr(h1, addr1),
-                P2pRpcRequest::LedgerQuery(
-                    h2,
-                    v2::MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr2),
-                ),
-            ) => h1 == h2 && addr1 == &LedgerAddress::from(addr2),
-            (
-                LedgerReadRequest::GetChildAccountsAtAddr(h1, addr1),
-                P2pRpcRequest::LedgerQuery(
-                    h2,
-                    v2::MinaLedgerSyncLedgerQueryStableV1::WhatContents(addr2),
-                ),
-            ) => h1 == h2 && addr1 == &LedgerAddress::from(addr2),
-            (
-                LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(data),
-                P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(block_hash),
-            ) => state
-                .transition_frontier
-                .get_state_body(block_hash)
-                .map_or(false, |b| {
-                    b.blockchain_state.staged_ledger_hash.non_snark.ledger_hash == data.ledger_hash
-                }),
-            _ => false,
-        })
-        .map(|(peer_id, rpc_id, _)| (*peer_id, rpc_id))
         .collect()
 }
 
@@ -355,7 +397,7 @@ fn propagate_read_response<S: redux::Service>(
         }
         (_, LedgerReadResponse::DelegatorTable(..)) => unreachable!(),
         (req, LedgerReadResponse::GetNumAccounts(resp)) => {
-            for (peer_id, id) in find_peers_with_ledger_rpc(store.state(), req) {
+            for (peer_id, id, _) in find_peers_with_ledger_rpc(store.state(), req) {
                 store.dispatch(P2pChannelsRpcAction::ResponseSend {
                     peer_id,
                     id,
@@ -371,7 +413,7 @@ fn propagate_read_response<S: redux::Service>(
             }
         }
         (req, LedgerReadResponse::GetChildHashesAtAddr(resp)) => {
-            for (peer_id, id) in find_peers_with_ledger_rpc(store.state(), req) {
+            for (peer_id, id, _) in find_peers_with_ledger_rpc(store.state(), req) {
                 store.dispatch(P2pChannelsRpcAction::ResponseSend {
                     peer_id,
                     id,
@@ -387,7 +429,7 @@ fn propagate_read_response<S: redux::Service>(
             }
         }
         (req, LedgerReadResponse::GetChildAccountsAtAddr(resp)) => {
-            for (peer_id, id) in find_peers_with_ledger_rpc(store.state(), req) {
+            for (peer_id, id, _) in find_peers_with_ledger_rpc(store.state(), req) {
                 store.dispatch(P2pChannelsRpcAction::ResponseSend {
                     peer_id,
                     id,
@@ -402,16 +444,24 @@ fn propagate_read_response<S: redux::Service>(
             }
         }
         (req, LedgerReadResponse::GetStagedLedgerAuxAndPendingCoinbases(resp)) => {
-            for (peer_id, id) in find_peers_with_ledger_rpc(store.state(), req) {
-                store.dispatch(P2pChannelsRpcAction::ResponseSend {
-                    peer_id,
-                    id,
-                    response: resp.clone().map(|data| {
-                        Box::new(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                            data,
-                        ))
-                    }),
-                });
+            for (peer_id, id, is_streaming) in find_peers_with_ledger_rpc(store.state(), req) {
+                if is_streaming {
+                    store.dispatch(P2pChannelsStreamingRpcAction::ResponseSendInit {
+                        peer_id,
+                        id,
+                        response: resp.clone().map(Into::into),
+                    });
+                } else {
+                    store.dispatch(P2pChannelsRpcAction::ResponseSend {
+                        peer_id,
+                        id,
+                        response: resp.clone().map(|data| {
+                            Box::new(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                data,
+                            ))
+                        }),
+                    });
+                }
             }
         }
         (

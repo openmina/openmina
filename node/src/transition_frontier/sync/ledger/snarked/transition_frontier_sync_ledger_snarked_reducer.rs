@@ -3,6 +3,7 @@ use std::iter;
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerQueryStableV1;
 use p2p::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest},
+    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     PeerId,
 };
 use redux::ActionMeta;
@@ -266,10 +267,11 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     },
                 );
             }
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => {
-                // TODO(tizoc): should this be reflected in the state somehow?
-                // TODO(tizoc): we do nothing here, but the peer must be punished somehow
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { sender, .. } => {
                 let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(
+                    P2pDisconnectionAction::Init { peer_id: *sender, reason: P2pDisconnectionReason::TransitionFrontierSyncLedgerSnarkedNumAccountsRejected }
+                );
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess {
@@ -607,7 +609,7 @@ fn peer_query_num_accounts_init(
         let ledger_hash = ledger.snarked()?.ledger_hash();
 
         let p = state.p2p.get_ready_peer(&peer_id)?;
-        let rpc_id = p.channels.rpc.next_local_rpc_id();
+        let rpc_id = p.channels.next_local_rpc_id();
 
         Some((ledger_hash.clone(), rpc_id))
     }) else {
@@ -647,7 +649,7 @@ fn peer_query_address_init(
         let ledger_hash = ledger.snarked()?.ledger_hash();
 
         let p = state.p2p.get_ready_peer(&peer_id)?;
-        let rpc_id = p.channels.rpc.next_local_rpc_id();
+        let rpc_id = p.channels.next_local_rpc_id();
 
         Some((ledger_hash.clone(), rpc_id))
     }) else {
