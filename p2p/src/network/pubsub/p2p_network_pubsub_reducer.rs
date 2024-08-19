@@ -96,6 +96,7 @@ impl P2pNetworkPubsubState {
                             }
                         }
                         for message in v.publish {
+                            let message_id = self.mcache.put(message.clone());
                             let topic = self.topics.entry(message.topic.clone()).or_default();
                             if let Some(signature) = &message.signature {
                                 // skip recently seen message
@@ -129,7 +130,7 @@ impl P2pNetworkPubsubState {
                                             .get_or_insert_with(Default::default);
                                         ctr.ihave.push(pb::ControlIHave {
                                             topic_id: Some(message.topic.clone()),
-                                            message_ids: vec![compute_message_id(&message)],
+                                            message_ids: vec![message_id.clone()],
                                         })
                                     }
                                 });
@@ -184,7 +185,28 @@ impl P2pNetworkPubsubState {
                                         P2pNetworkPubsubClientMeshAddingState::TheyRefused;
                                 }
                             }
-                            // TODO: handle iwant, ihave
+                            for iwant in &control.iwant {
+                                for msg_id in &iwant.message_ids {
+                                    if let Some(msg) = self.mcache.map.get(msg_id) {
+                                        if let Some(client) = self.clients.get_mut(peer_id) {
+                                            client.message.publish.push(msg.clone());
+                                        }
+                                    }
+                                }
+                            }
+                            for ihave in &control.ihave {
+                                let message_ids = ihave
+                                    .message_ids
+                                    .iter()
+                                    .filter(|msg_id| !self.mcache.map.contains_key(*msg_id))
+                                    .cloned()
+                                    .collect();
+                                if let Some(client) = self.clients.get_mut(peer_id) {
+                                    let ctr =
+                                        client.message.control.get_or_insert_with(Default::default);
+                                    ctr.iwant.push(pb::ControlIWant { message_ids })
+                                }
+                            }
                         }
                     }
                     Err(err) => {
@@ -256,25 +278,4 @@ impl P2pNetworkPubsubState {
             P2pNetworkPubsubAction::OutgoingData { .. } => {}
         }
     }
-}
-
-// TODO: what if wasm32?
-// How to test it?
-fn compute_message_id(message: &pb::Message) -> Vec<u8> {
-    let source_bytes = message
-        .from
-        .as_ref()
-        .map(AsRef::as_ref)
-        .unwrap_or(&[0, 1, 0][..]);
-    let mut source_string = libp2p_identity::PeerId::from_bytes(source_bytes)
-        .expect("Valid peer id")
-        .to_base58();
-    let sequence_number = message
-        .seqno
-        .as_ref()
-        .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
-        .map(u64::from_be_bytes)
-        .unwrap_or_default();
-    source_string.push_str(&sequence_number.to_string());
-    source_string.into_bytes()
 }
