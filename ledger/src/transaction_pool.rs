@@ -1070,8 +1070,7 @@ impl IndexedPool {
                         })
                         .unwrap();
 
-                    let _ = queued_cmds.split_off(replacement_index);
-                    let drop_queue = queued_cmds.clone();
+                    let drop_queue = queued_cmds.split_off(replacement_index);
 
                     let to_drop = drop_queue.front().unwrap().data.forget_check();
                     assert!(cmd_applicable_at_nonce <= to_drop.applicable_at_nonce());
