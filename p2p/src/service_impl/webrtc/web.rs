@@ -143,7 +143,7 @@ impl RTCChannel {
         // callback.forget();
     }
 
-    pub fn on_message<Fut>(&self, mut f: impl FnMut(Vec<u8>) -> Fut + 'static)
+    pub fn on_message<Fut>(&self, mut f: impl FnMut(&[u8]) -> Fut + 'static)
     where
         Fut: Future<Output = ()> + Send + 'static,
     {
