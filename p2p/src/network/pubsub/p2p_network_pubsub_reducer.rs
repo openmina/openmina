@@ -236,14 +236,8 @@ impl P2pNetworkPubsubState {
             P2pNetworkPubsubAction::BroadcastSigned { signature } => {
                 if let Some(mut message) = self.to_sign.pop_front() {
                     message.signature = Some(signature.clone().0.to_vec());
-                    let topic = self.topics.entry(message.topic.clone()).or_default();
                     self.clients
                         .iter_mut()
-                        .filter(|(c, _)| {
-                            topic
-                                .get(c)
-                                .map_or(false, P2pNetworkPubsubClientTopicState::on_mesh)
-                        })
                         .for_each(|(_, state)| state.message.publish.push(message.clone()));
                 }
             }
