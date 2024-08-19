@@ -115,12 +115,24 @@ impl P2pNetworkPubsubState {
                                 .filter(|(c, _)| {
                                     // don't send back to who sent this
                                     **c != *peer_id
-                                        && topic.get(c).map_or(
-                                            false,
-                                            P2pNetworkPubsubClientTopicState::on_mesh,
-                                        )
                                 })
-                                .for_each(|(_, state)| state.message.publish.push(message.clone()));
+                                .for_each(|(c, state)| {
+                                    let Some(topic_state) = topic.get(c) else {
+                                        return;
+                                    };
+                                    if topic_state.on_mesh() {
+                                        state.message.publish.push(message.clone())
+                                    } else {
+                                        let ctr = state
+                                            .message
+                                            .control
+                                            .get_or_insert_with(Default::default);
+                                        ctr.ihave.push(pb::ControlIHave {
+                                            topic_id: Some(message.topic.clone()),
+                                            message_ids: vec![compute_message_id(&message)],
+                                        })
+                                    }
+                                });
 
                             if let Some(data) = message.data {
                                 if data.len() <= 8 {
@@ -244,4 +256,25 @@ impl P2pNetworkPubsubState {
             P2pNetworkPubsubAction::OutgoingData { .. } => {}
         }
     }
+}
+
+// TODO: what if wasm32?
+// How to test it?
+fn compute_message_id(message: &pb::Message) -> Vec<u8> {
+    let source_bytes = message
+        .from
+        .as_ref()
+        .map(AsRef::as_ref)
+        .unwrap_or(&[0, 1, 0][..]);
+    let mut source_string = libp2p_identity::PeerId::from_bytes(source_bytes)
+        .expect("Valid peer id")
+        .to_base58();
+    let sequence_number = message
+        .seqno
+        .as_ref()
+        .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
+        .map(u64::from_be_bytes)
+        .unwrap_or_default();
+    source_string.push_str(&sequence_number.to_string());
+    source_string.into_bytes()
 }
