@@ -759,6 +759,32 @@ impl Serialize for ProtocolVersionStableV2 {
     }
 }
 
+// Needs to handle #[serde(untagged)] which postcard cannot deserialize
+impl<'de> Deserialize<'de> for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let value = UnsignedExtendedUInt32StableV1::deserialize(deserializer)?;
+        Ok(MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+            value,
+        ))
+    }
+}
+
+// Needs to handle #[serde(untagged)] which postcard cannot deserialize
+impl<'de> Deserialize<'de> for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let value = UnsignedExtendedUInt32StableV1::deserialize(deserializer)?;
+        Ok(MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
+            value,
+        ))
+    }
+}
+
 pub type MerkleTreePath = Vec<MerkleTreeNode>;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]

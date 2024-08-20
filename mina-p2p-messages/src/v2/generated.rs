@@ -1,5 +1,6 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
+use openmina_macros::SerdeYojsonEnum;
 use serde::{Deserialize, Serialize};
 
 use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
@@ -592,7 +593,7 @@ pub enum SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetrics {
 /// Gid: `508`
 /// Location: [src/lib/one_or_two/one_or_two.ml:7:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/one_or_two/one_or_two.ml#L7)
 /// Args: LedgerProofProdStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 #[polymorphic_variant]
 pub enum TransactionSnarkWorkTStableV2Proofs {
     #[allow(non_camel_case_types)]
@@ -606,7 +607,7 @@ pub enum TransactionSnarkWorkTStableV2Proofs {
 /// Gid: `508`
 /// Location: [src/lib/one_or_two/one_or_two.ml:7:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/one_or_two/one_or_two.ml#L7)
 /// Args: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 #[polymorphic_variant]
 pub enum SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances {
     #[allow(non_camel_case_types)]
@@ -954,7 +955,8 @@ pub enum MinaNumbersGlobalSlotSpanStableV1 {
 ///
 /// Gid: `614`
 /// Location: [src/lib/mina_numbers/global_slot_since_genesis.ml:27:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_numbers/global_slot_since_genesis.ml#L27)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite)]
+#[serde(untagged)]
 pub enum MinaNumbersGlobalSlotSinceGenesisMStableV1 {
     SinceGenesis(UnsignedExtendedUInt32StableV1),
 }
@@ -963,7 +965,8 @@ pub enum MinaNumbersGlobalSlotSinceGenesisMStableV1 {
 ///
 /// Gid: `620`
 /// Location: [src/lib/mina_numbers/global_slot_since_hard_fork.ml:27:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_numbers/global_slot_since_hard_fork.ml#L27)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite)]
+#[serde(untagged)]
 pub enum MinaNumbersGlobalSlotSinceHardForkMStableV1 {
     SinceHardFork(UnsignedExtendedUInt32StableV1),
 }
@@ -1132,7 +1135,7 @@ pub struct MinaBaseSignatureStableV1(pub crate::bigint::BigInt, pub crate::bigin
 ///
 /// Gid: `683`
 /// Location: [src/lib/mina_base/control.ml:11:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/control.ml#L11)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseControlStableV2 {
     Proof(Box<PicklesProofProofsVerifiedMaxStableV2>),
     Signature(Signature),
@@ -1184,7 +1187,7 @@ pub struct MinaBaseLedgerHash0StableV1(pub crate::bigint::BigInt);
 ///
 /// Gid: `706`
 /// Location: [src/lib/mina_base/permissions.ml:53:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/permissions.ml#L53)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBasePermissionsAuthRequiredStableV2 {
     None,
     Either,
@@ -1226,7 +1229,7 @@ pub struct MinaBasePermissionsStableV2 {
 ///
 /// Gid: `712`
 /// Location: [src/lib/mina_base/stake_delegation.ml:11:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/stake_delegation.ml#L11)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseStakeDelegationStableV2 {
     SetDelegate { new_delegate: NonZeroCurvePoint },
 }
@@ -1235,7 +1238,7 @@ pub enum MinaBaseStakeDelegationStableV2 {
 ///
 /// Gid: `718`
 /// Location: [src/lib/mina_base/transaction_status.ml:9:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/transaction_status.ml#L9)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseTransactionStatusFailureStableV2 {
     Predicate,
     SourceNotPresent,
@@ -1307,7 +1310,7 @@ pub struct MinaBaseTransactionStatusFailureCollectionStableV1(
 ///
 /// Gid: `721`
 /// Location: [src/lib/mina_base/transaction_status.ml:476:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/transaction_status.ml#L476)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseTransactionStatusStableV2 {
     Applied,
     Failed(MinaBaseTransactionStatusFailureCollectionStableV1),
@@ -1335,7 +1338,7 @@ pub struct MinaBaseSignedCommandPayloadCommonStableV2 {
 ///
 /// Gid: `730`
 /// Location: [src/lib/mina_base/signed_command_payload.ml:189:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/signed_command_payload.ml#L189)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseSignedCommandPayloadBodyStableV2 {
     Payment(MinaBasePaymentPayloadStableV2),
     StakeDelegation(MinaBaseStakeDelegationStableV2),
@@ -1391,7 +1394,7 @@ pub struct MinaBaseStateBodyHashStableV1(pub crate::bigint::BigInt);
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: MinaBaseAccountUpdateUpdateTimingInfoStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1Timing {
     Set(Box<MinaBaseAccountUpdateUpdateTimingInfoStableV1>),
     Keep,
@@ -1402,7 +1405,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1Timing {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: MinaBasePermissionsStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1Permissions {
     Set(Box<MinaBasePermissionsStableV2>),
     Keep,
@@ -1413,7 +1416,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1Permissions {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: MinaBaseVerificationKeyWireStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1VerificationKey {
     Set(Box<MinaBaseVerificationKeyWireStableV1>),
     Keep,
@@ -1424,7 +1427,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1VerificationKey {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: NonZeroCurvePoint
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1Delegate {
     Set(NonZeroCurvePoint),
     Keep,
@@ -1435,7 +1438,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1Delegate {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: StateHash
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1VotingFor {
     Set(StateHash),
     Keep,
@@ -1446,7 +1449,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1VotingFor {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1AppStateA {
     Set(crate::bigint::BigInt),
     Keep,
@@ -1457,7 +1460,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1AppStateA {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: crate :: string :: ZkAppUri
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1ZkappUri {
     Set(crate::string::ZkAppUri),
     Keep,
@@ -1479,7 +1482,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1TokenSymbol {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: EpochSeed
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed {
     Check(EpochSeed),
     Ignore,
@@ -1490,7 +1493,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: LedgerHash
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash {
     Check(LedgerHash),
     Ignore,
@@ -1501,7 +1504,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseReceiptChainHashStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash {
     Check(MinaBaseReceiptChainHashStableV1),
     Ignore,
@@ -1512,7 +1515,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: NonZeroCurvePoint
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionAccountStableV2Delegate {
     Check(NonZeroCurvePoint),
     Ignore,
@@ -1523,7 +1526,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2Delegate {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: StateHash
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint {
     Check(StateHash),
     Ignore,
@@ -1534,7 +1537,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint 
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: bool
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionAccountStableV2ProvedState {
     Check(bool),
     Ignore,
@@ -1545,7 +1548,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2ProvedState {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionAccountStableV2StateA {
     Check(crate::bigint::BigInt),
     Ignore,
@@ -1687,7 +1690,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1AmountA
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1Amount {
     Check(MinaBaseZkappPreconditionProtocolStateStableV1AmountA),
     Ignore,
@@ -1703,7 +1706,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1Amount {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionAccountStableV2BalanceA
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionAccountStableV2Balance {
     Check(MinaBaseZkappPreconditionAccountStableV2BalanceA),
     Ignore,
@@ -1719,7 +1722,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2Balance {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot {
     Check(MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA),
     Ignore,
@@ -1735,7 +1738,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1LengthA
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1Length {
     Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA),
     Ignore,
@@ -1799,7 +1802,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateStableV1 {
 ///
 /// Gid: `803`
 /// Location: [src/lib/mina_base/account_update.ml:28:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L28)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateAuthorizationKindStableV1 {
     Signature,
     Proof(crate::bigint::BigInt),
@@ -1810,7 +1813,7 @@ pub enum MinaBaseAccountUpdateAuthorizationKindStableV1 {
 ///
 /// Gid: `804`
 /// Location: [src/lib/mina_base/account_update.ml:161:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L161)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateMayUseTokenStableV1 {
     No,
     ParentsOwnToken,
@@ -2110,7 +2113,7 @@ pub struct MinaBaseZkappCommandVerifiableStableV1 {
 /// Location: [src/lib/mina_base/user_command.ml:7:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/user_command.ml#L7)
 /// Args: MinaBaseSignedCommandStableV2 , MinaBaseZkappCommandTStableV1WireStableV1
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, derive_more::From,
+    Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, derive_more::From,
 )]
 pub enum MinaBaseUserCommandStableV2 {
     SignedCommand(MinaBaseSignedCommandStableV2),
@@ -2885,7 +2888,7 @@ pub struct TransactionSnarkWorkTStableV2 {
 /// Gid: `1025`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:28:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/staged_ledger_diff/diff.ml#L28)
 /// Args: StagedLedgerDiffDiffFtStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase {
     Zero,
     One(Option<StagedLedgerDiffDiffFtStableV1>),
@@ -2902,7 +2905,7 @@ pub enum StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase {
 /// Gid: `1026`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:64:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/staged_ledger_diff/diff.ml#L64)
 /// Args: StagedLedgerDiffDiffFtStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase {
     Zero,
     One(Option<StagedLedgerDiffDiffFtStableV1>),
