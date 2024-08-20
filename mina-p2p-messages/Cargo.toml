@@ -9,6 +9,7 @@ license = "Apache-2.0"
 [dependencies]
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = { version = "1.0.83" }
+serde_bytes = "0.11"
 hex = "0.4.3"
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
 binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }

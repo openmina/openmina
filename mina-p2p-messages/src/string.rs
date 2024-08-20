@@ -1,5 +1,6 @@
 use binprot::Nat0;
 use serde::{de::Visitor, Deserialize, Serialize};
+use serde_bytes;
 
 const MINA_STRING_MAX_LENGTH: usize = 100_000_000;
 const CHUNK_SIZE: usize = 5_000;
@@ -72,38 +73,32 @@ impl Serialize for ByteString {
         if !serializer.is_human_readable() {
             return self.0.serialize(serializer);
         }
-        serializer.serialize_str(&hex::encode(&self.0))
+        let s = self
+            .0
+            .iter()
+            .map(|&byte| {
+                if byte.is_ascii_graphic() {
+                    (byte as char).to_string()
+                } else {
+                    // Convert non-printable bytes to escape sequences
+                    format!("\\x{:02x}", byte)
+                }
+            })
+            .collect::<String>();
+        serializer.serialize_str(&s)
     }
 }
 
 impl<'de> Deserialize<'de> for ByteString {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: serde::de::Deserializer<'de>,
     {
         if !deserializer.is_human_readable() {
             return Vec::<u8>::deserialize(deserializer).map(Self);
         }
-        struct V;
-        impl<'de> Visitor<'de> for V {
-            type Value = Vec<u8>;
-
-            fn expecting(
-                &self,
-                formatter: &mut serde::__private::fmt::Formatter,
-            ) -> serde::__private::fmt::Result {
-                formatter.write_str("hex string")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                hex::decode(v)
-                    .map_err(|_| serde::de::Error::custom("failed to decode hex str".to_string()))
-            }
-        }
-        deserializer.deserialize_str(V).map(Self)
+        let s: serde_bytes::ByteBuf = Deserialize::deserialize(deserializer)?;
+        Ok(s.into_vec().into())
     }
 }
 
