@@ -8,4 +8,11 @@ pub fn action_event(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 }
 
+#[doc = include_str!("serde_yojson_enum.md")]
+#[proc_macro_derive(SerdeYojsonEnum)]
+pub fn serde_yojson_enum_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    serde_yojson_enum::serde_yojson_enum_derive(input)
+}
+
 mod action_event;
+mod serde_yojson_enum;

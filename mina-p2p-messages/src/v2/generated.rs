@@ -624,7 +624,7 @@ pub enum SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances {
 ///
 /// Gid: `514`
 /// Location: [src/lib/pickles_base/proofs_verified.ml:8:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_base/proofs_verified.ml#L8)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
 pub enum PicklesBaseProofsVerifiedStableV1 {
     N0,
     N1,
