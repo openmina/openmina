@@ -22,6 +22,8 @@ blake2 = { version = "0.10", optional = true }
 time = "0.3.36"
 num-bigint = "0.4.6"
 
+openmina-macros = { path = "../macros" }
+
 mina-hasher = { workspace = true, optional = true }
 mina-curves = { workspace = true, optional = true }
 mina-signer = { workspace = true, optional = true }
