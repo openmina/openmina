@@ -895,7 +895,7 @@ mod tests_sgn {
 /// Args: CurrencyFeeStableV1 , SgnStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct SignedAmount {
-    pub magnitude: CurrencyAmountStableV1,
+    pub magnitude: CurrencyFeeStableV1,
     pub sgn: SgnStableV1,
 }
 
