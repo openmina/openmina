@@ -888,6 +888,69 @@ impl<'de> Deserialize<'de> for SgnStableV1 {
     }
 }
 
+const PRECISION: usize = 9;
+const PRECISION_EXP: u64 = 10u64.pow(PRECISION as u32);
+
+impl Serialize for CurrencyFeeStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let amount = self.0 .0.as_u64();
+        let whole = amount / PRECISION_EXP;
+        let remainder = amount % PRECISION_EXP;
+
+        if remainder == 0 {
+            serializer.serialize_str(&whole.to_string())
+        } else {
+            let num_stripped_zeros = remainder
+                .to_string()
+                .chars()
+                .rev()
+                .take_while(|&c| c == '0')
+                .count();
+            let num = remainder / 10u64.pow(num_stripped_zeros as u32);
+            serializer.serialize_str(&format!(
+                "{}.{}{}",
+                whole,
+                "0".repeat(PRECISION - num_stripped_zeros),
+                num
+            ))
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CurrencyFeeStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let parts: Vec<&str> = s.split('.').collect();
+        let result = match parts.as_slice() {
+            [whole] => format!("{}{}", whole, "0".repeat(PRECISION)),
+            [whole, decimal] => {
+                let decimal_length = decimal.len();
+                if decimal_length > PRECISION {
+                    format!("{}{}", whole, &decimal[0..PRECISION])
+                } else {
+                    format!(
+                        "{}{}{}",
+                        whole,
+                        decimal,
+                        "0".repeat(PRECISION - decimal_length)
+                    )
+                }
+            }
+            _ => return Err(serde::de::Error::custom("Invalid currency input")),
+        };
+        let fee_in_nanomina: u64 = result.parse().map_err(serde::de::Error::custom)?;
+        Ok(CurrencyFeeStableV1(
+            UnsignedExtendedUInt64Int64ForVersionTagsStableV1(fee_in_nanomina.into()),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests_sgn {
     use crate::v2::SgnStableV1;

@@ -996,7 +996,7 @@ pub struct MinaStateBlockchainStateValueStableV2SignedAmount {
 ///
 /// Gid: `638`
 /// Location: [src/lib/currency/currency.ml:947:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/currency/currency.ml#L947)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct CurrencyFeeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
 /// **OCaml name**: `Currency.Make_str.Amount.Make_str.Stable.V1`
