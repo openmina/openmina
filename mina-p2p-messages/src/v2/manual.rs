@@ -8,8 +8,12 @@ use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer
 use time::OffsetDateTime;
 
 use crate::{
-    b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, number::Number,
-    string::ByteString, versioned::Versioned,
+    b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes},
+    b58version::USER_COMMAND_MEMO,
+    bigint::BigInt,
+    number::Number,
+    string::ByteString,
+    versioned::Versioned,
 };
 
 use super::*;
@@ -36,8 +40,39 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 ///
 /// Gid: `83`
 /// Location: [src/string.ml:44:6](https://github.com/MinaProtocol/mina/blob//bfd1009/src/string.ml#L44)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
+
+impl Serialize for MinaBaseSignedCommandMemoStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let base58check = b58::encode(self.0.as_ref(), USER_COMMAND_MEMO);
+            base58check.serialize(serializer)
+        } else {
+            self.0.serialize(serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MinaBaseSignedCommandMemoStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let base58check = String::deserialize(deserializer)?;
+            let decoded = b58::decode(&base58check, USER_COMMAND_MEMO)
+                .map_err(|err| serde::de::Error::custom(format!("Base58 decode error: {}", err)))?;
+            Ok(MinaBaseSignedCommandMemoStableV1(decoded[1..].into()))
+        } else {
+            let char_string = crate::string::CharString::deserialize(deserializer)?;
+            Ok(MinaBaseSignedCommandMemoStableV1(char_string))
+        }
+    }
+}
 
 //
 //  Location: [src/lib/parallel_scan/parallel_scan.ml:247:6](https://github.com/openmina/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L247)
@@ -629,19 +664,10 @@ impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            // TODO(devnet): base64 encode for json, add separate method for base58check
             // https://github.com/MinaProtocol/mina/blob/6de36cf8851de28b667e4c1041badf62507c235d/src/lib/consensus/vrf/consensus_vrf.ml#L172
-            //let mut output_bytes = Vec::new();
-            //let prefix = vec![0x15, 0x20];
-            //output_bytes.extend(prefix);
-            //output_bytes.extend(self.0.iter());
-            //let checksum = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
-            //output_bytes.extend(&checksum[..4]);
-            //bs58::encode(&output_bytes)
-            //    .into_string()
-            //    .serialize(serializer)
-            let result = base64::encode(&self.0 .0);
-            result.serialize(serializer)
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            let base64_data = URL_SAFE.encode(&self.0 .0);
+            serializer.serialize_str(&base64_data)
         } else {
             serializer.serialize_newtype_struct("ConsensusVrfOutputTruncatedStableV1", &self.0)
         }
@@ -654,10 +680,12 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
         D: serde::Deserializer<'de>,
     {
         if deserializer.is_human_readable() {
-            let base58 = String::deserialize(deserializer)?;
-            bs58::decode(base58)
-                .into_vec()
-                .map(|vec| ByteString::from(vec[2..vec.len() - 4].to_vec()))
+            // https://github.com/MinaProtocol/mina/blob/6de36cf8851de28b667e4c1041badf62507c235d/src/lib/consensus/vrf/consensus_vrf.ml#L172
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            let base64_data = String::deserialize(deserializer)?;
+            URL_SAFE
+                .decode(&base64_data)
+                .map(|vec| ByteString::from(vec))
                 .map_err(|e| serde::de::Error::custom(format!("Error deserializing vrf: {e}")))
         } else {
             Deserialize::deserialize(deserializer)
