@@ -1758,6 +1758,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
 
 [[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3649,7 +3655,7 @@ dependencies = [
  "alloc-test",
  "anyhow",
  "ark-ff",
- "base64 0.13.1",
+ "base64 0.22.0",
  "binprot",
  "binprot_derive",
  "blake2",
@@ -3664,8 +3670,11 @@ dependencies = [
  "mina-signer",
  "num-bigint",
  "o1-utils",
+ "openmina-macros",
  "rsexp",
+ "rsexp-derive",
  "serde",
+ "serde_bytes",
  "serde_json",
  "sha2 0.10.8",
  "thiserror",
@@ -3756,6 +3765,7 @@ dependencies = [
  "ocaml-interop",
  "once_cell",
  "openmina-core",
+ "openmina-macros",
  "poly-commitment",
  "postcard",
  "rand 0.8.5",
@@ -5165,12 +5175,13 @@ checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 
 [[package]]
 name = "postcard"
-version = "1.0.8"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a55c51ee6c0db07e68448e336cf8ea4131a620edefebf9893e759b2d793420f8"
+checksum = "5f7f0a8d620d71c457dd1d47df76bb18960378da56af4527aaa10f515eee732e"
 dependencies = [
  "cobs",
- "embedded-io",
+ "embedded-io 0.4.0",
+ "embedded-io 0.6.1",
  "heapless",
  "serde",
 ]
@@ -5813,6 +5824,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3df9a9b6491d42c0fc527e92a87525c17e45c6b9c22345702a6dc0400320bf1"
 
 [[package]]
+name = "rsexp-derive"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0726130f64c2f613129d9870fa803071173f317f92bfe924d2d21252c4b3403"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "rtcp"
 version = "0.11.0"
 source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
@@ -6142,6 +6164,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91d3c334ca1ee894a2c6f6ad698fe8c435b76d504b13d436f0685d648d6d96f7"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "387cc504cb06bb40a96c8e04e951fe01854cf6bc921053c954e4a606d9675c6a"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
