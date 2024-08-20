@@ -136,10 +136,10 @@
       "last_vrf_output": "RnTRAvBa7oPenF_-w0DT8FDAJ77kVA-JqUv1HfpIKQE=",
       "total_currency": "3019700000000001000",
       "curr_global_slot": {
-        "slot_number": { "SinceHardFork": "92" },
+        "slot_number": "92",
         "slots_per_epoch": "30"
       },
-      "global_slot_since_genesis": { "SinceGenesis": "92" },
+      "global_slot_since_genesis": "92",
       "staking_epoch_data": {
         "ledger": {
           "hash": "jwejsBiFADjsiYntREQsZ482F9SKMWyJykVFsYVHnCfNPfTykzz",
