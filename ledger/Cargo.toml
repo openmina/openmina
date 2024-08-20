@@ -26,6 +26,7 @@ o1-utils = { workspace = true }
 kimchi = { workspace = true }
 mina-poseidon = { workspace = true }
 poly-commitment = { workspace = true }
+openmina-macros = { path = "../macros" }
 
 bs58 = "0.4.0"
 mina-p2p-messages = { workspace = true, features = ["hashing"] }
