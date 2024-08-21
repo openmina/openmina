@@ -103,6 +103,10 @@ impl TransitionFrontierSyncLedgerStagedState {
         }
     }
 
+    pub fn is_parts_fetched(&self) -> bool {
+        !matches!(self, Self::PartsFetchPending { .. })
+    }
+
     pub fn target_with_parts(
         &self,
     ) -> Option<(

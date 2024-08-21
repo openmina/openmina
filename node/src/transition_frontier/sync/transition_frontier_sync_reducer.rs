@@ -84,7 +84,10 @@ impl TransitionFrontierSyncState {
                                 != best_tip.next_epoch_ledger_hash()
                         }) {
                             Some((substate, next_epoch_target))
-                        } else if substate.ledger.staged().is_some()
+                        } else if substate
+                            .ledger
+                            .staged()
+                            .map_or(false, |s| s.is_parts_fetched())
                             && root_block.pred_hash() == old_root_block.hash()
                         {
                             // Optimization. Prevent changing staging ledger target,
