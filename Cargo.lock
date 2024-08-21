@@ -19,15 +19,6 @@ checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
 
 [[package]]
 name = "aead"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc95d1bdb8e6666b2b217308eeeb09f2d6728d104be3e31916cc74d15420331"
-dependencies = [
- "generic-array",
-]
-
-[[package]]
-name = "aead"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b613b8e1e3cf911a086f53f03bf286f52fd7a7258e4fa606f0ef220d39d8877"
@@ -43,17 +34,6 @@ checksum = "d122413f284cf2d62fb1b7db97e02edb8cda96d769b16e443a4f6195e35662b0"
 dependencies = [
  "crypto-common",
  "generic-array",
-]
-
-[[package]]
-name = "aes"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "884391ef1066acaa41e766ba8f596341b96e93ce34f9a43e7d24bf0a0eaf0561"
-dependencies = [
- "aes-soft",
- "aesni",
- "cipher 0.2.5",
 ]
 
 [[package]]
@@ -81,28 +61,14 @@ dependencies = [
 
 [[package]]
 name = "aes-gcm"
-version = "0.8.0"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5278b5fabbb9bd46e24aa69b2fdea62c99088e0a950a9be40e3e0101298f88da"
-dependencies = [
- "aead 0.3.2",
- "aes 0.6.0",
- "cipher 0.2.5",
- "ctr 0.6.0",
- "ghash 0.3.1",
- "subtle",
-]
-
-[[package]]
-name = "aes-gcm"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df5f85a83a7d8b0442b6aa7b504b8212c1733da07b98aae43d4bc21b2cb3cdf6"
+checksum = "bc3be92e19a7ef47457b8e6f90707e12b6ac5d20c6f3866584fa3be0787d839f"
 dependencies = [
  "aead 0.4.3",
  "aes 0.7.5",
  "cipher 0.3.0",
- "ctr 0.8.0",
+ "ctr 0.7.0",
  "ghash 0.4.4",
  "subtle",
 ]
@@ -119,26 +85,6 @@ dependencies = [
  "ctr 0.9.2",
  "ghash 0.5.0",
  "subtle",
-]
-
-[[package]]
-name = "aes-soft"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be14c7498ea50828a38d0e24a765ed2effe92a705885b57d029cd67d45744072"
-dependencies = [
- "cipher 0.2.5",
- "opaque-debug",
-]
-
-[[package]]
-name = "aesni"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea2e11f5e94c2f7d386164cc2aa1f97823fed6f259e486940a71c174dd01b0ce"
-dependencies = [
- "cipher 0.2.5",
- "opaque-debug",
 ]
 
 [[package]]
@@ -413,8 +359,24 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f6fd5ddaf0351dff5b8da21b2fb4ff8e08ddd02857f0bf69c47639106c0fff0"
 dependencies = [
- "asn1-rs-derive",
- "asn1-rs-impl",
+ "asn1-rs-derive 0.4.0",
+ "asn1-rs-impl 0.1.0",
+ "displaydoc",
+ "nom",
+ "num-traits",
+ "rusticata-macros",
+ "thiserror",
+ "time",
+]
+
+[[package]]
+name = "asn1-rs"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5493c3bedbacf7fd7382c6346bbd66687d12bbaad3a89a2d2c303ee6cf20b048"
+dependencies = [
+ "asn1-rs-derive 0.5.1",
+ "asn1-rs-impl 0.2.0",
  "displaydoc",
  "nom",
  "num-traits",
@@ -432,7 +394,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "synstructure",
+ "synstructure 0.12.6",
+]
+
+[[package]]
+name = "asn1-rs-derive"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "965c2d33e53cb6b267e148a4cb0760bc01f4904c1cd4bb4002a085bb016d1490"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+ "synstructure 0.13.1",
 ]
 
 [[package]]
@@ -447,14 +421,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-channel"
-version = "1.9.0"
+name = "asn1-rs-impl"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81953c529336010edd6d8e358f886d9581267795c61b19475b71314bffa46d35"
+checksum = "7b18050c2cd6fe86c3a76584ef5e0baf286d038cda203eb6223df2cc413565f7"
 dependencies = [
- "concurrent-queue",
- "event-listener",
- "futures-core",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -964,15 +938,6 @@ dependencies = [
 
 [[package]]
 name = "cipher"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12f8e7987cbd042a63249497f41aed09f8e65add917ea6566effbc56578d6801"
-dependencies = [
- "generic-array",
-]
-
-[[package]]
-name = "cipher"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ee52072ec15386f770805afd189a01c8841be8696bed250fa2f13c4c0d6dfb7"
@@ -1189,12 +1154,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cpuid-bool"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcb25d077389e53838a8158c8e99174c5a9d902dee4904320db714f3c653ffba"
-
-[[package]]
 name = "crc"
 version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1298,16 +1257,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crypto-mac"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bff07008ec701e8028e2ceb8f83f0e4274ee62bd2dbdc4fefff2e9a91824081a"
-dependencies = [
- "generic-array",
- "subtle",
-]
-
-[[package]]
 name = "crypto_secretbox"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1324,18 +1273,9 @@ dependencies = [
 
 [[package]]
 name = "ctr"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb4a30d54f7443bf3d6191dcd486aca19e67cb3c49fa7a06a319966346707e7f"
-dependencies = [
- "cipher 0.2.5",
-]
-
-[[package]]
-name = "ctr"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "049bb91fb4aaf0e3c7efa6cd5ef877dbbbd15b39dad06d9948de4ec8a75761ea"
+checksum = "a232f92a03f37dd7d7dd2adc67166c77e9cd88de5b019b9a9eecfaeaf7bfd481"
 dependencies = [
  "cipher 0.3.0",
 ]
@@ -1364,19 +1304,6 @@ name = "cty"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
-
-[[package]]
-name = "curve25519-dalek"
-version = "3.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b9fdf9972b2bd6af2d913799d9ebc165ea4d2e65878e329d9c6b372c4491b61"
-dependencies = [
- "byteorder",
- "digest 0.9.0",
- "rand_core 0.5.1",
- "subtle",
- "zeroize",
-]
 
 [[package]]
 name = "curve25519-dalek"
@@ -1554,7 +1481,21 @@ version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dbd676fbbab537128ef0278adb5576cf363cff6aa22a7b24effe97347cfab61e"
 dependencies = [
- "asn1-rs",
+ "asn1-rs 0.5.2",
+ "displaydoc",
+ "nom",
+ "num-bigint",
+ "num-traits",
+ "rusticata-macros",
+]
+
+[[package]]
+name = "der-parser"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5cd0a5c643689626bec213c4d8bd4d96acc8ffdb4ad4bb6bc16abf27d5f4b553"
+dependencies = [
+ "asn1-rs 0.6.2",
  "displaydoc",
  "nom",
  "num-bigint",
@@ -1755,23 +1696,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ecies-ed25519"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a882353828f086290bedd0b598e18863a4d2135f8e632c4325ed89a4e5535db"
-dependencies = [
- "aes-gcm 0.8.0",
- "curve25519-dalek 3.2.0",
- "digest 0.9.0",
- "hex",
- "hkdf 0.10.0",
- "rand 0.7.3",
- "sha2 0.9.9",
- "thiserror",
- "zeroize",
-]
-
-[[package]]
 name = "ed25519"
 version = "2.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1788,7 +1712,7 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a3daa8e81a3963a60642bcc1f90a670680bd4a77535faa384e9d1c79d620871"
 dependencies = [
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek",
  "ed25519",
  "rand_core 0.6.4",
  "serde",
@@ -1818,7 +1742,7 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
- "hkdf 0.12.4",
+ "hkdf",
  "pem-rfc7468",
  "pkcs8",
  "rand_core 0.6.4",
@@ -1937,7 +1861,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "crc",
- "hmac 0.12.1",
+ "hmac",
  "md-5",
  "num_enum 0.6.1",
  "sha-1",
@@ -2083,7 +2007,7 @@ dependencies = [
 [[package]]
 name = "futures-bounded"
 version = "0.1.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "futures-timer",
  "futures-util",
@@ -2178,7 +2102,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35bd3cf68c183738046838e300353e4716c674dc5e56890de4826801a6622a28"
 dependencies = [
  "futures-io",
- "rustls",
+ "rustls 0.21.12",
 ]
 
 [[package]]
@@ -2327,16 +2251,6 @@ dependencies = [
 
 [[package]]
 name = "ghash"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97304e4cd182c3846f7575ced3890c53012ce534ad9114046b0a9e00bb30a375"
-dependencies = [
- "opaque-debug",
- "polyval 0.4.5",
-]
-
-[[package]]
-name = "ghash"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1583cc1656d7839fd3732b80cf4f38850336cdb9b8ded1cd399ca62958de3c99"
@@ -2362,16 +2276,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fb8d784f27acf97159b40fc4db5ecd8aa23b9ad5ef69cdd136d3bc80665f0c0"
 
 [[package]]
-name = "gloo-utils"
-version = "0.1.7"
+name = "gloo-timers"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "037fcb07216cb3a30f7292bd0176b050b7b9a052ba830ef7d5d65f6dc64ba58e"
+checksum = "bbb143cf96099802033e0d4f4963b19fd2e0b728bcf076cd9cf7f6634f092994"
 dependencies = [
+ "futures-channel",
+ "futures-core",
  "js-sys",
- "serde",
- "serde_json",
  "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]
@@ -2639,31 +2552,11 @@ checksum = "b07f60793ff0a4d9cef0f18e63b5357e06209987153a64648c972c1e5aff336f"
 
 [[package]]
 name = "hkdf"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51ab2f639c231793c5f6114bdb9bbe50a7dbbfcd7c7c6bd8475dec2d991e964f"
-dependencies = [
- "digest 0.9.0",
- "hmac 0.10.1",
-]
-
-[[package]]
-name = "hkdf"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
 dependencies = [
- "hmac 0.12.1",
-]
-
-[[package]]
-name = "hmac"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1441c6b1e930e2817404b5046f1f989899143a12bf92de603b69f4e0aee1e15"
-dependencies = [
- "crypto-mac",
- "digest 0.9.0",
+ "hmac",
 ]
 
 [[package]]
@@ -2908,12 +2801,13 @@ dependencies = [
 
 [[package]]
 name = "interceptor"
-version = "0.10.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.12.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "async-trait",
  "bytes",
  "log",
+ "portable-atomic",
  "rand 0.8.5",
  "rtcp",
  "rtp",
@@ -2988,9 +2882,9 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.64"
+version = "0.3.70"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5f195fe497f702db0f318b07fdd68edb16955aed830df8363d837542f8f935a"
+checksum = "1868808506b929d7b0cfa8f75951347aa71bb21144b7791bae35d9bccfcfe37a"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -3144,7 +3038,7 @@ checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 [[package]]
 name = "libp2p"
 version = "0.53.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "bytes",
  "either",
@@ -3178,7 +3072,7 @@ dependencies = [
 [[package]]
 name = "libp2p-allow-block-list"
 version = "0.3.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "libp2p-core",
  "libp2p-identity",
@@ -3189,7 +3083,7 @@ dependencies = [
 [[package]]
 name = "libp2p-connection-limits"
 version = "0.3.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "libp2p-core",
  "libp2p-identity",
@@ -3200,7 +3094,7 @@ dependencies = [
 [[package]]
 name = "libp2p-core"
 version = "0.41.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "either",
  "fnv",
@@ -3228,7 +3122,7 @@ dependencies = [
 [[package]]
 name = "libp2p-dns"
 version = "0.41.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "async-trait",
  "futures",
@@ -3243,7 +3137,7 @@ dependencies = [
 [[package]]
 name = "libp2p-gossipsub"
 version = "0.46.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "asynchronous-codec",
  "base64 0.21.7",
@@ -3275,7 +3169,7 @@ dependencies = [
 [[package]]
 name = "libp2p-identify"
 version = "0.44.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "asynchronous-codec",
  "either",
@@ -3302,7 +3196,7 @@ checksum = "cdd6317441f361babc74c2989c6484eb0726045399b6648de039e1805ea96972"
 dependencies = [
  "bs58 0.5.0",
  "ed25519-dalek",
- "hkdf 0.12.4",
+ "hkdf",
  "log",
  "multihash 0.19.1",
  "quick-protobuf",
@@ -3316,7 +3210,7 @@ dependencies = [
 [[package]]
 name = "libp2p-kad"
 version = "0.45.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "arrayvec",
  "asynchronous-codec",
@@ -3345,7 +3239,7 @@ dependencies = [
 [[package]]
 name = "libp2p-mdns"
 version = "0.45.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "data-encoding",
  "futures",
@@ -3365,7 +3259,7 @@ dependencies = [
 [[package]]
 name = "libp2p-metrics"
 version = "0.14.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "instant",
  "libp2p-core",
@@ -3381,10 +3275,10 @@ dependencies = [
 [[package]]
 name = "libp2p-noise"
 version = "0.44.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "bytes",
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek",
  "futures",
  "getrandom 0.2.15",
  "libp2p-core",
@@ -3406,7 +3300,7 @@ dependencies = [
 [[package]]
 name = "libp2p-pnet"
 version = "0.24.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "futures",
  "log",
@@ -3419,7 +3313,7 @@ dependencies = [
 [[package]]
 name = "libp2p-quic"
 version = "0.10.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "bytes",
  "futures",
@@ -3433,7 +3327,7 @@ dependencies = [
  "quinn",
  "rand 0.8.5",
  "ring 0.16.20",
- "rustls",
+ "rustls 0.23.12",
  "socket2 0.5.5",
  "thiserror",
  "tokio",
@@ -3451,7 +3345,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm"
 version = "0.44.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "either",
  "fnv",
@@ -3473,7 +3367,7 @@ dependencies = [
 [[package]]
 name = "libp2p-swarm-derive"
 version = "0.34.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "heck 0.4.1",
  "proc-macro-warning",
@@ -3485,7 +3379,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tcp"
 version = "0.41.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "futures",
  "futures-timer",
@@ -3501,7 +3395,7 @@ dependencies = [
 [[package]]
 name = "libp2p-tls"
 version = "0.3.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "futures",
  "futures-rustls",
@@ -3509,17 +3403,17 @@ dependencies = [
  "libp2p-identity",
  "rcgen 0.10.0",
  "ring 0.16.20",
- "rustls",
- "rustls-webpki",
+ "rustls 0.21.12",
+ "rustls-webpki 0.101.7",
  "thiserror",
- "x509-parser",
+ "x509-parser 0.15.1",
  "yasna",
 ]
 
 [[package]]
 name = "libp2p-upnp"
 version = "0.2.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "futures",
  "futures-timer",
@@ -3534,7 +3428,7 @@ dependencies = [
 [[package]]
 name = "libp2p-yamux"
 version = "0.45.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "futures",
  "libp2p-core",
@@ -3763,7 +3657,6 @@ dependencies = [
  "clap 4.5.2",
  "derive_more",
  "fuzzcheck",
- "gloo-utils 0.1.7",
  "hex",
  "mina-curves",
  "mina-hasher",
@@ -3844,7 +3737,6 @@ dependencies = [
  "bitvec",
  "blake2",
  "bs58 0.4.0",
- "chrono",
  "crc32fast",
  "derive_more",
  "fraction",
@@ -3870,17 +3762,16 @@ dependencies = [
  "rand_pcg",
  "rand_seeder",
  "rayon",
+ "redux",
  "serde",
  "serde_json",
  "serde_with 3.7.0",
  "sha2 0.10.8",
- "static_assertions",
  "thiserror",
  "tuple-map",
  "uuid 1.5.0",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasm_thread",
  "web-sys",
  "zstd",
 ]
@@ -3999,7 +3890,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "synstructure",
+ "synstructure 0.12.6",
 ]
 
 [[package]]
@@ -4011,7 +3902,7 @@ checksum = "defc4c55412d89136f966bbb339008b474350e5e6e78d2714439c386b3137a03"
 [[package]]
 name = "multistream-select"
 version = "0.13.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "bytes",
  "futures",
@@ -4485,7 +4376,16 @@ version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9bedf36ffb6ba96c2eb7144ef6270557b52e54b20c0a8e1eb2ff99a6c6959bff"
 dependencies = [
- "asn1-rs",
+ "asn1-rs 0.5.2",
+]
+
+[[package]]
+name = "oid-registry"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c958dd45046245b9c3c2547369bb634eb461670b2e7e0de552905801a648d1d"
+dependencies = [
+ "asn1-rs 0.6.2",
 ]
 
 [[package]]
@@ -4518,7 +4418,6 @@ dependencies = [
  "mina-tree",
  "openmina-core",
  "rand 0.8.5",
- "reqwest",
  "serde",
  "serde_json",
  "structopt",
@@ -4550,6 +4449,7 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "wasm_thread",
 ]
 
 [[package]]
@@ -4615,6 +4515,7 @@ dependencies = [
 name = "openmina-node-common"
 version = "0.7.0"
 dependencies = [
+ "gloo-timers",
  "jsonpath-rust",
  "mina-p2p-messages",
  "mina-signer",
@@ -4630,6 +4531,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "tracing-wasm",
  "vrf",
 ]
 
@@ -4687,7 +4589,6 @@ version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
- "chrono",
  "clap 4.5.2",
  "console",
  "ctrlc",
@@ -4731,24 +4632,24 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "console_error_panic_hook",
  "derive_more",
  "jsonpath-rust",
  "libp2p-identity",
  "mina-p2p-messages",
  "mina-signer",
  "mina-tree",
- "nix 0.26.4",
  "node",
  "openmina-node-common",
  "rand 0.8.5",
  "rayon",
  "redux",
- "reqwest",
  "serde",
  "serde_json",
  "thiserror",
- "tokio",
  "vrf",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -4858,15 +4759,15 @@ dependencies = [
  "chacha20poly1305 0.10.1",
  "clap 4.5.2",
  "crypto-bigint",
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek",
  "derive_more",
- "ecies-ed25519",
  "ed25519-dalek",
  "faster-stun",
  "getrandom 0.2.15",
- "gloo-utils 0.2.0",
+ "gloo-timers",
+ "gloo-utils",
  "hex",
- "hkdf 0.12.4",
+ "hkdf",
  "hyper",
  "js-sys",
  "libc",
@@ -4901,7 +4802,6 @@ dependencies = [
  "warp",
  "wasm-bindgen",
  "wasm-bindgen-futures",
- "wasm-timer",
  "web-sys",
  "webrtc",
  "zeroize",
@@ -5215,7 +5115,7 @@ checksum = "048aeb476be11a4b6ca432ca569e375810de9294ae78f4774e78ea98a9246ede"
 dependencies = [
  "cpufeatures",
  "opaque-debug",
- "universal-hash 0.4.1",
+ "universal-hash 0.4.0",
 ]
 
 [[package]]
@@ -5231,17 +5131,6 @@ dependencies = [
 
 [[package]]
 name = "polyval"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eebcc4aa140b9abd2bc40d9c3f7ccec842679cd79045ac3a7ac698c1a064b7cd"
-dependencies = [
- "cpuid-bool",
- "opaque-debug",
- "universal-hash 0.4.1",
-]
-
-[[package]]
-name = "polyval"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8419d2b623c7c0896ff2d5d96e2cb4ede590fed28fcc34934f4c33c036e620a1"
@@ -5249,7 +5138,7 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "opaque-debug",
- "universal-hash 0.4.1",
+ "universal-hash 0.4.0",
 ]
 
 [[package]]
@@ -5263,6 +5152,12 @@ dependencies = [
  "opaque-debug",
  "universal-hash 0.5.1",
 ]
+
+[[package]]
+name = "portable-atomic"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 
 [[package]]
 name = "postcard"
@@ -5455,7 +5350,7 @@ dependencies = [
 [[package]]
 name = "quick-protobuf-codec"
 version = "0.2.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "asynchronous-codec",
  "bytes",
@@ -5476,7 +5371,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash",
- "rustls",
+ "rustls 0.21.12",
  "thiserror",
  "tokio",
  "tracing",
@@ -5492,7 +5387,7 @@ dependencies = [
  "rand 0.8.5",
  "ring 0.16.20",
  "rustc-hash",
- "rustls",
+ "rustls 0.21.12",
  "slab",
  "thiserror",
  "tinyvec",
@@ -5660,14 +5555,15 @@ dependencies = [
 
 [[package]]
 name = "rcgen"
-version = "0.11.3"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52c4f3084aa3bc7dfbba4eff4fab2a54db4324965d8872ab933565e6fbd83bc6"
+checksum = "54077e1872c46788540de1ea3d7f4ccb1983d12f9aa909b234468676c1a36779"
 dependencies = [
  "pem 3.0.2",
- "ring 0.16.20",
+ "ring 0.17.8",
+ "rustls-pki-types",
  "time",
- "x509-parser",
+ "x509-parser 0.16.0",
  "yasna",
 ]
 
@@ -5712,7 +5608,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?rev=2d1d8db#2d1d8dbd7239c0aec91db8f11126b90068dc848b"
+source = "git+https://github.com/openmina/redux-rs.git?rev=588dd76c#588dd76cb45bd8cc1a9ac5a67cfc22585b3fefae"
 dependencies = [
  "enum_dispatch",
  "linkme",
@@ -5830,7 +5726,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
 dependencies = [
- "hmac 0.12.1",
+ "hmac",
  "subtle",
 ]
 
@@ -5851,16 +5747,17 @@ dependencies = [
 
 [[package]]
 name = "ring"
-version = "0.17.5"
+version = "0.17.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb0205304757e5d899b9c2e448b867ffd03ae7f988002e47cd24954391394d0b"
+checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
 dependencies = [
  "cc",
+ "cfg-if",
  "getrandom 0.2.15",
  "libc",
  "spin 0.9.8",
  "untrusted 0.9.0",
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5913,8 +5810,8 @@ checksum = "c3df9a9b6491d42c0fc527e92a87525c17e45c6b9c22345702a6dc0400320bf1"
 
 [[package]]
 name = "rtcp"
-version = "0.10.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.11.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "bytes",
  "thiserror",
@@ -5938,10 +5835,11 @@ dependencies = [
 
 [[package]]
 name = "rtp"
-version = "0.9.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.11.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "bytes",
+ "portable-atomic",
  "rand 0.8.5",
  "serde",
  "thiserror",
@@ -6030,9 +5928,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
 dependencies = [
  "log",
- "ring 0.17.5",
- "rustls-webpki",
+ "ring 0.17.8",
+ "rustls-webpki 0.101.7",
  "sct",
+]
+
+[[package]]
+name = "rustls"
+version = "0.23.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c58f8c84392efc0a126acce10fa59ff7b3d2ac06ab451a33f2741989b806b044"
+dependencies = [
+ "once_cell",
+ "ring 0.17.8",
+ "rustls-pki-types",
+ "rustls-webpki 0.102.6",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -6045,12 +5957,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pki-types"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc0a2ce646f8655401bb81e7927b812614bd5d91dbc968696be50603510fcaf0"
+
+[[package]]
 name = "rustls-webpki"
 version = "0.101.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b6275d1ee7a1cd780b64aca7726599a1dbc893b1e64144529e55c3c2f745765"
 dependencies = [
- "ring 0.17.5",
+ "ring 0.17.8",
+ "untrusted 0.9.0",
+]
+
+[[package]]
+name = "rustls-webpki"
+version = "0.102.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e6b52d4fda176fd835fdc55a835d4a89b8499cad995885a21149d5ad62f852e"
+dependencies = [
+ "ring 0.17.8",
+ "rustls-pki-types",
  "untrusted 0.9.0",
 ]
 
@@ -6063,7 +5992,7 @@ checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
 [[package]]
 name = "rw-stream-sink"
 version = "0.4.0"
-source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
+source = "git+https://github.com/openmina/rust-libp2p?rev=5c44c7d9#5c44c7d953f50134a00ded1f9924fa2edd5e09b9"
 dependencies = [
  "futures",
  "pin-project",
@@ -6126,14 +6055,14 @@ version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da046153aa2352493d6cb7da4b6e5c0c057d8a1d0a9aa8560baffdd945acd414"
 dependencies = [
- "ring 0.17.5",
+ "ring 0.17.8",
  "untrusted 0.9.0",
 ]
 
 [[package]]
 name = "sdp"
-version = "0.6.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.6.2"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "rand 0.8.5",
  "substring",
@@ -6476,7 +6405,6 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-poly",
- "bincode",
  "derive_more",
  "hex",
  "kimchi",
@@ -6508,10 +6436,10 @@ name = "snow"
 version = "0.9.0"
 source = "git+https://github.com/mcginty/snow#e4c591cd767f94433bb1e11a46f53ba3d03db783"
 dependencies = [
- "aes-gcm 0.9.4",
+ "aes-gcm 0.9.2",
  "blake2",
  "chacha20poly1305 0.9.1",
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek",
  "rand_core 0.6.4",
  "ring 0.16.20",
  "rustc_version 0.4.0",
@@ -6687,8 +6615,8 @@ dependencies = [
  "futures-util",
  "generic-array",
  "hex",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "hkdf",
+ "hmac",
  "itoa",
  "log",
  "md-5",
@@ -6726,8 +6654,8 @@ dependencies = [
  "futures-io",
  "futures-util",
  "hex",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "hkdf",
+ "hmac",
  "home",
  "itoa",
  "log",
@@ -6874,15 +6802,15 @@ dependencies = [
 
 [[package]]
 name = "stun"
-version = "0.5.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.6.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "base64 0.21.7",
  "crc",
  "lazy_static",
  "md-5",
  "rand 0.8.5",
- "ring 0.17.5",
+ "ring 0.17.8",
  "subtle",
  "thiserror",
  "tokio",
@@ -6901,9 +6829,9 @@ dependencies = [
 
 [[package]]
 name = "subtle"
-version = "2.4.1"
+version = "2.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
+checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
@@ -6943,6 +6871,17 @@ dependencies = [
  "quote",
  "syn 1.0.109",
  "unicode-xid",
+]
+
+[[package]]
+name = "synstructure"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8af7666ab7b6390ab78131fb5b0fce11d6b7a6951602017c35fa82800708971"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
 ]
 
 [[package]]
@@ -7303,6 +7242,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-wasm"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4575c663a174420fa2d78f4108ff68f65bf2fbb7dd89f33749b6e826b3626e07"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "trust-dns-proto"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7382,19 +7332,21 @@ checksum = "23d5919d7121237af683b7fa982450597b1eaa2643e597aec3b519e4e5ab3d62"
 
 [[package]]
 name = "turn"
-version = "0.7.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.8.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "async-trait",
  "base64 0.21.7",
  "futures",
  "log",
  "md-5",
+ "portable-atomic",
  "rand 0.8.5",
- "ring 0.17.5",
+ "ring 0.17.8",
  "stun",
  "thiserror",
  "tokio",
+ "tokio-util",
  "webrtc-util",
 ]
 
@@ -7488,9 +7440,9 @@ checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
 
 [[package]]
 name = "universal-hash"
-version = "0.4.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f214e8f697e925001e66ec2c6e37a4ef93f0f78c2eed7814394e10c62025b05"
+checksum = "8326b2c654932e3e4f9196e69d08fdf7cfd718e1dc6f66b347e6024a0c961402"
 dependencies = [
  "generic-array",
  "subtle",
@@ -7648,6 +7600,7 @@ dependencies = [
  "num",
  "o1-utils",
  "rand 0.8.5",
+ "redux",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -7729,19 +7682,20 @@ checksum = "b8dad83b4f25e74f184f64c43b150b91efe7647395b42289f38e50566d82855b"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4be2531df63900aeb2bca0daaaddec08491ee64ceecbee5076636a3b026795a8"
+checksum = "a82edfc16a6c469f5f44dc7b571814045d60404b55a0ee849f9bcfa2e63dd9b5"
 dependencies = [
  "cfg-if",
+ "once_cell",
  "wasm-bindgen-macro",
 ]
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "614d787b966d3989fa7bb98a654e369c762374fd3213d212cfc0251257e747da"
+checksum = "9de396da306523044d3302746f1208fa71d7532227f15e347e2d93e4145dd77b"
 dependencies = [
  "bumpalo",
  "log",
@@ -7754,9 +7708,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.37"
+version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c02dbc21516f9f1f04f187958890d7e6026df8d16540b7ad9492bc34a67cea03"
+checksum = "61e9300f63a621e96ed275155c108eb6f843b6a26d053f122ab69724559dc8ed"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -7766,9 +7720,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1f8823de937b71b9460c0c34e25f3da88250760bec0ebac694b49997550d726"
+checksum = "585c4c91a46b072c92e908d99cb1dcdf95c5218eeb6f3bf1efa991ee7a68cccf"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -7776,9 +7730,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e94f17b526d0a461a191c78ea52bbce64071ed5c04c9ffe424dcb38f74171bb7"
+checksum = "afc340c74d9005395cf9dd098506f7f44e38f2b4a21c6aaacf9a105ea5e1e836"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7789,9 +7743,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
+checksum = "c62a0a307cb4a311d3a07867860911ca130c3494e8c2719593806c08bc5d0484"
 
 [[package]]
 name = "wasm-bindgen-test"
@@ -7820,7 +7774,7 @@ dependencies = [
 [[package]]
 name = "wasm-timer"
 version = "0.2.5"
-source = "git+https://github.com/fusetim/wasm-timer?branch=tim-add-missing-methods#39e1c2818944f804d68d64dae0d5639d22b0e59e"
+source = "git+https://github.com/openmina/wasm-timer#dd7ec34d81174bd8f3f4d8cef1385b3ff65e2678"
 dependencies = [
  "futures",
  "js-sys",
@@ -7833,11 +7787,10 @@ dependencies = [
 
 [[package]]
 name = "wasm_thread"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a52fc987e67957cab58160d1ea273a2886972ef6f59c7fa0c02e9fe2c8e11706"
+checksum = "22bc95de7e96023c115820c1b87504cdd316ed958d2dfb97dca502cc6e5772a1"
 dependencies = [
- "async-channel",
  "futures",
  "js-sys",
  "wasm-bindgen",
@@ -7856,8 +7809,8 @@ dependencies = [
 
 [[package]]
 name = "webrtc"
-version = "0.9.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.11.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -7867,13 +7820,14 @@ dependencies = [
  "interceptor",
  "lazy_static",
  "log",
+ "portable-atomic",
  "rand 0.8.5",
- "rcgen 0.11.3",
+ "rcgen 0.13.1",
  "regex",
- "ring 0.17.5",
+ "ring 0.17.8",
  "rtcp",
  "rtp",
- "rustls",
+ "rustls 0.23.12",
  "sdp",
  "serde",
  "serde_json",
@@ -7898,11 +7852,12 @@ dependencies = [
 
 [[package]]
 name = "webrtc-data"
-version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.9.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "bytes",
  "log",
+ "portable-atomic",
  "thiserror",
  "tokio",
  "webrtc-sctp",
@@ -7911,8 +7866,8 @@ dependencies = [
 
 [[package]]
 name = "webrtc-dtls"
-version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.10.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "aes 0.8.3",
  "aes-gcm 0.10.3",
@@ -7921,17 +7876,18 @@ dependencies = [
  "byteorder",
  "cbc",
  "ccm",
- "der-parser",
- "hkdf 0.12.4",
- "hmac 0.12.1",
+ "der-parser 8.2.0",
+ "hkdf",
+ "hmac",
  "log",
  "p256",
  "p384",
+ "portable-atomic",
  "rand 0.8.5",
  "rand_core 0.6.4",
- "rcgen 0.11.3",
- "ring 0.17.5",
- "rustls",
+ "rcgen 0.13.1",
+ "ring 0.17.8",
+ "rustls 0.23.12",
  "sec1",
  "serde",
  "sha1",
@@ -7941,18 +7897,19 @@ dependencies = [
  "tokio",
  "webrtc-util",
  "x25519-dalek",
- "x509-parser",
+ "x509-parser 0.16.0",
 ]
 
 [[package]]
 name = "webrtc-ice"
-version = "0.10.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.11.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "arc-swap",
  "async-trait",
  "crc",
  "log",
+ "portable-atomic",
  "rand 0.8.5",
  "serde",
  "serde_json",
@@ -7969,8 +7926,8 @@ dependencies = [
 
 [[package]]
 name = "webrtc-mdns"
-version = "0.6.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.7.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "log",
  "socket2 0.5.5",
@@ -7981,8 +7938,8 @@ dependencies = [
 
 [[package]]
 name = "webrtc-media"
-version = "0.7.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.8.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "byteorder",
  "bytes",
@@ -7993,14 +7950,15 @@ dependencies = [
 
 [[package]]
 name = "webrtc-sctp"
-version = "0.9.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.10.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "arc-swap",
  "async-trait",
  "bytes",
  "crc",
  "log",
+ "portable-atomic",
  "rand 0.8.5",
  "thiserror",
  "tokio",
@@ -8009,8 +7967,8 @@ dependencies = [
 
 [[package]]
 name = "webrtc-srtp"
-version = "0.11.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.13.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "aead 0.5.2",
  "aes 0.8.3",
@@ -8018,7 +7976,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "ctr 0.9.2",
- "hmac 0.12.1",
+ "hmac",
  "log",
  "rtcp",
  "rtp",
@@ -8031,18 +7989,18 @@ dependencies = [
 
 [[package]]
 name = "webrtc-util"
-version = "0.8.0"
-source = "git+https://github.com/openmina/webrtc.git?branch=openmina-13c490c3#7f4858d64b51f1fd56e4419553c89cdf977942da"
+version = "0.9.0"
+source = "git+https://github.com/openmina/webrtc.git?branch=openmina-v0.11.0#6f1a6dd2dc888d4b1ad5cec61be321f12fcb44a7"
 dependencies = [
  "async-trait",
  "bitflags 1.3.2",
  "bytes",
- "cc",
  "ipnet",
  "lazy_static",
  "libc",
  "log",
  "nix 0.26.4",
+ "portable-atomic",
  "rand 0.8.5",
  "thiserror",
  "tokio",
@@ -8338,7 +8296,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb66477291e7e8d2b0ff1bcb900bf29489a9692816d79874bea351e7a8b6de96"
 dependencies = [
- "curve25519-dalek 4.1.2",
+ "curve25519-dalek",
  "rand_core 0.6.4",
  "serde",
  "zeroize",
@@ -8350,13 +8308,30 @@ version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7069fba5b66b9193bd2c5d3d4ff12b839118f6bcbef5328efafafb5395cf63da"
 dependencies = [
- "asn1-rs",
+ "asn1-rs 0.5.2",
  "data-encoding",
- "der-parser",
+ "der-parser 8.2.0",
  "lazy_static",
  "nom",
- "oid-registry",
- "ring 0.16.20",
+ "oid-registry 0.6.1",
+ "rusticata-macros",
+ "thiserror",
+ "time",
+]
+
+[[package]]
+name = "x509-parser"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcbc162f30700d6f3f82a24bf7cc62ffe7caea42c0b2cba8bf7f3ae50cf51f69"
+dependencies = [
+ "asn1-rs 0.6.2",
+ "data-encoding",
+ "der-parser 9.0.0",
+ "lazy_static",
+ "nom",
+ "oid-registry 0.7.0",
+ "ring 0.17.8",
  "rusticata-macros",
  "thiserror",
  "time",
