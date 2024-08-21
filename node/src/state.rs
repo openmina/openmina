@@ -1,3 +1,4 @@
+use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::ConsensusConstants;
 use openmina_core::{constants::constraint_constants, error, ChainId};
 use p2p::{P2pConfig, P2pPeerState, P2pPeerStatusReady, PeerId};
@@ -220,17 +221,24 @@ impl State {
         self.applied_actions_count += 1;
     }
 
-    /// Current global slot based on constants and current time.
-    ///
-    /// It's not equal to global slot of the best tip.
-    pub fn cur_global_slot(&self) -> Option<u32> {
+    fn cur_slot(&self, initial_slot: impl FnOnce(&ArcBlockWithHash) -> u32) -> Option<u32> {
         let best_tip = self.transition_frontier.best_tip()?;
         let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
         let now_ms = u64::from(self.time()) / 1_000_000;
         let ms = now_ms.saturating_sub(best_tip_ms);
         let slots = ms / constraint_constants().block_window_duration_ms;
+        Some(initial_slot(best_tip) + slots as u32)
+    }
 
-        Some(best_tip.global_slot() + (slots as u32))
+    /// Current global slot based on constants and current time.
+    ///
+    /// It's not equal to global slot of the best tip.
+    pub fn cur_global_slot(&self) -> Option<u32> {
+        self.cur_slot(|b| b.global_slot())
+    }
+
+    pub fn cur_global_slot_since_genesis(&self) -> Option<u32> {
+        self.cur_slot(|b| b.global_slot_since_genesis())
     }
 
     pub fn current_epoch(&self) -> Option<u32> {

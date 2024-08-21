@@ -1,6 +1,6 @@
 use ledger::{
     scan_state::{
-        currency::{Amount, Nonce},
+        currency::{Amount, Nonce, Slot},
         transaction_logic::{verifiable, UserCommand, WithStatus},
     },
     transaction_pool::{
@@ -120,7 +120,18 @@ impl TransactionPoolState {
         Self::handle_action(state, action)
     }
 
+    fn global_slots(state: &crate::State) -> Option<(Slot, Slot)> {
+        Some((
+            Slot::from_u32(state.cur_global_slot()?),
+            Slot::from_u32(state.cur_global_slot_since_genesis()?),
+        ))
+    }
+
     fn handle_action(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
+        let Some((global_slot, global_slot_from_genesis)) = Self::global_slots(state.get_state())
+        else {
+            return;
+        };
         let substate = state.get_substate_mut().unwrap();
 
         match action {
@@ -191,7 +202,9 @@ impl TransactionPoolState {
                 });
             }
             TransactionPoolAction::BestTipChangedWithAccounts { accounts } => {
-                substate.pool.on_new_best_tip(accounts);
+                substate
+                    .pool
+                    .on_new_best_tip(global_slot_from_genesis, accounts);
             }
             TransactionPoolAction::ApplyVerifiedDiff {
                 best_tip_hash,
@@ -231,7 +244,13 @@ impl TransactionPoolState {
                 };
 
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
-                match substate.pool.unsafe_apply(&diff, accounts, is_sender_local) {
+                match substate.pool.unsafe_apply(
+                    global_slot_from_genesis,
+                    global_slot,
+                    &diff,
+                    accounts,
+                    is_sender_local,
+                ) {
                     Ok((ApplyDecision::Accept, accepted, rejected)) => {
                         // substate.rebroadcast(accepted, rejected);
                         if let Some(rpc_id) = from_rpc {
@@ -313,6 +332,8 @@ impl TransactionPoolState {
                 let uncommitted = collect(&uncommitted);
 
                 substate.pool.handle_transition_frontier_diff(
+                    global_slot_from_genesis,
+                    global_slot,
                     &diff,
                     &account_ids,
                     &in_cmds,

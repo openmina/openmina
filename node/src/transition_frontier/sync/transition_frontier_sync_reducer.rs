@@ -8,9 +8,9 @@ use super::{
         snarked::TransitionFrontierSyncLedgerSnarkedState, SyncLedgerTarget, SyncLedgerTargetKind,
         TransitionFrontierSyncLedgerState,
     },
-    PeerRpcState, TransitionFrontierSyncAction, TransitionFrontierSyncActionWithMetaRef,
-    TransitionFrontierSyncBlockState, TransitionFrontierSyncLedgerPending,
-    TransitionFrontierSyncState,
+    PeerRpcState, TransitionFrontierRootSnarkedLedgerUpdates, TransitionFrontierSyncAction,
+    TransitionFrontierSyncActionWithMetaRef, TransitionFrontierSyncBlockState,
+    TransitionFrontierSyncLedgerPending, TransitionFrontierSyncState,
 };
 
 impl TransitionFrontierSyncState {
@@ -48,8 +48,9 @@ impl TransitionFrontierSyncState {
                 | Self::NextEpochLedgerPending(substate)
                 | Self::RootLedgerPending(substate) => {
                     substate.time = meta.time();
-                    substate.root_block = root_block.clone();
                     substate.blocks_inbetween.clone_from(blocks_inbetween);
+                    let old_root_block =
+                        std::mem::replace(&mut substate.root_block, root_block.clone());
                     let old_best_tip = std::mem::replace(&mut substate.best_tip, best_tip.clone());
 
                     let staking_epoch_target = SyncLedgerTarget::staking_epoch(best_tip);
@@ -83,7 +84,20 @@ impl TransitionFrontierSyncState {
                                 != best_tip.next_epoch_ledger_hash()
                         }) {
                             Some((substate, next_epoch_target))
+                        } else if substate
+                            .ledger
+                            .staged()
+                            .map_or(false, |s| s.is_parts_fetched())
+                            && root_block.pred_hash() == old_root_block.hash()
+                        {
+                            // Optimization. Prevent changing staging ledger target,
+                            // if the new root block is the extension of the old one.
+                            // Since in such case, we can reuse the old reconstructed
+                            // staged ledger to reconstruct the new one.
+                            substate.root_block_updates.push(old_root_block);
+                            None
                         } else {
+                            substate.root_block_updates = Default::default();
                             substate
                                 .ledger
                                 .update_target(meta.time(), SyncLedgerTarget::root(root_block));
@@ -265,6 +279,7 @@ impl TransitionFrontierSyncState {
                         best_tip: best_tip.clone(),
                         root_block: root_block.clone(),
                         blocks_inbetween: std::mem::take(blocks_inbetween),
+                        root_block_updates: Default::default(),
                         ledger: TransitionFrontierSyncLedgerState::Init {
                             time: meta.time(),
                             target: SyncLedgerTarget::staking_epoch(best_tip),
@@ -314,6 +329,7 @@ impl TransitionFrontierSyncState {
                     best_tip: best_tip.clone(),
                     root_block: root_block.clone(),
                     blocks_inbetween: std::mem::take(blocks_inbetween),
+                    root_block_updates: Default::default(),
                     ledger: TransitionFrontierSyncLedgerState::Init {
                         time: meta.time(),
                         target,
@@ -365,6 +381,7 @@ impl TransitionFrontierSyncState {
                     best_tip: best_tip.clone(),
                     root_block: root_block.clone(),
                     blocks_inbetween: std::mem::take(blocks_inbetween),
+                    root_block_updates: Default::default(),
                     ledger: TransitionFrontierSyncLedgerState::Init {
                         time: meta.time(),
                         target: SyncLedgerTarget::root(root_block),
@@ -385,6 +402,7 @@ impl TransitionFrontierSyncState {
                         best_tip: substate.best_tip.clone(),
                         root_block: substate.root_block.clone(),
                         blocks_inbetween: std::mem::take(&mut substate.blocks_inbetween),
+                        root_block_updates: std::mem::take(&mut substate.root_block_updates),
                         needed_protocol_states: std::mem::take(needed_protocol_states),
                     };
                 }
@@ -394,6 +412,7 @@ impl TransitionFrontierSyncState {
                     best_tip,
                     root_block,
                     blocks_inbetween,
+                    root_block_updates,
                     needed_protocol_states,
                     ..
                 } = state
@@ -402,21 +421,49 @@ impl TransitionFrontierSyncState {
                 };
                 let (best_tip, root_block) = (best_tip.clone(), root_block.clone());
                 let blocks_inbetween = std::mem::take(blocks_inbetween);
+                let root_block_updates = std::mem::take(root_block_updates);
+
+                let mut root_snarked_ledger_updates =
+                    TransitionFrontierRootSnarkedLedgerUpdates::default();
+                let mut root_block_updates_iter = root_block_updates.windows(2);
+                while let Some([old_root, new_root]) = root_block_updates_iter.next() {
+                    root_snarked_ledger_updates
+                        .extend_with_needed(new_root, std::iter::once(old_root));
+                }
+                root_snarked_ledger_updates
+                    .extend_with_needed(&root_block, root_block_updates.iter().rev().take(1));
 
                 let mut applied_blocks: BTreeMap<_, _> =
                     best_chain.iter().map(|b| (&b.hash, b)).collect();
 
-                let mut chain = Vec::with_capacity(best_tip.constants().k.as_u32() as usize);
+                let k = best_tip.constants().k.as_u32() as usize;
+                let mut chain = Vec::with_capacity(k + root_block_updates.len());
 
                 // TODO(binier): maybe time should be when we originally
                 // applied this block? Same for below.
 
                 // Root block is always applied since we have reconstructed it
                 // in previous steps.
-                chain.push(TransitionFrontierSyncBlockState::ApplySuccess {
-                    time: meta.time(),
-                    block: root_block,
-                });
+                let mut root_block_updates_iter = root_block_updates.into_iter();
+                if let Some(reconstructed_root_block) = root_block_updates_iter.next() {
+                    chain.push(TransitionFrontierSyncBlockState::ApplySuccess {
+                        time: meta.time(),
+                        block: reconstructed_root_block.clone(),
+                    });
+                    chain.extend(
+                        root_block_updates_iter
+                            .chain(std::iter::once(root_block))
+                            .map(|block| TransitionFrontierSyncBlockState::FetchSuccess {
+                                time: meta.time(),
+                                block,
+                            }),
+                    );
+                } else {
+                    chain.push(TransitionFrontierSyncBlockState::ApplySuccess {
+                        time: meta.time(),
+                        block: root_block,
+                    });
+                }
 
                 chain.extend(blocks_inbetween.into_iter().map(|block_hash| {
                     if let Some(block) = applied_blocks.remove(&block_hash) {
@@ -440,7 +487,7 @@ impl TransitionFrontierSyncState {
                 *state = Self::BlocksPending {
                     time: meta.time(),
                     chain,
-                    root_snarked_ledger_updates: Default::default(),
+                    root_snarked_ledger_updates,
                     needed_protocol_states: std::mem::take(needed_protocol_states),
                 };
             }
@@ -571,19 +618,24 @@ impl TransitionFrontierSyncState {
                 else {
                     return;
                 };
-                let chain = std::mem::take(chain)
+                let mut needed_protocol_states = std::mem::take(needed_protocol_states);
+                let start_i = chain.len().saturating_sub(k + 1);
+                let mut iter = std::mem::take(chain)
                     .into_iter()
-                    .rev()
-                    .take(k + 1)
-                    .rev()
-                    .filter_map(|v| v.take_block())
-                    .collect();
+                    .filter_map(|v| v.take_block());
+
+                for _ in 0..start_i {
+                    if let Some(b) = iter.next() {
+                        needed_protocol_states
+                            .insert(b.hash, b.block.header.protocol_state.clone());
+                    }
+                }
 
                 *state = Self::BlocksSuccess {
                     time: meta.time(),
-                    chain,
+                    chain: iter.collect(),
                     root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
-                    needed_protocol_states: std::mem::take(needed_protocol_states),
+                    needed_protocol_states,
                 };
             }
             TransitionFrontierSyncAction::CommitInit => {}
@@ -690,6 +742,7 @@ fn next_required_ledger_to_sync(
         best_tip: new_best_tip.clone(),
         root_block: new_root.clone(),
         blocks_inbetween: new_blocks_inbetween.to_owned(),
+        root_block_updates: Default::default(),
         ledger,
     };
     match kind {
