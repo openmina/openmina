@@ -618,19 +618,24 @@ impl TransitionFrontierSyncState {
                 else {
                     return;
                 };
-                let chain = std::mem::take(chain)
+                let mut needed_protocol_states = std::mem::take(needed_protocol_states);
+                let start_i = chain.len().saturating_sub(k + 1);
+                let mut iter = std::mem::take(chain)
                     .into_iter()
-                    .rev()
-                    .take(k + 1)
-                    .rev()
-                    .filter_map(|v| v.take_block())
-                    .collect();
+                    .filter_map(|v| v.take_block());
+
+                for _ in 0..start_i {
+                    if let Some(b) = iter.next() {
+                        needed_protocol_states
+                            .insert(b.hash, b.block.header.protocol_state.clone());
+                    }
+                }
 
                 *state = Self::BlocksSuccess {
                     time: meta.time(),
-                    chain,
+                    chain: iter.collect(),
                     root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
-                    needed_protocol_states: std::mem::take(needed_protocol_states),
+                    needed_protocol_states,
                 };
             }
             TransitionFrontierSyncAction::CommitInit => {}
