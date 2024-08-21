@@ -112,9 +112,10 @@ jobs:
 
      - name: Setup Rust
        run: |
-         rustup default 1.80
-         rustup component add rustfmt
+         rustup default nightly
+         rustup component add rustfmt rust-src
          rustup target add wasm32-unknown-unknown
+         cargo install -f wasm-bindgen-cli
 
      - name: Setup Rust Cache
        uses: Swatinem/rust-cache@v2
@@ -123,7 +124,9 @@ jobs:
 
      - name: Release build
        run: |
-         rustup run nightly wasm-pack build --release --target web node/web
+         cd node/web
+         cargo +nightly build --release --target wasm32-unknown-unknown
+         wasm-bindgen --keep-debug --web --out-dir pkg ../../target/wasm32-unknown-unknown/release/openmina_node_web.wasm
 
   build-tests:
     runs-on: ubuntu-20.04
