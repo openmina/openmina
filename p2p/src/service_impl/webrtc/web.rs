@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::rc::{Rc, Weak};
+use std::sync::Once;
 
 use gloo_utils::format::JsValueSerdeExt;
 use wasm_bindgen::{convert::FromWasmAbi, prelude::*};
@@ -18,6 +19,12 @@ use crate::{
 };
 
 use super::{OnConnectionStateChangeHdlrFn, RTCChannelConfig, RTCConfig};
+
+#[wasm_bindgen(module = "/src/service_impl/webrtc/web.js")]
+extern "C" {
+    #[wasm_bindgen(js_name = schedulePeriodicWebrtcCleanup)]
+    fn schedule_periodic_webrtc_cleanup();
+}
 
 pub type Result<T> = std::result::Result<T, JsValue>;
 
@@ -41,8 +48,12 @@ impl From<JsValue> for RTCSignalingError {
     }
 }
 
+static INIT: Once = Once::new();
+
 impl RTCConnection {
     pub async fn create(config: RTCConfig) -> Result<Self> {
+        INIT.call_once(schedule_periodic_webrtc_cleanup);
+
         RtcPeerConnection::new_with_configuration(&config.into()).map(|v| Self(v.into(), true))
     }
 
@@ -98,7 +109,7 @@ impl RTCConnection {
             let conn = self.weak_ref();
             let callback = Closure::<dyn FnMut()>::new(move || {
                 if conn.upgrade().map_or(false, |conn| {
-                matches!(conn.ice_gathering_state(), RtcIceGatheringState::Complete)
+                    matches!(conn.ice_gathering_state(), RtcIceGatheringState::Complete)
                 }) {
                     if let Some(tx) = tx.take() {
                         let _ = tx.send(());
@@ -116,7 +127,7 @@ impl RTCConnection {
         let conn = self.weak_ref();
         let callback = Closure::new(move || {
             if let Some(conn) = conn.upgrade() {
-            spawn_local(f(conn.connection_state()));
+                spawn_local(f(conn.connection_state()));
             }
         });
         self.0
