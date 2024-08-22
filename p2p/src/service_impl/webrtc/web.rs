@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::rc::{Rc, Weak};
 
 use gloo_utils::format::JsValueSerdeExt;
 use wasm_bindgen::{convert::FromWasmAbi, prelude::*};
@@ -22,7 +23,7 @@ pub type Result<T> = std::result::Result<T, JsValue>;
 
 pub type RTCConnectionState = RtcPeerConnectionState;
 
-pub struct RTCConnection(RtcPeerConnection, bool);
+pub struct RTCConnection(Rc<RtcPeerConnection>, bool);
 
 pub struct RTCChannel(RtcDataChannel, bool);
 
@@ -42,11 +43,15 @@ impl From<JsValue> for RTCSignalingError {
 
 impl RTCConnection {
     pub async fn create(config: RTCConfig) -> Result<Self> {
-        RtcPeerConnection::new_with_configuration(&config.into()).map(|v| Self(v, true))
+        RtcPeerConnection::new_with_configuration(&config.into()).map(|v| Self(v.into(), true))
     }
 
     pub fn is_main(&self) -> bool {
         self.1
+    }
+
+    fn weak_ref(&self) -> Weak<RtcPeerConnection> {
+        Rc::downgrade(&self.0)
     }
 
     pub async fn channel_create(&self, config: RTCChannelConfig) -> Result<RTCChannel> {
@@ -90,9 +95,11 @@ impl RTCConnection {
         if !matches!(self.0.ice_gathering_state(), RtcIceGatheringState::Complete) {
             let (tx, rx) = oneshot::channel::<()>();
             let mut tx = Some(tx);
-            let conn = self.0.clone();
+            let conn = self.weak_ref();
             let callback = Closure::<dyn FnMut()>::new(move || {
-                if matches!(conn.ice_gathering_state(), RtcIceGatheringState::Complete) {
+                if conn.upgrade().map_or(false, |conn| {
+                matches!(conn.ice_gathering_state(), RtcIceGatheringState::Complete)
+                }) {
                     if let Some(tx) = tx.take() {
                         let _ = tx.send(());
                     }
@@ -106,9 +113,11 @@ impl RTCConnection {
     }
 
     pub fn on_connection_state_change(&self, mut f: OnConnectionStateChangeHdlrFn) {
-        let conn = self.0.clone();
+        let conn = self.weak_ref();
         let callback = Closure::new(move || {
+            if let Some(conn) = conn.upgrade() {
             spawn_local(f(conn.connection_state()));
+            }
         });
         self.0
             .set_onconnectionstatechange(Some(callback.as_ref().unchecked_ref()));
