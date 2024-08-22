@@ -416,7 +416,7 @@ async fn peer_loop(
     let (internal_cmd_sender, mut internal_cmd_receiver) =
         mpsc::unbounded_channel::<PeerCmdInternal>();
 
-    loop {
+    while matches!(pc.connection_state(), RTCConnectionState::Connected) {
         let cmd = tokio::select! {
             cmd = cmd_receiver.recv() => match cmd {
                 None => return,
