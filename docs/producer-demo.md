@@ -94,7 +94,7 @@ Once pre-requisites for your OS have been completed, follow these steps (they ar
 
 3. **Run the following command to start the demo:**
     ```sh
-    docker compose -f docker-compose.local.producers.yml up --pull always
+    docker compose -f docker-compose.local.producers.yml up --pull always --force-recreate
     ```
 
 4. **Open you browser and visit http://localhost:8070**
