@@ -201,6 +201,249 @@ impl BinProtWrite for TransactionSnarkScanStateStableV2ScanStateTreesA {
     }
 }
 
+// TODO: many of these OfSexp/SexpOf implementations can be removed if rsexp-derive is forked and modified
+// to fix a big in how enums are handled, and to avoid intermediary wrapping types in the output
+
+impl rsexp::OfSexp for PicklesBaseProofsVerifiedStableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        match s.extract_enum("PicklesBaseProofsVerifiedStableV1")? {
+            (b"N0", _) => Ok(PicklesBaseProofsVerifiedStableV1::N0),
+            (b"N1", _) => Ok(PicklesBaseProofsVerifiedStableV1::N1),
+            (b"N2", _) => Ok(PicklesBaseProofsVerifiedStableV1::N2),
+            (ctor, _) => Err(rsexp::IntoSexpError::UnknownConstructorForEnum {
+                type_: "PicklesBaseProofsVerifiedStableV1",
+                constructor: String::from_utf8_lossy(ctor).to_string(),
+            }),
+        }
+    }
+}
+
+impl rsexp::OfSexp for LimbVectorConstantHex64StableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        let bytes = s.extract_atom("LimbVectorConstantHex64StableV1")?;
+        let hex_str = std::str::from_utf8(bytes).map_err(|_| {
+            rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected 16 bytes hex string, got {bytes:?}"),
+            }
+        })?;
+        if hex_str.len() != 16 {
+            return Err(rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected 16 bytes hex string, got {hex_str:?}"),
+            });
+        }
+        let n = u64::from_str_radix(hex_str, 16).map_err(|_| {
+            rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected 16 bytes hex string, got {hex_str:?}"),
+            }
+        })?;
+
+        Ok(Self(n.into()))
+    }
+}
+
+impl rsexp::SexpOf for LimbVectorConstantHex64StableV1 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        let value: u64 = self.0.as_u64();
+        let hex_str = format!("{:016x}", value);
+
+        rsexp::Sexp::Atom(format!("0x{}", hex_str).into_bytes())
+    }
+}
+
+impl rsexp::OfSexp for CompositionTypesBranchDataDomainLog2StableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        match s.extract_atom("CompositionTypesBranchDataDomainLog2StableV1")? {
+            [ch] => Ok(Self((*ch).into())),
+            bytes => Err(rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected single byte string, got {bytes:?}"),
+            }),
+        }
+    }
+}
+
+impl rsexp::SexpOf for CompositionTypesBranchDataDomainLog2StableV1 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        rsexp::Sexp::Atom(vec![self.0.as_u8()])
+    }
+}
+
+impl rsexp::OfSexp for CompositionTypesDigestConstantStableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> std::result::Result<Self, rsexp::IntoSexpError> {
+        Ok(Self(crate::pseq::PaddedSeq::<
+            LimbVectorConstantHex64StableV1,
+            4,
+        >::of_sexp(s)?))
+    }
+}
+
+impl rsexp::SexpOf for CompositionTypesDigestConstantStableV1 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        self.0.sexp_of()
+    }
+}
+
+impl rsexp::OfSexp for PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 {
+    fn of_sexp(s: &rsexp::Sexp) -> std::result::Result<Self, rsexp::IntoSexpError> {
+        Ok(Self(crate::pseq::PaddedSeq::<
+            PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
+            15,
+        >::of_sexp(s)?))
+    }
+}
+
+impl rsexp::SexpOf for PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        self.0.sexp_of()
+    }
+}
+
+impl rsexp::OfSexp for TransactionSnarkProofStableV2 {
+    fn of_sexp(s: &rsexp::Sexp) -> std::result::Result<Self, rsexp::IntoSexpError> {
+        Ok(Self(PicklesProofProofsVerified2ReprStableV2::of_sexp(s)?))
+    }
+}
+
+impl rsexp::SexpOf for TransactionSnarkProofStableV2 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        self.0.sexp_of()
+    }
+}
+
+impl serde::Serialize for TransactionSnarkProofStableV2 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::SexpOf;
+
+            let sexp = self.sexp_of();
+            let sexp_bytes = sexp.to_bytes();
+            let base64_data = URL_SAFE.encode(&sexp_bytes);
+
+            base64_data.serialize(serializer)
+        } else {
+            serializer.serialize_newtype_struct("TransactionSnarkProofStableV2", &self.0)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for TransactionSnarkProofStableV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::OfSexp;
+            let base64_data = String::deserialize(deserializer)?;
+            let sexp_data = URL_SAFE
+                .decode(&base64_data)
+                .map_err(serde::de::Error::custom)?;
+            let sexp = rsexp::from_slice(&sexp_data).map_err(|err| {
+                serde::de::Error::custom(format!("S-exp parsing failure: {err:?}"))
+            })?;
+            let proof = Self::of_sexp(&sexp).map_err(serde::de::Error::custom)?;
+            Ok(proof)
+        } else {
+            struct TransactionSnarkProofStableV2Visitor;
+
+            impl<'de> serde::de::Visitor<'de> for TransactionSnarkProofStableV2Visitor {
+                type Value = TransactionSnarkProofStableV2;
+
+                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    formatter.write_str("a valid TransactionSnarkProofStableV2")
+                }
+
+                fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+                where
+                    D: serde::de::Deserializer<'de>,
+                {
+                    let inner_value =
+                        PicklesProofProofsVerified2ReprStableV2::deserialize(deserializer)?;
+                    Ok(TransactionSnarkProofStableV2(inner_value))
+                }
+            }
+
+            deserializer.deserialize_newtype_struct(
+                "TransactionSnarkProofStableV2",
+                TransactionSnarkProofStableV2Visitor,
+            )
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PicklesProofProofsVerifiedMaxStableV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::OfSexp;
+            let base64_data = String::deserialize(deserializer)?;
+            let sexp_data = URL_SAFE
+                .decode(&base64_data)
+                .map_err(serde::de::Error::custom)?;
+            let sexp = rsexp::from_slice(&sexp_data).map_err(|err| {
+                serde::de::Error::custom(format!("S-exp parsing failure: {err:?}"))
+            })?;
+            let proof = Self::of_sexp(&sexp).map_err(serde::de::Error::custom)?;
+            Ok(proof)
+        } else {
+            #[derive(Deserialize)]
+            struct Inner {
+                statement: PicklesProofProofsVerified2ReprStableV2Statement,
+                prev_evals: PicklesProofProofsVerified2ReprStableV2PrevEvals,
+                proof: PicklesWrapWireProofStableV1,
+            }
+
+            let inner = Inner::deserialize(deserializer)?;
+            Ok(PicklesProofProofsVerifiedMaxStableV2 {
+                statement: inner.statement,
+                prev_evals: inner.prev_evals,
+                proof: inner.proof,
+            })
+        }
+    }
+}
+
+impl serde::Serialize for PicklesProofProofsVerifiedMaxStableV2 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::SexpOf as _;
+
+            let sexp = self.sexp_of();
+            let sexp_bytes = sexp.to_bytes();
+            let base64_data = URL_SAFE.encode(&sexp_bytes);
+
+            base64_data.serialize(serializer)
+        } else {
+            use serde::ser::SerializeStruct;
+            let mut state =
+                serializer.serialize_struct("PicklesProofProofsVerifiedMaxStableV2", 3)?;
+            state.serialize_field("statement", &self.statement)?;
+            state.serialize_field("prev_evals", &self.prev_evals)?;
+            state.serialize_field("proof", &self.proof)?;
+            state.end()
+        }
+    }
+}
+
 macro_rules! base58check_of_binprot {
     ($name:ident, versioned($ty:ty, $version:expr), $version_byte:ident) => {
         impl From<Versioned<$ty, $version>> for $ty {
@@ -694,67 +937,34 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-mod serde_protocol_ver {
-    #[derive(serde::Serialize, serde::Deserialize)]
-    pub struct ProtocolVersionStableV2 {
-        pub transaction: crate::number::UInt64,
-        pub network: crate::number::UInt64,
-        pub patch: crate::number::UInt64,
-    }
-}
-
-impl<'de> Deserialize<'de> for ProtocolVersionStableV2 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+impl Serialize for ConsensusBodyReferenceStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        D: serde::Deserializer<'de>,
+        S: serde::ser::Serializer,
     {
-        if deserializer.is_human_readable() {
-            let s = String::deserialize(deserializer)?;
-
-            let err = || serde::de::Error::custom(format!("incorrect protocol version '{}'", s));
-
-            let parse_number =
-                |s: Option<&str>| s.and_then(|s| s.parse::<u64>().ok()).ok_or_else(err);
-
-            let mut versions = s.split('.');
-            let transaction = parse_number(versions.next())?.into();
-            let network = parse_number(versions.next())?.into();
-            let patch = parse_number(versions.next())?.into();
-
-            if versions.next().is_some() {
-                return Err(err()); // We expect the format "transaction.network.patch"
-            }
-
-            Ok(Self {
-                transaction,
-                network,
-                patch,
-            })
+        if serializer.is_human_readable() {
+            let hex_string = hex::encode(&self.0);
+            serializer.serialize_str(&hex_string)
         } else {
-            serde_protocol_ver::ProtocolVersionStableV2::deserialize(deserializer).map(|s| Self {
-                transaction: s.transaction,
-                network: s.network,
-                patch: s.patch,
-            })
+            self.0.serialize(serializer)
         }
     }
 }
 
-impl Serialize for ProtocolVersionStableV2 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+impl<'de> Deserialize<'de> for ConsensusBodyReferenceStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        S: serde::Serializer,
+        D: serde::de::Deserializer<'de>,
     {
-        if serializer.is_human_readable() {
-            let s = format!("{}.{}.{}", *self.transaction, *self.network, *self.patch);
-            s.serialize(serializer)
+        if deserializer.is_human_readable() {
+            let hex_string = String::deserialize(deserializer)?;
+            let decoded_bytes = hex::decode(&hex_string).map_err(serde::de::Error::custom)?;
+            Ok(ConsensusBodyReferenceStableV1(crate::string::ByteString(
+                decoded_bytes,
+            )))
         } else {
-            let s = serde_protocol_ver::ProtocolVersionStableV2 {
-                transaction: self.transaction,
-                network: self.network,
-                patch: self.patch,
-            };
-            s.serialize(serializer)
+            let inner_value = crate::string::ByteString::deserialize(deserializer)?;
+            Ok(ConsensusBodyReferenceStableV1(inner_value))
         }
     }
 }

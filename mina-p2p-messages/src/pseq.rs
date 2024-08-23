@@ -1,6 +1,7 @@
 use std::{array, fmt::Formatter, marker::PhantomData};
 
 use binprot::{BinProtRead, BinProtWrite};
+use rsexp::{OfSexp, SexpOf};
 use serde::ser::SerializeTuple;
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaddedSeq<T, const N: usize>(pub [T; N]);
@@ -19,6 +20,39 @@ impl<T, const N: usize> std::ops::Deref for PaddedSeq<T, N> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<T: OfSexp, const N: usize> OfSexp for PaddedSeq<T, N> {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        let elts = s.extract_list("PaddedSeq")?;
+        if elts.len() != N {
+            return Err(rsexp::IntoSexpError::ListLengthMismatch {
+                type_: "PaddedSeq",
+                expected_len: N,
+                list_len: elts.len(),
+            });
+        }
+
+        let mut converted: [Option<T>; N] = [(); N].map(|_| None);
+
+        for (i, item) in elts.iter().enumerate() {
+            converted[i] = Some(T::of_sexp(item)?);
+        }
+
+        // Unwrap cannot fail, otherwise we wouldn't have rechead this point
+        Ok(Self(converted.map(|item| item.unwrap())))
+    }
+}
+
+impl<T: SexpOf, const N: usize> rsexp::SexpOf for PaddedSeq<T, N> {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        let elements: Vec<rsexp::Sexp> = self.0.iter().map(|item| item.sexp_of()).collect();
+
+        rsexp::Sexp::List(elements)
     }
 }
 

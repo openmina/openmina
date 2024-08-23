@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
+use rsexp::OfSexp;
 use serde::{Deserialize, Serialize};
 
 /// Mina array bounded to specific length. Note that the length is only checked
@@ -74,6 +75,39 @@ impl<T, const N: u64> ArrayN<T, N> {
 
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.0.iter()
+    }
+}
+
+impl<T: OfSexp, const N: u64> OfSexp for ArrayN<T, N> {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        let limit = N as usize;
+        let elts = s.extract_list("ArrayN")?;
+
+        if elts.len() > limit {
+            return Err(rsexp::IntoSexpError::ListLengthMismatch {
+                type_: "ArrayN",
+                expected_len: limit,
+                list_len: elts.len(),
+            });
+        }
+
+        let mut converted = Vec::with_capacity(elts.len());
+        for elt in elts.iter() {
+            converted.push(rsexp::OfSexp::of_sexp(elt)?);
+        }
+
+        Ok(ArrayN(converted))
+    }
+}
+
+impl<T: rsexp::SexpOf, const N: u64> rsexp::SexpOf for ArrayN<T, N> {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        let elements: Vec<rsexp::Sexp> = self.0.iter().map(|item| item.sexp_of()).collect();
+
+        rsexp::Sexp::List(elements)
     }
 }
 

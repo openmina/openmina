@@ -30,8 +30,10 @@ mina-signer = { workspace = true, optional = true }
 mina-poseidon = { workspace = true, optional = true }
 o1-utils = { workspace = true, optional = true }
 
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ], optional = true }
+ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ], optional = true }
+# TODO: use our own fork with fixes
 rsexp = "0.2.3"
+rsexp-derive = "0.2.3"
 
 [target.'cfg(fuzzing)'.dev-dependencies]
 fuzzcheck = "0.12.1"
@@ -46,6 +48,7 @@ time = { version = "0.3.17", features = ["formatting"] }
 
 
 [features]
+default = ["hashing"]
 hashing = ["mina-hasher", "mina-curves", "mina-signer", "mina-poseidon", "o1-utils", "sha2", "blake2", "ark-ff"]
 
 [target.wasm32-unknown-unknown.dev-dependencies]

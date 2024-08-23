@@ -1,6 +1,7 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
 use openmina_macros::SerdeYojsonEnum;
+use rsexp_derive::{OfSexp, SexpOf};
 use serde::{Deserialize, Serialize};
 
 use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
@@ -358,7 +359,9 @@ pub enum PicklesProofProofsVerified2ReprStableV2StatementFp {
 /// Gid: `464`
 /// Location: [src/lib/pickles_types/plonk_types.ml:194:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L194)
 /// Args: bool
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags
 {
     pub range_check0: bool,
@@ -376,7 +379,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
 /// Gid: `465`
 /// Location: [src/lib/pickles_types/plonk_types.ml:363:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L363)
 /// Args: (ArrayN16 < crate :: bigint :: BigInt > , ArrayN16 < crate :: bigint :: BigInt > ,)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
     pub w: PaddedSeq<
         (
@@ -497,7 +502,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
 /// Gid: `466`
 /// Location: [src/lib/pickles_types/plonk_types.ml:1057:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L1057)
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) , (ArrayN16 < crate :: bigint :: BigInt > , ArrayN16 < crate :: bigint :: BigInt > ,)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
     pub public_input: (crate::bigint::BigInt, crate::bigint::BigInt),
     pub evals: PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
@@ -508,7 +515,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
 /// Gid: `467`
 /// Location: [src/lib/pickles_types/plonk_types.ml:1092:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L1092)
 /// Args: crate :: bigint :: BigInt , ArrayN16 < crate :: bigint :: BigInt >
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2PrevEvals {
     pub evals: PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals,
     pub ft_eval1: crate::bigint::BigInt,
@@ -519,7 +528,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2PrevEvals {
 /// Gid: `468`
 /// Location: [src/lib/pickles_types/plonk_types.ml:1141:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L1141)
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) , crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesWrapWireProofStableV1Bulletproof {
     pub lr: ArrayN16<(
         (crate::bigint::BigInt, crate::bigint::BigInt),
@@ -553,7 +564,9 @@ pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
 /// Gid: `482`
 /// Location: [src/lib/crypto/kimchi_backend/common/scalar_challenge.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/crypto/kimchi_backend/common/scalar_challenge.ml#L6)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 >
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
     pub inner: PaddedSeq<LimbVectorConstantHex64StableV1, 2>,
 }
@@ -625,7 +638,7 @@ pub enum SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances {
 ///
 /// Gid: `514`
 /// Location: [src/lib/pickles_base/proofs_verified.ml:8:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_base/proofs_verified.ml#L8)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, SexpOf)]
 pub enum PicklesBaseProofsVerifiedStableV1 {
     N0,
     N1,
@@ -662,7 +675,9 @@ pub struct CompositionTypesBranchDataDomainLog2StableV1(pub crate::char::Char);
 ///
 /// Gid: `525`
 /// Location: [src/lib/pickles/composition_types/branch_data.ml:51:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/branch_data.ml#L51)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct CompositionTypesBranchDataStableV1 {
     pub proofs_verified: PicklesBaseProofsVerifiedStableV1,
     pub domain_log2: CompositionTypesBranchDataDomainLog2StableV1,
@@ -673,7 +688,9 @@ pub struct CompositionTypesBranchDataStableV1 {
 /// Gid: `526`
 /// Location: [src/lib/pickles/composition_types/bulletproof_challenge.ml:4:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/bulletproof_challenge.ml#L4)
 /// Args: PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
     pub prechallenge:
         PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
@@ -693,7 +710,9 @@ pub struct CompositionTypesDigestConstantStableV1(
 /// Gid: `528`
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:45:14](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L45)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , bool
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk {
     pub alpha:
         PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
@@ -712,7 +731,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
 /// Gid: `530`
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:275:12](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L275)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , PicklesProofProofsVerified2ReprStableV2StatementFp , bool , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > , CompositionTypesBranchDataStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues {
     pub plonk: PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk,
     pub bulletproof_challenges:
@@ -725,7 +746,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
 /// Gid: `531`
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:397:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L397)
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 , 2 >
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
     pub challenge_polynomial_commitment: (crate::bigint::BigInt, crate::bigint::BigInt),
     pub old_bulletproof_challenges:
@@ -737,7 +760,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
 /// Gid: `533`
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:466:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L466)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , PicklesProofProofsVerified2ReprStableV2StatementFp , bool , PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , CompositionTypesDigestConstantStableV1 , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > , CompositionTypesBranchDataStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2StatementProofState {
     pub deferred_values: PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
     pub sponge_digest_before_evaluations: CompositionTypesDigestConstantStableV1,
@@ -750,7 +775,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofState {
 /// Gid: `535`
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:714:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L714)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , PicklesProofProofsVerified2ReprStableV2StatementFp , bool , PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , CompositionTypesDigestConstantStableV1 , PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > , CompositionTypesBranchDataStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2Statement {
     pub proof_state: PicklesProofProofsVerified2ReprStableV2StatementProofState,
     pub messages_for_next_step_proof:
@@ -761,7 +788,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2Statement {
 ///
 /// Gid: `537`
 /// Location: [src/lib/pickles/wrap_wire_proof.ml:17:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/wrap_wire_proof.ml#L17)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesWrapWireProofCommitmentsStableV1 {
     pub w_comm: PaddedSeq<(crate::bigint::BigInt, crate::bigint::BigInt), 15>,
     pub z_comm: (crate::bigint::BigInt, crate::bigint::BigInt),
@@ -772,7 +801,9 @@ pub struct PicklesWrapWireProofCommitmentsStableV1 {
 ///
 /// Gid: `538`
 /// Location: [src/lib/pickles/wrap_wire_proof.ml:55:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/wrap_wire_proof.ml#L55)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesWrapWireProofEvaluationsStableV1 {
     pub w: PaddedSeq<(crate::bigint::BigInt, crate::bigint::BigInt), 15>,
     pub coefficients: PaddedSeq<(crate::bigint::BigInt, crate::bigint::BigInt), 15>,
@@ -790,7 +821,9 @@ pub struct PicklesWrapWireProofEvaluationsStableV1 {
 ///
 /// Gid: `539`
 /// Location: [src/lib/pickles/wrap_wire_proof.ml:175:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/wrap_wire_proof.ml#L175)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesWrapWireProofStableV1 {
     pub commitments: PicklesWrapWireProofCommitmentsStableV1,
     pub evaluations: PicklesWrapWireProofEvaluationsStableV1,
@@ -803,8 +836,11 @@ pub struct PicklesWrapWireProofStableV1 {
 /// Gid: `542`
 /// Location: [src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml:16:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml#L16)
 /// Args: () , List < (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) > , List < PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > >
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
+    #[serde(deserialize_with = "always_unit")]
     pub app_state: (),
     pub challenge_polynomial_commitments: List<(crate::bigint::BigInt, crate::bigint::BigInt)>,
     pub old_bulletproof_challenges: List<
@@ -851,7 +887,9 @@ pub struct MinaBaseVerificationKeyWireStableV1 {
 /// Gid: `546`
 /// Location: [src/lib/pickles/proof.ml:47:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/proof.ml#L47)
 /// Args: PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+)]
 pub struct PicklesProofProofsVerified2ReprStableV2 {
     pub statement: PicklesProofProofsVerified2ReprStableV2Statement,
     pub prev_evals: PicklesProofProofsVerified2ReprStableV2PrevEvals,
@@ -867,7 +905,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2 {
 /// Gid: `546`
 /// Location: [src/lib/pickles/proof.ml:47:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/proof.ml#L47)
 /// Args: PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, SexpOf, OfSexp)]
 pub struct PicklesProofProofsVerifiedMaxStableV2 {
     pub statement: PicklesProofProofsVerified2ReprStableV2Statement,
     pub prev_evals: PicklesProofProofsVerified2ReprStableV2PrevEvals,
@@ -926,7 +964,7 @@ pub struct UnsignedExtendedUInt32StableV1(pub crate::number::UInt32);
 ///
 /// Gid: `584`
 /// Location: [src/lib/protocol_version/protocol_version.ml:18:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/protocol_version/protocol_version.ml#L18)
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct ProtocolVersionStableV2 {
     pub transaction: crate::number::UInt64,
     pub network: crate::number::UInt64,
@@ -1947,6 +1985,7 @@ pub struct MinaBaseAccountUpdateFeePayerStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
     pub elt: Box<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA>,
+    #[serde(deserialize_with = "always_unit")]
     pub stack_hash: (),
 }
 
@@ -1969,6 +2008,7 @@ pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
     pub elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
+    #[serde(deserialize_with = "always_unit")]
     pub stack_hash: (),
 }
 
@@ -2061,6 +2101,7 @@ pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
     pub account_update: MinaBaseAccountUpdateTStableV1,
+    #[serde(deserialize_with = "always_unit")]
     pub account_update_digest: (),
     pub calls: List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
 }
@@ -2652,7 +2693,7 @@ pub struct ConsensusStakeProofStableV2 {
 ///
 /// Gid: `959`
 /// Location: [src/lib/consensus/body_reference.ml:17:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/consensus/body_reference.ml#L17)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct ConsensusBodyReferenceStableV1(pub crate::string::ByteString);
 
 /// **OCaml name**: `Consensus__Global_slot.Make_str.Stable.V1`
@@ -2742,6 +2783,7 @@ pub struct MinaStateBlockchainStateValueStableV2LedgerProofStatement {
     pub connecting_ledger_right: LedgerHash,
     pub supply_increase: MinaStateBlockchainStateValueStableV2SignedAmount,
     pub fee_excess: MinaBaseFeeExcessStableV1,
+    #[serde(deserialize_with = "always_unit")]
     pub sok_digest: (),
 }
 
@@ -2829,7 +2871,7 @@ pub struct MinaStateProtocolStateBodyValueStableV2 {
 ///
 /// Gid: `1011`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:69:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_snark/transaction_snark.ml#L69)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct TransactionSnarkProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
 
 /// **OCaml name**: `Transaction_snark.Make_str.Stable.V2`
@@ -3179,4 +3221,21 @@ pub enum SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetricsA1 {
 pub enum TransactionSnarkScanStateStableV2PreviousIncompleteZkappUpdates1 {
     #[allow(non_camel_case_types)]
     Border_block_continued_in_the_next_tree(bool),
+}
+
+// Utils
+
+// FIXME: This workaround ignores values in the JSON that correspond to `()` in the target type.
+// The proper solution would involve defining a composite type that accurately reflects
+// the structure of the data, including fields with actual values instead of unit (`()`).
+fn always_unit<'de, D>(deserializer: D) -> Result<(), D::Error>
+where
+    D: serde::de::Deserializer<'de>,
+{
+    if deserializer.is_human_readable() {
+        let _ = serde_json::Value::deserialize(deserializer)?;
+        Ok(())
+    } else {
+        <()>::deserialize(deserializer)
+    }
 }
