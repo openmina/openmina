@@ -1,0 +1,29 @@
+[package]
+name = "block-replayer"
+version = "0.7.0"
+edition = "2021"
+
+[dependencies]
+structopt = { version = "0.3.26" }
+bs58 = { version = "0.5.0", features = ["check"] }
+base64 = "0.22"
+hex = { version = "0.4.3" }
+serde = { version = "1.0.147", features = ["rc"] }
+serde_json = { workspace = true }
+flate2 = "1"
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+
+mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
+
+ledger = { path = "../../ledger", package = "mina-tree" }
+openmina-core = { path = "../../core" }
+node = { path = "../../node" }
+mina-p2p-messages = { workspace = true }
+vrf = { workspace = true }

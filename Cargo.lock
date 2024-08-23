@@ -779,6 +779,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "block-replayer"
+version = "0.7.0"
+dependencies = [
+ "base64 0.22.0",
+ "binprot",
+ "binprot_derive",
+ "bs58 0.5.0",
+ "flate2",
+ "hex",
+ "kimchi",
+ "mina-curves",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-poseidon",
+ "mina-signer",
+ "mina-tree",
+ "node",
+ "o1-utils",
+ "openmina-core",
+ "poly-commitment",
+ "serde",
+ "serde_json",
+ "structopt",
+ "vrf",
+]
+
+[[package]]
 name = "bs58"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

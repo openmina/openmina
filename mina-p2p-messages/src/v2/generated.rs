@@ -871,11 +871,40 @@ pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorSt
 /// Gid: `519`
 /// Location: [src/lib/pickles_base/side_loaded_verification_key.ml:130:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_base/side_loaded_verification_key.ml#L130)
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseVerificationKeyWireStableV1 {
     pub max_proofs_verified: PicklesBaseProofsVerifiedStableV1,
     pub actual_wrap_domain_size: PicklesBaseProofsVerifiedStableV1,
     pub wrap_index: MinaBaseVerificationKeyWireStableV1WrapIndex,
+}
+
+#[derive(Deserialize)]
+struct VerificationKeyJson {
+    data: String,
+    // JSON contains hash, but we don't use it
+    // hash: String,
+}
+
+// TODO: Serialize implementation
+
+impl<'de> Deserialize<'de> for MinaBaseVerificationKeyWireStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use binprot::BinProtRead as _;
+
+        let base58 = VerificationKeyJson::deserialize(deserializer)?;
+        let binprot_data = crate::b58::decode(&base58.data, crate::b58version::VERIFICATION_KEY)
+            .map_err(|e| {
+                serde::de::Error::custom(format!("Error deserializing verification key: {e}"))
+            })?;
+        // Skip the version byte
+        let mut read = &binprot_data[1..];
+        let verification_key = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut read)
+            .map_err(serde::de::Error::custom)?;
+        Ok(verification_key)
+    }
 }
 
 /// **OCaml name**: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2`
@@ -2810,6 +2839,48 @@ pub struct MinaStateProtocolStateBodyValueStableV2 {
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:69:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_snark/transaction_snark.ml#L69)
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct TransactionSnarkProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
+
+//impl Serialize for TransactionSnarkProofStableV2 {
+//    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//    where
+//        S: serde::ser::Serializer,
+//    {
+//        use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+//        use binprot::BinProtWrite;
+//        let mut buf = Vec::new();
+//        self.0
+//            .binprot_write(&mut buf)
+//            .map_err(serde::ser::Error::custom)?;
+//        let base64_data = URL_SAFE.encode(&buf);
+//        serializer.serialize_str(&base64_data)
+//    }
+//}
+
+impl<'de> Deserialize<'de> for TransactionSnarkProofStableV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use binprot::BinProtRead as _;
+        //use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+        let _base64_data = String::deserialize(deserializer)?;
+        //println!("+++ base64 read");
+        //let binprot_data = URL_SAFE
+        //    .decode(&base64_data)
+        //    .map_err(serde::de::Error::custom)?;
+        //println!("+++ base64 decoded");
+        //let mut read = binprot_data.as_slice();
+        //println!("+++ binprot decode start");
+        //let proof: TransactionSnarkProofStableV2 =
+        //    binprot::BinProtRead::binprot_read(&mut read).map_err(serde::de::Error::custom)?;
+        //println!("+++ binprot decode done");
+        // TODO: proof is a base64-encoded sexp
+        let bytes = include_bytes!("dummy_transaction_proof.bin");
+        let dummy_proof =
+            TransactionSnarkProofStableV2::binprot_read(&mut bytes.as_slice()).unwrap();
+        Ok(dummy_proof)
+    }
+}
 
 /// **OCaml name**: `Transaction_snark.Make_str.Stable.V2`
 ///

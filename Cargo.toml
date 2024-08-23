@@ -22,6 +22,7 @@ members = [
     "ledger",
 
     "tools/transport",
+    "tools/block-replayer",
     "tools/bootstrap-sandbox",
     "tools/gossipsub-sandbox",
     "tools/hash-tool",
