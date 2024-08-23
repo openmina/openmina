@@ -28,6 +28,7 @@ use ledger::{
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot::BinProtRead,
+    list::List,
     v2::{
         self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseLedgerHash0StableV1,
         MinaBasePendingCoinbaseStableV2, MinaBasePendingCoinbaseWitnessStableV2,
@@ -1109,7 +1110,9 @@ fn staged_ledger_reconstruct(
         .map(|p| p.staged_ledger_hash.clone())
         .unwrap_or_else(|| snarked_ledger_hash.clone());
 
-    let result = if let Some(parts) = parts {
+    let ledger = snarked_ledger.make_child();
+
+    let mut result = if let Some(parts) = &parts {
         let states = parts
             .needed_blocks
             .iter()
@@ -1121,15 +1124,30 @@ fn staged_ledger_reconstruct(
             constraint_constants(),
             Verifier,
             (&parts.scan_state).into(),
-            snarked_ledger,
+            ledger,
             LocalState::empty(),
             parts.staged_ledger_hash.0.to_field(),
             (&parts.pending_coinbase).into(),
             |key| states.get(&key).cloned().unwrap(),
         )
     } else {
-        StagedLedger::create_exn(constraint_constants().clone(), snarked_ledger)
+        StagedLedger::create_exn(constraint_constants().clone(), ledger)
     };
+
+    match result.as_mut() {
+        Ok(staged_ledger) => {
+            staged_ledger.commit_and_reparent_to_root();
+        }
+        Err(_) => {
+            if let Err(e) = dump_reconstruct_to_file(&snarked_ledger, &parts) {
+                openmina_core::error!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerService::dump - Failed reconstruct",
+                    summary = format!("Failed to save reconstruction to file: {e:?}")
+                );
+            }
+        }
+    }
 
     (staged_ledger_hash, result)
 }
@@ -1157,6 +1175,65 @@ pub trait LedgerService: redux::Service {
             self.ledger_manager().call(request);
         }
     }
+}
+
+/// Save reconstruction to file, when it fails.
+/// So we can easily reproduce the application both in Rust and OCaml, to compare them.
+fn dump_reconstruct_to_file(
+    snarked_ledger: &Mask,
+    parts: &Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
+) -> std::io::Result<()> {
+    use mina_p2p_messages::binprot::{
+        self,
+        macros::{BinProtRead, BinProtWrite},
+    };
+
+    #[derive(BinProtRead, BinProtWrite)]
+    struct ReconstructContext {
+        accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+        scan_state: v2::TransactionSnarkScanStateStableV2,
+        pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+        staged_ledger_hash: LedgerHash,
+        states: List<v2::MinaStateProtocolStateValueStableV2>,
+    }
+
+    let Some(parts) = parts else {
+        return Err(std::io::ErrorKind::Other.into());
+    };
+
+    let StagedLedgerAuxAndPendingCoinbasesValid {
+        scan_state,
+        staged_ledger_hash,
+        pending_coinbase,
+        needed_blocks,
+    } = &**parts;
+
+    let reconstruct_context = ReconstructContext {
+        accounts: snarked_ledger
+            .to_list()
+            .iter()
+            .map(v2::MinaBaseAccountBinableArgStableV2::from)
+            .collect(),
+        scan_state: scan_state.clone(),
+        pending_coinbase: pending_coinbase.clone(),
+        staged_ledger_hash: staged_ledger_hash.clone(),
+        states: needed_blocks.clone(),
+    };
+
+    const FILENAME: &str = "/tmp/failed_reconstruct_ctx.binprot";
+
+    use mina_p2p_messages::binprot::BinProtWrite;
+    let mut file = std::fs::File::create(FILENAME)?;
+    reconstruct_context.binprot_write(&mut file)?;
+    file.sync_all()?;
+
+    openmina_core::info!(
+        openmina_core::log::system_time();
+        kind = "LedgerService::dump - Failed reconstruct",
+        summary = format!("Reconstruction saved to: {FILENAME:?}")
+    );
+
+    Ok(())
 }
 
 /// Save staged ledger and block to file, when the application fail.

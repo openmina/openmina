@@ -306,8 +306,7 @@ impl StagedLedger {
         if staged_ledger_hash != expected_merkle_root {
             return Err(format!(
                 "Mismatching merkle root Expected:{:?} Got:{:?}",
-                expected_merkle_root.to_string(),
-                staged_ledger_hash.to_string()
+                expected_merkle_root, staged_ledger_hash
             ));
         }
 
@@ -5851,7 +5850,7 @@ mod tests {
     use std::{collections::BTreeMap, fs::File};
 
     use mina_hasher::Fp;
-    use mina_p2p_messages::binprot;
+    use mina_p2p_messages::{binprot, list::List};
 
     use crate::{
         proofs::public_input::protocol_state::MinaHash,
@@ -6185,5 +6184,63 @@ mod tests {
         let stmt = ledger_proof.statement_ref();
 
         dbg!(stmt.to_field_elements_owned());
+    }
+
+    #[test]
+    fn reconstruct_staged_ledger() {
+        #[allow(unused)]
+        use binprot::{
+            macros::{BinProtRead, BinProtWrite},
+            BinProtRead, BinProtWrite,
+        };
+
+        #[derive(BinProtRead, BinProtWrite)]
+        struct ReconstructContext {
+            accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+            scan_state: v2::TransactionSnarkScanStateStableV2,
+            pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+            staged_ledger_hash: v2::LedgerHash,
+            states: List<v2::MinaStateProtocolStateValueStableV2>,
+        }
+
+        let Ok(file) = std::fs::read("/tmp/failed_reconstruct_ctx.binprot") else {
+            eprintln!("no reconstruct context found");
+            return;
+        };
+
+        let ReconstructContext {
+            accounts,
+            scan_state,
+            pending_coinbase,
+            staged_ledger_hash,
+            states,
+        } = ReconstructContext::binprot_read(&mut file.as_slice()).unwrap();
+
+        let states = states
+            .iter()
+            .map(|state| (state.hash().to_field::<Fp>(), state.clone()))
+            .collect::<BTreeMap<_, _>>();
+
+        const LEDGER_DEPTH: usize = 35;
+        let mut ledger = Mask::create(LEDGER_DEPTH);
+        for account in &accounts {
+            let account: Account = account.into();
+            let id = account.id();
+            ledger.get_or_create_account(id, account).unwrap();
+        }
+        assert_eq!(ledger.num_accounts(), accounts.len());
+
+        StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+            (),
+            openmina_core::constants::constraint_constants(),
+            Verifier,
+            (&scan_state).into(),
+            ledger,
+            LocalState::empty(),
+            staged_ledger_hash.0.to_field(),
+            (&pending_coinbase).into(),
+            |key| states.get(&key).cloned().unwrap(),
+        )
+        .unwrap();
     }
 }
