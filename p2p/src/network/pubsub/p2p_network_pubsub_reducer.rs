@@ -88,11 +88,11 @@ impl P2pNetworkPubsubState {
                             let topic = self.topics.entry(topic_id).or_default();
 
                             if subscription.subscribe() {
-                                if let Entry::Vacant(v) = topic.entry(peer_id.clone()) {
+                                if let Entry::Vacant(v) = topic.entry(*peer_id) {
                                     v.insert(P2pNetworkPubsubClientTopicState::default());
                                 }
                             } else {
-                                topic.remove(&peer_id);
+                                topic.remove(peer_id);
                             }
                         }
                         for message in v.publish {
@@ -170,7 +170,7 @@ impl P2pNetworkPubsubState {
                                 if let Some(mesh_state) = self
                                     .topics
                                     .get_mut(dbg!(graft.topic_id()))
-                                    .and_then(|m| m.get_mut(&peer_id))
+                                    .and_then(|m| m.get_mut(peer_id))
                                 {
                                     mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
                                 }
@@ -179,7 +179,7 @@ impl P2pNetworkPubsubState {
                                 if let Some(mesh_state) = self
                                     .topics
                                     .get_mut(prune.topic_id())
-                                    .and_then(|m| m.get_mut(&peer_id))
+                                    .and_then(|m| m.get_mut(peer_id))
                                 {
                                     mesh_state.mesh =
                                         P2pNetworkPubsubClientMeshAddingState::TheyRefused;
