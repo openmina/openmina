@@ -18,7 +18,7 @@
 - Block production logic
   - [x] Without transactions and without proof
   - [x] Full block with proof
-  - [ ] Blocks with transactions. - Missing because we don't yet have the transaction pool logic.
+  - [x] Blocks with transactions.
 - Networking layer
     - [x] P2P layer in general along with serialization/deserialization of all messages
     - RPCs support
@@ -40,12 +40,20 @@
         - [x] Floodsub-like resending of blocks, txs and snarks
 - [ ] Trust system (to punish/ban peers): **not implemented (and no equivalent)**
 - Pools
-    - [ ] Transaction pool: **in progress**
-        - No pool is maintained, transactions received over the gossip network are not processed or re-broadcasted
+    - Transaction pool: **in progress**
+        - [x] Receiving, validating and integrating transactions
+          - [x] Payments
+          - [x] zkApp transactions (with proofs too)
+        - [x] Broadcasting transactions to peers.
+        - [x] Updating and revalidating the txn pool when new blocks are applied (by removing transactions already in the block)
+        - [x] Updating and revalidating the txn pool when there are chain reorgs (by restoring transactions from discarded chains)
+        - [ ] Error handling
+        - [ ] Testing
     - SNARK pool
         - [x] SNARK Verification
         - [x] Pool is implemented
-        - [x] SNARK work production is implemented (through OCaml). Node can complete and broadcast SNARK work.
+        - [x] SNARK work production and broadcasting.
+        - [ ] Testing
 - [x] Compatible ledger implementation
 - [x] Transition frontier
 - [x] Support for loading arbitrary genesis ledgers at startup
@@ -81,13 +89,32 @@
         - [x] Zkapp proof verification (same as above)
 - [ ] Client API (currently the node has a very partial support, not planned at the moment)
 - [ ] Support for the archive node sidecar process (sending updates through RPC calls).
-- [x] Berkeleynet support
 - [x] Devnet support
   - [x] Raw data for gates used to produced files updated for devnet compatibility
   - [x] Non-circuit logic updated for devnet compatibility
-  - [x] Circuit logic updated for devnet compatibility (**partially implemented**)
+  - [x] Circuit logic updated for devnet compatibility
   - [x] Genesis ledger file loadable by openmina for connecting to devnet
   - [x] Updated to handle fork proof and new genesis state
+- [x] Mainnet support
+  - [x] Raw data for gates used to produced files updated for mainnet compatibility
+  - [x] Non-circuit logic updated for mainnet compatibility
+  - [x] Circuit logic updated for mainnet compatibility
+  - [x] Genesis ledger file loadable by openmina for connecting to mainnet
+  - [x] Updated to handle fork proof and new genesis state
+- Block replayer using precomputed blocks from Google Cloud Storage
+  - [x] Basic replayer that applies blocks with openmina and verifies the results.
+    - [ ] Enable proofs verification (for performance reasons, that is skipped right now)
+  - [x] OCaml node counterpart to replay failed block applications (for debugging an testing)
+  - [ ] CI pipeline to regularly test application of mainnet blocks
+  - [ ] Support for applying all blocks, not just the cannonical chain
+  - [ ] Produce tracing receipts from both the OCaml and Rust implementations that can be compared (for debugging and verification purposes)
+- Webnode
+  - [x] WASM compilation
+  - [x] WebRTC-based P2P layer
+  - [x] Able to successfully sync up to the network
+  - [ ] Testing
+  - [ ] o1js integration
+  - [ ] Frontend
 
 ## VRF Evaluator <a name="vrf-evaluator"></a>
 
@@ -112,12 +139,12 @@
 
 ## Block Producer <a name="block-producer"></a>
 
-- [ ] Block producer
+- [x] Block producer
   - [x] Integrate with VRF evaluator
   - [x] Include coinbase transactions
   - [x] Include fee transfers
-  - [ ] Include simple transactions (transaction pool missing)
-  - [ ] Include zkapp transactions (transaction pool missing)
+  - [x] Include simple transactions
+  - [x] Include zkapp transactions
   - [x] Ledger diff creation
   - [x] Integrate with transition frontier
   - [x] New epoch seed calculation
@@ -137,8 +164,11 @@
       - [x] Zkapps
 - [x] Ledger interactions are asynchronous and cannot stall the state machine.
 - [x] Persistent database
-   - https://github.com/MinaProtocol/mina/pull/13340
-   - Drop-in replacement for RocksDB
+   - [x] (discarded) Drop-in replacement for RocksDB https://github.com/MinaProtocol/mina/pull/13340
+   - [ ] Design and implement a persistent ledger
+      - DRAFT design https://github.com/openmina/openmina/issues/522
+   - [ ] Design and implement a persistent block storage
+   - [ ] Design and implement a persistent proof storage
 
 ## Proofs <a name="proofs"></a>
 
@@ -157,13 +187,14 @@
 ### Handshake
 
 - [x] Create a service for low level TCP networking (mio, epoll).
-  - [ ] Per-connection data buffering limits.
+  - [x] Per-connection data buffering limits.
 - [ ] DNS support.
 - [x] Pnet protocol.
 - [x] Multistream select protocol.
-- [ ] Handle simultaneous connect case.
+- [x] Handle simultaneous connect case.
 - [x] Noise protocol for outgoing connections.
 - [x] Noise protocol for incoming connections.
+- [x] Forbid connections whose negotiated peer-id don't match the one in the dial-opts or routing table.
 - [x] Yamux multiplexer.
 - [ ] Yamux congestion control.
 
@@ -176,21 +207,21 @@
 - [ ] Implement Kademlia algorithm.
   - [x] Implement Kademlia FIND_NODE (client/server).
   - [x] Implement Kademlia Bootstrap process.
-  - [ ] Update Kademlia routing table according to Identify protocol messages.
+  - [x] Update Kademlia routing table according to Identify protocol messages.
   - [ ] Per peer limit on incoming requests
 
 ### RPC
 
 - [x] Perform outgoing RPC requests.
 - [x] Handle incoming RPC requests.
-- [ ] Per peer limit on incoming requests
+- [x] Per peer limit on incoming requests
 
 ### Gossipsub
 
 - [x] Implement gossipsub compatible with libp2p.
 - [ ] Research how to use "expander graph" theory to make gossipsub robust and efficient.
-- [ ] Implement mesh (meshsub protocol)
-- [ ] Handle control messages
+- [x] Implement mesh (meshsub protocol)
+- [x] Handle control messages
 - [ ] Limit received blocks, txs and snarks from the same peer
 - [ ] Rebroadcast only validated
 
@@ -201,6 +232,7 @@
 - [x] Test that the Openmina node can bootstrap from the replayer tool.
 - [ ] Test that the OCaml node can bootstrap from the Openmina node.
 - [ ] Test that the Openmina node can bootstrap from another instance of openmina node.
+- [ ] Test block propagation
 
 ### Fuzzing
 - [x] Mutator-based (bit-flipping/extend/shrink) fuzzing of communication between two openmina nodes
@@ -209,8 +241,13 @@
   - [x] Noise mutator.
   - [x] Yamux mutator.
   - [x] Stream-based protocols mutators: Identify, Kad, Meshsub, RPCs.
+  - [x] Fixed bugs found by fuzzing
+    - [x] Connection management / resources leak issues.
+    - [x] Panics in Kad due incorrect buffer index calculations.
 
 ## P2P Related Tests <a name="p2p-tests"></a>
+
+See [Testing](./docs/testing/README.md) for more details.
 
 - [ ] P2p functionality tests
   - [ ] p2p messages
@@ -218,19 +255,21 @@
       - [ ] Mina RPC types testing (ideally along with OCaml codecs)
       - [ ] hashing testing (ideally along with OCaml hash implementations)
   - [ ] Connection
-      - [ ] Proper initial peers handling, like reconnecting if offline
-      - [ ] Peers number maintaining, including edge cases, when we have max peers but still allow peers to connect for e.g. discovery, that is dropping connection strategy
-      - [ ] Other connection constraints, like no duplicate connections to the same peer, peer_id, no self connections etc
+      - [x] Proper initial peers handling, like reconnecting if offline
+      - [x] Peers number maintaining, including edge cases, when we have max peers but still allow peers to connect for e.g. discovery, that is dropping connection strategy
+      - [x] Other connection constraints, like no duplicate connections to the same peer, peer_id, no self connections etc
       - [ ] Connection quality metrics
+      - [x] Connects to OCaml node and vice versa
   - [ ] Kademlia
-      - [ ] Peers discovery, according to Kademlia parameters (a new node gets 20 new peers)
+      - [x] Peers discovery, according to Kademlia parameters (a new node gets 20 new peers)
+      - [x] Bootstraps from OCaml node and vice versa
       - [ ] Kademlia routing table is up-to-date with the network (each peer status, like connected/disconnected/can_connect/cant_connect, reflects actual peer state)
   - [ ] Gossipsub
       - [ ] Reacheability (all nodes get the message)
       - [ ] Non-redundancy (minimal number of duplicating/unneeded messages)
 - [ ] Interoperability with OCaml node
     - [ ] Bootstrap Rust node from OCaml and vice versa
-    - [ ] Discovery using Rust node
+    - [x] Discovery using Rust node
     - [ ] Gossipsub relaying
 - [ ] Public network tests. This should be the only set of tests that involve publicly  available networks, and should be executed if we're sure we don't ruin them.
 - [ ] Attack resistance testing
