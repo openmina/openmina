@@ -247,6 +247,8 @@
 
 ## P2P Related Tests <a name="p2p-tests"></a>
 
+See [Testing](./docs/testing/README.md) for more details.
+
 - [ ] P2p functionality tests
   - [ ] p2p messages
       - [ ] Binprot types (de)serialization testing/fuzzing
