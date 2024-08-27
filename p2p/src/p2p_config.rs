@@ -36,8 +36,30 @@ pub struct P2pConfig {
     /// Use peers discovery.
     pub peer_discovery: bool,
 
+    pub meshsub: P2pMeshsubConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pMeshsubConfig {
     /// Unix time. Used as an initial nonce for pubsub.
     pub initial_time: Duration,
+
+    pub outbound_degree_desired: usize,
+    pub outbound_degree_low: usize,
+    pub outbound_degree_high: usize,
+    pub mcache_len: usize,
+}
+
+impl Default for P2pMeshsubConfig {
+    fn default() -> Self {
+        P2pMeshsubConfig {
+            initial_time: Duration::ZERO,
+            outbound_degree_desired: 6,
+            outbound_degree_low: 4,
+            outbound_degree_high: 12,
+            mcache_len: 5,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

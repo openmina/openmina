@@ -24,7 +24,7 @@ use node::core::constants::constraint_constants;
 use node::core::log::system_time;
 use node::core::requests::RpcId;
 use node::core::{thread, warn};
-use node::p2p::{P2pConnectionEvent, P2pEvent, P2pLimits, PeerId};
+use node::p2p::{P2pConnectionEvent, P2pEvent, P2pLimits, P2pMeshsubConfig, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     event_source::Event,
@@ -286,10 +286,13 @@ impl Cluster {
                 peer_discovery: true,
                 timeouts: testing_config.timeouts,
                 limits: P2pLimits::default().with_max_peers(Some(testing_config.max_peers)),
-                initial_time: testing_config
-                    .initial_time
-                    .checked_sub(redux::Timestamp::ZERO)
-                    .unwrap_or_default(),
+                meshsub: P2pMeshsubConfig {
+                    initial_time: testing_config
+                        .initial_time
+                        .checked_sub(redux::Timestamp::ZERO)
+                        .unwrap_or_default(),
+                    ..Default::default()
+                },
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,
