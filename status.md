@@ -18,7 +18,7 @@
 - Block production logic
   - [x] Without transactions and without proof
   - [x] Full block with proof
-  - [ ] Blocks with transactions. - Missing because we don't yet have the transaction pool logic.
+  - [x] Blocks with transactions.
 - Networking layer
     - [x] P2P layer in general along with serialization/deserialization of all messages
     - RPCs support
@@ -40,12 +40,20 @@
         - [x] Floodsub-like resending of blocks, txs and snarks
 - [ ] Trust system (to punish/ban peers): **not implemented (and no equivalent)**
 - Pools
-    - [ ] Transaction pool: **in progress**
-        - No pool is maintained, transactions received over the gossip network are not processed or re-broadcasted
+    - Transaction pool: **in progress**
+        - [x] Receiving, validating and integrating transactions
+          - [x] Payments
+          - [x] zkApp transactions (with proofs too)
+        - [x] Broadcasting transactions to peers.
+        - [x] Updating and revalidating the txn pool when new blocks are applied (by removing transactions already in the block)
+        - [x] Updating and revalidating the txn pool when there are chain reorgs (by restoring transactions from discarded chains)
+        - [ ] Error handling
+        - [ ] Testing
     - SNARK pool
         - [x] SNARK Verification
         - [x] Pool is implemented
-        - [x] SNARK work production is implemented (through OCaml). Node can complete and broadcast SNARK work.
+        - [x] SNARK work production and broadcasting.
+        - [ ] Testing
 - [x] Compatible ledger implementation
 - [x] Transition frontier
 - [x] Support for loading arbitrary genesis ledgers at startup
@@ -81,13 +89,32 @@
         - [x] Zkapp proof verification (same as above)
 - [ ] Client API (currently the node has a very partial support, not planned at the moment)
 - [ ] Support for the archive node sidecar process (sending updates through RPC calls).
-- [x] Berkeleynet support
 - [x] Devnet support
   - [x] Raw data for gates used to produced files updated for devnet compatibility
   - [x] Non-circuit logic updated for devnet compatibility
-  - [x] Circuit logic updated for devnet compatibility (**partially implemented**)
+  - [x] Circuit logic updated for devnet compatibility
   - [x] Genesis ledger file loadable by openmina for connecting to devnet
   - [x] Updated to handle fork proof and new genesis state
+- [x] Mainnet support
+  - [x] Raw data for gates used to produced files updated for mainnet compatibility
+  - [x] Non-circuit logic updated for mainnet compatibility
+  - [x] Circuit logic updated for mainnet compatibility
+  - [x] Genesis ledger file loadable by openmina for connecting to mainnet
+  - [x] Updated to handle fork proof and new genesis state
+- Block replayer using precomputed blocks from Google Cloud Storage
+  - [x] Basic replayer that applies blocks with openmina and verifies the results.
+    - [ ] Enable proofs verification (for performance reasons, that is skipped right now)
+  - [x] OCaml node counterpart to replay failed block applications (for debugging an testing)
+  - [ ] CI pipeline to regularly test application of mainnet blocks
+  - [ ] Support for applying all blocks, not just the cannonical chain
+  - [ ] Produce tracing receipts from both the OCaml and Rust implementations that can be compared (for debugging and verification purposes)
+- Webnode
+  - [x] WASM compilation
+  - [x] WebRTC-based P2P layer
+  - [x] Able to successfully sync up to the network
+  - [ ] Testing
+  - [ ] o1js integration
+  - [ ] Frontend
 
 ## VRF Evaluator <a name="vrf-evaluator"></a>
 
@@ -112,12 +139,12 @@
 
 ## Block Producer <a name="block-producer"></a>
 
-- [ ] Block producer
+- [x] Block producer
   - [x] Integrate with VRF evaluator
   - [x] Include coinbase transactions
   - [x] Include fee transfers
-  - [ ] Include simple transactions (transaction pool missing)
-  - [ ] Include zkapp transactions (transaction pool missing)
+  - [x] Include simple transactions
+  - [x] Include zkapp transactions
   - [x] Ledger diff creation
   - [x] Integrate with transition frontier
   - [x] New epoch seed calculation
@@ -137,8 +164,11 @@
       - [x] Zkapps
 - [x] Ledger interactions are asynchronous and cannot stall the state machine.
 - [x] Persistent database
-   - https://github.com/MinaProtocol/mina/pull/13340
-   - Drop-in replacement for RocksDB
+   - [x] (discarded) Drop-in replacement for RocksDB https://github.com/MinaProtocol/mina/pull/13340
+   - [ ] Design and implement a persistent ledger
+      - DRAFT design https://github.com/openmina/openmina/issues/522
+   - [ ] Design and implement a persistent block storage
+   - [ ] Design and implement a persistent proof storage
 
 ## Proofs <a name="proofs"></a>
 
