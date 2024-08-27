@@ -39,30 +39,30 @@ export class AppService {
           snarks: data.snark_pool.snarks,
           transactions: data.transaction_pool.transactions,
         } as AppNodeDetails)),
-        catchError(() => of({
-          status: AppNodeStatus.OFFLINE,
-          blockHeight: null,
-          blockTime: null,
-          peers: 0,
-          download: 0,
-          upload: 0,
-          transactions: 0,
-          snarks: 0,
-        } as AppNodeDetails)),
+        catchError((err) => {
+          return of({
+            status: AppNodeStatus.OFFLINE,
+            blockHeight: null,
+            blockTime: null,
+            peers: 0,
+            download: 0,
+            upload: 0,
+            transactions: 0,
+            snarks: 0,
+          } as AppNodeDetails);
+        }),
       );
   }
 
   private getStatus(data: NodeDetails): AppNodeStatus {
-    if (data.transition_frontier.best_tip === null && data.transition_frontier.sync.status !== 'Synced') {
-      return AppNodeStatus.BOOTSTRAP;
-    }
-    if (data.transition_frontier.best_tip !== null && data.transition_frontier.sync.status !== 'Synced') {
-      return AppNodeStatus.CATCHUP;
-    }
     if (data.transition_frontier.sync.status === 'Synced') {
       return AppNodeStatus.SYNCED;
+    } else {
+      if (data.transition_frontier.best_tip === null) {
+        return AppNodeStatus.BOOTSTRAP;
+      }
+      return AppNodeStatus.CATCHUP;
     }
-    return data.transition_frontier.sync.status as AppNodeStatus;
   }
 }
 

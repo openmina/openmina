@@ -22,11 +22,6 @@ export class BenchmarksWalletsComponent extends StoreDispatcher implements OnIni
     this.select(AppSelectors.activeNode, () => {
       this.dispatch(BenchmarksWalletsGetWallets, { initialRequest: true });
     }, filter(Boolean), skip(1));
-
-    // this.select(selectAppNodeStatus, (status: NodeStatus) => {
-    //   this.blockLevel = status.blockLevel;
-    //   this.dispatch(BenchmarksWalletsGetWallets);
-    // }, filter(Boolean), filter(status => status.blockLevel !== this.blockLevel));
   }
 
   override ngOnDestroy(): void {
