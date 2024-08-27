@@ -4038,7 +4038,9 @@ export class BenchmarksWalletsService {
       }))),
       // TODO: This is a backend issue, must delete this map when we have all 1000 accounts in the backend
       map(wall => {
-        return wall.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey));
+        return [
+          ...wall.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
+        ];
       }),
     );
   }
@@ -4047,7 +4049,9 @@ export class BenchmarksWalletsService {
     transactions: BenchmarksWalletTransaction[],
     error: Error
   }>> {
-    const signedPayments = transactions.map(transaction => this.client.signPayment(transaction, transaction.privateKey));
+    const signedPayments = transactions.map(transaction => {
+      return this.client.signPayment(transaction, transaction.privateKey);
+    });
     const signedTxs = signedPayments.map((signedPayment, i) => ({
       signature_field: signedPayment.signature.field,
       signature_scalar: signedPayment.signature.scalar,

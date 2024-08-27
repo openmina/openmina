@@ -36,7 +36,7 @@ export const blockProductionOverviewReducer = createReducer(
       ...state.activeEpoch,
       details,
     },
-    activeEpochNumber: state.activeEpochNumber || details.epochNumber,
+    activeEpochNumber: state.activeEpochNumber || details?.epochNumber,
   })),
   on(BlockProductionOverviewActions.getSlotsSuccess, (state, { slots }) => ({
     ...state,

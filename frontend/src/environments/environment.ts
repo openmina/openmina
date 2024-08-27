@@ -34,10 +34,10 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'http://116.202.128.230:11010',
     //   url: 'http://116.202.128.230:11010',
     // },
-    // {
-    //   name: 'http://37.27.115.85:3000',
-    //   url: 'http://37.27.115.85:3000',
-    // },
+    {
+      name: 'http://116.202.128.230:11010',
+      url: 'http://116.202.128.230:11010',
+    },
     // {
     //   name: 'Local rust node',
     //   url: 'http://127.0.0.1:3000',

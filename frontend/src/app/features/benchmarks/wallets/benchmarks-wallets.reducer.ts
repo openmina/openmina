@@ -1,7 +1,8 @@
 import {
   BENCHMARKS_WALLETS_CHANGE_FEE,
   BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH,
-  BENCHMARKS_WALLETS_CLOSE, BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
+  BENCHMARKS_WALLETS_CLOSE,
+  BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
   BENCHMARKS_WALLETS_GET_WALLETS,
   BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
   BENCHMARKS_WALLETS_SELECT_WALLET,
@@ -16,7 +17,7 @@ import {
   BenchmarksWalletTransactionStatus,
 } from '@shared/types/benchmarks/wallets/benchmarks-wallet.type';
 import { BenchmarksWalletTransaction } from '@shared/types/benchmarks/wallets/benchmarks-wallet-transaction.type';
-import { hasValue, lastItem, ONE_BILLION, toReadableDate } from '@openmina/shared';
+import { hasValue, lastItem, ONE_BILLION } from '@openmina/shared';
 import { BenchmarksWalletsState } from '@benchmarks/wallets/benchmarks-wallets.state';
 import { getTimeFromMemo } from '@shared/helpers/transaction.helper';
 
@@ -98,8 +99,9 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
               from: wallet.publicKey,
               nonce,
               to: getRandomReceiver(wallet, state.wallets),
+              // to: 'B62qp6QqfMrDGULkuCTMhLYrG4iTxnjnyS3pv8bFppRsz488HCxExEY', // Teo's ledger address
               fee: (state.sendingFee * ONE_BILLION).toString(),
-              amount: '2000000000',
+              amount: (2 * ONE_BILLION).toString(),
               memo,
               validUntil: '4294967295',
             };
@@ -121,7 +123,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             nonce: nonce.toString(),
             to: state.wallets[i].publicKey,
             fee: (state.sendingFee * ONE_BILLION).toString(),
-            amount: '2000000000',
+            amount: (2 * ONE_BILLION).toString(),
             memo,
             validUntil: '4294967295',
           };
