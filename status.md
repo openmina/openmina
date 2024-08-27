@@ -206,7 +206,7 @@
 - [ ] Implement Kademlia algorithm.
   - [x] Implement Kademlia FIND_NODE (client/server).
   - [x] Implement Kademlia Bootstrap process.
-  - [ ] Update Kademlia routing table according to Identify protocol messages.
+  - [x] Update Kademlia routing table according to Identify protocol messages.
   - [ ] Per peer limit on incoming requests
 
 ### RPC
@@ -249,19 +249,21 @@
       - [ ] Mina RPC types testing (ideally along with OCaml codecs)
       - [ ] hashing testing (ideally along with OCaml hash implementations)
   - [ ] Connection
-      - [ ] Proper initial peers handling, like reconnecting if offline
-      - [ ] Peers number maintaining, including edge cases, when we have max peers but still allow peers to connect for e.g. discovery, that is dropping connection strategy
-      - [ ] Other connection constraints, like no duplicate connections to the same peer, peer_id, no self connections etc
+      - [x] Proper initial peers handling, like reconnecting if offline
+      - [x] Peers number maintaining, including edge cases, when we have max peers but still allow peers to connect for e.g. discovery, that is dropping connection strategy
+      - [x] Other connection constraints, like no duplicate connections to the same peer, peer_id, no self connections etc
       - [ ] Connection quality metrics
+      - [x] Connects to OCaml node and vice versa
   - [ ] Kademlia
-      - [ ] Peers discovery, according to Kademlia parameters (a new node gets 20 new peers)
+      - [x] Peers discovery, according to Kademlia parameters (a new node gets 20 new peers)
+      - [x] Bootstraps from OCaml node and vice versa
       - [ ] Kademlia routing table is up-to-date with the network (each peer status, like connected/disconnected/can_connect/cant_connect, reflects actual peer state)
   - [ ] Gossipsub
       - [ ] Reacheability (all nodes get the message)
       - [ ] Non-redundancy (minimal number of duplicating/unneeded messages)
 - [ ] Interoperability with OCaml node
     - [ ] Bootstrap Rust node from OCaml and vice versa
-    - [ ] Discovery using Rust node
+    - [x] Discovery using Rust node
     - [ ] Gossipsub relaying
 - [ ] Public network tests. This should be the only set of tests that involve publicly  available networks, and should be executed if we're sure we don't ruin them.
 - [ ] Attack resistance testing
