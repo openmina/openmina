@@ -187,7 +187,7 @@
 ### Handshake
 
 - [x] Create a service for low level TCP networking (mio, epoll).
-  - [ ] Per-connection data buffering limits.
+  - [x] Per-connection data buffering limits.
 - [ ] DNS support.
 - [x] Pnet protocol.
 - [x] Multistream select protocol.
@@ -213,14 +213,14 @@
 
 - [x] Perform outgoing RPC requests.
 - [x] Handle incoming RPC requests.
-- [ ] Per peer limit on incoming requests
+- [x] Per peer limit on incoming requests
 
 ### Gossipsub
 
 - [x] Implement gossipsub compatible with libp2p.
 - [ ] Research how to use "expander graph" theory to make gossipsub robust and efficient.
-- [ ] Implement mesh (meshsub protocol)
-- [ ] Handle control messages
+- [x] Implement mesh (meshsub protocol)
+- [x] Handle control messages
 - [ ] Limit received blocks, txs and snarks from the same peer
 - [ ] Rebroadcast only validated
 
@@ -231,6 +231,7 @@
 - [x] Test that the Openmina node can bootstrap from the replayer tool.
 - [ ] Test that the OCaml node can bootstrap from the Openmina node.
 - [ ] Test that the Openmina node can bootstrap from another instance of openmina node.
+- [ ] Test block propagation
 
 ### Fuzzing
 - [x] Mutator-based (bit-flipping/extend/shrink) fuzzing of communication between two openmina nodes
