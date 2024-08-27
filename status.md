@@ -18,9 +18,9 @@
 - Block production logic
   - [x] Without transactions and without proof
   - [x] Full block with proof
-  - [x] Blocks with transactions.
+  - [x] Blocks with transactions
 - Networking layer
-    - [x] P2P layer in general along with serialization/deserialization of all messages
+    - [x] P2P layer in general, along with serialization/deserialization of all messages
     - RPCs support
         - [x] `Get_some_initial_peers`(this is not used by the OCaml node)
         - [x] `Get_staged_ledger_aux_and_pending_coinbases_at_hash`
@@ -33,31 +33,31 @@
         - [x] `Get_best_tip`
         - `Get_node_status`
     - Peer discovery/advertising
-        - [x] Peer discovery through kademlia
-        - [x] Advertising the node through kademlia so that OCaml nodes can see us
+        - [x] Peer discovery through Kademlia
+        - [x] Advertising the node through Kademlia so that OCaml nodes can see us
     - Publish subscribe
-        - [x] Floodsub-like broadcasting of produced block
-        - [x] Floodsub-like resending of blocks, txs and snarks
+        - [x] Floodsub-like broadcasting of produced blocks
+        - [x] Floodsub-like resending of blocks, transactions and SNARKs
 - [ ] Trust system (to punish/ban peers): **not implemented (and no equivalent)**
 - Pools
     - Transaction pool: **in progress**
         - [x] Receiving, validating and integrating transactions
           - [x] Payments
           - [x] zkApp transactions (with proofs too)
-        - [x] Broadcasting transactions to peers.
+        - [x] Broadcasting transactions to peers
         - [x] Updating and revalidating the txn pool when new blocks are applied (by removing transactions already in the block)
         - [x] Updating and revalidating the txn pool when there are chain reorgs (by restoring transactions from discarded chains)
         - [ ] Error handling
         - [ ] Testing
     - SNARK pool
-        - [x] SNARK Verification
-        - [x] Pool is implemented
+        - [x] SNARK verification
+        - [x] Pool implementation
         - [x] SNARK work production and broadcasting.
         - [ ] Testing
 - [x] Compatible ledger implementation
 - [x] Transition frontier
 - [x] Support for loading arbitrary genesis ledgers at startup
-- Bootstrap/Catchup process
+- Bootstrap and catchup process
     - [x] Ledger synchronization
        - [x] Snarked ledgers (staking and next epoch ledgers + transition frontier root)
          - [x] Handling of peer disconnections, timeouts or cases when the peer doesn't have the data
@@ -67,53 +67,53 @@
        - [x] Staged ledgers (transition frontier root)
          - [x] Handling of peer disconnections, timeouts or cases when the peer doesn't have the data
          - [x] Detection and handling of validation errors
-       - [x] Handling of the rpc requests from other nodes to sync them up
+       - [x] Handling of RPC requests from other nodes to sync them up
     - [x] Moving root of the transition frontier
     - [x] Maintaining ledgers for transition frontier root, staking and next epoch ledgers
-      -  [x] When scan state tree gets committed, snarked ledger of the block is updated. When that happens for the root block in the transition frontier, reconstruct the new root snarked ledger
-      -  [x] At the end of an epoch make the "next epoch" ledger the new "staking" ledger, discard the old "staking" ledger and make the snarked ledger of the best tip the new "next epoch" ledger
+      -  [x] When scan state tree gets committed, the snarked ledger of the block is updated. When that happens with the root block in the transition frontier, the new root-snarked ledger is reconstructed
+      -  [x] At the end of an epoch, make the "next epoch" ledger the new "staking" ledger, discard the old "staking" ledger, and make the snarked ledger of the best tip the new "next epoch" ledger
     - [x] Best chain synchronization
       - [x] Download missing blocks from peers
         - [x] Handling of peer disconnections, timeouts or cases when the peer doesn't have the data
-        - [x] Downloaded block header integrity validation by checking it's hash and handling the mismatch
-        - [ ] Downloaded block body integrity validation by checking it's hash and handling the mismatch
+        - [x] Downloaded block header integrity validation by checking its hash and handling the mismatch
+        - [ ] Downloaded block body integrity validation by checking its hash and handling the mismatch
       - [x] Missing blocks application
         - [ ] Graceful handling of block application error without crashing the node
-    - [x] Handling of reorgs (short/long range forks) or best chain extension after or even mid-synchronization, by adjusting synchronization target and reusing what we can from the previous synchronization attempt
+    - [x] Handling of reorgs (short/long range forks) or best chain extension after synchronization (or even in the midst of synchronization) by adjusting the synchronization target and reusing what we can from the previous synchronization attempt
 - Block application
     - [x] Transaction application logic
     - [x] Block application logic
     - Proof verification:
         - [x] Block proof verification
         - [x] Transaction proof verification (same as above)
-        - [x] Zkapp proof verification (same as above)
-- [ ] Client API (currently the node has a very partial support, not planned at the moment)
+        - [x] zkApp proof verification (same as above)
+- [ ] Client API (currently the node has very partial support, not planned at the moment)
 - [ ] Support for the archive node sidecar process (sending updates through RPC calls).
 - [x] Devnet support
-  - [x] Raw data for gates used to produced files updated for devnet compatibility
+  - [x] Raw data for gates used to produce files updated for devnet compatibility
   - [x] Non-circuit logic updated for devnet compatibility
   - [x] Circuit logic updated for devnet compatibility
-  - [x] Genesis ledger file loadable by openmina for connecting to devnet
+  - [x] Genesis ledger file loadable by Open Mina for connection to devnet
   - [x] Updated to handle fork proof and new genesis state
 - [x] Mainnet support
-  - [x] Raw data for gates used to produced files updated for mainnet compatibility
+  - [x] Raw data for gates used to produce files updated for mainnet compatibility
   - [x] Non-circuit logic updated for mainnet compatibility
   - [x] Circuit logic updated for mainnet compatibility
-  - [x] Genesis ledger file loadable by openmina for connecting to mainnet
+  - [x] Genesis ledger file loadable by Open Mina for connection to mainnet
   - [x] Updated to handle fork proof and new genesis state
 - Block replayer using precomputed blocks from Google Cloud Storage
-  - [x] Basic replayer that applies blocks with openmina and verifies the results.
-    - [ ] Enable proofs verification (for performance reasons, that is skipped right now)
-  - [x] OCaml node counterpart to replay failed block applications (for debugging an testing)
+  - [x] Basic replayer that applies blocks with Open Mina and verifies the results
+    - [ ] Enable verification of proofs (currently skipped for performance reasons)
+  - [x] OCaml node counterpart to replay failed block applications (for debugging and testing)
   - [ ] CI pipeline to regularly test application of mainnet blocks
-  - [ ] Support for applying all blocks, not just the cannonical chain
+  - [ ] Support for applying all blocks, not just the canonical chain
   - [ ] Produce tracing receipts from both the OCaml and Rust implementations that can be compared (for debugging and verification purposes)
 - Webnode
   - [x] WASM compilation
   - [x] WebRTC-based P2P layer
   - [x] Able to successfully sync up to the network
   - [ ] Testing
-  - [ ] o1js integration
+  - [ ] O1JS integration
   - [ ] Frontend
 
 ## VRF Evaluator <a name="vrf-evaluator"></a>
@@ -129,7 +129,7 @@
   - [x] Handling epoch changes - starting new evaluation as soon as new epoch data is available
   - [ ] Retention logic - cleanup slot data that is in the past based on current global slot (Slight node impact - the won slot map grows indefinitely)
 - [ ] Testing
-  - [ ] Correctness test - Selecting the correct ledgers
+  - [ ] Correctness test - selecting the correct ledgers
     - [x] (Edge case) In genesis epoch
     - [ ] In other (higher) epochs
   - [x] Correctness test - Computation output comparison with mina cli
@@ -144,7 +144,7 @@
   - [x] Include coinbase transactions
   - [x] Include fee transfers
   - [x] Include simple transactions
-  - [x] Include zkapp transactions
+  - [x] Include zkApp transactions
   - [x] Ledger diff creation
   - [x] Integrate with transition frontier
   - [x] New epoch seed calculation
@@ -161,7 +161,7 @@
    - [x] Pending coinbase collection
    - [x] Transaction application
       - [x] Regular transaction (payment, delegation, coinbase, fee transfer)
-      - [x] Zkapps
+      - [x] zkApps
 - [x] Ledger interactions are asynchronous and cannot stall the state machine.
 - [x] Persistent database
    - [x] (discarded) Drop-in replacement for RocksDB https://github.com/MinaProtocol/mina/pull/13340
@@ -175,28 +175,28 @@
 - [x] Proof verification
    - [x] Block proof
    - [x] Transaction/Merge proof
-   - [x] Zkapp proof
+   - [x] zkApp proof
 - [x] Proof/Witness generation
    - [x] Block proof
    - [x] Transaction/Merge proof
-   - [x] Zkapp proof
+   - [x] zkApp proof
 - [ ] Circuit generation
 
 ## P2P Implementation (State Machine Version) <a name="state-machine-p2p"></a>
 
 ### Handshake
 
-- [x] Create a service for low level TCP networking (mio, epoll).
-  - [x] Per-connection data buffering limits.
-- [ ] DNS support.
-- [x] Pnet protocol.
-- [x] Multistream select protocol.
-- [x] Handle simultaneous connect case.
-- [x] Noise protocol for outgoing connections.
-- [x] Noise protocol for incoming connections.
-- [x] Forbid connections whose negotiated peer-id don't match the one in the dial-opts or routing table.
-- [x] Yamux multiplexer.
-- [ ] Yamux congestion control.
+- [x] Create a service for low-level TCP networking (mio, epoll)
+  - [x] Per-connection data buffering limits
+- [ ] DNS support
+- [x] Pnet protocol
+- [x] Multistream select protocol
+- [x] Handle simultaneous connect case
+- [x] Noise protocol for outgoing connections
+- [x] Noise protocol for incoming connections
+- [x] Forbid connections whose negotiated peer-id doesn't match with the one in the dial-opts or routing table
+- [x] Yamux multiplexer
+- [ ] Yamux congestion control
 
 ## Identify
 
@@ -207,19 +207,19 @@
 - [ ] Implement Kademlia algorithm.
   - [x] Implement Kademlia FIND_NODE (client/server).
   - [x] Implement Kademlia Bootstrap process.
-  - [x] Update Kademlia routing table according to Identify protocol messages.
+  - [x] Update the Kademlia routing table according to Identify protocol messages.
   - [ ] Per peer limit on incoming requests
 
 ### RPC
 
-- [x] Perform outgoing RPC requests.
-- [x] Handle incoming RPC requests.
+- [x] Perform outgoing RPC requests
+- [x] Handle incoming RPC requests
 - [x] Per peer limit on incoming requests
 
 ### Gossipsub
 
-- [x] Implement gossipsub compatible with libp2p.
-- [ ] Research how to use "expander graph" theory to make gossipsub robust and efficient.
+- [x] Implement gossipsub compatible with libp2p
+- [ ] Research on how to use the "expander graph" theory to make gossipsub robust and efficient
 - [x] Implement mesh (meshsub protocol)
 - [x] Handle control messages
 - [ ] Limit received blocks, txs and snarks from the same peer
@@ -227,51 +227,51 @@
 
 ### Testing
 
-- [x] Fix bootstrap sandbox record/replay for the latest berkeley network.
-- [x] Fix network debugger for the latest berkeley network.
-- [x] Test that the Openmina node can bootstrap from the replayer tool.
-- [ ] Test that the OCaml node can bootstrap from the Openmina node.
-- [ ] Test that the Openmina node can bootstrap from another instance of openmina node.
+- [x] Fix bootstrap sandbox record/replay for the latest Berkeley network
+- [x] Fix network debugger for the latest Berkeley network
+- [x] Test that the Open Mina node can bootstrap from the replayer tool
+- [ ] Test that the OCaml node can bootstrap from the Open Mina node
+- [ ] Test that the Openmina node can bootstrap from another instance of the Open Mina node
 - [ ] Test block propagation
 
 ### Fuzzing
-- [x] Mutator-based (bit-flipping/extend/shrink) fuzzing of communication between two openmina nodes
-  - [x] PNet layer mutator.
-  - [x] Protocol select mutator.
-  - [x] Noise mutator.
-  - [x] Yamux mutator.
-  - [x] Stream-based protocols mutators: Identify, Kad, Meshsub, RPCs.
+- [x] Mutator-based (bit-flipping/extend/shrink) fuzzing of communication between two Open Mina nodes
+  - [x] PNet layer mutator
+  - [x] Protocol select mutator
+  - [x] Noise mutator
+  - [x] Yamux mutator
+  - [x] Stream-based protocols mutators: Identify, KAD, Meshsub, RPCs
   - [x] Fixed bugs found by fuzzing
-    - [x] Connection management / resources leak issues.
-    - [x] Panics in Kad due incorrect buffer index calculations.
+    - [x] Connection management/resources leak issues
+    - [x] Panics in KAD due to incorrect buffer index calculations
 
 ## P2P Related Tests <a name="p2p-tests"></a>
 
 See [Testing](./docs/testing/README.md) for more details.
 
-- [ ] P2p functionality tests
-  - [ ] p2p messages
+- [ ] P2P functionality tests
+  - [ ] P2P messages
       - [ ] Binprot types (de)serialization testing/fuzzing
       - [ ] Mina RPC types testing (ideally along with OCaml codecs)
       - [ ] hashing testing (ideally along with OCaml hash implementations)
   - [ ] Connection
-      - [x] Proper initial peers handling, like reconnecting if offline
-      - [x] Peers number maintaining, including edge cases, when we have max peers but still allow peers to connect for e.g. discovery, that is dropping connection strategy
-      - [x] Other connection constraints, like no duplicate connections to the same peer, peer_id, no self connections etc
+      - [x] Proper initial peers handling, including reconnecting if offline
+      - [x] Peers number maintaining, including edge cases, when we have max peers, but still allow peers to connect e.g. for discovery, that is dropping connection strategy
+      - [x] Other connection constraints, like no duplicate connections to the same peer, peer_id, no self connections, etc
       - [ ] Connection quality metrics
       - [x] Connects to OCaml node and vice versa
   - [ ] Kademlia
       - [x] Peers discovery, according to Kademlia parameters (a new node gets 20 new peers)
       - [x] Bootstraps from OCaml node and vice versa
-      - [ ] Kademlia routing table is up-to-date with the network (each peer status, like connected/disconnected/can_connect/cant_connect, reflects actual peer state)
+      - [ ] Kademlia routing table is up-to-date with the network (each peer status, like connected/disconnected/can_connect/cant_connect, reflects the actual peer state)
   - [ ] Gossipsub
-      - [ ] Reacheability (all nodes get the message)
+      - [ ] Reachability (all nodes get the message)
       - [ ] Non-redundancy (minimal number of duplicating/unneeded messages)
 - [ ] Interoperability with OCaml node
     - [ ] Bootstrap Rust node from OCaml and vice versa
     - [x] Discovery using Rust node
     - [ ] Gossipsub relaying
-- [ ] Public network tests. This should be the only set of tests that involve publicly  available networks, and should be executed if we're sure we don't ruin them.
+- [ ] Public network tests. This should be the only set of tests involving publicly-available networks and should be executed if we're sure we don't ruin them
 - [ ] Attack resistance testing
 
 ## Frontend <a name="frontend"></a>
@@ -282,8 +282,8 @@ See [Testing](./docs/testing/README.md) for more details.
 - [x] Nodes - Live
 - [x] Nodes - Bootstrap
 - [x] State - Actions
-- [x] Snarks - Work Pool
-- [x] Snarks - Scan State
+- [x] SNARKs - Work Pool
+- [x] SNARKs - Scan State
 - [x] Resources - Memory
 - [x] Network - Messages
 - [x] Network - Blocks
@@ -367,43 +367,43 @@ See [Testing](./docs/testing/README.md) for more details.
 
 ### Core state machine
 
-- [x] Automaton implementation that separates *action* kinds in *pure* and *effectful*.
-- [x] Callback (dispatch-back) support for action composition: enable us to specify in the action itself the actions that will dispatched next.
-- [x] Fully serializable state machine state and actions (including descriptors to callbacks!).
+- [x] Automaton implementation that separates *action* kinds in *pure* and *effectful*
+- [x] Callback (dispatch-back) support for action composition: enable us to specify in the action itself the actions that will dispatched next
+- [x] Fully serializable state machine state and actions (including descriptors to callbacks!)
 - State machine state management
-  - [x] Partitioning of the state machine state between models sub-states (for *pure* models).
-  - [x] Forbid direct access to state machine state in *effectful* models.
-  - [x] Support for running multiple instances concurrently in the same state machine for testing scenarios: for example if the state machine represents a node, we can "run" multiple of them inside the same state machine.
+  - [x] Partitioning of the state machine state between models sub-states (for *pure* models)
+  - [x] Forbid direct access to state machine state in *effectful* models
+  - [x] Support for running multiple instances concurrently in the same state machine for testing scenarios: for example, if the state machine represents a node, we can "run" multiple of them inside the same state machine
 
 ### Models
 
-Each model handles a subset of actions and they are registered like a plugin system.
+Each model handles a subset of actions and they are registered like a plugin system
 
 #### Effectful
 
-Thin layer of abstraction between the "external world" (IO) and the state machine.
+A thin layer of abstraction between the "external world" (IO) and the state machine
 
-- [x] MIO model: provides the abstraction layer for the polling and TCP APIs of the MIO crate.
+- [x] MIO model: provides the abstraction layer for the polling and TCP APIs of the MIO crate
 - [x] Time model: provides the abstraction layer for `SystemTime::now()`
 
 #### Pure
 
 Handle state transitions and can dispatch actions to other models.
 
-- [x] Time model: this is the *pure* counterpart which dispatches an action to *effectful* time model to get the system time and updates the internal time in the state machine state.
-- [x] TCP model: built on top of the MIO layer to provide all necessary features for handling TCP connections (it also uses the time model to provide timeout support for all actions).
-- [x] TCP-client model: built on top of the TCP model, provides a high-level interface for building client applications.
-- [x] TCP-server model: built on top of the TCP model, provides a high-level interface for building server applications.
-- [x] PRNG model: unsafe, fast, pure RNG for testing purposes.
+- [x] Time model: this is the *pure* counterpart which dispatches an action to *effectful* time model to get the system time and updates the internal time in the state machine state
+- [x] TCP model: built on top of the MIO layer to provide all necessary features for handling TCP connections (it also uses the time model to provide timeout support for all actions)
+- [x] TCP-client model: built on top of the TCP model, provides a high-level interface for building client applications
+- [x] TCP-server model: built on top of the TCP model, provides a high-level interface for building server applications
+- [x] PRNG model: unsafe, fast, pure RNG for testing purposes
 - PNET models: implements the private network transport used in libp2p.
    - [x] Server
    - [x] Client
  - Testing models:
-   - [x] Echo client: connects to an echo server and sends random data, then checks that it receives the same data.
-   - [x] Echo server.
-   - [x] Echo client (PNET).
-   - [x] Echo server (PNET).
-   - [x] Simple PNET client: connects to berkeleynet and does a simple multistream negotiation.
+   - [x] Echo client: connects to an echo server and sends random data, then checks that it receives the same data
+   - [x] Echo server
+   - [x] Echo client (PNET)
+   - [x] Echo server (PNET)
+   - [x] Simple PNET client: connects to berkeleynet and does a simple multistream negotiation
 
 ### Tests
 
@@ -411,5 +411,5 @@ Handle state transitions and can dispatch actions to other models.
   - [x] State machine with a network composed of 1 client and 1 server instance.
   - [x] State machine with a network composed of 5 clients and 1  erver instance.
   - [x] State machine with a network composed of 50 clients and 1  erver instance.
-- [x] Echo network PNET (same tests as echo network but over the PNET transport).
+- [x] Echo network PNET (same tests as echo network, but over the PNET transport).
 - [x] Berkeley PNET test: runs the simple PNET client model.
