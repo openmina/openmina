@@ -191,9 +191,10 @@
 - [ ] DNS support.
 - [x] Pnet protocol.
 - [x] Multistream select protocol.
-- [ ] Handle simultaneous connect case.
+- [x] Handle simultaneous connect case.
 - [x] Noise protocol for outgoing connections.
 - [x] Noise protocol for incoming connections.
+- [x] Forbid connections whose negotiated peer-id don't match the one in the dial-opts or routing table.
 - [x] Yamux multiplexer.
 - [ ] Yamux congestion control.
 
@@ -240,6 +241,9 @@
   - [x] Noise mutator.
   - [x] Yamux mutator.
   - [x] Stream-based protocols mutators: Identify, Kad, Meshsub, RPCs.
+  - [x] Fixed bugs found by fuzzing
+    - [x] Connection management / resources leak issues.
+    - [x] Panics in Kad due incorrect buffer index calculations.
 
 ## P2P Related Tests <a name="p2p-tests"></a>
 
