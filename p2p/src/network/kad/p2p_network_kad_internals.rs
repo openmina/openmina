@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    ConnectionType, P2pNetworkKademliaMultiaddrError, P2pNetworkKademliaPeerIdError, PeerId,
+    socket_addr_try_from_multiaddr, ConnectionType, P2pNetworkKademliaMultiaddrError,
+    P2pNetworkKademliaPeerIdError, PeerId,
 };
 
 use super::CID;
@@ -245,10 +246,16 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
     /// K-bucket is full and cannot be split), then `Err(_)` value is returned.
     ///
     /// TODO: should it be just another variant in `Ok(_)`?
+    ///
+    /// Filters `entry.addrs` for supported addresses if non of addresses are supported returns `Err(_)`
     pub fn insert(
         &mut self,
-        entry: P2pNetworkKadEntry,
+        mut entry: P2pNetworkKadEntry,
     ) -> Result<bool, P2pNetworkKadRoutingTableInsertError> {
+        entry.filter_addrs();
+        if entry.addrs.is_empty() {
+            return Err(P2pNetworkKadRoutingTableInsertError);
+        }
         // distance to this node
         let dist = &self.this_key - &entry.key;
 
@@ -370,6 +377,18 @@ impl P2pNetworkKadEntry {
 
     pub fn dist(&self, other: &P2pNetworkKadEntry) -> P2pNetworkKadDist {
         &self.key - &other.key
+    }
+
+    pub fn filter_addrs(&mut self) {
+        let addrs = std::mem::take(&mut self.addrs);
+        self.addrs = addrs
+            .into_iter()
+            .filter_map(|multiaddr| {
+                socket_addr_try_from_multiaddr(&multiaddr)
+                    .is_ok()
+                    .then_some(multiaddr)
+            })
+            .collect()
     }
 }
 
@@ -573,6 +592,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     use crypto_bigint::{Random, U256};
+    use multiaddr::multiaddr;
 
     use crate::{identity::SecretKey, PeerId, CID};
 
@@ -601,7 +621,7 @@ mod tests {
         P2pNetworkKadEntry {
             key,
             peer_id,
-            addrs: vec![],
+            addrs: vec![multiaddr!(Ip4([0; 4]), Tcp(1000_u16))],
             connection: super::ConnectionType::Connected,
         }
     }
@@ -611,7 +631,7 @@ mod tests {
         P2pNetworkKadEntry {
             key,
             peer_id,
-            addrs: vec![],
+            addrs: vec![multiaddr!(Ip4([0; 4]), Tcp(1000_u16))],
             connection: super::ConnectionType::Connected,
         }
     }

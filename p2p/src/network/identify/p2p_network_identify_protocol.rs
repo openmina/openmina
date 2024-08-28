@@ -77,6 +77,12 @@ impl TryFrom<super::pb::Identify> for P2pNetworkIdentify {
     }
 }
 
+impl P2pNetworkIdentify {
+    pub fn to_proto_message(&self) -> super::pb::Identify {
+        super::pb::Identify::from(self)
+    }
+}
+
 impl<'a> From<&'a P2pNetworkIdentify> for super::pb::Identify {
     fn from(value: &'a P2pNetworkIdentify) -> Self {
         Self {
