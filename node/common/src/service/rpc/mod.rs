@@ -1,4 +1,6 @@
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+mod sender;
+pub use sender::RpcSender;
+
 use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
@@ -33,11 +35,6 @@ pub struct NodeRpcRequest {
     pub responder: Box<dyn Send + std::any::Any>,
 }
 
-#[derive(Clone)]
-pub struct RpcSender {
-    tx: mpsc::Sender<NodeRpcRequest>,
-}
-
 pub type RpcReceiver = mpsc::Receiver<NodeRpcRequest>;
 
 pub struct RpcService {
@@ -45,53 +42,6 @@ pub struct RpcService {
 
     req_sender: mpsc::Sender<NodeRpcRequest>,
     req_receiver: mpsc::Receiver<NodeRpcRequest>,
-}
-
-impl RpcSender {
-    pub fn new(tx: mpsc::Sender<NodeRpcRequest>) -> Self {
-        Self { tx }
-    }
-
-    pub async fn oneshot_request<T>(&self, req: RpcRequest) -> Option<T>
-    where
-        T: 'static + Send + Serialize,
-    {
-        let (tx, rx) = oneshot::channel::<T>();
-        let responder = Box::new(tx);
-        let sender = self.tx.clone();
-        let _ = sender.send(NodeRpcRequest { req, responder }).await;
-
-        rx.await.ok()
-    }
-
-    pub async fn multishot_request<T>(
-        &self,
-        expected_messages: usize,
-        req: RpcRequest,
-    ) -> mpsc::Receiver<T>
-    where
-        T: 'static + Send + Serialize,
-    {
-        let (tx, rx) = mpsc::channel::<T>(expected_messages);
-        let responder = Box::new(tx);
-        let sender = self.tx.clone();
-        let _ = sender.send(NodeRpcRequest { req, responder }).await;
-
-        rx
-    }
-
-    pub async fn peer_connect(
-        &self,
-        opts: P2pConnectionOutgoingInitOpts,
-    ) -> Result<String, String> {
-        let peer_id = opts.peer_id().to_string();
-        let req = RpcRequest::P2pConnectionOutgoing(opts);
-        self.oneshot_request::<RpcP2pConnectionOutgoingResponse>(req)
-            .await
-            .ok_or_else(|| "state machine shut down".to_owned())??;
-
-        Ok(peer_id)
-    }
 }
 
 impl Default for RpcService {

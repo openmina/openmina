@@ -4089,6 +4089,7 @@ dependencies = [
  "tokio",
  "vergen",
  "vrf",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -4516,6 +4517,7 @@ name = "openmina-node-common"
 version = "0.7.0"
 dependencies = [
  "gloo-timers",
+ "gloo-utils",
  "jsonpath-rust",
  "mina-p2p-messages",
  "mina-signer",
@@ -4533,6 +4535,8 @@ dependencies = [
  "tracing-subscriber",
  "tracing-wasm",
  "vrf",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
