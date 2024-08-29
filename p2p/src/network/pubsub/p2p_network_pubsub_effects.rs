@@ -23,10 +23,13 @@ impl P2pNetworkPubsubAction {
         let state = &store.state().network.scheduler.broadcast_state;
         let config = &store.state().config;
 
+        // let this = config.identity_pub_key.peer_id();
+
         match self {
             P2pNetworkPubsubAction::NewStream {
                 peer_id, incoming, ..
             } => {
+                // println!("(pubsub) {this} new stream {peer_id} {incoming}");
                 if !incoming {
                     let subscrption = {
                         let msg = pb::Rpc {
@@ -65,7 +68,7 @@ impl P2pNetworkPubsubAction {
                         ihave: vec![],
                         iwant: vec![],
                         graft: vec![pb::ControlGraft {
-                            topic_id: Some(dbg!(topic_id.clone())),
+                            topic_id: Some(topic_id.clone()),
                         }],
                         prune: vec![],
                     }),
@@ -82,7 +85,7 @@ impl P2pNetworkPubsubAction {
                         iwant: vec![],
                         graft: vec![],
                         prune: vec![pb::ControlPrune {
-                            topic_id: Some(dbg!(topic_id.clone())),
+                            topic_id: Some(topic_id.clone()),
                             peers: vec![pb::PeerInfo {
                                 peer_id: None,
                                 signed_peer_record: None,
@@ -95,6 +98,7 @@ impl P2pNetworkPubsubAction {
                 store.dispatch(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
             }
             P2pNetworkPubsubAction::Broadcast { message } => {
+                // println!("(pubsub) {this} broadcast");
                 let mut buffer = vec![0; 8];
                 binprot::BinProtWrite::binprot_write(&message, &mut buffer).expect("msg");
                 let len = buffer.len() - 8;
@@ -117,6 +121,8 @@ impl P2pNetworkPubsubAction {
             }
             P2pNetworkPubsubAction::BroadcastSigned { .. } => broadcast(store),
             P2pNetworkPubsubAction::IncomingData { peer_id, .. } => {
+                // println!("(pubsub) {this} <- {peer_id}");
+
                 let incoming_block = state.incoming_block.as_ref().cloned();
                 let incoming_transactions = state.incoming_transactions.clone();
                 let incoming_snarks = state.incoming_snarks.clone();
@@ -162,6 +168,16 @@ impl P2pNetworkPubsubAction {
             }
             P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id } => {
                 if !message_is_empty(&msg) {
+                    // println!(
+                    //     "(pubsub) {this} -> {peer_id}, {:?}, {:?}, {}",
+                    //     msg.subscriptions,
+                    //     msg.control,
+                    //     msg.publish.len()
+                    // );
+                    // for ele in &msg.publish {
+                    //     let id = super::p2p_network_pubsub_state::compute_message_id(ele);
+                    //     println!("{}", std::str::from_utf8(&id).unwrap());
+                    // }
                     let mut data = vec![];
                     if prost::Message::encode_length_delimited(&msg, &mut data).is_ok() {
                         store.dispatch(P2pNetworkPubsubAction::OutgoingData {

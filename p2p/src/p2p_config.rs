@@ -57,7 +57,7 @@ impl Default for P2pMeshsubConfig {
             outbound_degree_desired: 6,
             outbound_degree_low: 4,
             outbound_degree_high: 12,
-            mcache_len: 5,
+            mcache_len: 256,
         }
     }
 }
