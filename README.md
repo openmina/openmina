@@ -47,14 +47,16 @@ Once you have completed the [pre-requisites](https://github.com/openmina/openmin
 
 **Run the following command to start the demo:**
    ```bash
-   docker compose -f docker-compose.local.producers.yml up --pull always
+   docker compose -f docker-compose.local.producers.yml up --pull always --force-recreate
    ```
 
 And finally:
 
 **Open your browser and visit [http://localhost:8070](http://localhost:8070)**
 
-![image](https://github.com/user-attachments/assets/c8929509-f68b-4281-bcb9-bad03029fa2f)
+You should see the following screen:
+
+![producer-demo](https://github.com/user-attachments/assets/f0ccc36e-0ee8-4284-a8d7-de0f9a3397d6)
 
 ## Description
 
