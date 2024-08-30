@@ -7,9 +7,8 @@ use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
     RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest,
-    RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectFailure,
-    RpcTransactionInjectRejected, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
-    RpcTransitionFrontierUserCommandsResponse,
+    RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
+    RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
