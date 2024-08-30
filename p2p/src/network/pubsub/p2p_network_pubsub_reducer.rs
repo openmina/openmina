@@ -37,6 +37,9 @@ impl P2pNetworkPubsubState {
                 });
                 state.protocol = *protocol;
                 state.addr = *addr;
+
+                self.topics
+                    .insert(super::TOPIC.to_owned(), Default::default());
             }
             P2pNetworkPubsubAction::NewStream {
                 incoming: false,
@@ -83,6 +86,13 @@ impl P2pNetworkPubsubState {
                 match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
                     Ok(v) => {
                         state.buffer.clear();
+                        // println!(
+                        //     "(pubsub) this <- {peer_id}, {:?}, {:?}, {}",
+                        //     v.subscriptions,
+                        //     v.control,
+                        //     v.publish.len()
+                        // );
+
                         for subscription in v.subscriptions {
                             let topic_id = subscription.topic_id().to_owned();
                             let topic = self.topics.entry(topic_id).or_default();
@@ -169,7 +179,7 @@ impl P2pNetworkPubsubState {
                             for graft in &control.graft {
                                 if let Some(mesh_state) = self
                                     .topics
-                                    .get_mut(dbg!(graft.topic_id()))
+                                    .get_mut(graft.topic_id())
                                     .and_then(|m| m.get_mut(peer_id))
                                 {
                                     mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
