@@ -945,6 +945,9 @@ pub mod zkapp_command {
     pub struct Event(pub Vec<Fp>);
 
     impl Event {
+        pub fn empty() -> Self {
+            Self(Vec::new())
+        }
         pub fn hash(&self) -> Fp {
             hash_with_kimchi("MinaZkappEvent", &self.0[..])
         }
@@ -8393,6 +8396,16 @@ mod tests {
         mina_signer::PubKey::from_address(address)
             .unwrap()
             .into_compressed()
+    }
+
+    #[test]
+    fn test_hash_empty_event() {
+        // Same value than OCaml
+        const EXPECTED: &str =
+            "6963060754718463299978089777716994949151371320681588566338620419071140958308";
+
+        let event = zkapp_command::Event::empty();
+        assert_eq!(event.hash(), Fp::from_str(EXPECTED).unwrap());
     }
 
     /// Test using same values as here:

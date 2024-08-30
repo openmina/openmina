@@ -1872,6 +1872,23 @@ impl<F: Field, SC: SpongeConstants> Sponge<F, F> for ArithmeticSponge<F, SC> {
 
     #[inline(never)]
     fn absorb(&mut self, x: &[F]) {
+        if x.is_empty() {
+            // Same as the loop below but doesn't add `x`
+            match self.sponge_state {
+                SpongeState::Absorbed(n) => {
+                    if n == self.rate {
+                        self.poseidon_block_cipher();
+                        self.sponge_state = SpongeState::Absorbed(1);
+                    } else {
+                        self.sponge_state = SpongeState::Absorbed(n + 1);
+                    }
+                }
+                SpongeState::Squeezed(_n) => {
+                    self.sponge_state = SpongeState::Absorbed(1);
+                }
+            }
+            return;
+        }
         for x in x.iter() {
             match self.sponge_state {
                 SpongeState::Absorbed(n) => {
