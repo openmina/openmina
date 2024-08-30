@@ -41,6 +41,9 @@ vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rus
 linkme = { workspace = true }
 redux = { workspace = true, features=["serializable_callbacks"] }
 
+[target.'cfg(target_family = "wasm")'.dependencies]
+wasm-bindgen = "0.2"
+
 [features]
 replay = []
 p2p-webrtc = ["p2p/p2p-webrtc"]
