@@ -310,7 +310,7 @@ ocaml_export! {
         }
 
         elog!("account={:?}", account.id());
-        // std::thread::sleep_ms(2000);
+        // thread::sleep_ms(2000);
 
         bytes.to_ocaml(rt)
     }
@@ -358,7 +358,7 @@ ocaml_export! {
         let fun = fun.to_boxroot(rt);
         let mut nchecked = 0;
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
 
         for _ in 0..20_000 {
             let account_id = AccountId::rand();

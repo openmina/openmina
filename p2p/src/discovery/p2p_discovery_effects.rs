@@ -24,7 +24,7 @@ impl P2pDiscoveryAction {
                 };
                 store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id,
-                    id: status.channels.rpc.next_local_rpc_id(),
+                    id: status.channels.next_local_rpc_id(),
                     request: Box::new(P2pRpcRequest::InitialPeers),
                 });
             }

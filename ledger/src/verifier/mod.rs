@@ -103,9 +103,12 @@ fn verify_digest_only(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> 
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/verifier/verifier_intf.ml#L10C1-L36C29
-#[derive(Debug)]
-pub enum VerifyCommandsResult {
-    Valid(valid::UserCommand),
+pub type VerifyCommandsResult = Result<valid::UserCommand, VerifierError>;
+
+#[derive(Debug, thiserror::Error)]
+pub enum VerifierError {
+    // TODO(adonagy): print something here as well?
+    #[error("Batch verification failed")]
     ValidAssuming(
         Vec<(
             VerificationKey,
@@ -113,12 +116,19 @@ pub enum VerifyCommandsResult {
             Arc<PicklesProofProofsVerifiedMaxStableV2>,
         )>,
     ),
+    #[error("Invalid keys: {0:?}")]
     InvalidKeys(Vec<CompressedPubKey>),
+    #[error("Invalid signature: {0:?}")]
     InvalidSignature(Vec<CompressedPubKey>),
+    #[error("Invalid proof: {0}")]
     InvalidProof(String),
+    #[error("Missing verification key: {0:?}")]
     MissingVerificationKey(Vec<CompressedPubKey>),
+    #[error("Unexpected verification key: {0:?}")]
     UnexpectedVerificationKey(Vec<CompressedPubKey>),
+    #[error("Mismatched verification key: {0:?}")]
     MismatchedVerificationKey(Vec<CompressedPubKey>),
+    #[error("Authorization kind does not match the authorization - Keys {0:?}")]
     MismatchedAuthorizationKind(Vec<CompressedPubKey>),
 }
 
@@ -176,36 +186,36 @@ impl Verifier {
 
         cs.into_iter()
             .map(|c| match c {
-                CheckResult::Valid(c) => VerifyCommandsResult::Valid(c),
+                CheckResult::Valid(c) => Ok(c),
                 CheckResult::ValidAssuming((c, xs)) => {
                     if all_verified {
-                        VerifyCommandsResult::Valid(c)
+                        Ok(c)
                     } else {
-                        VerifyCommandsResult::ValidAssuming(xs)
+                        Err(VerifierError::ValidAssuming(xs))
                     }
                 }
-                CheckResult::InvalidKeys(keys) => VerifyCommandsResult::InvalidKeys(keys),
-                CheckResult::InvalidSignature(keys) => VerifyCommandsResult::InvalidSignature(keys),
-                CheckResult::InvalidProof(s) => VerifyCommandsResult::InvalidProof(s),
+                CheckResult::InvalidKeys(keys) => Err(VerifierError::InvalidKeys(keys)),
+                CheckResult::InvalidSignature(keys) => Err(VerifierError::InvalidSignature(keys)),
+                CheckResult::InvalidProof(s) => Err(VerifierError::InvalidProof(s)),
                 CheckResult::MissingVerificationKey(keys) => {
-                    VerifyCommandsResult::MissingVerificationKey(keys)
+                    Err(VerifierError::MissingVerificationKey(keys))
                 }
                 CheckResult::UnexpectedVerificationKey(keys) => {
-                    VerifyCommandsResult::UnexpectedVerificationKey(keys)
+                    Err(VerifierError::UnexpectedVerificationKey(keys))
                 }
                 CheckResult::MismatchedAuthorizationKind(keys) => {
-                    VerifyCommandsResult::MismatchedAuthorizationKind(keys)
+                    Err(VerifierError::MismatchedAuthorizationKind(keys))
                 }
             })
             .collect()
     }
 }
 
-#[derive(Debug, derive_more::From)]
-pub enum VerifierError {
-    CheckError(CheckResult),
-    VerificationFailed(String),
-}
+// #[derive(Debug, derive_more::From)]
+// pub enum VerifierError {
+//     CheckError(CheckResult),
+//     VerificationFailed(String),
+// }
 
 pub mod common {
     use std::sync::Arc;

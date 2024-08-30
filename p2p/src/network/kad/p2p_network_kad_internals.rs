@@ -5,14 +5,16 @@ use std::{
 
 use crypto_bigint::{ArrayEncoding, Encoding, U256};
 use derive_more::From;
-//use libp2p_identity::PeerId;
 use multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    ConnectionType, P2pNetworkKademliaMultiaddrError, P2pNetworkKademliaPeerIdError, PeerId,
+    socket_addr_try_from_multiaddr, ConnectionType, P2pNetworkKademliaMultiaddrError,
+    P2pNetworkKademliaPeerIdError, PeerId,
 };
+
+use super::CID;
 
 mod u256_serde {
     use std::array::TryFromSliceError;
@@ -65,9 +67,19 @@ pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
 
 impl From<&PeerId> for P2pNetworkKadKey {
     fn from(value: &PeerId) -> Self {
-        P2pNetworkKadKey(U256::from_be_byte_array(Sha256::digest(
-            libp2p_identity::PeerId::from(*value).to_bytes(),
-        )))
+        P2pNetworkKadKey::from(*value)
+    }
+}
+
+impl From<PeerId> for P2pNetworkKadKey {
+    fn from(value: PeerId) -> Self {
+        P2pNetworkKadKey::from(CID::from(value))
+    }
+}
+
+impl From<CID> for P2pNetworkKadKey {
+    fn from(value: CID) -> Self {
+        P2pNetworkKadKey(U256::from_be_byte_array(Sha256::digest(value.0)))
     }
 }
 
@@ -132,13 +144,6 @@ impl Shr<usize> for &P2pNetworkKadKey {
 
     fn shr(self, rhs: usize) -> Self::Output {
         P2pNetworkKadKey(self.0 >> rhs)
-    }
-}
-
-impl From<PeerId> for P2pNetworkKadKey {
-    fn from(value: PeerId) -> Self {
-        let digest = Sha256::digest(value.to_bytes());
-        P2pNetworkKadKey(<U256 as ArrayEncoding>::from_be_byte_array(digest))
     }
 }
 
@@ -241,10 +246,16 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
     /// K-bucket is full and cannot be split), then `Err(_)` value is returned.
     ///
     /// TODO: should it be just another variant in `Ok(_)`?
+    ///
+    /// Filters `entry.addrs` for supported addresses if non of addresses are supported returns `Err(_)`
     pub fn insert(
         &mut self,
-        entry: P2pNetworkKadEntry,
+        mut entry: P2pNetworkKadEntry,
     ) -> Result<bool, P2pNetworkKadRoutingTableInsertError> {
+        entry.filter_addrs();
+        if entry.addrs.is_empty() {
+            return Err(P2pNetworkKadRoutingTableInsertError);
+        }
         // distance to this node
         let dist = &self.this_key - &entry.key;
 
@@ -366,6 +377,18 @@ impl P2pNetworkKadEntry {
 
     pub fn dist(&self, other: &P2pNetworkKadEntry) -> P2pNetworkKadDist {
         &self.key - &other.key
+    }
+
+    pub fn filter_addrs(&mut self) {
+        let addrs = std::mem::take(&mut self.addrs);
+        self.addrs = addrs
+            .into_iter()
+            .filter_map(|multiaddr| {
+                socket_addr_try_from_multiaddr(&multiaddr)
+                    .is_ok()
+                    .then_some(multiaddr)
+            })
+            .collect()
     }
 }
 
@@ -569,8 +592,9 @@ mod tests {
     use std::collections::BTreeSet;
 
     use crypto_bigint::{Random, U256};
+    use multiaddr::multiaddr;
 
-    use crate::PeerId;
+    use crate::{identity::SecretKey, PeerId, CID};
 
     use super::{P2pNetworkKadEntry, P2pNetworkKadKey, P2pNetworkKadRoutingTable};
 
@@ -597,7 +621,7 @@ mod tests {
         P2pNetworkKadEntry {
             key,
             peer_id,
-            addrs: vec![],
+            addrs: vec![multiaddr!(Ip4([0; 4]), Tcp(1000_u16))],
             connection: super::ConnectionType::Connected,
         }
     }
@@ -607,9 +631,23 @@ mod tests {
         P2pNetworkKadEntry {
             key,
             peer_id,
-            addrs: vec![],
+            addrs: vec![multiaddr!(Ip4([0; 4]), Tcp(1000_u16))],
             connection: super::ConnectionType::Connected,
         }
+    }
+
+    #[test]
+    fn test_key_generation() {
+        let random_peer_id = SecretKey::rand().public_key().peer_id();
+        let libp2p_peer_id = libp2p_identity::PeerId::from(random_peer_id);
+        let cid = CID::from(libp2p_peer_id);
+
+        let key0 = P2pNetworkKadKey::from(&random_peer_id);
+        let key1 = P2pNetworkKadKey::from(random_peer_id);
+        let key2 = P2pNetworkKadKey::from(cid);
+
+        assert_eq!(key0, key1);
+        assert_eq!(key1, key2);
     }
 
     #[test]

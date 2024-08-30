@@ -8,14 +8,11 @@ use std::{
 use itertools::Itertools;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2};
-use openmina_core::{
-    consensus::ConsensusConstants,
-    constants::{constraint_constants, ForkConstants},
-};
+use openmina_core::consensus::ConsensusConstants;
 
 use crate::{
     scan_state::{
-        currency::{Amount, Balance, BlockTime, Fee, Magnitude, Nonce, Slot, SlotSpan},
+        currency::{Amount, Balance, BlockTime, Fee, Magnitude, Nonce, Slot},
         fee_rate::FeeRate,
         transaction_logic::{
             valid,
@@ -24,12 +21,36 @@ use crate::{
                 MaybeWithStatus, WithHash,
             },
             TransactionStatus::Applied,
-            UserCommand, WithStatus,
+            UserCommand, WellFormednessError, WithStatus,
         },
     },
-    verifier::Verifier,
+    verifier::{Verifier, VerifierError},
     Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
 };
+
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionPoolErrors {
+    /// Invalid transactions, rejeceted diffs, etc...
+    #[error("Transaction pool errors: {0:?}")]
+    BatchedErrors(Vec<TransactionError>),
+    /// Errors that should panic the node (bugs in implementation)
+    #[error("Unexpected error: {0}")]
+    Unexpected(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionError {
+    #[error(transparent)]
+    Verifier(#[from] VerifierError),
+    #[error(transparent)]
+    WellFormedness(#[from] WellFormednessError),
+}
+
+impl From<String> for TransactionPoolErrors {
+    fn from(value: String) -> Self {
+        Self::Unexpected(value)
+    }
+}
 
 mod consensus {
     use crate::scan_state::currency::{BlockTimeSpan, Epoch, Length};
@@ -478,6 +499,7 @@ enum Batch {
     Of(usize),
 }
 
+#[derive(Debug)]
 pub enum CommandError {
     InvalidNonce {
         account_nonce: Nonce,
@@ -609,29 +631,11 @@ impl IndexedPool {
         self.all_by_hash.contains_key(&cmd.hash)
     }
 
-    fn global_slot_since_genesis(&self) -> Slot {
-        let current_time = BlockTime::now();
-
-        let current_slot =
-            consensus::GlobalSlot::of_time_exn(&self.config.consensus_constants, current_time)
-                .unwrap()
-                .to_global_slot();
-
-        match constraint_constants().fork.as_ref() {
-            Some(ForkConstants {
-                global_slot_since_genesis,
-                ..
-            }) => {
-                let global_slot_since_genesis = Slot::from_u32(*global_slot_since_genesis);
-                let slot_span = SlotSpan::from_u32(current_slot.as_u32());
-                global_slot_since_genesis.add(slot_span)
-            }
-            None => current_slot,
-        }
-    }
-
-    fn check_expiry(&self, cmd: &UserCommand) -> Result<(), CommandError> {
-        let global_slot_since_genesis = self.global_slot_since_genesis();
+    fn check_expiry(
+        &self,
+        global_slot_since_genesis: Slot,
+        cmd: &UserCommand,
+    ) -> Result<(), CommandError> {
         let valid_until = cmd.valid_until();
 
         if valid_until < global_slot_since_genesis {
@@ -702,10 +706,13 @@ impl IndexedPool {
         VecDeque::with_capacity(256)
     }
 
-    fn add_from_backtrack(&mut self, cmd: ValidCommandWithHash) -> Result<(), CommandError> {
+    fn add_from_backtrack(
+        &mut self,
+        global_slot_since_genesis: Slot,
+        current_global_slot: Slot,
+        cmd: ValidCommandWithHash,
+    ) -> Result<(), CommandError> {
         let IndexedPoolConfig { slot_tx_end, .. } = &self.config;
-
-        let current_global_slot = self.current_global_slot();
 
         if !slot_tx_end
             .as_ref()
@@ -721,7 +728,7 @@ impl IndexedPool {
         } = &cmd;
         let unchecked = unchecked.forget_check();
 
-        self.check_expiry(&unchecked)?;
+        self.check_expiry(global_slot_since_genesis, &unchecked)?;
 
         let fee_payer = unchecked.fee_payer();
         let fee_per_wu = unchecked.fee_per_wu();
@@ -747,6 +754,7 @@ impl IndexedPool {
                 if unchecked.expected_target_nonce()
                     != first_queued.data.forget_check().applicable_at_nonce()
                 {
+                    // Ocaml panics here as well
                     panic!("indexed pool nonces inconsistent when adding from backtrack.")
                 }
 
@@ -766,17 +774,6 @@ impl IndexedPool {
             }
         }
         Ok(())
-    }
-
-    fn current_global_slot(&self) -> Slot {
-        let IndexedPoolConfig {
-            consensus_constants,
-            slot_tx_end: _,
-        } = &self.config;
-
-        consensus::GlobalSlot::of_time_exn(consensus_constants, BlockTime::now())
-            .unwrap()
-            .to_global_slot()
     }
 
     fn update_add(
@@ -862,8 +859,8 @@ impl IndexedPool {
             })
             .unwrap();
 
-        let keep_queue = sender_queue.split_off(cmd_index);
-        let drop_queue = sender_queue.clone();
+        let drop_queue = sender_queue.split_off(cmd_index);
+        let keep_queue = sender_queue;
         assert!(!drop_queue.is_empty());
 
         let currency_to_remove = drop_queue.iter().fold(Amount::zero(), |acc, cmd| {
@@ -934,6 +931,8 @@ impl IndexedPool {
 
     fn add_from_gossip_exn(
         &mut self,
+        global_slot_since_genesis: Slot,
+        current_global_slot: Slot,
         cmd: &ValidCommandWithHash,
         current_nonce: Nonce,
         balance: Balance,
@@ -946,6 +945,8 @@ impl IndexedPool {
 
         let mut updates = Vec::<Update>::with_capacity(128);
         let result = self.add_from_gossip_exn_impl(
+            global_slot_since_genesis,
+            current_global_slot,
             cmd,
             current_nonce,
             balance,
@@ -961,6 +962,8 @@ impl IndexedPool {
 
     fn add_from_gossip_exn_impl(
         &self,
+        global_slot_since_genesis: Slot,
+        current_global_slot: Slot,
         cmd: &ValidCommandWithHash,
         current_nonce: Nonce,
         balance: Balance,
@@ -968,8 +971,6 @@ impl IndexedPool {
         updates: &mut Vec<Update>,
     ) -> Result<(ValidCommandWithHash, VecDeque<ValidCommandWithHash>), CommandError> {
         let IndexedPoolConfig { slot_tx_end, .. } = &self.config;
-
-        let current_global_slot = self.current_global_slot();
 
         if !slot_tx_end
             .as_ref()
@@ -985,10 +986,12 @@ impl IndexedPool {
         let cmd_applicable_at_nonce = unchecked.applicable_at_nonce();
 
         let consumed = {
-            self.check_expiry(&unchecked)?;
+            self.check_expiry(global_slot_since_genesis, &unchecked)?;
             let consumed = currency_consumed(&unchecked).ok_or(CommandError::Overflow)?;
             if !unchecked.fee_token().is_default() {
-                return Err(CommandError::BadToken);
+                return Err(CommandError::UnwantedFeeToken {
+                    token_id: unchecked.fee_token(),
+                });
             }
             consumed
         };
@@ -1067,8 +1070,7 @@ impl IndexedPool {
                         })
                         .unwrap();
 
-                    let _ = queued_cmds.split_off(replacement_index);
-                    let drop_queue = queued_cmds.clone();
+                    let drop_queue = queued_cmds.split_off(replacement_index);
 
                     let to_drop = drop_queue.front().unwrap().data.forget_check();
                     assert!(cmd_applicable_at_nonce <= to_drop.applicable_at_nonce());
@@ -1091,6 +1093,8 @@ impl IndexedPool {
 
                     let (cmd, _) = {
                         let (v, dropped) = self.add_from_gossip_exn_impl(
+                            global_slot_since_genesis,
+                            current_global_slot,
                             cmd,
                             current_nonce,
                             balance,
@@ -1127,6 +1131,8 @@ impl IndexedPool {
                             this_updates.clear();
 
                             match self.add_from_gossip_exn_impl(
+                                global_slot_since_genesis,
+                                current_global_slot,
                                 cmd,
                                 current_nonce,
                                 balance,
@@ -1169,9 +1175,7 @@ impl IndexedPool {
         }
     }
 
-    fn expired_by_global_slot(&self) -> Vec<ValidCommandWithHash> {
-        let global_slot_since_genesis = self.global_slot_since_genesis();
-
+    fn expired_by_global_slot(&self, global_slot_since_genesis: Slot) -> Vec<ValidCommandWithHash> {
         self.transactions_with_expiration
             .iter()
             .filter(|(slot, _cmd)| **slot < global_slot_since_genesis)
@@ -1179,13 +1183,13 @@ impl IndexedPool {
             .collect()
     }
 
-    fn expired(&self) -> Vec<ValidCommandWithHash> {
-        self.expired_by_global_slot()
+    fn expired(&self, global_slot_since_genesis: Slot) -> Vec<ValidCommandWithHash> {
+        self.expired_by_global_slot(global_slot_since_genesis)
     }
 
-    fn remove_expired(&mut self) -> Vec<ValidCommandWithHash> {
+    fn remove_expired(&mut self, global_slot_since_genesis: Slot) -> Vec<ValidCommandWithHash> {
         let mut dropped = Vec::with_capacity(128);
-        for cmd in self.expired() {
+        for cmd in self.expired(global_slot_since_genesis) {
             if self.member(&cmd) {
                 let removed = self.remove_with_dependents_exn(&cmd);
                 dropped.extend(removed);
@@ -1230,7 +1234,12 @@ impl IndexedPool {
         (queue, currency_reserved, dropped_so_far)
     }
 
-    fn revalidate<F>(&mut self, kind: RevalidateKind, get_account: F) -> Vec<ValidCommandWithHash>
+    fn revalidate<F>(
+        &mut self,
+        global_slot_since_genesis: Slot,
+        kind: RevalidateKind,
+        get_account: F,
+    ) -> Vec<ValidCommandWithHash>
     where
         F: Fn(&AccountId) -> Account,
     {
@@ -1246,10 +1255,9 @@ impl IndexedPool {
                 continue;
             }
             let account: Account = get_account(&sender);
-            let current_balance = {
-                let global_slot = self.global_slot_since_genesis();
-                account.liquid_balance_at_slot(global_slot).to_amount()
-            };
+            let current_balance = account
+                .liquid_balance_at_slot(global_slot_since_genesis)
+                .to_amount();
             let first_cmd = queue.front().unwrap();
             let first_nonce = first_cmd.data.forget_check().applicable_at_nonce();
 
@@ -1630,15 +1638,21 @@ impl TransactionPool {
         self.pool.all_by_sender.keys().cloned().collect()
     }
 
-    pub fn on_new_best_tip(&mut self, accounts: &BTreeMap<AccountId, Account>) {
-        let dropped = self
-            .pool
-            .revalidate(RevalidateKind::EntirePool, |sender_id| {
+    pub fn on_new_best_tip(
+        &mut self,
+        global_slot_since_genesis: Slot,
+        accounts: &BTreeMap<AccountId, Account>,
+    ) {
+        let dropped = self.pool.revalidate(
+            global_slot_since_genesis,
+            RevalidateKind::EntirePool,
+            |sender_id| {
                 accounts
                     .get(sender_id)
                     .cloned()
                     .unwrap_or_else(Account::empty)
-            });
+            },
+        );
 
         let dropped_locally_generated = dropped
             .iter()
@@ -1711,6 +1725,8 @@ impl TransactionPool {
 
     pub fn handle_transition_frontier_diff(
         &mut self,
+        global_slot_since_genesis: Slot,
+        current_global_slot: Slot,
         diff: &diff::BestTipDiff,
         account_ids: &BTreeSet<AccountId>,
         accounts: &BTreeMap<AccountId, Account>,
@@ -1746,8 +1762,6 @@ impl TransactionPool {
             (new_commands, removed_commands)
         };
 
-        let global_slot = self.pool.global_slot_since_genesis();
-
         let pool_max_size = self.config.pool_max_size;
 
         self.verification_key_table.increment_list(&new_commands);
@@ -1761,7 +1775,11 @@ impl TransactionPool {
                     .insert(cmd.clone(), time_added);
             }
 
-            let dropped_seq = match self.pool.add_from_backtrack(cmd) {
+            let dropped_seq = match self.pool.add_from_backtrack(
+                global_slot_since_genesis,
+                current_global_slot,
+                cmd,
+            ) {
                 Ok(_) => self.drop_until_below_max_size(pool_max_size),
                 Err(_) => todo!(), // TODO: print error
             };
@@ -1797,8 +1815,11 @@ impl TransactionPool {
                 }
             };
 
-            self.pool
-                .revalidate(RevalidateKind::Subset(accounts_to_check), get_account)
+            self.pool.revalidate(
+                global_slot_since_genesis,
+                RevalidateKind::Subset(accounts_to_check),
+                get_account,
+            )
         };
 
         let (committed_commands, dropped_commit_conflicts): (Vec<_>, Vec<_>) = {
@@ -1841,9 +1862,11 @@ impl TransactionPool {
                     match uncommited.get(&unchecked.fee_payer()) {
                         Some(account) => {
                             match self.pool.add_from_gossip_exn(
+                                global_slot_since_genesis,
+                                current_global_slot,
                                 cmd,
                                 account.nonce,
-                                account.liquid_balance_at_slot(global_slot),
+                                account.liquid_balance_at_slot(global_slot_since_genesis),
                             ) {
                                 Err(_) => {
                                     remove_cmd(self);
@@ -1861,7 +1884,7 @@ impl TransactionPool {
             }
         }
 
-        let expired_commands = self.pool.remove_expired();
+        let expired_commands = self.pool.remove_expired(global_slot_since_genesis);
         for cmd in &expired_commands {
             self.verification_key_table.decrement_hashed([cmd]);
             self.locally_generated_uncommitted.remove(cmd);
@@ -1875,6 +1898,8 @@ impl TransactionPool {
 
     fn apply(
         &mut self,
+        global_slot_since_genesis: Slot,
+        current_global_slot: Slot,
         diff: &diff::DiffVerified,
         accounts: &BTreeMap<AccountId, Account>,
         is_sender_local: bool,
@@ -1915,13 +1940,14 @@ impl TransactionPool {
                 let result: Result<_, diff::Error> = (|| {
                     check_command(&self.pool, cmd)?;
 
-                    let global_slot = self.pool.global_slot_since_genesis();
                     let account = fee_payer_accounts.get(&fee_payer(cmd)).unwrap(); // OCaml panics too
 
                     match self.pool.add_from_gossip_exn(
+                        global_slot_since_genesis,
+                        current_global_slot,
                         cmd,
                         account.nonce,
-                        account.liquid_balance_at_slot(global_slot),
+                        account.liquid_balance_at_slot(global_slot_since_genesis),
                     ) {
                         Ok(x) => Ok(x),
                         Err(e) => {
@@ -2026,6 +2052,8 @@ impl TransactionPool {
 
     pub fn unsafe_apply(
         &mut self,
+        global_slot_since_genesis: Slot,
+        current_global_slot: Slot,
         diff: &diff::DiffVerified,
         accounts: &BTreeMap<AccountId, Account>,
         is_sender_local: bool,
@@ -2037,7 +2065,13 @@ impl TransactionPool {
         ),
         String,
     > {
-        let (decision, accepted, rejected) = self.apply(diff, accounts, is_sender_local)?;
+        let (decision, accepted, rejected) = self.apply(
+            global_slot_since_genesis,
+            current_global_slot,
+            diff,
+            accounts,
+            is_sender_local,
+        )?;
         Ok((decision, accepted, rejected))
     }
 
@@ -2065,7 +2099,7 @@ impl TransactionPool {
         &self,
         diff: diff::Diff,
         accounts: &BTreeMap<AccountId, Account>,
-    ) -> Result<Vec<valid::UserCommand>, String> {
+    ) -> Result<Vec<valid::UserCommand>, TransactionPoolErrors> {
         let well_formedness_errors: HashSet<_> = diff
             .list
             .iter()
@@ -2076,9 +2110,11 @@ impl TransactionPool {
             .collect();
 
         if !well_formedness_errors.is_empty() {
-            return Err(format!(
-                "Some commands have one or more well-formedness errors: {:?}",
+            return Err(TransactionPoolErrors::BatchedErrors(
                 well_formedness_errors
+                    .into_iter()
+                    .map(TransactionError::WellFormedness)
+                    .collect_vec(),
             ));
         }
 
@@ -2125,7 +2161,7 @@ impl TransactionPool {
 
             from_unapplied_sequence::Cache::new(merged)
         })
-        .map_err(|e| format!("Invalid {:?}", e))?;
+        .map_err(TransactionPoolErrors::Unexpected)?;
 
         let diff = diff
             .into_iter()
@@ -2135,17 +2171,25 @@ impl TransactionPool {
             })
             .collect::<Vec<_>>();
 
-        Verifier
+        let (verified, invalid): (Vec<_>, Vec<_>) = Verifier
             .verify_commands(diff, None)
             .into_iter()
-            .map(|cmd| {
-                // TODO: Handle invalids
-                match cmd {
-                    crate::verifier::VerifyCommandsResult::Valid(cmd) => Ok(cmd),
-                    e => Err(format!("invalid tx: {:?}", e)),
-                }
-            })
-            .collect()
+            .partition(Result::is_ok);
+
+        let verified: Vec<_> = verified.into_iter().map(Result::unwrap).collect();
+        let invalid: Vec<_> = invalid.into_iter().map(Result::unwrap_err).collect();
+
+        if !invalid.is_empty() {
+            let transaction_pool_errors = invalid
+                .into_iter()
+                .map(TransactionError::Verifier)
+                .collect();
+            Err(TransactionPoolErrors::BatchedErrors(
+                transaction_pool_errors,
+            ))
+        } else {
+            Ok(verified)
+        }
     }
 
     fn get_rebroadcastable<F>(&mut self, has_timed_out: F) -> Vec<Vec<UserCommand>>

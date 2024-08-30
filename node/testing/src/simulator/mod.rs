@@ -261,7 +261,13 @@ impl Simulator {
                         SimulatorRunUntil::Epoch(epoch) => {
                             consensus_state.epoch_count.as_u32() >= *epoch
                         }
-                        SimulatorRunUntil::BlockchainLength(height) => best_tip.height() >= *height,
+                        SimulatorRunUntil::BlockchainLength(height) => {
+                            let start_height = node::core::constants::constraint_constants()
+                                .fork
+                                .as_ref()
+                                .map_or(0, |c| c.blockchain_length);
+                            best_tip.height() >= start_height + *height
+                        }
                     };
                     if stop {
                         return;

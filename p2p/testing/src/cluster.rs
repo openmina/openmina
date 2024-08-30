@@ -15,7 +15,7 @@ use p2p::{
         P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingInitOptsParseError,
     },
     identity::SecretKey,
-    p2p_effects, p2p_timeout_effects, P2pConfig, P2pState, PeerId,
+    p2p_effects, p2p_timeout_effects, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
 };
 use redux::SystemTime;
 use tokio::sync::mpsc;
@@ -351,7 +351,7 @@ impl Cluster {
             .collect::<Result<_>>()?;
         let config = P2pConfig {
             libp2p_port: Some(libp2p_port),
-            listen_port,
+            listen_port: Some(listen_port),
             identity_pub_key: secret_key.public_key(),
             initial_peers,
             ask_initial_peers_interval: Duration::from_secs(5),
@@ -359,13 +359,14 @@ impl Cluster {
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
             limits: config.limits,
-            initial_time: Duration::ZERO,
+            meshsub: P2pMeshsubConfig::default(),
         };
 
         Ok((config, secret_key))
     }
 
     pub fn add_rust_node(&mut self, config: RustNodeConfig) -> Result<RustNodeId> {
+        let override_fn = config.override_fn;
         let node_idx = self.rust_nodes.len();
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         let (config, secret_key) = self.rust_node_config(config)?;
@@ -389,7 +390,7 @@ impl Cluster {
                     )
                 }
             },
-            |store, action| {
+            override_fn.unwrap_or(|store, action| {
                 let (action, meta) = action.split();
                 match action {
                     Action::P2p(a) => {
@@ -398,7 +399,7 @@ impl Cluster {
                     }
                     Action::Idle(_) => p2p_timeout_effects(store, &meta),
                 }
-            },
+            }),
             service,
             SystemTime::now(),
             State(P2pState::new(config, &self.chain_id)),

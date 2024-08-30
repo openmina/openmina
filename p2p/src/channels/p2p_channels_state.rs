@@ -3,9 +3,13 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    best_tip::P2pChannelsBestTipState, rpc::P2pChannelsRpcState, snark::P2pChannelsSnarkState,
+    best_tip::P2pChannelsBestTipState,
+    rpc::{P2pChannelsRpcState, P2pRpcId},
+    snark::P2pChannelsSnarkState,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentState,
-    transaction::P2pChannelsTransactionState, ChannelId,
+    streaming_rpc::P2pChannelsStreamingRpcState,
+    transaction::P2pChannelsTransactionState,
+    ChannelId,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -15,6 +19,9 @@ pub struct P2pChannelsState {
     pub snark: P2pChannelsSnarkState,
     pub snark_job_commitment: P2pChannelsSnarkJobCommitmentState,
     pub rpc: P2pChannelsRpcState,
+    pub streaming_rpc: P2pChannelsStreamingRpcState,
+
+    pub(super) next_local_rpc_id: P2pRpcId,
 }
 
 impl P2pChannelsState {
@@ -42,7 +49,24 @@ impl P2pChannelsState {
                 false => P2pChannelsRpcState::Disabled,
                 true => P2pChannelsRpcState::Enabled,
             },
+            streaming_rpc: match enabled_channels.contains(&ChannelId::StreamingRpc) {
+                false => P2pChannelsStreamingRpcState::Disabled,
+                true => P2pChannelsStreamingRpcState::Enabled,
+            },
+
+            next_local_rpc_id: 0,
         }
+    }
+
+    pub fn next_local_rpc_id(&self) -> P2pRpcId {
+        self.next_local_rpc_id
+    }
+
+    pub fn rpc_remote_last_responded(&self) -> redux::Timestamp {
+        std::cmp::max(
+            self.rpc.remote_last_responded(),
+            self.streaming_rpc.remote_last_responded(),
+        )
     }
 }
 
@@ -54,6 +78,7 @@ impl P2pChannelsState {
             ChannelId::SnarkPropagation => self.snark.is_ready(),
             ChannelId::SnarkJobCommitmentPropagation => self.snark_job_commitment.is_ready(),
             ChannelId::Rpc => self.rpc.is_ready(),
+            ChannelId::StreamingRpc => self.rpc.is_ready(),
         }
     }
 }

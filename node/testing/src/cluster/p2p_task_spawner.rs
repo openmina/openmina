@@ -1,4 +1,5 @@
 use node::core::channels::mpsc;
+use node::core::thread;
 use node::p2p::service_impl::TaskSpawner;
 
 #[derive(Clone)]
@@ -15,14 +16,14 @@ impl P2pTaskSpawner {
 impl TaskSpawner for P2pTaskSpawner {
     fn spawn_main<F>(&self, name: &str, fut: F)
     where
-        F: 'static + Send + std::future::Future,
+        F: 'static + Send + std::future::Future<Output = ()>,
     {
         let shutdown = self.shutdown.clone();
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name(format!("openmina_p2p_{name}"))
             .spawn(move || {
                 let fut = async {

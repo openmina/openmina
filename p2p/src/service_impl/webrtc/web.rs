@@ -1,4 +1,6 @@
 use std::future::Future;
+use std::rc::{Rc, Weak};
+use std::sync::Once;
 
 use gloo_utils::format::JsValueSerdeExt;
 use wasm_bindgen::{convert::FromWasmAbi, prelude::*};
@@ -18,11 +20,17 @@ use crate::{
 
 use super::{OnConnectionStateChangeHdlrFn, RTCChannelConfig, RTCConfig};
 
+#[wasm_bindgen(module = "/src/service_impl/webrtc/web.js")]
+extern "C" {
+    #[wasm_bindgen(js_name = schedulePeriodicWebrtcCleanup)]
+    fn schedule_periodic_webrtc_cleanup();
+}
+
 pub type Result<T> = std::result::Result<T, JsValue>;
 
 pub type RTCConnectionState = RtcPeerConnectionState;
 
-pub struct RTCConnection(RtcPeerConnection, bool);
+pub struct RTCConnection(Rc<RtcPeerConnection>, bool);
 
 pub struct RTCChannel(RtcDataChannel, bool);
 
@@ -40,13 +48,21 @@ impl From<JsValue> for RTCSignalingError {
     }
 }
 
+static INIT: Once = Once::new();
+
 impl RTCConnection {
     pub async fn create(config: RTCConfig) -> Result<Self> {
-        RtcPeerConnection::new_with_configuration(&config.into()).map(|v| Self(v, true))
+        INIT.call_once(schedule_periodic_webrtc_cleanup);
+
+        RtcPeerConnection::new_with_configuration(&config.into()).map(|v| Self(v.into(), true))
     }
 
     pub fn is_main(&self) -> bool {
         self.1
+    }
+
+    fn weak_ref(&self) -> Weak<RtcPeerConnection> {
+        Rc::downgrade(&self.0)
     }
 
     pub async fn channel_create(&self, config: RTCChannelConfig) -> Result<RTCChannel> {
@@ -90,9 +106,11 @@ impl RTCConnection {
         if !matches!(self.0.ice_gathering_state(), RtcIceGatheringState::Complete) {
             let (tx, rx) = oneshot::channel::<()>();
             let mut tx = Some(tx);
-            let conn = self.0.clone();
+            let conn = self.weak_ref();
             let callback = Closure::<dyn FnMut()>::new(move || {
-                if matches!(conn.ice_gathering_state(), RtcIceGatheringState::Complete) {
+                if conn.upgrade().map_or(false, |conn| {
+                    matches!(conn.ice_gathering_state(), RtcIceGatheringState::Complete)
+                }) {
                     if let Some(tx) = tx.take() {
                         let _ = tx.send(());
                     }
@@ -106,9 +124,11 @@ impl RTCConnection {
     }
 
     pub fn on_connection_state_change(&self, mut f: OnConnectionStateChangeHdlrFn) {
-        // Closure::wrap(data)
-        let callback = Closure::new(move |state: RTCConnectionState| {
-            spawn_local(f(state));
+        let conn = self.weak_ref();
+        let callback = Closure::new(move || {
+            if let Some(conn) = conn.upgrade() {
+                spawn_local(f(conn.connection_state()));
+            }
         });
         self.0
             .set_onconnectionstatechange(Some(callback.as_ref().unchecked_ref()));
@@ -143,17 +163,19 @@ impl RTCChannel {
         // callback.forget();
     }
 
-    pub fn on_message<Fut>(&self, mut f: impl FnMut(Vec<u8>) -> Fut + 'static)
+    pub fn on_message<Fut>(&self, mut f: impl FnMut(&[u8]) -> Fut + 'static)
     where
         Fut: Future<Output = ()> + Send + 'static,
     {
         leaking_channel_event_handler(
-            |f| self.0.set_onopen(f),
+            |f| self.0.set_onmessage(f),
             move |event: MessageEvent| {
                 if let Ok(arraybuf) = event.data().dyn_into::<js_sys::ArrayBuffer>() {
                     let uarray = js_sys::Uint8Array::new(&arraybuf);
                     let data = uarray.to_vec();
-                    spawn_local(f(data));
+                    spawn_local(f(data.as_ref()));
+                } else {
+                    openmina_core::log::error!(redux::Timestamp::global_now(); "`event.data()` failed to cast to `ArrayBuffer`. {:?}", event.data());
                 }
             },
         );
@@ -198,7 +220,9 @@ impl RTCChannel {
 
     pub async fn send(&self, data: &bytes::Bytes) -> Result<usize> {
         let len = data.len();
-        self.0.send_with_u8_array(data).map(|_| len)
+        let array = js_sys::Uint8Array::new_with_length(len as u32);
+        array.copy_from(&data);
+        self.0.send_with_array_buffer(&array.buffer()).map(|_| len)
     }
 
     pub async fn close(&self) {
@@ -214,9 +238,8 @@ pub async fn webrtc_signal_send(
 
     let mut opts = RequestInit::new();
     opts.method("POST");
-    opts.body(Some(&JsValue::from_serde(&offer)?));
+    opts.body(Some(&JsValue::from(serde_json::to_string(&offer)?)));
     let request = Request::new_with_str_and_init(url, &opts)?;
-
     request.headers().set("content-type", "application/json")?;
 
     let window = web_sys::window().unwrap();

@@ -3,7 +3,10 @@ use std::sync::{Arc, Mutex};
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2;
 use node::{
-    core::snark::{Snark, SnarkJobId},
+    core::{
+        snark::{Snark, SnarkJobId},
+        thread,
+    },
     snark::{
         block_verify::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash},
         work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId},
@@ -12,9 +15,9 @@ use node::{
 };
 use rand::prelude::*;
 
-use crate::NodeServiceCommon;
+use crate::NodeService;
 
-impl node::service::SnarkBlockVerifyService for NodeServiceCommon {
+impl node::service::SnarkBlockVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
@@ -26,8 +29,7 @@ impl node::service::SnarkBlockVerifyService for NodeServiceCommon {
             return;
         }
         let tx = self.event_sender().clone();
-        eprintln!("rayon::spawn_fifo");
-        std::thread::spawn(move || {
+        thread::spawn(move || {
             eprintln!("verify({}) - start", block.hash_ref());
             let header = block.header_ref();
             let result = {
@@ -49,7 +51,7 @@ impl node::service::SnarkBlockVerifyService for NodeServiceCommon {
     }
 }
 
-impl node::service::SnarkWorkVerifyService for NodeServiceCommon {
+impl node::service::SnarkWorkVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
@@ -96,7 +98,21 @@ impl node::service::SnarkWorkVerifyService for NodeServiceCommon {
     }
 }
 
-impl node::service::SnarkPoolService for NodeServiceCommon {
+impl node::service::SnarkUserCommandVerifyService for NodeService {
+    fn verify_init(
+        &mut self,
+        _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
+        _verifier_index: Arc<VerifierIndex>,
+        _verifier_srs: Arc<Mutex<VerifierSRS>>,
+        _commands: mina_p2p_messages::list::List<
+            mina_p2p_messages::v2::MinaBaseUserCommandStableV2,
+        >,
+    ) {
+        todo!()
+    }
+}
+
+impl node::service::SnarkPoolService for NodeService {
     fn random_choose<'a>(
         &mut self,
         iter: impl Iterator<Item = &'a SnarkJobId>,

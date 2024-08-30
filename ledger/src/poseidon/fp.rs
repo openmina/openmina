@@ -124,16 +124,16 @@ impl Fp {
 
         // No-carry optimisation applied to CIOS
         if _no_carry {
-            #[cfg(use_asm)]
-            #[allow(unsafe_code, unused_mut)]
-            {
-                // Tentatively avoid using assembly for `Self::LIMBS == 1`.
-                if Self::LIMBS <= 6 && Self::LIMBS > 1 {
-                    ark_ff_asm::x86_64_asm_mul!(Self::LIMBS, (self.0).0, (other.0).0);
-                    self.reduce();
-                    return;
-                }
-            }
+            // #[cfg(use_asm)]
+            // #[allow(unsafe_code, unused_mut)]
+            // {
+            //     // Tentatively avoid using assembly for `Self::LIMBS == 1`.
+            //     if Self::LIMBS <= 6 && Self::LIMBS > 1 {
+            //         ark_ff_asm::x86_64_asm_mul!(Self::LIMBS, (self.0).0, (other.0).0);
+            //         self.reduce();
+            //         return;
+            //     }
+            // }
             let mut r = [0u64; Self::LIMBS];
             let mut carry1 = 0u64;
             let mut carry2 = 0u64;
@@ -524,7 +524,7 @@ mod tests {
 
         let mut fp = fps[0].clone();
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         for _ in 0..100000 {
             for field in &fps {
                 fp.mul_assign(field);
@@ -534,7 +534,7 @@ mod tests {
 
         let mut mina_fp = mina_fps[0];
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         for _ in 0..100000 {
             for field in &mina_fps {
                 mina_fp.mul_assign(field);

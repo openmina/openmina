@@ -90,10 +90,6 @@ impl RpcService for super::NodeTestingService {
         node::rpc::RpcTransactionInjectResponse
     );
     to_real!(
-        respond_transaction_inject_failed,
-        node::rpc::RpcTransactionInjectFailure
-    );
-    to_real!(
         respond_transition_frontier_commands,
         node::rpc::RpcTransitionFrontierUserCommandsResponse,
     );

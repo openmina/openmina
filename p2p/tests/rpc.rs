@@ -377,16 +377,15 @@ fn send_request(
     request: P2pRpcRequest,
 ) -> P2pRpcId {
     let [_sender_id, receiver_id] = peer_ids(cluster, [sender, receiver]);
-    let sender_receiver_rpc = &cluster
+    let sender_receiver_channels = &cluster
         .rust_node(sender)
         .state()
         .get_ready_peer(&receiver_id)
         .expect("peer should be ready")
-        .channels
-        .rpc;
+        .channels;
     assert!(
         matches!(
-            sender_receiver_rpc,
+            sender_receiver_channels.rpc,
             P2pChannelsRpcState::Ready {
                 local: P2pRpcLocalState::WaitingForRequest { .. }
                     | P2pRpcLocalState::Responded { .. },
@@ -394,9 +393,9 @@ fn send_request(
             }
         ),
         "{sender:?}'s peer {receiver:?} not ready: {:#?}",
-        sender_receiver_rpc
+        sender_receiver_channels.rpc
     );
-    let sender_rpc_id: u64 = sender_receiver_rpc.next_local_rpc_id();
+    let sender_rpc_id: u64 = sender_receiver_channels.next_local_rpc_id();
     assert!(
         cluster
             .rust_node_mut(sender)

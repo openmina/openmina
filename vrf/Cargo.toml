@@ -1,6 +1,6 @@
 [package]
 name = "vrf"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -10,6 +10,7 @@ serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_pre
 thiserror = "1.0.37"
 anyhow = "1.0.70"
 hex = "0.4.3"
+redux = { workspace = true }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 mina-p2p-messages = { workspace = true }

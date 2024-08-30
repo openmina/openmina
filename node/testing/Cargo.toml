@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-testing"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -51,7 +51,6 @@ openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
-chrono = "0.4.34"
 hex = "0.4.3"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]

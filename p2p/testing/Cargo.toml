@@ -1,13 +1,13 @@
 [package]
 name = "p2p-testing"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 redux = { workspace = true }
-p2p = { path = ".." }
+p2p = { path = "..", features = ["p2p-libp2p"] }
 mina-p2p-messages = { path = "../../mina-p2p-messages" }
 
 tokio = { version = "1.26.0", features = [ "sync", "macros" ] }

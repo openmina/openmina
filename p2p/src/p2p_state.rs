@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use openmina_core::requests::RpcId;
 
 use crate::channels::rpc::P2pRpcId;
+use crate::channels::streaming_rpc::P2pStreamingRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
@@ -151,7 +152,7 @@ impl P2pState {
     pub fn ready_rpc_peers_iter(&self) -> impl '_ + Iterator<Item = (PeerId, P2pRpcId)> {
         self.ready_peers_iter()
             .filter(|(_, p)| p.channels.rpc.can_send_request())
-            .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
+            .map(|(peer_id, p)| (*peer_id, p.channels.next_local_rpc_id()))
     }
 
     pub fn ready_peers(&self) -> Vec<PeerId> {
@@ -199,13 +200,48 @@ impl P2pState {
         })
     }
 
-    pub fn peer_rpc_timeouts(&self, now: redux::Timestamp) -> Vec<(PeerId, P2pRpcId)> {
+    pub fn is_peer_streaming_rpc_timed_out(
+        &self,
+        peer_id: &PeerId,
+        rpc_id: P2pStreamingRpcId,
+        now: redux::Timestamp,
+    ) -> bool {
+        self.get_ready_peer(peer_id).map_or(false, |p| {
+            p.channels
+                .streaming_rpc
+                .is_timed_out(rpc_id, now, &self.config.timeouts)
+        })
+    }
+
+    pub fn peer_rpc_timeouts(&self, now: redux::Timestamp) -> Vec<(PeerId, P2pRpcId, bool)> {
+        let config = &self.config.timeouts;
+        self.ready_peers_iter()
+            .flat_map(|(peer_id, s)| {
+                let pending_rpc = s.channels.rpc.pending_local_rpc_id();
+                let pending_streaming_rpc = s.channels.streaming_rpc.pending_local_rpc_id();
+                IntoIterator::into_iter([
+                    pending_rpc
+                        .filter(|id| s.channels.rpc.is_timed_out(*id, now, config))
+                        .map(|id| (*peer_id, id, false)),
+                    pending_streaming_rpc
+                        .filter(|id| s.channels.streaming_rpc.is_timed_out(*id, now, config))
+                        .map(|id| (*peer_id, id, true)),
+                ])
+                .flatten()
+            })
+            .collect()
+    }
+
+    pub fn peer_streaming_rpc_timeouts(
+        &self,
+        now: redux::Timestamp,
+    ) -> Vec<(PeerId, P2pStreamingRpcId)> {
         self.ready_peers_iter()
             .filter_map(|(peer_id, s)| {
-                let rpc_id = s.channels.rpc.pending_local_rpc_id()?;
+                let rpc_id = s.channels.streaming_rpc.pending_local_rpc_id()?;
                 if !s
                     .channels
-                    .rpc
+                    .streaming_rpc
                     .is_timed_out(rpc_id, now, &self.config.timeouts)
                 {
                     return None;

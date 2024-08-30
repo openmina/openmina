@@ -1,6 +1,6 @@
 [package]
 name = "openmina-bootstrap-sandbox"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 
 [dependencies]
@@ -14,8 +14,6 @@ thiserror = { version = "1.0" }
 bs58 = { version = "0.5.0", features = ["check"] }
 rand = { version = "0.8.5" }
 base64 = { version = "0.21.7" }
-
-reqwest = { version = "0.11.24", features = ["blocking"] }
 
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 

@@ -27,7 +27,7 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75
+          toolchain: 1.80.1
           override: true
           profile: minimal
           components: rust-src
@@ -50,7 +50,7 @@ jobs:
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75
+          toolchain: 1.80.1
           override: true
           profile: minimal
 

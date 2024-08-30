@@ -43,6 +43,7 @@ pub enum TransitionFrontierSyncState {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
+        root_block_updates: Vec<ArcBlockWithHash>,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     BlocksPending {
@@ -87,6 +88,7 @@ pub struct TransitionFrontierSyncLedgerPending {
     pub best_tip: ArcBlockWithHash,
     pub root_block: ArcBlockWithHash,
     pub blocks_inbetween: Vec<StateHash>,
+    pub root_block_updates: Vec<ArcBlockWithHash>,
     pub ledger: TransitionFrontierSyncLedgerState,
 }
 

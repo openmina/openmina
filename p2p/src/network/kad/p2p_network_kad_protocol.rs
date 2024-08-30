@@ -39,9 +39,38 @@ impl From<ConnectionType> for super::mod_Message::ConnectionType {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CID(pub Vec<u8>);
+
+#[cfg(test)]
+impl CID {
+    pub fn to_libp2p_string(&self) -> String {
+        libp2p_identity::PeerId::from_bytes(&self.0)
+            .expect("Invalid bytes")
+            .to_string()
+    }
+}
+
+impl From<PeerId> for CID {
+    fn from(value: PeerId) -> Self {
+        Self::from(libp2p_identity::PeerId::from(value))
+    }
+}
+impl From<libp2p_identity::PeerId> for CID {
+    fn from(value: libp2p_identity::PeerId) -> Self {
+        Self(value.to_bytes())
+    }
+}
+
+impl std::fmt::Debug for CID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&hex::encode(&self.0))
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum P2pNetworkKademliaRpcRequest {
-    FindNode { key: PeerId },
+    FindNode { key: CID },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -53,7 +82,7 @@ pub enum P2pNetworkKademliaRpcReply {
 
 impl P2pNetworkKademliaRpcRequest {
     pub fn find_node(key: PeerId) -> Self {
-        P2pNetworkKademliaRpcRequest::FindNode { key }
+        P2pNetworkKademliaRpcRequest::FindNode { key: key.into() }
     }
 }
 
@@ -131,8 +160,12 @@ impl<'a> TryFrom<super::Message<'a>> for P2pNetworkKademliaRpcRequest {
     fn try_from(value: super::Message<'a>) -> Result<Self, Self::Error> {
         match value.type_pb {
             MessageType::FIND_NODE => {
-                let key = peer_id_try_from_bytes(value.key)?;
-                Ok(P2pNetworkKademliaRpcRequest::FindNode { key })
+                let key = libp2p_identity::PeerId::from_bytes(&value.key)
+                    .map_err(P2pNetworkKademliaPeerIdError::from)?;
+
+                Ok(P2pNetworkKademliaRpcRequest::FindNode {
+                    key: CID::from(key),
+                })
             }
             _ => Err(P2pNetworkKademliaRpcFromMessageError::Unsupported(format!(
                 "{:?}",
@@ -169,7 +202,7 @@ impl<'a> From<&'a P2pNetworkKademliaRpcRequest> for super::Message<'a> {
             P2pNetworkKademliaRpcRequest::FindNode { key } => super::Message {
                 type_pb: MessageType::FIND_NODE,
                 clusterLevelRaw: 10,
-                key: key.into(),
+                key: key.clone().0.into(),
                 ..Default::default()
             },
         }
@@ -240,11 +273,22 @@ pub mod tests {
     use quick_protobuf::BytesReader;
 
     use crate::{
-        kad::p2p_network_kad_protocol::multiaddr_try_from_bytes, P2pNetworkKademliaRpcRequest,
-        PeerId,
+        identity::SecretKey, kad::p2p_network_kad_protocol::multiaddr_try_from_bytes,
+        P2pNetworkKademliaRpcRequest, PeerId,
     };
 
-    use super::peer_id_try_from_bytes;
+    use super::{peer_id_try_from_bytes, CID};
+
+    #[test]
+    fn cid_generation() {
+        let random_peer_id = SecretKey::rand().public_key().peer_id();
+        let libp2p_peer_id = libp2p_identity::PeerId::from(random_peer_id);
+
+        let cid0 = CID::from(random_peer_id);
+        let cid1 = CID::from(libp2p_peer_id);
+
+        assert_eq!(cid0, cid1);
+    }
 
     #[test]
     fn peer_id_from_wire() {

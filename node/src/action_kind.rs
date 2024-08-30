@@ -27,6 +27,7 @@ use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
+use crate::p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
 use crate::p2p::channels::transaction::P2pChannelsTransactionAction;
 use crate::p2p::channels::{P2pChannelsAction, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
@@ -195,6 +196,20 @@ pub enum ActionKind {
     P2pChannelsSnarkJobCommitmentRequestReceived,
     P2pChannelsSnarkJobCommitmentRequestSend,
     P2pChannelsSnarkJobCommitmentResponseSend,
+    P2pChannelsStreamingRpcInit,
+    P2pChannelsStreamingRpcPending,
+    P2pChannelsStreamingRpcReady,
+    P2pChannelsStreamingRpcRequestReceived,
+    P2pChannelsStreamingRpcRequestSend,
+    P2pChannelsStreamingRpcResponseNextPartGet,
+    P2pChannelsStreamingRpcResponsePartNextSend,
+    P2pChannelsStreamingRpcResponsePartReceived,
+    P2pChannelsStreamingRpcResponsePartSend,
+    P2pChannelsStreamingRpcResponsePending,
+    P2pChannelsStreamingRpcResponseReceived,
+    P2pChannelsStreamingRpcResponseSendInit,
+    P2pChannelsStreamingRpcResponseSent,
+    P2pChannelsStreamingRpcTimeout,
     P2pChannelsTransactionInit,
     P2pChannelsTransactionLibp2pBroadcast,
     P2pChannelsTransactionLibp2pReceived,
@@ -290,10 +305,12 @@ pub enum ActionKind {
     P2pNetworkPnetTimeout,
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
+    P2pNetworkPubsubGraft,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubNewStream,
     P2pNetworkPubsubOutgoingData,
     P2pNetworkPubsubOutgoingMessage,
+    P2pNetworkPubsubPrune,
     P2pNetworkPubsubSign,
     P2pNetworkRpcHeartbeatSend,
     P2pNetworkRpcIncomingData,
@@ -378,6 +395,7 @@ pub enum ActionKind {
     RpcTransactionInjectFailure,
     RpcTransactionInjectInit,
     RpcTransactionInjectPending,
+    RpcTransactionInjectRejected,
     RpcTransactionInjectSuccess,
     RpcTransactionPool,
     RpcTransitionFrontierUserCommandsGet,
@@ -430,6 +448,7 @@ pub enum ActionKind {
     TransactionPoolRebroadcast,
     TransactionPoolStartVerify,
     TransactionPoolStartVerifyWithAccounts,
+    TransactionPoolVerifyError,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
@@ -519,7 +538,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 428;
+    pub const COUNT: u16 = 446;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -668,6 +687,7 @@ impl ActionKindGet for TransactionPoolAction {
             Self::StartVerifyWithAccounts { .. } => {
                 ActionKind::TransactionPoolStartVerifyWithAccounts
             }
+            Self::VerifyError { .. } => ActionKind::TransactionPoolVerifyError,
             Self::BestTipChanged { .. } => ActionKind::TransactionPoolBestTipChanged,
             Self::BestTipChangedWithAccounts { .. } => {
                 ActionKind::TransactionPoolBestTipChangedWithAccounts
@@ -800,6 +820,7 @@ impl ActionKindGet for RpcAction {
             Self::TransactionInjectInit { .. } => ActionKind::RpcTransactionInjectInit,
             Self::TransactionInjectPending { .. } => ActionKind::RpcTransactionInjectPending,
             Self::TransactionInjectSuccess { .. } => ActionKind::RpcTransactionInjectSuccess,
+            Self::TransactionInjectRejected { .. } => ActionKind::RpcTransactionInjectRejected,
             Self::TransactionInjectFailure { .. } => ActionKind::RpcTransactionInjectFailure,
             Self::TransitionFrontierUserCommandsGet { .. } => {
                 ActionKind::RpcTransitionFrontierUserCommandsGet
@@ -895,6 +916,7 @@ impl ActionKindGet for P2pChannelsAction {
             Self::Snark(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
+            Self::StreamingRpc(a) => a.kind(),
         }
     }
 }
@@ -1300,6 +1322,33 @@ impl ActionKindGet for P2pChannelsRpcAction {
     }
 }
 
+impl ActionKindGet for P2pChannelsStreamingRpcAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsStreamingRpcInit,
+            Self::Pending { .. } => ActionKind::P2pChannelsStreamingRpcPending,
+            Self::Ready { .. } => ActionKind::P2pChannelsStreamingRpcReady,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsStreamingRpcRequestSend,
+            Self::Timeout { .. } => ActionKind::P2pChannelsStreamingRpcTimeout,
+            Self::ResponseNextPartGet { .. } => {
+                ActionKind::P2pChannelsStreamingRpcResponseNextPartGet
+            }
+            Self::ResponsePartReceived { .. } => {
+                ActionKind::P2pChannelsStreamingRpcResponsePartReceived
+            }
+            Self::ResponseReceived { .. } => ActionKind::P2pChannelsStreamingRpcResponseReceived,
+            Self::RequestReceived { .. } => ActionKind::P2pChannelsStreamingRpcRequestReceived,
+            Self::ResponsePending { .. } => ActionKind::P2pChannelsStreamingRpcResponsePending,
+            Self::ResponseSendInit { .. } => ActionKind::P2pChannelsStreamingRpcResponseSendInit,
+            Self::ResponsePartNextSend { .. } => {
+                ActionKind::P2pChannelsStreamingRpcResponsePartNextSend
+            }
+            Self::ResponsePartSend { .. } => ActionKind::P2pChannelsStreamingRpcResponsePartSend,
+            Self::ResponseSent { .. } => ActionKind::P2pChannelsStreamingRpcResponseSent,
+        }
+    }
+}
+
 impl ActionKindGet for P2pNetworkSchedulerAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1413,6 +1462,8 @@ impl ActionKindGet for P2pNetworkPubsubAction {
         match self {
             Self::NewStream { .. } => ActionKind::P2pNetworkPubsubNewStream,
             Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubIncomingData,
+            Self::Graft { .. } => ActionKind::P2pNetworkPubsubGraft,
+            Self::Prune { .. } => ActionKind::P2pNetworkPubsubPrune,
             Self::Broadcast { .. } => ActionKind::P2pNetworkPubsubBroadcast,
             Self::Sign { .. } => ActionKind::P2pNetworkPubsubSign,
             Self::BroadcastSigned { .. } => ActionKind::P2pNetworkPubsubBroadcastSigned,

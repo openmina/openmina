@@ -55,7 +55,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.79
+          rustup default 1.80
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -81,7 +81,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.79
+          rustup default 1.80
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -99,32 +99,34 @@ jobs:
           name: bin
           path: target/release/openmina
 
-# FIXME: re-enable once it works again https://github.com/openmina/openmina/issues/580
-#  build_wasm:
-#    runs-on: ubuntu-20.04
-#    steps:
-#      - name: Git checkout
-#        uses: actions/checkout@v4
-#
-#      - name: Setup build dependencies
-#        run: |
-#          sudo apt update
-#          sudo apt install -y protobuf-compiler
-#
-#      - name: Setup Rust
-#        run: |
-#          rustup default 1.79
-#          rustup component add rustfmt
-#          rustup target add wasm32-unknown-unknown
-#
-#      - name: Setup Rust Cache
-#        uses: Swatinem/rust-cache@v2
-#        with:
-#          prefix-key: "v0"
-#
-#      - name: Release build
-#        run: |
-#          cargo build --release -p openmina-node-common --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
+  build_wasm:
+   runs-on: ubuntu-20.04
+   steps:
+     - name: Git checkout
+       uses: actions/checkout@v4
+
+     - name: Setup build dependencies
+       run: |
+         sudo apt update
+         sudo apt install -y protobuf-compiler
+
+     - name: Setup Rust
+       run: |
+         rustup default nightly
+         rustup component add rustfmt rust-src
+         rustup target add wasm32-unknown-unknown
+         cargo install -f wasm-bindgen-cli
+
+     - name: Setup Rust Cache
+       uses: Swatinem/rust-cache@v2
+       with:
+         prefix-key: "v0"
+
+     - name: Release build
+       run: |
+         cd node/web
+         cargo +nightly build --release --target wasm32-unknown-unknown
+         wasm-bindgen --keep-debug --web --out-dir pkg ../../target/wasm32-unknown-unknown/release/openmina_node_web.wasm
 
   build-tests:
     runs-on: ubuntu-20.04
@@ -139,7 +141,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.79
+          rustup default 1.80
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -176,7 +178,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.79
+          rustup default 1.80
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -209,7 +211,7 @@ jobs:
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
       matrix:
-        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub]
+        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub, p2p_kad]
       fail-fast: false
 
     services:
@@ -298,9 +300,13 @@ jobs:
         test:
           - single_node
           - multi_node
+          - connection_discovery_ocaml_to_rust_via_seed
+          - connection_discovery_ocaml_to_rust
+          - connection_discovery_rust_as_seed
+          - connection_discovery_rust_to_ocaml_via_seed
+          - connection_discovery_rust_to_ocaml
           # - webrtc_single_node
           # - webrtc_multi_node
-          # - connection_discovery
       fail-fast: false
 
     services:

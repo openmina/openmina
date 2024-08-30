@@ -13,7 +13,7 @@ use node::{
     daemon_json::Daemon,
     p2p::{
         channels::ChannelId, connection::outgoing::P2pConnectionOutgoingInitOpts,
-        identity::SecretKey as P2pSecretKey, P2pLimits, P2pTimeouts,
+        identity::SecretKey as P2pSecretKey, P2pLimits, P2pMeshsubConfig, P2pTimeouts,
     },
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierIndex, VerifierKind, VerifierSRS},
@@ -290,15 +290,18 @@ impl NodeBuilder {
             },
             p2p: P2pConfig {
                 libp2p_port: self.p2p_libp2p_port,
-                listen_port: self.http_port.unwrap_or(3000),
+                listen_port: self.http_port,
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.p2p_no_discovery,
-                initial_time: initial_time
-                    .checked_sub(redux::Timestamp::ZERO)
-                    .unwrap_or_default(),
+                meshsub: P2pMeshsubConfig {
+                    initial_time: initial_time
+                        .checked_sub(redux::Timestamp::ZERO)
+                        .unwrap_or_default(),
+                    ..Default::default()
+                },
                 timeouts: P2pTimeouts::default(),
                 limits: P2pLimits::default().with_max_peers(Some(100)),
             },

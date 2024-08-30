@@ -27,6 +27,7 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
+use self::multi_node::pubsub_advanced::MultiNodePubsubPropagateBlock;
 use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
 use self::multi_node::vrf_correct_ledgers::MultiNodeVrfGetCorrectLedgers;
 use self::multi_node::vrf_correct_slots::MultiNodeVrfGetCorrectSlots;
@@ -64,6 +65,7 @@ pub enum Scenarios {
     SimulationSmall(SimulationSmall),
     SimulationSmallForeverRealTime(SimulationSmallForeverRealTime),
     P2pReceiveBlock(P2pReceiveBlock),
+    MultiNodePubsubPropagateBlock(MultiNodePubsubPropagateBlock),
     RecordReplayBootstrap(RecordReplayBootstrap),
     RecordReplayBlockProduction(RecordReplayBlockProduction),
 }
@@ -86,6 +88,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
             Self::SimulationSmall(_) => true,
             Self::SimulationSmallForeverRealTime(_) => true,
+            Self::MultiNodePubsubPropagateBlock(_) => true, // in progress
             _ => false,
         }
     }
@@ -144,6 +147,7 @@ impl Scenarios {
             Self::SimulationSmall(_) => SimulationSmall::DOCS,
             Self::SimulationSmallForeverRealTime(_) => SimulationSmallForeverRealTime::DOCS,
             Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
+            Self::MultiNodePubsubPropagateBlock(_) => MultiNodePubsubPropagateBlock::DOCS,
             Self::RecordReplayBootstrap(_) => RecordReplayBootstrap::DOCS,
             Self::RecordReplayBlockProduction(_) => RecordReplayBlockProduction::DOCS,
         }
@@ -179,6 +183,7 @@ impl Scenarios {
             Self::SimulationSmall(v) => v.run(runner).await,
             Self::SimulationSmallForeverRealTime(v) => v.run(runner).await,
             Self::P2pReceiveBlock(v) => v.run(runner).await,
+            Self::MultiNodePubsubPropagateBlock(v) => v.run(runner).await,
             Self::RecordReplayBootstrap(v) => v.run(runner).await,
             Self::RecordReplayBlockProduction(v) => v.run(runner).await,
         }

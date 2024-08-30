@@ -945,6 +945,9 @@ pub mod zkapp_command {
     pub struct Event(pub Vec<Fp>);
 
     impl Event {
+        pub fn empty() -> Self {
+            Self(Vec::new())
+        }
         pub fn hash(&self) -> Fp {
             hash_with_kimchi("MinaZkappEvent", &self.0[..])
         }
@@ -4178,6 +4181,12 @@ pub mod zkapp_command {
                 cache
                     .find(account_id, &vk_hash)
                     .cloned()
+                    .or_else(|| {
+                        cmd.extract_vks()
+                            .iter()
+                            .find(|(id, _)| account_id == id)
+                            .map(|(_, key)| key.clone())
+                    })
                     .ok_or_else(|| "verification key not found in cache".to_string())
             })?;
             if !is_failed {
@@ -4730,12 +4739,17 @@ impl UserCommand {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, thiserror::Error)]
 pub enum WellFormednessError {
+    #[error("Insufficient Fee")]
     InsufficientFee,
+    #[error("Zero vesting period")]
     ZeroVestingPeriod,
+    #[error("Zkapp too big: {0}")]
     ZkappTooBig(String),
+    #[error("Transaction type disabled")]
     TransactionTypeDisabled,
+    #[error("Incompatible version")]
     IncompatibleVersion,
 }
 
@@ -8393,6 +8407,16 @@ mod tests {
         mina_signer::PubKey::from_address(address)
             .unwrap()
             .into_compressed()
+    }
+
+    #[test]
+    fn test_hash_empty_event() {
+        // Same value than OCaml
+        const EXPECTED: &str =
+            "6963060754718463299978089777716994949151371320681588566338620419071140958308";
+
+        let event = zkapp_command::Event::empty();
+        assert_eq!(event.hash(), Fp::from_str(EXPECTED).unwrap());
     }
 
     /// Test using same values as here:

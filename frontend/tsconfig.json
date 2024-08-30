@@ -22,6 +22,7 @@
     "target": "es2020",
     "module": "es2022",
     "useDefineForClassFields": false,
+    "skipLibCheck": true,
     "types": [
       "node",
       "cypress",

@@ -151,7 +151,7 @@ impl TransitionFrontierSyncAction {
                 let p2p = p2p_ready!(store.state().p2p, meta.time());
                 let Some(rpc_id) = p2p
                     .get_ready_peer(peer_id)
-                    .map(|v| v.channels.rpc.next_local_rpc_id())
+                    .map(|v| v.channels.next_local_rpc_id())
                 else {
                     return;
                 };
@@ -172,7 +172,7 @@ impl TransitionFrontierSyncAction {
                 let p2p = p2p_ready!(store.state().p2p, meta.time());
                 let Some(rpc_id) = p2p
                     .get_ready_peer(peer_id)
-                    .map(|v| v.channels.rpc.next_local_rpc_id())
+                    .map(|v| v.channels.next_local_rpc_id())
                 else {
                     return;
                 };

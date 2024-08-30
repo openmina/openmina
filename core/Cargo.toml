@@ -1,6 +1,6 @@
 [package]
 name = "openmina-core"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -26,12 +26,14 @@ mina-p2p-messages = { workspace = true }
 hex = "0.4.3"
 ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
 
-[dev-dependencies]
-serde_json = { version = "1" }
-
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }
 
+[target.'cfg(target_family = "wasm")'.dependencies]
+wasm_thread = { version = "0.3", features = [ "es_modules" ] }
+
+[dev-dependencies]
+serde_json = { version = "1" }
 
 [features]
 fuzzing = ["openmina-fuzzer"]

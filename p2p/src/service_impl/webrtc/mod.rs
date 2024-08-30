@@ -189,7 +189,7 @@ async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
     #[cfg(not(target_arch = "wasm32"))]
     let timeout = tokio::time::sleep(timeout);
     #[cfg(target_arch = "wasm32")]
-    let timeout = wasm_timer::Delay::new(timeout);
+    let timeout = gloo_timers::future::TimeoutFuture::new(timeout.as_millis() as u32);
     tokio::select! {
         _ = timeout => {}
         _ = pc.wait_for_ice_gathering_complete() => {}
@@ -416,7 +416,7 @@ async fn peer_loop(
     let (internal_cmd_sender, mut internal_cmd_receiver) =
         mpsc::unbounded_channel::<PeerCmdInternal>();
 
-    loop {
+    while matches!(pc.connection_state(), RTCConnectionState::Connected) {
         let cmd = tokio::select! {
             cmd = cmd_receiver.recv() => match cmd {
                 None => return,
@@ -581,17 +581,12 @@ async fn peer_loop(
                     }
 
                     let mut len = 0;
-                    let mut buf = vec![];
+                    let mut buf = Vec::new();
                     let event_sender = event_sender.clone();
 
-                    chan.on_message(move |data| {
+                    chan.on_message(move |mut data| {
                         while !data.is_empty() {
-                            let res = match process_msg(
-                                chan_id,
-                                &mut buf,
-                                &mut len,
-                                &mut data.as_slice(),
-                            ) {
+                            let res = match process_msg(chan_id, &mut buf, &mut len, &mut data) {
                                 Ok(None) => continue,
                                 Ok(Some(msg)) => Ok(msg),
                                 Err(err) => Err(err),

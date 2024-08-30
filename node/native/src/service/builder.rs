@@ -1,5 +1,6 @@
 use node::{
-    account::AccountSecretKey, p2p::identity::SecretKey as P2pSecretKey, service::Recorder,
+    account::AccountSecretKey, core::thread, p2p::identity::SecretKey as P2pSecretKey,
+    service::Recorder,
 };
 pub use openmina_node_common::NodeServiceCommonBuildError;
 use openmina_node_common::{
@@ -24,7 +25,7 @@ impl NodeServiceBuilder {
     pub fn new(rng_seed: [u8; 32]) -> Self {
         Self {
             common: NodeServiceCommonBuilder::new(rng_seed),
-            recorder: Recorder::None,
+            recorder: Default::default(),
             http_server_port: None,
         }
     }
@@ -81,7 +82,7 @@ impl NodeServiceBuilder {
             .enable_all()
             .build()
             .unwrap();
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name("openmina_http_server".to_owned())
             .spawn(move || runtime.block_on(http_server::run(port, rpc_sender)))
             .unwrap();
@@ -89,12 +90,8 @@ impl NodeServiceBuilder {
     }
 
     pub fn build(self) -> Result<NodeService, NodeServiceBuildError> {
-        let common = self.common.build()?;
-
-        Ok(NodeService {
-            common,
-            snark_worker_sender: None,
-            recorder: self.recorder,
-        })
+        let mut service = self.common.build()?;
+        service.recorder = self.recorder;
+        Ok(service)
     }
 }

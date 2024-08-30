@@ -1687,7 +1687,28 @@ pub mod poseidon {
             Self::new_with_state([F::zero(); 3], F::get_params2())
         }
 
+        fn absorb_empty(&mut self, w: &mut Witness<F>) {
+            match self.sponge_state {
+                SpongeState::Absorbed(n) => {
+                    if n == C::SPONGE_RATE {
+                        self.poseidon_block_cipher(true, w);
+                        self.sponge_state = SpongeState::Absorbed(1);
+                    } else {
+                        self.sponge_state = SpongeState::Absorbed(n + 1);
+                    }
+                }
+                SpongeState::Squeezed(_n) => {
+                    self.sponge_state = SpongeState::Absorbed(1);
+                }
+            }
+        }
+
         pub fn absorb(&mut self, x: &[F], w: &mut Witness<F>) {
+            if x.is_empty() {
+                self.absorb_empty(w);
+                return;
+            }
+
             // Hack to know when to ignore witness
             // That should be removed once we use `cvar`
             let mut first = true;
@@ -1719,6 +1740,11 @@ pub mod poseidon {
         }
 
         pub fn absorb2(&mut self, x: &[F], w: &mut Witness<F>) {
+            if x.is_empty() {
+                self.absorb_empty(w);
+                return;
+            }
+
             // Hack to know when to ignore witness
             // That should be removed once we use `cvar`
             let mut first = true;
@@ -1754,6 +1780,11 @@ pub mod poseidon {
         }
 
         pub fn absorb3(&mut self, x: &[F], w: &mut Witness<F>) {
+            if x.is_empty() {
+                self.absorb_empty(w);
+                return;
+            }
+
             // Hack to know when to ignore witness
             // That should be removed once we use `cvar`
             let mut first = true;
@@ -3938,7 +3969,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     // NOTE: Not random in `cfg(test)`
     let mut rng = get_rng();
 
-    let now = std::time::Instant::now();
+    let now = redux::Instant::now();
     let group_map = kimchi::groupmap::GroupMap::<F::Scalar>::setup();
     let proof = kimchi::proof::ProverProof::create_recursive::<F::FqSponge, EFrSponge<F>>(
         &group_map,
@@ -4427,6 +4458,21 @@ mod tests {
         let proof_json = serde_json::to_vec(&proof).unwrap();
         let sum = sha256_sum(&proof_json);
         dbg!(sum);
+    }
+
+    #[test]
+    fn test_hash_empty_event_checked() {
+        // Same value than OCaml
+        const EXPECTED: &str =
+            "6963060754718463299978089777716994949151371320681588566338620419071140958308";
+
+        let mut w = Witness::empty();
+        let hash = transaction_snark::checked_hash("MinaZkappEvent", &[], &mut w);
+        assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
+
+        let mut w = Witness::empty();
+        let hash = transaction_snark::checked_hash3("MinaZkappEvent", &[], &mut w);
+        assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
     }
 
     /// Print requests types

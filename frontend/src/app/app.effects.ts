@@ -3,7 +3,7 @@ import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { createNonDispatchableEffect, Effect, removeParamsFromURL } from '@openmina/shared';
-import { map, switchMap, tap } from 'rxjs';
+import { filter, map, switchMap, tap } from 'rxjs';
 import { AppActions } from '@app/app.actions';
 import { Router } from '@angular/router';
 import { FeatureType, MinaNode } from '@shared/types/core/environment/mina-env.type';
@@ -23,6 +23,8 @@ export class AppEffects extends BaseEffect {
   readonly init$: Effect;
   readonly onNodeChange$: Effect;
   readonly getNodeDetails$: Effect;
+
+  private requestInProgress: boolean = false;
 
   constructor(private actions$: Actions,
               private appService: AppService,
@@ -65,7 +67,10 @@ export class AppEffects extends BaseEffect {
 
     this.getNodeDetails$ = createEffect(() => this.actions$.pipe(
       ofType(AppActions.getNodeDetails),
+      filter(() => !this.requestInProgress),
+      tap(() => this.requestInProgress = true),
       switchMap(() => this.appService.getActiveNodeDetails()),
+      tap(() => this.requestInProgress = false),
       map(details => AppActions.getNodeDetailsSuccess({ details })),
     ));
   }

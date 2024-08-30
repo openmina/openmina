@@ -74,7 +74,7 @@ pub struct P2pNetworkKadIncomingStreamError(
 );
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
-#[error("kademlia incoming stream: {0}")]
+#[error("kademlia outgoing stream: {0}")]
 pub struct P2pNetworkKadOutgoingStreamError(
     #[from] P2pNetworkStreamProtobufError<P2pNetworkKademliaRpcFromMessageError>,
 );

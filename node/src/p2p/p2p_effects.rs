@@ -1,5 +1,8 @@
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
+use p2p::channels::streaming_rpc::{
+    P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest, P2pStreamingRpcResponseFull,
+};
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use p2p::P2pInitializeAction;
 
@@ -286,6 +289,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         store.dispatch(TransitionFrontierSyncAction::BlocksPeersQuery);
                     }
                     P2pChannelsRpcAction::Timeout { peer_id, id } => {
+                        let peer = store.state().p2p.get_ready_peer(&peer_id).unwrap();
+                        let rpc_kind = peer.channels.rpc.pending_local_rpc_kind().unwrap();
                         store.dispatch(
                             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
                                 peer_id,
@@ -307,7 +312,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         });
                         store.dispatch(P2pDisconnectionAction::Init {
                             peer_id,
-                            reason: P2pDisconnectionReason::TransitionFrontierRpcTimeout,
+                            reason: P2pDisconnectionReason::TransitionFrontierRpcTimeout(rpc_kind),
                         });
                     }
                     P2pChannelsRpcAction::ResponseReceived {
@@ -539,6 +544,79 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     P2pChannelsRpcAction::RequestSend { .. } => {}
                     P2pChannelsRpcAction::ResponsePending { .. } => {}
                     P2pChannelsRpcAction::ResponseSend { .. } => {}
+                }
+            }
+            P2pChannelsAction::StreamingRpc(action) => {
+                // TODO: does the order matter here? if not this clone can be removed
+                action.clone().effects(&meta, store);
+                match action {
+                    P2pChannelsStreamingRpcAction::Ready { .. } => {
+                        store
+                            .dispatch(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
+                    }
+                    P2pChannelsStreamingRpcAction::Timeout { peer_id, id } => {
+                        let peer = store.state().p2p.get_ready_peer(&peer_id).unwrap();
+                        let rpc_kind = peer
+                            .channels
+                            .streaming_rpc
+                            .pending_local_rpc_kind()
+                            .unwrap();
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
+                                peer_id,
+                                rpc_id: id,
+                                error: PeerStagedLedgerPartsFetchError::Timeout,
+                            },
+                        );
+                        store.dispatch(P2pDisconnectionAction::Init {
+                            peer_id,
+                            reason: P2pDisconnectionReason::TransitionFrontierStreamingRpcTimeout(
+                                rpc_kind,
+                            ),
+                        });
+                    }
+                    P2pChannelsStreamingRpcAction::ResponseReceived {
+                        peer_id,
+                        id,
+                        response,
+                    } => {
+                        match response {
+                            None => {
+                                store.dispatch(
+                                    TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
+                                        peer_id,
+                                        rpc_id: id,
+                                        error: PeerStagedLedgerPartsFetchError::DataUnavailable,
+                                    },
+                                );
+                            }
+                            Some(P2pStreamingRpcResponseFull::StagedLedgerParts(parts)) => {
+                                store.dispatch(
+                                    TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess {
+                                        peer_id,
+                                        rpc_id: id,
+                                        parts,
+                                    },
+                                );
+                            }
+                        }
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit {},
+                        );
+                    }
+                    P2pChannelsStreamingRpcAction::RequestReceived {
+                        peer_id: _,
+                        id: _,
+                        request,
+                    } => {
+                        match *request {
+                            P2pStreamingRpcRequest::StagedLedgerParts(..) => {
+                                // async ledger request will be triggered
+                                // by `LedgerReadAction::FindTodos`.
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
         },

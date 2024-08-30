@@ -6,7 +6,8 @@ use crate::{P2pState, PeerId};
 use super::{
     best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-    transaction::P2pChannelsTransactionAction, ChannelMsg,
+    streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
+    ChannelMsg,
 };
 
 pub type P2pChannelsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChannelsAction>;
@@ -20,6 +21,7 @@ pub enum P2pChannelsAction {
     Snark(P2pChannelsSnarkAction),
     SnarkJobCommitment(P2pChannelsSnarkJobCommitmentAction),
     Rpc(P2pChannelsRpcAction),
+    StreamingRpc(P2pChannelsStreamingRpcAction),
 }
 
 impl P2pChannelsAction {
@@ -31,6 +33,7 @@ impl P2pChannelsAction {
             Self::Snark(v) => v.peer_id(),
             Self::SnarkJobCommitment(v) => Some(v.peer_id()),
             Self::Rpc(v) => Some(v.peer_id()),
+            Self::StreamingRpc(v) => Some(v.peer_id()),
         }
     }
 }
@@ -44,6 +47,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pChannelsAction {
             P2pChannelsAction::Snark(a) => a.is_enabled(state, time),
             P2pChannelsAction::SnarkJobCommitment(a) => a.is_enabled(state, time),
             P2pChannelsAction::Rpc(a) => a.is_enabled(state, time),
+            P2pChannelsAction::StreamingRpc(a) => a.is_enabled(state, time),
         }
     }
 }

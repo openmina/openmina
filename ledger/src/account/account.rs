@@ -1763,7 +1763,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         let hashes = pool.install(|| {
             accounts
                 .par_iter()
@@ -1778,14 +1778,14 @@ mod tests {
         );
 
         let mut hashes = Vec::with_capacity(accounts.len());
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         for account in accounts.iter() {
             hashes.push(account.hash());
         }
         assert_eq!(hashes.len(), NACCOUNTS);
         elog!("elapsed to hash accounts in 1 thread: {:?}", now.elapsed(),);
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         for account in accounts.into_iter() {
             let id = account.id();
             db.get_or_create_account(id, account).unwrap();
@@ -1793,7 +1793,7 @@ mod tests {
         assert_eq!(db.naccounts(), NACCOUNTS);
         elog!("elapsed to insert in tree: {:?}", now.elapsed());
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         db.root_hash();
         elog!("root hash computed in {:?}", now.elapsed());
     }

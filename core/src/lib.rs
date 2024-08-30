@@ -3,6 +3,7 @@ pub mod log;
 pub mod requests;
 
 pub mod channels;
+pub mod thread;
 
 pub mod constants;
 pub mod dummy;

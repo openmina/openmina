@@ -11,6 +11,7 @@ members = [
     "node/account",
     "node/common",
     "node/native",
+    "node/web",
     "node/invariants",
     "node/testing",
     "cli",
@@ -43,9 +44,9 @@ o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger
 kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
 mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
 poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
-libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "cd5425a759d959d7fde58a42f71ab059449760c5", default-features = false }
+libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
-redux = { git = "https://github.com/openmina/redux-rs.git", rev = "2d1d8db", features = ["serde"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", rev = "588dd76c", features = ["serde"] }
 serde = "1.0.190"
 serde_json = "1.0.107"
 serde_with = { version = "3.7.0", features = ["hex"] }
