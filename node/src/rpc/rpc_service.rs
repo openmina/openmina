@@ -11,7 +11,7 @@ use super::{
     RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
     RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
     RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
-    RpcTransactionInjectFailure, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcTransactionInjectResponse, RpcTransactionPoolResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
 
@@ -159,11 +159,6 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcTransactionInjectResponse,
-    ) -> Result<(), RespondError>;
-    fn respond_transaction_inject_failed(
-        &mut self,
-        rpc_id: RpcId,
-        response: RpcTransactionInjectFailure,
     ) -> Result<(), RespondError>;
     fn respond_transition_frontier_commands(
         &mut self,

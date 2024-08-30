@@ -21,12 +21,36 @@ use crate::{
                 MaybeWithStatus, WithHash,
             },
             TransactionStatus::Applied,
-            UserCommand, WithStatus,
+            UserCommand, WellFormednessError, WithStatus,
         },
     },
-    verifier::Verifier,
+    verifier::{Verifier, VerifierError},
     Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
 };
+
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionPoolErrors {
+    /// Invalid transactions, rejeceted diffs, etc...
+    #[error("Transaction pool errors: {0:?}")]
+    BatchedErrors(Vec<TransactionError>),
+    /// Errors that should panic the node (bugs in implementation)
+    #[error("Unexpected error: {0}")]
+    Unexpected(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum TransactionError {
+    #[error(transparent)]
+    Verifier(#[from] VerifierError),
+    #[error(transparent)]
+    WellFormedness(#[from] WellFormednessError),
+}
+
+impl From<String> for TransactionPoolErrors {
+    fn from(value: String) -> Self {
+        Self::Unexpected(value)
+    }
+}
 
 mod consensus {
     use crate::scan_state::currency::{BlockTimeSpan, Epoch, Length};
@@ -475,6 +499,7 @@ enum Batch {
     Of(usize),
 }
 
+#[derive(Debug)]
 pub enum CommandError {
     InvalidNonce {
         account_nonce: Nonce,
@@ -729,6 +754,7 @@ impl IndexedPool {
                 if unchecked.expected_target_nonce()
                     != first_queued.data.forget_check().applicable_at_nonce()
                 {
+                    // Ocaml panics here as well
                     panic!("indexed pool nonces inconsistent when adding from backtrack.")
                 }
 
@@ -833,8 +859,8 @@ impl IndexedPool {
             })
             .unwrap();
 
-        let keep_queue = sender_queue.split_off(cmd_index);
-        let drop_queue = sender_queue.clone();
+        let drop_queue = sender_queue.split_off(cmd_index);
+        let keep_queue = sender_queue;
         assert!(!drop_queue.is_empty());
 
         let currency_to_remove = drop_queue.iter().fold(Amount::zero(), |acc, cmd| {
@@ -963,7 +989,9 @@ impl IndexedPool {
             self.check_expiry(global_slot_since_genesis, &unchecked)?;
             let consumed = currency_consumed(&unchecked).ok_or(CommandError::Overflow)?;
             if !unchecked.fee_token().is_default() {
-                return Err(CommandError::BadToken);
+                return Err(CommandError::UnwantedFeeToken {
+                    token_id: unchecked.fee_token(),
+                });
             }
             consumed
         };
@@ -1042,8 +1070,7 @@ impl IndexedPool {
                         })
                         .unwrap();
 
-                    let _ = queued_cmds.split_off(replacement_index);
-                    let drop_queue = queued_cmds.clone();
+                    let drop_queue = queued_cmds.split_off(replacement_index);
 
                     let to_drop = drop_queue.front().unwrap().data.forget_check();
                     assert!(cmd_applicable_at_nonce <= to_drop.applicable_at_nonce());
@@ -2072,7 +2099,7 @@ impl TransactionPool {
         &self,
         diff: diff::Diff,
         accounts: &BTreeMap<AccountId, Account>,
-    ) -> Result<Vec<valid::UserCommand>, String> {
+    ) -> Result<Vec<valid::UserCommand>, TransactionPoolErrors> {
         let well_formedness_errors: HashSet<_> = diff
             .list
             .iter()
@@ -2083,9 +2110,11 @@ impl TransactionPool {
             .collect();
 
         if !well_formedness_errors.is_empty() {
-            return Err(format!(
-                "Some commands have one or more well-formedness errors: {:?}",
+            return Err(TransactionPoolErrors::BatchedErrors(
                 well_formedness_errors
+                    .into_iter()
+                    .map(TransactionError::WellFormedness)
+                    .collect_vec(),
             ));
         }
 
@@ -2132,7 +2161,7 @@ impl TransactionPool {
 
             from_unapplied_sequence::Cache::new(merged)
         })
-        .map_err(|e| format!("Invalid {:?}", e))?;
+        .map_err(TransactionPoolErrors::Unexpected)?;
 
         let diff = diff
             .into_iter()
@@ -2142,17 +2171,25 @@ impl TransactionPool {
             })
             .collect::<Vec<_>>();
 
-        Verifier
+        let (verified, invalid): (Vec<_>, Vec<_>) = Verifier
             .verify_commands(diff, None)
             .into_iter()
-            .map(|cmd| {
-                // TODO: Handle invalids
-                match cmd {
-                    crate::verifier::VerifyCommandsResult::Valid(cmd) => Ok(cmd),
-                    e => Err(format!("invalid tx: {:?}", e)),
-                }
-            })
-            .collect()
+            .partition(Result::is_ok);
+
+        let verified: Vec<_> = verified.into_iter().map(Result::unwrap).collect();
+        let invalid: Vec<_> = invalid.into_iter().map(Result::unwrap_err).collect();
+
+        if !invalid.is_empty() {
+            let transaction_pool_errors = invalid
+                .into_iter()
+                .map(TransactionError::Verifier)
+                .collect();
+            Err(TransactionPoolErrors::BatchedErrors(
+                transaction_pool_errors,
+            ))
+        } else {
+            Ok(verified)
+        }
     }
 
     fn get_rebroadcastable<F>(&mut self, has_timed_out: F) -> Vec<Vec<UserCommand>>

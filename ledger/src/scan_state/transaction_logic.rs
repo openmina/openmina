@@ -4181,6 +4181,12 @@ pub mod zkapp_command {
                 cache
                     .find(account_id, &vk_hash)
                     .cloned()
+                    .or_else(|| {
+                        cmd.extract_vks()
+                            .iter()
+                            .find(|(id, _)| account_id == id)
+                            .map(|(_, key)| key.clone())
+                    })
                     .ok_or_else(|| "verification key not found in cache".to_string())
             })?;
             if !is_failed {
@@ -4733,12 +4739,17 @@ impl UserCommand {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, thiserror::Error)]
 pub enum WellFormednessError {
+    #[error("Insufficient Fee")]
     InsufficientFee,
+    #[error("Zero vesting period")]
     ZeroVestingPeriod,
+    #[error("Zkapp too big: {0}")]
     ZkappTooBig(String),
+    #[error("Transaction type disabled")]
     TransactionTypeDisabled,
+    #[error("Incompatible version")]
     IncompatibleVersion,
 }
 

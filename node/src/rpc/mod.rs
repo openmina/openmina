@@ -354,8 +354,18 @@ pub enum RpcTransactionInjectedCommand {
     Zkapp,
 }
 
-pub type RpcTransactionInjectResponse = Vec<RpcTransactionInjectedCommand>;
-pub type RpcTransactionInjectFailure = Vec<(RpcTransactionInjectedCommand, diff::Error)>;
+pub type RpcTransactionInjectSuccess = Vec<RpcTransactionInjectedCommand>;
+pub type RpcTransactionInjectRejected = Vec<(RpcTransactionInjectedCommand, diff::Error)>;
+/// Errors
+pub type RpcTransactionInjectFailure = Vec<String>;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum RpcTransactionInjectResponse {
+    Success(RpcTransactionInjectSuccess),
+    Rejected(RpcTransactionInjectRejected),
+    Failure(RpcTransactionInjectFailure),
+}
 
 impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
     fn from(value: ValidCommandWithHash) -> Self {

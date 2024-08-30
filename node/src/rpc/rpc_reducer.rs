@@ -149,6 +149,12 @@ impl RpcState {
                 };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
             }
+            RpcAction::TransactionInjectRejected { rpc_id, .. } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+            }
             RpcAction::TransactionInjectFailure { rpc_id, .. } => {
                 let Some(rpc) = self.requests.get_mut(rpc_id) else {
                     return;
