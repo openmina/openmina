@@ -859,8 +859,8 @@ impl IndexedPool {
             })
             .unwrap();
 
-        let keep_queue = sender_queue.split_off(cmd_index);
-        let drop_queue = sender_queue.clone();
+        let drop_queue = sender_queue.split_off(cmd_index);
+        let keep_queue = sender_queue;
         assert!(!drop_queue.is_empty());
 
         let currency_to_remove = drop_queue.iter().fold(Amount::zero(), |acc, cmd| {

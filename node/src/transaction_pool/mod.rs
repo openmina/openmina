@@ -95,11 +95,6 @@ impl TransactionPoolState {
         id
     }
 
-    #[allow(dead_code)]
-    fn rebroadcast(&self, _accepted: Vec<UserCommand>, _rejected: Vec<(UserCommand, diff::Error)>) {
-        // TODO
-    }
-
     pub fn reducer(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
         // Uncoment following block to save actions to `/tmp/pool.bin`
         // {
@@ -277,7 +272,6 @@ impl TransactionPoolState {
                     is_sender_local,
                 ) {
                     Ok((ApplyDecision::Accept, accepted, rejected)) => {
-                        // substate.rebroadcast(accepted, rejected);
                         if let Some(rpc_id) = from_rpc {
                             let dispatcher = state.into_dispatcher();
 
@@ -290,7 +284,6 @@ impl TransactionPoolState {
                         }
                     }
                     Ok((ApplyDecision::Reject, accepted, rejected)) => {
-                        // substate.rebroadcast(accepted, rejected)
                         if let Some(rpc_id) = from_rpc {
                             let dispatcher = state.into_dispatcher();
 
