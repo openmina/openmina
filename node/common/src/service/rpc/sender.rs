@@ -8,6 +8,7 @@ use node::core::channels::{mpsc, oneshot};
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::rpc::*;
 
+use super::stats::Stats;
 use super::NodeRpcRequest;
 
 #[derive(Clone)]
@@ -62,6 +63,13 @@ impl RpcSender {
             .ok_or_else(|| "state machine shut down".to_owned())??;
 
         Ok(peer_id)
+    }
+}
+
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
+impl RpcSender {
+    pub fn stats(&self) -> Stats {
+        Stats::new(self.clone())
     }
 }
 

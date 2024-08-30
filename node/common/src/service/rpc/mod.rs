@@ -1,6 +1,8 @@
 mod sender;
 pub use sender::RpcSender;
 
+pub mod stats;
+
 use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
