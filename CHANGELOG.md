@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2024-08-30
+
+### Added
+
+- Webnode: Streaming ledger sync RPC.
+- P2P: Meshsub for gossip.
+- P2P: Additional tests.
+
+### Fixed
+
+- Mempool: Various transaction pool issues.
+- Poseidon hashing and witness generation when absorbing empty slices.
+
 ### Changed
 
 - **Rust Toolchain**: Updated the minimum required Rust toolchain to version 1.80.
@@ -196,7 +209,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.7.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.8.0...develop
+[0.8.0]: https://github.com/openmina/openmina/releases/tag/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/openmina/openmina/releases/tag/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/openmina/openmina/releases/tag/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/openmina/openmina/releases/tag/v0.5.0...v0.5.1
