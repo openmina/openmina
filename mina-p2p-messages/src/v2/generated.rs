@@ -2840,48 +2840,6 @@ pub struct MinaStateProtocolStateBodyValueStableV2 {
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct TransactionSnarkProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
 
-//impl Serialize for TransactionSnarkProofStableV2 {
-//    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//    where
-//        S: serde::ser::Serializer,
-//    {
-//        use base64::{engine::general_purpose::URL_SAFE, Engine as _};
-//        use binprot::BinProtWrite;
-//        let mut buf = Vec::new();
-//        self.0
-//            .binprot_write(&mut buf)
-//            .map_err(serde::ser::Error::custom)?;
-//        let base64_data = URL_SAFE.encode(&buf);
-//        serializer.serialize_str(&base64_data)
-//    }
-//}
-
-impl<'de> Deserialize<'de> for TransactionSnarkProofStableV2 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        use binprot::BinProtRead as _;
-        //use base64::{engine::general_purpose::URL_SAFE, Engine as _};
-        let _base64_data = String::deserialize(deserializer)?;
-        //println!("+++ base64 read");
-        //let binprot_data = URL_SAFE
-        //    .decode(&base64_data)
-        //    .map_err(serde::de::Error::custom)?;
-        //println!("+++ base64 decoded");
-        //let mut read = binprot_data.as_slice();
-        //println!("+++ binprot decode start");
-        //let proof: TransactionSnarkProofStableV2 =
-        //    binprot::BinProtRead::binprot_read(&mut read).map_err(serde::de::Error::custom)?;
-        //println!("+++ binprot decode done");
-        // TODO: proof is a base64-encoded sexp
-        let bytes = include_bytes!("dummy_transaction_proof.bin");
-        let dummy_proof =
-            TransactionSnarkProofStableV2::binprot_read(&mut bytes.as_slice()).unwrap();
-        Ok(dummy_proof)
-    }
-}
-
 /// **OCaml name**: `Transaction_snark.Make_str.Stable.V2`
 ///
 /// Gid: `1012`

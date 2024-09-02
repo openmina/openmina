@@ -52,7 +52,7 @@ enum FieldsSpec {
     Some(Vec<(Option<Ident>, TokenStream)>),
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 struct ActionEventAttrs {
     level: Option<Level>,
     fields: Option<FieldsSpec>,

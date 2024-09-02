@@ -1,5 +1,9 @@
 use flate2::read::GzDecoder;
-use std::{path::PathBuf, sync::Arc};
+use kimchi::verifier_index::VerifierIndex;
+use mina_curves::pasta::Vesta;
+use mina_signer::CurvePoint as Pallas;
+use poly_commitment::srs::SRS;
+use std::{path::PathBuf, process::exit, str::FromStr, sync::Arc};
 
 use binprot::macros::{BinProtRead, BinProtWrite};
 use ledger::{
@@ -12,21 +16,29 @@ use ledger::{
         diff::Diff,
         staged_ledger::{SkipVerification, StagedLedger},
     },
-    verifier::Verifier, BaseLedger as _,
+    verifier::Verifier,
+    BaseLedger as _,
 };
-use mina_p2p_messages::v2::{
-    self, BlockTimeTimeStableV1, MinaStateProtocolStateValueStableV2, ProtocolVersionStableV2,
-    StagedLedgerDiffDiffStableV2,
+use mina_p2p_messages::{
+    list::List,
+    v2::{
+        self, BlockTimeTimeStableV1, MinaStateProtocolStateValueStableV2, ProtocolVersionStableV2,
+        StagedLedgerDiffDiffStableV2,
+    },
 };
 use node::{
     account::AccountSecretKey,
     block_producer::calc_epoch_seed,
-    transition_frontier::genesis::{
-        empty_block_body, empty_block_body_hash, empty_pending_coinbase_hash, GenesisConfig,
+    p2p::channels::rpc::BestTipWithProof,
+    transition_frontier::{
+        genesis::{
+            empty_block_body, empty_block_body_hash, empty_pending_coinbase_hash, GenesisConfig,
+        },
+        sync::ledger::staged,
     },
 };
 use openmina_core::{
-    block::{genesis::genesis_and_negative_one_protocol_states, ArcBlockWithHash, BlockWithHash},
+    block::{genesis::genesis_and_negative_one_protocol_states, BlockHash, BlockWithHash},
     constants::{constraint_constants, PROTOCOL_VERSION},
     NetworkConfig,
 };
@@ -50,6 +62,11 @@ fn main() {
     // TODO: from args
     NetworkConfig::init("mainnet").unwrap();
 
+    let verifier_index = ledger::proofs::verifier_index::get_verifier_index(
+        ledger::proofs::verifier_index::VerifierKind::Blockchain,
+    );
+    let srs = ledger::verifier::get_srs::<mina_hasher::Fp>();
+
     let config = GenesisConfig::DaemonJsonFile(args.genesis_config);
     let blocks_path = args.blocks_path;
     let (masks, loaded) = config.load().unwrap();
@@ -72,6 +89,7 @@ fn main() {
     let mask = masks.first().unwrap().clone();
     //let constraint_constants = openmina_core::network::mainnet::CONSTRAINT_CONSTANTS;
     let mut staged_ledger = StagedLedger::create_exn(constraint_constants().clone(), mask).unwrap();
+    println!("++ Genesis staged ledger hash: {:?}", staged_ledger.hash());
 
     let genesis_vrf = ::vrf::genesis_vrf(loaded.staking_epoch_seed.clone()).unwrap();
     let genesis_vrf_hash = genesis_vrf.hash();
@@ -111,7 +129,10 @@ fn main() {
         .into(),
     );
 
+    let mut protocol_states = vec![negative_one, genesis];
+
     let mut prev_protocol_state = genesis_block.header().protocol_state.clone();
+    let mut pred_block: Option<v2::MinaBlockBlockStableV2> = None;
 
     for path in entries {
         if path
@@ -121,7 +142,10 @@ fn main() {
         {
             continue;
         }
-        println!("Processing {}", path.file_name().unwrap().to_string_lossy());
+        let filename = path.file_name().unwrap().to_string_lossy();
+        println!("Processing {}", filename);
+        let sections: Vec<&str> = filename.strip_suffix(".json").unwrap().split('-').collect();
+        //let block_hash = v2::StateHash::from_str(sections[2]).unwrap();
         let file = std::fs::File::open(&path).unwrap();
         let reader: Box<dyn std::io::Read> =
             if path.extension().and_then(|s| s.to_str()) == Some("gz") {
@@ -131,6 +155,35 @@ fn main() {
             };
 
         let data: Data = serde_json::from_reader(reader).unwrap();
+        continue;
+        //protocol_states.push(data.data.protocol_state.clone());
+
+        // Convert from parsed hash with ledger hash base58 byte to state hash
+        let block_hash = v2::StateHash::from_fp(
+            data.data
+                .delta_transition_chain_proof
+                .0
+                .into_inner()
+                .0
+                .into(),
+        );
+        let header = v2::MinaBlockHeaderStableV2 {
+            protocol_state: data.data.protocol_state.clone(),
+            protocol_state_proof: data.data.protocol_state_proof.0.clone(),
+            delta_block_chain_proof: (block_hash.clone(), List::new()),
+            current_protocol_version: data.data.protocol_version.clone(),
+            proposed_protocol_version_opt: data.data.proposed_protocol_version.clone(),
+        };
+        let now = std::time::Instant::now();
+        if !ledger::proofs::verification::verify_block(
+            &header,
+            &verifier_index,
+            &srs.lock().unwrap(),
+        ) {
+            println!("+++ FAILED BLOCK PROOF VERIFICATION");
+            exit(1);
+        }
+        println!("++ block proof verification time={:?}", now.elapsed());
         //continue;
 
         let global_slot = data
@@ -148,9 +201,10 @@ fn main() {
 
         let diff: Diff = (&data.data.staged_ledger_diff).into();
 
-        let result = staged_ledger
+        let mut new_staged_ledger = staged_ledger.clone();
+        let result = new_staged_ledger
             .apply(
-                Some(SkipVerification::All),
+                None,
                 constraint_constants(),
                 Slot::from_u32(global_slot.as_u32()),
                 diff,
@@ -163,7 +217,7 @@ fn main() {
             )
             //.map_err(|err| format!("{err:?}"))
             .unwrap();
-        dbg!(&result);
+        //dbg!(&result);
 
         let staged_ledger_hash = data
             .data
@@ -175,37 +229,65 @@ fn main() {
         let obtained_staged_ledger_hash =
             v2::MinaBaseStagedLedgerHashStableV1::from(&result.hash_after_applying);
         let expected_staged_ledger_hash = staged_ledger_hash.clone();
-        println!(
-            "expected staged ledger hash: {}",
-            serde_json::to_string_pretty(&expected_staged_ledger_hash).unwrap()
-        );
-        println!(
-            "obtained staged ledger hash: {}",
-            serde_json::to_string_pretty(&obtained_staged_ledger_hash).unwrap()
-        );
-        println!(
-            "pending_coinbase_hash {:?}",
-            staged_ledger_hash.pending_coinbase_hash.to_string()
-        );
+        //println!(
+        //    "expected staged ledger hash: {}",
+        //    serde_json::to_string_pretty(&expected_staged_ledger_hash).unwrap()
+        //);
+        //println!(
+        //    "obtained staged ledger hash: {}",
+        //    serde_json::to_string_pretty(&obtained_staged_ledger_hash).unwrap()
+        //);
+        //println!(
+        //    "pending_coinbase_hash {:?}",
+        //    staged_ledger_hash.pending_coinbase_hash.to_string()
+        //);
         let expected_ledger_hash = staged_ledger_hash.non_snark.ledger_hash;
         let expected_pending_coinbase_hash = staged_ledger_hash.pending_coinbase_hash;
         let expected_aux_hash = staged_ledger_hash.non_snark.aux_hash;
 
-        assert_eq!(
-            expected_staged_ledger_hash, obtained_staged_ledger_hash,
-            "staged ledger hash"
-        );
-        assert_eq!(
-            v2::LedgerHash::from_fp(result.hash_after_applying.non_snark.ledger_hash),
-            expected_ledger_hash,
-            "ledger hash"
-        );
-
-        if v2::PendingCoinbaseHash::from_fp(result.hash_after_applying.pending_coinbase_hash)
-            != expected_pending_coinbase_hash
-        {
-            println!("+++ pending coinbase hash mismatch");
+        if expected_staged_ledger_hash != obtained_staged_ledger_hash {
+            println!("Staged ledger hash mismatch");
+            println!(
+                "expected staged ledger hash: {}",
+                serde_json::to_string_pretty(&expected_staged_ledger_hash).unwrap()
+            );
+            println!(
+                "obtained staged ledger hash: {}",
+                serde_json::to_string_pretty(&obtained_staged_ledger_hash).unwrap()
+            );
+            let block = v2::MinaBlockBlockStableV2 {
+                header,
+                body: v2::StagedLedgerDiffBodyStableV1 {
+                    staged_ledger_diff: data.data.staged_ledger_diff.clone(),
+                },
+            };
+            //let pred_block = v2::MinaBlockBlockStableV2 {
+            //    header: genesis_block.header().clone(),
+            //    body: genesis_block.body().clone(),
+            //};
+            //block.clone(); //pred_block.unwrap().clone();
+            let pred_block = pred_block.unwrap().clone();
+            handle_failure(
+                &staged_ledger,
+                expected_staged_ledger_hash,
+                protocol_states,
+                block,
+                pred_block,
+            );
+            exit(1);
         }
+
+        //        assert_eq!(
+        //            v2::LedgerHash::from_fp(result.hash_after_applying.non_snark.ledger_hash),
+        //            expected_ledger_hash,
+        //            "ledger hash"
+        //        );
+        //
+        //        if v2::PendingCoinbaseHash::from_fp(result.hash_after_applying.pending_coinbase_hash)
+        //            != expected_pending_coinbase_hash
+        //        {
+        //            println!("+++ pending coinbase hash mismatch");
+        //        }
 
         //assert_eq!(
         //    v2::PendingCoinbaseHash::from_fp(result.hash_after_applying.pending_coinbase_hash),
@@ -218,7 +300,51 @@ fn main() {
         //    "aux hash"
         //);
 
-        staged_ledger.commit_and_reparent_to_root();
+        pred_block = Some(v2::MinaBlockBlockStableV2 {
+            header: v2::MinaBlockHeaderStableV2 {
+                protocol_state: data.data.protocol_state.clone(),
+                protocol_state_proof: data.data.protocol_state_proof.0.clone(),
+                delta_block_chain_proof: (block_hash, List::new()),
+                current_protocol_version: data.data.protocol_version.clone(),
+                proposed_protocol_version_opt: data.data.proposed_protocol_version.clone(),
+            },
+            body: v2::StagedLedgerDiffBodyStableV1 {
+                staged_ledger_diff: data.data.staged_ledger_diff.clone(),
+            },
+        });
+
+        if true || pred_block.as_ref().unwrap().body.completed_works_count() > 1 {
+            let best_tip_with_proof = BestTipWithProof {
+                best_tip: Arc::new(pred_block.clone().unwrap()),
+                proof: (
+                    List::one(
+                        pred_block
+                            .clone()
+                            .unwrap()
+                            .header
+                            .protocol_state
+                            .body
+                            .hash()
+                            .clone()
+                            .into(),
+                    ),
+                    Arc::new(pred_block.clone().unwrap()),
+                ),
+            };
+
+            let x = serde_json::to_string(&best_tip_with_proof).unwrap();
+            let mut file =
+                std::fs::File::create("/tmp/best_tip_with_proof.json").expect("Failed to create file");
+                use std::io::Write;
+            // Write the JSON string to the file
+            file.write_all(x.as_bytes())
+                .expect("Failed to write to file");
+
+            exit(0);
+        }
+
+        new_staged_ledger.commit_and_reparent_to_root();
+        staged_ledger = new_staged_ledger;
 
         prev_protocol_state = data.data.protocol_state;
 
@@ -228,69 +354,71 @@ fn main() {
     }
 }
 
-//fn handle_failure(
-//    staged_ledger: &StagedLedger,
-//    block: ArcBlockWithHash,
-//    pred_block: ArcBlockWithHash,
-//) {
-//    match dump_application_to_file(staged_ledger, block.clone(), pred_block) {
-//        Ok(filename) => openmina_core::info!(
-//            openmina_core::log::system_time();
-//            kind = "LedgerService::dump - Failed application",
-//            summary = format!("StagedLedger and block saved to: {filename:?}")
-//        ),
-//        Err(e) => openmina_core::error!(
-//            openmina_core::log::system_time();
-//            kind = "LedgerService::dump - Failed application",
-//            summary = format!("Failed to save block application to file: {e:?}")
-//        ),
-//    }
-//}
+fn handle_failure(
+    staged_ledger: &StagedLedger,
+    staged_ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
+    protocol_states: Vec<v2::MinaStateProtocolStateValueStableV2>,
+    block: v2::MinaBlockBlockStableV2,
+    pred_block: v2::MinaBlockBlockStableV2,
+) {
+    match dump_application_to_file(
+        staged_ledger,
+        staged_ledger_hash,
+        protocol_states,
+        block,
+        pred_block,
+    ) {
+        Ok(filename) => println!("Application context saved to: {filename:?}"),
+        Err(e) => println!("Failed to save application context to file: {e:?}"),
+    }
+}
 
+fn dump_application_to_file(
+    staged_ledger: &StagedLedger,
+    staged_ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
+    protocol_states: Vec<v2::MinaStateProtocolStateValueStableV2>,
+    block: v2::MinaBlockBlockStableV2,
+    pred_block: v2::MinaBlockBlockStableV2,
+) -> std::io::Result<String> {
+    #[derive(BinProtRead, BinProtWrite)]
+    struct ApplyContext {
+        accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+        scan_state: v2::TransactionSnarkScanStateStableV2,
+        protocol_states: Vec<v2::MinaStateProtocolStateValueStableV2>,
+        pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+        //staged_ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
+        pred_block: v2::MinaBlockBlockStableV2,
+        blocks: Vec<v2::MinaBlockBlockStableV2>,
+    }
 
-//fn dump_application_to_file(
-//    staged_ledger: &StagedLedger,
-//    block: ArcBlockWithHash,
-//    pred_block: ArcBlockWithHash,
-//) -> std::io::Result<String> {
-//    use mina_p2p_messages::binprot::{
-//        self,
-//        macros::{BinProtRead, BinProtWrite},
-//    };
-//
-//    #[derive(BinProtRead, BinProtWrite)]
-//    struct ApplyContext {
-//        accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
-//        scan_state: v2::TransactionSnarkScanStateStableV2,
-//        pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
-//        pred_block: v2::MinaBlockBlockStableV2,
-//        blocks: Vec<v2::MinaBlockBlockStableV2>,
-//    }
-//
-//    let cs = &block.block.header.protocol_state.body.consensus_state;
-//    let block_height = cs.blockchain_length.as_u32();
-//
-//    let apply_context = ApplyContext {
-//        accounts: staged_ledger
-//            .ledger()
-//            .to_list()
-//            .iter()
-//            .map(v2::MinaBaseAccountBinableArgStableV2::from)
-//            .collect::<Vec<_>>(),
-//        scan_state: staged_ledger.scan_state().into(),
-//        pending_coinbase: staged_ledger.pending_coinbase_collection().into(),
-//        pred_block: (*pred_block.block).clone(),
-//        blocks: vec![(*block.block).clone()],
-//    };
-//
-//    use mina_p2p_messages::binprot::BinProtWrite;
-//    let filename = format!("/tmp/failed_application_ctx_{}.binprot", block_height);
-//    let mut file = std::fs::File::create(&filename)?;
-//    apply_context.binprot_write(&mut file)?;
-//    file.sync_all()?;
-//
-//    Ok(filename)
-//}
+    let cs = &block.header.protocol_state.body.consensus_state;
+    let block_height = cs.blockchain_length.as_u32();
+
+    println!("++ create apply context");
+    let apply_context = ApplyContext {
+        accounts: staged_ledger
+            .ledger()
+            .to_list()
+            .iter()
+            .map(v2::MinaBaseAccountBinableArgStableV2::from)
+            .collect::<Vec<_>>(),
+        scan_state: staged_ledger.scan_state().into(),
+        protocol_states,
+        pending_coinbase: staged_ledger.pending_coinbase_collection().into(),
+        //staged_ledger_hash,
+        pred_block: pred_block.clone(),
+        blocks: vec![block.clone()],
+    };
+
+    println!("++ dump");
+    use mina_p2p_messages::binprot::BinProtWrite;
+    let filename = format!("/tmp/failed_apply_ctx.binprot"); //, block_height);
+    let mut file = std::fs::File::create(&filename)?;
+    apply_context.binprot_write(&mut file)?;
+    file.sync_all()?;
+
+    Ok(filename)
+}
 
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
 pub struct Proof(pub v2::MinaBaseProofStableV2);
@@ -328,23 +456,6 @@ impl<'de> Deserialize<'de> for Proof {
     }
 }
 
-/*
-
-  type t =
-    { scheduled_time : Block_time.t
-    ; protocol_state : Protocol_state.value
-    ; protocol_state_proof : Proof.t
-    ; staged_ledger_diff : Staged_ledger_diff.t
-    ; delta_transition_chain_proof :
-        Frozen_ledger_hash.t * Frozen_ledger_hash.t list
-    ; protocol_version : Protocol_version.t
-    ; proposed_protocol_version : Protocol_version.t option [@default None]
-    ; accounts_accessed : (int * Account.t) list
-    ; accounts_created : (Account_id.t * Currency.Fee.t) list
-    ; tokens_used : (Token_id.t * Account_id.t option) list
-    }
-*/
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 
 pub struct PrecomputedBlock {
@@ -352,13 +463,18 @@ pub struct PrecomputedBlock {
     pub protocol_state: MinaStateProtocolStateValueStableV2,
     pub protocol_state_proof: Proof,
     pub staged_ledger_diff: StagedLedgerDiffDiffStableV2,
-    //pub delta_transition_chain_proof: (StateHashV1, List<StateBodyHashV1>),
-    //pub protocol_version: ProtocolVersionStableV2,
+    // FIXME: for some reason in OCaml the base58check conversion for the JSON value
+    // uses version byte = 0x05 (ledger hash) instead of 0x10 (StateHash) and 0x11 (StateBodyHash)
+    pub delta_transition_chain_proof: (
+        v2::LedgerHash,       // StateHash
+        List<v2::LedgerHash>, // StateBodyHash
+    ),
+    pub protocol_version: ProtocolVersionStableV2,
     #[serde(default)]
     pub proposed_protocol_version: Option<ProtocolVersionStableV2>,
-    //accounts_accessed: (),
-    //accounts_created: (),
-    //tokens_used: (),
+    //accounts_accessed: (), // (int * Account.t) list
+    //accounts_created: (), // (Account_id.t * Currency.Fee.t) list
+    //tokens_used: (), // (Token_id.t * Account_id.t option) list
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
