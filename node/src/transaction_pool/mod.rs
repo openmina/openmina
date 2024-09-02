@@ -95,17 +95,20 @@ impl TransactionPoolState {
         id
     }
 
+    #[allow(dead_code)]
+    fn save_actions(state: &mut crate::Substate<Self>) {
+        let substate = state.get_substate_mut().unwrap();
+        if substate.file.is_none() {
+            let mut file = std::fs::File::create("/tmp/pool.bin").unwrap();
+            postcard::to_io(&state.get_state(), &mut file).unwrap();
+            let substate = state.get_substate_mut().unwrap();
+            substate.file = Some(file);
+        }
+    }
+
     pub fn reducer(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
-        // Uncoment following block to save actions to `/tmp/pool.bin`
-        // {
-        //     let substate = state.get_substate_mut().unwrap();
-        //     if substate.file.is_none() {
-        //         let mut file = std::fs::File::create("/tmp/pool.bin").unwrap();
-        //         postcard::to_io(&state.get_state(), &mut file).unwrap();
-        //         let substate = state.get_substate_mut().unwrap();
-        //         substate.file = Some(file);
-        //     }
-        // }
+        // Uncoment following line to save actions to `/tmp/pool.bin`
+        // Self::save_actions(&mut state);
 
         let substate = state.get_substate_mut().unwrap();
         if let Some(file) = substate.file.as_mut() {
@@ -182,11 +185,9 @@ impl TransactionPoolState {
                             from_rpc: *from_rpc,
                         });
                     }
-                    Err(e) => match e {
-                        TransactionPoolErrors::BatchedErrors(errors) => {
+                    Err(e) => {
+                        let dispatch_errors = |errors: Vec<String>| {
                             let dispatcher = state.into_dispatcher();
-                            let errors: Vec<_> =
-                                errors.into_iter().map(|e| e.to_string()).collect();
                             dispatcher.push(TransactionPoolAction::VerifyError {
                                 errors: errors.clone(),
                             });
@@ -196,11 +197,19 @@ impl TransactionPoolState {
                                     errors,
                                 })
                             }
+                        };
+                        match e {
+                            TransactionPoolErrors::BatchedErrors(errors) => {
+                                let errors: Vec<_> =
+                                    errors.into_iter().map(|e| e.to_string()).collect();
+                                dispatch_errors(errors);
+                            }
+                            TransactionPoolErrors::LoadingVK(error) => dispatch_errors(vec![error]),
+                            TransactionPoolErrors::Unexpected(es) => {
+                                panic!("{es}")
+                            }
                         }
-                        TransactionPoolErrors::Unexpected(es) => {
-                            panic!("{es}")
-                        }
-                    },
+                    }
                 }
             }
             TransactionPoolAction::VerifyError { .. } => {

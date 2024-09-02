@@ -33,6 +33,8 @@ pub enum TransactionPoolErrors {
     /// Invalid transactions, rejeceted diffs, etc...
     #[error("Transaction pool errors: {0:?}")]
     BatchedErrors(Vec<TransactionError>),
+    #[error("{0:?}")]
+    LoadingVK(String),
     /// Errors that should panic the node (bugs in implementation)
     #[error("Unexpected error: {0}")]
     Unexpected(String),
@@ -996,7 +998,7 @@ impl IndexedPool {
             consumed
         };
 
-        match by_sender.state.as_mut() {
+        match by_sender.state.clone() {
             None => {
                 if current_nonce != cmd_applicable_at_nonce {
                     return Err(CommandError::InvalidNonce {
@@ -1020,7 +1022,7 @@ impl IndexedPool {
 
                 Ok((cmd.clone(), Self::make_queue()))
             }
-            Some((queued_cmds, reserved_currency)) => {
+            Some((mut queued_cmds, reserved_currency)) => {
                 assert!(!queued_cmds.is_empty());
                 let queue_applicable_at_nonce = {
                     let first = queued_cmds.front().unwrap();
@@ -1031,14 +1033,14 @@ impl IndexedPool {
                     last.data.forget_check().expected_target_nonce()
                 };
                 if queue_target_nonce == cmd_applicable_at_nonce {
-                    *reserved_currency = consumed
-                        .checked_add(reserved_currency)
+                    let reserved_currency = consumed
+                        .checked_add(&reserved_currency)
                         .ok_or(CommandError::Overflow)?;
 
-                    if *reserved_currency > balance.to_amount() {
+                    if reserved_currency > balance.to_amount() {
                         return Err(CommandError::InsufficientFunds {
                             balance,
-                            consumed: *reserved_currency,
+                            consumed: reserved_currency,
                         });
                     }
 
@@ -1049,6 +1051,8 @@ impl IndexedPool {
                         fee_per_wu,
                         add_to_applicable_by_fee: false,
                     });
+
+                    by_sender.state = Some((queued_cmds, reserved_currency));
 
                     Ok((cmd.clone(), Self::make_queue()))
                 } else if queue_applicable_at_nonce == current_nonce {
@@ -2161,7 +2165,7 @@ impl TransactionPool {
 
             from_unapplied_sequence::Cache::new(merged)
         })
-        .map_err(TransactionPoolErrors::Unexpected)?;
+        .map_err(TransactionPoolErrors::LoadingVK)?;
 
         let diff = diff
             .into_iter()
