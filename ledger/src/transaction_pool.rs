@@ -33,6 +33,8 @@ pub enum TransactionPoolErrors {
     /// Invalid transactions, rejeceted diffs, etc...
     #[error("Transaction pool errors: {0:?}")]
     BatchedErrors(Vec<TransactionError>),
+    #[error("{0:?}")]
+    LoadingVK(String),
     /// Errors that should panic the node (bugs in implementation)
     #[error("Unexpected error: {0}")]
     Unexpected(String),
@@ -2163,7 +2165,7 @@ impl TransactionPool {
 
             from_unapplied_sequence::Cache::new(merged)
         })
-        .map_err(TransactionPoolErrors::Unexpected)?;
+        .map_err(TransactionPoolErrors::LoadingVK)?;
 
         let diff = diff
             .into_iter()

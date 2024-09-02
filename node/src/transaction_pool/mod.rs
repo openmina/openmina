@@ -182,11 +182,9 @@ impl TransactionPoolState {
                             from_rpc: *from_rpc,
                         });
                     }
-                    Err(e) => match e {
-                        TransactionPoolErrors::BatchedErrors(errors) => {
+                    Err(e) => {
+                        let dispatch_errors = |errors: Vec<String>| {
                             let dispatcher = state.into_dispatcher();
-                            let errors: Vec<_> =
-                                errors.into_iter().map(|e| e.to_string()).collect();
                             dispatcher.push(TransactionPoolAction::VerifyError {
                                 errors: errors.clone(),
                             });
@@ -196,11 +194,19 @@ impl TransactionPoolState {
                                     errors,
                                 })
                             }
+                        };
+                        match e {
+                            TransactionPoolErrors::BatchedErrors(errors) => {
+                                let errors: Vec<_> =
+                                    errors.into_iter().map(|e| e.to_string()).collect();
+                                dispatch_errors(errors);
+                            }
+                            TransactionPoolErrors::LoadingVK(error) => dispatch_errors(vec![error]),
+                            TransactionPoolErrors::Unexpected(es) => {
+                                panic!("{es}")
+                            }
                         }
-                        TransactionPoolErrors::Unexpected(es) => {
-                            panic!("{es}")
-                        }
-                    },
+                    }
                 }
             }
             TransactionPoolAction::VerifyError { .. } => {
