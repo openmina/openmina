@@ -1994,6 +1994,9 @@ impl StagedLedger {
 
 #[cfg(test)]
 mod tests_ocaml {
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     use std::{
         collections::{BTreeSet, HashMap},
         panic::AssertUnwindSafe,
@@ -5845,6 +5848,9 @@ mod tests_ocaml {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     use std::{collections::BTreeMap, fs::File};
 
     use mina_hasher::Fp;
