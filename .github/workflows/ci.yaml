@@ -43,6 +43,42 @@ jobs:
           cd ledger
           cargo test --release -- -Z unstable-options --report-time
 
+  ledger-wasm-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        driver:
+          ## FIXME: Activate chrome, but now it timeouts when tests run more than 10 minutes
+          ## Timeout example: https://github.com/openmina/ledger/actions/runs/5245920744/jobs/9474043794
+          # - --chrome
+          - --firefox
+          # - --node -- --features in_nodejs -Z build-std=std,panic_abort
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--max-memory=4294967296"
+      RUST_LOG: wasm_bindgen_test_runner
+      RUST_BACKTRACE: full
+      CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS: true
+      CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS: true
+      CARGO_PROFILE_RELEASE_DEBUG: true
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+          components: rust-src
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - run: |
+          cd ledger
+          wasm-pack test --release ${{ matrix.driver }} --headless -- -Z build-std=std,panic_abort
+
   p2p-tests:
     runs-on: ubuntu-20.04
     steps:
