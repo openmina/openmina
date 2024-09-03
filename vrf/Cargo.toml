@@ -18,9 +18,9 @@ mina-curves = { workspace = true }
 o1-utils = { workspace = true }
 ledger = { workspace = true }
 openmina-node-account = { workspace = true }
-ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
-ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
-ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm" ] }
+ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-ec = { version = "0.3.0", features = [ "std" ] }
+ark-serialize = { version = "0.3.0", features = [ "std" ] }
 num = "0.4"
 itertools = "0.12"
 sha2 = "0.10"

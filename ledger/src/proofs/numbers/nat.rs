@@ -42,7 +42,7 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
     }
 
     /// >=
-    /// greater than or equal
+    /// > greater than or equal
     fn gte(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
         let (x, y) = (self.to_field(), other.to_field());
 

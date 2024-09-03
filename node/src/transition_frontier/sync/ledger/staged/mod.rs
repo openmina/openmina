@@ -1,4 +1,6 @@
 mod transition_frontier_sync_ledger_staged_state;
+use ark_ff::fields::arithmetic::InvalidBigInt;
+use mina_hasher::Fp;
 pub use transition_frontier_sync_ledger_staged_state::*;
 
 mod transition_frontier_sync_ledger_staged_actions;
@@ -11,7 +13,10 @@ pub use transition_frontier_sync_ledger_staged_service::*;
 
 use std::sync::Arc;
 
-use ledger::{scan_state::scan_state::ScanState, staged_ledger::hash::StagedLedgerHash};
+use ledger::{
+    scan_state::{pending_coinbase::PendingCoinbase, scan_state::ScanState},
+    staged_ledger::hash::StagedLedgerHash,
+};
 use mina_p2p_messages::v2::MinaBaseStagedLedgerHashStableV1;
 use serde::{Deserialize, Serialize};
 
@@ -33,18 +38,28 @@ pub enum StagedLedgerAuxAndPendingCoinbasesValidated {
     Invalid(Arc<StagedLedgerAuxAndPendingCoinbases>),
 }
 
+fn conv(
+    parts: &StagedLedgerAuxAndPendingCoinbases,
+) -> Result<(ScanState, PendingCoinbase, Fp), InvalidBigInt> {
+    let scan_state: ScanState = (&parts.scan_state).try_into()?;
+    let pending_coinbase: PendingCoinbase = (&parts.pending_coinbase).try_into()?;
+    let staged_ledger_hash: Fp = parts.staged_ledger_hash.to_field()?;
+    Ok((scan_state, pending_coinbase, staged_ledger_hash))
+}
+
 impl StagedLedgerAuxAndPendingCoinbasesValidated {
     pub fn validate(
         parts: &Arc<StagedLedgerAuxAndPendingCoinbases>,
         expected_hash: &MinaBaseStagedLedgerHashStableV1,
     ) -> Self {
         // TODO(binier): PERF extra conversions and not caching hashes.
-        let scan_state: ScanState = (&parts.scan_state).into();
-        let mut pending_coinbase = (&parts.pending_coinbase).into();
+        let Ok((scan_state, mut pending_coinbase, staged_ledger_hash)) = conv(parts) else {
+            return Self::Invalid(parts.clone());
+        };
 
         let calculated_hash = StagedLedgerHash::of_aux_ledger_and_coinbase_hash(
             scan_state.hash(),
-            parts.staged_ledger_hash.to_field(),
+            staged_ledger_hash,
             &mut pending_coinbase,
         );
         let calculated_hash = (&calculated_hash).into();

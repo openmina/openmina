@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc, str::FromStr, sync::Arc};
 
 use ark_ec::{short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve};
-use ark_ff::{BigInteger256, Field, PrimeField};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field, PrimeField};
 use kimchi::{
     circuits::{gate::CircuitGate, wires::COLUMNS},
     proof::RecursionChallenge,
@@ -10,15 +10,14 @@ use kimchi::{
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
-    self, ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
-    ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+    self, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, CurrencyAmountStableV1,
     MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
-    MinaNumbersGlobalSlotSinceHardForkMStableV1, MinaStateBlockchainStateValueStableV2,
+    MinaNumbersGlobalSlotSinceHardForkMStableV1,
     MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
-    MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
+    MinaStateBlockchainStateValueStableV2SignedAmount,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1, SgnStableV1, SignedAmount,
     TokenFeeExcess, UnsignedExtendedUInt32StableV1,
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
@@ -84,7 +83,7 @@ impl Iterator for FieldBitsIterator {
     }
 }
 
-fn bigint_to_bits<const NBITS: usize>(bigint: BigInteger256) -> [bool; NBITS] {
+pub fn bigint_to_bits<const NBITS: usize>(bigint: BigInteger256) -> [bool; NBITS] {
     let mut bits = FieldBitsIterator { index: 0, bigint }.take(NBITS);
     std::array::from_fn(|_| bits.next().unwrap())
 }
@@ -502,7 +501,10 @@ impl<'de> serde::Deserialize<'de> for PlonkVerificationKeyEvals<Fp> {
     where
         D: serde::Deserializer<'de>,
     {
-        v2::MinaBaseVerificationKeyWireStableV1WrapIndex::deserialize(deserializer).map(Self::from)
+        match v2::MinaBaseVerificationKeyWireStableV1WrapIndex::deserialize(deserializer) {
+            Ok(value) => value.try_into().map_err(serde::de::Error::custom),
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -706,8 +708,12 @@ impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
             inputs.append(&y);
         };
 
-        sigma.iter().for_each(&mut to_input);
-        coefficients.iter().for_each(&mut to_input);
+        for s in sigma.iter() {
+            to_input(s);
+        }
+        for c in coefficients.iter() {
+            to_input(c);
+        }
         to_input(generic);
         to_input(psm);
         to_input(complete_add);
@@ -1057,8 +1063,29 @@ impl<F: FieldWitness> Check<F>
     }
 }
 
-impl<F: FieldWitness> Check<F> for ConsensusGlobalSlotStableV1 {
+impl<F: FieldWitness> Check<F>
+    for crate::scan_state::transaction_logic::protocol_state::EpochData<Fp>
+{
     fn check(&self, w: &mut Witness<F>) {
+        let Self {
+            ledger:
+                crate::scan_state::transaction_logic::protocol_state::EpochLedger {
+                    hash: _,
+                    total_currency,
+                },
+            seed: _,
+            start_checkpoint: _,
+            lock_checkpoint: _,
+            epoch_length,
+        } = self;
+
+        total_currency.check(w);
+        epoch_length.check(w);
+    }
+}
+
+impl Check<Fp> for crate::proofs::block::consensus::GlobalSlot {
+    fn check(&self, w: &mut Witness<Fp>) {
         let Self {
             slot_number,
             slots_per_epoch,
@@ -1069,13 +1096,13 @@ impl<F: FieldWitness> Check<F> for ConsensusGlobalSlotStableV1 {
     }
 }
 
-impl<F: FieldWitness> Check<F> for MinaStateBlockchainStateValueStableV2 {
+impl<F: FieldWitness> Check<F> for super::block::BlockchainState {
     fn check(&self, w: &mut Witness<F>) {
         let Self {
             staged_ledger_hash: _,
             genesis_ledger_hash: _,
             ledger_proof_statement:
-                MinaStateBlockchainStateValueStableV2LedgerProofStatement {
+                Statement {
                     source,
                     target,
                     connecting_ledger_left: _,
@@ -1096,13 +1123,13 @@ impl<F: FieldWitness> Check<F> for MinaStateBlockchainStateValueStableV2 {
     }
 }
 
-impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
-    fn check(&self, w: &mut Witness<F>) {
-        let MinaStateProtocolStateBodyValueStableV2 {
+impl Check<Fp> for super::block::ProtocolStateBody {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Self {
             genesis_state_hash: _,
             blockchain_state,
             consensus_state:
-                ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+                super::block::consensus::ConsensusState {
                     blockchain_length,
                     epoch_count,
                     min_window_density,
@@ -1579,7 +1606,7 @@ pub mod legacy_input {
                     field[limb_index] |= (*bit as u64) << bit_index;
                 }
 
-                F::from(BigInteger256::new(field))
+                F::try_from(BigInteger256::new(field)).unwrap() // Never fail
             }));
             self.fields
         }
@@ -2242,6 +2269,7 @@ pub mod transaction_snark {
         checked_equal_compressed_key, checked_equal_compressed_key_const_and,
         checked_verify_merkle_path,
         proofs::{
+            block::ProtocolStateBody,
             numbers::{
                 currency::{
                     CheckedAmount, CheckedBalance, CheckedCurrency, CheckedFee, CheckedSigned,
@@ -2813,18 +2841,21 @@ pub mod transaction_snark {
         shifted: &InnerCurve<Fp>,
         _fee_payment_root: Fp,
         global_slot: currency::Slot,
-        pending_coinbase_init: &v2::MinaBasePendingCoinbaseStackVersionedStableV1,
+        pending_coinbase_init: &pending_coinbase::Stack,
         pending_coinbase_stack_before: &pending_coinbase::Stack,
         pending_coinbase_after: &pending_coinbase::Stack,
-        state_body: &MinaStateProtocolStateBodyValueStableV2,
+        state_body: &ProtocolStateBody,
         tx: &TransactionUnion,
         sparse_ledger: &SparseLedger,
         w: &mut Witness<Fp>,
-    ) -> (
-        Fp,
-        CheckedSigned<Fp, CheckedAmount<Fp>>,
-        CheckedSigned<Fp, CheckedAmount<Fp>>,
-    ) {
+    ) -> Result<
+        (
+            Fp,
+            CheckedSigned<Fp, CheckedAmount<Fp>>,
+            CheckedSigned<Fp, CheckedAmount<Fp>>,
+        ),
+        InvalidBigInt,
+    > {
         let TransactionUnion {
             payload,
             signer,
@@ -2888,8 +2919,6 @@ pub mod transaction_snark {
         current_global_slot.lte(&payload.common.valid_until.to_checked(), w);
 
         let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
-
-        let pending_coinbase_init: pending_coinbase::Stack = pending_coinbase_init.into();
 
         let pending_coinbase_stack_with_state =
             pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
@@ -3587,7 +3616,7 @@ pub mod transaction_snark {
             Boolean::False => root_after_source_update,
         });
 
-        (final_root, fee_excess, supply_increase)
+        Ok((final_root, fee_excess, supply_increase))
     }
 
     pub fn assert_equal_local_state<F: FieldWitness>(
@@ -3606,33 +3635,34 @@ pub mod transaction_snark {
         statement_with_sok: &Statement<SokDigest>,
         tx_witness: &v2::TransactionWitnessStableV2,
         w: &mut Witness<Fp>,
-    ) {
+    ) -> Result<(), InvalidBigInt> {
         let tx: crate::scan_state::transaction_logic::Transaction =
-            (&tx_witness.transaction).into();
+            (&tx_witness.transaction).try_into()?;
         let tx = transaction_union_payload::TransactionUnion::of_transaction(&tx);
 
         dummy_constraints(w);
         let shifted = create_shifted_inner_curve(w);
 
         let tx = w.exists(&tx);
-        let pending_coinbase_init = w.exists(&tx_witness.init_stack);
-        let state_body = w.exists(&tx_witness.protocol_state_body);
-        let global_slot = w.exists(&tx_witness.block_global_slot);
+        let pending_coinbase_init: pending_coinbase::Stack =
+            w.exists((&tx_witness.init_stack).try_into()?);
+        let state_body: ProtocolStateBody = w.exists((&tx_witness.protocol_state_body).try_into()?);
+        let global_slot: currency::Slot = w.exists((&tx_witness.block_global_slot).into());
 
-        let sparse_ledger: SparseLedger = (&tx_witness.first_pass_ledger).into();
+        let sparse_ledger: SparseLedger = (&tx_witness.first_pass_ledger).try_into()?;
 
         let (_fee_payment_root_after, fee_excess, _supply_increase) = apply_tagged_transaction(
             &shifted,
             statement_with_sok.source.first_pass_ledger,
             currency::Slot::from_u32(global_slot.as_u32()),
-            pending_coinbase_init,
+            &pending_coinbase_init,
             &statement_with_sok.source.pending_coinbase_stack,
             &statement_with_sok.target.pending_coinbase_stack,
-            state_body,
+            &state_body,
             tx,
             &sparse_ledger,
             w,
-        );
+        )?;
 
         let _fee_excess = {
             let fee_excess_zero = {
@@ -3674,6 +3704,8 @@ pub mod transaction_snark {
             w.exists_no_check(fee_excess_l.to_checked::<Fp>().force_value());
             w.exists_no_check(fee_excess_r.to_checked::<Fp>().force_value());
         }
+
+        Ok(())
     }
 }
 
@@ -3689,7 +3721,7 @@ pub fn messages_for_next_wrap_proof_padding() -> Fp {
             old_bulletproof_challenges: vec![], // Filled with padding, in `hash()` below
         };
         let hash: [u64; 4] = msg.hash();
-        Fp::from(BigInteger256(hash))
+        Fp::try_from(BigInteger256(hash)).unwrap() // Never fail
     })
 }
 
@@ -3927,6 +3959,8 @@ pub enum ProofError {
     #[from]
     ProvingError(kimchi::error::ProverError),
     ConstraintsNotSatisfied(String),
+    #[from]
+    InvalidBigint(InvalidBigInt),
     /// We still return an error when `only_verify_constraints` is true and
     /// constraints are verified, to short-circuit easily
     ConstraintsOk,
@@ -4025,15 +4059,15 @@ pub(super) fn generate_tx_proof(
         ocaml_wrap_witness,
     } = params;
 
-    let statement: Statement<()> = statement.into();
+    let statement: Statement<()> = statement.try_into()?;
     let sok_digest = message.digest();
     let statement_with_sok = statement.with_digest(sok_digest);
 
     let dlog_plonk_index =
-        { PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap()) };
+        PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap());
 
     let statement_with_sok = Rc::new(w.exists(statement_with_sok));
-    transaction_snark::main(&statement_with_sok, tx_witness, w);
+    transaction_snark::main(&statement_with_sok, tx_witness, w)?;
 
     let StepProof {
         statement: step_statement,
@@ -4291,7 +4325,7 @@ mod tests {
             panic!()
         };
 
-        let prover: CompressedPubKey = (&prover).into();
+        let prover: CompressedPubKey = (&prover).try_into().unwrap();
         let fee = crate::scan_state::currency::Fee::from_u64(a.fee.as_u64());
 
         let message = SokMessage { fee, prover };
@@ -4326,7 +4360,7 @@ mod tests {
 
         let (statement, p1, p2) = *merge;
 
-        let prover: CompressedPubKey = (&prover).into();
+        let prover: CompressedPubKey = (&prover).try_into().unwrap();
         let fee = crate::scan_state::currency::Fee::from_u64(a.fee.as_u64());
 
         let message = SokMessage { fee, prover };
@@ -4573,7 +4607,7 @@ mod tests {
 
         let WrapProof { proof, .. } = generate_merge_proof(
             MergeParams {
-                statement: (&*statement).into(),
+                statement: (&*statement).try_into().unwrap(),
                 proofs: &proofs,
                 message: &message,
                 step_prover: merge_step_prover,
@@ -4869,7 +4903,7 @@ mod tests {
 
             let WrapProof { proof, .. } = generate_merge_proof(
                 MergeParams {
-                    statement: (&*statement).into(),
+                    statement: (&*statement).try_into().unwrap(),
                     proofs: &proofs,
                     message: &message,
                     step_prover: merge_step_prover,

@@ -425,7 +425,7 @@ impl BlockProducerEnabled {
                         if let Some(first_block) = iter.next() {
                             let first_hash = first_block.hash().clone();
                             let body_hashes = iter
-                                .map(|b| b.header().protocol_state.body.hash())
+                                .filter_map(|b| b.header().protocol_state.body.try_hash().ok()) // TODO: Handle error ?
                                 .map(StateBodyHash::from)
                                 .collect();
                             (first_hash, body_hashes)
@@ -446,7 +446,10 @@ impl BlockProducerEnabled {
                         staged_ledger_diff: diff.clone(),
                     },
                 };
-                let block_hash = block.protocol_state.hash();
+                let Ok(block_hash) = block.protocol_state.try_hash() else {
+                    openmina_core::log::inner::error!("Invalid protocol state");
+                    return;
+                };
 
                 self.current = BlockProducerCurrentState::BlockUnprovenBuilt {
                     time: meta.time(),

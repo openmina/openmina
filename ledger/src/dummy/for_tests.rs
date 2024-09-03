@@ -40,7 +40,7 @@ pub fn list_of_cmds() -> Vec<valid::UserCommand> {
     let cmds: Vec<MinaBaseUserCommandStableV2> =
         Vec::<MinaBaseUserCommandStableV2>::binprot_read(&mut cursor).unwrap();
 
-    cmds.iter().map(|cmd| cmd.into()).collect()
+    cmds.iter().map(|cmd| cmd.try_into().unwrap()).collect()
 }
 
 /// Core.Printf.eprintf

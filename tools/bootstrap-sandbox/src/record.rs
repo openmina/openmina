@@ -6,9 +6,9 @@ use std::{
 };
 
 use binprot::{BinProtRead, BinProtWrite};
-use ledger::proofs::public_input::protocol_state::MinaHash;
 use libp2p::Swarm;
 use mina_p2p_messages::{
+    hash::MinaHash,
     list::List,
     rpc::{
         GetAncestryV2, GetBestTipV2, GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
@@ -55,7 +55,9 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
         .body
         .consensus_state
         .clone();
-    let hash = MinaHash::hash(&best_tip.data.header.protocol_state).into();
+    let hash = MinaHash::try_hash(&best_tip.data.header.protocol_state)
+        .unwrap()
+        .into();
     let q = WithHashV1 { data: q, hash };
     let ancestry = client.rpc::<GetAncestryV2>(q).await.unwrap().unwrap();
 
@@ -182,7 +184,7 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
         .staged_ledger_hash
         .clone();
 
-    let snarked_block_hash = MinaHash::hash(&snarked_protocol_state);
+    let snarked_block_hash = MinaHash::try_hash(&snarked_protocol_state).unwrap();
     let snarked_block_hash =
         v2::StateHash::from(v2::DataHashLibStateHashStableV1(snarked_block_hash.into()));
     log::info!("downloading staged_ledger_aux and pending_coinbases at {snarked_block_hash}");

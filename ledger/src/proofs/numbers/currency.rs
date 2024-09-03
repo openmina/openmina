@@ -343,7 +343,7 @@ pub trait CheckedCurrency<F: FieldWitness>:
     }
 
     /// >=
-    /// greater than or equal
+    /// > greater than or equal
     fn gte(&self, y: &Self, w: &mut Witness<F>) -> Boolean {
         y.lte(self, w)
     }

@@ -528,7 +528,7 @@ impl CoinbaseStackData {
     pub fn empty() -> Self {
         // In OCaml: https://github.com/MinaProtocol/mina/blob/68b49fdaafabed0f2cd400c4c69f91e81db681e7/src/lib/mina_base/pending_coinbase.ml#L186
         // let empty = Random_oracle.salt "CoinbaseStack" |> Random_oracle.digest
-        let empty = hash_noinputs("CoinbaseStack");
+        let empty = super::hashing::hash_noinputs("CoinbaseStack");
         MinaBasePendingCoinbaseCoinbaseStackStableV1(empty.into()).into()
     }
 }
@@ -564,6 +564,18 @@ impl MinaBaseStagedLedgerHashNonSnarkStableV1 {
             aux_hash: StagedLedgerHashAuxHash::zero(),
             pending_coinbase_aux: StagedLedgerHashPendingCoinbaseAux::zero(),
         }
+    }
+}
+
+impl From<mina_hasher::Fp> for LedgerHash {
+    fn from(value: mina_hasher::Fp) -> Self {
+        MinaBaseLedgerHash0StableV1(value.into()).into()
+    }
+}
+
+impl From<&mina_hasher::Fp> for LedgerHash {
+    fn from(value: &mina_hasher::Fp) -> Self {
+        MinaBaseLedgerHash0StableV1(value.into()).into()
     }
 }
 

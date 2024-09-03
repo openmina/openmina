@@ -388,7 +388,7 @@ pub mod common {
 
         let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
         let hash = hash_with_kimchi(signature_prefix, &[**msg, *x, *y, *rx]);
-        let hash: Fq = Fq::from(hash.into_repr());
+        let hash: Fq = Fq::try_from(hash.into_repr()).unwrap(); // Never fail, `Fq` is larger than `Fp`
 
         let sv: CurvePoint = CurvePoint::prime_subgroup_generator().mul(*s).into_affine();
         // Perform addition and infinity check in projective coordinates for performance

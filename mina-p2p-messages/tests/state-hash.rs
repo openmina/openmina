@@ -1,4 +1,3 @@
-#[cfg(feature = "hashing")]
 mod utils;
 
 // TODO: v1 got removed, what should replace this?

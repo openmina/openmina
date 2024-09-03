@@ -520,7 +520,12 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         fee: CurrencyFeeStableV1,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         let pub_key = AccountPublicKey::from(public_key);
-        let sok_message = SokMessage::create((&fee).into(), pub_key.into());
+        let sok_message = SokMessage::create(
+            (&fee).into(),
+            pub_key.try_into().map_err(|e| {
+                node::external_snark_worker::ExternalSnarkWorkerError::Error(format!("{:?}", e))
+            })?,
+        );
         self.set_snarker_sok_digest((&sok_message.digest()).into());
         let _ = self
             .real

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
 use mina_hasher::{create_kimchi, Fp};
@@ -256,7 +257,7 @@ pub mod valid {
 
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     #[serde(into = "MinaBaseUserCommandStableV2")]
-    #[serde(from = "MinaBaseUserCommandStableV2")]
+    #[serde(try_from = "MinaBaseUserCommandStableV2")]
     pub enum UserCommand {
         SignedCommand(Box<SignedCommand>),
         ZkAppCommand(Box<super::zkapp_command::valid::ZkAppCommand>),
@@ -806,7 +807,7 @@ pub mod signed_command {
 
     #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
     #[serde(into = "MinaBaseSignedCommandStableV2")]
-    #[serde(from = "MinaBaseSignedCommandStableV2")]
+    #[serde(try_from = "MinaBaseSignedCommandStableV2")]
     pub struct SignedCommand {
         pub payload: SignedCommandPayload,
         pub signer: CompressedPubKey, // TODO: This should be a `mina_signer::PubKey`
@@ -1302,7 +1303,7 @@ pub mod zkapp_command {
                     let default = default_fn();
                     default.to_inputs(inputs);
                 }
-            };
+            }
         }
     }
 
@@ -1695,7 +1696,7 @@ pub mod zkapp_command {
                     let default = default_fn();
                     default.to_inputs(inputs);
                 }
-            };
+            }
         }
     }
 
@@ -2358,9 +2359,9 @@ pub mod zkapp_command {
             inputs.append(&(nonce, ClosedInterval::min_max));
             inputs.append(&(receipt_chain_hash, Fp::zero));
             inputs.append(&(delegate, CompressedPubKey::empty));
-            state.iter().for_each(|s| {
+            for s in state.iter() {
                 inputs.append(&(s, Fp::zero));
-            });
+            }
             // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L168
             inputs.append(&(action_state, ZkAppAccount::empty_action_state));
             inputs.append(&(proved_state, || false));
@@ -3933,7 +3934,7 @@ pub mod zkapp_command {
         use super::*;
 
         #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-        #[serde(from = "MinaBaseZkappCommandVerifiableStableV1")]
+        #[serde(try_from = "MinaBaseZkappCommandVerifiableStableV1")]
         #[serde(into = "MinaBaseZkappCommandVerifiableStableV1")]
         pub struct ZkAppCommand {
             pub fee_payer: FeePayer,
@@ -4454,15 +4455,17 @@ impl From<&UserCommand> for MinaBaseUserCommandStableV2 {
     }
 }
 
-impl From<&MinaBaseUserCommandStableV2> for UserCommand {
-    fn from(user_command: &MinaBaseUserCommandStableV2) -> Self {
+impl TryFrom<&MinaBaseUserCommandStableV2> for UserCommand {
+    type Error = InvalidBigInt;
+
+    fn try_from(user_command: &MinaBaseUserCommandStableV2) -> Result<Self, Self::Error> {
         match user_command {
-            MinaBaseUserCommandStableV2::SignedCommand(signed_command) => {
-                UserCommand::SignedCommand(Box::new(signed_command.into()))
-            }
-            MinaBaseUserCommandStableV2::ZkappCommand(zkapp_command) => {
-                UserCommand::ZkAppCommand(Box::new(zkapp_command.into()))
-            }
+            MinaBaseUserCommandStableV2::SignedCommand(signed_command) => Ok(
+                UserCommand::SignedCommand(Box::new(signed_command.try_into()?)),
+            ),
+            MinaBaseUserCommandStableV2::ZkappCommand(zkapp_command) => Ok(
+                UserCommand::ZkAppCommand(Box::new(zkapp_command.try_into()?)),
+            ),
         }
     }
 }
@@ -4477,7 +4480,10 @@ impl binprot::BinProtWrite for UserCommand {
 impl binprot::BinProtRead for UserCommand {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error> {
         let p2p = MinaBaseUserCommandStableV2::binprot_read(r)?;
-        Ok(UserCommand::from(&p2p))
+        match UserCommand::try_from(&p2p) {
+            Ok(cmd) => Ok(cmd),
+            Err(e) => Err(binprot::Error::CustomError(Box::new(e))),
+        }
     }
 }
 
@@ -5093,7 +5099,9 @@ pub mod protocol_state {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/mina_state/protocol_state.ml#L180
-    pub fn protocol_state_view(state: &MinaStateProtocolStateValueStableV2) -> ProtocolStateView {
+    pub fn protocol_state_view(
+        state: &MinaStateProtocolStateValueStableV2,
+    ) -> Result<ProtocolStateView, InvalidBigInt> {
         let MinaStateProtocolStateValueStableV2 {
             previous_state_hash: _,
             body,
@@ -5104,12 +5112,12 @@ pub mod protocol_state {
 
     pub fn protocol_state_body_view(
         body: &v2::MinaStateProtocolStateBodyValueStableV2,
-    ) -> ProtocolStateView {
+    ) -> Result<ProtocolStateView, InvalidBigInt> {
         let cs = &body.consensus_state;
         let sed = &cs.staking_epoch_data;
         let ned = &cs.next_epoch_data;
 
-        ProtocolStateView {
+        Ok(ProtocolStateView {
             // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/blockchain_state.ml#L58
             //
             snarked_ledger_hash: body
@@ -5117,32 +5125,32 @@ pub mod protocol_state {
                 .ledger_proof_statement
                 .target
                 .first_pass_ledger
-                .to_field(),
+                .to_field()?,
             blockchain_length: Length(cs.blockchain_length.as_u32()),
             min_window_density: Length(cs.min_window_density.as_u32()),
             total_currency: Amount(cs.total_currency.as_u64()),
             global_slot_since_genesis: (&cs.global_slot_since_genesis).into(),
             staking_epoch_data: EpochData {
                 ledger: EpochLedger {
-                    hash: sed.ledger.hash.to_field(),
+                    hash: sed.ledger.hash.to_field()?,
                     total_currency: Amount(sed.ledger.total_currency.as_u64()),
                 },
-                seed: sed.seed.to_field(),
-                start_checkpoint: sed.start_checkpoint.to_field(),
-                lock_checkpoint: sed.lock_checkpoint.to_field(),
+                seed: sed.seed.to_field()?,
+                start_checkpoint: sed.start_checkpoint.to_field()?,
+                lock_checkpoint: sed.lock_checkpoint.to_field()?,
                 epoch_length: Length(sed.epoch_length.as_u32()),
             },
             next_epoch_data: EpochData {
                 ledger: EpochLedger {
-                    hash: ned.ledger.hash.to_field(),
+                    hash: ned.ledger.hash.to_field()?,
                     total_currency: Amount(ned.ledger.total_currency.as_u64()),
                 },
-                seed: ned.seed.to_field(),
-                start_checkpoint: ned.start_checkpoint.to_field(),
-                lock_checkpoint: ned.lock_checkpoint.to_field(),
+                seed: ned.seed.to_field()?,
+                start_checkpoint: ned.start_checkpoint.to_field()?,
+                lock_checkpoint: ned.lock_checkpoint.to_field()?,
                 epoch_length: Length(ned.epoch_length.as_u32()),
             },
-        }
+        })
     }
 
     pub type GlobalState<L> = GlobalStateSkeleton<L, Signed<Amount>, Slot>;
@@ -5792,7 +5800,7 @@ pub struct Env<L: LedgerIntf + Clone> {
 
 pub enum PerformResult<L: LedgerIntf + Clone> {
     Bool(bool),
-    LocalState(LocalStateEnv<L>),
+    LocalState(Box<LocalStateEnv<L>>),
     Account(Box<Account>),
 }
 
@@ -5832,7 +5840,7 @@ where
                     precondition_account.zcheck(new_account, check, account);
                     _local_state
                 };
-                PerformResult::LocalState(local_state)
+                PerformResult::LocalState(Box::new(local_state))
             }
             Eff::InitAccount(_account_update, a) => PerformResult::Account(Box::new(a)),
         }
@@ -6320,7 +6328,7 @@ pub mod transaction_partially_applied {
     #[derive(Clone, Debug)]
     pub enum TransactionPartiallyApplied<L: LedgerIntf + Clone> {
         SignedCommand(FullyApplied<SignedCommandApplied>),
-        ZkappCommand(ZkappCommandPartiallyApplied<L>),
+        ZkappCommand(Box<ZkappCommandPartiallyApplied<L>>),
         FeeTransfer(FullyApplied<FeeTransferApplied>),
         Coinbase(FullyApplied<CoinbaseApplied>),
     }
@@ -6382,6 +6390,7 @@ where
             ledger,
             txn,
         )
+        .map(Box::new)
         .map(TransactionPartiallyApplied::ZkappCommand),
         FeeTransfer(fee_transfer) => {
             apply_fee_transfer(constraint_constants, txn_global_slot, ledger, fee_transfer).map(
@@ -6429,7 +6438,7 @@ where
 
             let previous_hash = partially_applied.previous_hash;
             let applied =
-                apply_zkapp_command_second_pass(constraint_constants, ledger, partially_applied)?;
+                apply_zkapp_command_second_pass(constraint_constants, ledger, *partially_applied)?;
 
             Ok(TransactionApplied {
                 previous_hash,

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use ark_ff::{BigInteger256, Zero};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Zero};
 use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -56,6 +56,7 @@ use crate::{
 use self::group::SegmentBasic;
 
 use super::{
+    block::ProtocolStateBody,
     constants::{
         ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProvedProof,
         WrapZkappProvedProof,
@@ -455,11 +456,14 @@ pub struct ZkappCommandWitnessesParams<'a> {
 
 pub fn zkapp_command_witnesses_exn(
     params: ZkappCommandWitnessesParams,
-) -> Vec<(
-    ZkappCommandSegmentWitness<'_>,
-    group::SegmentBasic,
-    Statement<SokDigest>,
-)> {
+) -> Result<
+    Vec<(
+        ZkappCommandSegmentWitness<'_>,
+        group::SegmentBasic,
+        Statement<SokDigest>,
+    )>,
+    InvalidBigInt,
+> {
     let ZkappCommandWitnessesParams {
         global_slot,
         state_body,
@@ -468,7 +472,7 @@ pub fn zkapp_command_witnesses_exn(
     } = params;
 
     let supply_increase = Signed::<Amount>::zero();
-    let state_view = protocol_state_body_view(state_body);
+    let state_view = protocol_state_body_view(state_body)?;
 
     let (_, _, will_succeeds, mut states) = zkapp_commands_with_context.iter().fold(
         (fee_excess, supply_increase, vec![], vec![]),
@@ -581,7 +585,7 @@ pub fn zkapp_command_witnesses_exn(
     };
 
     let w = Vec::with_capacity(32);
-    states.into_iter().fold(w, |mut witnesses, s| {
+    let result = states.into_iter().fold(w, |mut witnesses, s| {
         let ZkappCommandIntermediateState {
             kind,
             spec,
@@ -885,7 +889,9 @@ pub fn zkapp_command_witnesses_exn(
 
         witnesses.insert(0, (w, spec, statement));
         witnesses
-    })
+    });
+
+    Ok(result)
 }
 
 #[derive(Clone, Debug)]
@@ -941,7 +947,7 @@ struct CheckProtocolStateParams<'a> {
     pending_coinbase_stack_before: Stack,
     pending_coinbase_stack_after: Stack,
     block_global_slot: CheckedSlot<Fp>,
-    state_body: &'a v2::MinaStateProtocolStateBodyValueStableV2,
+    state_body: &'a ProtocolStateBody,
 }
 
 fn check_protocol_state(params: CheckProtocolStateParams, w: &mut Witness<Fp>) {
@@ -1038,11 +1044,11 @@ fn zkapp_main(
     witness: &ZkappCommandSegmentWitness,
     spec: &[Spec],
     w: &mut Witness<Fp>,
-) -> (Option<ZkappStatement>, Boolean) {
+) -> Result<(Option<ZkappStatement>, Boolean), InvalidBigInt> {
     w.exists(&statement);
 
     dummy_constraints(w);
-    let state_body = w.exists(witness.state_body);
+    let state_body: &ProtocolStateBody = &w.exists(witness.state_body.try_into()?);
     let block_global_slot = w.exists(witness.block_global_slot).to_checked();
     let pending_coinbase_stack_init = w.exists(witness.init_stack.clone());
 
@@ -1069,7 +1075,7 @@ fn zkapp_main(
             },
             fee_excess: CheckedSigned::zero(),
             supply_increase: CheckedSigned::zero(),
-            protocol_state: protocol_state_body_view(state_body),
+            protocol_state: state_body.view(),
             block_global_slot,
         };
 
@@ -1238,7 +1244,7 @@ fn zkapp_main(
     let zkapp_input = Rc::into_inner(zkapp_input).unwrap().into_inner();
     let must_verify = Rc::into_inner(must_verify).unwrap().into_inner();
 
-    (zkapp_input, must_verify)
+    Ok((zkapp_input, must_verify))
 }
 
 pub struct LedgerProof {
@@ -1316,7 +1322,7 @@ where
         w.ocaml_aux = read_witnesses(path);
     };
 
-    let (zkapp_input, must_verify) = zkapp_main(statement.clone(), zkapp_witness, &s, &mut w);
+    let (zkapp_input, must_verify) = zkapp_main(statement.clone(), zkapp_witness, &s, &mut w)?;
 
     let StepProof {
         statement: step_statement,
@@ -1348,7 +1354,7 @@ where
             let for_step_datas = [&zkapp_data];
 
             let indexes = [(&verifier_index, &dlog_plonk_index_cvar)];
-            let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof]);
+            let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof])?;
 
             step::<StepConstants, 1>(
                 StepParams {
@@ -1699,24 +1705,24 @@ pub fn generate_zkapp_proof(params: ZkappParams) -> Result<LedgerProof, ProofErr
         }
         _ => unreachable!(),
     };
-    let zkapp_command: ZkAppCommand = zkapp.into();
+    let zkapp_command: ZkAppCommand = zkapp.try_into()?;
 
     let witnesses_specs_stmts = zkapp_command_witnesses_exn(ZkappCommandWitnessesParams {
         global_slot: Slot::from_u32(tx_witness.block_global_slot.as_u32()),
         state_body: &tx_witness.protocol_state_body,
         fee_excess: Signed::zero(),
         zkapp_commands_with_context: vec![ZkappCommandsWithContext {
-            pending_coinbase_init_stack: (&tx_witness.init_stack).into(),
+            pending_coinbase_init_stack: (&tx_witness.init_stack).try_into()?,
             pending_coinbase_of_statement: pending_coinbase::StackState {
-                source: (&statement.source.pending_coinbase_stack).into(),
-                target: (&statement.target.pending_coinbase_stack).into(),
+                source: (&statement.source.pending_coinbase_stack).try_into()?,
+                target: (&statement.target.pending_coinbase_stack).try_into()?,
             },
-            first_pass_ledger: (&tx_witness.first_pass_ledger).into(),
-            second_pass_ledger: (&tx_witness.second_pass_ledger).into(),
-            connecting_ledger_hash: statement.connecting_ledger_left.to_field(),
+            first_pass_ledger: (&tx_witness.first_pass_ledger).try_into()?,
+            second_pass_ledger: (&tx_witness.second_pass_ledger).try_into()?,
+            connecting_ledger_hash: statement.connecting_ledger_left.to_field()?,
             zkapp_command: &zkapp_command,
         }],
-    });
+    })?;
 
     let of_zkapp_command_segment = |statement: Statement<SokDigest>,
                                     zkapp_witness: &ZkappCommandSegmentWitness<'_>,

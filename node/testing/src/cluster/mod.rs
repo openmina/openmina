@@ -739,7 +739,7 @@ impl Cluster {
                     .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?
                     .dispatch_event(event)
             }
-            ScenarioStep::AddNode { config } => match config {
+            ScenarioStep::AddNode { config } => match *config {
                 NodeTestingConfig::Rust(config) => {
                     self.add_rust_node(config);
                     // TODO(binier): wait for node ports to be opened instead.
