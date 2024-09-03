@@ -127,7 +127,8 @@ impl NoiseState {
         let hkdf = Hkdf::<Sha256, Hmac<Sha256>>::new(Some(&self.chaining_key.0), &secret);
         secret.zeroize();
         let mut okm = [0; 64];
-        hkdf.expand(&[], &mut okm).unwrap();
+        hkdf.expand(&[], &mut okm)
+            .expect("the length is constant and small");
         self.chaining_key.0.clone_from_slice(&okm[..32]);
         self.aead_key.0.clone_from_slice(&okm[32..]);
     }
@@ -154,7 +155,7 @@ impl NoiseState {
 
         let tag = ChaCha20Poly1305::new(GenericArray::from_slice(&self.aead_key.0))
             .encrypt_in_place_detached(&nonce, &self.hash.0, data)
-            .unwrap();
+            .expect("data length must be sufficiently small");
         let hash = Sha256::default()
             .chain(self.hash.0)
             .chain(&*data)
@@ -171,7 +172,8 @@ impl NoiseState {
 
         let hkdf = Hkdf::<Sha256, Hmac<Sha256>>::new(Some(&self.chaining_key.0), b"");
         let mut okm = [0; 64];
-        hkdf.expand(&[], &mut okm).unwrap();
+        hkdf.expand(&[], &mut okm)
+            .expect("the length is constant and small");
         fst.clone_from_slice(&okm[..32]);
         scd.clone_from_slice(&okm[32..]);
         (DataSized(fst), DataSized(scd))

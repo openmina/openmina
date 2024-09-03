@@ -114,9 +114,13 @@ impl P2pNetworkPubsubAction {
             P2pNetworkPubsubAction::Sign { .. } => {
                 if let Some(to_sign) = state.to_sign.front() {
                     let mut publication = vec![];
-                    prost::Message::encode(to_sign, &mut publication).unwrap();
-                    let signature = store.service().sign_publication(&publication).into();
-                    store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
+                    if let Err(err) = prost::Message::encode(to_sign, &mut publication) {
+                        // TODO: dispatch action for logging
+                        let _ = err;
+                    } else {
+                        let signature = store.service().sign_publication(&publication).into();
+                        store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
+                    }
                 }
             }
             P2pNetworkPubsubAction::BroadcastSigned { .. } => broadcast(store),
@@ -179,7 +183,10 @@ impl P2pNetworkPubsubAction {
                     //     println!("{}", std::str::from_utf8(&id).unwrap());
                     // }
                     let mut data = vec![];
-                    if prost::Message::encode_length_delimited(&msg, &mut data).is_ok() {
+                    if let Err(err) = prost::Message::encode_length_delimited(&msg, &mut data) {
+                        // TODO: dispatch action for logging
+                        let _ = err;
+                    } else {
                         store.dispatch(P2pNetworkPubsubAction::OutgoingData {
                             data: data.clone().into(),
                             peer_id,
