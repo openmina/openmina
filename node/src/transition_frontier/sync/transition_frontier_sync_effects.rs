@@ -1,5 +1,6 @@
 use openmina_core::block::ArcBlockWithHash;
-use p2p::channels::rpc::P2pChannelsRpcAction;
+use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
+use p2p::PeerId;
 use redux::ActionMeta;
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -156,17 +157,25 @@ impl TransitionFrontierSyncAction {
                     return;
                 };
 
-                if store.dispatch(P2pChannelsRpcAction::RequestSend {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
-                        hash: hash.clone(),
-                        peer_id: *peer_id,
-                        rpc_id,
-                    });
-                }
+                    on_init: Some(redux::callback!(
+                        on_send_p2p_block_rpc_request(
+                            (peer_id: PeerId, rpc_id: P2pRpcId, request: P2pRpcRequest)
+                        ) -> crate::Action {
+                            let P2pRpcRequest::Block(hash) = request else {
+                                unreachable!()
+                            };
+                            TransitionFrontierSyncAction::BlocksPeerQueryPending {
+                                hash,
+                                peer_id,
+                                rpc_id,
+                            }
+                        }
+                    )),
+                });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
                 let p2p = p2p_ready!(store.state().p2p, meta.time());
@@ -177,17 +186,25 @@ impl TransitionFrontierSyncAction {
                     return;
                 };
 
-                if store.dispatch(P2pChannelsRpcAction::RequestSend {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
-                        hash: hash.clone(),
-                        peer_id: *peer_id,
-                        rpc_id,
-                    });
-                }
+                    on_init: Some(redux::callback!(
+                        on_send_p2p_block_rpc_request_retry(
+                            (peer_id: PeerId, rpc_id: P2pRpcId, request: P2pRpcRequest)
+                        ) -> crate::Action {
+                            let P2pRpcRequest::Block(hash) = request else {
+                                unreachable!()
+                            };
+                            TransitionFrontierSyncAction::BlocksPeerQueryPending {
+                                hash,
+                                peer_id,
+                                rpc_id,
+                            }
+                        }
+                    )),
+                });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryPending { .. } => {}
             TransitionFrontierSyncAction::BlocksPeerQueryError { .. } => {

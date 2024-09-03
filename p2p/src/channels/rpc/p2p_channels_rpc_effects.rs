@@ -27,11 +27,12 @@ impl P2pChannelsRpcAction {
                 peer_id,
                 id,
                 request,
+                on_init,
             } => {
                 #[cfg(feature = "p2p-libp2p")]
                 if store.state().is_libp2p_peer(&peer_id) {
                     if let Some((query, data)) =
-                        super::libp2p::internal_request_into_libp2p(*request, id)
+                        super::libp2p::internal_request_into_libp2p(*request.clone(), id)
                     {
                         store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
                             peer_id,
@@ -39,13 +40,19 @@ impl P2pChannelsRpcAction {
                             data,
                         });
                     }
+                    if let Some(on_init) = on_init {
+                        store.dispatch_callback(on_init, (peer_id, id, *request));
+                    }
                     return;
                 }
 
-                let msg = RpcChannelMsg::Request(id, *request);
+                let msg = RpcChannelMsg::Request(id, *request.clone());
                 store
                     .service()
                     .channel_send(peer_id, MsgId::first(), msg.into());
+                if let Some(on_init) = on_init {
+                    store.dispatch_callback(on_init, (peer_id, id, *request));
+                }
             }
             P2pChannelsRpcAction::ResponseReceived {
                 peer_id, response, ..

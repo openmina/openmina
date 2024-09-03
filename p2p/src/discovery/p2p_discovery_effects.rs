@@ -26,6 +26,7 @@ impl P2pDiscoveryAction {
                     peer_id,
                     id: status.channels.next_local_rpc_id(),
                     request: Box::new(P2pRpcRequest::InitialPeers),
+                    on_init: None,
                 });
             }
             P2pDiscoveryAction::Success { .. } => {}

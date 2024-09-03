@@ -21,11 +21,15 @@ impl P2pChannelsStreamingRpcAction {
                 peer_id,
                 id,
                 request,
+                on_init,
             } => {
-                let msg = StreamingRpcChannelMsg::Request(id, *request);
+                let msg = StreamingRpcChannelMsg::Request(id, *request.clone());
                 store
                     .service()
                     .channel_send(peer_id, MsgId::first(), msg.into());
+                if let Some(on_init) = on_init {
+                    store.dispatch_callback(on_init, (peer_id, id, *request));
+                }
             }
             P2pChannelsStreamingRpcAction::ResponseNextPartGet { peer_id, id } => {
                 let msg = StreamingRpcChannelMsg::Next(id);

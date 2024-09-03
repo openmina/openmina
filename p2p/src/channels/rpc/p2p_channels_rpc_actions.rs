@@ -26,6 +26,7 @@ pub enum P2pChannelsRpcAction {
         peer_id: PeerId,
         id: P2pRpcId,
         request: Box<P2pRpcRequest>,
+        on_init: Option<redux::Callback<(PeerId, P2pRpcId, P2pRpcRequest)>>,
     },
     Timeout {
         peer_id: PeerId,
@@ -89,7 +90,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     matches!(p.channels.rpc, P2pChannelsRpcState::Pending { .. })
                 })
             },
-            P2pChannelsRpcAction::RequestSend { peer_id, id, request } => {
+            P2pChannelsRpcAction::RequestSend { peer_id, id, request, on_init: _ } => {
                 state.peers.get(peer_id)
                     .filter(|p| !p.is_libp2p() || request.kind().supported_by_libp2p())
                     .and_then(|p| p.status.as_ready())

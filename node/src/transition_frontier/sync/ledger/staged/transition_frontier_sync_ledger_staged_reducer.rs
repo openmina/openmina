@@ -1,8 +1,11 @@
 use ledger::scan_state::protocol_state::MinaHash;
 use mina_p2p_messages::{list::List, v2};
-use p2p::channels::{
-    rpc::{P2pChannelsRpcAction, P2pRpcRequest},
-    streaming_rpc::{P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest},
+use p2p::{
+    channels::{
+        rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
+        streaming_rpc::{P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest},
+    },
+    PeerId,
 };
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -58,9 +61,19 @@ impl TransitionFrontierSyncLedgerStagedState {
                                         block_hash.clone(),
                                     ),
                                 ),
+                                on_init: Some(redux::callback!(
+                                    on_send_p2p_staged_ledger_parts_rpc_request(
+                                        (peer_id: PeerId, rpc_id: P2pRpcId, _request: P2pRpcRequest)
+                                    ) -> crate::Action {
+                                        TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending {
+                                            peer_id,
+                                            rpc_id,
+                                        }
+                                    }
+                                ))
                             },
                             global_state,
-                            meta.time(),
+                            meta.time()
                         )
                     } else {
                         // use streaming rpc for webrtc peers.
@@ -71,20 +84,26 @@ impl TransitionFrontierSyncLedgerStagedState {
                                 request: Box::new(P2pStreamingRpcRequest::StagedLedgerParts(
                                     block_hash.clone(),
                                 )),
+                                on_init: Some(redux::callback!(
+                                    on_send_streaming_p2p_staged_ledger_parts_rpc_request(
+                                        (peer_id: PeerId, rpc_id: P2pRpcId, _request: P2pStreamingRpcRequest)
+                                    ) -> crate::Action {
+                                        TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending {
+                                            peer_id,
+                                            rpc_id,
+                                        }
+                                    }))
                             },
                             global_state,
-                            meta.time(),
+                            meta.time()
                         )
                     };
-                    // TODO(binier): maybe
-                    // Enabling condition is true if the peer exists and is able to handle this request
+
+                    // TODO: instead add an intermediary action for the Peer request with an enabling condition
+                    // that will make sure that only one staged ledger part request
+                    // is ongoing. So here we dispatch the action for all peers, but
+                    // after one picks it up the rest will be filtered out.
                     if enqueued {
-                        dispatcher.push(
-                            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending {
-                                peer_id,
-                                rpc_id,
-                            },
-                        );
                         break;
                     }
                 }
