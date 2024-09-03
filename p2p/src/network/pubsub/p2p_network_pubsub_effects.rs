@@ -100,7 +100,9 @@ impl P2pNetworkPubsubAction {
             P2pNetworkPubsubAction::Broadcast { message } => {
                 // println!("(pubsub) {this} broadcast");
                 let mut buffer = vec![0; 8];
-                binprot::BinProtWrite::binprot_write(&message, &mut buffer).expect("msg");
+                if binprot::BinProtWrite::binprot_write(&message, &mut buffer).is_err() {
+                    return;
+                }
                 let len = buffer.len() - 8;
                 buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
 
@@ -111,12 +113,11 @@ impl P2pNetworkPubsubAction {
                     topic: TOPIC.to_owned(),
                 });
             }
-            P2pNetworkPubsubAction::Sign { .. } => {
+            P2pNetworkPubsubAction::Sign { author, topic, .. } => {
                 if let Some(to_sign) = state.to_sign.front() {
                     let mut publication = vec![];
-                    if let Err(err) = prost::Message::encode(to_sign, &mut publication) {
-                        // TODO: dispatch action for logging
-                        let _ = err;
+                    if prost::Message::encode(to_sign, &mut publication).is_err() {
+                        store.dispatch(P2pNetworkPubsubAction::SignError { author, topic });
                     } else {
                         let signature = store.service().sign_publication(&publication).into();
                         store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
@@ -183,17 +184,20 @@ impl P2pNetworkPubsubAction {
                     //     println!("{}", std::str::from_utf8(&id).unwrap());
                     // }
                     let mut data = vec![];
-                    if let Err(err) = prost::Message::encode_length_delimited(&msg, &mut data) {
-                        // TODO: dispatch action for logging
-                        let _ = err;
+                    if prost::Message::encode_length_delimited(&msg, &mut data).is_err() {
+                        store.dispatch(P2pNetworkPubsubAction::OutgoingMessageError {
+                            msg,
+                            peer_id,
+                        });
                     } else {
                         store.dispatch(P2pNetworkPubsubAction::OutgoingData {
-                            data: data.clone().into(),
+                            data: data.into(),
                             peer_id,
                         });
                     }
                 }
             }
+            P2pNetworkPubsubAction::OutgoingMessageError { .. } => {}
             P2pNetworkPubsubAction::OutgoingData { mut data, peer_id } => {
                 let Some(state) = store
                     .state()
@@ -217,6 +221,7 @@ impl P2pNetworkPubsubAction {
                     });
                 }
             }
+            P2pNetworkPubsubAction::SignError { .. } => (),
         }
     }
 }

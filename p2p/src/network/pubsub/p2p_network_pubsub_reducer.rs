@@ -106,7 +106,10 @@ impl P2pNetworkPubsubState {
                             }
                         }
                         for message in v.publish {
-                            let message_id = self.mcache.put(message.clone());
+                            let Some(message_id) = self.mcache.put(message.clone()) else {
+                                continue;
+                            };
+
                             let topic = self.topics.entry(message.topic.clone()).or_default();
                             if let Some(signature) = &message.signature {
                                 // skip recently seen message
@@ -258,6 +261,7 @@ impl P2pNetworkPubsubState {
                     v.message.control = None;
                 }
             }
+            P2pNetworkPubsubAction::OutgoingMessageError { .. } => {}
             P2pNetworkPubsubAction::Broadcast { .. } => {}
             P2pNetworkPubsubAction::Sign {
                 seqno,
@@ -276,6 +280,9 @@ impl P2pNetworkPubsubState {
                     signature: None,
                     key: None,
                 });
+            }
+            P2pNetworkPubsubAction::SignError { .. } => {
+                let _ = self.to_sign.pop_front();
             }
             P2pNetworkPubsubAction::BroadcastSigned { signature } => {
                 if let Some(mut message) = self.to_sign.pop_front() {
