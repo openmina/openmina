@@ -2,7 +2,7 @@ use std::iter;
 
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerQueryStableV1;
 use p2p::{
-    channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest},
+    channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     PeerId,
 };
@@ -120,7 +120,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
                 // Dispatch
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
-                peer_query_num_accounts_init(dispatcher, global_state, meta, *peer_id)
+                peer_query_num_accounts_init(dispatcher, global_state, *peer_id)
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsPending {
                 peer_id,
@@ -156,7 +156,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
                 // Dispatch
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
-                peer_query_num_accounts_init(dispatcher, global_state, meta, *peer_id)
+                peer_query_num_accounts_init(dispatcher, global_state, *peer_id)
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
                 peer_id,
@@ -601,7 +601,6 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 fn peer_query_num_accounts_init(
     dispatcher: &mut redux::Dispatcher<Action, State>,
     state: &State,
-    meta: ActionMeta,
     peer_id: PeerId,
 ) {
     let Some((ledger_hash, rpc_id)) = None.or_else(|| {
@@ -616,25 +615,21 @@ fn peer_query_num_accounts_init(
         return;
     };
 
-    if dispatcher.push_if_enabled(
-        P2pChannelsRpcAction::RequestSend {
-            peer_id,
-            id: rpc_id,
-            request: Box::new(P2pRpcRequest::LedgerQuery(
-                ledger_hash,
-                MinaLedgerSyncLedgerQueryStableV1::NumAccounts,
-            )),
-        },
-        state,
-        meta.time(),
-    ) {
-        dispatcher.push(
+    dispatcher.push(P2pChannelsRpcAction::RequestSend {
+        peer_id,
+        id: rpc_id,
+        request: Box::new(P2pRpcRequest::LedgerQuery(
+            ledger_hash,
+            MinaLedgerSyncLedgerQueryStableV1::NumAccounts,
+        )),
+        on_init: Some(redux::callback!(
+        on_send_p2p_num_accounts_rpc_request((peer_id: PeerId, rpc_id: P2pRpcId)) -> crate::Action {
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsPending {
                 peer_id,
                 rpc_id,
-            },
-        );
-    }
+            }
+        })),
+    });
 }
 
 fn peer_query_address_init(
@@ -667,6 +662,7 @@ fn peer_query_address_init(
             peer_id,
             id: rpc_id,
             request: Box::new(P2pRpcRequest::LedgerQuery(ledger_hash, query)),
+            on_init: None, // TODO: use the action below in a callback here (address complicates that)
         },
         state,
         meta.time(),

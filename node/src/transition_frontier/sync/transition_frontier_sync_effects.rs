@@ -160,6 +160,7 @@ impl TransitionFrontierSyncAction {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
+                    on_init: None, // TODO: use the action below in a callback here (hash complicates that)
                 }) {
                     store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
                         hash: hash.clone(),
@@ -181,6 +182,7 @@ impl TransitionFrontierSyncAction {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
+                    on_init: None, // TODO: use the action below in a callback here (hash complicates that)
                 }) {
                     store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
                         hash: hash.clone(),

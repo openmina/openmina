@@ -27,6 +27,7 @@ impl P2pChannelsRpcAction {
                 peer_id,
                 id,
                 request,
+                on_init,
             } => {
                 #[cfg(feature = "p2p-libp2p")]
                 if store.state().is_libp2p_peer(&peer_id) {
@@ -39,6 +40,9 @@ impl P2pChannelsRpcAction {
                             data,
                         });
                     }
+                    if let Some(on_init) = on_init {
+                        store.dispatch_callback(on_init, (peer_id, id));
+                    }
                     return;
                 }
 
@@ -46,6 +50,9 @@ impl P2pChannelsRpcAction {
                 store
                     .service()
                     .channel_send(peer_id, MsgId::first(), msg.into());
+                if let Some(on_init) = on_init {
+                    store.dispatch_callback(on_init, (peer_id, id));
+                }
             }
             P2pChannelsRpcAction::ResponseReceived {
                 peer_id, response, ..

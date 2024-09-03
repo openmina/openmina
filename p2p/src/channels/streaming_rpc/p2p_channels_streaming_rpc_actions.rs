@@ -31,6 +31,7 @@ pub enum P2pChannelsStreamingRpcAction {
         peer_id: PeerId,
         id: P2pStreamingRpcId,
         request: Box<P2pStreamingRpcRequest>,
+        on_init: Option<redux::Callback<(PeerId, P2pStreamingRpcId)>>,
     },
     Timeout {
         peer_id: PeerId,

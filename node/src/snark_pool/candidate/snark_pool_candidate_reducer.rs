@@ -60,6 +60,7 @@ impl SnarkPoolCandidatesState {
                     peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Snark(job_id.clone())),
+                    on_init: None, // TODO: use the action below in a callback here (job_id complicates that)
                 });
                 dispatcher.push(SnarkPoolCandidateAction::WorkFetchPending {
                     peer_id,
