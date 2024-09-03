@@ -26,6 +26,8 @@ enum MioError {
     Poll(io::Error),
     #[error("mio failed to start listening on {0}, error: {1}")]
     Listen(SocketAddr, io::Error),
+    #[error("mio failed to register the socket on {0}, error: {1}")]
+    Register(SocketAddr, io::Error),
 }
 
 impl MioError {
@@ -509,10 +511,14 @@ where
 
                         if let Some(interests) = interests {
                             let token = self.tokens.register(Token::Connection(addr));
-                            self.poll
-                                .registry()
-                                .reregister(&mut connection.stream, token, interests)
-                                .unwrap();
+                            if let Err(err) = self.poll.registry().reregister(
+                                &mut connection.stream,
+                                token,
+                                interests,
+                            ) {
+                                MioError::Register(addr.sock_addr, err).report();
+                                return;
+                            }
                         }
                         self.connections.insert(addr, connection);
                     }
@@ -547,10 +553,14 @@ where
                         };
                     if let Some(interests) = interests {
                         let token = self.tokens.register(Token::Connection(addr));
-                        self.poll
-                            .registry()
-                            .reregister(&mut connection.stream, token, interests)
-                            .unwrap();
+                        if let Err(err) = self.poll.registry().reregister(
+                            &mut connection.stream,
+                            token,
+                            interests,
+                        ) {
+                            self.connections.remove(&addr);
+                            self.send(MioEvent::ConnectionDidClose(addr, Err(err.to_string())));
+                        }
                     }
                 } else {
                     self.send(MioEvent::OutgoingDataDidSend(
