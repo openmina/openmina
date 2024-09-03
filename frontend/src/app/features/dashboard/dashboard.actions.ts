@@ -31,6 +31,8 @@ export class DashboardInit implements DashboardAction {
 
 export class DashboardGetData implements DashboardAction {
   readonly type = DASHBOARD_GET_DATA;
+
+  constructor(public payload?: { force: boolean }) {}
 }
 
 export class DashboardGetDataSuccess implements DashboardAction {

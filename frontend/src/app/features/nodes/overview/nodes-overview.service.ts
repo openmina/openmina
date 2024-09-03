@@ -39,70 +39,74 @@ export class NodesOverviewService {
   }, qp: string = '', onlyOne: boolean = false): Observable<NodesOverviewNode[]> {
     return this.http.get<any[]>(nodeParam.url + '/stats/sync' + qp)
       .pipe(
-        map((response: any[]) => {
-          if (response.length === 0) {
-            throw new Error('Empty response');
-          }
-          return response
-            .slice(0, onlyOne ? 1 : response.length)
-            .map((node: any) => {
-              const blocks = node.blocks.map((block: any) => {
-                return {
-                  globalSlot: block.global_slot,
-                  height: block.height,
-                  hash: block.hash,
-                  predHash: block.pred_hash,
-                  status: block.status,
-                  fetchStart: block.fetch_start,
-                  fetchEnd: block.fetch_end,
-                  applyStart: block.apply_start,
-                  applyEnd: block.apply_end,
-                  fetchDuration: this.getDuration(block.fetch_start, block.fetch_end),
-                  applyDuration: this.getDuration(block.apply_start, block.apply_end),
-                } as NodesOverviewBlock;
-              });
-              if (blocks.length) {
-                blocks[0].isBestTip = true;
-              }
-              return {
-                name: nodeParam.name,
-                kind: hasValue(node.synced) ? NodesOverviewNodeKindType.SYNCED : node.kind,
-                bestTipReceived: toReadableDate(node.best_tip_received / ONE_MILLION),
-                bestTipReceivedTimestamp: node.best_tip_received / ONE_MILLION,
-                bestTip: node.blocks[0]?.hash,
-                height: node.blocks[0]?.height,
-                globalSlot: node.blocks[0]?.global_slot,
-                appliedBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.APPLIED).length,
-                applyingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.APPLYING).length,
-                missingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.MISSING).length,
-                fetchedBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHED).length,
-                fetchingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHING).length,
-                ledgers: this.getLedgers(node.ledgers),
-                resyncs: this.getResyncs(node.resyncs),
-                blocks,
-              } as NodesOverviewNode;
-            });
-        }),
-        catchError(err => {
-          return of([{
-            name: nodeParam.name,
-            kind: NodesOverviewNodeKindType.OFFLINE,
-            bestTipReceived: '-',
-            bestTipReceivedTimestamp: 0,
-            bestTip: '-',
-            height: undefined,
-            globalSlot: 0,
-            appliedBlocks: 0,
-            applyingBlocks: 0,
-            missingBlocks: 0,
-            fetchedBlocks: 0,
-            fetchingBlocks: 0,
-            ledgers: this.getLedgers({}),
-            resyncs: [],
-            blocks: [],
-          }]);
-        }),
+        map((response: any[]) => this.mapNodeTipsResponse(response, onlyOne, nodeParam)),
+        catchError(err => this.mapNodeTipsErrorResponse(nodeParam)),
       );
+  }
+
+  public mapNodeTipsErrorResponse(nodeParam: { url: string; name: string }) {
+    return of([{
+      name: nodeParam.name,
+      kind: NodesOverviewNodeKindType.OFFLINE,
+      bestTipReceived: '-',
+      bestTipReceivedTimestamp: 0,
+      bestTip: '-',
+      height: undefined,
+      globalSlot: 0,
+      appliedBlocks: 0,
+      applyingBlocks: 0,
+      missingBlocks: 0,
+      fetchedBlocks: 0,
+      fetchingBlocks: 0,
+      ledgers: this.getLedgers({}),
+      resyncs: [],
+      blocks: [],
+    }]);
+  }
+
+  public mapNodeTipsResponse(response: any[], onlyOne: boolean, nodeParam: { url: string; name: string }) {
+    if (response.length === 0) {
+      throw new Error('Empty response');
+    }
+    return response
+      .slice(0, onlyOne ? 1 : response.length)
+      .map((node: any) => {
+        const blocks = node.blocks.map((block: any) => {
+          return {
+            globalSlot: block.global_slot,
+            height: block.height,
+            hash: block.hash,
+            predHash: block.pred_hash,
+            status: block.status,
+            fetchStart: block.fetch_start,
+            fetchEnd: block.fetch_end,
+            applyStart: block.apply_start,
+            applyEnd: block.apply_end,
+            fetchDuration: this.getDuration(block.fetch_start, block.fetch_end),
+            applyDuration: this.getDuration(block.apply_start, block.apply_end),
+          } as NodesOverviewBlock;
+        });
+        if (blocks.length) {
+          blocks[0].isBestTip = true;
+        }
+        return {
+          name: nodeParam.name,
+          kind: hasValue(node.synced) ? NodesOverviewNodeKindType.SYNCED : node.kind,
+          bestTipReceived: toReadableDate(node.best_tip_received / ONE_MILLION),
+          bestTipReceivedTimestamp: node.best_tip_received / ONE_MILLION,
+          bestTip: node.blocks[0]?.hash,
+          height: node.blocks[0]?.height,
+          globalSlot: node.blocks[0]?.global_slot,
+          appliedBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.APPLIED).length,
+          applyingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.APPLYING).length,
+          missingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.MISSING).length,
+          fetchedBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHED).length,
+          fetchingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHING).length,
+          ledgers: this.getLedgers(node.ledgers),
+          resyncs: this.getResyncs(node.resyncs),
+          blocks,
+        } as NodesOverviewNode;
+      });
   }
 
   private getLedgers(ledgers: any): NodesOverviewLedger {

@@ -44,6 +44,7 @@
     </div>
   </div>
   <div class="fx-row-vert-cent pointer bg-container-hover border-top h-xl f-600"
+       *ngIf="canAddNodes"
        (click)="addNode($event)">
     <span class="mina-icon icon-400 f-22 mr-10 ml-10 secondary">add_circle</span>
     <div>New node</div>

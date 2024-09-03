@@ -24,5 +24,6 @@ export enum NodesOverviewNodeKindType {
   BOOTSTRAP = 'Bootstrap',
   CATCHUP = 'Catchup',
   SYNCED = 'Synced',
+  PENDING = 'Pending',
   OFFLINE = 'Offline',
 }

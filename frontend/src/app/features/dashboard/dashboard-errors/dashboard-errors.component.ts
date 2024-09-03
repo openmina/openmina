@@ -44,13 +44,11 @@ export class DashboardErrorsComponent extends StoreDispatcher implements OnInit 
   }
 
   private mapResyncs(resyncs: NodesOverviewResync[]): void {
-    this.resyncs = resyncs.reverse().map(resync => {
-      return {
-        ...resync,
-        description: resync.description ?? descriptionMap[resync.kind],
-        timeAgo: this.calculateProgressTime(resync.time),
-      } as NodesOverviewResyncUI;
-    });
+    this.resyncs = resyncs.slice().reverse().map(resync => ({
+      ...resync,
+      description: resync.description ?? descriptionMap[resync.kind],
+      timeAgo: this.calculateProgressTime(resync.time),
+    } as NodesOverviewResyncUI));
   }
 
   private calculateProgressTime(timestamp: number): string {

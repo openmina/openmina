@@ -1,0 +1,30 @@
+/* tslint:disable */
+/* eslint-disable */
+export function main(): void;
+export function run(): number;
+export function stats_sync(a: number, b: number, c: number): number;
+export function stats_block_producer(a: number): number;
+export function __wbg_state_free(a: number, b: number): void;
+export function state_peers(a: number): number;
+export function state_message_progress(a: number): number;
+export function __wbg_stats_free(a: number, b: number): void;
+export function __wbg_rpcsender_free(a: number, b: number): void;
+export function rpcsender_state(a: number): number;
+export function rpcsender_status(a: number): number;
+export function rpcsender_stats(a: number): number;
+export function wasm_thread_entry_point(a: number): void;
+export const memory: WebAssembly.Memory;
+export function __wbindgen_malloc(a: number, b: number): number;
+export function __wbindgen_realloc(a: number, b: number, c: number, d: number): number;
+export const __wbindgen_export_3: WebAssembly.Table;
+export function _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hfc3cd25b53215e84(a: number, b: number): void;
+export function _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h45df3e6947fcd651(a: number, b: number, c: number): void;
+export function _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hd4a56f8647b4502b(a: number, b: number): void;
+export function _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h92f8e55d458a8e39(a: number, b: number): void;
+export function _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h90985823836ef819(a: number, b: number, c: number): void;
+export function _dyn_core__ops__function__FnMut___A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hff3e249b51682479(a: number, b: number, c: number): void;
+export function __wbindgen_free(a: number, b: number, c: number): void;
+export function __wbindgen_exn_store(a: number): void;
+export function wasm_bindgen__convert__closures__invoke2_mut__h808c9af25a9c04f4(a: number, b: number, c: number, d: number): void;
+export function __wbindgen_thread_destroy(a: number, b: number, c: number): void;
+export function __wbindgen_start(a: number): void;

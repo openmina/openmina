@@ -3,7 +3,7 @@ import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { createNonDispatchableEffect, Effect, removeParamsFromURL } from '@openmina/shared';
-import { filter, map, switchMap, tap } from 'rxjs';
+import { filter, from, map, switchMap, tap } from 'rxjs';
 import { AppActions } from '@app/app.actions';
 import { Router } from '@angular/router';
 import { FeatureType, MinaNode } from '@shared/types/core/environment/mina-env.type';
@@ -11,6 +11,7 @@ import { AppService } from '@app/app.service';
 import { getFirstFeature, isFeatureEnabled } from '@shared/constants/config';
 import { RustService } from '@core/services/rust.service';
 import { BaseEffect } from '@shared/base-classes/mina-rust-base.effect';
+import { WebNodeService } from '@core/services/web-node.service';
 
 const INIT_EFFECTS = '@ngrx/effects/init';
 
@@ -30,6 +31,7 @@ export class AppEffects extends BaseEffect {
               private appService: AppService,
               private rustNode: RustService,
               private router: Router,
+              private webNodeService: WebNodeService,
               store: Store<MinaState>) {
     super(store, selectMinaState);
 
@@ -61,6 +63,14 @@ export class AppEffects extends BaseEffect {
         if (!isFeatureEnabled(state.app.activeNode, activePage)) {
           this.router.navigate([getFirstFeature(state.app.activeNode)]);
         }
+      }),
+      switchMap(({ state }) => {
+        if (state.app.activeNode.isWebNode) {
+          return this.webNodeService.loadWasm$().pipe(
+            switchMap(() => this.webNodeService.startWasm$()),
+          );
+        }
+        return from([]);
       }),
       map(() => AppActions.getNodeDetails()),
     ));

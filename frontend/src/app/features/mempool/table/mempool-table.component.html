@@ -10,10 +10,13 @@
   <span class="truncate">{{ row.memo }}</span>
   <span class="fx-row-vert-cent">
     <div class="benchmark border-rad-6 mr-10 fx-row-full-cent" [maxWidth]="600"
-         [tooltip]="'This transaction was sent from the Benchmarks page.'">
+         [tooltip]="'This transaction was sent from the Benchmarks page.'"
+         *ngIf="row.sentFromStressingTool">
       <span class="mina-icon icon-200 f-20">dynamic_form</span>
     </div>
-    <div class="account border-rad-6 fx-row-full-cent" [tooltip]="'This transaction was sent by you.'">
+    <div class="account border-rad-6 fx-row-full-cent"
+         [tooltip]="'This transaction was sent by you.'"
+         *ngIf="row.sentByMyBrowser">
       <span class="mina-icon icon-200 f-20">person</span>
     </div>
   </span>

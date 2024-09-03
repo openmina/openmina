@@ -2,21 +2,24 @@ import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 
 export const environment: Readonly<MinaEnv> = {
   production: false,
-  identifier: 'Development FE',
   globalConfig: {
     features: {
-      dashboard: [],
-      nodes: ['overview', 'live', 'bootstrap'],
-      state: ['actions'],
-      network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
-      snarks: ['scan-state', 'work-pool'],
-      'testing-tool': ['scenarios'],
-      resources: ['memory'],
-      'block-production': ['overview', 'won-slots'],
-      mempool: [],
-      benchmarks: ['wallets'],
+      // dashboard: [],
+      // nodes: ['overview', 'live', 'bootstrap'],
+      // state: ['actions'],
+      // network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
+      // snarks: ['scan-state', 'work-pool'],
+      // 'testing-tool': ['scenarios'],
+      // resources: ['memory'],
+      // 'block-production': ['overview', 'won-slots'],
+      // mempool: [],
+      // benchmarks: ['wallets'],
+      'block-production': ['won-slots'],
+      'nodes': ['overview', 'live', 'bootstrap'],
+      'mempool': [],
+      'state': ['actions'],
     },
-    canAddNodes: true,
+    canAddNodes: false,
   },
   configs: [
     // {
@@ -30,31 +33,47 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
+    {
+      name: 'staging-devnet-bp-0',
+      url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-1',
+      url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-2',
+      url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-3',
+      url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
+    },
     // {
     //   name: 'http://116.202.128.230:11010',
     //   url: 'http://116.202.128.230:11010',
     // },
-    {
-      name: 'http://116.202.128.230:11010',
-      url: 'http://116.202.128.230:11010',
-    },
     // {
     //   name: 'Local rust node',
     //   url: 'http://127.0.0.1:3000',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
-    {
-      name: 'Docker 11010',
-      url: 'http://localhost:11010',
-    },
-    {
-      name: 'Docker 11012',
-      url: 'http://localhost:11012',
-    },
-    {
-      name: 'Docker 11014',
-      url: 'http://localhost:11014',
-    },
+    // {
+    //   name: 'Web Node 1',
+    //   isWebNode: true,
+    // },
+    // {
+    //   name: 'Docker 11010',
+    //   url: 'http://localhost:11010',
+    // },
+    // {
+    //   name: 'Docker 11012',
+    //   url: 'http://localhost:11012',
+    // },
+    // {
+    //   name: 'Docker 11014',
+    //   url: 'http://localhost:11014',
+    // },
     // {
     //   name: 'Producer',
     //   url: 'http://65.109.105.40:3000',
