@@ -567,6 +567,18 @@ impl MinaBaseStagedLedgerHashNonSnarkStableV1 {
     }
 }
 
+impl From<mina_hasher::Fp> for LedgerHash {
+    fn from(value: mina_hasher::Fp) -> Self {
+        MinaBaseLedgerHash0StableV1(value.into()).into()
+    }
+}
+
+impl From<&mina_hasher::Fp> for LedgerHash {
+    fn from(value: &mina_hasher::Fp) -> Self {
+        MinaBaseLedgerHash0StableV1(value.into()).into()
+    }
+}
+
 impl MinaBaseStagedLedgerHashStableV1 {
     pub fn zero(
         genesis_ledger_hash: LedgerHash,

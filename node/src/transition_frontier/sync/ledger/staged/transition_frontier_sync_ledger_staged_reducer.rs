@@ -1,10 +1,7 @@
-use ledger::scan_state::protocol_state::MinaHash;
-use mina_p2p_messages::{list::List, v2};
-use p2p::{
-    channels::{
-        rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
-        streaming_rpc::{P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest},
-    },
+use mina_p2p_messages::{hash::MinaHash, list::List, v2};
+use p2p::channels::{
+    rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
+    streaming_rpc::{P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest},
     PeerId,
 };
 
@@ -318,7 +315,12 @@ impl TransitionFrontierSyncLedgerStagedState {
                         .map(|parts| &parts.needed_blocks)
                         .unwrap_or(&List::new())
                         .iter()
-                        .map(|block| (v2::StateHash::from_fp(MinaHash::hash(block)), block.clone()))
+                        .filter_map(|block| {
+                            Some((
+                                v2::StateHash::from_fp(MinaHash::try_hash(block).ok()?),
+                                block.clone(),
+                            ))
+                        })
                         .collect(),
                 };
             }

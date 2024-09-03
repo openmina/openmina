@@ -100,7 +100,7 @@ impl TokenSymbol {
         self.to_bytes(&mut s);
 
         let bigint = BigInteger256::read(&s[..]).unwrap();
-        F::from(bigint)
+        F::try_from(bigint).unwrap() // Never fail, `self` contain 6 bytes at most
     }
 }
 
@@ -556,7 +556,7 @@ impl VerificationKey {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, derive_more::From)]
-pub struct ZkAppUri(String);
+pub struct ZkAppUri(String); // TODO: Use a `Vec<u8>` instead of `String`
 
 impl ZkAppUri {
     #[allow(clippy::new_without_default)]
@@ -873,7 +873,7 @@ impl From<AccountIdOrderable> for AccountId {
 
 #[derive(Clone, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 #[serde(into = "v2::MinaBaseAccountIdStableV2")]
-#[serde(from = "v2::MinaBaseAccountIdStableV2")]
+#[serde(try_from = "v2::MinaBaseAccountIdStableV2")]
 pub struct AccountId {
     pub public_key: CompressedPubKey,
     pub token_id: TokenId,
@@ -1112,7 +1112,7 @@ pub struct PermsConst {
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(into = "v2::MinaBaseAccountBinableArgStableV2")]
-#[serde(from = "v2::MinaBaseAccountBinableArgStableV2")]
+#[serde(try_from = "v2::MinaBaseAccountBinableArgStableV2")]
 pub struct Account {
     pub public_key: CompressedPubKey, // Public_key.Compressed.t
     pub token_id: TokenId,            // Token_id.t

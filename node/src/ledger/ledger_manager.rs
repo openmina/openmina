@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use ledger::staged_ledger::staged_ledger::StagedLedger;
-use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
+use mina_p2p_messages::v2::{self, LedgerHash, MinaBaseAccountBinableArgStableV2};
 use openmina_core::channels::mpsc;
 use openmina_core::thread;
 
@@ -99,11 +99,24 @@ impl LedgerRequest {
                                 result,
                             })
                         };
-                        ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb);
+                        if let Err(e) =
+                            ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb)
+                        {
+                            openmina_core::log::inner::error!(
+                                "Failed to reconstruct staged ledger: {:?}",
+                                e
+                            );
+                            // TODO: Handle the error in the state machine
+                        }
                         return LedgerResponse::Success;
                     } else {
-                        let (staged_ledger_hash, result) =
-                            ledger_ctx.staged_ledger_reconstruct_sync(snarked_ledger_hash, parts);
+                        let (staged_ledger_hash, result) = match ledger_ctx
+                            .staged_ledger_reconstruct_sync(snarked_ledger_hash, parts)
+                        {
+                            Ok(result) => result,
+                            Err(e) => (v2::LedgerHash::zero(), Err(String::from(e))),
+                        };
+
                         LedgerWriteResponse::StagedLedgerReconstruct {
                             staged_ledger_hash,
                             result,

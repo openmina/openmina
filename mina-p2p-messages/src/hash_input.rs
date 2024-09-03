@@ -26,7 +26,11 @@ impl ToInput for bool {
 
 impl ToInput for BigInt {
     fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_field(self.to_field());
+        let Ok(field) = self.to_field() else {
+            eprintln!("ToInput: Invalid field {:?}", self);
+            return;
+        };
+        inputs.append_field(field);
     }
 }
 
@@ -279,14 +283,14 @@ impl Inputs {
                     current.0[3] | item.0[3],
                 ]);
             } else {
-                self.fields.push(current.into());
+                self.fields.push(current.try_into().unwrap()); // Never fail
                 current = item;
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            self.fields.push(current.into());
+            self.fields.push(current.try_into().unwrap()); // Never fail
         }
 
         self.fields

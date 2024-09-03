@@ -168,14 +168,14 @@ impl Inputs {
                     current.0[3] | item.0[3],
                 ]);
             } else {
-                self.fields.push(current.into());
+                self.fields.push(current.try_into().unwrap()); // Never fail
                 current = item;
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            self.fields.push(current.into());
+            self.fields.push(current.try_into().unwrap()); // Never fail
         }
 
         self.fields

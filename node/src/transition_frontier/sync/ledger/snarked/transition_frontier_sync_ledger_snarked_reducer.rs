@@ -231,10 +231,18 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 // NOTE: incorrect account numbers may be accepted (if they fall in the same range)
                 // because what is actually being validated is the content hash and tree height,
                 // not the actual number of accounts.
-                let actual_hash = crate::ledger::complete_num_accounts_tree_with_empties(
+                let Ok(actual_hash) = crate::ledger::complete_num_accounts_tree_with_empties(
                     contents_hash,
                     *num_accounts,
-                );
+                ) else {
+                    dispatcher.push(
+                        TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected {
+                            num_accounts: *num_accounts,
+                            sender: *sender,
+                        },
+                    );
+                    return;
+                };
 
                 if snarked_ledger_hash == actual_hash {
                     dispatcher.push(

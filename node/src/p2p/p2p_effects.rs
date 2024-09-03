@@ -1,3 +1,4 @@
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
 use openmina_core::bug_condition;
@@ -359,18 +360,33 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                             }
                             Some(P2pRpcResponse::BestTipWithProof(resp)) => {
                                 let (body_hashes, root_block) = &resp.proof;
-                                let best_tip = BlockWithHash::new(resp.best_tip.clone());
-                                let root_block = BlockWithHash::new(root_block.clone());
+
+                                let (Ok(best_tip), Ok(root_block)) = (
+                                    BlockWithHash::try_new(resp.best_tip.clone()),
+                                    BlockWithHash::try_new(root_block.clone()),
+                                ) else {
+                                    openmina_core::error!(meta.time(); "P2pRpcResponse::BestTipWithProof: invalid blocks");
+                                    return;
+                                };
 
                                 // reconstruct hashes
-                                let hashes = body_hashes
+                                let Ok(hashes) = body_hashes
                                     .iter()
                                     .take(body_hashes.len().saturating_sub(1))
                                     .scan(root_block.hash.clone(), |pred_hash, body_hash| {
-                                        *pred_hash = StateHash::from_hashes(pred_hash, body_hash);
-                                        Some(pred_hash.clone())
+                                        *pred_hash = match StateHash::try_from_hashes(
+                                            pred_hash, body_hash,
+                                        ) {
+                                            Ok(hash) => hash,
+                                            Err(_) => return Some(Err(InvalidBigInt)),
+                                        };
+                                        Some(Ok(pred_hash.clone()))
                                     })
-                                    .collect::<Vec<_>>();
+                                    .collect::<Result<Vec<_>, _>>()
+                                else {
+                                    openmina_core::error!(meta.time(); "P2pRpcResponse::BestTipWithProof: invalid hashes");
+                                    return;
+                                };
 
                                 if let Some(pred_hash) = hashes.last() {
                                     let expected_hash =
@@ -440,7 +456,10 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                 );
                             }
                             Some(P2pRpcResponse::Block(block)) => {
-                                let block = BlockWithHash::new(block.clone());
+                                let Ok(block) = BlockWithHash::try_new(block.clone()) else {
+                                    openmina_core::error!(meta.time(); "P2pRpcResponse::Block: invalid block");
+                                    return;
+                                };
                                 store.dispatch(
                                     TransitionFrontierSyncAction::BlocksPeerQuerySuccess {
                                         peer_id,
@@ -481,9 +500,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     let mut chain_iter = best_chain.iter();
                                     let root_block = chain_iter.next()?;
                                     // TODO(binier): cache body hashes
-                                    let body_hashes = chain_iter
-                                        .map(|b| b.block.header.protocol_state.body.hash())
-                                        .collect();
+                                    let Ok(body_hashes) = chain_iter
+                                        .map(|b| b.block.header.protocol_state.body.try_hash())
+                                        .collect::<Result<_, _>>()
+                                    else {
+                                        openmina_core::error!(meta.time(); "P2pRpcRequest::BestTipWithProof: invalid protocol state");
+                                        return None;
+                                    };
 
                                     Some(BestTipWithProof {
                                         best_tip: best_tip.block.clone(),

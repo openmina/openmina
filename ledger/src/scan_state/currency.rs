@@ -1,6 +1,6 @@
 use std::cmp::Ordering::{Equal, Greater, Less};
 
-use ark_ff::{BigInteger256, Field};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field};
 use mina_p2p_messages::v2::BlockTimeTimeStableV1;
 use rand::Rng;
 
@@ -16,6 +16,13 @@ pub enum Sgn {
 }
 
 impl Sgn {
+    pub fn is_pos(&self) -> bool {
+        match self {
+            Sgn::Pos => true,
+            Sgn::Neg => false,
+        }
+    }
+
     pub fn negate(&self) -> Self {
         match self {
             Sgn::Pos => Sgn::Neg,
@@ -525,14 +532,14 @@ macro_rules! impl_number {
                 std::array::from_fn(|_| iter.next().unwrap())
             }
 
-            pub fn to_field<F: Field + From<BigInteger256>>(&self) -> F {
+            pub fn to_field<F: Field + TryFrom<BigInteger256, Error = InvalidBigInt>>(&self) -> F {
                 let int = self.0 as u64;
 
                 let mut bigint: [u64; 4] = [0; 4];
                 bigint[0] = int;
 
                 let bigint = ark_ff::BigInteger256(bigint);
-                F::from(bigint)
+                F::try_from(bigint).unwrap() // Never fail, we got only 1 limb
             }
         }
 

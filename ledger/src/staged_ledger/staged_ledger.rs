@@ -2593,7 +2593,7 @@ mod tests_ocaml {
             cs.global_slot_since_genesis = (&global_slot_since_genesis).into();
         };
 
-        let view = protocol_state_view(&state);
+        let view = protocol_state_view(&state).unwrap();
 
         (state, view)
     }
@@ -2788,7 +2788,8 @@ mod tests_ocaml {
     fn hashes_abstract(
         state: &mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
     ) -> (Fp, Fp) {
-        scan_state::protocol_state::hashes(state)
+        let state: crate::proofs::block::ProtocolState = state.try_into().unwrap();
+        state.hashes()
     }
 
     struct TestSimpleParams<F: Fn(&work::Statement) -> Option<work::Checked>> {
@@ -2969,7 +2970,8 @@ mod tests_ocaml {
                                 .blockchain_state
                                 .ledger_proof_statement
                                 .target)
-                                .into();
+                                .try_into()
+                                .unwrap();
                             registers.local_state
                         },
                         expected_staged_ledger_merkle_root,
@@ -3357,7 +3359,7 @@ mod tests_ocaml {
 
             let a: mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1 =
                 (&zkapp).into();
-            let b: zkapp_command::ZkAppCommand = (&a).into();
+            let b: zkapp_command::ZkAppCommand = (&a).try_into().unwrap();
 
             assert_eq!(zkapp, b, "failed at {:?}", index);
         }
@@ -3875,7 +3877,7 @@ mod tests_ocaml {
                     let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
                         (&job.first_pass_ledger_witness).into();
 
-                    let mut ledger: SparseLedger = (&ledger).into();
+                    let mut ledger: SparseLedger = (&ledger).try_into().unwrap();
                     let after = ledger.merkle_root();
                     assert_eq!(before, after);
                     assert_eq!(ledger, job.first_pass_ledger_witness);
@@ -3885,7 +3887,7 @@ mod tests_ocaml {
                     let ledger: mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2 =
                         (&job.second_pass_ledger_witness).into();
 
-                    let mut ledger: SparseLedger = (&ledger).into();
+                    let mut ledger: SparseLedger = (&ledger).try_into().unwrap();
                     let after = ledger.merkle_root();
                     assert_eq!(before, after);
                     assert_eq!(ledger, job.second_pass_ledger_witness);
@@ -5829,7 +5831,6 @@ mod tests {
     use mina_p2p_messages::{binprot, list::List};
 
     use crate::{
-        proofs::public_input::protocol_state::MinaHash,
         scan_state::{
             currency::Slot,
             pending_coinbase::PendingCoinbase,
@@ -5890,14 +5891,20 @@ mod tests {
         let (scan_state, expected_ledger_hash, pending_coinbase, states) = info.unwrap();
         let states = states
             .into_iter()
-            .map(|state| (MinaHash::hash(&state), state))
+            .map(|state| {
+                let s: crate::proofs::block::ProtocolState = (&state).try_into().unwrap();
+                (crate::scan_state::protocol_state::MinaHash::hash(&s), state)
+            })
             .collect::<BTreeMap<_, _>>();
 
         println!("Load staged ledger info");
 
-        let scan_state: ScanState = elapsed("scan_state conversion", || (&scan_state).into());
-        let pending_coinbase: PendingCoinbase =
-            elapsed("pending_coinbase conversion", || (&pending_coinbase).into());
+        let scan_state: ScanState = elapsed("scan_state conversion", || {
+            (&scan_state).try_into().unwrap()
+        });
+        let pending_coinbase: PendingCoinbase = elapsed("pending_coinbase conversion", || {
+            (&pending_coinbase).try_into().unwrap()
+        });
 
         let mut staged_ledger =
             elapsed("of_scan_state_pending_coinbases_and_snarked_ledger", || {
@@ -5908,7 +5915,7 @@ mod tests {
                     scan_state,
                     snarked_ledger,
                     LocalState::empty(),
-                    expected_ledger_hash.into(),
+                    expected_ledger_hash.try_into().unwrap(),
                     pending_coinbase,
                     |key| states.get(&key).cloned().unwrap(),
                 )
@@ -5964,9 +5971,13 @@ mod tests {
             blocks,
         } = BinProtRead::binprot_read(&mut f).unwrap();
 
-        let accounts: Vec<Account> = accounts.iter().map(Into::into).collect();
-        let scan_state: ScanState = (&scan_state).into();
-        let pending_coinbase: PendingCoinbase = (&pending_coinbase).into();
+        let accounts: Vec<Account> = accounts
+            .iter()
+            .map(TryInto::try_into)
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let scan_state: ScanState = (&scan_state).try_into().unwrap();
+        let pending_coinbase: PendingCoinbase = (&pending_coinbase).try_into().unwrap();
 
         let mut root = Mask::new_root(Database::create(35));
         for account in accounts {
@@ -6014,16 +6025,18 @@ mod tests {
 
             crate::proofs::verification::verify_block(&block.header, &block_verifier, &srs);
 
-            let diff: Diff = (&block.body.staged_ledger_diff).into();
+            let diff: Diff = (&block.body.staged_ledger_diff).try_into().unwrap();
 
             let prev_protocol_state = &pred_block.header.protocol_state;
-            let prev_state_view = protocol_state_view(prev_protocol_state);
+            let prev_state_view = protocol_state_view(prev_protocol_state).unwrap();
 
-            let prev_state_and_body_hash =
-                crate::scan_state::protocol_state::hashes(prev_protocol_state);
+            let prev_state: crate::proofs::block::ProtocolState =
+                prev_protocol_state.try_into().unwrap();
+            let prev_state_and_body_hash = prev_state.hashes();
 
             let consensus_state = &block.header.protocol_state.body.consensus_state;
-            let coinbase_receiver: CompressedPubKey = (&consensus_state.coinbase_receiver).into();
+            let coinbase_receiver: CompressedPubKey =
+                (&consensus_state.coinbase_receiver).try_into().unwrap();
             let _supercharge_coinbase = consensus_state.supercharge_coinbase;
             let supercharge_coinbase = false;
 
@@ -6155,7 +6168,7 @@ mod tests {
         let ledger_proof: v2::LedgerProofProdStableV2 =
             BinProtRead::binprot_read(&mut ledger_proof).unwrap();
 
-        let ledger_proof: LedgerProof = (&ledger_proof).into();
+        let ledger_proof: LedgerProof = (&ledger_proof).try_into().unwrap();
         let stmt = ledger_proof.statement_ref();
 
         dbg!(stmt.to_field_elements_owned());
@@ -6193,13 +6206,18 @@ mod tests {
 
         let states = states
             .iter()
-            .map(|state| (state.hash().to_field::<Fp>(), state.clone()))
+            .map(|state| {
+                (
+                    state.try_hash().unwrap().to_field::<Fp>().unwrap(),
+                    state.clone(),
+                )
+            })
             .collect::<BTreeMap<_, _>>();
 
         const LEDGER_DEPTH: usize = 35;
         let mut ledger = Mask::create(LEDGER_DEPTH);
         for account in &accounts {
-            let account: Account = account.into();
+            let account: Account = account.try_into().unwrap();
             let id = account.id();
             ledger.get_or_create_account(id, account).unwrap();
         }
@@ -6209,11 +6227,11 @@ mod tests {
             (),
             openmina_core::constants::constraint_constants(),
             Verifier,
-            (&scan_state).into(),
+            (&scan_state).try_into().unwrap(),
             ledger,
             LocalState::empty(),
-            staged_ledger_hash.0.to_field(),
-            (&pending_coinbase).into(),
+            staged_ledger_hash.0.to_field().unwrap(),
+            (&pending_coinbase).try_into().unwrap(),
             |key| states.get(&key).cloned().unwrap(),
         )
         .unwrap();

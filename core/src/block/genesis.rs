@@ -1,3 +1,4 @@
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{self, StateHash};
 
 use crate::constants::{constraint_constants, slots_per_window};
@@ -19,10 +20,14 @@ pub fn genesis_and_negative_one_protocol_states(
     staking_epoch_seed: v2::EpochSeed,
     next_epoch_seed: v2::EpochSeed,
     updated_next_epoch_seed: v2::EpochSeed,
-) -> (
-    v2::MinaStateProtocolStateValueStableV2,
-    v2::MinaStateProtocolStateValueStableV2,
-) {
+) -> Result<
+    (
+        v2::MinaStateProtocolStateValueStableV2,
+        v2::MinaStateProtocolStateValueStableV2,
+        StateHash,
+    ),
+    InvalidBigInt,
+> {
     let negative_one = protocol_state(
         constants.clone(),
         genesis_ledger_hash.clone(),
@@ -39,7 +44,7 @@ pub fn genesis_and_negative_one_protocol_states(
         next_epoch_seed.clone(),
         true,
     );
-    let negative_one_hash = negative_one.hash();
+    let negative_one_hash = negative_one.try_hash()?;
     let mut genesis = protocol_state(
         constants,
         genesis_ledger_hash,
@@ -56,6 +61,7 @@ pub fn genesis_and_negative_one_protocol_states(
         updated_next_epoch_seed.clone(),
         false,
     );
+    let genesis_hash = genesis.try_hash()?;
     if constraint_constants().fork.is_none() {
         genesis.previous_state_hash = negative_one_hash.clone();
     }
@@ -69,7 +75,7 @@ pub fn genesis_and_negative_one_protocol_states(
             ..genesis.body.consensus_state.next_epoch_data
         };
 
-    (negative_one, genesis)
+    Ok((negative_one, genesis, genesis_hash))
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -1,5 +1,6 @@
 use std::fmt::Write;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::{bigint::BigInt, hash::MinaHash, v2::MerkleTreeNode};
 
 /// Computes the root hash of the merkle tree with an account and its merkle path
@@ -9,18 +10,18 @@ use mina_p2p_messages::{bigint::BigInt, hash::MinaHash, v2::MerkleTreeNode};
 pub fn calc_merkle_root_hash(
     account: &mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2,
     merkle_path: &[MerkleTreeNode],
-) -> BigInt {
-    let account_hash = account.hash();
+) -> Result<BigInt, InvalidBigInt> {
+    let account_hash = account.try_hash()?;
     let mut param = String::with_capacity(16);
 
-    merkle_path
+    Ok(merkle_path
         .iter()
         .enumerate()
         .fold(account_hash, |child, (depth, path)| {
             // TODO(binier): panics!
             let hashes = match path {
-                MerkleTreeNode::Left(right) => [child, right.to_fp().unwrap()],
-                MerkleTreeNode::Right(left) => [left.to_fp().unwrap(), child],
+                MerkleTreeNode::Left(right) => [child, right.to_field().unwrap()],
+                MerkleTreeNode::Right(left) => [left.to_field().unwrap(), child],
             };
 
             param.clear();
@@ -28,7 +29,7 @@ pub fn calc_merkle_root_hash(
 
             ledger::hash_with_kimchi(param.as_str(), &hashes)
         })
-        .into()
+        .into())
 }
 
 #[cfg(test)]
@@ -60,7 +61,7 @@ mod tests {
         let mut cursor = std::io::Cursor::new(merkle_path);
         let merkle_path = Vec::<MerkleTreeNode>::binprot_read(&mut cursor).unwrap();
 
-        let root_hash = calc_merkle_root_hash(&account, &merkle_path[..]);
+        let root_hash = calc_merkle_root_hash(&account, &merkle_path[..]).unwrap();
 
         let expected_root_hash = LedgerHash::from_str(expected_root_hash).unwrap().0.clone();
 

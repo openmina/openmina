@@ -16,7 +16,7 @@ use crate::{
     verifier::{get_srs, get_srs_mut},
     SpongeParamsForField,
 };
-use ark_ff::{BigInteger256, One, Zero};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Radix2EvaluationDomain, UVPolynomial,
 };
@@ -36,7 +36,7 @@ use crate::proofs::{
         prepared_statement::Plonk,
     },
     transaction::endos,
-    util::{challenge_polynomial, to_absorption_sequence2, u64_to_field},
+    util::{challenge_polynomial, four_u64_to_field, to_absorption_sequence2},
     verification::{make_scalars_env, prev_evals_from_p2p},
     wrap::{
         combined_inner_product, evals_of_split_evals, CombinedInnerProductParams,
@@ -57,7 +57,7 @@ use super::{
         ProofError, Prover, ReducedMessagesForNextStepProof, StepStatement,
     },
     unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
-    util::extract_bulletproof,
+    util::{extract_bulletproof, two_u64_to_field},
     witness::Witness,
     wrap::Domains,
 };
@@ -257,8 +257,14 @@ pub struct StatementProofState {
     pub messages_for_next_wrap_proof: MessagesForNextWrapProof,
 }
 
-impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for StatementProofState {
-    fn from(value: &v2::PicklesProofProofsVerified2ReprStableV2StatementProofState) -> Self {
+impl TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState>
+    for StatementProofState
+{
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &v2::PicklesProofProofsVerified2ReprStableV2StatementProofState,
+    ) -> Result<Self, Self::Error> {
         let v2::PicklesProofProofsVerified2ReprStableV2StatementProofState {
             deferred_values:
                 v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues {
@@ -274,9 +280,9 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
                 },
         } = value;
 
-        Self {
+        Ok(Self {
             deferred_values: StatementDeferredValues {
-                plonk: plonk.into(),
+                plonk: plonk.try_into()?,
                 bulletproof_challenges: bulletproof_challenges
                     .each_ref()
                     .map(|challenge| challenge.prechallenge.inner.each_ref().map(|v| v.as_u64())),
@@ -287,19 +293,21 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
                 .map(|v| v.as_u64()),
             messages_for_next_wrap_proof: MessagesForNextWrapProof {
                 challenge_polynomial_commitment: InnerCurve::from((
-                    c0.to_field::<Fq>(),
-                    c1.to_field(),
+                    c0.to_field::<Fq>()?,
+                    c1.to_field()?,
                 )),
                 old_bulletproof_challenges: old_bulletproof_challenges
                     .iter()
                     .map(|old_bulletproof_challenge| {
                         old_bulletproof_challenge.each_ref().map(|chal| {
-                            u64_to_field(&chal.prechallenge.inner.each_ref().map(|v| v.as_u64()))
+                            two_u64_to_field(
+                                &chal.prechallenge.inner.each_ref().map(|v| v.as_u64()),
+                            )
                         })
                     })
                     .collect(),
             },
-        }
+        })
     }
 }
 
@@ -327,6 +335,7 @@ pub mod step_verifier {
             MakeScalarsEnvParams, PERMUTS_MINUS_1_ADD_N1,
         },
     };
+    use ark_ff::fields::arithmetic::InvalidBigInt;
     use itertools::Itertools;
     use kimchi::circuits::wires::PERMUTS;
     use poly_commitment::{srs::SRS, PolyComm};
@@ -521,7 +530,7 @@ pub mod step_verifier {
     pub(super) fn finalize_other_proof(
         params: FinalizeOtherProofParams,
         w: &mut Witness<Fp>,
-    ) -> (Boolean, Vec<Fp>) {
+    ) -> Result<(Boolean, Vec<Fp>), InvalidBigInt> {
         let FinalizeOtherProofParams {
             max_proof_verified,
             feature_flags: _,
@@ -550,8 +559,8 @@ pub mod step_verifier {
         let actual_width_mask = proof_verified_to_prefix(actual_width_mask);
 
         let (_, endo) = endos::<Fq>();
-        let scalar = |b: &[u64; 2], w: &mut Witness<Fp>| {
-            let scalar = u64_to_field(b);
+        let scalar = |b: &[u64; 2], w: &mut Witness<Fp>| -> Fp {
+            let scalar = two_u64_to_field(b);
             to_field_checked::<Fp, 128>(scalar, endo, w)
         };
 
@@ -585,8 +594,8 @@ pub mod step_verifier {
 
             InCircuit {
                 alpha,
-                beta: u64_to_field(beta),
-                gamma: u64_to_field(gamma),
+                beta: two_u64_to_field(beta),
+                gamma: two_u64_to_field(gamma),
                 zeta,
                 zeta_to_domain_size: zeta_to_domain_size.clone(),
                 zeta_to_srs_length: zeta_to_srs_length.clone(),
@@ -693,7 +702,7 @@ pub mod step_verifier {
         let xi_actual = lowest_128_bits(sponge.squeeze(w), true, w);
         let r_actual = lowest_128_bits(sponge.squeeze(w), true, w);
 
-        let xi_correct = field::equal(xi_actual, u64_to_field(xi), w);
+        let xi_correct = field::equal(xi_actual, two_u64_to_field(xi), w);
 
         let xi = scalar(xi, w);
         let r = to_field_checked::<Fp, 128>(r_actual, endo, w);
@@ -868,7 +877,7 @@ pub mod step_verifier {
             w,
         );
 
-        (finalized, bulletproof_challenges)
+        Ok((finalized, bulletproof_challenges))
     }
 
     pub(super) fn sponge_after_index(
@@ -1039,7 +1048,7 @@ pub mod step_verifier {
             let v = if s_odd { s - F2::one() } else { s };
             // TODO: Remove this ugly hack
             let v: BigInteger256 = (v / F2::from(2u64)).into();
-            (F::from(v), s_odd.to_boolean())
+            (F::try_from(v).unwrap(), s_odd.to_boolean()) // `unwrap` never fail
         });
 
         scale_fast2(g, s_parts, num_bits, w)
@@ -1358,7 +1367,7 @@ pub mod step_verifier {
     fn check_bulletproof(
         params: CheckBulletProofParams,
         w: &mut Witness<Fp>,
-    ) -> (Boolean, Vec<Fp>) {
+    ) -> Result<(Boolean, Vec<Fp>), InvalidBigInt> {
         let CheckBulletProofParams {
             pcs_batch: _,
             mut sponge,
@@ -1386,7 +1395,7 @@ pub mod step_verifier {
             wrap_verifier::group_map(t, w)
         };
 
-        let xi_field: Fq = u64_to_field(&xi);
+        let xi_field: Fq = two_u64_to_field(&xi);
 
         let point: Point<Fp> = PcsBatch::combine_split_commitments::<Fp, _, _, _, _>(
             |p, _w| p.clone(),
@@ -1500,7 +1509,7 @@ pub mod step_verifier {
             w.add_fast(z_1_g_plus_b_u, z2_h)
         };
 
-        (wrap_verifier::equal_g(lhs, rhs, w), challenges)
+        Ok((wrap_verifier::equal_g(lhs, rhs, w), challenges))
     }
 
     struct IncrementallyVerifyProofParams<'a> {
@@ -1521,7 +1530,7 @@ pub mod step_verifier {
     fn incrementally_verify_proof(
         params: IncrementallyVerifyProofParams,
         w: &mut Witness<Fp>,
-    ) -> (Fp, (Boolean, Vec<Fp>)) {
+    ) -> Result<(Fp, (Boolean, Vec<Fp>)), InvalidBigInt> {
         let IncrementallyVerifyProofParams {
             proofs_verified: _,
             srs,
@@ -1656,10 +1665,10 @@ pub mod step_verifier {
                     polynomials: (without_degree_bound, vec![]),
                 },
                 w,
-            )
+            )?
         };
 
-        (sponge_digest_before_evaluations, bulletproof_challenges)
+        Ok((sponge_digest_before_evaluations, bulletproof_challenges))
     }
 
     pub(super) struct VerifyParams<'a> {
@@ -1678,7 +1687,10 @@ pub mod step_verifier {
         pub(super) unfinalized: &'a Unfinalized,
     }
 
-    pub(super) fn verify(params: VerifyParams, w: &mut Witness<Fp>) -> Boolean {
+    pub(super) fn verify(
+        params: VerifyParams,
+        w: &mut Witness<Fp>,
+    ) -> Result<Boolean, InvalidBigInt> {
         let VerifyParams {
             srs,
             feature_flags: _,
@@ -1701,7 +1713,7 @@ pub mod step_verifier {
                 OptFlag::Maybe => 40,
                 OptFlag::Yes => todo!(),
             };
-            statement.to_public_input_cvar(hack_feature_flags, npublic_input)
+            statement.to_public_input_cvar(hack_feature_flags, npublic_input)?
         };
 
         let unfinalized::DeferredValues {
@@ -1738,24 +1750,24 @@ pub mod step_verifier {
                 plonk,
             },
             w,
-        );
+        )?;
 
-        unfinalized
+        for (c1, c2) in unfinalized
             .deferred_values
             .bulletproof_challenges
             .iter()
             .zip(&bulletproof_challenges_actual)
-            .for_each(|(c1, c2)| {
-                let v = match is_base_case.value() {
-                    Boolean::True => u64_to_field(c1),
-                    Boolean::False => *c2,
-                };
-                if let CircuitVar::Var(_) = is_base_case {
-                    w.exists_no_check(v);
-                };
-            });
+        {
+            let v = match is_base_case.value() {
+                Boolean::True => two_u64_to_field(c1),
+                Boolean::False => *c2,
+            };
+            if let CircuitVar::Var(_) = is_base_case {
+                w.exists_no_check(v);
+            };
+        }
 
-        bulletproof_success
+        Ok(bulletproof_success)
     }
 }
 
@@ -1768,7 +1780,10 @@ struct VerifyOneParams<'a> {
     should_verify: CircuitVar<Boolean>,
 }
 
-fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> (Vec<Fp>, Boolean) {
+fn verify_one(
+    params: VerifyOneParams,
+    w: &mut Witness<Fp>,
+) -> Result<(Vec<Fp>, Boolean), InvalidBigInt> {
     let VerifyOneParams {
         srs,
         proof,
@@ -1795,7 +1810,7 @@ fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> (Vec<Fp>, Boolean
 
         let sponge = {
             let mut sponge = crate::proofs::transaction::poseidon::Sponge::<Fp>::new();
-            sponge.absorb2(&[u64_to_field(&sponge_digest)], w);
+            sponge.absorb2(&[four_u64_to_field(&sponge_digest)?], w);
             sponge
         };
 
@@ -1811,7 +1826,7 @@ fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> (Vec<Fp>, Boolean
                 hack_feature_flags: *hack_feature_flags,
             },
             w,
-        )
+        )?
     };
 
     let branch_data = &deferred_values.branch_data;
@@ -1871,12 +1886,12 @@ fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> (Vec<Fp>, Boolean
             unfinalized,
         },
         w,
-    );
+    )?;
 
     let a = verified.and(&finalized, w);
     let b = CircuitVar::Var(a).or(&should_verify.neg(), w);
 
-    (chals, b.as_boolean())
+    Ok((chals, b.as_boolean()))
 }
 
 fn to_bytes(f: Fp) -> [u64; 4] {
@@ -1894,7 +1909,7 @@ pub struct ExpandDeferredParams<'a> {
     pub proof_state: &'a StatementProofState,
 }
 
-pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
+pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp>, InvalidBigInt> {
     let ExpandDeferredParams {
         evals,
         old_bulletproof_challenges,
@@ -1989,7 +2004,9 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
     use mina_poseidon::FqSponge;
 
     let mut sponge = <Fq as FieldWitness>::FqSponge::new(Fp::get_params2());
-    sponge.absorb_fq(&[u64_to_field(&proof_state.sponge_digest_before_evaluations)]);
+    sponge.absorb_fq(&[four_u64_to_field(
+        &proof_state.sponge_digest_before_evaluations,
+    )?]);
     sponge.absorb_fq(&[challenges_digest]);
     sponge.absorb_fq(&[evals.ft_eval1]);
     sponge.absorb_fq(&[*x1, *x2]);
@@ -2031,14 +2048,14 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
 
     let to_shifted = |f: Fp| <Fp as FieldWitness>::Shifting::of_field(f);
 
-    DeferredValues {
+    Ok(DeferredValues {
         plonk,
         combined_inner_product: to_shifted(combined_inner_product_actual),
         b: to_shifted(b_actual),
         xi: xi_chal.try_into().unwrap(),
         bulletproof_challenges,
         branch_data: proof_state.deferred_values.branch_data.clone(),
-    }
+    })
 }
 
 /// Ipa.Wrap.compute_sg
@@ -2071,7 +2088,7 @@ struct ExpandProofParams<'a> {
     hack_feature_flags: OptFlag,
 }
 
-fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
+fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigInt> {
     let ExpandProofParams {
         dlog_vk,
         dlog_plonk_index,
@@ -2085,7 +2102,7 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
 
     use super::public_input::scalar_challenge::ScalarChallenge;
 
-    let plonk0: PlonkMinimal<Fp> = (&t.statement.proof_state.deferred_values.plonk).into();
+    let plonk0: PlonkMinimal<Fp> = (&t.statement.proof_state.deferred_values.plonk).try_into()?;
 
     let plonk = {
         let domain: u8 = t
@@ -2103,7 +2120,7 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
 
         // dbg!(alpha, zeta, zetaw, dlog_vk.domain.log_size_of_group, domain);
 
-        let es = prev_evals_from_p2p(&t.prev_evals.evals.evals);
+        let es = prev_evals_from_p2p(&t.prev_evals.evals.evals)?;
         let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
 
         let plonk_minimal = PlonkMinimal::<Fp, 4> {
@@ -2146,19 +2163,19 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
         .iter()
         .map(|v| {
             v.0.clone()
-                .map(|v| u64_to_field(&v.prechallenge.inner.0.map(|v| v.as_u64())))
+                .map(|v| two_u64_to_field(&v.prechallenge.inner.0.map(|v| v.as_u64())))
         })
         .collect();
 
     let deferred_values_computed = {
-        let evals: AllEvals<Fp> = (&t.prev_evals).into();
-        let proof_state: StatementProofState = (&statement.proof_state).into();
+        let evals: AllEvals<Fp> = (&t.prev_evals).try_into()?;
+        let proof_state: StatementProofState = (&statement.proof_state).try_into()?;
 
         expand_deferred(ExpandDeferredParams {
             evals: &evals,
             old_bulletproof_challenges: &old_bulletproof_challenges,
             proof_state: &proof_state,
-        })
+        })?
     };
 
     let old_bulletproof_challenges: Vec<_> = old_bulletproof_challenges
@@ -2173,8 +2190,13 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
             .messages_for_next_step_proof
             .challenge_polynomial_commitments
             .iter()
-            .map(|(x, y)| InnerCurve::of_affine(make_group(x.to_field::<Fp>(), y.to_field())))
-            .collect(),
+            .map(|(x, y)| {
+                Ok(InnerCurve::of_affine(make_group(
+                    x.to_field::<Fp>()?,
+                    y.to_field()?,
+                )))
+            })
+            .collect::<Result<_, _>>()?,
         old_bulletproof_challenges: old_bulletproof_challenges.clone(),
     }
     .hash();
@@ -2206,7 +2228,9 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
                     .bulletproof_challenges
                     .iter()
                     .map(|challenge| {
-                        u64_to_field(&challenge.prechallenge.inner.each_ref().map(|v| v.as_u64()))
+                        two_u64_to_field(
+                            &challenge.prechallenge.inner.each_ref().map(|v| v.as_u64()),
+                        )
                     })
                     .collect(),
                 branch_data: deferred_values.branch_data,
@@ -2223,7 +2247,7 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
                         .proof_state
                         .messages_for_next_wrap_proof
                         .challenge_polynomial_commitment;
-                    InnerCurve::from((x.to_field::<Fq>(), y.to_field()))
+                    InnerCurve::from((x.to_field::<Fq>()?, y.to_field()?))
                 },
             }
             .hash(),
@@ -2231,9 +2255,9 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
         messages_for_next_step_proof,
     };
 
-    let mut proof = make_padded_proof_from_p2p(t);
+    let mut proof = make_padded_proof_from_p2p(t)?;
     let oracle = {
-        let public_input = prev_statement_with_hashes.to_public_input(public_input_length);
+        let public_input = prev_statement_with_hashes.to_public_input(public_input_length)?;
         create_oracle(dlog_vk, &proof, &public_input)
     };
 
@@ -2308,15 +2332,15 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
     let witness = PerProofWitness {
         app_state: None,
         proof_state: prev_statement_with_hashes.proof_state.clone(),
-        prev_proof_evals: (&t.prev_evals).into(),
+        prev_proof_evals: (&t.prev_evals).try_into()?,
         prev_challenge_polynomial_commitments: {
             let mut challenge_polynomial_commitments = t
                 .statement
                 .messages_for_next_step_proof
                 .challenge_polynomial_commitments
                 .iter()
-                .map(|(x, y)| make_group::<Fp>(x.to_field(), y.to_field()))
-                .collect::<Vec<_>>();
+                .map(|(x, y)| Ok(make_group::<Fp>(x.to_field()?, y.to_field()?)))
+                .collect::<Result<Vec<_>, _>>()?;
 
             while challenge_polynomial_commitments.len() < 2 {
                 challenge_polynomial_commitments.insert(0, dummy_ipa_wrap_sg());
@@ -2418,14 +2442,14 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
         },
     };
 
-    ExpandedProof {
+    Ok(ExpandedProof {
         sg: challenge_polynomial_commitment,
         unfinalized,
         prev_statement_with_hashes,
         x_hat,
         witness,
         actual_wrap_domain: dlog_vk.domain.log_size_of_group,
-    }
+    })
 }
 
 #[derive(Debug)]
@@ -2558,7 +2582,7 @@ impl Check<Fp> for PerProofWitness {
         perm.check(w);
         combined_inner_product.check(w);
         b.check(w);
-        u64_to_field::<Fp, 2>(xi).check(w);
+        two_u64_to_field::<Fp>(xi).check(w);
         bulletproof_challenges.check(w);
 
         {
@@ -2580,17 +2604,17 @@ impl Check<Fp> for PerProofWitness {
 
 pub fn extract_recursion_challenges<const N: usize>(
     proofs: &[&v2::PicklesProofProofsVerified2ReprStableV2; N],
-) -> Vec<RecursionChallenge<GroupAffine<Fq>>> {
+) -> Result<Vec<RecursionChallenge<GroupAffine<Fq>>>, InvalidBigInt> {
     use poly_commitment::PolyComm;
 
-    let comms: [(Fq, Fq); N] = proofs.map(|proof| {
+    let comms: [(Fq, Fq); N] = crate::try_array_into_with(proofs, |proof| {
         let (a, b) = &proof
             .statement
             .proof_state
             .messages_for_next_wrap_proof
             .challenge_polynomial_commitment;
-        (a.to_field::<Fq>(), b.to_field::<Fq>())
-    });
+        Ok((a.to_field::<Fq>()?, b.to_field::<Fq>()?))
+    })?;
 
     let challs = proofs
         .iter()
@@ -2604,7 +2628,7 @@ pub fn extract_recursion_challenges<const N: usize>(
         .collect::<Vec<_>>();
     let challs = extract_bulletproof(&challs);
 
-    challs
+    Ok(challs
         .into_iter()
         .zip(comms)
         .map(|(chals, (x, y))| {
@@ -2617,7 +2641,7 @@ pub fn extract_recursion_challenges<const N: usize>(
                 comm,
             }
         })
-        .collect()
+        .collect())
 }
 
 /// `N_PREVIOUS`: Number of previous proofs.
@@ -2664,7 +2688,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(wrap_prover));
 
-    let expanded_proofs: [ExpandedProof; N_PREVIOUS] = rule
+    let expanded_proofs: Box<[ExpandedProof; N_PREVIOUS]> = rule
         .previous_proof_statements
         .iter()
         .zip(indexes)
@@ -2686,7 +2710,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 hack_feature_flags,
             })
         })
-        .collect::<Vec<_>>()
+        .collect::<Result<Vec<_>, _>>()?
         .try_into()
         .unwrap();
 
@@ -2696,13 +2720,13 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         w.exists(expanded_proofs.each_ref().map(|p| &p.unfinalized));
 
     let messages_for_next_wrap_proof: [Fp; N_PREVIOUS] = {
-        let f = u64_to_field::<Fp, 4>;
+        let f = four_u64_to_field::<Fp>;
 
-        expanded_proofs.each_ref().map(|p| {
+        crate::try_array_into_with(&expanded_proofs, |p| {
             f(&p.prev_statement_with_hashes
                 .proof_state
                 .messages_for_next_wrap_proof)
-        })
+        })?
     };
 
     let messages_for_next_wrap_proof_padded: [Fp; 2] = w.exists({
@@ -2777,11 +2801,11 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                         should_verify: *should_verify,
                     },
                     w,
-                );
-                chals.try_into().unwrap()
+                )?;
+                Ok(chals.try_into().unwrap())
             },
         )
-        .collect::<Vec<[Fp; 16]>>();
+        .collect::<Result<Vec<[Fp; 16]>, InvalidBigInt>>()?;
 
     std::mem::drop(srs);
 
@@ -2833,20 +2857,20 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     let prev_evals = proofs
         .iter()
-        .zip(&expanded_proofs)
+        .zip(&*expanded_proofs)
         .map(|(p, expanded)| {
-            let evals = evals_from_p2p(&p.proof.evaluations);
-            let ft_eval1 = p.proof.ft_eval1.to_field();
+            let evals = evals_from_p2p(&p.proof.evaluations)?;
+            let ft_eval1 = p.proof.ft_eval1.to_field()?;
 
-            AllEvals {
+            Ok(AllEvals {
                 ft_eval1,
                 evals: EvalsWithPublicInput {
                     evals,
                     public_input: expanded.x_hat,
                 },
-            }
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, InvalidBigInt>>()?;
 
     let challenge_polynomial_commitments = expanded_proofs
         .iter()
@@ -2860,17 +2884,19 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 deferred_values,
                 messages_for_next_wrap_proof,
                 ..
-            } = (&v.statement.proof_state).into();
-            (
+            } = (&v.statement.proof_state).try_into()?;
+            Ok((
                 deferred_values.bulletproof_challenges,
                 messages_for_next_wrap_proof,
-            )
+            ))
         })
+        .collect::<Result<Vec<_>, InvalidBigInt>>()? // TODO: Refactor when `try_unzip` is stable
+        .into_iter()
         .unzip();
 
     let old_bulletproof_challenges = old_bulletproof_challenges
         .into_iter()
-        .map(|v: [[u64; 2]; 16]| v.each_ref().map(u64_to_field))
+        .map(|v: [[u64; 2]; 16]| v.each_ref().map(two_u64_to_field))
         .collect();
 
     let step_statement = crate::proofs::transaction::StepStatement {

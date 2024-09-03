@@ -6,6 +6,7 @@ pub use watched_accounts_actions::*;
 
 mod watched_accounts_reducer;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{
     NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1, StagedLedgerDiffDiffDiffStableV2,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
@@ -14,9 +15,9 @@ use mina_p2p_messages::v2::{
 pub fn is_transaction_affecting_account(
     pub_key: &NonZeroCurvePoint,
     tx: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
-) -> bool {
+) -> Result<bool, InvalidBigInt> {
     use ledger::scan_state::transaction_logic::UserCommand;
-    UserCommand::from(&tx.data)
+    Ok(UserCommand::try_from(&tx.data)?
         .accounts_referenced()
         .iter()
         .map(|v| {
@@ -25,7 +26,7 @@ pub fn is_transaction_affecting_account(
                 is_odd: v.public_key.is_odd,
             })
         })
-        .any(|referenced_pub_key| &referenced_pub_key == pub_key)
+        .any(|referenced_pub_key| &referenced_pub_key == pub_key))
 }
 
 pub fn account_relevant_transactions_in_diff_iter<'a>(
@@ -41,7 +42,7 @@ pub fn account_relevant_transactions_in_diff_iter<'a>(
     };
     iter_0
         .chain(iter_1)
-        .filter(|tx| is_transaction_affecting_account(pub_key, tx))
+        .filter(|tx| is_transaction_affecting_account(pub_key, tx).unwrap_or(false))
         .map(|tx| Transaction {
             hash: tx.data.hash().ok(),
             data: tx.data.clone(),

@@ -446,7 +446,10 @@ impl BlockProducerEnabled {
                         staged_ledger_diff: diff.clone(),
                     },
                 };
-                let block_hash = block.protocol_state.hash();
+                let Ok(block_hash) = block.protocol_state.try_hash() else {
+                    openmina_core::log::inner::error!("Invalid protocol state");
+                    return;
+                };
 
                 self.current = BlockProducerCurrentState::BlockUnprovenBuilt {
                     time: meta.time(),

@@ -94,7 +94,7 @@ pub fn from_ocaml_str<const N: usize>(s: &str) -> [u8; N] {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L27
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AuxHash(pub [u8; 32]);
 
 impl std::fmt::Debug for AuxHash {
@@ -114,7 +114,7 @@ impl AuxHash {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L110
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PendingCoinbaseAux(pub [u8; 32]);
 
 impl std::fmt::Debug for PendingCoinbaseAux {
@@ -134,7 +134,7 @@ impl PendingCoinbaseAux {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L152
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonStark {
     pub ledger_hash: Fp,
     pub aux_hash: AuxHash,
@@ -183,7 +183,7 @@ impl ToInputs for NonStark {
 /// remaining fields of the staged ledger are grouped together as "Non_snark"
 ///
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/staged_ledger_hash.ml#L259
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StagedLedgerHash<F: FieldWitness> {
     pub non_snark: NonStark,
     pub pending_coinbase_hash: F,

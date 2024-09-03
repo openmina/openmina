@@ -92,7 +92,14 @@ impl Hashable for VrfMessage {
     type D = ();
 
     fn to_roinput(&self) -> ROInput {
-        let mut roi = ROInput::new().append_field(self.epoch_seed.to_field());
+        let epoch_seed = match self.epoch_seed.to_field() {
+            Ok(epoch_seed) => epoch_seed,
+            Err(_) => {
+                // TODO: Return an error somehow
+                mina_hasher::Fp::zero()
+            }
+        };
+        let mut roi = ROInput::new().append_field(epoch_seed);
 
         for i in (0..LEDGER_DEPTH).rev() {
             roi = if self.delegator_index >> i & 1u64 == 1 {

@@ -1,4 +1,4 @@
-use ark_ff::{BigInteger256, Zero};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Zero};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
@@ -9,7 +9,7 @@ use crate::proofs::{
     field::{CircuitVar, FieldWitness},
     step::{FeatureFlags, OptFlag, Packed},
     to_field_elements::ToFieldElements,
-    util::u64_to_field,
+    util::{four_u64_to_field, two_u64_to_field},
 };
 
 #[derive(Clone, Debug)]
@@ -51,7 +51,7 @@ pub struct PreparedStatement {
 impl PreparedStatement {
     /// Implementation of `tock_unpadded_public_input_of_statement`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L202
-    pub fn to_public_input(&self, npublic_input: usize) -> Vec<Fq> {
+    pub fn to_public_input(&self, npublic_input: usize) -> Result<Vec<Fq>, InvalidBigInt> {
         let PreparedStatement {
             proof_state:
                 ProofState {
@@ -92,7 +92,7 @@ impl PreparedStatement {
 
         let to_fq = |fp: Fp| -> Fq {
             let bigint: BigInteger256 = fp.into();
-            bigint.into()
+            bigint.try_into().unwrap() // Never fail, `Fq` is larger than `Fp`
         };
 
         // Fp
@@ -106,22 +106,22 @@ impl PreparedStatement {
 
         // Challenge
         {
-            fields.push(u64_to_field(beta));
-            fields.push(u64_to_field(gamma));
+            fields.push(two_u64_to_field(beta));
+            fields.push(two_u64_to_field(gamma));
         }
 
         // Scalar challenge
         {
-            fields.push(u64_to_field(alpha));
-            fields.push(u64_to_field(zeta));
-            fields.push(u64_to_field(xi));
+            fields.push(two_u64_to_field(alpha));
+            fields.push(two_u64_to_field(zeta));
+            fields.push(two_u64_to_field(xi));
         }
 
         // Digest
         {
-            fields.push(u64_to_field(sponge_digest_before_evaluations));
-            fields.push(u64_to_field(messages_for_next_wrap_proof));
-            fields.push(u64_to_field(messages_for_next_step_proof));
+            fields.push(four_u64_to_field(sponge_digest_before_evaluations)?);
+            fields.push(four_u64_to_field(messages_for_next_wrap_proof)?);
+            fields.push(four_u64_to_field(messages_for_next_step_proof)?);
         }
 
         fields.extend(bulletproof_challenges.iter().copied().map(to_fq));
@@ -139,10 +139,13 @@ impl PreparedStatement {
             let domain_log2: u64 = domain_log2 as u64;
             let branch_data: u64 = (domain_log2 << 2) | proofs_verified;
 
-            fields.push(u64_to_field(&[branch_data]));
+            fields.push(Fq::from(branch_data));
         }
 
-        let lookup_value = lookup.as_ref().map(u64_to_field);
+        let lookup_value = match lookup.as_ref() {
+            Some(lookup) => Some(two_u64_to_field(lookup)),
+            None => None,
+        };
 
         feature_flags.to_field_elements(&mut fields);
 
@@ -179,14 +182,14 @@ impl PreparedStatement {
 
         assert_eq!(fields.len(), npublic_input);
 
-        fields
+        Ok(fields)
     }
 
     pub fn to_public_input_cvar(
         &self,
         hack_feature_flags: OptFlag,
         npublic_input: usize,
-    ) -> Vec<Packed> {
+    ) -> Result<Vec<Packed>, InvalidBigInt> {
         let PreparedStatement {
             proof_state:
                 ProofState {
@@ -227,7 +230,7 @@ impl PreparedStatement {
 
         let to_fq = |fp: Fp| -> Fq {
             let bigint: BigInteger256 = fp.into();
-            bigint.into()
+            bigint.try_into().unwrap() // Never fail, `Fq` is larger than `Fp`
         };
 
         let var = |x| Packed::Field(CircuitVar::Var(x));
@@ -244,22 +247,25 @@ impl PreparedStatement {
 
         // Challenge
         {
-            fields.push(bits(128, u64_to_field(beta)));
-            fields.push(bits(128, u64_to_field(gamma)));
+            fields.push(bits(128, two_u64_to_field(beta)));
+            fields.push(bits(128, two_u64_to_field(gamma)));
         }
 
         // Scalar challenge
         {
-            fields.push(bits(128, u64_to_field(alpha)));
-            fields.push(bits(128, u64_to_field(zeta)));
-            fields.push(bits(128, u64_to_field(xi)));
+            fields.push(bits(128, two_u64_to_field(alpha)));
+            fields.push(bits(128, two_u64_to_field(zeta)));
+            fields.push(bits(128, two_u64_to_field(xi)));
         }
 
         // Digest
         {
-            fields.push(bits(255, u64_to_field(sponge_digest_before_evaluations)));
-            fields.push(bits(255, u64_to_field(messages_for_next_wrap_proof)));
-            fields.push(bits(255, u64_to_field(messages_for_next_step_proof)));
+            fields.push(bits(
+                255,
+                four_u64_to_field(sponge_digest_before_evaluations)?,
+            ));
+            fields.push(bits(255, four_u64_to_field(messages_for_next_wrap_proof)?));
+            fields.push(bits(255, four_u64_to_field(messages_for_next_step_proof)?));
         }
 
         fields.extend(
@@ -282,7 +288,7 @@ impl PreparedStatement {
             let domain_log2: u64 = domain_log2 as u64;
             let branch_data: u64 = (domain_log2 << 2) | proofs_verified;
 
-            fields.push(bits(10, u64_to_field(&[branch_data])));
+            fields.push(bits(10, Fq::from(branch_data)));
         }
 
         // TODO: Find out how this padding works, it's probably related to features/lookup
@@ -297,6 +303,6 @@ impl PreparedStatement {
         }
         fields.push(Packed::PackedBits(circuit_var(zero), 128));
 
-        fields
+        Ok(fields)
     }
 }

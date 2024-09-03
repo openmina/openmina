@@ -527,6 +527,8 @@ pub mod transaction_snark {
     }
 
     pub mod work {
+        use ark_ff::fields::arithmetic::InvalidBigInt;
+
         use super::*;
 
         pub type Statement = OneOrTwo<super::Statement<()>>;
@@ -542,13 +544,15 @@ pub mod transaction_snark {
 
         pub type Checked = Work;
 
-        impl From<&openmina_core::snark::Snark> for Work {
-            fn from(value: &openmina_core::snark::Snark) -> Self {
-                Self {
-                    prover: (&value.snarker).into(),
+        impl TryFrom<&openmina_core::snark::Snark> for Work {
+            type Error = InvalidBigInt;
+
+            fn try_from(value: &openmina_core::snark::Snark) -> Result<Self, Self::Error> {
+                Ok(Self {
+                    prover: (&value.snarker).try_into()?,
                     fee: (&value.fee).into(),
-                    proofs: (&*value.proofs).into(),
-                }
+                    proofs: (&*value.proofs).try_into()?,
+                })
             }
         }
 
@@ -923,7 +927,7 @@ where
     } = transaction_with_info.transaction();
 
     let protocol_state = get_state(state_hash.0);
-    let state_view = protocol_state_view(&protocol_state);
+    let state_view = protocol_state_view(&protocol_state).map_err(|e| format!("{:?}", e))?;
 
     let empty_local_state = LocalState::empty();
 
@@ -1476,7 +1480,8 @@ impl ScanState {
         {
             match get_protocol_state(state_hash) {
                 Ok(state) => {
-                    let txn_state_view = protocol_state_view(&state);
+                    let txn_state_view =
+                        protocol_state_view(&state).map_err(|e| format!("{:?}", e))?;
                     apply(block_global_slot, &txn_state_view, ledger, tx)
                 }
                 Err(e) => Err(format!(

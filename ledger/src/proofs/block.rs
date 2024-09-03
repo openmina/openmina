@@ -1,5 +1,7 @@
 use std::{rc::Rc, sync::Arc};
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
+use consensus::ConsensusState;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
@@ -8,7 +10,7 @@ use openmina_core::constants::{constraint_constants, ForkConstants};
 use crate::{
     dummy,
     proofs::{
-        block::consensus::ConsensusState,
+        block::consensus::CheckedConsensusState,
         constants::{
             make_step_block_data, make_step_transaction_data, StepBlockProof, WrapBlockProof,
         },
@@ -23,14 +25,16 @@ use crate::{
         wrap::{wrap, WrapParams},
     },
     scan_state::{
+        currency,
         fee_excess::{self, FeeExcess},
         pending_coinbase::{PendingCoinbase, PendingCoinbaseWitness, Stack},
         protocol_state::MinaHash,
         scan_state::transaction_snark::{
             validate_ledgers_at_merge_checked, Registers, SokDigest, Statement, StatementLedgers,
         },
-        transaction_logic::protocol_state::EpochLedger,
+        transaction_logic::protocol_state::{EpochLedger, ProtocolStateView},
     },
+    staged_ledger::hash::StagedLedgerHash,
     Inputs, ToInputs,
 };
 
@@ -47,13 +51,69 @@ use super::{
     wrap::WrapProof,
 };
 
-impl ToFieldElements<Fp> for v2::MinaStateSnarkTransitionValueStableV2 {
+#[derive(Debug, Clone)]
+pub struct BlockchainState {
+    pub staged_ledger_hash: StagedLedgerHash<Fp>,
+    pub genesis_ledger_hash: Fp,
+    pub ledger_proof_statement: Statement<()>,
+    pub timestamp: currency::BlockTime,
+    pub body_reference: v2::ConsensusBodyReferenceStableV1,
+}
+
+#[derive(Debug, Clone)]
+pub struct SnarkTransition {
+    pub blockchain_state: BlockchainState,
+    pub consensus_transition: currency::Slot,
+    pub pending_coinbase_update: crate::scan_state::pending_coinbase::update::Update,
+}
+
+impl TryFrom<&v2::MinaStateBlockchainStateValueStableV2> for BlockchainState {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &v2::MinaStateBlockchainStateValueStableV2) -> Result<Self, Self::Error> {
+        let v2::MinaStateBlockchainStateValueStableV2 {
+            staged_ledger_hash,
+            genesis_ledger_hash,
+            ledger_proof_statement,
+            timestamp,
+            body_reference,
+        } = value;
+
+        Ok(Self {
+            staged_ledger_hash: staged_ledger_hash.try_into()?,
+            genesis_ledger_hash: genesis_ledger_hash.to_field()?,
+            ledger_proof_statement: ledger_proof_statement.try_into()?,
+            timestamp: (*timestamp).into(),
+            body_reference: body_reference.clone(),
+        })
+    }
+}
+
+impl TryFrom<&v2::MinaStateSnarkTransitionValueStableV2> for SnarkTransition {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &v2::MinaStateSnarkTransitionValueStableV2) -> Result<Self, Self::Error> {
+        let v2::MinaStateSnarkTransitionValueStableV2 {
+            blockchain_state,
+            consensus_transition,
+            pending_coinbase_update,
+        } = value;
+
+        Ok(Self {
+            blockchain_state: blockchain_state.try_into()?,
+            consensus_transition: consensus_transition.into(),
+            pending_coinbase_update: pending_coinbase_update.into(),
+        })
+    }
+}
+
+impl ToFieldElements<Fp> for SnarkTransition {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             blockchain_state,
             consensus_transition,
             pending_coinbase_update:
-                v2::MinaBasePendingCoinbaseUpdateStableV1 {
+                crate::scan_state::pending_coinbase::update::Update {
                     action,
                     coinbase_amount,
                 },
@@ -63,25 +123,25 @@ impl ToFieldElements<Fp> for v2::MinaStateSnarkTransitionValueStableV2 {
         fields.push(Fp::from(consensus_transition.as_u32()));
 
         // https://github.com/MinaProtocol/mina/blob/f6fb903bef974b191776f393a2f9a1e6360750fe/src/lib/mina_base/pending_coinbase.ml#L420
-        use v2::MinaBasePendingCoinbaseUpdateActionStableV1::*;
+        use crate::scan_state::pending_coinbase::update::Action::*;
         let bits = match action {
-            UpdateNone => [Boolean::False, Boolean::False],
-            UpdateOne => [Boolean::True, Boolean::False],
-            UpdateTwoCoinbaseInFirst => [Boolean::False, Boolean::True],
-            UpdateTwoCoinbaseInSecond => [Boolean::True, Boolean::True],
+            None => [Boolean::False, Boolean::False],
+            One => [Boolean::True, Boolean::False],
+            TwoCoinbaseInFirst => [Boolean::False, Boolean::True],
+            TwoCoinbaseInSecond => [Boolean::True, Boolean::True],
         };
         fields.extend(bits.into_iter().map(Boolean::to_field::<Fp>));
         fields.push(Fp::from(coinbase_amount.as_u64()));
     }
 }
 
-impl Check<Fp> for v2::MinaStateSnarkTransitionValueStableV2 {
+impl Check<Fp> for SnarkTransition {
     fn check(&self, w: &mut Witness<Fp>) {
         let Self {
             blockchain_state,
             consensus_transition,
             pending_coinbase_update:
-                v2::MinaBasePendingCoinbaseUpdateStableV1 {
+                crate::scan_state::pending_coinbase::update::Update {
                     action: _,
                     coinbase_amount,
                 },
@@ -104,21 +164,19 @@ impl ToFieldElements<Fp> for EpochLedger<Fp> {
     }
 }
 
-impl ToFieldElements<Fp> for v2::MinaStateProtocolStateValueStableV2 {
+impl ToFieldElements<Fp> for ProtocolState {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             previous_state_hash,
             body,
         } = self;
 
-        previous_state_hash
-            .to_field::<Fp>()
-            .to_field_elements(fields);
+        previous_state_hash.to_field_elements(fields);
         body.to_field_elements(fields);
     }
 }
 
-impl Check<Fp> for v2::MinaStateProtocolStateValueStableV2 {
+impl Check<Fp> for ProtocolState {
     fn check(&self, w: &mut Witness<Fp>) {
         let Self {
             previous_state_hash: _,
@@ -132,29 +190,29 @@ impl Check<Fp> for v2::MinaStateProtocolStateValueStableV2 {
 fn ledger_proof_opt(
     proof: Option<&v2::LedgerProofProdStableV2>,
     next_state: &v2::MinaStateProtocolStateValueStableV2,
-) -> (Statement<SokDigest>, Arc<v2::TransactionSnarkProofStableV2>) {
+) -> Result<(Statement<SokDigest>, Arc<v2::TransactionSnarkProofStableV2>), InvalidBigInt> {
     match proof {
         Some(proof) => {
-            let statement: Statement<SokDigest> = (&proof.0.statement).into();
+            let statement: Statement<SokDigest> = (&proof.0.statement).try_into()?;
             let p: &v2::TransactionSnarkProofStableV2 = &proof.0.proof;
             // TODO: Don't clone the proof here
-            (statement, Arc::new(p.clone()))
+            Ok((statement, Arc::new(p.clone())))
         }
         None => {
             let statement: Statement<()> =
-                (&next_state.body.blockchain_state.ledger_proof_statement).into();
+                (&next_state.body.blockchain_state.ledger_proof_statement).try_into()?;
             let statement = statement.with_digest(SokDigest::default());
             let p = dummy::dummy_transaction_proof();
-            (statement, p)
+            Ok((statement, p))
         }
     }
 }
 
 fn checked_hash_protocol_state(
-    state: &v2::MinaStateProtocolStateValueStableV2,
+    state: &ProtocolState,
     w: &mut Witness<Fp>,
-) -> (Fp, Fp) {
-    let v2::MinaStateProtocolStateValueStableV2 {
+) -> Result<(Fp, Fp), InvalidBigInt> {
+    let ProtocolState {
         previous_state_hash,
         body,
     } = state;
@@ -164,15 +222,18 @@ fn checked_hash_protocol_state(
     let body_hash = checked_hash("MinaProtoStateBody", &inputs.to_fields(), w);
 
     let mut inputs = Inputs::new();
-    inputs.append_field(previous_state_hash.to_field());
+    inputs.append_field(*previous_state_hash);
     inputs.append_field(body_hash);
     let hash = checked_hash("MinaProtoState", &inputs.to_fields(), w);
 
-    (hash, body_hash)
+    Ok((hash, body_hash))
 }
 
 // Checked version
-fn checked_hash_protocol_state2(state: &ProtocolState, w: &mut Witness<Fp>) -> (Fp, Fp) {
+fn checked_hash_protocol_state2(
+    state: &ProtocolState<CheckedConsensusState>,
+    w: &mut Witness<Fp>,
+) -> (Fp, Fp) {
     let ProtocolState {
         previous_state_hash,
         body,
@@ -433,11 +494,11 @@ mod floating_point {
             res
         }
 
-        pub fn constant(value: &BigInteger256, precision: usize) -> Self {
-            Self {
-                value: (*value).into(),
+        pub fn constant(value: &BigInteger256, precision: usize) -> Result<Self, InvalidBigInt> {
+            Ok(Self {
+                value: (*value).try_into()?,
                 precision,
-            }
+            })
         }
 
         pub fn add_signed(&self, (sgn, t2): (Sgn, &Self)) -> Self {
@@ -536,7 +597,7 @@ mod snarky_taylor {
         let powers = x.powers(*terms_needed, w);
         let coefficients = coefficients
             .iter()
-            .map(|(sgn, c)| (*sgn, Point::<F>::constant(c, *per_term_precision)));
+            .map(|(sgn, c)| (*sgn, Point::<F>::constant(c, *per_term_precision).unwrap())); // Never fail, coeffs are hardcoded
         taylor_sum(powers, coefficients, linear_term_integer_part)
     }
 }
@@ -581,7 +642,7 @@ mod vrf {
             inputs.append(seed);
             inputs.append_u32(global_slot.to_inner().as_u32());
             for b in delegator_bits {
-                inputs.append_bool(*b)
+                inputs.append_bool(*b);
             }
         }
     }
@@ -647,12 +708,12 @@ mod vrf {
         message: Message,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) -> (Fp, Box<crate::Account>) {
-        let private_key = prover_state.producer_private_key.to_field::<Fq>();
+    ) -> Result<(Fp, Box<crate::Account>), InvalidBigInt> {
+        let private_key = prover_state.producer_private_key.to_field::<Fq>()?;
         let private_key = w.exists(field_to_bits::<Fq, 255>(private_key));
 
         let account = {
-            let mut ledger: SparseLedger = (&prover_state.ledger).into();
+            let mut ledger: SparseLedger = (&prover_state.ledger).try_into()?;
 
             let staker_addr = message.delegator;
             let staker_addr =
@@ -674,7 +735,7 @@ mod vrf {
 
         let evaluation = eval_and_check_public_key(m, &private_key, &delegate, message, w);
 
-        (evaluation, account)
+        Ok((evaluation, account))
     }
 
     fn is_satisfied(
@@ -712,12 +773,15 @@ mod vrf {
         seed: Fp,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) -> (
-        Boolean,
-        Fp,
-        Box<[bool; VRF_OUTPUT_NBITS]>,
-        Box<crate::Account>,
-    ) {
+    ) -> Result<
+        (
+            Boolean,
+            Fp,
+            Box<[bool; VRF_OUTPUT_NBITS]>,
+            Box<crate::Account>,
+        ),
+        InvalidBigInt,
+    > {
         let (winner_addr, winner_addr_bits) = {
             const LEDGER_DEPTH: usize = 35;
             assert_eq!(constraint_constants().ledger_depth, LEDGER_DEPTH as u64);
@@ -737,13 +801,13 @@ mod vrf {
             },
             prover_state,
             w,
-        );
+        )?;
 
         let my_stake = winner_account.balance;
         let truncated_result = truncate_vrf_output(result, w);
         let satisifed = is_satisfied(my_stake, epoch_ledger.total_currency, &truncated_result, w);
 
-        (satisifed, result, truncated_result, winner_account)
+        Ok((satisifed, result, truncated_result, winner_account))
     }
 }
 
@@ -792,7 +856,7 @@ pub mod consensus {
     // Keep this in sync with the implementation of ConsensusConstants::create
     // in ledger/src/transaction_pool.rs
     fn create_constant_prime(
-        prev_state: &v2::MinaStateProtocolStateValueStableV2,
+        prev_state: &ProtocolState,
         w: &mut Witness<Fp>,
     ) -> ConsensusConstantsChecked {
         let v2::MinaBaseProtocolConstantsCheckedValueStableV1 {
@@ -871,7 +935,7 @@ pub mod consensus {
     }
 
     fn create_constant(
-        prev_state: &v2::MinaStateProtocolStateValueStableV2,
+        prev_state: &ProtocolState,
         w: &mut Witness<Fp>,
     ) -> ConsensusConstantsChecked {
         let mut constants = create_constant_prime(prev_state, w);
@@ -1169,6 +1233,25 @@ pub mod consensus {
 
     #[derive(Debug, Clone)]
     pub struct ConsensusState {
+        pub blockchain_length: currency::Length,
+        pub epoch_count: currency::Length,
+        pub min_window_density: currency::Length,
+        pub sub_window_densities: Vec<currency::Length>,
+        pub last_vrf_output: Box<[bool; VRF_OUTPUT_NBITS]>,
+        pub curr_global_slot_since_hard_fork: GlobalSlot,
+        pub global_slot_since_genesis: currency::Slot,
+        pub total_currency: currency::Amount,
+        pub staking_epoch_data: EpochData<Fp>,
+        pub next_epoch_data: EpochData<Fp>,
+        pub has_ancestor_in_same_checkpoint_window: bool,
+        pub block_stake_winner: CompressedPubKey,
+        pub block_creator: CompressedPubKey,
+        pub coinbase_receiver: CompressedPubKey,
+        pub supercharge_coinbase: bool,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct CheckedConsensusState {
         pub blockchain_length: CheckedLength<Fp>,
         pub epoch_count: CheckedLength<Fp>,
         pub min_window_density: CheckedLength<Fp>,
@@ -1187,25 +1270,20 @@ pub mod consensus {
     }
 
     pub fn next_state_checked(
-        prev_state: &v2::MinaStateProtocolStateValueStableV2,
+        prev_state: &ProtocolState,
         prev_state_hash: Fp,
-        transition: &v2::MinaStateSnarkTransitionValueStableV2,
+        transition: &SnarkTransition,
         supply_increase: CheckedSigned<Fp, CheckedAmount<Fp>>,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) -> (Boolean, ConsensusState) {
+    ) -> Result<(Boolean, CheckedConsensusState), InvalidBigInt> {
         let previous_blockchain_state_ledger_hash = prev_state
             .body
             .blockchain_state
             .ledger_proof_statement
             .target
-            .first_pass_ledger
-            .to_field::<Fp>();
-        let genesis_ledger_hash = prev_state
-            .body
-            .blockchain_state
-            .genesis_ledger_hash
-            .to_field::<Fp>();
+            .first_pass_ledger;
+        let genesis_ledger_hash = prev_state.body.blockchain_state.genesis_ledger_hash;
         let consensus_transition =
             CheckedSlot::<Fp>::from_field(transition.consensus_transition.as_u32().into());
         let previous_state = &prev_state.body.consensus_state;
@@ -1213,11 +1291,10 @@ pub mod consensus {
 
         let constants = create_constant(prev_state, w);
 
-        let v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+        let ConsensusState {
             curr_global_slot_since_hard_fork: prev_global_slot,
             ..
         } = &prev_state.body.consensus_state;
-        let prev_global_slot: GlobalSlot = prev_global_slot.into();
 
         let next_global_slot = GlobalSlot::of_slot_number(&constants, consensus_transition);
 
@@ -1244,26 +1321,28 @@ pub mod consensus {
         let epoch_increased = prev_epoch.less_than(&next_epoch, w);
 
         let staking_epoch_data = {
-            let next_epoch_data: EpochData<Fp> = (&previous_state.next_epoch_data).into();
-            let staking_epoch_data: EpochData<Fp> = (&previous_state.staking_epoch_data).into();
+            let next_epoch_data: &EpochData<Fp> = &previous_state.next_epoch_data;
+            let staking_epoch_data: &EpochData<Fp> = &previous_state.staking_epoch_data;
 
             w.exists_no_check(match epoch_increased {
                 Boolean::True => next_epoch_data,
                 Boolean::False => staking_epoch_data,
             })
+            .clone()
         };
 
         let next_slot_number = next_global_slot.slot_number;
 
         let block_stake_winner = {
-            let delegator_pk: CompressedPubKey = (&prover_state.delegator_pk).into();
+            let delegator_pk: CompressedPubKey = (&prover_state.delegator_pk).try_into()?;
             w.exists(delegator_pk)
         };
 
         let block_creator = {
             // TODO: See why `prover_state.producer_public_key` is compressed
             //       In OCaml it's uncompressed
-            let producer_public_key: CompressedPubKey = (&prover_state.producer_public_key).into();
+            let producer_public_key: CompressedPubKey =
+                (&prover_state.producer_public_key).try_into()?;
             let pk = decompress_pk(&producer_public_key).unwrap();
             w.exists_no_check(&pk);
             // TODO: Remove this
@@ -1272,7 +1351,7 @@ pub mod consensus {
         };
 
         let coinbase_receiver = {
-            let pk: CompressedPubKey = (&prover_state.coinbase_receiver_pk).into();
+            let pk: CompressedPubKey = (&prover_state.coinbase_receiver_pk).try_into()?;
             w.exists(pk)
         };
 
@@ -1288,7 +1367,7 @@ pub mod consensus {
                 staking_epoch_data.seed,
                 prover_state,
                 w,
-            )
+            )?
         };
 
         let supercharge_coinbase =
@@ -1322,7 +1401,7 @@ pub mod consensus {
 
         let next_epoch_data = {
             let seed = {
-                let base: Fp = previous_state.next_epoch_data.seed.to_field::<Fp>();
+                let base: Fp = previous_state.next_epoch_data.seed;
                 let updated = epoch_seed_update_var(base, vrf_result, w);
                 w.exists_no_check(match in_seed_update_range {
                     Boolean::True => updated,
@@ -1334,7 +1413,7 @@ pub mod consensus {
                 let base = w.exists_no_check(match epoch_increased {
                     Boolean::True => CheckedLength::zero(),
                     Boolean::False => {
-                        let length: Length = (&previous_state.next_epoch_data.epoch_length).into();
+                        let length: &Length = &previous_state.next_epoch_data.epoch_length;
                         length.to_checked()
                     }
                 });
@@ -1349,7 +1428,7 @@ pub mod consensus {
                 Boolean::False => {
                     let ledger = &previous_state.next_epoch_data.ledger;
                     EpochLedger {
-                        hash: ledger.hash.to_field(),
+                        hash: ledger.hash,
                         total_currency: ledger.total_currency.clone().into(),
                     }
                 }
@@ -1357,13 +1436,13 @@ pub mod consensus {
 
             let start_checkpoint = w.exists_no_check(match epoch_increased {
                 Boolean::True => prev_state_hash,
-                Boolean::False => previous_state.next_epoch_data.start_checkpoint.to_field(),
+                Boolean::False => previous_state.next_epoch_data.start_checkpoint,
             });
 
             let lock_checkpoint = {
                 let base = w.exists_no_check(match epoch_increased {
                     Boolean::True => Fp::zero(),
-                    Boolean::False => previous_state.next_epoch_data.lock_checkpoint.to_field(),
+                    Boolean::False => previous_state.next_epoch_data.lock_checkpoint,
                 });
                 w.exists_no_check(match in_seed_update_range {
                     Boolean::True => prev_state_hash,
@@ -1381,12 +1460,12 @@ pub mod consensus {
         };
 
         let blockchain_length = {
-            let blockchain_length: Length = (&previous_state.blockchain_length).into();
+            let blockchain_length: &Length = &previous_state.blockchain_length;
             blockchain_length.to_checked::<Fp>().const_succ()
         };
 
         let epoch_count = {
-            let epoch_count: Length = (&previous_state.epoch_count).into();
+            let epoch_count: &Length = &previous_state.epoch_count;
             match epoch_increased {
                 Boolean::True => epoch_count.to_checked::<Fp>().const_succ(),
                 Boolean::False => epoch_count.to_checked(),
@@ -1408,7 +1487,7 @@ pub mod consensus {
             w,
         );
 
-        let state = ConsensusState {
+        let state = CheckedConsensusState {
             blockchain_length,
             epoch_count,
             min_window_density,
@@ -1426,23 +1505,20 @@ pub mod consensus {
             supercharge_coinbase,
         };
 
-        (threshold_satisfied, state)
+        Ok((threshold_satisfied, state))
     }
 }
 
-fn is_genesis_state_var(
-    cs: &v2::ConsensusProofOfStakeDataConsensusStateValueStableV2,
-    w: &mut Witness<Fp>,
-) -> Boolean {
-    use crate::scan_state::currency::Slot;
-
-    let curr_global_slot = &cs.curr_global_slot_since_hard_fork;
-    let slot_number = Slot::from_u32(curr_global_slot.slot_number.as_u32()).to_checked::<Fp>();
+fn is_genesis_state_var(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
+    let consensus::GlobalSlot {
+        slot_number,
+        slots_per_epoch: _,
+    } = cs.curr_global_slot_since_hard_fork;
 
     CheckedSlot::zero().equal(&slot_number, w)
 }
 
-fn is_genesis_state_var2(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
+fn is_genesis_state_var2(cs: &CheckedConsensusState, w: &mut Witness<Fp>) -> Boolean {
     let curr_global_slot = &cs.curr_global_slot_since_hard_fork;
     let slot_number = &curr_global_slot.slot_number;
 
@@ -1451,37 +1527,67 @@ fn is_genesis_state_var2(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
 
 fn genesis_state_hash_checked(
     state_hash: Fp,
-    state: &v2::MinaStateProtocolStateValueStableV2,
+    state: &ProtocolState,
     w: &mut Witness<Fp>,
-) -> Fp {
+) -> Result<Fp, InvalidBigInt> {
     let is_genesis = is_genesis_state_var(&state.body.consensus_state, w);
 
-    w.exists_no_check(match is_genesis {
+    Ok(w.exists_no_check(match is_genesis {
         Boolean::True => state_hash,
-        Boolean::False => state.body.genesis_state_hash.to_field(),
-    })
+        Boolean::False => state.body.genesis_state_hash,
+    }))
 }
+
 #[derive(Debug, Clone)]
-pub struct ProtocolStateBody {
+pub struct ProtocolStateBody<CS = ConsensusState> {
     pub genesis_state_hash: Fp,
-    pub blockchain_state: v2::MinaStateBlockchainStateValueStableV2,
-    pub consensus_state: ConsensusState,
+    pub blockchain_state: BlockchainState,
+    pub consensus_state: CS,
     pub constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
 }
 
 #[derive(Debug, Clone)]
-pub struct ProtocolState {
+pub struct ProtocolState<CS = ConsensusState> {
     pub previous_state_hash: Fp,
-    pub body: ProtocolStateBody,
+    pub body: ProtocolStateBody<CS>,
+}
+
+impl ProtocolStateBody {
+    pub fn view(&self) -> ProtocolStateView {
+        let Self {
+            genesis_state_hash: _,
+            blockchain_state,
+            consensus_state: cs,
+            constants: _,
+        } = self;
+
+        let sed = &cs.staking_epoch_data;
+        let ned = &cs.next_epoch_data;
+
+        ProtocolStateView {
+            // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/blockchain_state.ml#L58
+            //
+            snarked_ledger_hash: blockchain_state
+                .ledger_proof_statement
+                .target
+                .first_pass_ledger,
+            blockchain_length: cs.blockchain_length,
+            min_window_density: cs.min_window_density,
+            total_currency: cs.total_currency,
+            global_slot_since_genesis: cs.global_slot_since_genesis,
+            staking_epoch_data: sed.clone(),
+            next_epoch_data: ned.clone(),
+        }
+    }
 }
 
 fn protocol_create_var(
     previous_state_hash: Fp,
     genesis_state_hash: Fp,
-    blockchain_state: &v2::MinaStateBlockchainStateValueStableV2,
-    consensus_state: &ConsensusState,
+    blockchain_state: &BlockchainState,
+    consensus_state: &CheckedConsensusState,
     constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
-) -> ProtocolState {
+) -> ProtocolState<CheckedConsensusState> {
     ProtocolState {
         previous_state_hash,
         body: ProtocolStateBody {
@@ -1496,7 +1602,7 @@ fn protocol_create_var(
 fn block_main<'a>(
     params: BlockMainParams<'a>,
     w: &mut Witness<Fp>,
-) -> (Fp, [PreviousProofStatement<'a>; 2]) {
+) -> Result<(Fp, [PreviousProofStatement<'a>; 2]), InvalidBigInt> {
     let BlockMainParams {
         transition,
         prev_state,
@@ -1508,9 +1614,12 @@ fn block_main<'a>(
         pending_coinbase,
     } = params;
 
-    let new_state_hash = w.exists(MinaHash::hash(next_state));
-    w.exists(transition);
+    let next_state: ProtocolState = next_state.try_into()?;
+    let new_state_hash = w.exists(MinaHash::hash(&next_state));
+    let transition: SnarkTransition = w.exists(transition.try_into()?);
     w.exists(txn_snark);
+
+    let prev_state: ProtocolState = w.exists(prev_state.try_into()?);
 
     let (
         previous_state,
@@ -1518,18 +1627,15 @@ fn block_main<'a>(
         previous_blockchain_proof_input, // TODO: Use hash here
         previous_state_body_hash,
     ) = {
-        w.exists(prev_state);
+        let (previous_state_hash, body) = checked_hash_protocol_state(&prev_state, w)?;
 
-        let (previous_state_hash, body) = checked_hash_protocol_state(prev_state, w);
-
-        (prev_state, previous_state_hash, prev_state, body)
+        (&prev_state, previous_state_hash, &prev_state, body)
     };
 
     let txn_stmt_ledger_hashes_didn_t_change = {
-        let s1: Statement<()> =
-            (&previous_state.body.blockchain_state.ledger_proof_statement).into();
+        let s1: &Statement<()> = &previous_state.body.blockchain_state.ledger_proof_statement;
         let s2: Statement<()> = txn_snark.clone().without_digest();
-        txn_statement_ledger_hashes_equal(&s1, &s2, w)
+        txn_statement_ledger_hashes_equal(s1, &s2, w)
     };
 
     let supply_increase = w.exists_no_check(match txn_stmt_ledger_hashes_didn_t_change {
@@ -1538,15 +1644,15 @@ fn block_main<'a>(
     });
 
     let (updated_consensus_state, consensus_state) = consensus::next_state_checked(
-        previous_state,
+        &previous_state,
         previous_state_hash,
-        transition,
+        &transition,
         supply_increase,
         prover_state,
         w,
-    );
+    )?;
 
-    let ConsensusState {
+    let CheckedConsensusState {
         global_slot_since_genesis,
         coinbase_receiver,
         supercharge_coinbase,
@@ -1557,10 +1663,9 @@ fn block_main<'a>(
         .body
         .blockchain_state
         .staged_ledger_hash
-        .pending_coinbase_hash
-        .to_field::<Fp>();
+        .pending_coinbase_hash;
 
-    let genesis_state_hash = { genesis_state_hash_checked(previous_state_hash, previous_state, w) };
+    let genesis_state_hash = genesis_state_hash_checked(previous_state_hash, &previous_state, w)?;
 
     let (new_state, is_base_case) = {
         let mut t = protocol_create_var(
@@ -1590,7 +1695,7 @@ fn block_main<'a>(
     let (txn_snark_should_verify, success) = {
         let mut pending_coinbase = PendingCoinbaseWitness {
             is_new_stack: pending_coinbase.is_new_stack,
-            pending_coinbase: (&pending_coinbase.pending_coinbases).into(),
+            pending_coinbase: (&pending_coinbase.pending_coinbases).try_into()?,
         };
 
         let global_slot = global_slot_since_genesis;
@@ -1600,7 +1705,7 @@ fn block_main<'a>(
                 txn_stmt_ledger_hashes_didn_t_change.neg(),
                 &mut pending_coinbase,
                 w,
-            );
+            )?;
 
             let no_coinbases_popped =
                 field::equal(root_after_delete, prev_pending_coinbase_root, w);
@@ -1613,7 +1718,7 @@ fn block_main<'a>(
                 global_slot,
                 &mut pending_coinbase,
                 w,
-            );
+            )?;
 
             (new_root, deleted_stack, no_coinbases_popped)
         };
@@ -1627,8 +1732,8 @@ fn block_main<'a>(
             let previous_ledger_statement =
                 &previous_state.body.blockchain_state.ledger_proof_statement;
 
-            let s1 = previous_ledger_statement.into();
-            let s2 = current_ledger_statement.into();
+            let s1 = previous_ledger_statement;
+            let s2 = current_ledger_statement;
 
             let ledger_statement_valid = validate_ledgers_at_merge_checked(
                 &StatementLedgers::of_statement(&s1),
@@ -1657,8 +1762,7 @@ fn block_main<'a>(
             let new_root = transition
                 .blockchain_state
                 .staged_ledger_hash
-                .pending_coinbase_hash
-                .to_field::<Fp>();
+                .pending_coinbase_hash;
             field::equal(new_pending_coinbase_hash, new_root, w)
         };
 
@@ -1688,7 +1792,7 @@ fn block_main<'a>(
         },
     ];
 
-    (new_state_hash, previous_proof_statements)
+    Ok((new_state_hash, previous_proof_statements))
 }
 
 struct BlockMainParams<'a> {
@@ -1741,7 +1845,7 @@ pub(super) fn generate_block_proof(
     } = params;
 
     let (txn_snark_statement, txn_snark_proof) =
-        ledger_proof_opt(ledger_proof.as_ref(), next_state);
+        ledger_proof_opt(ledger_proof.as_ref(), next_state)?;
     let prev_state_proof = &chain.proof;
 
     let (new_state_hash, previous_proof_statements) = block_main(
@@ -1756,10 +1860,10 @@ pub(super) fn generate_block_proof(
             pending_coinbase,
         },
         w,
-    );
+    )?;
 
     let prev_challenge_polynomial_commitments =
-        extract_recursion_challenges(&[prev_state_proof, &txn_snark_proof]);
+        extract_recursion_challenges(&[prev_state_proof, &txn_snark_proof])?;
 
     let rule = InductiveRule {
         previous_proof_statements,

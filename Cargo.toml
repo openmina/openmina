@@ -35,7 +35,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-mina-p2p-messages = { path = "mina-p2p-messages", features = ["hashing"] }
+mina-p2p-messages = { path = "mina-p2p-messages" }
 ledger = { path = "ledger", package = "mina-tree" }
 mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
 mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
@@ -66,13 +66,12 @@ incremental = false
 codegen-units = 1
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-ff = { git = "https://github.com/openmina/algebra", rev = "ab8d8a2" } # branch: fix-openmina
+ark-ec = { git = "https://github.com/openmina/algebra", rev = "ab8d8a2" } # branch: fix-openmina
+ark-poly = { git = "https://github.com/openmina/algebra", rev = "ab8d8a2" } # branch: fix-openmina
+ark-serialize = { git = "https://github.com/openmina/algebra", rev = "ab8d8a2" } # branch: fix-openmina
 
 [profile.test.package."*"]
 opt-level = 3
 debug-assertions = true
 overflow-checks = false
-

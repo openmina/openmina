@@ -1,6 +1,6 @@
 use std::{borrow::Cow, ops::Neg, rc::Rc};
 
-use ark_ff::{BigInteger256, One, Zero};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, One, Zero};
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
 use kimchi::{
     circuits::{scalars::RandomOracles, wires::COLUMNS},
@@ -51,7 +51,7 @@ use super::{
         ReducedMessagesForNextStepProof, StepProofState, StepStatement,
     },
     unfinalized::{AllEvals, EvalsWithPublicInput},
-    util::u64_to_field,
+    util::{four_u64_to_field, two_u64_to_field},
     witness::Witness,
 };
 
@@ -467,7 +467,7 @@ fn make_public_input(
     messages_for_next_step_proof_hash: [u64; 4],
     messages_for_next_wrap_proof_hash: &[[u64; 4]],
 ) -> Vec<Fp> {
-    let to_fp = |v: [u64; 4]| Fp::from(BigInteger256(v));
+    let to_fp = |v: [u64; 4]| Fp::try_from(BigInteger256(v)).unwrap(); // TODO: Does it ever fail ?
     let mut fields = Vec::with_capacity(135);
 
     for unfinalized_proofs in &step_statement.proof_state.unfinalized_proofs {
@@ -500,11 +500,12 @@ fn exists_prev_statement(
     step_statement: &StepStatement,
     messages_for_next_step_proof_hash: [u64; 4],
     w: &mut Witness<Fq>,
-) {
+) -> Result<(), InvalidBigInt> {
     for unfinalized in &step_statement.proof_state.unfinalized_proofs {
         w.exists_no_check(unfinalized);
     }
-    w.exists(u64_to_field::<Fq, 4>(&messages_for_next_step_proof_hash));
+    w.exists(four_u64_to_field::<Fq>(&messages_for_next_step_proof_hash)?);
+    Ok(())
 }
 
 /// Dummy.Ipa.Wrap.sg
@@ -640,7 +641,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         prover_index: step_prover_index,
     });
 
-    let to_fq = |[a, b]: [u64; 2]| Fq::from(BigInteger256([a, b, 0, 0]));
+    let to_fq = |[a, b]: [u64; 2]| Fq::try_from(BigInteger256([a, b, 0, 0])).unwrap(); // Never fail with 2 limbs
     let to_fqs = |v: &[[u64; 2]]| v.iter().copied().map(to_fq).collect::<Vec<_>>();
 
     let messages_for_next_wrap_proof = MessagesForNextWrapProof {
@@ -722,7 +723,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         },
         messages_for_next_step_proof: messages_for_next_step_proof_hash,
     }
-    .to_public_input(40);
+    .to_public_input(40)?;
 
     wrap_main(
         WrapMainParams {
@@ -740,7 +741,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
             step_prover_index,
         },
         w,
-    );
+    )?;
 
     let message = next_accumulator;
     let prev = message
@@ -784,19 +785,19 @@ pub struct WrapProof {
     pub prev_evals: AllEvals<Fp>,
 }
 
-// TODO: Compute those values instead of hardcoded
-const FORBIDDEN_SHIFTED_VALUES: &[Fq; 2] = &[
-    ark_ff::field_new!(Fq, "91120631062839412180561524743370440705"),
-    ark_ff::field_new!(Fq, "91120631062839412180561524743370440706"),
-];
-
 impl Check<Fq> for ShiftedValue<Fp> {
     fn check(&self, w: &mut Witness<Fq>) {
+        // TODO: Compute those values instead of hardcoded
+        const FORBIDDEN_SHIFTED_VALUES: &[Fq; 2] = &[
+            ark_ff::field_new!(Fq, "91120631062839412180561524743370440705"),
+            ark_ff::field_new!(Fq, "91120631062839412180561524743370440706"),
+        ];
+
         let bools = FORBIDDEN_SHIFTED_VALUES.map(|forbidden| {
             let shifted: Fq = {
                 let ShiftedValue { shifted } = self.clone();
                 let f: BigInteger256 = shifted.into();
-                f.into()
+                f.try_into().unwrap() // Never fail, `Fq` is larger than `Fp`
             };
             field::equal(shifted, forbidden, w)
         });
@@ -1377,7 +1378,7 @@ pub mod wrap_verifier {
         step::Opt,
         transaction::scalar_challenge::{self, to_field_checked},
         unfinalized,
-        util::{challenge_polynomial_checked, to_absorption_sequence_opt},
+        util::{challenge_polynomial_checked, to_absorption_sequence_opt, two_u64_to_field},
         verifier_index::wrap_domains,
         wrap::pcs_batch::PcsBatch,
     };
@@ -1460,11 +1461,11 @@ pub mod wrap_verifier {
 
         let (_, endo) = endos::<Fp>();
 
-        let mut scalar = |v: &[u64; 2]| to_field_checked::<Fq, 128>(u64_to_field(v), endo, w);
+        let mut scalar = |v: &[u64; 2]| to_field_checked::<Fq, 128>(two_u64_to_field(v), endo, w);
 
         let zeta = scalar(zeta);
-        let gamma: Fq = u64_to_field(gamma);
-        let beta: Fq = u64_to_field(beta);
+        let gamma: Fq = two_u64_to_field(gamma);
+        let beta: Fq = two_u64_to_field(beta);
         let alpha = scalar(alpha);
 
         PlonkWithField {
@@ -1484,7 +1485,7 @@ pub mod wrap_verifier {
 
         let (lo, hi): (F, F) = w.exists({
             let BigInteger256([a, b, c, d]) = f.into();
-            (u64_to_field(&[a, b]), u64_to_field(&[c, d]))
+            (two_u64_to_field(&[a, b]), two_u64_to_field(&[c, d]))
         });
 
         to_field_checked::<_, 128>(hi, endo, w);
@@ -1583,11 +1584,11 @@ pub mod wrap_verifier {
         let xi_actual = lowest_128_bits(sponge.squeeze(w), false, w);
         let r_actual = lowest_128_bits(sponge.squeeze(w), true, w);
 
-        let xi_correct = field::equal(xi_actual, u64_to_field(xi), w);
+        let xi_correct = field::equal(xi_actual, two_u64_to_field(xi), w);
 
         let (_, endo) = endos::<Fp>();
 
-        let xi = to_field_checked::<Fq, 128>(u64_to_field(xi), endo, w);
+        let xi = to_field_checked::<Fq, 128>(two_u64_to_field(xi), endo, w);
         let r = to_field_checked::<Fq, 128>(r_actual, endo, w);
 
         let to_bytes = |f: Fq| {
@@ -1694,7 +1695,7 @@ pub mod wrap_verifier {
         let mut bulletproof_challenges = bulletproof_challenges
             .iter()
             .rev()
-            .map(|bytes| to_field_checked::<Fq, 128>(u64_to_field(bytes), endo, w))
+            .map(|bytes| to_field_checked::<Fq, 128>(two_u64_to_field(bytes), endo, w))
             .collect::<Vec<_>>();
         bulletproof_challenges.reverse();
 
@@ -1948,7 +1949,7 @@ pub mod wrap_verifier {
                     },
                     |acc, xi, (keep, p), w| {
                         let on_acc_non_zero = {
-                            let xi: F = u64_to_field(&xi);
+                            let xi: F = two_u64_to_field(&xi);
                             p.add(
                                 scalar_challenge::endo_cvar::<F, F, 128>(acc.point, xi, w),
                                 w,
@@ -2079,7 +2080,7 @@ pub mod wrap_verifier {
 
         let combined_inner_product: Fq = {
             let bigint: BigInteger256 = advice.combined_inner_product.shifted.into();
-            bigint.into()
+            bigint.try_into().unwrap() // Never fail, `Fq` is larger than `Fp`
         };
         sponge.absorb(&[combined_inner_product], w);
 
@@ -2566,7 +2567,7 @@ fn pack_statement(
     statement: &StepStatementWithHash,
     messages_for_next_step_proof_hash: &[u64; 4],
     w: &mut Witness<Fq>,
-) -> Vec<Packed<Boolean>> {
+) -> Result<Vec<Packed<Boolean>>, InvalidBigInt> {
     let StepStatementWithHash {
         proof_state:
             StepProofState {
@@ -2622,28 +2623,28 @@ fn pack_statement(
         // Digest
         {
             packed.push(Packed::PackedBits(
-                var(u64_to_field(sponge_digest_before_evaluations)),
+                var(four_u64_to_field(sponge_digest_before_evaluations)?),
                 255,
             ));
         }
 
         // Challenge
         {
-            packed.push(Packed::PackedBits(var(u64_to_field(beta)), 128));
-            packed.push(Packed::PackedBits(var(u64_to_field(gamma)), 128));
+            packed.push(Packed::PackedBits(var(two_u64_to_field(beta)), 128));
+            packed.push(Packed::PackedBits(var(two_u64_to_field(gamma)), 128));
         }
 
         // Scalar challenge
         {
-            packed.push(Packed::PackedBits(var(u64_to_field(alpha)), 128));
-            packed.push(Packed::PackedBits(var(u64_to_field(zeta)), 128));
-            packed.push(Packed::PackedBits(var(u64_to_field(xi)), 128));
+            packed.push(Packed::PackedBits(var(two_u64_to_field(alpha)), 128));
+            packed.push(Packed::PackedBits(var(two_u64_to_field(zeta)), 128));
+            packed.push(Packed::PackedBits(var(two_u64_to_field(xi)), 128));
         }
 
         packed.extend(
             bulletproof_challenges
                 .iter()
-                .map(|v| Packed::PackedBits(var(u64_to_field::<Fq, 2>(v)), 128)),
+                .map(|v| Packed::PackedBits(var(two_u64_to_field::<Fq>(v)), 128)), // Never fail with 2 limbs
         );
 
         // Bool
@@ -2663,15 +2664,15 @@ fn pack_statement(
     }
 
     packed.push(Packed::PackedBits(
-        var(u64_to_field(messages_for_next_step_proof_hash)),
+        var(four_u64_to_field(messages_for_next_step_proof_hash)?),
         255,
     ));
 
     for msg in messages_for_next_wrap_proof {
-        packed.push(Packed::PackedBits(var(u64_to_field(msg)), 255));
+        packed.push(Packed::PackedBits(var(four_u64_to_field(msg)?), 255));
     }
 
-    packed
+    Ok(packed)
 }
 
 fn split_field(x: Fq, w: &mut Witness<Fq>) -> (Fq, Boolean) {
@@ -2700,7 +2701,7 @@ struct WrapMainParams<'a> {
     step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
 }
 
-fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
+fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) -> Result<(), InvalidBigInt> {
     let WrapMainParams {
         step_statement,
         next_statement,
@@ -2737,7 +2738,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
             .collect::<Vec<_>>(),
     );
 
-    exists_prev_statement(&step_statement, messages_for_next_step_proof_hash, w);
+    exists_prev_statement(&step_statement, messages_for_next_step_proof_hash, w)?;
 
     let step_plonk_index = wrap_verifier::choose_key(step_prover_index, w);
 
@@ -2803,7 +2804,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
                         } = unfinalized;
 
                         let mut sponge = crate::proofs::transaction::poseidon::Sponge::<Fq>::new();
-                        sponge.absorb2(&[u64_to_field(sponge_digest_before_evaluations)], w);
+                        sponge.absorb2(&[four_u64_to_field(sponge_digest_before_evaluations)?], w);
 
                         // sponge
                         // Or `Wrap_hack.Checked.pad_challenges` needs to be used
@@ -2820,10 +2821,10 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
                             w,
                         );
                         Boolean::assert_any(&[finalized, should_finalize.to_boolean().neg()], w);
-                        chals
+                        Ok(chals)
                     },
                 )
-                .collect::<Vec<_>>()
+                .collect::<Result<Vec<_>, InvalidBigInt>>()?
         };
         chals
     };
@@ -2852,7 +2853,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
     let openings_proof = w.exists(&proof.proof);
     let messages = w.exists(&proof.commitments);
 
-    let public_input = pack_statement(&prev_statement, &messages_for_next_step_proof_hash, w);
+    let public_input = pack_statement(&prev_statement, &messages_for_next_step_proof_hash, w)?;
 
     let DeferredValues {
         plonk,
@@ -2894,4 +2895,6 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
             .collect(),
     }
     .hash_checked3(w);
+
+    Ok(())
 }

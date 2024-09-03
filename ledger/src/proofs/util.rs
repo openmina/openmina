@@ -1,4 +1,4 @@
-use ark_ff::{BigInteger256, Field};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -21,10 +21,15 @@ pub fn extract_polynomial_commitment<
     I: IntoIterator<Item = &'a (BigInt, BigInt)>,
 >(
     curves: I,
-) -> Vec<InnerCurve<F>> {
+) -> Result<Vec<InnerCurve<F>>, InvalidBigInt> {
     curves
         .into_iter()
-        .map(|curve| InnerCurve::from((curve.0.to_field::<F>(), curve.1.to_field())))
+        .map(|curve| {
+            Ok(InnerCurve::from((
+                curve.0.to_field::<F>()?,
+                curve.1.to_field()?,
+            )))
+        })
         .collect()
 }
 
@@ -51,15 +56,26 @@ pub fn extract_bulletproof<
         .collect()
 }
 
-pub fn u64_to_field<F, const N: usize>(v: &[u64; N]) -> F
+pub fn four_u64_to_field<F>(v: &[u64; 4]) -> Result<F, InvalidBigInt>
 where
-    F: Field + From<BigInteger256>,
+    F: Field + TryFrom<BigInteger256, Error = InvalidBigInt>,
 {
     let mut bigint: [u64; 4] = [0; 4];
-    bigint[..N].copy_from_slice(v);
+    bigint[..4].copy_from_slice(v);
 
     let bigint = BigInteger256(bigint);
-    F::from(bigint)
+    F::try_from(bigint)
+}
+
+pub fn two_u64_to_field<F>(v: &[u64; 2]) -> F
+where
+    F: Field + TryFrom<BigInteger256, Error = InvalidBigInt>,
+{
+    let mut bigint: [u64; 4] = [0; 4];
+    bigint[..2].copy_from_slice(v);
+
+    let bigint = BigInteger256(bigint);
+    F::try_from(bigint).unwrap() // Never fail with 2 limbs
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
@@ -286,7 +302,7 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L459
 pub fn to_absorption_sequence(
     evals: &mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-) -> Vec<(Vec<Fp>, Vec<Fp>)> {
+) -> Result<Vec<(Vec<Fp>, Vec<Fp>)>, InvalidBigInt> {
     let mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
         w,
         coefficients,
@@ -361,9 +377,9 @@ pub fn to_absorption_sequence(
 
     list.iter()
         .map(|(a, b)| {
-            let a: Vec<_> = a.iter().map(Fp::from).collect();
-            let b: Vec<_> = b.iter().map(Fp::from).collect();
-            (a, b)
+            let a: Vec<_> = a.iter().map(Fp::try_from).collect::<Result<_, _>>()?;
+            let b: Vec<_> = b.iter().map(Fp::try_from).collect::<Result<_, _>>()?;
+            Ok((a, b))
         })
         .collect()
 }

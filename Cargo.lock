@@ -242,7 +242,7 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=ab8d8a2#ab8d8a26562b6d372fae9f610c95cf112a9d23fc"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -256,7 +256,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=ab8d8a2#ab8d8a26562b6d372fae9f610c95cf112a9d23fc"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
@@ -274,7 +274,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=ab8d8a2#ab8d8a26562b6d372fae9f610c95cf112a9d23fc"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -283,7 +283,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=ab8d8a2#ab8d8a26562b6d372fae9f610c95cf112a9d23fc"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -294,7 +294,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=ab8d8a2#ab8d8a26562b6d372fae9f610c95cf112a9d23fc"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -307,7 +307,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=ab8d8a2#ab8d8a26562b6d372fae9f610c95cf112a9d23fc"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -317,7 +317,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=ab8d8a2#ab8d8a26562b6d372fae9f610c95cf112a9d23fc"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4072,6 +4072,7 @@ name = "node"
 version = "0.8.3"
 dependencies = [
  "anyhow",
+ "ark-ff",
  "derive_more",
  "lazy_static",
  "linkme",
@@ -4527,6 +4528,7 @@ dependencies = [
 name = "openmina-node-common"
 version = "0.8.3"
 dependencies = [
+ "ark-ff",
  "gloo-timers",
  "gloo-utils",
  "jsonpath-rust",

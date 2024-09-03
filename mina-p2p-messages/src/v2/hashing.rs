@@ -1,7 +1,6 @@
-#![cfg(feature = "hashing")]
 use std::{fmt, io};
 
-use ark_ff::FromBytes;
+use ark_ff::{fields::arithmetic::InvalidBigInt, FromBytes};
 use binprot::BinProtWrite;
 use binprot_derive::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
@@ -322,20 +321,24 @@ impl StateHash {
         DataHashLibStateHashStableV1(fp.into()).into()
     }
 
-    pub fn from_hashes(
+    pub fn try_from_hashes(
         pred_state_hash: &StateHash,
         body_hash: &MinaBaseStateBodyHashStableV1,
-    ) -> Self {
-        Self::from_fp(fp_state_hash_from_fp_hashes(
-            pred_state_hash.to_field(),
-            body_hash.to_field(),
-        ))
+    ) -> Result<Self, InvalidBigInt> {
+        Ok(Self::from_fp(fp_state_hash_from_fp_hashes(
+            pred_state_hash.to_field()?,
+            body_hash.to_field()?,
+        )))
     }
 }
 
 impl LedgerHash {
     pub fn from_fp(fp: Fp) -> Self {
         MinaBaseLedgerHash0StableV1(fp.into()).into()
+    }
+
+    pub fn zero() -> Self {
+        MinaBaseLedgerHash0StableV1(BigInt::zero()).into()
     }
 }
 
@@ -350,60 +353,60 @@ impl PendingCoinbaseHash {
 
 impl generated::MinaStateProtocolStateBodyValueStableV2 {
     // TODO(binier): change return type to `StateBodyHash`
-    pub fn hash(&self) -> MinaBaseStateBodyHashStableV1 {
-        let fp = MinaHash::hash(self);
-        MinaBaseStateBodyHashStableV1(fp.into())
+    pub fn try_hash(&self) -> Result<MinaBaseStateBodyHashStableV1, InvalidBigInt> {
+        let fp = MinaHash::try_hash(self)?;
+        Ok(MinaBaseStateBodyHashStableV1(fp.into()))
     }
 }
 
 impl generated::MinaStateProtocolStateValueStableV2 {
-    pub fn hash(&self) -> StateHash {
-        StateHash::from_fp(MinaHash::hash(self))
+    pub fn try_hash(&self) -> Result<StateHash, InvalidBigInt> {
+        Ok(StateHash::from_fp(MinaHash::try_hash(self)?))
     }
 }
 
 impl generated::MinaBlockHeaderStableV2 {
-    pub fn hash(&self) -> StateHash {
-        self.protocol_state.hash()
+    pub fn try_hash(&self) -> Result<StateHash, InvalidBigInt> {
+        self.protocol_state.try_hash()
     }
 }
 
 impl generated::MinaBlockBlockStableV2 {
-    pub fn hash(&self) -> StateHash {
-        self.header.protocol_state.hash()
+    pub fn try_hash(&self) -> Result<StateHash, InvalidBigInt> {
+        self.header.protocol_state.try_hash()
     }
 }
 
 impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
-    fn hash(&self) -> mina_hasher::Fp {
+    fn try_hash(&self) -> Result<mina_hasher::Fp, InvalidBigInt> {
         let mut inputs = Inputs::new();
         self.to_input(&mut inputs);
-        hash_with_kimchi("MinaProtoStateBody", &inputs.to_fields())
+        Ok(hash_with_kimchi("MinaProtoStateBody", &inputs.to_fields()))
     }
 }
 
 impl MinaHash for MinaStateProtocolStateValueStableV2 {
-    fn hash(&self) -> mina_hasher::Fp {
-        fp_state_hash_from_fp_hashes(
-            self.previous_state_hash.to_field(),
-            MinaHash::hash(&self.body),
-        )
+    fn try_hash(&self) -> Result<mina_hasher::Fp, InvalidBigInt> {
+        Ok(fp_state_hash_from_fp_hashes(
+            self.previous_state_hash.to_field()?,
+            MinaHash::try_hash(&self.body)?,
+        ))
     }
 }
 
 impl MinaHash for MinaBaseAccountBinableArgStableV2 {
-    fn hash(&self) -> Fp {
+    fn try_hash(&self) -> Result<Fp, InvalidBigInt> {
         let mut inputs = Inputs::new();
         self.to_input(&mut inputs);
-        hash_with_kimchi("MinaAccount", &inputs.to_fields())
+        Ok(hash_with_kimchi("MinaAccount", &inputs.to_fields()))
     }
 }
 
 impl MinaHash for MinaBaseVerificationKeyWireStableV1 {
-    fn hash(&self) -> Fp {
+    fn try_hash(&self) -> Result<Fp, InvalidBigInt> {
         let mut inputs = Inputs::new();
         self.to_input(&mut inputs);
-        hash_with_kimchi("MinaSideLoadedVk", &inputs.to_fields())
+        Ok(hash_with_kimchi("MinaSideLoadedVk", &inputs.to_fields()))
     }
 }
 
@@ -820,7 +823,7 @@ mod hash_tests {
         const JSON: &str = include_str!("../../tests/files/v2/state/617-3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR.json");
 
         let state: MinaStateProtocolStateValueStableV2 = serde_json::from_str(JSON).unwrap();
-        let hash = state.hash();
+        let hash = state.try_hash().unwrap();
         let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
         assert_eq!(hash, expected_hash)
     }

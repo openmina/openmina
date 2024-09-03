@@ -348,7 +348,7 @@ impl From<VkRefcountTableBigInts> for VkRefcountTable {
                 .into_iter()
                 .map(|(hash, (count, vk))| {
                     assert_eq!(hash, vk.hash);
-                    let hash: Fp = hash.to_field();
+                    let hash: Fp = hash.to_field().unwrap(); // We trust our serialized data
                     (
                         hash,
                         (
@@ -366,14 +366,14 @@ impl From<VkRefcountTableBigInts> for VkRefcountTable {
                 .map(|(id, map)| {
                     let map = map
                         .into_iter()
-                        .map(|(bigint, count)| (bigint.to_field::<Fp>(), count))
+                        .map(|(bigint, count)| (bigint.to_field::<Fp>().unwrap(), count)) // We trust our serialized data
                         .collect();
                     (id, map)
                 })
                 .collect(),
             vk_to_account_ids: vk_to_account_ids
                 .into_iter()
-                .map(|(hash, map)| (hash.to_field(), map.into_iter().collect()))
+                .map(|(hash, map)| (hash.to_field().unwrap(), map.into_iter().collect())) // We trust our serialized data
                 .collect(),
         }
     }

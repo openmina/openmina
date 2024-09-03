@@ -1,4 +1,4 @@
-use openmina_core::block::BlockWithHash;
+use openmina_core::{block::BlockWithHash, error};
 use redux::ActionMeta;
 
 use crate::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
@@ -16,7 +16,7 @@ use super::{
 };
 
 impl P2pChannelsMessageReceivedAction {
-    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
     {
@@ -29,8 +29,15 @@ impl P2pChannelsMessageReceivedAction {
                     store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id })
                 }
                 BestTipPropagationChannelMsg::BestTip(best_tip) => {
-                    let best_tip = BlockWithHash::new(best_tip);
-                    store.dispatch(P2pChannelsBestTipAction::Received { peer_id, best_tip })
+                    match BlockWithHash::try_new(best_tip) {
+                        Ok(best_tip) => {
+                            store.dispatch(P2pChannelsBestTipAction::Received { peer_id, best_tip })
+                        }
+                        Err(_) => {
+                            error!(meta.time(); "BestTipPropagationChannelMsg::BestTip: Invalid bigint in block");
+                            false
+                        }
+                    }
                 }
             },
             ChannelMsg::TransactionPropagation(msg) => match msg {
