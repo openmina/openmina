@@ -143,7 +143,7 @@ pub fn block_producer_effects<S: crate::Service>(
 
             let transactions_by_fee = state.block_producer.pending_transactions();
 
-            if store.dispatch(LedgerWriteAction::Init {
+            store.dispatch(LedgerWriteAction::Init {
                 request: LedgerWriteRequest::StagedLedgerDiffCreate {
                     pred_block: pred_block.clone(),
                     global_slot_since_genesis: won_slot
@@ -155,9 +155,12 @@ pub fn block_producer_effects<S: crate::Service>(
                     supercharge_coinbase,
                     transactions_by_fee,
                 },
-            }) {
-                store.dispatch(BlockProducerAction::StagedLedgerDiffCreatePending);
-            }
+                on_init: redux::callback!(
+                    on_staged_ledger_diff_create_init(_request: LedgerWriteRequest) -> crate::Action {
+                        BlockProducerAction::StagedLedgerDiffCreatePending
+                    }
+                ),
+            });
         }
         BlockProducerAction::StagedLedgerDiffCreatePending => {}
         BlockProducerAction::StagedLedgerDiffCreateSuccess { .. } => {

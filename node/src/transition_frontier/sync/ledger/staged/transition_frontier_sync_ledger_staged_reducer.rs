@@ -257,18 +257,17 @@ impl TransitionFrontierSyncLedgerStagedState {
                 let snarked_ledger_hash = target.snarked_ledger_hash.clone();
                 let parts = parts.cloned();
 
-                if dispatcher.push_if_enabled(
-                    LedgerWriteAction::Init {
-                        request: LedgerWriteRequest::StagedLedgerReconstruct {
-                            snarked_ledger_hash,
-                            parts,
-                        },
+                dispatcher.push(LedgerWriteAction::Init {
+                    request: LedgerWriteRequest::StagedLedgerReconstruct {
+                        snarked_ledger_hash,
+                        parts,
                     },
-                    global_state,
-                    meta.time(),
-                ) {
-                    dispatcher.push(TransitionFrontierSyncLedgerStagedAction::ReconstructPending);
-                }
+                    on_init: redux::callback!(
+                        on_staged_ledger_reconstruct_init(_request: LedgerWriteRequest) -> crate::Action {
+                            TransitionFrontierSyncLedgerStagedAction::ReconstructPending
+                        }
+                    ),
+                });
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructPending => {
                 let Some((target, parts)) = state.target_with_parts() else {
