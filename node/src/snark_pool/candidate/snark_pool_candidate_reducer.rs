@@ -3,8 +3,9 @@ use std::collections::BTreeMap;
 use crate::{p2p_ready, SnarkPoolAction};
 use openmina_core::snark::Snark;
 use p2p::{
-    channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest},
+    channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
+    PeerId,
 };
 use snark::{work_verify::SnarkWorkVerifyAction, work_verify_effectful::SnarkWorkVerifyId};
 
@@ -60,13 +61,19 @@ impl SnarkPoolCandidatesState {
                     peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Snark(job_id.clone())),
-                    on_init: None, // TODO: use the action below in a callback here (job_id complicates that)
-                });
-                dispatcher.push(SnarkPoolCandidateAction::WorkFetchPending {
-                    peer_id,
-                    job_id: job_id.clone(),
-                    rpc_id,
-                });
+                    on_init: Some(
+                        redux::callback!(
+                            on_send_p2p_snark_rpc_request(
+                                (peer_id: PeerId, rpc_id: P2pRpcId, request: P2pRpcRequest)) -> crate::Action {
+
+                                let P2pRpcRequest::Snark(job_id) = request else { unreachable!() };
+                                SnarkPoolCandidateAction::WorkFetchPending {
+                                    job_id,
+                                    peer_id,
+                                    rpc_id,
+                                }
+                            }))
+                    });
             }
             SnarkPoolCandidateAction::WorkFetchPending {
                 peer_id,

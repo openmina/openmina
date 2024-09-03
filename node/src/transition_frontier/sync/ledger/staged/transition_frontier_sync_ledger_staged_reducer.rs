@@ -62,8 +62,9 @@ impl TransitionFrontierSyncLedgerStagedState {
                                         block_hash.clone(),
                                     ),
                                 ),
-                                on_init: Some(callback!(
-                                    on_send_p2p_staged_ledger_parts_rpc_request((peer_id: PeerId, rpc_id: P2pRpcId)) -> crate::Action {
+                                on_init: Some(
+                                    callback!(
+                                    on_send_p2p_staged_ledger_parts_rpc_request((peer_id: PeerId, rpc_id: P2pRpcId, _request: P2pRpcRequest)) -> crate::Action {
                                         TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending {
                                             peer_id,
                                             rpc_id,
@@ -82,6 +83,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                                 request: Box::new(P2pStreamingRpcRequest::StagedLedgerParts(
                                     block_hash.clone(),
                                 )),
+                                // TODO(now): add request here too
                                 on_init: Some(callback!(
                                     on_send_streaming_p2p_staged_ledger_parts_rpc_request((peer_id: PeerId, rpc_id: P2pRpcId)) -> crate::Action {
                                         TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending {
