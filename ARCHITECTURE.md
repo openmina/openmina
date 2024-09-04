@@ -926,7 +926,7 @@ Finally the dispatching of that action is update to provide a callback that will
 +  });
 ```
 
-In this example the passed argument is not used, but for other callbacks it is useful. Consider this example where we need the block hash for the next action, which can be extracted from the data contained in the request:
+In the above example the passed argument is not used, but for other callbacks it is useful. Consider this example where we need the block hash for the next action, which can be extracted from the data contained in the request:
 
 ```diff
 -   if store.dispatch(LedgerWriteAction::Init {
