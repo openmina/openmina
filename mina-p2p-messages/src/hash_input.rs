@@ -11,6 +11,7 @@ use crate::{
     number::{Int32, Int64, UInt32, UInt64},
     pseq::PaddedSeq,
     string::ByteString,
+    string::ZkAppUri,
 };
 
 pub trait ToInput {
@@ -54,6 +55,12 @@ impl ToInput for UInt64 {
 }
 
 impl ToInput for ByteString {
+    fn to_input(&self, inputs: &mut Inputs) {
+        inputs.append_bytes(self.as_ref())
+    }
+}
+
+impl ToInput for ZkAppUri {
     fn to_input(&self, inputs: &mut Inputs) {
         inputs.append_bytes(self.as_ref())
     }
