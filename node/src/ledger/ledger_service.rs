@@ -205,6 +205,10 @@ impl LedgerCtx {
             })
     }
 
+    pub fn contains_snarked_ledger(&self, hash: &LedgerHash) -> bool {
+        self.snarked_ledgers.contains_key(hash)
+    }
+
     /// Returns the mask for a snarked ledger being synchronized or an error if it is not present
     pub fn pending_sync_snarked_ledger_mask(&self, hash: &LedgerHash) -> Result<Mask, String> {
         self.sync.pending_sync_snarked_ledger_mask(hash)

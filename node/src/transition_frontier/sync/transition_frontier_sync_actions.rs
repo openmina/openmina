@@ -1,4 +1,4 @@
-use mina_p2p_messages::v2::StateHash;
+use mina_p2p_messages::v2::{LedgerHash, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::consensus_take;
 use openmina_core::ActionEvent;
@@ -40,6 +40,8 @@ pub enum TransitionFrontierSyncAction {
         new_root_staged_ledger_hash = display(root_block.staged_ledger_hash()),
     ))]
     BestTipUpdate {
+        // Required to be able to reuse partially synced root ledgers
+        previous_root_snarked_ledger_hash: Option<LedgerHash>,
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,

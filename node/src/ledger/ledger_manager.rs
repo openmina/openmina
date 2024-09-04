@@ -42,7 +42,7 @@ pub(super) enum LedgerRequest {
         snarked_ledger_hash: LedgerHash,
     }, // expected response: Success
     CopySnarkedLedgerContentsForSync {
-        origin_snarked_ledger_hash: LedgerHash,
+        origin_snarked_ledger_hash: Vec<LedgerHash>,
         target_snarked_ledger_hash: LedgerHash,
         overwrite: bool,
     }, // expected response: SnarkedLedgerContentsCopied
@@ -244,6 +244,16 @@ impl LedgerRequest {
                 target_snarked_ledger_hash,
                 overwrite,
             } => {
+                let origin_snarked_ledger_hash = origin_snarked_ledger_hash
+                    .iter()
+                    .find(|hash| ledger_ctx.contains_snarked_ledger(hash))
+                    .unwrap_or_else(|| {
+                        origin_snarked_ledger_hash
+                            .first()
+                            .expect("origin_snarked_ledger_hash cannot be empty")
+                    })
+                    .clone();
+
                 let res = ledger_ctx.copy_snarked_ledger_contents_for_sync(
                     origin_snarked_ledger_hash,
                     target_snarked_ledger_hash,
@@ -443,7 +453,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
 
     fn copy_snarked_ledger_contents_for_sync(
         &self,
-        origin_snarked_ledger_hash: LedgerHash,
+        origin_snarked_ledger_hash: Vec<LedgerHash>,
         target_snarked_ledger_hash: LedgerHash,
         overwrite: bool,
     ) -> Result<bool, String> {
