@@ -421,12 +421,18 @@ impl BlockProducerEnabled {
                     chain_proof_len => {
                         // TODO(binier): test
                         let mut iter = chain.iter().rev().take(chain_proof_len + 1).rev();
-                        let first_hash = iter.next().unwrap().hash().clone();
-                        let body_hashes = iter
-                            .map(|b| b.header().protocol_state.body.hash())
-                            .map(StateBodyHash::from)
-                            .collect();
-                        (first_hash, body_hashes)
+                        if let Some(first_block) = iter.next() {
+                            let first_hash = first_block.hash().clone();
+                            let body_hashes = iter
+                                .map(|b| b.header().protocol_state.body.hash())
+                                .map(StateBodyHash::from)
+                                .collect();
+                            (first_hash, body_hashes)
+                        } else {
+                            // TODO: test this as well
+                            // If the chain is empty, return the same as when chain_proof_len is 0
+                            (pred_block.hash().clone(), List::new())
+                        }
                     }
                 };
 

@@ -646,6 +646,7 @@ mod test {
             UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
         },
     };
+    use openmina_node_account::AccountSecretKey;
     use vrf::VrfWonSlot;
 
     use crate::block_producer::vrf_evaluator::{
@@ -951,8 +952,8 @@ mod test {
 
         (start_slot..=end_slot).map(move |slot| {
             let dummy_won_slot = VrfWonSlot {
-                producer: "Dummy".to_string(),
-                winner_account: "Dummy".to_string(),
+                producer: AccountSecretKey::genesis_producer().public_key(),
+                winner_account: AccountSecretKey::genesis_producer().public_key(),
                 vrf_output: Box::new(
                     vrf::genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(BigInt::zero())))
                         .unwrap(),

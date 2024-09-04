@@ -74,8 +74,7 @@ impl BlockProducerVrfEvaluatorAction {
                         );
                         let previous_epoch = epoch.saturating_sub(1);
                         let last_height = if slot < k {
-                            // TODO(adonagy): error handling
-                            store
+                            let found = store
                                 .state()
                                 .transition_frontier
                                 .best_chain
@@ -83,12 +82,17 @@ impl BlockProducerVrfEvaluatorAction {
                                 .rev()
                                 .find(|b| {
                                     b.consensus_state().epoch_count.as_u32() == previous_epoch
-                                })
-                                .unwrap()
-                                .height()
+                                });
+
+                            if let Some(block) = found {
+                                block.height()
+                            } else {
+                                Default::default()
+                            }
+                        } else if let Some(root_block) = store.state().transition_frontier.root() {
+                            root_block.height()
                         } else {
-                            // TODO(adonagy): error handling
-                            store.state().transition_frontier.root().unwrap().height()
+                            Default::default()
                         };
                         store.dispatch(
                             BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization {

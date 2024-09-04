@@ -24,7 +24,7 @@ pub fn vrf_evaluator(
             let vrf_input = VrfEvaluationInput::new(
                 keypair.clone(),
                 vrf_evaluator_input.epoch_seed.clone(),
-                pub_key.to_string(),
+                pub_key.clone(),
                 vrf_evaluator_input.global_slot,
                 *index,
                 (*stake).into(),
