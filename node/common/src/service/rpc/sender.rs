@@ -8,6 +8,7 @@ use node::core::channels::{mpsc, oneshot};
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::rpc::*;
 
+use super::state::State;
 use super::stats::Stats;
 use super::NodeRpcRequest;
 
@@ -68,6 +69,10 @@ impl RpcSender {
 
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 impl RpcSender {
+    pub fn state(&self) -> State {
+        State::new(self.clone())
+    }
+
     pub fn stats(&self) -> Stats {
         Stats::new(self.clone())
     }
