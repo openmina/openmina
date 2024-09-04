@@ -40,6 +40,7 @@ impl TransitionFrontierSyncState {
             }
             // TODO(binier): refactor
             TransitionFrontierSyncAction::BestTipUpdate {
+                previous_root_snarked_ledger_hash: _,
                 best_tip,
                 root_block,
                 blocks_inbetween,

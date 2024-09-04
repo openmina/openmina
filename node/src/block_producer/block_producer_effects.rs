@@ -281,7 +281,14 @@ pub fn block_producer_effects<S: crate::Service>(
                 return;
             };
 
+            let previous_root_snarked_ledger_hash = store
+                .state()
+                .transition_frontier
+                .root()
+                .map(|b| b.snarked_ledger_hash().clone());
+
             if store.dispatch(TransitionFrontierSyncAction::BestTipUpdate {
+                previous_root_snarked_ledger_hash,
                 best_tip: best_tip.clone(),
                 root_block,
                 blocks_inbetween,
