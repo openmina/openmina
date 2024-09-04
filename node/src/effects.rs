@@ -122,6 +122,7 @@ fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: 
             peer_id,
             id,
             request: Box::new(P2pRpcRequest::BestTipWithProof),
+            on_init: None,
         });
     }
 }

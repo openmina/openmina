@@ -281,6 +281,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                             peer_id,
                             id: 0,
                             request: Box::new(P2pRpcRequest::BestTipWithProof),
+                            on_init: None,
                         });
 
                         store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);

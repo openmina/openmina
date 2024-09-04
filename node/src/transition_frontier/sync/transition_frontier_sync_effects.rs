@@ -1,5 +1,6 @@
 use openmina_core::block::ArcBlockWithHash;
-use p2p::channels::rpc::P2pChannelsRpcAction;
+use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
+use p2p::PeerId;
 use redux::ActionMeta;
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -156,17 +157,25 @@ impl TransitionFrontierSyncAction {
                     return;
                 };
 
-                if store.dispatch(P2pChannelsRpcAction::RequestSend {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
-                        hash: hash.clone(),
-                        peer_id: *peer_id,
-                        rpc_id,
-                    });
-                }
+                    on_init: Some(redux::callback!(
+                        on_send_p2p_block_rpc_request(
+                            (peer_id: PeerId, rpc_id: P2pRpcId, request: P2pRpcRequest)
+                        ) -> crate::Action {
+                            let P2pRpcRequest::Block(hash) = request else {
+                                unreachable!()
+                            };
+                            TransitionFrontierSyncAction::BlocksPeerQueryPending {
+                                hash,
+                                peer_id,
+                                rpc_id,
+                            }
+                        }
+                    )),
+                });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
                 let p2p = p2p_ready!(store.state().p2p, meta.time());
@@ -177,17 +186,25 @@ impl TransitionFrontierSyncAction {
                     return;
                 };
 
-                if store.dispatch(P2pChannelsRpcAction::RequestSend {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
-                        hash: hash.clone(),
-                        peer_id: *peer_id,
-                        rpc_id,
-                    });
-                }
+                    on_init: Some(redux::callback!(
+                        on_send_p2p_block_rpc_request_retry(
+                            (peer_id: PeerId, rpc_id: P2pRpcId, request: P2pRpcRequest)
+                        ) -> crate::Action {
+                            let P2pRpcRequest::Block(hash) = request else {
+                                unreachable!()
+                            };
+                            TransitionFrontierSyncAction::BlocksPeerQueryPending {
+                                hash,
+                                peer_id,
+                                rpc_id,
+                            }
+                        }
+                    )),
+                });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryPending { .. } => {}
             TransitionFrontierSyncAction::BlocksPeerQueryError { .. } => {
@@ -219,13 +236,22 @@ impl TransitionFrontierSyncAction {
                     stats.block_producer().block_apply_start(meta.time(), &hash);
                 }
 
-                if store.dispatch(LedgerWriteAction::Init {
+                store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::BlockApply { block, pred_block },
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyPending {
-                        hash: hash.clone(),
-                    });
-                }
+                    on_init: redux::callback!(
+                        on_block_next_apply_init(request: LedgerWriteRequest) -> crate::Action {
+                            let LedgerWriteRequest::BlockApply {
+                                block,
+                                pred_block: _,
+                            } = request
+                            else {
+                                unreachable!()
+                            };
+                            let hash = block.hash().clone();
+                            TransitionFrontierSyncAction::BlocksNextApplyPending { hash }
+                        }
+                    ),
+                });
             }
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
             TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
@@ -294,7 +320,7 @@ impl TransitionFrontierSyncAction {
                         .collect()
                 };
 
-                if store.dispatch(LedgerWriteAction::Init {
+                store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::Commit {
                         ledgers_to_keep,
                         root_snarked_ledger_updates,
@@ -302,9 +328,12 @@ impl TransitionFrontierSyncAction {
                         new_root: new_root.clone(),
                         new_best_tip: new_best_tip.clone(),
                     },
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::CommitPending);
-                }
+                    on_init: redux::callback!(
+                        on_frontier_commit_init(_request: LedgerWriteRequest) -> crate::Action {
+                            TransitionFrontierSyncAction::CommitPending
+                        }
+                    ),
+                });
             }
             TransitionFrontierSyncAction::CommitPending => {}
             TransitionFrontierSyncAction::CommitSuccess { .. } => {

@@ -7,9 +7,14 @@ pub type LedgerWriteActionWithMetaRef<'a> = redux::ActionWithMeta<&'a LedgerWrit
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LedgerWriteAction {
-    Init { request: LedgerWriteRequest },
+    Init {
+        request: LedgerWriteRequest,
+        on_init: redux::Callback<LedgerWriteRequest>,
+    },
     Pending,
-    Success { response: LedgerWriteResponse },
+    Success {
+        response: LedgerWriteResponse,
+    },
 }
 
 impl redux::EnablingCondition<crate::State> for LedgerWriteAction {
