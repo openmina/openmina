@@ -1,6 +1,7 @@
 mod sender;
 pub use sender::RpcSender;
 
+pub mod state;
 pub mod stats;
 
 use node::rpc::{
