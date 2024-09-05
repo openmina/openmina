@@ -5,6 +5,9 @@ import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { AppActions } from '@app/app.actions';
 import { animate, state, style, transition, trigger } from '@angular/animations';
+import { WebNodeService } from '@core/services/web-node.service';
+import { Router } from '@angular/router';
+import { CONFIG } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-node-picker',
@@ -37,8 +40,11 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   parentInitialWidth: number = 0;
 
   @ViewChild('searchNode') searchInput: ElementRef<HTMLInputElement>;
+  readonly canAddNodes: boolean = CONFIG.globalConfig?.canAddNodes;
 
-  constructor(private elementRef: ElementRef<HTMLElement>) { super(); }
+  constructor(private elementRef: ElementRef<HTMLElement>,
+              private webNodeService: WebNodeService,
+              private router: Router) { super(); }
 
   ngAfterViewInit(): void {
     this.listenToNodeSearch();
@@ -73,6 +79,10 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
     this.closeEmitter.emit(false);
     if (node !== this.activeNode) {
       this.dispatch2(AppActions.changeActiveNode({ node }));
+    }
+    if (node.isWebNode) {
+      this.webNodeService.webNodeState = 'loading';
+      this.router.navigate(['web-node']);
     }
   }
 

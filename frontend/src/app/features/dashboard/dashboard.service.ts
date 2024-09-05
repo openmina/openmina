@@ -1,14 +1,17 @@
 import { Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { catchError, map, Observable } from 'rxjs';
 import { DashboardPeer, DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { RustService } from '@core/services/rust.service';
 import { ONE_MILLION, toReadableDate } from '@openmina/shared';
 import { DashboardPeerRpcResponses, DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
+import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
+import { NodesOverviewService } from '@nodes/overview/nodes-overview.service';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
 
-  constructor(private rust: RustService) { }
+  constructor(private rust: RustService,
+              private nodesOverviewService: NodesOverviewService) { }
 
   getPeers(): Observable<DashboardPeer[]> {
     return this.rust.get<PeersResponse[]>('/state/peers').pipe(
@@ -27,6 +30,19 @@ export class DashboardService {
           requests: 0,
         } as DashboardPeer)),
       ),
+    );
+  }
+
+  getTips({ url, name }: { url: string, name: string }): Observable<NodesOverviewNode[]> {
+    return this.rust.get<NodesOverviewNode[]>('/stats/sync?limit=1').pipe(
+      map((response: NodesOverviewNode[]) => this.nodesOverviewService.mapNodeTipsResponse(response, true, {
+        name,
+        url,
+      })),
+      catchError(() => this.nodesOverviewService.mapNodeTipsErrorResponse({
+        name,
+        url,
+      })),
     );
   }
 

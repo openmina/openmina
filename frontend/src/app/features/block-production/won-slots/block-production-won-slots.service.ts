@@ -24,6 +24,9 @@ export class BlockProductionWonSlotsService {
     return this.rust.get<WonSlotResponse>('/stats/block_producer')
       .pipe(
         map((response: WonSlotResponse) => {
+          if (!response) {
+            throw new Error('Empty response from /stats/block_producer');
+          }
           const attemptsSlots = response.attempts.map((attempt: Attempt) => {
             attempt.won_slot.slot_time = Math.floor(attempt.won_slot.slot_time / ONE_MILLION); // converted to milliseconds
             attempt.active = BlockProductionWonSlotsService.getActive(attempt);

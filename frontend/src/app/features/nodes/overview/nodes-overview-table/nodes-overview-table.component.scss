@@ -36,4 +36,9 @@
     background-color: $warn-container;
     color: $warn-primary;
   }
+
+  &.Pending {
+    background-color: $base-container;
+    color: $base-secondary;
+  }
 }

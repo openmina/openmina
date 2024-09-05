@@ -3,6 +3,7 @@ pub use sender::RpcSender;
 
 pub mod state;
 pub mod stats;
+pub mod state;
 
 use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
