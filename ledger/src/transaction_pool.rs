@@ -205,6 +205,7 @@ pub mod diff {
         FeePayerAccountNotFound,
         FeePayerNotPermittedToSend,
         AfterSlotTxEnd,
+        BacktrackNonceMismatch,
     }
 
     impl Error {
@@ -218,7 +219,8 @@ pub mod diff {
                 | Error::Overloaded
                 | Error::FeePayerAccountNotFound
                 | Error::FeePayerNotPermittedToSend
-                | Error::AfterSlotTxEnd => false,
+                | Error::AfterSlotTxEnd
+                | Error::BacktrackNonceMismatch => false,
                 Error::Overflow | Error::BadToken | Error::UnwantedFeeToken => true,
             }
         }
@@ -527,6 +529,10 @@ pub enum CommandError {
         token_id: TokenId,
     },
     AfterSlotTxEnd,
+    BacktrackNonceMismatch {
+        expected_nonce: Nonce,
+        first_nonce: Nonce,
+    },
 }
 
 impl From<CommandError> for diff::Error {
@@ -540,6 +546,7 @@ impl From<CommandError> for diff::Error {
             CommandError::Expired { .. } => diff::Error::Expired,
             CommandError::UnwantedFeeToken { .. } => diff::Error::UnwantedFeeToken,
             CommandError::AfterSlotTxEnd => diff::Error::AfterSlotTxEnd,
+            CommandError::BacktrackNonceMismatch { .. } => diff::Error::BacktrackNonceMismatch,
         }
     }
 }
@@ -752,12 +759,16 @@ impl IndexedPool {
             }
             Some((queue, currency_reserved)) => {
                 let first_queued = queue.front().cloned().unwrap();
+                let expected_nonce = unchecked.expected_target_nonce();
+                let first_nonce = first_queued.data.forget_check().applicable_at_nonce();
 
-                if unchecked.expected_target_nonce()
-                    != first_queued.data.forget_check().applicable_at_nonce()
-                {
+                if expected_nonce != first_nonce {
                     // Ocaml panics here as well
-                    panic!("indexed pool nonces inconsistent when adding from backtrack.")
+                    //panic!("indexed pool nonces inconsistent when adding from backtrack.")
+                    return Err(CommandError::BacktrackNonceMismatch {
+                        expected_nonce,
+                        first_nonce,
+                    });
                 }
 
                 // update `self.all_by_sender`
