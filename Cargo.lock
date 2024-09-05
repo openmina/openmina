@@ -4667,6 +4667,7 @@ dependencies = [
  "bincode",
  "clap 4.5.2",
  "dotenvy",
+ "futures",
  "graphql_client",
  "mina-p2p-messages",
  "num-bigint",

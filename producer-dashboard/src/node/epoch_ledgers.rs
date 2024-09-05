@@ -191,13 +191,13 @@ impl Ledger {
         })
     }
 
-    pub fn gather_producer_and_delegates(&self, producer: &str) -> Vec<(usize, &LedgerEntry)> {
+    pub fn gather_producer_and_delegates(&self, producer: &str) -> Vec<(usize, LedgerEntry)> {
         self.inner
             .iter()
             .enumerate()
             .filter_map(|(index, entry)| {
                 if entry.pk == producer || entry.delegate.as_deref() == Some(producer) {
-                    Some((index, entry))
+                    Some((index, entry.clone()))
                 } else {
                     None
                 }

@@ -21,10 +21,10 @@ if ! PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -lqt | cut -d \| -f 1 | grep -q
   # Load the schema into the database
   echo "Loading schema into $DB..."
   cd /init-db
-  # PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -d $DB < create_schema.sql
+  PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -d $DB < create_schema.sql
   # TODO
-  cd /dumps
-  PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -d $DB < dump.sql
+  # cd /dumps
+  # PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -d $DB < dump.sql
   exit 1
 else
   echo "Database $DB already exists."

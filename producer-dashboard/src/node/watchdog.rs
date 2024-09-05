@@ -44,7 +44,7 @@ async fn watch(
     loop {
         interval.tick().await;
 
-        println!("[node-watchdog] Tick");
+        println!("[node-watchdog] Polling node data");
 
         let sync_status = node.sync_status().await;
 

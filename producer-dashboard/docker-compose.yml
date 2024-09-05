@@ -74,4 +74,4 @@ services:
       - postgres
     ports:
       - 3000:3000
-    command: ["--private-key-path", "/keys/devnet-key-73", "--node-url", "http://mina:5000/graphql"]
+    command: ["--private-key-path", "/keys/whale-20-key", "--node-url", "http://mina:5000/graphql"]
