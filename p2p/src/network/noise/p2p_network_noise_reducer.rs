@@ -5,7 +5,7 @@ use self::p2p_network_noise_state::ResponderConsumeOutput;
 use super::*;
 
 use super::p2p_network_noise_state::{
-    NoiseError, NoiseState, P2pNetworkNoiseState, P2pNetworkNoiseStateInitiator,
+    InitiatorOutput, NoiseError, NoiseState, P2pNetworkNoiseState, P2pNetworkNoiseStateInitiator,
     P2pNetworkNoiseStateInner, P2pNetworkNoiseStateResponder, ResponderOutput,
 };
 
@@ -70,8 +70,7 @@ impl P2pNetworkNoiseState {
                     let buf = &self.buffer[offset..];
                     let len = buf
                         .get(..2)
-                        .map(|buf| Some(u16::from_be_bytes(buf.try_into().ok()?)))
-                        .flatten();
+                        .and_then(|buf| Some(u16::from_be_bytes(buf.try_into().ok()?)));
 
                     if let Some(len) = len {
                         let full_len = 2 + len as usize;
@@ -224,7 +223,14 @@ impl P2pNetworkNoiseState {
                     }
                     P2pNetworkNoiseStateInner::Initiator(i) => {
                         match (i.generate(data), i.remote_pk.clone()) {
-                            (Ok(Some((chunk, (send_key, recv_key)))), Some(remote_pk)) => {
+                            (
+                                Ok(Some(InitiatorOutput {
+                                    send_key,
+                                    recv_key,
+                                    chunk,
+                                })),
+                                Some(remote_pk),
+                            ) => {
                                 self.outgoing_chunks.push_back(vec![chunk.into()]);
                                 let remote_peer_id = remote_pk.peer_id();
 

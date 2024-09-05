@@ -58,7 +58,7 @@ impl P2pNetworkNoiseAction {
                 addr: *self.addr(),
                 error: error.clone().into(),
             });
-            return
+            return;
         }
 
         let middle_initiator =

@@ -141,6 +141,7 @@ impl P2pNetworkPubsubAction {
                     {
                         message.key = None;
                         let mut data = vec![];
+                        #[allow(clippy::if_same_then_else)]
                         if prost::Message::encode(&message, &mut data).is_err() {
                             continue;
                         } else if !store

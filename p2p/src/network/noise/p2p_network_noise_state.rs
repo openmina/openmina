@@ -207,8 +207,14 @@ pub struct ResponderOutput {
     pub remote_pk: PublicKey,
 }
 
+pub struct InitiatorOutput {
+    pub send_key: DataSized<32>,
+    pub recv_key: DataSized<32>,
+    pub chunk: Vec<u8>,
+}
+
 impl P2pNetworkNoiseStateInitiator {
-    pub fn generate(&mut self, data: &[u8]) -> Result<Option<(Vec<u8>, (DataSized<32>, DataSized<32>))>, NoiseError> {
+    pub fn generate(&mut self, data: &[u8]) -> Result<Option<InitiatorOutput>, NoiseError> {
         let Self {
             i_spk,
             i_ssk,
@@ -218,9 +224,9 @@ impl P2pNetworkNoiseStateInitiator {
             ..
         } = self;
 
-        let r_epk = match r_epk.as_ref(){
+        let r_epk = match r_epk.as_ref() {
             Some(r_epk) => r_epk,
-            None => return Ok(None)
+            None => return Ok(None),
         };
 
         let mut i_spk_bytes = i_spk.0.to_bytes();
@@ -243,7 +249,13 @@ impl P2pNetworkNoiseStateInitiator {
         let l = (chunk.len() - 2) as u16;
         chunk[..2].clone_from_slice(&l.to_be_bytes());
 
-        Ok(Some((chunk, noise.finish())))
+        let (send_key, recv_key) = noise.finish();
+
+        Ok(Some(InitiatorOutput {
+            send_key,
+            recv_key,
+            chunk,
+        }))
     }
 
     pub fn consume<'a>(
