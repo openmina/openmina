@@ -100,9 +100,9 @@ impl super::P2pNetworkKadState {
                 Ok(())
             }
             (_, UpdateRoutingTable { peer_id, addrs }) => {
-                let _ = self
-                    .routing_table
-                    .insert(P2pNetworkKadEntry::new(*peer_id, addrs.clone()));
+                let _ = self.routing_table.insert(
+                    P2pNetworkKadEntry::new(*peer_id, addrs.clone()).map_err(|e| e.to_string())?,
+                );
                 Ok(())
             }
             (state, action) => Err(format!("invalid action {action:?} for state {state:?}")),

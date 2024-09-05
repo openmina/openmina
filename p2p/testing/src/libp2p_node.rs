@@ -46,7 +46,7 @@ impl Libp2pNode {
 
 impl TestNode for Libp2pNode {
     fn peer_id(&self) -> PeerId {
-        (*self.swarm.local_peer_id()).into()
+        (*self.swarm.local_peer_id()).try_into().unwrap()
     }
 
     fn libp2p_port(&self) -> u16 {

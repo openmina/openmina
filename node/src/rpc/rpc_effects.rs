@@ -6,6 +6,7 @@ use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::bug_condition;
 
 use crate::block_producer::BlockProducerWonSlot;
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
@@ -624,7 +625,19 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .p2p
                 .ready()
                 .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                .map(|discovery_state| (&discovery_state.routing_table).into());
+                .and_then(
+                    |discovery_state| match (&discovery_state.routing_table).try_into() {
+                        Ok(resp) => Some(resp),
+                        Err(err) => {
+                            bug_condition!(
+                                "{:?} error converting routing table into response: {:?}",
+                                err,
+                                action
+                            );
+                            None
+                        }
+                    },
+                );
             respond_or_log!(
                 store
                     .service()

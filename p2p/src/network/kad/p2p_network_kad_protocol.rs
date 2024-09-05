@@ -3,10 +3,11 @@ use std::{
     net::{IpAddr, SocketAddr},
 };
 
+use libp2p_identity::DecodingError;
 use multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 
-use super::{P2pNetworkKadEntry, P2pNetworkKadEntryTryFromError};
+use super::{P2pNetworkKadEntry, P2pNetworkKadEntryTryFromError, P2pNetworkKadKeyError};
 use crate::{mod_Message::MessageType, PeerId};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize)]
@@ -51,11 +52,14 @@ impl CID {
     }
 }
 
-impl From<PeerId> for CID {
-    fn from(value: PeerId) -> Self {
-        Self::from(libp2p_identity::PeerId::from(value))
+impl TryFrom<PeerId> for CID {
+    type Error = libp2p_identity::DecodingError;
+
+    fn try_from(value: PeerId) -> Result<Self, Self::Error> {
+        Ok(Self::from(libp2p_identity::PeerId::try_from(value)?))
     }
 }
+
 impl From<libp2p_identity::PeerId> for CID {
     fn from(value: libp2p_identity::PeerId) -> Self {
         Self(value.to_bytes())
@@ -81,8 +85,12 @@ pub enum P2pNetworkKademliaRpcReply {
 }
 
 impl P2pNetworkKademliaRpcRequest {
-    pub fn find_node(key: PeerId) -> Self {
-        P2pNetworkKademliaRpcRequest::FindNode { key: key.into() }
+    pub fn find_node(key: PeerId) -> Result<Self, P2pNetworkKadKeyError> {
+        Ok(P2pNetworkKademliaRpcRequest::FindNode {
+            key: key
+                .try_into()
+                .map_err(|_| P2pNetworkKadKeyError::DecodingError)?,
+        })
     }
 }
 
@@ -111,12 +119,14 @@ impl<'a> TryFrom<Cow<'a, [u8]>> for PeerId {
 pub(super) fn peer_id_try_from_bytes(
     bytes: Cow<'_, [u8]>,
 ) -> Result<PeerId, P2pNetworkKademliaPeerIdError> {
-    Ok((&libp2p_identity::PeerId::from_bytes(bytes.as_ref())?).try_into()?)
+    Ok((libp2p_identity::PeerId::from_bytes(bytes.as_ref())?).try_into()?)
 }
 
-impl<'a> From<&PeerId> for Cow<'a, [u8]> {
-    fn from(value: &PeerId) -> Self {
-        libp2p_identity::PeerId::from(*value).to_bytes().into()
+impl<'a> TryFrom<&PeerId> for Cow<'a, [u8]> {
+    type Error = DecodingError;
+
+    fn try_from(value: &PeerId) -> Result<Self, Self::Error> {
+        Ok(libp2p_identity::PeerId::try_from(*value)?.to_bytes().into())
     }
 }
 
@@ -209,15 +219,25 @@ impl<'a> From<&'a P2pNetworkKademliaRpcRequest> for super::Message<'a> {
     }
 }
 
-impl<'a> From<&'a P2pNetworkKademliaRpcReply> for super::Message<'a> {
-    fn from(value: &'a P2pNetworkKademliaRpcReply) -> Self {
+impl<'a> TryFrom<&'a P2pNetworkKademliaRpcReply> for super::Message<'a> {
+    type Error = DecodingError;
+
+    fn try_from(value: &'a P2pNetworkKademliaRpcReply) -> Result<Self, Self::Error> {
         match value {
-            P2pNetworkKademliaRpcReply::FindNode { closer_peers } => super::Message {
-                type_pb: MessageType::FIND_NODE,
-                clusterLevelRaw: 10,
-                closerPeers: closer_peers.iter().map(Into::into).collect(),
-                ..Default::default()
-            },
+            P2pNetworkKademliaRpcReply::FindNode { closer_peers } => {
+                let mut _closer_peers = Vec::new();
+
+                for peer in closer_peers.iter() {
+                    _closer_peers.push(peer.try_into()?)
+                }
+
+                Ok(super::Message {
+                    type_pb: MessageType::FIND_NODE,
+                    clusterLevelRaw: 10,
+                    closerPeers: _closer_peers,
+                    ..Default::default()
+                })
+            }
         }
     }
 }
@@ -282,9 +302,9 @@ pub mod tests {
     #[test]
     fn cid_generation() {
         let random_peer_id = SecretKey::rand().public_key().peer_id();
-        let libp2p_peer_id = libp2p_identity::PeerId::from(random_peer_id);
+        let libp2p_peer_id = libp2p_identity::PeerId::try_from(random_peer_id).unwrap();
 
-        let cid0 = CID::from(random_peer_id);
+        let cid0 = CID::try_from(random_peer_id).unwrap();
         let cid1 = CID::from(libp2p_peer_id);
 
         assert_eq!(cid0, cid1);
@@ -301,7 +321,12 @@ pub mod tests {
             .parse::<PeerId>()
             .unwrap();
         assert_eq!(
-            from_bytes(&libp2p_identity::PeerId::from(peer_id).to_bytes()).unwrap(),
+            from_bytes(
+                &libp2p_identity::PeerId::try_from(peer_id)
+                    .unwrap()
+                    .to_bytes()
+            )
+            .unwrap(),
             peer_id
         );
     }

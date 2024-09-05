@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use multiaddr::Multiaddr;
-use openmina_core::{error, fuzzed_maybe, log::system_time, warn};
+use openmina_core::{bug_condition, error, fuzzed_maybe, log::system_time, warn};
 use redux::ActionMeta;
 
 use super::{
@@ -64,101 +64,100 @@ impl P2pNetworkIdentifyStreamAction {
                 incoming: true,
                 stream_id,
             } => {
-                if let P2pNetworkIdentifyStreamState::SendIdentify = state {
-                    let mut listen_addrs = Vec::new();
-                    for addr in store
-                        .state()
-                        .network
-                        .scheduler
-                        .listeners
-                        .iter()
-                        .cloned()
-                        .collect::<Vec<_>>()
-                    {
-                        listen_addrs.extend(get_addrs::<Vec<_>, _>(&addr, store.service()))
-                    }
+                let P2pNetworkIdentifyStreamState::SendIdentify = state else {
+                    bug_condition!("Invalid state {:?} for action {:?}", state, self);
+                    return Ok(());
+                };
 
-                    let public_key = Some(store.state().config.identity_pub_key.clone());
-
-                    let mut protocols = vec![
-                        // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
-                        token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
-                        // token::StreamKind::Identify(
-                        //     token::IdentifyAlgorithm::IdentifyPush1_0_0,
-                        // ),
-                        // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_0_0),
-                        token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
-                        // token::StreamKind::Ping(token::PingAlgorithm::Ping1_0_0),
-                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap),
-                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_0_0),
-                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_1_0),
-                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_2_0),
-                        // token::StreamKind::Status(token::StatusAlgorithm::MinaNodeStatus),
-                        token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
-                    ];
-                    if store.state().network.scheduler.discovery_state.is_some() {
-                        protocols.push(token::StreamKind::Discovery(
-                            token::DiscoveryAlgorithm::Kademlia1_0_0,
-                        ));
-                    }
-                    let identify_msg = P2pNetworkIdentify {
-                        protocol_version: Some("ipfs/0.1.0".to_string()),
-                        // TODO: include build info from GlobalConfig (?)
-                        agent_version: Some("openmina".to_owned()),
-                        public_key,
-                        listen_addrs,
-                        // TODO: other peers seem to report inaccurate information, should we implement this?
-                        observed_addr: None,
-                        protocols,
-                    };
-
-                    //println!("{:?}", identify_msg);
-
-                    let mut out = Vec::new();
-                    let identify_msg_proto: pb::Identify = (&identify_msg).into();
-
-                    if let Err(err) =
-                        prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
-                    {
-                        warn!(meta.time(); summary = "error serializing Identify message", error = err.to_string(), action = format!("{self:?}"));
-                        return Ok(());
-                    }
-
-                    let data = fuzzed_maybe!(
-                        Data(out.into_boxed_slice()),
-                        crate::fuzzer::mutate_identify_msg
-                    );
-
-                    let flags =
-                        fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
-
-                    store.dispatch(P2pNetworkYamuxAction::OutgoingData {
-                        addr,
-                        stream_id,
-                        data,
-                        flags,
-                    });
-
-                    store.dispatch(P2pNetworkIdentifyStreamAction::Close {
-                        addr,
-                        peer_id,
-                        stream_id,
-                    });
-
-                    Ok(())
-                } else {
-                    unreachable!()
+                let mut listen_addrs = Vec::new();
+                for addr in store
+                    .state()
+                    .network
+                    .scheduler
+                    .listeners
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                {
+                    listen_addrs.extend(get_addrs::<Vec<_>, _>(&addr, store.service()))
                 }
+
+                let public_key = Some(store.state().config.identity_pub_key.clone());
+
+                let mut protocols = vec![
+                    // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
+                    token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
+                    // token::StreamKind::Identify(
+                    //     token::IdentifyAlgorithm::IdentifyPush1_0_0,
+                    // ),
+                    // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_0_0),
+                    token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
+                    // token::StreamKind::Ping(token::PingAlgorithm::Ping1_0_0),
+                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap),
+                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_0_0),
+                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_1_0),
+                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_2_0),
+                    // token::StreamKind::Status(token::StatusAlgorithm::MinaNodeStatus),
+                    token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
+                ];
+                if store.state().network.scheduler.discovery_state.is_some() {
+                    protocols.push(token::StreamKind::Discovery(
+                        token::DiscoveryAlgorithm::Kademlia1_0_0,
+                    ));
+                }
+                let identify_msg = P2pNetworkIdentify {
+                    protocol_version: Some("ipfs/0.1.0".to_string()),
+                    // TODO: include build info from GlobalConfig (?)
+                    agent_version: Some("openmina".to_owned()),
+                    public_key,
+                    listen_addrs,
+                    // TODO: other peers seem to report inaccurate information, should we implement this?
+                    observed_addr: None,
+                    protocols,
+                };
+
+                //println!("{:?}", identify_msg);
+
+                let mut out = Vec::new();
+                let identify_msg_proto: pb::Identify = (&identify_msg).into();
+
+                if let Err(err) =
+                    prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
+                {
+                    warn!(meta.time(); summary = "error serializing Identify message", error = err.to_string(), action = format!("{self:?}"));
+                    return Ok(());
+                }
+
+                let data = fuzzed_maybe!(
+                    Data(out.into_boxed_slice()),
+                    crate::fuzzer::mutate_identify_msg
+                );
+
+                let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
+
+                store.dispatch(P2pNetworkYamuxAction::OutgoingData {
+                    addr,
+                    stream_id,
+                    data,
+                    flags,
+                });
+
+                store.dispatch(P2pNetworkIdentifyStreamAction::Close {
+                    addr,
+                    peer_id,
+                    stream_id,
+                });
+
+                Ok(())
             }
             P2pNetworkIdentifyStreamAction::New {
                 incoming: false, ..
             } => {
-                if let P2pNetworkIdentifyStreamState::RecvIdentify = state {
-                    Ok(())
-                } else {
-                    println!("STATE: {:?}", state);
-                    unreachable!()
+                if !matches!(state, P2pNetworkIdentifyStreamState::RecvIdentify) {
+                    bug_condition!("Invalid state {:?} for action {:?}", state, self);
                 }
+
+                Ok(())
             }
             P2pNetworkIdentifyStreamAction::IncomingData {
                 addr,
@@ -249,7 +248,10 @@ impl P2pNetworkIdentifyStreamAction {
                     _ => Err(format!("incorrect state {state:?} for action {self:?}")),
                 }
             }
-            P2pNetworkIdentifyStreamAction::Prune { .. } => unreachable!(), // handled before match
+            P2pNetworkIdentifyStreamAction::Prune { .. } => {
+                bug_condition!("Invalid state {:?} for action {:?}", state, self);
+                Ok(())
+            }
         }
     }
 }

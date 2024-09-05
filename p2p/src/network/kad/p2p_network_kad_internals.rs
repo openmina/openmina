@@ -5,6 +5,7 @@ use std::{
 
 use crypto_bigint::{ArrayEncoding, Encoding, U256};
 use derive_more::From;
+use libp2p_identity::DecodingError;
 use multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -65,15 +66,27 @@ mod u256_serde {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
 
-impl From<&PeerId> for P2pNetworkKadKey {
-    fn from(value: &PeerId) -> Self {
-        P2pNetworkKadKey::from(*value)
+#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
+pub enum P2pNetworkKadKeyError {
+    #[error("decoding error")]
+    DecodingError,
+}
+
+impl TryFrom<&PeerId> for P2pNetworkKadKey {
+    type Error = P2pNetworkKadKeyError;
+
+    fn try_from(value: &PeerId) -> Result<Self, Self::Error> {
+        P2pNetworkKadKey::try_from(*value)
     }
 }
 
-impl From<PeerId> for P2pNetworkKadKey {
-    fn from(value: PeerId) -> Self {
-        P2pNetworkKadKey::from(CID::from(value))
+impl TryFrom<PeerId> for P2pNetworkKadKey {
+    type Error = P2pNetworkKadKeyError;
+
+    fn try_from(value: PeerId) -> Result<Self, Self::Error> {
+        Ok(P2pNetworkKadKey::from(
+            CID::try_from(value).map_err(|_| P2pNetworkKadKeyError::DecodingError)?,
+        ))
     }
 }
 
@@ -365,14 +378,13 @@ pub struct P2pNetworkKadEntry {
 }
 
 impl P2pNetworkKadEntry {
-    pub fn new(peer_id: PeerId, addrs: Vec<Multiaddr>) -> Self {
-        let key = peer_id.into();
-        P2pNetworkKadEntry {
-            key,
+    pub fn new(peer_id: PeerId, addrs: Vec<Multiaddr>) -> Result<Self, P2pNetworkKadKeyError> {
+        Ok(P2pNetworkKadEntry {
+            key: peer_id.try_into()?,
             peer_id,
             addrs,
             connection: ConnectionType::NotConnected,
-        }
+        })
     }
 
     pub fn dist(&self, other: &P2pNetworkKadEntry) -> P2pNetworkKadDist {
@@ -397,6 +409,8 @@ pub enum P2pNetworkKadEntryTryFromError {
     #[error(transparent)]
     PeerId(#[from] P2pNetworkKademliaPeerIdError),
     #[error(transparent)]
+    Key(#[from] P2pNetworkKadKeyError),
+    #[error(transparent)]
     Multiaddr(#[from] P2pNetworkKademliaMultiaddrError),
 }
 
@@ -405,7 +419,7 @@ impl TryFrom<super::mod_Message::Peer<'_>> for P2pNetworkKadEntry {
 
     fn try_from(value: super::mod_Message::Peer) -> Result<Self, Self::Error> {
         let peer_id = super::peer_id_try_from_bytes(value.id)?;
-        let key = peer_id.into();
+        let key = peer_id.try_into()?;
         let addrs = value
             .addrs
             .into_iter()
@@ -421,17 +435,19 @@ impl TryFrom<super::mod_Message::Peer<'_>> for P2pNetworkKadEntry {
     }
 }
 
-impl<'a> From<&'a P2pNetworkKadEntry> for super::mod_Message::Peer<'a> {
-    fn from(value: &'a P2pNetworkKadEntry) -> Self {
-        super::mod_Message::Peer {
-            id: (&value.peer_id).into(),
+impl<'a> TryFrom<&'a P2pNetworkKadEntry> for super::mod_Message::Peer<'a> {
+    type Error = DecodingError;
+
+    fn try_from(value: &'a P2pNetworkKadEntry) -> Result<Self, Self::Error> {
+        Ok(super::mod_Message::Peer {
+            id: (&value.peer_id).try_into()?,
             addrs: value
                 .addrs
                 .iter()
                 .map(|addr| addr.as_ref().into())
                 .collect(),
             connection: value.connection.into(),
-        }
+        })
     }
 }
 
@@ -627,7 +643,7 @@ mod tests {
     }
 
     fn entry_with_peer_id(peer_id: PeerId) -> P2pNetworkKadEntry {
-        let key = peer_id.into();
+        let key = peer_id.try_into().unwrap();
         P2pNetworkKadEntry {
             key,
             peer_id,
@@ -639,11 +655,11 @@ mod tests {
     #[test]
     fn test_key_generation() {
         let random_peer_id = SecretKey::rand().public_key().peer_id();
-        let libp2p_peer_id = libp2p_identity::PeerId::from(random_peer_id);
+        let libp2p_peer_id = libp2p_identity::PeerId::try_from(random_peer_id).unwrap();
         let cid = CID::from(libp2p_peer_id);
 
-        let key0 = P2pNetworkKadKey::from(&random_peer_id);
-        let key1 = P2pNetworkKadKey::from(random_peer_id);
+        let key0 = P2pNetworkKadKey::try_from(&random_peer_id).unwrap();
+        let key1 = P2pNetworkKadKey::try_from(random_peer_id).unwrap();
         let key2 = P2pNetworkKadKey::from(cid);
 
         assert_eq!(key0, key1);

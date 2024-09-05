@@ -438,14 +438,20 @@ impl Cluster {
             Listener::Rust(id) => Ok(self.rust_node(id).libp2p_dial_opts(self.ip)),
             Listener::Libp2p(id) => Ok(self.libp2p_node(id).libp2p_dial_opts(self.ip)),
             Listener::Multiaddr(maddr) => Ok(maddr),
-            Listener::SocketPeerId(socket, peer_id) => match socket {
-                SocketAddr::V4(ipv4) => {
-                    Ok(multiaddr!(Ip4(*ipv4.ip()), Tcp(ipv4.port()), P2p(peer_id)))
+            Listener::SocketPeerId(socket, peer_id) => {
+                let peer_id: libp2p::PeerId = peer_id
+                    .try_into()
+                    .map_err(|_| Error::Other("Listener: invalid peer_id".to_string()))?;
+
+                match socket {
+                    SocketAddr::V4(ipv4) => {
+                        Ok(multiaddr!(Ip4(*ipv4.ip()), Tcp(ipv4.port()), P2p(peer_id)))
+                    }
+                    SocketAddr::V6(ipv6) => {
+                        Ok(multiaddr!(Ip6(*ipv6.ip()), Tcp(ipv6.port()), P2p(peer_id)))
+                    }
                 }
-                SocketAddr::V6(ipv6) => {
-                    Ok(multiaddr!(Ip6(*ipv6.ip()), Tcp(ipv6.port()), P2p(peer_id)))
-                }
-            },
+            }
         }
     }
 
