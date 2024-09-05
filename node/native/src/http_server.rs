@@ -291,7 +291,8 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                         &"response channel dropped",
                         StatusCode::INTERNAL_SERVER_ERROR,
                     ),
-                    Some(resp) => with_json_reply(&resp, StatusCode::OK),
+                    Some(Err(err)) => with_json_reply(&err, StatusCode::INTERNAL_SERVER_ERROR),
+                    Some(Ok(data)) => with_json_reply(&data, StatusCode::OK),
                 }
             }
         });
