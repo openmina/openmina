@@ -149,13 +149,14 @@ impl NoiseState {
             .map(|()| self.hash.0 = hash.into())
     }
 
-    pub fn encrypt<const NONCE: u64>(&mut self, data: &mut [u8]) -> [u8; 16] {
+    pub fn encrypt<const NONCE: u64>(&mut self, data: &mut [u8]) -> Result<[u8; 16], NoiseError> {
         let mut nonce = GenericArray::default();
         nonce[4..].clone_from_slice(&NONCE.to_le_bytes());
 
         let tag = ChaCha20Poly1305::new(GenericArray::from_slice(&self.aead_key.0))
             .encrypt_in_place_detached(&nonce, &self.hash.0, data)
-            .expect("data length must be sufficiently small");
+            .map_err(|_| NoiseError::Encryption)?;
+
         let hash = Sha256::default()
             .chain(self.hash.0)
             .chain(&*data)
@@ -163,7 +164,7 @@ impl NoiseState {
             .finalize_fixed();
         self.hash.0 = hash.into();
 
-        tag.into()
+        Ok(tag.into())
     }
 
     pub fn finish(&self) -> (DataSized<32>, DataSized<32>) {
@@ -196,6 +197,8 @@ pub enum NoiseError {
     SelfConnection,
     #[error("remote peer id doesn't match expected peer id")]
     RemotePeerIdMismatch,
+    #[error("failed to encrypt data")]
+    Encryption,
 }
 
 pub struct ResponderOutput {
@@ -205,7 +208,7 @@ pub struct ResponderOutput {
 }
 
 impl P2pNetworkNoiseStateInitiator {
-    pub fn generate(&mut self, data: &[u8]) -> Option<(Vec<u8>, (DataSized<32>, DataSized<32>))> {
+    pub fn generate(&mut self, data: &[u8]) -> Result<Option<(Vec<u8>, (DataSized<32>, DataSized<32>))>, NoiseError> {
         let Self {
             i_spk,
             i_ssk,
@@ -215,10 +218,13 @@ impl P2pNetworkNoiseStateInitiator {
             ..
         } = self;
 
-        let r_epk = r_epk.as_ref()?;
+        let r_epk = match r_epk.as_ref(){
+            Some(r_epk) => r_epk,
+            None => return Ok(None)
+        };
 
         let mut i_spk_bytes = i_spk.0.to_bytes();
-        let tag = noise.encrypt::<1>(&mut i_spk_bytes);
+        let tag = noise.encrypt::<1>(&mut i_spk_bytes)?;
         noise.mix_secret(&*i_ssk * r_epk);
         let mut payload = payload.0.to_vec();
         // if handshake is optimized by early mux negotiation
@@ -227,7 +233,7 @@ impl P2pNetworkNoiseStateInitiator {
             payload.push(data.len() as u8);
             payload.extend_from_slice(data);
         }
-        let payload_tag = noise.encrypt::<0>(&mut payload);
+        let payload_tag = noise.encrypt::<0>(&mut payload)?;
 
         let mut chunk = vec![0; 2];
         chunk.extend_from_slice(&i_spk_bytes);
@@ -237,7 +243,7 @@ impl P2pNetworkNoiseStateInitiator {
         let l = (chunk.len() - 2) as u16;
         chunk[..2].clone_from_slice(&l.to_be_bytes());
 
-        Some((chunk, noise.finish()))
+        Ok(Some((chunk, noise.finish())))
     }
 
     pub fn consume<'a>(
@@ -258,9 +264,9 @@ impl P2pNetworkNoiseStateInitiator {
         if len < 200 {
             return Err(ChunkTooShort);
         }
-        let r_epk = Pk::from_bytes(msg[..32].try_into().expect("cannot fail"));
-        let mut r_spk_bytes =
-            <[u8; 32]>::try_from(&msg[32..64]).expect("cannot fail, checked above");
+        let r_epk = Pk::from_bytes(msg[..32].try_into().map_err(|_| ChunkTooShort)?);
+        let mut r_spk_bytes = <[u8; 32]>::try_from(&msg[32..64]).map_err(|_| ChunkTooShort)?;
+
         let tag = &msg[64..80];
 
         noise.mix_hash(r_epk.0.as_bytes());
@@ -324,7 +330,7 @@ impl P2pNetworkNoiseStateResponder {
             payload.push(data.len() as u8);
             payload.extend_from_slice(data);
         }
-        let payload_tag = noise.encrypt::<0>(&mut payload);
+        let payload_tag = noise.encrypt::<0>(&mut payload).ok()?;
 
         buffer.extend_from_slice(&payload);
         buffer.extend_from_slice(&payload_tag);
@@ -360,7 +366,7 @@ impl P2pNetworkNoiseStateResponder {
                 if len < 32 {
                     return Err(ChunkTooShort);
                 }
-                let i_epk = Pk::from_bytes(msg[..32].try_into().expect("cannot fail"));
+                let i_epk = Pk::from_bytes(msg[..32].try_into().map_err(|_| ChunkTooShort)?);
 
                 let r_epk = r_esk.pk();
 
@@ -370,7 +376,7 @@ impl P2pNetworkNoiseStateResponder {
                 noise.mix_hash(b"");
                 noise.mix_hash(r_epk.0.as_bytes());
                 noise.mix_secret(&*r_esk * &i_epk);
-                let tag = noise.encrypt::<0>(&mut r_spk_bytes);
+                let tag = noise.encrypt::<0>(&mut r_spk_bytes)?;
                 noise.mix_secret(&*r_ssk * &i_epk);
                 r_ssk.zeroize();
 
@@ -389,7 +395,8 @@ impl P2pNetworkNoiseStateResponder {
                 }
 
                 // TODO: refactor obscure arithmetics
-                let mut i_spk_bytes = <[u8; 32]>::try_from(&msg[..32]).expect("cannot fail");
+                let mut i_spk_bytes =
+                    <[u8; 32]>::try_from(&msg[..32]).map_err(|_| ChunkTooShort)?;
                 let (tag, msg) = msg[32..].split_at_mut(16);
                 let len = msg.len();
                 let (remote_payload, payload_tag) = msg.split_at_mut(len - 16);
