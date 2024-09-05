@@ -4,6 +4,7 @@ export const environment: Readonly<MinaEnv> = {
   production: true,
   globalConfig: {
     features: {
+      'dashboard': [],
       'block-production': ['won-slots'],
       'nodes': ['overview', 'live', 'bootstrap'],
       'mempool': [],
