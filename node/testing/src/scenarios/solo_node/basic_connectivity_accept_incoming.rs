@@ -99,7 +99,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                 .map_or(0, |discovery_state| {
                     discovery_state
                         .routing_table
-                        .closest_peers(&my_id.into())
+                        .closest_peers(&my_id.try_into().unwrap())
                         .count()
                 });
 

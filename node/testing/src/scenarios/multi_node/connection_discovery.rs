@@ -382,7 +382,7 @@ where
 
     Ok(peer_ids.into_iter().all(|peer_id| {
         table
-            .look_up(&peer_id.into())
+            .look_up(&peer_id.try_into().unwrap())
             .map(|entry| entry.peer_id == peer_id)
             .unwrap_or_default()
     }))

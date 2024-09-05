@@ -539,8 +539,8 @@ pub type RpcDiscoveryBoostrapStatsResponse = Option<P2pNetworkKadBootstrapStats>
 
 pub mod discovery {
     use p2p::{
-        ConnectionType, P2pNetworkKadBucket, P2pNetworkKadDist, P2pNetworkKadEntry,
-        P2pNetworkKadKey, P2pNetworkKadRoutingTable, PeerId,
+        libp2p_identity::DecodingError, ConnectionType, P2pNetworkKadBucket, P2pNetworkKadDist,
+        P2pNetworkKadEntry, P2pNetworkKadKey, P2pNetworkKadRoutingTable, PeerId,
     };
     use serde::{Deserialize, Serialize};
 
@@ -550,17 +550,20 @@ pub mod discovery {
         buckets: Vec<RpcKBucket>,
     }
 
-    impl From<&P2pNetworkKadRoutingTable> for RpcDiscoveryRoutingTable {
-        fn from(value: &P2pNetworkKadRoutingTable) -> Self {
-            RpcDiscoveryRoutingTable {
-                this_key: value.this_key.clone(),
-                buckets: value
-                    .buckets
-                    .iter()
-                    .enumerate()
-                    .map(|(i, b)| (b, P2pNetworkKadDist::from(i), &value.this_key).into())
-                    .collect(),
+    impl TryFrom<&P2pNetworkKadRoutingTable> for RpcDiscoveryRoutingTable {
+        type Error = DecodingError;
+
+        fn try_from(value: &P2pNetworkKadRoutingTable) -> Result<Self, Self::Error> {
+            let mut buckets = Vec::new();
+
+            for (i, b) in value.buckets.iter().enumerate() {
+                buckets.push((b, P2pNetworkKadDist::from(i), &value.this_key).try_into()?);
             }
+
+            Ok(RpcDiscoveryRoutingTable {
+                this_key: value.this_key.clone(),
+                buckets,
+            })
         }
     }
 
@@ -571,26 +574,27 @@ pub mod discovery {
     }
 
     impl<const K: usize>
-        From<(
+        TryFrom<(
             &P2pNetworkKadBucket<K>,
             P2pNetworkKadDist,
             &P2pNetworkKadKey,
         )> for RpcKBucket
     {
-        fn from(
+        type Error = DecodingError;
+
+        fn try_from(
             (bucket, max_dist, this_key): (
                 &P2pNetworkKadBucket<K>,
                 P2pNetworkKadDist,
                 &P2pNetworkKadKey,
             ),
-        ) -> Self {
-            RpcKBucket {
-                max_dist,
-                entries: bucket
-                    .iter()
-                    .map(|entry| (entry, this_key).into())
-                    .collect(),
+        ) -> Result<Self, Self::Error> {
+            let mut entries = Vec::new();
+
+            for entry in bucket.iter() {
+                entries.push((entry, this_key).try_into()?);
             }
+            Ok(RpcKBucket { max_dist, entries })
         }
     }
 
@@ -604,16 +608,20 @@ pub mod discovery {
         connection: ConnectionType,
     }
 
-    impl From<(&P2pNetworkKadEntry, &P2pNetworkKadKey)> for RpcEntry {
-        fn from((value, this_key): (&P2pNetworkKadEntry, &P2pNetworkKadKey)) -> Self {
-            RpcEntry {
+    impl TryFrom<(&P2pNetworkKadEntry, &P2pNetworkKadKey)> for RpcEntry {
+        type Error = DecodingError;
+
+        fn try_from(
+            (value, this_key): (&P2pNetworkKadEntry, &P2pNetworkKadKey),
+        ) -> Result<Self, Self::Error> {
+            Ok(RpcEntry {
                 peer_id: value.peer_id,
-                libp2p: value.peer_id.into(),
+                libp2p: value.peer_id.try_into()?,
                 key: value.key.clone(),
                 dist: this_key - &value.key,
                 addrs: value.addrs.clone(),
                 connection: value.connection,
-            }
+            })
         }
     }
 }

@@ -1,3 +1,4 @@
+use openmina_core::bug_condition;
 use redux::{ActionMeta, ActionWithMeta};
 
 use crate::{
@@ -252,14 +253,19 @@ where
 
     #[cfg(feature = "p2p-libp2p")]
     if let Some(discovery_state) = state.network.scheduler.discovery_state() {
-        let key = state.my_id();
-        if discovery_state
-            .routing_table
-            .closest_peers(&P2pNetworkKadKey::from(&key))
-            .any(|_| true)
-            && discovery_state.status.can_bootstrap(now, &config.timeouts)
-        {
-            store.dispatch(P2pNetworkKademliaAction::StartBootstrap { key });
+        let my_id = state.my_id();
+        match P2pNetworkKadKey::try_from(&my_id) {
+            Ok(key) => {
+                if discovery_state
+                    .routing_table
+                    .closest_peers(&key)
+                    .any(|_| true)
+                    && discovery_state.status.can_bootstrap(now, &config.timeouts)
+                {
+                    store.dispatch(P2pNetworkKademliaAction::StartBootstrap { key: my_id });
+                }
+            }
+            Err(e) => bug_condition!("p2p_discovery error {:?}", e),
         }
     }
 }

@@ -21,12 +21,14 @@ pub trait TestNode {
     }
 
     fn libp2p_dial_opts(&self, host: IpAddr) -> Multiaddr {
+        let peer_id: libp2p::PeerId = self.peer_id().try_into().unwrap();
+
         match host {
             IpAddr::V4(ip) => {
-                multiaddr!(Ip4(ip), Tcp(self.libp2p_port()), P2p(self.peer_id()))
+                multiaddr!(Ip4(ip), Tcp(self.libp2p_port()), P2p(peer_id))
             }
             IpAddr::V6(ip) => {
-                multiaddr!(Ip6(ip), Tcp(self.libp2p_port()), P2p(self.peer_id()))
+                multiaddr!(Ip6(ip), Tcp(self.libp2p_port()), P2p(peer_id))
             }
         }
     }

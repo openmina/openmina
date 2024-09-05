@@ -121,7 +121,10 @@ where
             ClusterEvent::Libp2p {
                 id,
                 event: Libp2pEvent::ConnectionEstablished { peer_id, .. },
-            } => nodes_peers.remove(&(id.into(), peer_id.into())) && nodes_peers.is_empty(),
+            } => {
+                nodes_peers.remove(&(id.into(), peer_id.try_into().unwrap()))
+                    && nodes_peers.is_empty()
+            }
             _ => false,
         })
     }

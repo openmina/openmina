@@ -33,7 +33,7 @@ impl P2pNetworkKadBootstrapState {
     pub fn new(key: PeerId) -> Self {
         P2pNetworkKadBootstrapState {
             key,
-            kademlia_key: key.into(),
+            kademlia_key: key.try_into().expect("valid key"), // TODO: propagate error
             processed_peers: BTreeSet::new(),
             requests: BTreeMap::new(),
             successful_requests: 0,

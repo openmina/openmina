@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use openmina_core::bug_condition;
 use redux::ActionMeta;
 
 use crate::{
@@ -137,7 +138,12 @@ impl P2pNetworkKadRequestAction {
                 stream_id,
                 addr,
             } => {
-                let data = crate::P2pNetworkKademliaRpcRequest::find_node(request_state.key);
+                let Ok(data) = crate::P2pNetworkKademliaRpcRequest::find_node(request_state.key)
+                else {
+                    bug_condition!("P2pNetworkKadRequestAction::StreamReady invalid request key");
+                    return Ok(());
+                };
+
                 store.dispatch(P2pNetworkKademliaStreamAction::SendRequest {
                     addr,
                     peer_id,

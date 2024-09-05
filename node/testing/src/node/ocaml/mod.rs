@@ -169,7 +169,7 @@ impl OcamlNode {
     }
 
     pub fn peer_id(&self) -> PeerId {
-        self.peer_id.into()
+        self.peer_id.try_into().unwrap()
     }
 
     pub async fn exec(&mut self, step: OcamlStep) -> anyhow::Result<bool> {

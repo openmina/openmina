@@ -81,7 +81,9 @@ async fn rust_node_to_rust_node() -> anyhow::Result<()> {
             cluster
                 .connect(
                     node,
-                    addr.clone().with_p2p(peer_id.into()).expect("no error"),
+                    addr.clone()
+                        .with_p2p(peer_id.try_into().unwrap())
+                        .expect("no error"),
                 )
                 .expect("no error");
             let connected = cluster
@@ -137,7 +139,7 @@ async fn test_bad_node() -> anyhow::Result<()> {
         .routing_table;
 
     let bad_peer_entry = routing_table
-        .look_up(&bad_node_peer_id.into())
+        .look_up(&bad_node_peer_id.try_into().unwrap())
         .expect("Node not found");
 
     let bad_peer_addresses = bad_peer_entry
