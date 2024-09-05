@@ -31,6 +31,7 @@ pub struct P2pNetworkPubsubClientState {
     pub outgoing_stream_id: Option<StreamId>,
     pub message: pb::Rpc,
     pub buffer: Vec<u8>,
+    pub incoming_messages: Vec<pb::Message>,
 }
 
 // TODO: store blocks, snarks and txs separately

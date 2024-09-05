@@ -87,4 +87,13 @@ impl P2pCryptoService for NodeService {
             .sign(&msg)
             .expect("unable to create signature")
     }
+
+    fn verify_publication(&mut self, pk: &[u8], publication: &[u8], sig: &[u8]) -> bool {
+        let Ok(pk) = libp2p_identity::PublicKey::try_decode_protobuf(pk) else {
+            return false;
+        };
+        println!("pk {:?}", pk);
+        let msg: Vec<u8> = [b"libp2p-pubsub:", publication].concat();
+        pk.verify(&msg, sig)
+    }
 }

@@ -34,6 +34,7 @@ impl P2pNetworkPubsubState {
                         control: None,
                     },
                     buffer: vec![],
+                    incoming_messages: vec![],
                 });
                 state.protocol = *protocol;
                 state.addr = *addr;
@@ -61,19 +62,13 @@ impl P2pNetworkPubsubState {
                                 control: None,
                             },
                             buffer: vec![],
+                            incoming_messages: vec![],
                         });
                 state.outgoing_stream_id = Some(*stream_id);
                 state.protocol = *protocol;
                 state.addr = *addr;
             }
-            P2pNetworkPubsubAction::IncomingData {
-                peer_id,
-                data,
-                seen_limit,
-                ..
-            } => {
-                self.incoming_transactions.clear();
-                self.incoming_snarks.clear();
+            P2pNetworkPubsubAction::IncomingData { peer_id, data, .. } => {
                 let Some(state) = self.clients.get_mut(peer_id) else {
                     return;
                 };
@@ -83,6 +78,8 @@ impl P2pNetworkPubsubState {
                     state.buffer.extend_from_slice(data);
                     &state.buffer
                 };
+                let mut subscriptions = vec![];
+                let mut control = pb::ControlMessage::default();
                 match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
                     Ok(v) => {
                         state.buffer.clear();
@@ -93,133 +90,13 @@ impl P2pNetworkPubsubState {
                         //     v.publish.len()
                         // );
 
-                        for subscription in v.subscriptions {
-                            let topic_id = subscription.topic_id().to_owned();
-                            let topic = self.topics.entry(topic_id).or_default();
-
-                            if subscription.subscribe() {
-                                if let Entry::Vacant(v) = topic.entry(*peer_id) {
-                                    v.insert(P2pNetworkPubsubClientTopicState::default());
-                                }
-                            } else {
-                                topic.remove(peer_id);
-                            }
-                        }
-                        for message in v.publish {
-                            let Some(message_id) = self.mcache.put(message.clone()) else {
-                                continue;
-                            };
-
-                            let topic = self.topics.entry(message.topic.clone()).or_default();
-                            if let Some(signature) = &message.signature {
-                                // skip recently seen message
-                                if !self.seen.contains(signature) {
-                                    self.seen.push_back(signature.clone());
-                                    // keep only last `n` to avoid memory leak
-                                    if self.seen.len() > *seen_limit {
-                                        self.seen.pop_front();
-                                    }
-                                } else {
-                                    continue;
-                                }
-                            }
-                            // TODO: verify signature
-                            self.clients
-                                .iter_mut()
-                                .filter(|(c, _)| {
-                                    // don't send back to who sent this
-                                    **c != *peer_id
-                                })
-                                .for_each(|(c, state)| {
-                                    let Some(topic_state) = topic.get(c) else {
-                                        return;
-                                    };
-                                    if topic_state.on_mesh() {
-                                        state.message.publish.push(message.clone())
-                                    } else {
-                                        let ctr = state
-                                            .message
-                                            .control
-                                            .get_or_insert_with(Default::default);
-                                        ctr.ihave.push(pb::ControlIHave {
-                                            topic_id: Some(message.topic.clone()),
-                                            message_ids: vec![message_id.clone()],
-                                        })
-                                    }
-                                });
-
-                            if let Some(data) = message.data {
-                                if data.len() <= 8 {
-                                    continue;
-                                }
-                                let mut slice = &data[8..];
-                                match gossip::GossipNetMessageV2::binprot_read(&mut slice) {
-                                    Ok(gossip::GossipNetMessageV2::NewState(block)) => {
-                                        self.incoming_block = Some((*peer_id, block));
-                                    }
-                                    Ok(gossip::GossipNetMessageV2::TransactionPoolDiff {
-                                        message, nonce,
-                                    }) => {
-                                        let nonce = nonce.as_u32();
-                                        let txs = message.0.into_iter().map(|tx| (tx, nonce));
-                                        self.incoming_transactions.extend(txs);
-                                    }
-                                    Ok(gossip::GossipNetMessageV2::SnarkPoolDiff {
-                                        message,
-                                        nonce,
-                                    }) => {
-                                        if let v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work) = message {
-                                            self.incoming_snarks.push((work.1.into(), nonce.as_u32()));
-                                        }
-                                    }
-                                    Err(err) => {
-                                        dbg!(err);
-                                    }
-                                }
-                            }
-                        }
-                        if let Some(control) = &v.control {
-                            for graft in &control.graft {
-                                if let Some(mesh_state) = self
-                                    .topics
-                                    .get_mut(graft.topic_id())
-                                    .and_then(|m| m.get_mut(peer_id))
-                                {
-                                    mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
-                                }
-                            }
-                            for prune in &control.prune {
-                                if let Some(mesh_state) = self
-                                    .topics
-                                    .get_mut(prune.topic_id())
-                                    .and_then(|m| m.get_mut(peer_id))
-                                {
-                                    mesh_state.mesh =
-                                        P2pNetworkPubsubClientMeshAddingState::TheyRefused;
-                                }
-                            }
-                            for iwant in &control.iwant {
-                                for msg_id in &iwant.message_ids {
-                                    if let Some(msg) = self.mcache.map.get(msg_id) {
-                                        if let Some(client) = self.clients.get_mut(peer_id) {
-                                            client.message.publish.push(msg.clone());
-                                        }
-                                    }
-                                }
-                            }
-                            for ihave in &control.ihave {
-                                let message_ids = ihave
-                                    .message_ids
-                                    .iter()
-                                    .filter(|msg_id| !self.mcache.map.contains_key(*msg_id))
-                                    .cloned()
-                                    .collect();
-                                if let Some(client) = self.clients.get_mut(peer_id) {
-                                    let ctr =
-                                        client.message.control.get_or_insert_with(Default::default);
-                                    ctr.iwant.push(pb::ControlIWant { message_ids })
-                                }
-                            }
+                        subscriptions.extend_from_slice(&v.subscriptions);
+                        state.incoming_messages.extend_from_slice(&v.publish);
+                        if let Some(v) = v.control {
+                            control.graft.extend_from_slice(&v.graft);
+                            control.prune.extend_from_slice(&v.prune);
+                            control.ihave.extend_from_slice(&v.ihave);
+                            control.iwant.extend_from_slice(&v.iwant);
                         }
                     }
                     Err(err) => {
@@ -228,6 +105,137 @@ impl P2pNetworkPubsubState {
                             state.buffer = data.to_vec();
                         }
                         dbg!(err);
+                    }
+                }
+
+                for subscription in &subscriptions {
+                    let topic_id = subscription.topic_id().to_owned();
+                    let topic = self.topics.entry(topic_id).or_default();
+
+                    if subscription.subscribe() {
+                        if let Entry::Vacant(v) = topic.entry(*peer_id) {
+                            v.insert(P2pNetworkPubsubClientTopicState::default());
+                        }
+                    } else {
+                        topic.remove(peer_id);
+                    }
+                }
+
+                for graft in &control.graft {
+                    if let Some(mesh_state) = self
+                        .topics
+                        .get_mut(graft.topic_id())
+                        .and_then(|m| m.get_mut(peer_id))
+                    {
+                        mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
+                    }
+                }
+                for prune in &control.prune {
+                    if let Some(mesh_state) = self
+                        .topics
+                        .get_mut(prune.topic_id())
+                        .and_then(|m| m.get_mut(peer_id))
+                    {
+                        mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::TheyRefused;
+                    }
+                }
+                for iwant in &control.iwant {
+                    for msg_id in &iwant.message_ids {
+                        if let Some(msg) = self.mcache.map.get(msg_id) {
+                            if let Some(client) = self.clients.get_mut(peer_id) {
+                                client.message.publish.push(msg.clone());
+                            }
+                        }
+                    }
+                }
+                for ihave in &control.ihave {
+                    let message_ids = ihave
+                        .message_ids
+                        .iter()
+                        .filter(|msg_id| !self.mcache.map.contains_key(*msg_id))
+                        .cloned()
+                        .collect();
+                    if let Some(client) = self.clients.get_mut(peer_id) {
+                        let ctr = client.message.control.get_or_insert_with(Default::default);
+                        ctr.iwant.push(pb::ControlIWant { message_ids })
+                    }
+                }
+            }
+            P2pNetworkPubsubAction::IncomingMessage {
+                peer_id,
+                message,
+                seen_limit,
+            } => {
+                self.incoming_transactions.clear();
+                self.incoming_snarks.clear();
+
+                let Some(state) = self.clients.get_mut(peer_id) else {
+                    return;
+                };
+                state.incoming_messages.clear();
+
+                let message_id = self.mcache.put(message.clone());
+
+                let topic = self.topics.entry(message.topic.clone()).or_default();
+                if let Some(signature) = &message.signature {
+                    // skip recently seen message
+                    if !self.seen.contains(signature) {
+                        self.seen.push_back(signature.clone());
+                        // keep only last `n` to avoid memory leak
+                        if self.seen.len() > *seen_limit {
+                            self.seen.pop_front();
+                        }
+                    } else {
+                        return;
+                    }
+                }
+                // TODO: verify signature
+                self.clients
+                    .iter_mut()
+                    .filter(|(c, _)| {
+                        // don't send back to who sent this
+                        **c != *peer_id
+                    })
+                    .for_each(|(c, state)| {
+                        let Some(topic_state) = topic.get(c) else {
+                            return;
+                        };
+                        if topic_state.on_mesh() {
+                            state.message.publish.push(message.clone())
+                        } else {
+                            let ctr = state.message.control.get_or_insert_with(Default::default);
+                            ctr.ihave.push(pb::ControlIHave {
+                                topic_id: Some(message.topic.clone()),
+                                message_ids: message_id.clone().into_iter().collect(),
+                            })
+                        }
+                    });
+
+                if let Some(data) = &message.data {
+                    if data.len() <= 8 {
+                        return;
+                    }
+                    let mut slice = &data[8..];
+                    match gossip::GossipNetMessageV2::binprot_read(&mut slice) {
+                        Ok(gossip::GossipNetMessageV2::NewState(block)) => {
+                            self.incoming_block = Some((*peer_id, block));
+                        }
+                        Ok(gossip::GossipNetMessageV2::TransactionPoolDiff { message, nonce }) => {
+                            let nonce = nonce.as_u32();
+                            let txs = message.0.into_iter().map(|tx| (tx, nonce));
+                            self.incoming_transactions.extend(txs);
+                        }
+                        Ok(gossip::GossipNetMessageV2::SnarkPoolDiff { message, nonce }) => {
+                            if let v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(
+                                work,
+                            ) = message
+                            {
+                                self.incoming_snarks.push((work.1.into(), nonce.as_u32()));
+                            }
+                        }
+                        Err(err) => {
+                            dbg!(err);
+                        }
                     }
                 }
             }
@@ -271,6 +279,10 @@ impl P2pNetworkPubsubState {
             } => {
                 self.seq += 1;
 
+                // let libp2p_pk = libp2p_identity::PublicKey::from(
+                //     libp2p_identity::ed25519::PublicKey::try_from_bytes(&author.to_bytes())
+                //         .expect("msg"),
+                // );
                 let libp2p_peer_id = libp2p_identity::PeerId::from(*author);
                 self.to_sign.push_back(pb::Message {
                     from: Some(libp2p_peer_id.to_bytes()),

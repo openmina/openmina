@@ -125,7 +125,42 @@ impl P2pNetworkPubsubAction {
                 }
             }
             P2pNetworkPubsubAction::BroadcastSigned { .. } => broadcast(store),
-            P2pNetworkPubsubAction::IncomingData { peer_id, .. } => {
+            P2pNetworkPubsubAction::IncomingData {
+                peer_id,
+                seen_limit,
+                ..
+            } => {
+                let Some(state) = state.clients.get(&peer_id) else {
+                    return;
+                };
+                let messages = state.incoming_messages.clone();
+
+                for mut message in messages {
+                    if let (Some(signature), Some(from)) =
+                        (message.signature.take(), message.from.clone())
+                    {
+                        message.key = None;
+                        let mut data = vec![];
+                        if prost::Message::encode(&message, &mut data).is_err() {
+                            continue;
+                        } else if !store
+                            .service()
+                            .verify_publication(&from[2..], &data, &signature)
+                        {
+                            continue;
+                        }
+                    } else {
+                        // the message doesn't contain signature or it doesn't contain verifying key
+                        continue;
+                    }
+                    store.dispatch(P2pNetworkPubsubAction::IncomingMessage {
+                        peer_id,
+                        message,
+                        seen_limit,
+                    });
+                }
+            }
+            P2pNetworkPubsubAction::IncomingMessage { peer_id, .. } => {
                 // println!("(pubsub) {this} <- {peer_id}");
 
                 let incoming_block = state.incoming_block.as_ref().cloned();

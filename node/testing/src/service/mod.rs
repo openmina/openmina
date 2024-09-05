@@ -296,6 +296,10 @@ impl P2pCryptoService for NodeTestingService {
     fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
         self.real.sign_publication(publication)
     }
+
+    fn verify_publication(&mut self, pk: &[u8], publication: &[u8], sig: &[u8]) -> bool {
+        self.real.verify_publication(pk, publication, sig)
+    }
 }
 
 impl node::ledger::LedgerService for NodeTestingService {

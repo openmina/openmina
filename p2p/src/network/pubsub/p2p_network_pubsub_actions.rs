@@ -20,6 +20,11 @@ pub enum P2pNetworkPubsubAction {
         data: Data,
         seen_limit: usize,
     },
+    IncomingMessage {
+        peer_id: PeerId,
+        message: pb::Message,
+        seen_limit: usize,
+    },
     Graft {
         peer_id: PeerId,
         topic_id: String,
