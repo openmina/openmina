@@ -100,6 +100,7 @@ impl P2pNetworkPubsubAction {
             P2pNetworkPubsubAction::Broadcast { message } => {
                 // println!("(pubsub) {this} broadcast");
                 let mut buffer = vec![0; 8];
+                // TODO: add bug_condition
                 if binprot::BinProtWrite::binprot_write(&message, &mut buffer).is_err() {
                     return;
                 }

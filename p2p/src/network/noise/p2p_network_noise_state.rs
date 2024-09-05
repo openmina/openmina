@@ -127,6 +127,7 @@ impl NoiseState {
         let hkdf = Hkdf::<Sha256, Hmac<Sha256>>::new(Some(&self.chaining_key.0), &secret);
         secret.zeroize();
         let mut okm = [0; 64];
+        // this will only panic if `okm.len() > chunk_len * 255` with chunk_len being 32
         hkdf.expand(&[], &mut okm)
             .expect("the length is constant and small");
         self.chaining_key.0.clone_from_slice(&okm[..32]);
@@ -173,6 +174,7 @@ impl NoiseState {
 
         let hkdf = Hkdf::<Sha256, Hmac<Sha256>>::new(Some(&self.chaining_key.0), b"");
         let mut okm = [0; 64];
+        // this will only panic if `okm.len() > chunk_len * 255` with chunk_len being 32
         hkdf.expand(&[], &mut okm)
             .expect("the length is constant and small");
         fst.clone_from_slice(&okm[..32]);

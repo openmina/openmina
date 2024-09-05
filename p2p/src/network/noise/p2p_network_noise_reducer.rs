@@ -1,4 +1,5 @@
 use chacha20poly1305::{aead::generic_array::GenericArray, AeadInPlace, ChaCha20Poly1305, KeyInit};
+use crypto_bigint::consts::U12;
 
 use self::p2p_network_noise_state::ResponderConsumeOutput;
 
@@ -8,6 +9,8 @@ use super::p2p_network_noise_state::{
     InitiatorOutput, NoiseError, NoiseState, P2pNetworkNoiseState, P2pNetworkNoiseStateInitiator,
     P2pNetworkNoiseStateInner, P2pNetworkNoiseStateResponder, ResponderOutput,
 };
+
+const MAX_CHUNK_SIZE: usize = u16::MAX as usize - 19;
 
 impl P2pNetworkNoiseState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkNoiseAction>) {
@@ -68,6 +71,7 @@ impl P2pNetworkNoiseState {
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
+                    // TODO: add bug_condition
                     let len = buf
                         .get(..2)
                         .and_then(|buf| Some(u16::from_be_bytes(buf.try_into().ok()?)));
@@ -189,22 +193,22 @@ impl P2pNetworkNoiseState {
                         ..
                     } => {
                         let aead = ChaCha20Poly1305::new(&send_key.0.into());
-                        let chunk_max_size = u16::MAX as usize - 19;
                         let mut chunks = vec![];
 
-                        for data in data.chunks(chunk_max_size) {
-                            let mut chunk = Vec::with_capacity(18 + data.len());
-                            chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
-                            chunk.extend_from_slice(data);
+                        for data_chunk in data.chunks(MAX_CHUNK_SIZE) {
+                            let mut chunk = Vec::with_capacity(18 + data_chunk.len());
+                            chunk
+                                .extend_from_slice(&((data_chunk.len() + 16) as u16).to_be_bytes());
+                            chunk.extend_from_slice(data_chunk);
 
-                            let mut nonce = GenericArray::default();
+                            let mut nonce: GenericArray<u8, U12> = GenericArray::default();
                             nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
                             *send_nonce += 1;
 
                             let tag = aead.encrypt_in_place_detached(
                                 &nonce,
                                 &[],
-                                &mut chunk[2..(2 + data.len())],
+                                &mut chunk[2..(2 + data_chunk.len())],
                             );
 
                             let tag = match tag {
