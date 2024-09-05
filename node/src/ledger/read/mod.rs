@@ -58,7 +58,7 @@ pub enum LedgerReadResponse {
     GetChildAccountsAtAddr(Option<Vec<v2::MinaBaseAccountBinableArgStableV2>>),
     GetStagedLedgerAuxAndPendingCoinbases(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
     // rpcs
-    ScanStateSummary(Vec<Vec<RpcScanStateSummaryScanStateJob>>),
+    ScanStateSummary(Result<Vec<Vec<RpcScanStateSummaryScanStateJob>>, String>),
     AccountsForRpc(RpcId, Vec<Account>),
 }
 

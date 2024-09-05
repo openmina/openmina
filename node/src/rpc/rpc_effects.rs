@@ -338,7 +338,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     });
                     store.dispatch(RpcAction::ScanStateSummaryGetSuccess {
                         rpc_id,
-                        scan_state: Vec::new(),
+                        scan_state: Ok(Vec::new()),
                     });
                     return;
                 }
@@ -362,7 +362,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 RpcRequestExtraData::FullBlockOpt(opt) => opt.as_ref(),
                 _ => None,
             }) else {
-                let _ = store.service.respond_scan_state_summary_get(rpc_id, None);
+                let _ = store.service.respond_scan_state_summary_get(
+                    rpc_id,
+                    Err("target block not found".to_string()),
+                );
                 return;
             };
             let coinbases = block
@@ -392,7 +395,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             };
 
             let snark_pool = &store.state().snark_pool;
-            scan_state.iter_mut().flatten().for_each(|job| {
+            scan_state.iter_mut().flatten().flatten().for_each(|job| {
                 if let RpcScanStateSummaryScanStateJob::Todo {
                     job_id,
                     bundle_job_id,
@@ -428,7 +431,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     };
                 }
             });
-            let res = Some(RpcScanStateSummary {
+            let res = scan_state.map(|scan_state| RpcScanStateSummary {
                 block: block_summary,
                 scan_state,
             });
