@@ -1,13 +1,16 @@
 use chacha20poly1305::{aead::generic_array::GenericArray, AeadInPlace, ChaCha20Poly1305, KeyInit};
+use crypto_bigint::consts::U12;
 
 use self::p2p_network_noise_state::ResponderConsumeOutput;
 
 use super::*;
 
 use super::p2p_network_noise_state::{
-    NoiseError, NoiseState, P2pNetworkNoiseState, P2pNetworkNoiseStateInitiator,
+    InitiatorOutput, NoiseError, NoiseState, P2pNetworkNoiseState, P2pNetworkNoiseStateInitiator,
     P2pNetworkNoiseStateInner, P2pNetworkNoiseStateResponder, ResponderOutput,
 };
+
+const MAX_CHUNK_SIZE: usize = u16::MAX as usize - 19;
 
 impl P2pNetworkNoiseState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkNoiseAction>) {
@@ -68,13 +71,16 @@ impl P2pNetworkNoiseState {
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
-                    if buf.len() >= 2 {
-                        let len = u16::from_be_bytes(buf[..2].try_into().expect("cannot fail"));
+                    // TODO: add bug_condition
+                    let len = buf
+                        .get(..2)
+                        .and_then(|buf| Some(u16::from_be_bytes(buf.try_into().ok()?)));
+
+                    if let Some(len) = len {
                         let full_len = 2 + len as usize;
                         if buf.len() >= full_len {
                             self.incoming_chunks.push_back(buf[..full_len].to_vec());
                             offset += full_len;
-
                             continue;
                         }
                     }
@@ -187,56 +193,73 @@ impl P2pNetworkNoiseState {
                         ..
                     } => {
                         let aead = ChaCha20Poly1305::new(&send_key.0.into());
-                        let chunk_max_size = u16::MAX as usize - 19;
-                        let chunks = data
-                            .chunks(chunk_max_size)
-                            .map(|data| {
-                                let mut chunk = Vec::with_capacity(18 + data.len());
-                                chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
-                                chunk.extend_from_slice(data);
+                        let mut chunks = vec![];
 
-                                let mut nonce = GenericArray::default();
-                                nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
-                                *send_nonce += 1;
+                        for data_chunk in data.chunks(MAX_CHUNK_SIZE) {
+                            let mut chunk = Vec::with_capacity(18 + data_chunk.len());
+                            chunk
+                                .extend_from_slice(&((data_chunk.len() + 16) as u16).to_be_bytes());
+                            chunk.extend_from_slice(data_chunk);
 
-                                let tag = aead
-                                    .encrypt_in_place_detached(
-                                        &nonce,
-                                        &[],
-                                        &mut chunk[2..(2 + data.len())],
-                                    )
-                                    .expect("cannot fail");
-                                chunk.extend_from_slice(&tag);
-                                chunk.into()
-                            })
-                            .collect();
+                            let mut nonce: GenericArray<u8, U12> = GenericArray::default();
+                            nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
+                            *send_nonce += 1;
+
+                            let tag = aead.encrypt_in_place_detached(
+                                &nonce,
+                                &[],
+                                &mut chunk[2..(2 + data_chunk.len())],
+                            );
+
+                            let tag = match tag {
+                                Ok(tag) => tag,
+                                Err(_) => {
+                                    *state =
+                                        P2pNetworkNoiseStateInner::Error(NoiseError::Encryption);
+                                    return;
+                                }
+                            };
+
+                            chunk.extend_from_slice(&tag);
+                            chunks.push(chunk.into());
+                        }
                         self.outgoing_chunks.push_back(chunks);
                     }
                     P2pNetworkNoiseStateInner::Initiator(i) => {
-                        if let (Some((chunk, (send_key, recv_key))), Some(remote_pk)) =
-                            (i.generate(data), i.remote_pk.clone())
-                        {
-                            self.outgoing_chunks.push_back(vec![chunk.into()]);
-                            let remote_peer_id = remote_pk.peer_id();
-
-                            if self
-                                .expected_peer_id
-                                .is_some_and(|expected_per_id| expected_per_id != remote_peer_id)
-                            {
-                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
-                                    NoiseError::RemotePeerIdMismatch
-                                ));
-                            } else {
-                                *state = P2pNetworkNoiseStateInner::Done {
-                                    incoming: false,
+                        match (i.generate(data), i.remote_pk.clone()) {
+                            (
+                                Ok(Some(InitiatorOutput {
                                     send_key,
                                     recv_key,
-                                    recv_nonce: 0,
-                                    send_nonce: 0,
-                                    remote_pk,
-                                    remote_peer_id,
-                                };
+                                    chunk,
+                                })),
+                                Some(remote_pk),
+                            ) => {
+                                self.outgoing_chunks.push_back(vec![chunk.into()]);
+                                let remote_peer_id = remote_pk.peer_id();
+
+                                if self.expected_peer_id.is_some_and(|expected_per_id| {
+                                    expected_per_id != remote_peer_id
+                                }) {
+                                    *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                        NoiseError::RemotePeerIdMismatch
+                                    ));
+                                } else {
+                                    *state = P2pNetworkNoiseStateInner::Done {
+                                        incoming: false,
+                                        send_key,
+                                        recv_key,
+                                        recv_nonce: 0,
+                                        send_nonce: 0,
+                                        remote_pk,
+                                        remote_peer_id,
+                                    };
+                                }
                             }
+                            (Err(error), Some(_)) => {
+                                *state = P2pNetworkNoiseStateInner::Error(error);
+                            }
+                            _ => (),
                         }
                     }
                     P2pNetworkNoiseStateInner::Responder(r) => {
@@ -268,9 +291,17 @@ impl P2pNetworkNoiseState {
                 nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
                 *send_nonce += 1;
 
-                let tag = aead
-                    .encrypt_in_place_detached(&nonce, &[], &mut chunk[2..(2 + data.len())])
-                    .expect("cannot fail");
+                let tag = match aead.encrypt_in_place_detached(
+                    &nonce,
+                    &[],
+                    &mut chunk[2..(2 + data.len())],
+                ) {
+                    Ok(tag) => tag,
+                    Err(_) => {
+                        self.inner = Some(P2pNetworkNoiseStateInner::Error(NoiseError::Encryption));
+                        return;
+                    }
+                };
                 chunk.extend_from_slice(&tag);
 
                 self.outgoing_chunks.push_back(vec![chunk.into()]);

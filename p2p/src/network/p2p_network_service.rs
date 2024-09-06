@@ -36,6 +36,12 @@ pub trait P2pCryptoService: redux::Service {
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8>;
 
     fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8>;
+    fn verify_publication(
+        &mut self,
+        pk: &libp2p_identity::PublicKey,
+        publication: &[u8],
+        sig: &[u8],
+    ) -> bool;
 }
 
 #[derive(Debug, thiserror::Error)]

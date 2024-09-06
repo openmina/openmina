@@ -138,6 +138,16 @@ impl P2pCryptoService for ClusterService {
             .sign(&msg)
             .expect("unable to create signature")
     }
+
+    fn verify_publication(
+        &mut self,
+        pk: &libp2p_identity::PublicKey,
+        publication: &[u8],
+        sig: &[u8],
+    ) -> bool {
+        let msg: Vec<u8> = [b"libp2p-pubsub:", publication].concat();
+        pk.verify(&msg, sig)
+    }
 }
 
 impl RustNodeEventStore for ClusterService {

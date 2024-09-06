@@ -307,11 +307,14 @@ pub enum ActionKind {
     P2pNetworkPubsubBroadcastSigned,
     P2pNetworkPubsubGraft,
     P2pNetworkPubsubIncomingData,
+    P2pNetworkPubsubIncomingMessage,
     P2pNetworkPubsubNewStream,
     P2pNetworkPubsubOutgoingData,
     P2pNetworkPubsubOutgoingMessage,
+    P2pNetworkPubsubOutgoingMessageError,
     P2pNetworkPubsubPrune,
     P2pNetworkPubsubSign,
+    P2pNetworkPubsubSignError,
     P2pNetworkRpcHeartbeatSend,
     P2pNetworkRpcIncomingData,
     P2pNetworkRpcIncomingMessage,
@@ -538,7 +541,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 446;
+    pub const COUNT: u16 = 449;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1462,12 +1465,15 @@ impl ActionKindGet for P2pNetworkPubsubAction {
         match self {
             Self::NewStream { .. } => ActionKind::P2pNetworkPubsubNewStream,
             Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubIncomingData,
+            Self::IncomingMessage { .. } => ActionKind::P2pNetworkPubsubIncomingMessage,
             Self::Graft { .. } => ActionKind::P2pNetworkPubsubGraft,
             Self::Prune { .. } => ActionKind::P2pNetworkPubsubPrune,
             Self::Broadcast { .. } => ActionKind::P2pNetworkPubsubBroadcast,
             Self::Sign { .. } => ActionKind::P2pNetworkPubsubSign,
+            Self::SignError { .. } => ActionKind::P2pNetworkPubsubSignError,
             Self::BroadcastSigned { .. } => ActionKind::P2pNetworkPubsubBroadcastSigned,
             Self::OutgoingMessage { .. } => ActionKind::P2pNetworkPubsubOutgoingMessage,
+            Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
         }
     }

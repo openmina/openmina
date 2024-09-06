@@ -20,6 +20,11 @@ pub enum P2pNetworkPubsubAction {
         data: Data,
         seen_limit: usize,
     },
+    IncomingMessage {
+        peer_id: PeerId,
+        message: pb::Message,
+        seen_limit: usize,
+    },
     Graft {
         peer_id: PeerId,
         topic_id: String,
@@ -37,10 +42,20 @@ pub enum P2pNetworkPubsubAction {
         data: Data,
         topic: String,
     },
+    #[action_event(level = warn, fields(display(author), display(topic)))]
+    SignError {
+        author: PeerId,
+        topic: String,
+    },
     BroadcastSigned {
         signature: Data,
     },
     OutgoingMessage {
+        msg: pb::Rpc,
+        peer_id: PeerId,
+    },
+    #[action_event(level = warn, fields(display(peer_id), debug(msg)))]
+    OutgoingMessageError {
         msg: pb::Rpc,
         peer_id: PeerId,
     },
