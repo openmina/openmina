@@ -297,7 +297,12 @@ impl P2pCryptoService for NodeTestingService {
         self.real.sign_publication(publication)
     }
 
-    fn verify_publication(&mut self, pk: &[u8], publication: &[u8], sig: &[u8]) -> bool {
+    fn verify_publication(
+        &mut self,
+        pk: &libp2p_identity::PublicKey,
+        publication: &[u8],
+        sig: &[u8],
+    ) -> bool {
         self.real.verify_publication(pk, publication, sig)
     }
 }

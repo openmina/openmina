@@ -132,6 +132,7 @@ impl P2pNetworkPubsubAction {
                 ..
             } => {
                 let Some(state) = state.clients.get(&peer_id) else {
+                    // TODO: add bug_condition
                     return;
                 };
                 let messages = state.incoming_messages.clone();
@@ -142,16 +143,27 @@ impl P2pNetworkPubsubAction {
                     {
                         message.key = None;
                         let mut data = vec![];
+
+                        let Ok(pk) = libp2p_identity::PublicKey::try_decode_protobuf(&from[2..])
+                        else {
+                            // TODO: add bug_condition
+                            // peer specify bad pk
+                            continue;
+                        };
+
                         #[allow(clippy::if_same_then_else)]
                         if prost::Message::encode(&message, &mut data).is_err() {
+                            // TODO: add bug_condition
+                            // should never happen;
+                            // we just decode this message, so it should encode without error
                             continue;
-                        } else if !store
-                            .service()
-                            .verify_publication(&from[2..], &data, &signature)
-                        {
+                        } else if !store.service().verify_publication(&pk, &data, &signature) {
+                            // TODO: add bug_condition
+                            // signature is invalid
                             continue;
                         }
                     } else {
+                        // TODO: add bug_condition
                         // the message doesn't contain signature or it doesn't contain verifying key
                         continue;
                     }
