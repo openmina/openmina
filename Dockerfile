@@ -8,6 +8,10 @@ COPY . .
 RUN cargo build --release --package=cli --bin=openmina
 RUN cargo build --release --features scenario-generators --bin openmina-node-testing
 
+# necessary for proof generation when running a block producer.
+RUN git clone --depth 1 https://github.com/openmina/circuit-blobs.git
+RUN mv node/web/circuit-blobs/* ledger
+
 FROM openmina/mina-snark-worker-prover:${MINA_SNARK_WORKER_TAG} AS prover
 
 FROM debian:buster
