@@ -3,7 +3,7 @@ import { Effect } from '@openmina/shared';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { MinaState, selectMinaState } from '@app/app.setup';
-import { EMPTY, filter, forkJoin, map, switchMap, tap } from 'rxjs';
+import { catchError, combineLatest, EMPTY, filter, forkJoin, map, mergeMap, switchMap, tap } from 'rxjs';
 import { catchErrorAndRepeat } from '@shared/constants/store-functions';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
 import { MinaRustBaseEffect } from '@shared/base-classes/mina-rust-base.effect';
@@ -41,26 +41,6 @@ export class DashboardEffects extends MinaRustBaseEffect<DashboardActions> {
       map(() => ({ type: DASHBOARD_GET_DATA })),
     ));
 
-    // !!! add to loading reducer as well when uncomment
-    // this.getPeers$ = createEffect(() => this.actions$.pipe(
-    //   ofType(DASHBOARD_GET_PEERS, DASHBOARD_CLOSE),
-    //   this.latestActionState<DashboardGetPeers | DashboardClose>(),
-    //   filter(() => !this.pendingRequest),
-    //   tap(({ action }) => {
-    //     if (action.type === DASHBOARD_GET_PEERS) {
-    //       this.pendingRequest = true;
-    //     }
-    //   }),
-    //   switchMap(({ action }) =>
-    //     action.type === DASHBOARD_CLOSE
-    //       ? EMPTY
-    //       : this.dashboardService.getPeers(),
-    //   ),
-    //   map((payload: DashboardPeer[]) => ({ type: DASHBOARD_GET_PEERS_SUCCESS, payload })),
-    //   catchErrorAndRepeat(MinaErrorType.GENERIC, DASHBOARD_GET_PEERS_SUCCESS, []),
-    //   tap(() => this.pendingRequest = false),
-    // ));
-
     this.getData$ = createEffect(() => this.actions$.pipe(
       ofType(DASHBOARD_GET_DATA, DASHBOARD_CLOSE),
       this.latestActionState<DashboardGetData | DashboardClose>(),
@@ -73,14 +53,22 @@ export class DashboardEffects extends MinaRustBaseEffect<DashboardActions> {
       switchMap(({ action, state }) =>
         action.type === DASHBOARD_CLOSE
           ? EMPTY
-          : forkJoin([
+          : combineLatest([
             this.dashboardService.getPeers(),
             this.dashboardService.getTips({
               url: state.app.activeNode.url,
               name: state.app.activeNode.name,
             }),
             this.dashboardService.getRpcCalls(),
-          ]),
+          ]).pipe(
+            // tap((r) => {
+            //   console.log('RESPONSE FROM COMBINATION', r);
+            // }),
+            // catchError((err) => {
+            //   console.log('ERROR FROM COMBINATION', err);
+            //   return EMPTY;
+            // }),
+          ),
       ),
       map((payload: [DashboardPeer[], NodesOverviewNode[], DashboardRpcStats]) => ({
         type: DASHBOARD_GET_DATA_SUCCESS, payload: { peers: payload[0], ledger: payload[1], rpcStats: payload[2] },

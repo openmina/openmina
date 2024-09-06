@@ -15,8 +15,10 @@
     color: $success-primary !important;
   }
 
-  .mina-table .row.active > span.Dropped,
-  .Dropped {
+  .mina-table .row.active > span.Orphaned,
+  .mina-table .row.active > span.Discarded,
+  .Orphaned,
+  .Discarded {
     color: $aware-primary !important;
   }
 

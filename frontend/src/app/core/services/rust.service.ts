@@ -29,7 +29,7 @@ export class RustService {
   get<T>(path: string): Observable<T> {
     if (this.node.isWebNode) {
       return this.getFromWebNode(path).pipe(map((response: any) => {
-        console.log(path, response);
+        // console.log(path, response);
         return response;
       }));
     }

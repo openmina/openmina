@@ -77,7 +77,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'slotTime', Sort.DSC);
+          checkSorting(state.filteredSlots, 'slotTime', Sort.ASC);
         }
       });
   }));
@@ -103,7 +103,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'height', Sort.DSC);
+          checkSorting(state.filteredSlots, 'height', Sort.ASC);
         }
       });
   }));
@@ -116,7 +116,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'globalSlot', Sort.DSC);
+          checkSorting(state.filteredSlots, 'globalSlot', Sort.ASC);
         }
       });
   }));
@@ -129,25 +129,12 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'transactionsTotal', Sort.DSC);
+          checkSorting(state.filteredSlots, 'transactionsTotal', Sort.ASC);
         }
       });
   }));
 
   it('sort by snark fees', () => execute(() => {
-    cy.get('mina-block-production-won-slots-table .head > span:nth-child(6)')
-      .click()
-      .window()
-      .its('store')
-      .then(getBPWonSlots)
-      .then((state: BlockProductionWonSlotsState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredSlots, 'snarkFees', Sort.DSC);
-        }
-      });
-  }));
-
-  it('sort by snark coinbase rewards', () => execute(() => {
     cy.get('mina-block-production-won-slots-table .head > span:nth-child(7)')
       .click()
       .window()
@@ -155,12 +142,12 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'coinbaseRewards', Sort.DSC);
+          checkSorting(state.filteredSlots, 'snarkFees', Sort.ASC);
         }
       });
   }));
 
-  it('sort by snark tx fees rewards', () => execute(() => {
+  it('sort by snark coinbase rewards', () => execute(() => {
     cy.get('mina-block-production-won-slots-table .head > span:nth-child(8)')
       .click()
       .window()
@@ -168,7 +155,20 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'txFeesRewards', Sort.DSC);
+          checkSorting(state.filteredSlots, 'coinbaseRewards', Sort.ASC);
+        }
+      });
+  }));
+
+  it('sort by snark tx fees rewards', () => execute(() => {
+    cy.get('mina-block-production-won-slots-table .head > span:nth-child(9)')
+      .click()
+      .window()
+      .its('store')
+      .then(getBPWonSlots)
+      .then((state: BlockProductionWonSlotsState) => {
+        if (condition(state)) {
+          checkSorting(state.filteredSlots, 'txFeesRewards', Sort.ASC);
         }
       });
   }));

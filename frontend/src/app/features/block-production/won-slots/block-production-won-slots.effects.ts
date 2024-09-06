@@ -9,7 +9,10 @@ import { Store } from '@ngrx/store';
 import { BaseEffect } from '@shared/base-classes/mina-rust-base.effect';
 import { BlockProductionModule } from '@block-production/block-production.module';
 import { BlockProductionWonSlotsService } from '@block-production/won-slots/block-production-won-slots.service';
-import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
+import {
+  BLOCK_PRODUCTION_WON_SLOTS_KEY,
+  BlockProductionWonSlotsActions,
+} from '@block-production/won-slots/block-production-won-slots.actions';
 import {
   BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
@@ -44,10 +47,9 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
           ? EMPTY
           : this.wonSlotsService.getSlots().pipe(
             switchMap(({ slots, epoch }) => {
-              const initialActiveSlot = state.blockProduction.wonSlots.activeSlot;
-              let newActiveSlot = slots.find(s => s.globalSlot === initialActiveSlot?.globalSlot);
-
-              if (!initialActiveSlot || initialActiveSlot && !newActiveSlot) {
+              const activeSlotRoute = state.blockProduction[BLOCK_PRODUCTION_WON_SLOTS_KEY].activeSlotRoute;
+              let newActiveSlot = slots.find(s => s.globalSlot.toString() === activeSlotRoute);
+              if (!activeSlotRoute || (activeSlotRoute && !newActiveSlot)) {
                 newActiveSlot = slots.find(s => s.active)
                   ?? slots.find(s => s.status === BlockProductionWonSlotsStatus.Committed)
                   ?? slots.find(s => s.status === BlockProductionWonSlotsStatus.Scheduled)

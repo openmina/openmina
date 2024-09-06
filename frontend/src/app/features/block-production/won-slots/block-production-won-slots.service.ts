@@ -125,8 +125,10 @@ export class BlockProductionWonSlotsService {
       return 'Production Scheduled';
     } else if (attempt.status === BlockProductionWonSlotsStatus.Canonical) {
       return 'Produced Block';
-    } else if (attempt.status === BlockProductionWonSlotsStatus.Orphaned || attempt.status == BlockProductionWonSlotsStatus.Discarded) {
-      return 'Dropped Block';
+    } else if (attempt.status === BlockProductionWonSlotsStatus.Orphaned) {
+      return BlockProductionWonSlotsStatus.Orphaned + ' Block';
+    } else if (attempt.status === BlockProductionWonSlotsStatus.Discarded) {
+      return BlockProductionWonSlotsStatus.Discarded + ' Block';
     } else if (attempt.status === BlockProductionWonSlotsStatus.Committed) {
       return 'Waiting for Confirmation';
     }

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { isDesktop, isMobile } from '@openmina/shared';
-import { debounceTime, filter, fromEvent, timer } from 'rxjs';
+import { getMergedRoute, isDesktop, isMobile, MergedRoute } from '@openmina/shared';
+import { debounceTime, filter, fromEvent, take, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
@@ -30,7 +30,9 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
 
   private listenToActiveNode(): void {
     this.select(AppSelectors.activeNode, () => {
-      this.dispatch2(BlockProductionWonSlotsActions.init());
+      this.select(getMergedRoute, (data: MergedRoute) => {
+        this.dispatch2(BlockProductionWonSlotsActions.init({ activeSlotRoute: data.params['id'] }));
+      }, take(1));
     });
   }
 
