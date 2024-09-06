@@ -139,6 +139,9 @@ impl Node {
         }
 
         if let Some(producer_key_path) = self.producer_key {
+            node::core::info!(node::core::log::system_time(); summary = "loading provers index");
+            ledger::proofs::gates::get_provers();
+            node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
             node_builder.block_producer_from_file(producer_key_path)?;
         }
 
