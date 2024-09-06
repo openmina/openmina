@@ -23,6 +23,11 @@ pub struct Node {
     #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
     pub p2p_secret_key: Option<SecretKey>,
 
+    // warning, this overrides `OPENMINA_P2P_SEC_KEY`
+    /// Compatibility with OCaml Mina node
+    #[arg(long)]
+    pub libp2p_keypair: Option<String>,
+
     /// Http port to listen on
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
@@ -124,6 +129,32 @@ impl Node {
         if let Some(sec_key) = self.p2p_secret_key {
             node_builder.p2p_sec_key(sec_key);
         }
+
+        // warning, this overrides `OPENMINA_P2P_SEC_KEY`
+        if let Some(key_file) = self.libp2p_keypair {
+            use openmina_node_account::AccountSecretKey;
+
+            match AccountSecretKey::from_encrypted_file(&key_file) {
+                Ok(sk) => {
+                    node_builder.p2p_sec_key(SecretKey::from_bytes(sk.to_bytes()));
+                    node::core::info!(
+                        node::core::log::system_time();
+                        summary = "read sercret key from file",
+                        file_name = key_file,
+                        pk = sk.public_key().to_string(),
+                    )
+                }
+                Err(err) => {
+                    node::core::error!(
+                        node::core::log::system_time();
+                        summary = "failed to read secret key",
+                        file_name = key_file,
+                        err = err.to_string(),
+                    );
+                }
+            }
+        }
+
         node_builder.p2p_libp2p_port(self.libp2p_port);
 
         self.seed.then(|| node_builder.p2p_seed_node());
