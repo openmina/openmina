@@ -50,40 +50,44 @@ impl Evaluator {
 
             for chunk_start in (start..=end).step_by(chunk_size as usize) {
                 let chunk_end = (chunk_start + chunk_size - 1).min(end);
-                let tasks: Vec<_> = (chunk_start..=chunk_end).map(|global_slot| {
-                    let delegates = delegates.clone();
-                    let epoch_seed = epoch_seed.clone();
-                    let db = db.clone();
-                    let key = key.clone();
-                    let pub_key = pub_key.clone();
-                    let total_currency = total_currency.clone();
-                    let genesis_timestamp = init.genesis_timestamp;
+                let tasks: Vec<_> = (chunk_start..=chunk_end)
+                    .map(|global_slot| {
+                        let delegates = delegates.clone();
+                        let epoch_seed = epoch_seed.clone();
+                        let db = db.clone();
+                        let key = key.clone();
+                        let pub_key = pub_key.clone();
+                        let total_currency = total_currency.clone();
+                        let genesis_timestamp = init.genesis_timestamp;
 
-                    tokio::spawn(async move {
-                        let timestamp = calc_slot_timestamp(genesis_timestamp, global_slot);
-                        let mut slot_data = SlotData::new_lost(global_slot, timestamp);
+                        tokio::spawn(async move {
+                            let timestamp = calc_slot_timestamp(genesis_timestamp, global_slot);
+                            let mut slot_data = SlotData::new_lost(global_slot, timestamp);
 
-                        for (index, delegate) in delegates.iter() {
-                            let vrf_input = VrfEvaluationInput::new(
-                                (*key).clone().into(),
-                                (*epoch_seed).clone(),
-                                pub_key.clone(),
-                                global_slot,
-                                (*index).into(),
-                                delegate.balance.clone().into(),
-                                total_currency.clone(),
-                            );
+                            for (index, delegate) in delegates.iter() {
+                                let vrf_input = VrfEvaluationInput::new(
+                                    (*key).clone().into(),
+                                    (*epoch_seed).clone(),
+                                    pub_key.clone(),
+                                    global_slot,
+                                    (*index).into(),
+                                    delegate.balance.clone().into(),
+                                    total_currency.clone(),
+                                );
 
-                            if let Ok(VrfEvaluationOutput::SlotWon(_)) = vrf::evaluate_vrf(vrf_input) {
-                                println!("Won slot: {global_slot}");
-                                slot_data = SlotData::new(global_slot, timestamp, None);
-                                break;
+                                if let Ok(VrfEvaluationOutput::SlotWon(_)) =
+                                    vrf::evaluate_vrf(vrf_input)
+                                {
+                                    println!("Won slot: {global_slot}");
+                                    slot_data = SlotData::new(global_slot, timestamp, None);
+                                    break;
+                                }
                             }
-                        }
 
-                        db.store_slot(global_slot, &slot_data)
+                            db.store_slot(global_slot, &slot_data)
+                        })
                     })
-                }).collect();
+                    .collect();
 
                 futures::future::join_all(tasks).await;
                 computed_slots += chunk_end - chunk_start + 1;
