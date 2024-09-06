@@ -1028,6 +1028,7 @@ dependencies = [
  "node",
  "num_cpus",
  "openmina-core",
+ "openmina-node-account",
  "openmina-node-native",
  "rand 0.8.5",
  "rayon",
