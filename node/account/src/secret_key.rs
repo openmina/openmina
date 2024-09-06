@@ -1,4 +1,4 @@
-use std::{env, fmt, fs, path::Path, str::FromStr};
+use std::{fmt, fs, path::Path, str::FromStr};
 
 use argon2::{password_hash::SaltString, Argon2, Params, PasswordHasher};
 use base64::Engine;
@@ -73,19 +73,26 @@ impl AccountSecretKey {
         self.0.public.clone().into_compressed()
     }
 
-    pub fn from_encrypted_file(path: impl AsRef<Path>) -> Result<Self, EncryptionError> {
+    pub fn from_encrypted_file(
+        path: impl AsRef<Path>,
+        password: &str,
+    ) -> Result<Self, EncryptionError> {
         let key_file = fs::File::open(path)?;
         let encrypted: EncryptedSecretKey = serde_json::from_reader(key_file)?;
-        encrypted.try_decrypt()
+        encrypted.try_decrypt(password)
     }
 
-    pub fn to_encrypted_file(&self, path: impl AsRef<Path>) -> Result<(), EncryptionError> {
+    pub fn to_encrypted_file(
+        &self,
+        path: impl AsRef<Path>,
+        password: &str,
+    ) -> Result<(), EncryptionError> {
         if path.as_ref().exists() {
             panic!("File {} already exists", path.as_ref().display())
         }
 
         let f = fs::File::create(path)?;
-        let encrypted = EncryptedSecretKey::encrypt(&self.to_bytes())?;
+        let encrypted = EncryptedSecretKey::encrypt(&self.to_bytes(), password)?;
 
         serde_json::to_writer(f, &encrypted)?;
         Ok(())
@@ -188,8 +195,6 @@ pub enum EncryptionError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
-    #[error("MINA_PRIVKEY_PASS environment variable must be set!")]
-    PasswordEnvVarMissing,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -222,10 +227,8 @@ impl EncryptedSecretKey {
         ))
     }
 
-    pub fn try_decrypt(&self) -> Result<AccountSecretKey, EncryptionError> {
+    pub fn try_decrypt(&self, password: &str) -> Result<AccountSecretKey, EncryptionError> {
         // prepare inputs to cipher
-        let password =
-            env::var("MINA_PRIVKEY_PASS").map_err(|_| EncryptionError::PasswordEnvVarMissing)?;
         let password = password.as_bytes();
         let pwsalt = self.pwsalt.try_decode(Self::ENCRYPTION_DATA_VERSION_BYTE)?;
         let nonce = self.nonce.try_decode(Self::ENCRYPTION_DATA_VERSION_BYTE)?;
@@ -253,14 +256,12 @@ impl EncryptedSecretKey {
         Ok(AccountSecretKey::from_bytes(&decrypted[1..])?)
     }
 
-    pub fn encrypt(key: &[u8]) -> Result<Self, EncryptionError> {
+    pub fn encrypt(key: &[u8], password: &str) -> Result<Self, EncryptionError> {
         let argon2 = Self::setup_argon(Self::PW_DIFF)?;
 
         // add the prefix byt to the key
         let mut key_prefixed = vec![Self::SECRET_KEY_PREFIX_BYTE];
         key_prefixed.extend(key);
-        let password =
-            env::var("MINA_PRIVKEY_PASS").map_err(|_| EncryptionError::PasswordEnvVarMissing)?;
 
         let salt = SaltString::generate(&mut OsRng);
         let password_hash = argon2
@@ -290,6 +291,8 @@ impl EncryptedSecretKey {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use super::*;
 
     #[test]
@@ -316,18 +319,19 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt() {
-        env::set_var("MINA_PRIVKEY_PASS", "not-very-secure-pass");
+        let password = "not-very-secure-pass";
+
         let new_key = AccountSecretKey::rand();
         let tmp_dir = env::temp_dir();
         let tmp_path = format!("{}/{}-key", tmp_dir.display(), new_key.public_key());
 
         // dump encrypted file
         new_key
-            .to_encrypted_file(&tmp_path)
+            .to_encrypted_file(&tmp_path, password)
             .expect("Failed to encrypt secret key");
 
         // load and decrypt
-        let decrypted = AccountSecretKey::from_encrypted_file(&tmp_path)
+        let decrypted = AccountSecretKey::from_encrypted_file(&tmp_path, password)
             .expect("Failed to decrypt secret key file");
 
         assert_eq!(
@@ -339,10 +343,10 @@ mod tests {
 
     #[test]
     fn test_ocaml_key_decrypt() {
-        env::set_var("MINA_PRIVKEY_PASS", "not-very-secure-pass");
+        let password = "not-very-secure-pass";
         let key_path = "../tests/files/accounts/test-key-1";
         let expected_public_key = "B62qmg7n4XqU3SFwx9KD9B7gxsKwxJP5GmxtBpHp1uxyN3grujii9a1";
-        let decrypted = AccountSecretKey::from_encrypted_file(key_path)
+        let decrypted = AccountSecretKey::from_encrypted_file(key_path, password)
             .expect("Failed to decrypt secret key file");
 
         assert_eq!(

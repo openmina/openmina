@@ -1,6 +1,6 @@
 [package]
 name = "cli"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -31,6 +31,7 @@ reqwest = { version = "0.11.24", features = ["blocking", "json"] }
 openmina-core = { path = "../core" }
 node = { path = "../node", features = ["replay"] }
 openmina-node-native = { path = "../node/native" }
+openmina-node-account = { path = "../node/account" }
 bytes = "1.4.0"
 tracing = "0.1.37"
 nix = { version = "0.26.2", features = ["signal"] }

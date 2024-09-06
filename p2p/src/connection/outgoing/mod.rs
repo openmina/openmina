@@ -179,12 +179,12 @@ impl P2pConnectionOutgoingInitOpts {
                 _ => return None,
             };
             Self::WebRTC {
-                peer_id: peer_id.into(),
+                peer_id: peer_id.try_into().ok()?,
                 signaling,
             }
         } else {
             let opts = P2pConnectionOutgoingInitLibp2pOpts {
-                peer_id: peer_id.into(),
+                peer_id: peer_id.try_into().ok()?,
                 host: host.parse().ok()?,
                 port: msg.libp2p_port.as_u64() as u16,
             };
@@ -203,7 +203,8 @@ impl P2pConnectionOutgoingInitOpts {
                 host: opts.host.to_string().as_bytes().into(),
                 libp2p_port: (opts.port as u64).into(),
                 peer_id: v2::NetworkPeerPeerIdStableV1(
-                    libp2p_identity::PeerId::from(opts.peer_id)
+                    libp2p_identity::PeerId::try_from(opts.peer_id)
+                        .ok()?
                         .to_string()
                         .into_bytes()
                         .into(),
@@ -235,8 +236,8 @@ impl P2pConnectionOutgoingInitOpts {
 }
 
 impl P2pConnectionOutgoingInitLibp2pOpts {
-    pub fn to_maddr(&self) -> multiaddr::Multiaddr {
-        self.into()
+    pub fn to_maddr(&self) -> Option<multiaddr::Multiaddr> {
+        self.clone().try_into().ok()
     }
 }
 
@@ -248,7 +249,11 @@ impl fmt::Display for P2pConnectionOutgoingInitOpts {
             }
 
             Self::LibP2P(v) => {
-                write!(f, "{}", v.to_maddr())
+                if let Some(maddr) = v.to_maddr() {
+                    write!(f, "{}", maddr)
+                } else {
+                    write!(f, "*INVALID MULTIADDRESS*")
+                }
             }
         }
     }
@@ -329,11 +334,13 @@ impl<'de> Deserialize<'de> for P2pConnectionOutgoingInitOpts {
     }
 }
 
-impl From<&P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
-    fn from(value: &P2pConnectionOutgoingInitLibp2pOpts) -> Self {
+impl TryFrom<P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
+    type Error = libp2p_identity::DecodingError;
+
+    fn try_from(value: P2pConnectionOutgoingInitLibp2pOpts) -> Result<Self, Self::Error> {
         use multiaddr::Protocol;
 
-        Self::empty()
+        Ok(Self::empty()
             .with(match &value.host {
                 // maybe should be just `Dns`?
                 Host::Domain(v) => Protocol::Dns4(v.into()),
@@ -341,7 +348,9 @@ impl From<&P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
                 Host::Ipv6(v) => Protocol::Ip6(*v),
             })
             .with(Protocol::Tcp(value.port))
-            .with(Protocol::P2p(libp2p_identity::PeerId::from(value.peer_id)))
+            .with(Protocol::P2p(libp2p_identity::PeerId::try_from(
+                value.peer_id,
+            )?)))
     }
 }
 
@@ -405,7 +414,12 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitLibp2pOpts {
                             "invalid peer_id multihash".to_string(),
                         )
                     })?
-                    .into(),
+                    .try_into()
+                    .map_err(|_| {
+                        P2pConnectionOutgoingInitOptsParseError::Other(
+                            "unexpected error converting PeerId".to_string(),
+                        )
+                    })?,
                 Some(_) => {
                     return Err(P2pConnectionOutgoingInitOptsParseError::Other(
                         "unexpected part in multiaddr! expected peer_id".to_string(),

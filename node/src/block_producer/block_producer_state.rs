@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::BTreeSet, time::Duration};
 
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2;
@@ -20,6 +20,9 @@ pub struct BlockProducerEnabled {
     pub config: BlockProducerConfig,
     pub vrf_evaluator: BlockProducerVrfEvaluatorState,
     pub current: BlockProducerCurrentState,
+    /// Blocks that were injected into transition frontier, but hasn't
+    /// become our best tip yet.
+    pub injected_blocks: BTreeSet<v2::StateHash>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -142,6 +145,7 @@ impl BlockProducerState {
             config: config.clone(),
             vrf_evaluator: BlockProducerVrfEvaluatorState::new(now),
             current: BlockProducerCurrentState::Idle { time: now },
+            injected_blocks: Default::default(),
         }))
     }
 
@@ -171,6 +175,13 @@ impl BlockProducerState {
 
     pub fn is_me(&self, producer: &v2::NonZeroCurvePoint) -> bool {
         self.with(false, |this| producer == &this.config.pub_key)
+    }
+
+    /// Checks if the block was produced by us recently.
+    pub fn is_produced_by_me(&self, block: &ArcBlockWithHash) -> bool {
+        self.with(false, |this| {
+            block.producer() == &this.config.pub_key && this.injected_blocks.contains(block.hash())
+        })
     }
 
     pub fn is_producing(&self) -> bool {
@@ -275,15 +286,7 @@ impl BlockProducerCurrentState {
     }
 
     pub fn won_slot_should_wait(&self, now: redux::Timestamp) -> bool {
-        let slot_interval = Duration::from_secs(3 * 60).as_nanos() as u64;
-        match self {
-            Self::WonSlot { won_slot, .. } => {
-                // Make sure to only producer blocks when in the slot interval
-                let slot_upper_bound = won_slot.slot_time + slot_interval;
-                now < won_slot.slot_time && now >= slot_upper_bound
-            }
-            _ => false,
-        }
+        matches!(self, Self::WonSlot { .. }) && !self.won_slot_should_produce(now)
     }
 
     pub fn won_slot_should_produce(&self, now: redux::Timestamp) -> bool {

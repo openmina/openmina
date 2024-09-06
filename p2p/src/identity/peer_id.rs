@@ -1,6 +1,7 @@
 use std::{fmt, str::FromStr};
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
+use libp2p_identity::DecodingError;
 use serde::{Deserialize, Serialize};
 
 use super::PublicKey;
@@ -12,26 +13,31 @@ impl PeerId {
     const BASE58_CHECK_VERSION: u8 = 0x2F; // 'p'
 
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
-        let mut iter = bytes
-            .chunks(8)
-            .map(|v| <[u8; 8]>::try_from(v).unwrap())
-            .map(u64::from_be_bytes);
+        let mut chunk0: [u8; 8] = [0; 8];
+        let mut chunk1: [u8; 8] = [0; 8];
+        let mut chunk2: [u8; 8] = [0; 8];
+        let mut chunk3: [u8; 8] = [0; 8];
+
+        chunk0.copy_from_slice(&bytes[0..8]);
+        chunk1.copy_from_slice(&bytes[8..16]);
+        chunk2.copy_from_slice(&bytes[16..24]);
+        chunk3.copy_from_slice(&bytes[24..32]);
+
         Self([
-            iter.next().unwrap(),
-            iter.next().unwrap(),
-            iter.next().unwrap(),
-            iter.next().unwrap(),
+            u64::from_be_bytes(chunk0),
+            u64::from_be_bytes(chunk1),
+            u64::from_be_bytes(chunk2),
+            u64::from_be_bytes(chunk3),
         ])
     }
 
     pub fn to_bytes(self) -> [u8; 32] {
-        // Not the most optimal way.
-        self.0
-            .into_iter()
-            .flat_map(|v| v.to_be_bytes())
-            .collect::<Vec<u8>>()
-            .try_into()
-            .unwrap()
+        let mut result: [u8; 32] = [0; 32];
+        result[0..8].copy_from_slice(&self.0[0].to_be_bytes());
+        result[8..16].copy_from_slice(&self.0[1].to_be_bytes());
+        result[16..24].copy_from_slice(&self.0[2].to_be_bytes());
+        result[24..32].copy_from_slice(&self.0[3].to_be_bytes());
+        result
     }
 
     pub fn from_public_key(key: PublicKey) -> Self {
@@ -44,7 +50,11 @@ impl PeerId {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn to_libp2p_string(self) -> String {
-        libp2p_identity::PeerId::from(self).to_string()
+        if let Ok(peer_id) = libp2p_identity::PeerId::try_from(self) {
+            peer_id.to_string()
+        } else {
+            "INVALID PEER_ID".to_string()
+        }
     }
 }
 
@@ -107,10 +117,10 @@ impl From<PeerId> for [u8; 32] {
     }
 }
 
-impl TryFrom<&libp2p_identity::PeerId> for PeerId {
+impl TryFrom<libp2p_identity::PeerId> for PeerId {
     type Error = PeerIdFromLibp2pPeerId;
 
-    fn try_from(value: &libp2p_identity::PeerId) -> Result<Self, Self::Error> {
+    fn try_from(value: libp2p_identity::PeerId) -> Result<Self, Self::Error> {
         let slice = value.as_ref().digest();
         if value.as_ref().code() == 0x12 {
             return Err(PeerIdFromLibp2pPeerId::Code);
@@ -121,25 +131,14 @@ impl TryFrom<&libp2p_identity::PeerId> for PeerId {
     }
 }
 
-impl From<libp2p_identity::PeerId> for PeerId {
-    fn from(value: libp2p_identity::PeerId) -> Self {
-        let slice = value.as_ref().digest();
-        if value.as_ref().code() == 0x12 {
-            todo!("store such kind of key in our `PeerId`");
-        } else {
-            let key = libp2p_identity::PublicKey::try_decode_protobuf(slice).unwrap();
-            let bytes = key.try_into_ed25519().unwrap().to_bytes();
-            PeerId::from_bytes(bytes)
-        }
-    }
-}
+impl TryFrom<PeerId> for libp2p_identity::PeerId {
+    type Error = DecodingError;
 
-impl From<PeerId> for libp2p_identity::PeerId {
-    fn from(value: PeerId) -> Self {
-        let key = libp2p_identity::ed25519::PublicKey::try_from_bytes(&value.to_bytes()).unwrap();
+    fn try_from(value: PeerId) -> Result<Self, Self::Error> {
+        let key = libp2p_identity::ed25519::PublicKey::try_from_bytes(&value.to_bytes())?;
         #[allow(deprecated)]
         let key = libp2p_identity::PublicKey::from(key);
-        key.to_peer_id()
+        Ok(key.to_peer_id())
     }
 }
 
@@ -218,8 +217,8 @@ mod tests {
     fn test_libp2p_peer_id_conv() {
         let s = "12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv";
         let id: libp2p_identity::PeerId = s.parse().unwrap();
-        let conv: PeerId = id.into();
-        let id_conv: libp2p_identity::PeerId = conv.into();
+        let conv: PeerId = id.try_into().unwrap();
+        let id_conv: libp2p_identity::PeerId = conv.try_into().unwrap();
         assert_eq!(id_conv, id);
     }
 
@@ -228,8 +227,8 @@ mod tests {
     fn test_bare_base58btc_pk() {
         let s = "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3";
         let id: libp2p_identity::PeerId = s.parse().unwrap();
-        let conv: PeerId = id.into();
-        let id_conv: libp2p_identity::PeerId = conv.into();
+        let conv: PeerId = id.try_into().unwrap();
+        let id_conv: libp2p_identity::PeerId = conv.try_into().unwrap();
         assert_eq!(id_conv, id);
     }
 }

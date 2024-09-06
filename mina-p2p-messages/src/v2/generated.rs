@@ -1456,10 +1456,21 @@ pub enum MinaBaseAccountUpdateUpdateStableV1AppStateA {
 ///
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
-/// Args: crate :: string :: ByteString
+/// Args: crate :: string :: ZkAppUri
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaBaseAccountUpdateUpdateStableV1ZkappUri {
-    Set(crate::string::ByteString),
+    Set(crate::string::ZkAppUri),
+    Keep,
+}
+
+/// Derived name: `Mina_base__Account_update.Update.Stable.V1.token_symbol`
+///
+/// Gid: `766`
+/// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
+/// Args: crate :: string :: TokenSymbol
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseAccountUpdateUpdateStableV1TokenSymbol {
+    Set(crate::string::TokenSymbol),
     Keep,
 }
 
@@ -1571,7 +1582,7 @@ pub struct MinaBaseZkappAccountStableV2 {
     pub action_state: PaddedSeq<crate::bigint::BigInt, 5>,
     pub last_action_slot: MinaNumbersGlobalSlotSinceGenesisMStableV1,
     pub proved_state: bool,
-    pub zkapp_uri: crate::string::ByteString,
+    pub zkapp_uri: crate::string::ZkAppUri,
 }
 
 /// **OCaml name**: `Mina_base__Account.Index.Stable.V1`
@@ -1830,7 +1841,7 @@ pub struct MinaBaseAccountUpdateUpdateStableV1 {
     pub verification_key: MinaBaseAccountUpdateUpdateStableV1VerificationKey,
     pub permissions: MinaBaseAccountUpdateUpdateStableV1Permissions,
     pub zkapp_uri: MinaBaseAccountUpdateUpdateStableV1ZkappUri,
-    pub token_symbol: MinaBaseAccountUpdateUpdateStableV1ZkappUri,
+    pub token_symbol: MinaBaseAccountUpdateUpdateStableV1TokenSymbol,
     pub timing: MinaBaseAccountUpdateUpdateStableV1Timing,
     pub voting_for: MinaBaseAccountUpdateUpdateStableV1VotingFor,
 }

@@ -6,7 +6,6 @@ import { BlockProductionWonSlotsState } from '@block-production/won-slots/block-
 import {
   BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
-import { hasValue } from '@openmina/shared';
 
 const condition = (state: BlockProductionWonSlotsState): boolean => state && state.slots?.length > 0;
 const getBPWonSlots = (store: Store<MinaState>): BlockProductionWonSlotsState => stateSliceAsPromise<BlockProductionWonSlotsState>(store, condition, 'blockProduction', 'wonSlots');
@@ -77,7 +76,7 @@ describe('BLOCK PRODUCTION WON SLOTS SIDE PANEL', () => {
       });
   }));
 
-  it.only('selecting first slot should display its data in the side panel', () => execute(() => {
+  it('selecting first slot should display its data in the side panel', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPWonSlots)
@@ -102,6 +101,7 @@ describe('BLOCK PRODUCTION WON SLOTS SIDE PANEL', () => {
                 .then((state: BlockProductionWonSlotsState) => {
                   expect(state.activeSlot.globalSlot).to.equal(expectedActiveSlot.globalSlot);
                   expect(state.activeSlot.height).to.equal(expectedActiveSlot.height);
+                  console.log(expectedActiveSlot.times);
                 })
                 .get('mina-block-production-won-slots-side-panel .percentage')
                 .should('have.text', ([
@@ -110,7 +110,7 @@ describe('BLOCK PRODUCTION WON SLOTS SIDE PANEL', () => {
                   expectedActiveSlot.times?.proofCreate,
                   expectedActiveSlot.times?.blockApply,
                   expectedActiveSlot.times?.committed,
-                ].filter(t => t !== undefined).length * 20) + '%');
+                ].filter(t => t !== null && t !== undefined).length * 20) + '%');
 
             });
         }

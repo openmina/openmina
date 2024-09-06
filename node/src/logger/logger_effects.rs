@@ -8,7 +8,9 @@ use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::P2pAction;
 use crate::snark::SnarkAction;
-use crate::{Action, ActionWithMetaRef, Service, Store};
+use crate::{
+    Action, ActionWithMetaRef, BlockProducerAction, Service, Store, TransitionFrontierAction,
+};
 
 struct ActionLoggerContext {
     time: redux::Timestamp,
@@ -80,8 +82,53 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         Action::SnarkPool(action) => action.action_event(&context),
         Action::Snark(SnarkAction::WorkVerify(a)) => a.action_event(&context),
         Action::Consensus(a) => a.action_event(&context),
-        Action::TransitionFrontier(a) => a.action_event(&context),
-        Action::BlockProducer(a) => a.action_event(&context),
+        Action::TransitionFrontier(a) => match a {
+            TransitionFrontierAction::Synced { .. } => {
+                let tip = store.state().transition_frontier.best_tip().unwrap();
+
+                if store.state().block_producer.is_produced_by_me(tip) {
+                    openmina_core::action_info!(
+                        context,
+                        kind = "BlockProducerBlockIntegrated",
+                        summary = "produced block integrated into frontier",
+                        block_hash = tip.hash().to_string(),
+                        block_height = tip.height(),
+                    );
+                }
+
+                openmina_core::action_info!(
+                    context,
+                    kind = action.kind().to_string(),
+                    summary = "transition frontier synced",
+                    block_hash = tip.hash().to_string(),
+                    block_height = tip.height(),
+                );
+            }
+            a => a.action_event(&context),
+        },
+        Action::BlockProducer(a) => match a {
+            BlockProducerAction::BlockProduced => {
+                let block = store.state().block_producer.produced_block().unwrap();
+                openmina_core::action_info!(
+                    context,
+                    kind = action.kind().to_string(),
+                    summary = "produced a block",
+                    block_hash = block.hash().to_string(),
+                    block_height = block.height(),
+                );
+            }
+            BlockProducerAction::BlockInjected => {
+                let block = store.state().transition_frontier.sync.best_tip().unwrap();
+                openmina_core::action_info!(
+                    context,
+                    kind = action.kind().to_string(),
+                    summary = "produced block injected",
+                    block_hash = block.hash().to_string(),
+                    block_height = block.height(),
+                );
+            }
+            a => a.action_event(&context),
+        },
         Action::Rpc(a) => a.action_event(&context),
         Action::TransactionPool(a) => a.action_event(&context),
         _ => {}

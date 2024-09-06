@@ -1,6 +1,6 @@
 [package]
 name = "vrf"
-version = "0.8.1"
+version = "0.8.2"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -17,6 +17,7 @@ mina-p2p-messages = { workspace = true }
 mina-curves = { workspace = true }
 o1-utils = { workspace = true }
 ledger = { workspace = true }
+openmina-node-account = { workspace = true }
 ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
 ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
 ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm" ] }

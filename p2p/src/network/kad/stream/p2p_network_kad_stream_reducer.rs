@@ -100,7 +100,7 @@ impl P2pNetworkKadIncomingStreamState {
                 P2pNetworkKadIncomingStreamState::WaitingForReply,
                 P2pNetworkKademliaStreamAction::SendResponse { data, .. },
             ) => {
-                let message = Message::from(data);
+                let message = Message::try_from(data).map_err(|e| e.to_string())?;
                 let bytes = serialize_into_vec(&message).map_err(|e| format!("{e}"))?;
                 *self = P2pNetworkKadIncomingStreamState::ResponseBytesAreReady { bytes };
                 Ok(())

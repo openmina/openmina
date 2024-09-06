@@ -26,6 +26,7 @@ export class BlockProductionWonSlotsFiltersComponent extends StoreDispatcher imp
   totalCanonical: number = 0;
   totalOrphaned: number = 0;
   totalFuture: number = 0;
+  totalDiscarded: number = 0;
 
   ngOnInit(): void {
     this.listenToFilters();
@@ -43,8 +44,9 @@ export class BlockProductionWonSlotsFiltersComponent extends StoreDispatcher imp
     this.select(BlockProductionWonSlotsSelectors.slots, slots => {
       this.totalWonSlots = slots.length;
       this.totalCanonical = slots.filter(s => s.status === BlockProductionWonSlotsStatus.Canonical).length;
-      this.totalOrphaned = slots.filter(s => s.status === BlockProductionWonSlotsStatus.Orphaned || s.status == BlockProductionWonSlotsStatus.Discarded).length;
+      this.totalOrphaned = slots.filter(s => s.status === BlockProductionWonSlotsStatus.Orphaned).length;
       this.totalFuture = slots.filter(s => !s.status || s.status === BlockProductionWonSlotsStatus.Scheduled).length;
+      this.totalDiscarded = slots.filter(s => s.status === BlockProductionWonSlotsStatus.Discarded).length;
       this.detect();
     });
   }

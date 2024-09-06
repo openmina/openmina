@@ -299,7 +299,13 @@ fn transition_frontier_new_best_tip_handler(
             blocks_inbetween,
         });
     } else {
+        let previous_root_snarked_ledger_hash = state
+            .transition_frontier
+            .root()
+            .map(|b| b.snarked_ledger_hash().clone());
+
         dispatcher.push(TransitionFrontierSyncAction::BestTipUpdate {
+            previous_root_snarked_ledger_hash,
             best_tip,
             root_block,
             blocks_inbetween,

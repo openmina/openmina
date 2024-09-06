@@ -4,7 +4,10 @@ impl LedgerWriteState {
     pub fn reducer(&mut self, action: LedgerWriteActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            LedgerWriteAction::Init { request } => {
+            LedgerWriteAction::Init {
+                request,
+                on_init: _,
+            } => {
                 *self = Self::Init {
                     time: meta.time(),
                     request: request.clone(),

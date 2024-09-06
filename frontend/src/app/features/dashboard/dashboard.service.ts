@@ -1,14 +1,17 @@
 import { Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { catchError, map, Observable, tap } from 'rxjs';
 import { DashboardPeer, DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { RustService } from '@core/services/rust.service';
 import { ONE_MILLION, toReadableDate } from '@openmina/shared';
 import { DashboardPeerRpcResponses, DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
+import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
+import { NodesOverviewService } from '@nodes/overview/nodes-overview.service';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
 
-  constructor(private rust: RustService) { }
+  constructor(private rust: RustService,
+              private nodesOverviewService: NodesOverviewService) { }
 
   getPeers(): Observable<DashboardPeer[]> {
     return this.rust.get<PeersResponse[]>('/state/peers').pipe(
@@ -27,12 +30,40 @@ export class DashboardService {
           requests: 0,
         } as DashboardPeer)),
       ),
+      // tap((peers: any) => {
+      //   console.log('----------------PEERS----------------');
+      //   console.log(peers);
+      //   console.log('----------------PEERS----------------');
+      // }),
+    );
+  }
+
+  getTips({ url, name }: { url: string, name: string }): Observable<NodesOverviewNode[]> {
+    return this.rust.get<NodesOverviewNode[]>('/stats/sync?limit=1').pipe(
+      map((response: NodesOverviewNode[]) => this.nodesOverviewService.mapNodeTipsResponse(response, true, {
+        name,
+        url,
+      })),
+      catchError(() => this.nodesOverviewService.mapNodeTipsErrorResponse({
+        name,
+        url,
+      })),
+      // tap((peers: any) => {
+      //   console.log('----------------SYNC----------------');
+      //   console.log(peers);
+      //   console.log('----------------SYNC----------------');
+      // }),
     );
   }
 
   getRpcCalls(): Observable<DashboardRpcStats> {
     return this.rust.get<MessageProgressResponse>('/state/message-progress').pipe(
       map((response: MessageProgressResponse) => this.mapMessageProgressResponse(response)),
+      // tap((peers: any) => {
+      //   console.log('----------------MESSAGES----------------');
+      //   console.log(peers);
+      //   console.log('----------------MESSAGES----------------');
+      // }),
     );
   }
 

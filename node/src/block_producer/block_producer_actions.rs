@@ -34,6 +34,12 @@ pub enum BlockProducerAction {
     WonSlot {
         won_slot: BlockProducerWonSlot,
     },
+    #[action_event(
+        level = info,
+        fields(
+            reason = format!("{reason:?}"),
+        )
+    )]
     WonSlotDiscard {
         reason: BlockProducerWonSlotDiscardReason,
     },
@@ -89,7 +95,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                 }
 
                 this.current.won_slot_should_search()
-                    && won_slot.global_slot() >= state.cur_global_slot().unwrap()
+                    && Some(won_slot.global_slot()) >= state.cur_global_slot()
                     && won_slot > best_tip
             }),
             BlockProducerAction::WonSlotWait => state

@@ -17,6 +17,7 @@ export interface BlockProductionWonSlotsState {
   slots: BlockProductionWonSlotsSlot[];
   filteredSlots: BlockProductionWonSlotsSlot[];
   activeSlot: BlockProductionWonSlotsSlot;
+  activeSlotRoute: string;
   filters: BlockProductionWonSlotsFilters;
   sort: TableSort<BlockProductionWonSlotsSlot>;
 }

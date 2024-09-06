@@ -1101,9 +1101,10 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Delegate as Delegate;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Permissions as Perm;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Timing as Timing;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1TokenSymbol as TokenSymbol;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VerificationKey as VK;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VotingFor as Voting;
-        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as BString;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as ZkAppUri;
         use MinaBaseAccountUpdateUpdateStableV1AppStateA as AppState;
 
         Self {
@@ -1128,12 +1129,12 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         Perm::Keep => SetOrKeep::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
-                        BString::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
-                        BString::Keep => SetOrKeep::Keep,
+                        ZkAppUri::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        ZkAppUri::Keep => SetOrKeep::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
-                        BString::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
-                        BString::Keep => SetOrKeep::Keep,
+                        TokenSymbol::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        TokenSymbol::Keep => SetOrKeep::Keep,
                     },
                     timing: match &value.body.update.timing {
                         Timing::Set(timing) => SetOrKeep::Set((&**timing).into()),
@@ -1423,9 +1424,10 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Delegate as Delegate;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Permissions as Perm;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Timing as Timing;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1TokenSymbol as TokenSymbol;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VerificationKey as VK;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VotingFor as Voting;
-        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as BString;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as ZkAppUri;
         use MinaBaseAccountUpdateUpdateStableV1AppStateA as AppState;
 
         Self {
@@ -1450,12 +1452,12 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                         SetOrKeep::Keep => Perm::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
-                        SetOrKeep::Set(s) => BString::Set(s.into()),
-                        SetOrKeep::Keep => BString::Keep,
+                        SetOrKeep::Set(s) => ZkAppUri::Set(s.into()),
+                        SetOrKeep::Keep => ZkAppUri::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
-                        SetOrKeep::Set(s) => BString::Set(s.into()),
-                        SetOrKeep::Keep => BString::Keep,
+                        SetOrKeep::Set(s) => TokenSymbol::Set(s.into()),
+                        SetOrKeep::Keep => TokenSymbol::Keep,
                     },
                     timing: match &value.body.update.timing {
                         SetOrKeep::Set(timing) => Timing::Set(Box::new(timing.into())),

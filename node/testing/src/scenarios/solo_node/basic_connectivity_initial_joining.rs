@@ -50,14 +50,15 @@ impl SoloNodeBasicConnectivityInitialJoining {
             .initial_peers(initial_peers);
 
         let node_id = runner.add_rust_node(config);
-        let peer_id = libp2p::PeerId::from(
+        let peer_id = libp2p::PeerId::try_from(
             runner
                 .node(node_id)
                 .expect("must exist")
                 .state()
                 .p2p
                 .my_id(),
-        );
+        )
+        .unwrap();
         eprintln!("launch Openmina node, id: {node_id}, peer_id: {peer_id}");
 
         for step in 0..STEPS {
@@ -102,7 +103,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 .map_or(0, |discovery_state| {
                     discovery_state
                         .routing_table
-                        .closest_peers(&my_id.into())
+                        .closest_peers(&my_id.try_into().unwrap())
                         .count()
                 });
 

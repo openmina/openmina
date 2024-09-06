@@ -180,8 +180,9 @@ impl NodeBuilder {
     pub fn block_producer_from_file(
         &mut self,
         path: impl AsRef<Path>,
+        password: &str,
     ) -> anyhow::Result<&mut Self> {
-        let key = AccountSecretKey::from_encrypted_file(path)
+        let key = AccountSecretKey::from_encrypted_file(path, password)
             .context("Failed to decrypt secret key file")?;
         Ok(self.block_producer(key))
     }

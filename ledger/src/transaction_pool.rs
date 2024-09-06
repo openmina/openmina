@@ -1,6 +1,7 @@
+use backtrace::Backtrace;
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     collections::{hash_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
     sync::Arc,
 };
@@ -8,7 +9,7 @@ use std::{
 use itertools::Itertools;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2};
-use openmina_core::consensus::ConsensusConstants;
+use openmina_core::{bug_condition, consensus::ConsensusConstants};
 
 use crate::{
     scan_state::{
@@ -52,6 +53,17 @@ impl From<String> for TransactionPoolErrors {
     fn from(value: String) -> Self {
         Self::Unexpected(value)
     }
+}
+
+#[inline(never)]
+fn my_assert(v: bool) -> Result<(), CommandError> {
+    if !v {
+        let backtrace = Backtrace::new();
+        let s = format!("assert failed {:?}", backtrace);
+        bug_condition!("{:?}", s);
+        return Err(CommandError::Custom(Cow::Owned(s)));
+    }
+    Ok(())
 }
 
 mod consensus {
@@ -205,6 +217,9 @@ pub mod diff {
         FeePayerAccountNotFound,
         FeePayerNotPermittedToSend,
         AfterSlotTxEnd,
+        BacktrackNonceMismatch,
+        InvalidCurrencyConsumed,
+        Custom,
     }
 
     impl Error {
@@ -218,7 +233,10 @@ pub mod diff {
                 | Error::Overloaded
                 | Error::FeePayerAccountNotFound
                 | Error::FeePayerNotPermittedToSend
-                | Error::AfterSlotTxEnd => false,
+                | Error::AfterSlotTxEnd
+                | Error::InvalidCurrencyConsumed
+                | Error::Custom
+                | Error::BacktrackNonceMismatch => false,
                 Error::Overflow | Error::BadToken | Error::UnwantedFeeToken => true,
             }
         }
@@ -527,6 +545,18 @@ pub enum CommandError {
         token_id: TokenId,
     },
     AfterSlotTxEnd,
+    BacktrackNonceMismatch {
+        expected_nonce: Nonce,
+        first_nonce: Nonce,
+    },
+    InvalidCurrencyConsumed,
+    Custom(Cow<'static, str>),
+}
+
+impl From<CommandError> for String {
+    fn from(value: CommandError) -> Self {
+        format!("{:?}", value)
+    }
 }
 
 impl From<CommandError> for diff::Error {
@@ -540,6 +570,9 @@ impl From<CommandError> for diff::Error {
             CommandError::Expired { .. } => diff::Error::Expired,
             CommandError::UnwantedFeeToken { .. } => diff::Error::UnwantedFeeToken,
             CommandError::AfterSlotTxEnd => diff::Error::AfterSlotTxEnd,
+            CommandError::BacktrackNonceMismatch { .. } => diff::Error::BacktrackNonceMismatch,
+            CommandError::InvalidCurrencyConsumed => diff::Error::InvalidCurrencyConsumed,
+            CommandError::Custom(_) => diff::Error::Custom,
         }
     }
 }
@@ -735,7 +768,7 @@ impl IndexedPool {
         let fee_payer = unchecked.fee_payer();
         let fee_per_wu = unchecked.fee_per_wu();
 
-        let consumed = currency_consumed(&unchecked).unwrap();
+        let consumed = currency_consumed(&unchecked)?;
 
         match self.all_by_sender.get_mut(&fee_payer) {
             None => {
@@ -752,12 +785,16 @@ impl IndexedPool {
             }
             Some((queue, currency_reserved)) => {
                 let first_queued = queue.front().cloned().unwrap();
+                let expected_nonce = unchecked.expected_target_nonce();
+                let first_nonce = first_queued.data.forget_check().applicable_at_nonce();
 
-                if unchecked.expected_target_nonce()
-                    != first_queued.data.forget_check().applicable_at_nonce()
-                {
+                if expected_nonce != first_nonce {
                     // Ocaml panics here as well
-                    panic!("indexed pool nonces inconsistent when adding from backtrack.")
+                    //panic!("indexed pool nonces inconsistent when adding from backtrack.")
+                    return Err(CommandError::BacktrackNonceMismatch {
+                        expected_nonce,
+                        first_nonce,
+                    });
                 }
 
                 // update `self.all_by_sender`
@@ -823,7 +860,7 @@ impl IndexedPool {
     fn remove_with_dependents_exn(
         &mut self,
         cmd: &ValidCommandWithHash,
-    ) -> VecDeque<ValidCommandWithHash> {
+    ) -> Result<VecDeque<ValidCommandWithHash>, CommandError> {
         let sender = cmd.data.fee_payer();
         let mut by_sender = SenderState {
             state: self.all_by_sender.get(&sender).cloned(),
@@ -844,11 +881,11 @@ impl IndexedPool {
         cmd: &ValidCommandWithHash,
         by_sender: &mut SenderState,
         updates: &mut Vec<Update>,
-    ) -> VecDeque<ValidCommandWithHash> {
+    ) -> Result<VecDeque<ValidCommandWithHash>, CommandError> {
         let (sender_queue, reserved_currency_ref) = by_sender.state.as_mut().unwrap();
         let unchecked = cmd.data.forget_check();
 
-        assert!(!sender_queue.is_empty());
+        my_assert(!sender_queue.is_empty())?;
 
         let cmd_nonce = unchecked.applicable_at_nonce();
 
@@ -863,12 +900,12 @@ impl IndexedPool {
 
         let drop_queue = sender_queue.split_off(cmd_index);
         let keep_queue = sender_queue;
-        assert!(!drop_queue.is_empty());
+        my_assert(!drop_queue.is_empty())?;
 
-        let currency_to_remove = drop_queue.iter().fold(Amount::zero(), |acc, cmd| {
-            let consumed = currency_consumed(&cmd.data.forget_check()).unwrap();
-            consumed.checked_add(&acc).unwrap()
-        });
+        let currency_to_remove = drop_queue.iter().try_fold(Amount::zero(), |acc, cmd| {
+            let consumed = currency_consumed(&cmd.data.forget_check())?;
+            Ok(consumed.checked_add(&acc).unwrap())
+        })?;
 
         // This is safe because the currency in a subset of the commands much be <=
         // total currency in all the commands.
@@ -892,11 +929,11 @@ impl IndexedPool {
         if !keep_queue.is_empty() {
             *reserved_currency_ref = reserved_currency;
         } else {
-            assert!(reserved_currency.is_zero());
+            my_assert(reserved_currency.is_zero())?;
             by_sender.state = None;
         }
 
-        drop_queue
+        Ok(drop_queue)
     }
 
     fn apply_updates(&mut self, updates: Vec<Update>) {
@@ -989,7 +1026,7 @@ impl IndexedPool {
 
         let consumed = {
             self.check_expiry(global_slot_since_genesis, &unchecked)?;
-            let consumed = currency_consumed(&unchecked).ok_or(CommandError::Overflow)?;
+            let consumed = currency_consumed(&unchecked).map_err(|_| CommandError::Overflow)?;
             if !unchecked.fee_token().is_default() {
                 return Err(CommandError::UnwantedFeeToken {
                     token_id: unchecked.fee_token(),
@@ -1023,7 +1060,7 @@ impl IndexedPool {
                 Ok((cmd.clone(), Self::make_queue()))
             }
             Some((mut queued_cmds, reserved_currency)) => {
-                assert!(!queued_cmds.is_empty());
+                my_assert(!queued_cmds.is_empty())?;
                 let queue_applicable_at_nonce = {
                     let first = queued_cmds.front().unwrap();
                     first.data.forget_check().applicable_at_nonce()
@@ -1077,7 +1114,7 @@ impl IndexedPool {
                     let drop_queue = queued_cmds.split_off(replacement_index);
 
                     let to_drop = drop_queue.front().unwrap().data.forget_check();
-                    assert!(cmd_applicable_at_nonce <= to_drop.applicable_at_nonce());
+                    my_assert(cmd_applicable_at_nonce <= to_drop.applicable_at_nonce())?;
 
                     // We check the fee increase twice because we need to be sure the
                     // subtraction is safe.
@@ -1092,8 +1129,8 @@ impl IndexedPool {
                         drop_queue.front().unwrap(),
                         by_sender,
                         updates,
-                    );
-                    assert_eq!(drop_queue, dropped);
+                    )?;
+                    my_assert(drop_queue == dropped)?;
 
                     let (cmd, _) = {
                         let (v, dropped) = self.add_from_gossip_exn_impl(
@@ -1106,7 +1143,7 @@ impl IndexedPool {
                             updates,
                         )?;
                         // We've already removed them, so this should always be empty.
-                        assert!(dropped.is_empty());
+                        my_assert(dropped.is_empty())?;
                         (v, dropped)
                     };
 
@@ -1144,7 +1181,7 @@ impl IndexedPool {
                                 &mut this_updates,
                             ) {
                                 Ok((_cmd, dropped)) => {
-                                    assert!(dropped.is_empty());
+                                    my_assert(dropped.is_empty())?;
                                     updates.append(&mut this_updates);
                                 }
                                 Err(_) => {
@@ -1191,20 +1228,23 @@ impl IndexedPool {
         self.expired_by_global_slot(global_slot_since_genesis)
     }
 
-    fn remove_expired(&mut self, global_slot_since_genesis: Slot) -> Vec<ValidCommandWithHash> {
+    fn remove_expired(
+        &mut self,
+        global_slot_since_genesis: Slot,
+    ) -> Result<Vec<ValidCommandWithHash>, CommandError> {
         let mut dropped = Vec::with_capacity(128);
         for cmd in self.expired(global_slot_since_genesis) {
             if self.member(&cmd) {
-                let removed = self.remove_with_dependents_exn(&cmd);
+                let removed = self.remove_with_dependents_exn(&cmd)?;
                 dropped.extend(removed);
             }
         }
-        dropped
+        Ok(dropped)
     }
 
-    fn remove_lowest_fee(&mut self) -> VecDeque<ValidCommandWithHash> {
+    fn remove_lowest_fee(&mut self) -> Result<VecDeque<ValidCommandWithHash>, CommandError> {
         let Some(set) = self.min_fee().and_then(|fee| self.all_by_fee.get(&fee)) else {
-            return VecDeque::new();
+            return Ok(VecDeque::new());
         };
 
         // TODO: Should `self.all_by_fee` be a `BTreeSet` instead ?
@@ -1221,21 +1261,24 @@ impl IndexedPool {
         mut queue: VecDeque<ValidCommandWithHash>,
         mut currency_reserved: Amount,
         current_balance: Amount,
-    ) -> (
-        VecDeque<ValidCommandWithHash>,
-        Amount,
-        VecDeque<ValidCommandWithHash>,
-    ) {
+    ) -> Result<
+        (
+            VecDeque<ValidCommandWithHash>,
+            Amount,
+            VecDeque<ValidCommandWithHash>,
+        ),
+        CommandError,
+    > {
         let mut dropped_so_far = VecDeque::with_capacity(queue.len());
 
         while currency_reserved > current_balance {
             let last = queue.pop_back().unwrap();
-            let consumed = currency_consumed(&last.data.forget_check()).unwrap();
+            let consumed = currency_consumed(&last.data.forget_check())?;
             dropped_so_far.push_back(last);
             currency_reserved = currency_reserved.checked_sub(&consumed).unwrap();
         }
 
-        (queue, currency_reserved, dropped_so_far)
+        Ok((queue, currency_reserved, dropped_so_far))
     }
 
     fn revalidate<F>(
@@ -1243,9 +1286,9 @@ impl IndexedPool {
         global_slot_since_genesis: Slot,
         kind: RevalidateKind,
         get_account: F,
-    ) -> Vec<ValidCommandWithHash>
+    ) -> Result<Vec<ValidCommandWithHash>, CommandError>
     where
-        F: Fn(&AccountId) -> Account,
+        F: Fn(&AccountId) -> Option<Account>,
     {
         let requires_revalidation = |account_id: &AccountId| match kind {
             RevalidateKind::EntirePool => true,
@@ -1258,7 +1301,8 @@ impl IndexedPool {
             if !requires_revalidation(&sender) {
                 continue;
             }
-            let account: Account = get_account(&sender);
+            let account: Account = get_account(&sender)
+                .ok_or(CommandError::Custom(Cow::Borrowed("Account not find")))?;
             let current_balance = account
                 .liquid_balance_at_slot(global_slot_since_genesis)
                 .to_amount();
@@ -1268,7 +1312,7 @@ impl IndexedPool {
             if !(account.has_permission_to_send() && account.has_permission_to_increment_nonce())
                 || account.nonce < first_nonce
             {
-                let this_dropped = self.remove_with_dependents_exn(first_cmd);
+                let this_dropped = self.remove_with_dependents_exn(first_cmd)?;
                 dropped.extend(this_dropped);
             } else {
                 // current_nonce >= first_nonce
@@ -1285,7 +1329,7 @@ impl IndexedPool {
 
                 for cmd in &drop_queue {
                     currency_reserved = currency_reserved
-                        .checked_sub(&currency_consumed(&cmd.data.forget_check()).unwrap())
+                        .checked_sub(&currency_consumed(&cmd.data.forget_check())?)
                         .unwrap();
                 }
 
@@ -1294,7 +1338,7 @@ impl IndexedPool {
                         keep_queue,
                         currency_reserved,
                         current_balance,
-                    );
+                    )?;
 
                 let to_drop: Vec<_> = drop_queue.into_iter().chain(dropped_for_balance).collect();
 
@@ -1325,7 +1369,7 @@ impl IndexedPool {
             }
         }
 
-        dropped
+        Ok(dropped)
     }
 
     // TODO(adonagy): clones too expensive? Optimize
@@ -1461,7 +1505,7 @@ impl IndexedPool {
     }
 }
 
-fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
+fn currency_consumed(cmd: &UserCommand) -> Result<Amount, CommandError> {
     use crate::scan_state::transaction_logic::signed_command::{Body::*, PaymentPayload};
 
     let fee_amount = Amount::of_fee(&cmd.fee());
@@ -1478,7 +1522,9 @@ fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
         UserCommand::ZkAppCommand(_) => Amount::zero(),
     };
 
-    fee_amount.checked_add(&amount)
+    fee_amount
+        .checked_add(&amount)
+        .ok_or(CommandError::InvalidCurrencyConsumed)
 }
 
 type BlakeHash = Arc<[u8; 32]>;
@@ -1646,17 +1692,19 @@ impl TransactionPool {
         &mut self,
         global_slot_since_genesis: Slot,
         accounts: &BTreeMap<AccountId, Account>,
-    ) {
+    ) -> Result<(), CommandError> {
         let dropped = self.pool.revalidate(
             global_slot_since_genesis,
             RevalidateKind::EntirePool,
             |sender_id| {
-                accounts
-                    .get(sender_id)
-                    .cloned()
-                    .unwrap_or_else(Account::empty)
+                Some(
+                    accounts
+                        .get(sender_id)
+                        .cloned()
+                        .unwrap_or_else(Account::empty),
+                )
             },
-        );
+        )?;
 
         let dropped_locally_generated = dropped
             .iter()
@@ -1675,6 +1723,8 @@ impl TransactionPool {
                 dropped_locally_generated
             )
         }
+
+        Ok(())
     }
 
     fn has_sufficient_fee(&self, pool_max_size: usize, cmd: &valid::UserCommand) -> bool {
@@ -1690,16 +1740,19 @@ impl TransactionPool {
         }
     }
 
-    fn drop_until_below_max_size(&mut self, pool_max_size: usize) -> Vec<ValidCommandWithHash> {
+    fn drop_until_below_max_size(
+        &mut self,
+        pool_max_size: usize,
+    ) -> Result<Vec<ValidCommandWithHash>, CommandError> {
         let mut list = Vec::new();
 
         while self.pool.size() > pool_max_size {
-            let dropped = self.pool.remove_lowest_fee();
-            assert!(!dropped.is_empty());
+            let dropped = self.pool.remove_lowest_fee()?;
+            my_assert(!dropped.is_empty())?;
             list.extend(dropped)
         }
 
-        list
+        Ok(list)
     }
 
     pub fn get_accounts_to_handle_transition_diff(
@@ -1735,7 +1788,7 @@ impl TransactionPool {
         account_ids: &BTreeSet<AccountId>,
         accounts: &BTreeMap<AccountId, Account>,
         uncommited: &BTreeMap<AccountId, Account>,
-    ) {
+    ) -> Result<(), String> {
         let diff::BestTipDiff {
             new_commands,
             removed_commands,
@@ -1784,8 +1837,8 @@ impl TransactionPool {
                 current_global_slot,
                 cmd,
             ) {
-                Ok(_) => self.drop_until_below_max_size(pool_max_size),
-                Err(_) => todo!(), // TODO: print error
+                Ok(_) => self.drop_until_below_max_size(pool_max_size)?,
+                Err(e) => return Err(format!("{:?}", e)),
             };
             dropped_backtrack.extend(dropped_seq);
         }
@@ -1804,16 +1857,17 @@ impl TransactionPool {
 
             let get_account = |id: &AccountId| {
                 match existing_account_states_by_id.get(id) {
-                    Some(account) => account.clone(),
+                    Some(account) => Some(account.clone()),
                     None => {
                         if accounts_to_check.contains(id) {
-                            Account::empty()
+                            Some(Account::empty())
                         } else {
+                            None
                             // OCaml panic too, with same message
-                            panic!(
-                                "did not expect Indexed_pool.revalidate to call \
-                                    get_account on account not in accounts_to_check"
-                            )
+                            // panic!(
+                            //     "did not expect Indexed_pool.revalidate to call \
+                            //         get_account on account not in accounts_to_check"
+                            // )
                         }
                     }
                 }
@@ -1823,7 +1877,7 @@ impl TransactionPool {
                 global_slot_since_genesis,
                 RevalidateKind::Subset(accounts_to_check),
                 get_account,
-            )
+            )?
         };
 
         let (committed_commands, dropped_commit_conflicts): (Vec<_>, Vec<_>) = {
@@ -1841,7 +1895,7 @@ impl TransactionPool {
                 let old = self
                     .locally_generated_committed
                     .insert((*cmd).clone(), data);
-                assert!(old.is_none());
+                my_assert(old.is_none())?;
             };
         }
 
@@ -1888,11 +1942,13 @@ impl TransactionPool {
             }
         }
 
-        let expired_commands = self.pool.remove_expired(global_slot_since_genesis);
+        let expired_commands = self.pool.remove_expired(global_slot_since_genesis)?;
         for cmd in &expired_commands {
             self.verification_key_table.decrement_hashed([cmd]);
             self.locally_generated_uncommitted.remove(cmd);
         }
+
+        Ok(())
     }
 
     pub fn get_accounts_to_apply_diff(&self, diff: &diff::DiffVerified) -> BTreeSet<AccountId> {
@@ -1941,10 +1997,12 @@ impl TransactionPool {
             .list
             .iter()
             .map(|cmd| {
+                let account = fee_payer_accounts
+                    .get(&fee_payer(cmd))
+                    .ok_or_else(|| "Fee payer not found".to_string())?;
+
                 let result: Result<_, diff::Error> = (|| {
                     check_command(&self.pool, cmd)?;
-
-                    let account = fee_payer_accounts.get(&fee_payer(cmd)).unwrap(); // OCaml panics too
 
                     match self.pool.add_from_gossip_exn(
                         global_slot_since_genesis,
@@ -1962,11 +2020,11 @@ impl TransactionPool {
                 })();
 
                 match result {
-                    Ok((cmd, dropped)) => Ok((cmd, dropped)),
-                    Err(err) => Err((cmd, err)),
+                    Ok((cmd, dropped)) => Ok(Ok((cmd, dropped))),
+                    Err(err) => Ok(Err((cmd, err))),
                 }
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<Result<_, _>>, String>>()?;
 
         let added_cmds = add_results
             .iter()
@@ -1985,7 +2043,7 @@ impl TransactionPool {
             .flatten()
             .collect::<Vec<_>>();
 
-        let dropped_for_size = { self.drop_until_below_max_size(self.config.pool_max_size) };
+        let dropped_for_size = self.drop_until_below_max_size(self.config.pool_max_size)?;
 
         let all_dropped_cmds = dropped_for_add
             .iter()

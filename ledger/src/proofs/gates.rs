@@ -88,7 +88,14 @@ fn read_gates() -> Gates {
         Vec<CircuitGate<F>>,
     ) {
         let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
-        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let base_dir = std::env::var("OPENMINA_CIRCUIT_BLOBS_BASE_DIR")
+            .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string());
+        let base_dir = Path::new(&base_dir);
+        let base_dir = if base_dir.exists() {
+            base_dir
+        } else {
+            Path::new("/usr/local/lib/openmina/circuit-blobs")
+        };
         let base_dir = base_dir.join(circuits_config.directory_name);
 
         let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));

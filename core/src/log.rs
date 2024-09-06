@@ -140,3 +140,16 @@ pub trait ActionEvent {
 use tracing::Value;
 
 pub use crate::{debug, error, info, trace, warn};
+
+#[macro_export]
+macro_rules! bug_condition {
+    ($($arg:tt)*) => {{
+        if std::env::var("OPENMINA_PANIC_ON_BUG")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false) {
+            panic!($($arg)*)
+        } else {
+            $crate::log::inner::error!($($arg)*)
+        }
+    }};
+}

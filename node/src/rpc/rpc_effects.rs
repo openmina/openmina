@@ -6,6 +6,7 @@ use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::bug_condition;
 
 use crate::block_producer::BlockProducerWonSlot;
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
@@ -338,7 +339,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     });
                     store.dispatch(RpcAction::ScanStateSummaryGetSuccess {
                         rpc_id,
-                        scan_state: Vec::new(),
+                        scan_state: Ok(Vec::new()),
                     });
                     return;
                 }
@@ -362,7 +363,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 RpcRequestExtraData::FullBlockOpt(opt) => opt.as_ref(),
                 _ => None,
             }) else {
-                let _ = store.service.respond_scan_state_summary_get(rpc_id, None);
+                let _ = store.service.respond_scan_state_summary_get(
+                    rpc_id,
+                    Err("target block not found".to_string()),
+                );
                 return;
             };
             let coinbases = block
@@ -392,7 +396,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             };
 
             let snark_pool = &store.state().snark_pool;
-            scan_state.iter_mut().flatten().for_each(|job| {
+            scan_state.iter_mut().flatten().flatten().for_each(|job| {
                 if let RpcScanStateSummaryScanStateJob::Todo {
                     job_id,
                     bundle_job_id,
@@ -428,7 +432,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     };
                 }
             });
-            let res = Some(RpcScanStateSummary {
+            let res = scan_state.map(|scan_state| RpcScanStateSummary {
                 block: block_summary,
                 scan_state,
             });
@@ -621,7 +625,19 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .p2p
                 .ready()
                 .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                .map(|discovery_state| (&discovery_state.routing_table).into());
+                .and_then(
+                    |discovery_state| match (&discovery_state.routing_table).try_into() {
+                        Ok(resp) => Some(resp),
+                        Err(err) => {
+                            bug_condition!(
+                                "{:?} error converting routing table into response: {:?}",
+                                err,
+                                action
+                            );
+                            None
+                        }
+                    },
+                );
             respond_or_log!(
                 store
                     .service()

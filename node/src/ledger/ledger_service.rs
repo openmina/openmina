@@ -205,6 +205,10 @@ impl LedgerCtx {
             })
     }
 
+    pub fn contains_snarked_ledger(&self, hash: &LedgerHash) -> bool {
+        self.snarked_ledgers.contains_key(hash)
+    }
+
     /// Returns the mask for a snarked ledger being synchronized or an error if it is not present
     pub fn pending_sync_snarked_ledger_mask(&self, hash: &LedgerHash) -> Result<Mask, String> {
         self.sync.pending_sync_snarked_ledger_mask(hash)
@@ -937,11 +941,13 @@ impl LedgerCtx {
     pub fn scan_state_summary(
         &self,
         staged_ledger_hash: LedgerHash,
-    ) -> Vec<Vec<RpcScanStateSummaryScanStateJob>> {
+    ) -> Result<Vec<Vec<RpcScanStateSummaryScanStateJob>>, String> {
         use ledger::scan_state::scan_state::JobValue;
 
         let ledger = self.staged_ledgers.get(&staged_ledger_hash);
-        let Some(ledger) = ledger else { return vec![] };
+        let Some(ledger) = ledger else {
+            return Ok(Vec::new());
+        };
         ledger
             .scan_state()
             .view()
@@ -1021,11 +1027,10 @@ impl LedgerCtx {
                     res.push(if is_done {
                         let is_left =
                             bundle.map_or_else(|| true, |(_, is_sibling_left)| !is_sibling_left);
-                        let sok_message: MinaBaseSokMessageStableV1 = job
-                            .parent()
-                            .and_then(|parent| {
-                                let job = jobs.get(parent)?;
-                                let sok_message = match &job.job {
+                        let parent = job.parent().ok_or_else(|| format!("job(depth: {}, index: {}) has no parent", job.depth(), job.index()))?;
+                        let sok_message: MinaBaseSokMessageStableV1 = {
+                                let job = jobs.get(parent).ok_or_else(|| format!("job(depth: {}, index: {}) parent not found", job.depth(), job.index()))?;
+                                match &job.job {
                                     JobValue::Node(JobValueMerge::Part(job)) if is_left => {
                                         (&job.sok_message).into()
                                     }
@@ -1036,14 +1041,11 @@ impl LedgerCtx {
                                             (&job.right.sok_message).into()
                                         }
                                     }
-                                    state => panic!(
-                                        "parent of a `Done` job can't be in this state: {:?}",
-                                        state
-                                    ),
-                                };
-                                Some(sok_message)
-                            })
-                            .unwrap();
+                                    state => {
+                                        return Err(format!("parent of a `Done` job can't be in this state: {:?}", state));
+                                    }
+                                }
+                        };
                         RpcScanStateSummaryScanStateJob::Done {
                             job_id,
                             bundle_job_id,
@@ -1063,7 +1065,7 @@ impl LedgerCtx {
                         }
                     })
                 }
-                res
+                Ok(res)
             })
             .collect()
     }

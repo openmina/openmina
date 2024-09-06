@@ -12,11 +12,12 @@ const initialState: BlockProductionWonSlotsState = {
   slots: [],
   filteredSlots: [],
   activeSlot: undefined,
+  activeSlotRoute: undefined,
   filters: {
     accepted: true,
-    rejected: true,
+    orphaned: true,
     upcoming: true,
-    missed: true,
+    discarded: true,
   },
   sort: {
     sortBy: 'slotTime',
@@ -26,6 +27,10 @@ const initialState: BlockProductionWonSlotsState = {
 
 export const blockProductionWonSlotsReducer = createReducer(
   initialState,
+  on(BlockProductionWonSlotsActions.init, (state, { activeSlotRoute }) => ({
+    ...state,
+    activeSlotRoute,
+  })),
   on(BlockProductionWonSlotsActions.getSlotsSuccess, (state, { slots, epoch, activeSlot }) => ({
     ...state,
     slots,
@@ -58,7 +63,8 @@ function filterSlots(slots: BlockProductionWonSlotsSlot[], filters: BlockProduct
   return slots.filter(slot => {
     if (
       (filters.accepted && slot.status === BlockProductionWonSlotsStatus.Canonical)
-      || (filters.rejected && (slot.status === BlockProductionWonSlotsStatus.Orphaned || slot.status === BlockProductionWonSlotsStatus.Discarded))
+      || (filters.orphaned && slot.status === BlockProductionWonSlotsStatus.Orphaned)
+      || (filters.discarded && slot.status === BlockProductionWonSlotsStatus.Discarded)
       || slot.active
       || slot.status === BlockProductionWonSlotsStatus.Committed
     ) {

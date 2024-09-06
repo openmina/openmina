@@ -21,9 +21,10 @@ pub fn ledger_effects<S: LedgerService>(store: &mut Store<S>, action: LedgerActi
 
     match action {
         LedgerAction::Write(a) => match a {
-            LedgerWriteAction::Init { request } => {
-                store.service.write_init(request);
+            LedgerWriteAction::Init { request, on_init } => {
+                store.service.write_init(request.clone());
                 store.dispatch(LedgerWriteAction::Pending);
+                store.dispatch_callback(on_init, request);
             }
             LedgerWriteAction::Pending => {}
             LedgerWriteAction::Success { response } => {

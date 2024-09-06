@@ -10,12 +10,13 @@ export interface MinaEnv {
 
 export interface MinaNode {
   name: string;
-  url: string;
+  url?: string;
   memoryProfiler?: string;
   debugger?: string;
   features?: FeaturesConfig;
-  minaExplorerNetwork?: 'mainnet' | 'devnet' | 'berkeley';
+  minaExplorerNetwork?: 'mainnet' | 'devnet';
   isCustom?: boolean;
+  isWebNode?: boolean;
 }
 
 export type FeaturesConfig = Partial<{

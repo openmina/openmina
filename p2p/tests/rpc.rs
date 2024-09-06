@@ -403,6 +403,7 @@ fn send_request(
                 peer_id: receiver_id,
                 id: sender_rpc_id,
                 request: Box::new(request),
+                on_init: None,
             }),
         "dispatch rpc send query"
     );

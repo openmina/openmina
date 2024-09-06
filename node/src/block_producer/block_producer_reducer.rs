@@ -46,6 +46,7 @@ impl BlockProducerEnabled {
                 self.vrf_evaluator.reducer(meta.with_action(action))
             }
             BlockProducerAction::BestTipUpdate { best_tip } => {
+                self.injected_blocks.remove(best_tip.hash());
                 // set the genesis timestamp on the first best tip update
                 // TODO: move/remove once we can generate the genesis block
                 if self.vrf_evaluator.genesis_timestamp == redux::Timestamp::ZERO {
@@ -421,12 +422,18 @@ impl BlockProducerEnabled {
                     chain_proof_len => {
                         // TODO(binier): test
                         let mut iter = chain.iter().rev().take(chain_proof_len + 1).rev();
-                        let first_hash = iter.next().unwrap().hash().clone();
-                        let body_hashes = iter
-                            .map(|b| b.header().protocol_state.body.hash())
-                            .map(StateBodyHash::from)
-                            .collect();
-                        (first_hash, body_hashes)
+                        if let Some(first_block) = iter.next() {
+                            let first_hash = first_block.hash().clone();
+                            let body_hashes = iter
+                                .map(|b| b.header().protocol_state.body.hash())
+                                .map(StateBodyHash::from)
+                                .collect();
+                            (first_hash, body_hashes)
+                        } else {
+                            // TODO: test this as well
+                            // If the chain is empty, return the same as when chain_proof_len is 0
+                            (pred_block.hash().clone(), List::new())
+                        }
                     }
                 };
 
@@ -526,6 +533,7 @@ impl BlockProducerEnabled {
                     ..
                 } = &mut self.current
                 {
+                    self.injected_blocks.insert(block.hash().clone());
                     self.current = BlockProducerCurrentState::Injected {
                         time: meta.time(),
                         won_slot: won_slot.clone(),

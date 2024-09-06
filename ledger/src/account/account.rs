@@ -113,15 +113,15 @@ impl Default for TokenSymbol {
     }
 }
 
-impl TryFrom<&mina_p2p_messages::string::ByteString> for TokenSymbol {
+impl TryFrom<&mina_p2p_messages::string::TokenSymbol> for TokenSymbol {
     type Error = std::string::FromUtf8Error;
 
-    fn try_from(value: &mina_p2p_messages::string::ByteString) -> Result<Self, Self::Error> {
+    fn try_from(value: &mina_p2p_messages::string::TokenSymbol) -> Result<Self, Self::Error> {
         Ok(Self(value.clone().try_into()?))
     }
 }
 
-impl From<&TokenSymbol> for mina_p2p_messages::string::ByteString {
+impl From<&TokenSymbol> for mina_p2p_messages::string::TokenSymbol {
     fn from(value: &TokenSymbol) -> Self {
         value.0.as_bytes().into()
     }
@@ -618,15 +618,15 @@ impl std::ops::Deref for ZkAppUri {
     }
 }
 
-impl TryFrom<&mina_p2p_messages::string::ByteString> for ZkAppUri {
+impl TryFrom<&mina_p2p_messages::string::ZkAppUri> for ZkAppUri {
     type Error = std::string::FromUtf8Error;
 
-    fn try_from(value: &mina_p2p_messages::string::ByteString) -> Result<Self, Self::Error> {
+    fn try_from(value: &mina_p2p_messages::string::ZkAppUri) -> Result<Self, Self::Error> {
         Ok(Self(value.clone().try_into()?))
     }
 }
 
-impl From<&ZkAppUri> for mina_p2p_messages::string::ByteString {
+impl From<&ZkAppUri> for mina_p2p_messages::string::ZkAppUri {
     fn from(value: &ZkAppUri) -> Self {
         Self::from(value.0.as_bytes())
     }

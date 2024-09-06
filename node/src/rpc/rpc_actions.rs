@@ -97,7 +97,7 @@ pub enum RpcAction {
     },
     ScanStateSummaryGetSuccess {
         rpc_id: RpcId,
-        scan_state: Vec<Vec<RpcScanStateSummaryScanStateJob>>,
+        scan_state: Result<Vec<Vec<RpcScanStateSummaryScanStateJob>>, String>,
     },
 
     SnarkPoolAvailableJobsGet {

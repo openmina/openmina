@@ -1,5 +1,7 @@
+use mina_p2p_messages::v2::LedgerHash;
 use openmina_core::block::ArcBlockWithHash;
-use p2p::channels::rpc::P2pChannelsRpcAction;
+use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
+use p2p::PeerId;
 use redux::ActionMeta;
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -44,10 +46,19 @@ impl TransitionFrontierSyncAction {
                     store.dispatch(TransitionFrontierSyncAction::LedgerRootPending);
                 }
             }
-            TransitionFrontierSyncAction::BestTipUpdate { best_tip, .. } => {
+            TransitionFrontierSyncAction::BestTipUpdate {
+                previous_root_snarked_ledger_hash,
+                best_tip,
+                ..
+            } => {
                 // TODO(tizoc): this is currently required because how how complicated the BestTipUpdate reducer is,
                 // once that is simplified this should be handled in separate actions.
-                maybe_copy_ledgers_for_sync(store, best_tip).unwrap();
+                maybe_copy_ledgers_for_sync(
+                    store,
+                    previous_root_snarked_ledger_hash.clone(),
+                    best_tip,
+                )
+                .unwrap();
 
                 // if root snarked ledger changed.
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
@@ -92,6 +103,7 @@ impl TransitionFrontierSyncAction {
             TransitionFrontierSyncAction::LedgerRootPending => {
                 prepare_transition_frontier_root_ledger_for_sync(
                     store,
+                    None,
                     &sync_best_tip(store.state()),
                 )
                 .unwrap();
@@ -156,17 +168,25 @@ impl TransitionFrontierSyncAction {
                     return;
                 };
 
-                if store.dispatch(P2pChannelsRpcAction::RequestSend {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
-                        hash: hash.clone(),
-                        peer_id: *peer_id,
-                        rpc_id,
-                    });
-                }
+                    on_init: Some(redux::callback!(
+                        on_send_p2p_block_rpc_request(
+                            (peer_id: PeerId, rpc_id: P2pRpcId, request: P2pRpcRequest)
+                        ) -> crate::Action {
+                            let P2pRpcRequest::Block(hash) = request else {
+                                unreachable!()
+                            };
+                            TransitionFrontierSyncAction::BlocksPeerQueryPending {
+                                hash,
+                                peer_id,
+                                rpc_id,
+                            }
+                        }
+                    )),
+                });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
                 let p2p = p2p_ready!(store.state().p2p, meta.time());
@@ -177,17 +197,25 @@ impl TransitionFrontierSyncAction {
                     return;
                 };
 
-                if store.dispatch(P2pChannelsRpcAction::RequestSend {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id: *peer_id,
                     id: rpc_id,
                     request: Box::new(P2pRpcRequest::Block(hash.clone())),
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryPending {
-                        hash: hash.clone(),
-                        peer_id: *peer_id,
-                        rpc_id,
-                    });
-                }
+                    on_init: Some(redux::callback!(
+                        on_send_p2p_block_rpc_request_retry(
+                            (peer_id: PeerId, rpc_id: P2pRpcId, request: P2pRpcRequest)
+                        ) -> crate::Action {
+                            let P2pRpcRequest::Block(hash) = request else {
+                                unreachable!()
+                            };
+                            TransitionFrontierSyncAction::BlocksPeerQueryPending {
+                                hash,
+                                peer_id,
+                                rpc_id,
+                            }
+                        }
+                    )),
+                });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryPending { .. } => {}
             TransitionFrontierSyncAction::BlocksPeerQueryError { .. } => {
@@ -219,13 +247,22 @@ impl TransitionFrontierSyncAction {
                     stats.block_producer().block_apply_start(meta.time(), &hash);
                 }
 
-                if store.dispatch(LedgerWriteAction::Init {
+                store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::BlockApply { block, pred_block },
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyPending {
-                        hash: hash.clone(),
-                    });
-                }
+                    on_init: redux::callback!(
+                        on_block_next_apply_init(request: LedgerWriteRequest) -> crate::Action {
+                            let LedgerWriteRequest::BlockApply {
+                                block,
+                                pred_block: _,
+                            } = request
+                            else {
+                                unreachable!()
+                            };
+                            let hash = block.hash().clone();
+                            TransitionFrontierSyncAction::BlocksNextApplyPending { hash }
+                        }
+                    ),
+                });
             }
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
             TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
@@ -294,7 +331,7 @@ impl TransitionFrontierSyncAction {
                         .collect()
                 };
 
-                if store.dispatch(LedgerWriteAction::Init {
+                store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::Commit {
                         ledgers_to_keep,
                         root_snarked_ledger_updates,
@@ -302,9 +339,12 @@ impl TransitionFrontierSyncAction {
                         new_root: new_root.clone(),
                         new_best_tip: new_best_tip.clone(),
                     },
-                }) {
-                    store.dispatch(TransitionFrontierSyncAction::CommitPending);
-                }
+                    on_init: redux::callback!(
+                        on_frontier_commit_init(_request: LedgerWriteRequest) -> crate::Action {
+                            TransitionFrontierSyncAction::CommitPending
+                        }
+                    ),
+                });
             }
             TransitionFrontierSyncAction::CommitPending => {}
             TransitionFrontierSyncAction::CommitSuccess { .. } => {
@@ -325,6 +365,7 @@ fn sync_best_tip(state: &crate::State) -> ArcBlockWithHash {
 /// For snarked ledger sync targets, copy the previous snarked ledger if required
 fn maybe_copy_ledgers_for_sync<S>(
     store: &mut Store<S>,
+    previous_root_snarked_ledger_hash: Option<LedgerHash>,
     best_tip: &ArcBlockWithHash,
 ) -> Result<bool, String>
 where
@@ -341,7 +382,11 @@ where
         }
 
         TransitionFrontierSyncState::RootLedgerPending(_) => {
-            prepare_transition_frontier_root_ledger_for_sync(store, best_tip)
+            prepare_transition_frontier_root_ledger_for_sync(
+                store,
+                previous_root_snarked_ledger_hash,
+                best_tip,
+            )
         }
         _ => Ok(true),
     }
@@ -361,7 +406,7 @@ where
 
     store
         .service()
-        .copy_snarked_ledger_contents_for_sync(origin, target, false)
+        .copy_snarked_ledger_contents_for_sync(vec![origin], target, false)
 }
 
 /// Copies (if necessary) the staking ledger into the sync ledger state
@@ -383,26 +428,39 @@ where
 
     store
         .service()
-        .copy_snarked_ledger_contents_for_sync(origin, target, false)
+        .copy_snarked_ledger_contents_for_sync(vec![origin], target, false)
 }
 
 /// Copies (if necessary) the next epoch ledger into the sync ledger state
 /// for the transition frontier root ledger to use as a starting point.
 fn prepare_transition_frontier_root_ledger_for_sync<S>(
     store: &mut Store<S>,
+    previous_root_snarked_ledger_hash: Option<LedgerHash>,
     best_tip: &ArcBlockWithHash,
 ) -> Result<bool, String>
 where
     S: TransitionFrontierSyncLedgerSnarkedService,
 {
     let sync = &store.state().transition_frontier.sync;
-    let root_block = sync.root_block().unwrap();
-    let next_epoch_sync = SyncLedgerTarget::next_epoch(best_tip, root_block)
-        .unwrap_or_else(|| SyncLedgerTarget::staking_epoch(best_tip));
+    let root_block = sync
+        .root_block()
+        .expect("Sync root block cannot be missing");
+
+    // Attempt in order: previous root, next epoch ledger, staking ledger
+    let mut candidate_origins: Vec<LedgerHash> =
+        previous_root_snarked_ledger_hash.into_iter().collect();
+    if let Some(next_epoch) = SyncLedgerTarget::next_epoch(best_tip, root_block) {
+        candidate_origins.push(next_epoch.snarked_ledger_hash.clone());
+    }
+    candidate_origins.push(
+        SyncLedgerTarget::staking_epoch(best_tip)
+            .snarked_ledger_hash
+            .clone(),
+    );
+
     let target = root_block.snarked_ledger_hash().clone();
-    let origin = next_epoch_sync.snarked_ledger_hash;
 
     store
         .service()
-        .copy_snarked_ledger_contents_for_sync(origin, target, false)
+        .copy_snarked_ledger_contents_for_sync(candidate_origins, target, false)
 }

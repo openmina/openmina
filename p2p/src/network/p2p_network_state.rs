@@ -22,13 +22,12 @@ impl P2pNetworkState {
         let peer_id = identity.peer_id();
         let pnet_key = chain_id.preshared_key();
         let discovery_state = discovery.then(|| {
-            let mut routing_table =
-                P2pNetworkKadRoutingTable::new(P2pNetworkKadEntry::new(peer_id, addrs));
-            routing_table.extend(
-                known_peers
-                    .into_iter()
-                    .map(|(peer_id, maddr)| P2pNetworkKadEntry::new(peer_id, vec![maddr])),
+            let mut routing_table = P2pNetworkKadRoutingTable::new(
+                P2pNetworkKadEntry::new(peer_id, addrs).expect("valid peer_id"),
             );
+            routing_table.extend(known_peers.into_iter().map(|(peer_id, maddr)| {
+                P2pNetworkKadEntry::new(peer_id, vec![maddr]).expect("valid known peer")
+            }));
             P2pNetworkKadState {
                 routing_table,
                 ..Default::default()

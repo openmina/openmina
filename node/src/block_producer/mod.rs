@@ -22,12 +22,9 @@ pub use block_producer_service::*;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::{list::List, v2};
-use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 use vrf::output::VrfOutput;
-
-use crate::account::AccountPublicKey;
 
 use self::vrf_evaluator::VrfWonSlotWithHash;
 
@@ -63,10 +60,10 @@ impl BlockProducerWonSlot {
 
         let slot_time = Self::calculate_slot_time(genesis_timestamp, won_slot.global_slot);
 
-        let winner_pub_key = AccountPublicKey::from(
-            CompressedPubKey::from_address(&won_slot.winner_account).unwrap(),
+        let delegator = (
+            won_slot.winner_account.clone().into(),
+            won_slot.account_index,
         );
-        let delegator = (winner_pub_key.into(), won_slot.account_index);
         let global_slot = v2::ConsensusGlobalSlotStableV1 {
             slot_number: v2::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
                 won_slot.global_slot.into(),
@@ -200,6 +197,7 @@ pub fn calc_epoch_seed(
     prev_epoch_seed: &v2::EpochSeed,
     vrf_hash: mina_hasher::Fp,
 ) -> v2::EpochSeed {
+    // TODO(adonagy): fix this unwrap
     let old_seed = prev_epoch_seed.to_fp().unwrap();
     let new_seed = ledger::hash_with_kimchi("MinaEpochSeed", &[old_seed, vrf_hash]);
     v2::MinaBaseEpochSeedStableV1(new_seed.into()).into()

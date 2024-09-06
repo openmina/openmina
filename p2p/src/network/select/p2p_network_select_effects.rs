@@ -1,9 +1,9 @@
 use self::token::{
-    AuthKind, DiscoveryAlgorithm, IdentifyAlgorithm, MuxKind, PingAlgorithm, Protocol,
-    RpcAlgorithm, StreamKind, Token,
+    AuthKind, DiscoveryAlgorithm, IdentifyAlgorithm, MuxKind, Protocol, RpcAlgorithm, StreamKind,
+    Token,
 };
 
-use openmina_core::{fuzz_maybe, fuzzed_maybe};
+use openmina_core::{bug_condition, fuzz_maybe, fuzzed_maybe};
 
 use crate::{
     fuzzer::{mutate_select_authentication, mutate_select_multiplexing, mutate_select_stream},
@@ -92,104 +92,117 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::IncomingPayloadAuth {
-                addr, fin, data, ..
+                addr,
+                fin,
+                ref data,
+                ..
             }
             | P2pNetworkSelectAction::IncomingPayloadMux {
-                addr, fin, data, ..
+                addr,
+                fin,
+                ref data,
+                ..
             }
             | P2pNetworkSelectAction::IncomingPayload {
-                addr, fin, data, ..
+                addr,
+                fin,
+                ref data,
+                ..
             } => {
-                if let Some(Some(negotiated)) = &state.negotiated {
-                    match negotiated {
-                        Protocol::Auth(AuthKind::Noise) => {
-                            store.dispatch(P2pNetworkNoiseAction::IncomingData { addr, data });
-                        }
-                        Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0) => {
-                            store.dispatch(P2pNetworkYamuxAction::IncomingData { addr, data });
-                        }
-                        Protocol::Stream(kind) => match select_kind {
-                            SelectKind::Stream(peer_id, stream_id) => {
-                                match kind {
-                                    StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
-                                        if !fin {
-                                            store.dispatch(
-                                                P2pNetworkKademliaStreamAction::IncomingData {
-                                                    addr,
-                                                    peer_id,
-                                                    stream_id,
-                                                    data,
-                                                },
-                                            );
-                                        } else {
-                                            store.dispatch(
-                                                P2pNetworkKademliaStreamAction::RemoteClose {
-                                                    addr,
-                                                    peer_id,
-                                                    stream_id,
-                                                },
-                                            );
-                                        }
-                                    }
-                                    StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
-                                        if !fin {
-                                            //println!("==== {}", hex::encode(&a.data.0));
-                                            store.dispatch(
-                                                P2pNetworkIdentifyStreamAction::IncomingData {
-                                                    addr,
-                                                    peer_id,
-                                                    stream_id,
-                                                    data,
-                                                },
-                                            );
-                                        } else {
-                                            store.dispatch(
-                                                P2pNetworkIdentifyStreamAction::RemoteClose {
-                                                    addr,
-                                                    peer_id,
-                                                    stream_id,
-                                                },
-                                            );
-                                        }
-                                    }
-                                    StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0) => {
-                                        //unimplemented!()
-                                    }
-                                    StreamKind::Broadcast(_) => {
-                                        store.dispatch(P2pNetworkPubsubAction::IncomingData {
-                                            peer_id,
-                                            addr,
-                                            stream_id,
-                                            data,
-                                            seen_limit: store.state().config.meshsub.mcache_len,
-                                        });
-                                    }
-                                    StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
-                                        //unimplemented!()
-                                    }
-                                    StreamKind::Bitswap(_) => {
-                                        //unimplemented!()
-                                    }
-                                    StreamKind::Status(_) => {
-                                        //unimplemented!()
-                                    }
-                                    StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
-                                        store.dispatch(P2pNetworkRpcAction::IncomingData {
-                                            addr,
-                                            peer_id,
-                                            stream_id,
-                                            data,
-                                        });
+                let Some(Some(negotiated)) = &state.negotiated else {
+                    bug_condition!(
+                        "Invalid negotiation state {:?} for action {:?}",
+                        state.negotiated,
+                        self
+                    );
+                    return;
+                };
+                match negotiated {
+                    Protocol::Auth(AuthKind::Noise) => {
+                        store.dispatch(P2pNetworkNoiseAction::IncomingData {
+                            addr,
+                            data: data.clone(),
+                        });
+                    }
+                    Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0) => {
+                        store.dispatch(P2pNetworkYamuxAction::IncomingData {
+                            addr,
+                            data: data.clone(),
+                        });
+                    }
+                    Protocol::Stream(kind) => match select_kind {
+                        SelectKind::Stream(peer_id, stream_id) => {
+                            match kind {
+                                StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
+                                    if !fin {
+                                        store.dispatch(
+                                            P2pNetworkKademliaStreamAction::IncomingData {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                                data: data.clone(),
+                                            },
+                                        );
+                                    } else {
+                                        store.dispatch(
+                                            P2pNetworkKademliaStreamAction::RemoteClose {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                            },
+                                        );
                                     }
                                 }
+                                StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
+                                    if !fin {
+                                        //println!("==== {}", hex::encode(&a.data.0));
+                                        store.dispatch(
+                                            P2pNetworkIdentifyStreamAction::IncomingData {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                                data: data.clone(),
+                                            },
+                                        );
+                                    } else {
+                                        store.dispatch(
+                                            P2pNetworkIdentifyStreamAction::RemoteClose {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                            },
+                                        );
+                                    }
+                                }
+                                StreamKind::Broadcast(_) => {
+                                    store.dispatch(P2pNetworkPubsubAction::IncomingData {
+                                        peer_id,
+                                        addr,
+                                        stream_id,
+                                        data: data.clone(),
+                                        seen_limit: store.state().config.meshsub.mcache_len,
+                                    });
+                                }
+                                StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
+                                    store.dispatch(P2pNetworkRpcAction::IncomingData {
+                                        addr,
+                                        peer_id,
+                                        stream_id,
+                                        data: data.clone(),
+                                    });
+                                }
+                                _ => {
+                                    bug_condition!(
+                                        "trying to negotiate unimplemented stream kind {:?}",
+                                        kind
+                                    );
+                                }
                             }
-                            _ => {
-                                openmina_core::error!(meta.time(); "invalid select protocol kind: {:?}", kind);
-                            }
-                        },
-                    }
-                } else {
-                    unreachable!()
+                        }
+                        _ => {
+                            openmina_core::error!(meta.time(); "invalid select protocol kind: {:?}", kind);
+                        }
+                    },
                 }
             }
             P2pNetworkSelectAction::IncomingToken { addr, kind, .. } => {

@@ -860,3 +860,93 @@ if let Some((callback, block_hash)) = callback_and_arg {
 
 dispatcher.push(SnarkBlockVerifyAction::Finish { req_id: *req_id });
 ```
+
+#### Callbacks instead of conditional dispatches
+
+A common pattern seen in the current code is conditional dispatches:
+
+```rust
+if store.dispatch(SomeAction) {
+    store.dispatch(SomeOtherAction);
+}
+```
+
+The equivalent with queueing is to use `dispatcher.push_if_enabled` which will return `true` if the enabling condition for that action returns `true`. This will work most of the time, but it is possible for the state to change between the time the action was enqueued and when it is finally going to be dispatched, so the enabling condition may not be `true` anymore. This means that the equivalence is not strict.
+
+A better approach is to add a callback to the first action. This ensures that the second action only happens when intended, avoiding the potential race condition of the state changing between enqueuing and dispatching.
+
+First a callback is added to the action:
+
+```diff
+ #[derive(Serialize, Deserialize, Debug, Clone)]
+ pub enum LedgerWriteAction {
+-    Init { request: LedgerWriteRequest },
++    Init {
++        request: LedgerWriteRequest,
++        on_init: redux::Callback<LedgerWriteRequest>,
++    },
+     Pending,
+     // ...
+```
+
+Then in the handling code is updated to dispatch the callback:
+
+```diff
+     match action {
+         LedgerAction::Write(a) => match a {
+-            LedgerWriteAction::Init { request } => {
+-                store.service.write_init(request);
++            LedgerWriteAction::Init { request, on_init } => {
++                store.service.write_init(request.clone());
+                 store.dispatch(LedgerWriteAction::Pending);
++                store.dispatch_callback(on_init, request);
+             }
+```
+
+Finally the dispatching of that action is update to provide a callback that will return the same action that was inside the body of the conditional dispatch:
+
+```diff
+-  if store.dispatch(LedgerWriteAction::Init {
++  store.dispatch(LedgerWriteAction::Init {
+       request: LedgerWriteRequest::StagedLedgerDiffCreate {
+           pred_block: pred_block.clone(),
+           global_slot_since_genesis: won_slot
+           // ...
+           supercharge_coinbase,
+           transactions_by_fee,
+       },
+-  }) {
+-      store.dispatch(BlockProducerAction::StagedLedgerDiffCreatePending);
+-  }
++      on_init: redux::callback!(
++          on_staged_ledger_diff_create_init(_request: LedgerWriteRequest) -> crate::Action {
++              BlockProducerAction::StagedLedgerDiffCreatePending
++          }
++      ),
++  });
+```
+
+In the above example the passed argument is not used, but for other callbacks it is useful. Consider this example where we need the block hash for the next action, which can be extracted from the data contained in the request:
+
+```diff
+-   if store.dispatch(LedgerWriteAction::Init {
++   store.dispatch(LedgerWriteAction::Init {
+        request: LedgerWriteRequest::BlockApply { block, pred_block },
+-   }) {
+-       store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyPending {
+-           hash: hash.clone(),
+-       });
+-   }
++       on_init: redux::callback!(
++           on_block_next_apply_init(request: LedgerWriteRequest) -> crate::Action {
++               let LedgerWriteRequest::BlockApply { block, .. } = request
++               else {
++                   // Cannot happen because this is the same value we passed above
++                   unreachable!()
++               };
++               let hash = block.hash().clone();
++               TransitionFrontierSyncAction::BlocksNextApplyPending { hash }
++           }
++       ),
++   });
+```

@@ -2,7 +2,6 @@ import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 
 export const environment: Readonly<MinaEnv> = {
   production: false,
-  identifier: 'Development FE',
   globalConfig: {
     features: {
       dashboard: [],
@@ -15,8 +14,12 @@ export const environment: Readonly<MinaEnv> = {
       'block-production': ['overview', 'won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
+      // 'block-production': ['won-slots'],
+      // 'nodes': ['overview', 'live', 'bootstrap'],
+      // 'mempool': [],
+      // 'state': ['actions'],
     },
-    canAddNodes: true,
+    canAddNodes: false,
   },
   configs: [
     // {
@@ -35,8 +38,20 @@ export const environment: Readonly<MinaEnv> = {
     //   url: 'http://116.202.128.230:11010',
     // },
     {
-      name: 'http://116.202.128.230:11010',
-      url: 'http://116.202.128.230:11010',
+      name: 'staging-devnet-bp-0',
+      url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-1',
+      url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-2',
+      url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-3',
+      url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
     },
     // {
     //   name: 'Local rust node',
@@ -44,17 +59,21 @@ export const environment: Readonly<MinaEnv> = {
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
     {
-      name: 'Docker 11010',
-      url: 'http://localhost:11010',
+      name: 'Web Node 1',
+      isWebNode: true,
     },
-    {
-      name: 'Docker 11012',
-      url: 'http://localhost:11012',
-    },
-    {
-      name: 'Docker 11014',
-      url: 'http://localhost:11014',
-    },
+    // {
+    //   name: 'Docker 11010',
+    //   url: 'http://localhost:11010',
+    // },
+    // {
+    //   name: 'Docker 11012',
+    //   url: 'http://localhost:11012',
+    // },
+    // {
+    //   name: 'Docker 11014',
+    //   url: 'http://localhost:11014',
+    // },
     // {
     //   name: 'Producer',
     //   url: 'http://65.109.105.40:3000',

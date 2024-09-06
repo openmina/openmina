@@ -279,11 +279,8 @@ impl P2pNetworkPubsubState {
             } => {
                 self.seq += 1;
 
-                // let libp2p_pk = libp2p_identity::PublicKey::from(
-                //     libp2p_identity::ed25519::PublicKey::try_from_bytes(&author.to_bytes())
-                //         .expect("msg"),
-                // );
-                let libp2p_peer_id = libp2p_identity::PeerId::from(*author);
+                let libp2p_peer_id =
+                    libp2p_identity::PeerId::try_from(*author).expect("valid peer_id"); // This can't happen unless something is broken in the configuration
                 self.to_sign.push_back(pb::Message {
                     from: Some(libp2p_peer_id.to_bytes()),
                     data: Some(data.0.clone().into_vec()),

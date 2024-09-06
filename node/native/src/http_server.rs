@@ -10,12 +10,7 @@ use warp::{
 };
 
 use node::core::snark::SnarkJobId;
-use node::rpc::{
-    ActionStatsQuery, RpcBlockProducerStatsGetResponse, RpcMessageProgressResponse, RpcPeerInfo,
-    RpcRequest, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, RpcStateGetError, RpcStatusGetResponse,
-    SyncStatsQuery,
-};
+use node::rpc::*;
 
 use openmina_node_common::rpc::{
     RpcActionStatsGetResponse, RpcSender, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
@@ -154,8 +149,9 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
         .then(move || {
             let rpc_sender_clone = rpc_sender_clone.clone();
             async move {
-                let result: Option<Vec<RpcPeerInfo>> =
-                    rpc_sender_clone.oneshot_request(RpcRequest::PeersGet).await;
+                let result = rpc_sender_clone
+                    .oneshot_request::<RpcPeersGetResponse>(RpcRequest::PeersGet)
+                    .await;
 
                 with_json_reply(&result, StatusCode::OK)
             }
@@ -295,7 +291,8 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                         &"response channel dropped",
                         StatusCode::INTERNAL_SERVER_ERROR,
                     ),
-                    Some(resp) => with_json_reply(&resp, StatusCode::OK),
+                    Some(Err(err)) => with_json_reply(&err, StatusCode::INTERNAL_SERVER_ERROR),
+                    Some(Ok(data)) => with_json_reply(&data, StatusCode::OK),
                 }
             }
         });

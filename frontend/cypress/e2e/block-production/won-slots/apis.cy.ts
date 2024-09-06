@@ -14,8 +14,8 @@ let response: WonSlotResponse;
 
 describe('BLOCK PRODUCTION WON SLOTS APIS', () => {
   beforeEach(() => {
-    console.log('beforeEach');
     cy
+      .wait(10000)
       .visit(Cypress.config().baseUrl)
       .window()
       .its('store')
