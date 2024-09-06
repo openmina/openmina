@@ -7603,6 +7603,7 @@ dependencies = [
  "mina-tree",
  "num",
  "o1-utils",
+ "openmina-node-account",
  "rand 0.8.5",
  "redux",
  "serde",

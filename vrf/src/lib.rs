@@ -4,6 +4,7 @@ use ledger::AccountIndex;
 use message::VrfMessage;
 use mina_p2p_messages::v2::EpochSeed;
 use num::{BigInt, ToPrimitive};
+use openmina_node_account::AccountPublicKey;
 use output::VrfOutput;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -53,8 +54,8 @@ pub enum VrfError {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VrfWonSlot {
-    pub producer: String,
-    pub winner_account: String,
+    pub producer: AccountPublicKey,
+    pub winner_account: AccountPublicKey,
     pub global_slot: u32,
     pub account_index: AccountIndex,
     pub vrf_output: Box<VrfOutput>,
@@ -81,7 +82,7 @@ pub struct VrfEvaluationInput {
     producer_key: Keypair,
     global_slot: u32,
     epoch_seed: EpochSeed,
-    account_pub_key: String,
+    account_pub_key: AccountPublicKey,
     delegator_index: AccountIndex,
     delegated_stake: BigInt,
     total_currency: BigInt,
@@ -91,7 +92,7 @@ impl VrfEvaluationInput {
     pub fn new(
         producer_key: Keypair,
         epoch_seed: EpochSeed,
-        account_pub_key: String,
+        account_pub_key: AccountPublicKey,
         global_slot: u32,
         delegator_index: AccountIndex,
         delegated_stake: BigInt,
@@ -153,7 +154,7 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
 
     if threshold.threshold_met(value) {
         Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
-            producer: producer_key.get_address(),
+            producer: producer_key.public.into(),
             vrf_output: Box::new(vrf_output),
             winner_account: account_pub_key,
             global_slot,
@@ -189,6 +190,7 @@ mod test {
         bigint::BigInt as MinaBigInt,
         v2::{EpochSeed, MinaBaseEpochSeedStableV1},
     };
+    use openmina_node_account::AccountSecretKey;
 
     use crate::{genesis_vrf, keypair_from_bs58_string, VrfEvaluationInput, VrfEvaluationOutput};
 
@@ -217,7 +219,7 @@ mod test {
             delegated_stake: BigInt::from_str("1000000000000000")
                 .expect("Cannot convert to BigInt"),
             total_currency: BigInt::from_str("6000000000001000").expect("Cannot convert to BigInt"),
-            account_pub_key: "Placeholder".to_string(),
+            account_pub_key: AccountSecretKey::genesis_producer().public_key(),
         };
         let evaluation_result = evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
         assert_eq!(
@@ -239,7 +241,7 @@ mod test {
             delegated_stake: BigInt::from_str("1000000000000000")
                 .expect("Cannot convert to BigInt"),
             total_currency: BigInt::from_str("6000000000001000").expect("Cannot convert to BigInt"),
-            account_pub_key: "Placeholder".to_string(),
+            account_pub_key: AccountSecretKey::genesis_producer().public_key(),
         };
 
         let evaluation_result = evaluate_vrf(vrf_input).expect("Failed to evaluate vrf");
@@ -252,7 +254,7 @@ mod test {
             assert_eq!(0.16978997004532187, won_slot.vrf_output.fractional());
             assert_eq!(
                 "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq",
-                won_slot.producer
+                won_slot.producer.to_string()
             );
         } else {
             panic!("Slot should have been won!")
@@ -280,7 +282,7 @@ mod test {
                     .expect("Cannot convert to BigInt"),
                 total_currency: BigInt::from_str("6000000000001000")
                     .expect("Cannot convert to BigInt"),
-                account_pub_key: "Placeholder".to_string(),
+                account_pub_key: AccountSecretKey::genesis_producer().public_key(),
             };
             let _ = evaluate_vrf(vrf_input).expect("Failed to evaluate VRF");
             if i % 100 == 0 {
@@ -309,7 +311,7 @@ mod test {
                     .expect("Cannot convert to BigInt"),
                 total_currency: BigInt::from_str("6000000000001000")
                     .expect("Cannot convert to BigInt"),
-                account_pub_key: "Placeholder".to_string(),
+                account_pub_key: AccountSecretKey::genesis_producer().public_key(),
             };
             let evaluation_result =
                 evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");

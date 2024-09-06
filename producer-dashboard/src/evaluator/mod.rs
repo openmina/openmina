@@ -36,7 +36,7 @@ impl Evaluator {
             println!("Evaluating slots: {start} - {end}");
             let total_currency = init.ledger.total_currency();
 
-            let pub_key = self.key.public_key().to_string();
+            let pub_key = self.key.public_key();
 
             let delegates = init
                 .ledger

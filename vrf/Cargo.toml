@@ -17,6 +17,7 @@ mina-p2p-messages = { workspace = true }
 mina-curves = { workspace = true }
 o1-utils = { workspace = true }
 ledger = { workspace = true }
+openmina-node-account = { workspace = true }
 ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
 ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
 ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm" ] }
