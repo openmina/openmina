@@ -28,6 +28,11 @@ pub struct Node {
     #[arg(long)]
     pub libp2p_keypair: Option<String>,
 
+    // warning, this overrides `OPENMINA_P2P_SEC_KEY`
+    /// Compatibility with OCaml Mina node
+    #[arg(env = "MINA_LIBP2P_PASS")]
+    pub libp2p_password: Option<String>,
+
     /// Http port to listen on
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
@@ -70,6 +75,8 @@ pub struct Node {
     /// MINA_PRIVKEY_PASS must be set to decrypt the keyfile
     #[arg(long, env)]
     pub producer_key: Option<PathBuf>,
+    #[arg(env = "MINA_PRIVKEY_PASS")]
+    pub producer_key_password: Option<String>,
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
     pub snarker_fee: u64,
@@ -131,10 +138,8 @@ impl Node {
         }
 
         // warning, this overrides `OPENMINA_P2P_SEC_KEY`
-        if let Some(key_file) = self.libp2p_keypair {
-            use openmina_node_account::AccountSecretKey;
-
-            match AccountSecretKey::from_encrypted_file(&key_file) {
+        if let (Some(key_file), Some(password)) = (&self.libp2p_keypair, &self.libp2p_password) {
+            match AccountSecretKey::from_encrypted_file(key_file, password) {
                 Ok(sk) => {
                     node_builder.p2p_sec_key(SecretKey::from_bytes(sk.to_bytes()));
                     node::core::info!(
@@ -151,8 +156,16 @@ impl Node {
                         file_name = key_file,
                         err = err.to_string(),
                     );
+                    return Err(err.into());
                 }
             }
+        } else if self.libp2p_keypair.is_some() && self.libp2p_password.is_none() {
+            let error = "keyfile is specified, but `MINA_LIBP2P_PASS` is not set";
+            node::core::error!(
+                node::core::log::system_time();
+                summary = error,
+            );
+            return Err(anyhow::anyhow!(error));
         }
 
         node_builder.p2p_libp2p_port(self.libp2p_port);
@@ -169,11 +182,13 @@ impl Node {
             node_builder.initial_peers_from_url(url)?;
         }
 
-        if let Some(producer_key_path) = self.producer_key {
+        if let (Some(producer_key_path), Some(pasword)) =
+            (self.producer_key, &self.producer_key_password)
+        {
             node::core::info!(node::core::log::system_time(); summary = "loading provers index");
             ledger::proofs::gates::get_provers();
             node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
-            node_builder.block_producer_from_file(producer_key_path)?;
+            node_builder.block_producer_from_file(producer_key_path, pasword)?;
         }
 
         if let Some(sec_key) = self.run_snarker {
