@@ -1,6 +1,6 @@
 export interface BlockProductionWonSlotsFilters {
   accepted: boolean;
-  rejected: boolean;
-  missed: boolean;
+  orphaned: boolean;
   upcoming: boolean;
+  discarded: boolean;
 }

@@ -67,7 +67,7 @@ export class WebNodeService {
   get peers$(): Observable<any> {
     return this.backendSubject$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).state().peers())),
+      switchMap(handle => from(any(handle).state().peers())),
     );
   }
 

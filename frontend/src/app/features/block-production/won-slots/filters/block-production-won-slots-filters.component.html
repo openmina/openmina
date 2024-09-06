@@ -16,10 +16,19 @@
     <div
       class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
       [class.pointer-none]="totalOrphaned === 0"
-      [ngClass]="(filters.rejected && totalOrphaned !== 0) ? 'bg-aware-container aware-primary' : 'bg-container tertiary'"
-      (click)="changeFilter('rejected', !filters.rejected)">
+      [ngClass]="(filters.orphaned && totalOrphaned !== 0) ? 'bg-aware-container aware-primary' : 'bg-container tertiary'"
+      (click)="changeFilter('orphaned', !filters.orphaned)">
       <span class="mr-5">{{ totalOrphaned }}</span>
-      Dropped
+      Orphaned
+    </div>
+
+    <div
+      class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
+      [class.pointer-none]="totalDiscarded === 0"
+      [ngClass]="(filters.discarded && totalDiscarded !== 0) ? 'bg-aware-container aware-primary' : 'bg-container tertiary'"
+      (click)="changeFilter('discarded', !filters.discarded)">
+      <span class="mr-5">{{ totalDiscarded }}</span>
+      Discarded
     </div>
 
     <div

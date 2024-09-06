@@ -33,10 +33,10 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
-    {
-      name: 'http://116.202.128.230:11010',
-      url: 'http://116.202.128.230:11010',
-    },
+    // {
+    //   name: 'http://116.202.128.230:11010',
+    //   url: 'http://116.202.128.230:11010',
+    // },
     {
       name: 'staging-devnet-bp-0',
       url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',

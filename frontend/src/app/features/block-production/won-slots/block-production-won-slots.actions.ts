@@ -16,7 +16,7 @@ export const BLOCK_PRODUCTION_WON_SLOTS_KEY = 'wonSlots';
 
 const type = <T extends string>(type: T) => createType(BLOCK_PRODUCTION_PREFIX, 'Won Slots', type);
 
-const init = createAction(type('Init'));
+const init = createAction(type('Init'), props<{ activeSlotRoute: string }>());
 const close = createAction(type('Close'));
 const getSlots = createAction(type('Get Slots'));
 const getSlotsSuccess = createAction(type('Get Slots Success'), props<{

@@ -17,7 +17,7 @@ export class DashboardComponent extends StoreDispatcher implements OnInit {
   ngOnInit(): void {
     this.listenToNodeChanging();
     this.dispatch(DashboardInit);
-    timer(2000, 2000)
+    timer(4000, 4000)
       .pipe(
         tap(() => this.dispatch(DashboardGetData)),
         untilDestroyed(this),
