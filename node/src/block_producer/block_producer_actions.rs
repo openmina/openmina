@@ -34,6 +34,12 @@ pub enum BlockProducerAction {
     WonSlot {
         won_slot: BlockProducerWonSlot,
     },
+    #[action_event(
+        level = info,
+        fields(
+            reason = format!("{reason:?}"),
+        )
+    )]
     WonSlotDiscard {
         reason: BlockProducerWonSlotDiscardReason,
     },
