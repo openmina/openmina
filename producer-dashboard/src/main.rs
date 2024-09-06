@@ -34,24 +34,41 @@ pub enum StakingToolError {
 
 pub type NodeStatus = Arc<RwLock<NodeData>>;
 
+use tracing::{error, info, instrument};
+
 #[tokio::main]
+#[instrument]
 async fn main() {
+    // Initialize tracing
+    tracing_subscriber::fmt::init();
+
     let config = config::Config::parse();
 
-    let db = Database::open(config.database_path).expect("Failed to open Database");
-    println!("[main] DB opened");
+    let db = match Database::open(config.database_path) {
+        Ok(db) => db,
+        Err(e) => {
+            error!("Failed to open Database: {}", e);
+            return;
+        }
+    };
+    info!("DB opened");
 
     let password = std::env::var("MINA_PRIVKEY_PASS")
         .expect("Expected password in the variable `MINA_PRIVKEY_PASS`");
 
-    let key = AccountSecretKey::from_encrypted_file(config.producer_key, &password)
-        .expect("failed to decrypt secret key file");
-    println!("[main] Producer key loaded");
+    let key = match AccountSecretKey::from_encrypted_file(config.producer_key, &password) {
+        Ok(key) => key,
+        Err(e) => {
+            error!("Failed to decrypt secret key file: {}", e);
+            return;
+        }
+    };
+    info!("Producer key loaded");
 
     let (sender, receiver) = mpsc::unbounded_channel::<EpochInit>();
 
     let evaluator_handle = Evaluator::spawn_new(key.clone(), db.clone(), receiver);
-    println!("[main] Evaluator created");
+    info!("Evaluator created");
     let node_status = NodeStatus::default();
     let node = Node::new(config.node_url);
     let node_watchdog = spawn_watchdog(
@@ -61,13 +78,13 @@ async fn main() {
         sender,
         key.public_key().to_string(),
     );
-    println!("[main] Node watchdog created");
+    info!("Node watchdog created");
     let archive_watchdog = ArchiveWatchdog::spawn_new(
         db.clone(),
         key.public_key().to_string(),
         node_status.clone(),
     );
-    println!("[main] Archive watchdog created");
+    info!("Archive watchdog created");
 
     let rpc_handle = rpc::spawn_rpc_server(
         3000,
@@ -75,7 +92,7 @@ async fn main() {
         node_status.clone(),
         key.public_key().to_string(),
     );
-    println!("[main] RPC server created");
+    info!("RPC server created");
 
     let mut signal_stream =
         tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
@@ -83,11 +100,14 @@ async fn main() {
 
     tokio::select! {
         s = tokio::signal::ctrl_c() => {
-            s.expect("Failed to listen for ctrl-c event");
-            println!("Ctrl-c or SIGINT received!");
+            if let Err(e) = s {
+                error!("Failed to listen for ctrl-c event: {}", e);
+            } else {
+                info!("Ctrl-c or SIGINT received!");
+            }
         }
         _ = signal_stream.recv() => {
-            println!("SIGTERM received!");
+            info!("SIGTERM received!");
         }
     }
 
@@ -95,5 +115,5 @@ async fn main() {
     drop(rpc_handle);
     drop(node_watchdog);
     drop(evaluator_handle);
-    println!("Shutdown successfull");
+    info!("Shutdown successful");
 }

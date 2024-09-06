@@ -241,7 +241,7 @@ mod test {
         // let initial_stake = BigInt::zero();
         // let initial_step = BigInt::from_str("10000000000000000000").unwrap();
 
-        let total_currency = BigInt::from_str("1025422352000001000").unwrap();
+        let total_currency = BigInt::from_str("1184367350840039233").unwrap();
         let initial_stake = BigInt::zero();
         let initial_step = BigInt::from_str("10000000000000000000").unwrap();
 
@@ -272,8 +272,8 @@ mod test {
         // let mut stake_nanomina = BigInt::from_str("1104310162392").unwrap();
         // let mut step = BigInt::from_str("1000000000000").unwrap();
 
-        let total_currency = BigInt::from_str("1025422352000001000").unwrap();
-        let mut stake_nanomina = BigInt::from_str("2000000000000000").unwrap();
+        let total_currency = BigInt::from_str("1184367350840039233").unwrap();
+        let mut stake_nanomina = BigInt::from_str("1200000000000").unwrap();
         let mut step = BigInt::from_str("1000000000000").unwrap();
 
         loop {

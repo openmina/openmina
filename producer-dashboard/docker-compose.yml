@@ -61,18 +61,29 @@ services:
     command: daemon
 
   producer-dashboard:
-    image: adrnagy/openmina-producer-dashboard:rc1
+    image: adrnagy/openmina-producer-dashboard:parallel
     container_name: dashboard-be
     env_file:
       - ./docker/.mina-env
     environment:
       - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:${PG_PORT}/${PG_DB}
       - NODE_URL=http://mina:5000/graphql
-      - PRODUCER_KEY="/keys/whale-20-key"
+      - PRODUCER_KEY=/keys/whale-20-key
+      - DATABASE_PATH=/tmp/producer-dashboard
     volumes:
       - ./docker/keys:/keys:ro
+      - /tmp/dashboard-db:/dashboard-db
     depends_on:
       - mina
       - postgres
     ports:
       - 3000:3000
+
+  frontend:
+    image: adrnagy/openmina-fe:rc1
+    platform: linux/amd64
+    container_name: frontend
+    depends_on:
+      - producer-dashboard
+    ports:
+      - "80:80"

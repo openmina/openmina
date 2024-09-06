@@ -5,6 +5,7 @@ use mina_p2p_messages::v2::EpochSeed;
 use openmina_node_account::AccountSecretKey;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::JoinHandle;
+use tracing::{info, instrument};
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 
 use crate::{
@@ -15,6 +16,7 @@ use crate::{
 
 pub mod epoch;
 
+#[derive(Debug)]
 pub struct Evaluator {
     key: AccountSecretKey,
     db: Database,
@@ -30,10 +32,11 @@ impl Evaluator {
         tokio::spawn(async move { Self { key, db, receiver }.run().await })
     }
 
+    #[instrument(name = "VRF evaluator", skip_all)]
     async fn run(&mut self) {
         while let Some(init) = self.receiver.recv().await {
             let (start, end) = init.bounds;
-            println!("[evaluator] Evaluating slots: {start} - {end}");
+            info!("[evaluator] Evaluating slots: {start} - {end}");
             let total_currency = init.ledger.total_currency();
 
             let pub_key = self.key.public_key();
@@ -78,7 +81,7 @@ impl Evaluator {
                                 if let Ok(VrfEvaluationOutput::SlotWon(_)) =
                                     vrf::evaluate_vrf(vrf_input)
                                 {
-                                    println!("Won slot: {global_slot}");
+                                    info!("Won slot: {global_slot}");
                                     slot_data = SlotData::new(global_slot, timestamp, None);
                                     break;
                                 }
@@ -91,10 +94,10 @@ impl Evaluator {
 
                 futures::future::join_all(tasks).await;
                 computed_slots += chunk_end - chunk_start + 1;
-                println!("Computed {} slots so far", computed_slots);
+                info!("Computed {} slots so far", computed_slots);
             }
 
-            println!("Finished computing all {} slots", computed_slots);
+            info!("Finished computing all {} slots", computed_slots);
         }
     }
 }

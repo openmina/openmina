@@ -122,7 +122,6 @@ pub async fn get_epoch_data_summary(
     let mut res = Vec::new();
 
     for epoch in range.take(limit) {
-        println!("{epoch}");
         match storage.get_slots_for_epoch(epoch) {
             Ok(slots) => {
                 let balances = match storage.get_ledger(epoch) {

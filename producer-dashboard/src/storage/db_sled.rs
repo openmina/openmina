@@ -7,7 +7,7 @@ use crate::{
     node::epoch_ledgers::Ledger,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Database {
     _db: Db,
     epoch_data: Tree,
@@ -37,6 +37,17 @@ impl Database {
             produced_blocks_by_slot,
             _summaries: summaries,
         })
+    }
+
+    #[cfg(test)]
+    pub fn clear(&self) -> Result<(), sled::Error> {
+        self._db.clear()?;
+        self.epoch_data.clear()?;
+        self.seeds.clear()?;
+        self.epoch_ledgers.clear()?;
+        self.blocks.clear()?;
+        self.produced_blocks_by_slot.clear()?;
+        self._summaries.clear()
     }
 
     fn store<T: serde::Serialize, K: AsRef<[u8]>>(
@@ -262,20 +273,29 @@ mod test {
     #[test]
     fn test_ledger_store_and_get() {
         const EPOCH: u32 = 4;
+        const NEXT_EPOCH: u32 = 5;
 
         let db_dir = env::temp_dir();
         let db = Database::open(db_dir).expect("Failed to open DB");
+        db.clear().unwrap();
+
+        assert!(!db.has_ledger(&EPOCH).unwrap());
 
         let ledger = Ledger::load_from_file("test/files/staking-epoch-ledger.json".into())
             .expect("Failed to load ledger file");
         db.store_ledger(EPOCH, &ledger.clone())
             .expect("Failed to store ledger into the DB");
 
+        assert!(db.has_ledger(&EPOCH).unwrap());
+
         let retrieved = db
             .get_ledger(EPOCH)
             .expect("Failed to retrieve ledger from the DB");
 
         assert_eq!(Some(ledger), retrieved);
+
+        assert!(db.has_ledger(&EPOCH).unwrap());
+        assert!(!db.has_ledger(&NEXT_EPOCH).unwrap());
     }
 
     #[test]
@@ -284,6 +304,7 @@ mod test {
 
         let db_dir = env::temp_dir();
         let db = Database::open(db_dir).expect("Failed to open DB");
+        db.clear().unwrap();
 
         let seed = "2vawAhPq9RsPXhz8NvrxB5VXuge8U9vQPGCtjqLZ5idHTUtWHWF8".to_string();
 

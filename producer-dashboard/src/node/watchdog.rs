@@ -1,5 +1,6 @@
 use tokio::time::Duration;
 use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle};
+use tracing::{error, info, instrument, trace, warn};
 
 use crate::evaluator::EpochInit;
 use crate::{storage::db_sled::Database, NodeStatus};
@@ -18,6 +19,7 @@ pub fn spawn_watchdog(
     tokio::spawn(async move { watch(node, status, db, sender, producer_pk).await })
 }
 
+#[instrument(name = "Node watchdog", skip_all)]
 async fn watch(
     node: Node,
     status: NodeStatus,
@@ -30,7 +32,7 @@ async fn watch(
 
     // TODO(adonagy): do not ignore this error
     if node.wait_for_graphql().await.is_err() {
-        println!("[dbg] Error: returning");
+        error!("Error: returning");
         return;
     }
 
@@ -44,7 +46,7 @@ async fn watch(
     loop {
         interval.tick().await;
 
-        println!("[node-watchdog] Polling node data");
+        trace!("Polling node data");
 
         let sync_status = node.sync_status().await;
 
@@ -62,16 +64,22 @@ async fn watch(
             let current_epoch: u32 = best_tip.consensus_state().epoch.parse().unwrap();
 
             if !db.has_ledger(&current_epoch).unwrap() {
-                println!("Dumping staking ledger for epoch {current_epoch}");
-                let ledger = Node::get_staking_ledger(current_epoch);
+                info!("Dumping staking ledger for epoch {current_epoch}");
+                let ledger: crate::node::epoch_ledgers::Ledger =
+                    Node::get_staking_ledger(current_epoch);
                 let seed = best_tip.consensus_state().staking_epoch_data.seed.clone();
-                // TODO(adonagy): handle error
-                let _ = db.store_ledger(current_epoch, &ledger);
-                let _ = db.store_seed(current_epoch, seed.clone());
 
-                let mut status = status.write().await;
+                if let Err(e) = db.store_ledger(current_epoch, &ledger) {
+                    warn!("Error storing ledger: {e}");
+                }
+                if let Err(e) = db.store_seed(current_epoch, seed.clone()) {
+                    warn!("Error storing seed: {e}");
+                }
 
-                status.dumped_ledgers.insert(current_epoch);
+                {
+                    let mut status = status.write().await;
+                    status.dumped_ledgers.insert(current_epoch);
+                }
 
                 let epoch_init = EpochInit::new(
                     current_epoch,
@@ -80,11 +88,12 @@ async fn watch(
                     best_tip.epoch_bounds().0,
                     genesis_timestamp,
                 );
-                // TODO(adonagy): handle error
-                let _ = sender.send(epoch_init);
+                if let Err(e) = sender.send(epoch_init) {
+                    warn!("{e}");
+                }
             }
         } else {
-            println!("Node not synced");
+            info!("Node not synced");
         }
     }
 }
