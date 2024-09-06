@@ -27,4 +27,4 @@ serde_json.workspace = true
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }
-
+libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }

@@ -52,11 +52,14 @@ impl P2pNetworkNoiseAction {
         } else {
             None
         };
-        let handshake_error = if let Some(P2pNetworkNoiseStateInner::Error(error)) = &state.inner {
-            Some(error)
-        } else {
-            None
-        };
+
+        if let Some(P2pNetworkNoiseStateInner::Error(error)) = &state.inner {
+            store.dispatch(P2pNetworkSchedulerAction::Error {
+                addr: *self.addr(),
+                error: error.clone().into(),
+            });
+            return;
+        }
 
         let middle_initiator =
             matches!(&state.inner, Some(P2pNetworkNoiseStateInner::Initiator(..)))
@@ -93,14 +96,6 @@ impl P2pNetworkNoiseAction {
                 }
             }
             P2pNetworkNoiseAction::IncomingChunk { addr, .. } => {
-                if let Some(error) = handshake_error {
-                    store.dispatch(P2pNetworkSchedulerAction::Error {
-                        addr,
-                        error: error.clone().into(),
-                    });
-                    return;
-                }
-
                 if let Some((peer_id, true)) = handshake_done {
                     let addr = *self.addr();
                     store.dispatch(P2pConnectionIncomingAction::FinalizePendingLibp2p {

@@ -31,6 +31,7 @@ pub struct P2pNetworkPubsubClientState {
     pub outgoing_stream_id: Option<StreamId>,
     pub message: pb::Rpc,
     pub buffer: Vec<u8>,
+    pub incoming_messages: Vec<pb::Message>,
 }
 
 // TODO: store blocks, snarks and txs separately
@@ -43,8 +44,8 @@ pub struct P2pNetworkPubsubMessageCache {
 impl P2pNetworkPubsubMessageCache {
     const CAPACITY: usize = 100;
 
-    pub fn put(&mut self, message: pb::Message) -> Vec<u8> {
-        let id = compute_message_id(&message);
+    pub fn put(&mut self, message: pb::Message) -> Option<Vec<u8>> {
+        let id = compute_message_id(&message)?;
         self.map.insert(id.clone(), message);
         self.queue.push_back(id.clone());
         if self.queue.len() > Self::CAPACITY {
@@ -52,21 +53,23 @@ impl P2pNetworkPubsubMessageCache {
                 self.map.remove(&id);
             }
         }
-        id
+        Some(id)
     }
 }
 
 // TODO: what if wasm32?
 // How to test it?
-pub fn compute_message_id(message: &pb::Message) -> Vec<u8> {
+pub fn compute_message_id(message: &pb::Message) -> Option<Vec<u8>> {
     let source_bytes = message
         .from
         .as_ref()
         .map(AsRef::as_ref)
         .unwrap_or(&[0, 1, 0][..]);
+
     let mut source_string = libp2p_identity::PeerId::from_bytes(source_bytes)
-        .expect("Valid peer id")
+        .ok()?
         .to_base58();
+
     let sequence_number = message
         .seqno
         .as_ref()
@@ -74,7 +77,7 @@ pub fn compute_message_id(message: &pb::Message) -> Vec<u8> {
         .map(u64::from_be_bytes)
         .unwrap_or_default();
     source_string.push_str(&sequence_number.to_string());
-    source_string.into_bytes()
+    Some(source_string.into_bytes())
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

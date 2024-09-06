@@ -100,7 +100,10 @@ impl P2pNetworkPubsubAction {
             P2pNetworkPubsubAction::Broadcast { message } => {
                 // println!("(pubsub) {this} broadcast");
                 let mut buffer = vec![0; 8];
-                binprot::BinProtWrite::binprot_write(&message, &mut buffer).expect("msg");
+                // TODO: add bug_condition
+                if binprot::BinProtWrite::binprot_write(&message, &mut buffer).is_err() {
+                    return;
+                }
                 let len = buffer.len() - 8;
                 buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
 
@@ -111,16 +114,67 @@ impl P2pNetworkPubsubAction {
                     topic: TOPIC.to_owned(),
                 });
             }
-            P2pNetworkPubsubAction::Sign { .. } => {
+            P2pNetworkPubsubAction::Sign { author, topic, .. } => {
                 if let Some(to_sign) = state.to_sign.front() {
                     let mut publication = vec![];
-                    prost::Message::encode(to_sign, &mut publication).unwrap();
-                    let signature = store.service().sign_publication(&publication).into();
-                    store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
+                    if prost::Message::encode(to_sign, &mut publication).is_err() {
+                        store.dispatch(P2pNetworkPubsubAction::SignError { author, topic });
+                    } else {
+                        let signature = store.service().sign_publication(&publication).into();
+                        store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
+                    }
                 }
             }
             P2pNetworkPubsubAction::BroadcastSigned { .. } => broadcast(store),
-            P2pNetworkPubsubAction::IncomingData { peer_id, .. } => {
+            P2pNetworkPubsubAction::IncomingData {
+                peer_id,
+                seen_limit,
+                ..
+            } => {
+                let Some(state) = state.clients.get(&peer_id) else {
+                    // TODO: add bug_condition
+                    return;
+                };
+                let messages = state.incoming_messages.clone();
+
+                for mut message in messages {
+                    if let (Some(signature), Some(from)) =
+                        (message.signature.take(), message.from.clone())
+                    {
+                        message.key = None;
+                        let mut data = vec![];
+
+                        let Ok(pk) = libp2p_identity::PublicKey::try_decode_protobuf(&from[2..])
+                        else {
+                            // TODO: add bug_condition
+                            // peer specify bad pk
+                            continue;
+                        };
+
+                        #[allow(clippy::if_same_then_else)]
+                        if prost::Message::encode(&message, &mut data).is_err() {
+                            // TODO: add bug_condition
+                            // should never happen;
+                            // we just decode this message, so it should encode without error
+                            continue;
+                        } else if !store.service().verify_publication(&pk, &data, &signature) {
+                            // TODO: add bug_condition
+                            // signature is invalid
+                            continue;
+                        }
+                    } else {
+                        // TODO: add bug_condition
+                        // the message doesn't contain signature or it doesn't contain verifying key
+                        continue;
+                    }
+                    store.dispatch(P2pNetworkPubsubAction::IncomingMessage {
+                        peer_id,
+                        message,
+                        seen_limit,
+                    });
+                }
+            }
+            P2pNetworkPubsubAction::IncomingMessage { peer_id, .. } => {
                 // println!("(pubsub) {this} <- {peer_id}");
 
                 let incoming_block = state.incoming_block.as_ref().cloned();
@@ -179,14 +233,20 @@ impl P2pNetworkPubsubAction {
                     //     println!("{}", std::str::from_utf8(&id).unwrap());
                     // }
                     let mut data = vec![];
-                    if prost::Message::encode_length_delimited(&msg, &mut data).is_ok() {
+                    if prost::Message::encode_length_delimited(&msg, &mut data).is_err() {
+                        store.dispatch(P2pNetworkPubsubAction::OutgoingMessageError {
+                            msg,
+                            peer_id,
+                        });
+                    } else {
                         store.dispatch(P2pNetworkPubsubAction::OutgoingData {
-                            data: data.clone().into(),
+                            data: data.into(),
                             peer_id,
                         });
                     }
                 }
             }
+            P2pNetworkPubsubAction::OutgoingMessageError { .. } => {}
             P2pNetworkPubsubAction::OutgoingData { mut data, peer_id } => {
                 let Some(state) = store
                     .state()
@@ -210,6 +270,7 @@ impl P2pNetworkPubsubAction {
                     });
                 }
             }
+            P2pNetworkPubsubAction::SignError { .. } => (),
         }
     }
 }
