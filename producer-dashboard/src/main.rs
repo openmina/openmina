@@ -44,7 +44,7 @@ async fn main() {
     let password = std::env::var("MINA_PRIVKEY_PASS")
         .expect("Expected password in the variable `MINA_PRIVKEY_PASS`");
 
-    let key = AccountSecretKey::from_encrypted_file(config.private_key_path, &password)
+    let key = AccountSecretKey::from_encrypted_file(config.producer_key, &password)
         .expect("failed to decrypt secret key file");
     println!("[main] Producer key loaded");
 

@@ -67,6 +67,8 @@ services:
       - ./docker/.mina-env
     environment:
       - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:${PG_PORT}/${PG_DB}
+      - NODE_URL=http://mina:5000/graphql
+      - PRODUCER_KEY="/keys/whale-20-key"
     volumes:
       - ./docker/keys:/keys:ro
     depends_on:
@@ -74,4 +76,3 @@ services:
       - postgres
     ports:
       - 3000:3000
-    command: ["--private-key-path", "/keys/whale-20-key", "--node-url", "http://mina:5000/graphql"]
