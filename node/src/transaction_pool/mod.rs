@@ -11,7 +11,7 @@ use ledger::{
 };
 use mina_p2p_messages::v2;
 use openmina_core::{
-    consensus::ConsensusConstants, constants::constraint_constants, requests::RpcId,
+    bug_condition, consensus::ConsensusConstants, constants::constraint_constants, requests::RpcId,
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
@@ -231,9 +231,12 @@ impl TransactionPoolState {
                 });
             }
             TransactionPoolAction::BestTipChangedWithAccounts { accounts } => {
-                substate
+                if let Err(e) = substate
                     .pool
-                    .on_new_best_tip(global_slot_from_genesis, accounts);
+                    .on_new_best_tip(global_slot_from_genesis, accounts)
+                {
+                    bug_condition!("transaction pool::on_new_best_tip failed: {:?}", e);
+                }
             }
             TransactionPoolAction::ApplyVerifiedDiff {
                 best_tip_hash,
@@ -358,14 +361,19 @@ impl TransactionPoolState {
                 let in_cmds = collect(&account_ids);
                 let uncommitted = collect(&uncommitted);
 
-                substate.pool.handle_transition_frontier_diff(
+                if let Err(e) = substate.pool.handle_transition_frontier_diff(
                     global_slot_from_genesis,
                     global_slot,
                     &diff,
                     &account_ids,
                     &in_cmds,
                     &uncommitted,
-                );
+                ) {
+                    bug_condition!(
+                        "transaction pool::handle_transition_frontier_diff failed: {:?}",
+                        e
+                    );
+                }
             }
             TransactionPoolAction::Rebroadcast { accepted, rejected } => {
                 let rejected = rejected.iter().map(|(cmd, _)| cmd.data.forget_check());
