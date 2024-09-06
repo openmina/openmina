@@ -46,6 +46,7 @@ impl BlockProducerEnabled {
                 self.vrf_evaluator.reducer(meta.with_action(action))
             }
             BlockProducerAction::BestTipUpdate { best_tip } => {
+                self.injected_blocks.remove(best_tip.hash());
                 // set the genesis timestamp on the first best tip update
                 // TODO: move/remove once we can generate the genesis block
                 if self.vrf_evaluator.genesis_timestamp == redux::Timestamp::ZERO {
@@ -526,6 +527,7 @@ impl BlockProducerEnabled {
                     ..
                 } = &mut self.current
                 {
+                    self.injected_blocks.insert(block.hash().clone());
                     self.current = BlockProducerCurrentState::Injected {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
