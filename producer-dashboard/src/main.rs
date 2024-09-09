@@ -70,7 +70,7 @@ async fn main() {
     let evaluator_handle = Evaluator::spawn_new(key.clone(), db.clone(), receiver);
     info!("Evaluator created");
     let node_status = NodeStatus::default();
-    let node = Node::new(config.node_url);
+    let node = Node::new(config.node_graphql_url, config.node_client_url);
     let node_watchdog = spawn_watchdog(
         node,
         node_status.clone(),

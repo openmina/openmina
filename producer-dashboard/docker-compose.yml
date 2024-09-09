@@ -66,10 +66,11 @@ services:
     env_file:
       - ./docker/.mina-env
     environment:
-      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:${PG_PORT}/${PG_DB}
-      - NODE_URL=http://mina:5000/graphql
-      - PRODUCER_KEY=/keys/whale-20-key
-      - DATABASE_PATH=/tmp/producer-dashboard
+      - OPENMINA_PDASH_DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:${PG_PORT}/${PG_DB}
+      - OPENMINA_PDASH_NODE_GRAPHQL_URL=http://mina:5000/graphql
+      - OPENMINA_PDASH_NODE_CLIENT_URL=http://mina:8031
+      - OPENMINA_PDASH_PRODUCER_KEY=/keys/whale-20-key
+      - OPENMINA_PDASH_DATABASE_PATH=/tmp/producer-dashboard
     volumes:
       - ./docker/keys:/keys:ro
       - /tmp/dashboard-db:/dashboard-db

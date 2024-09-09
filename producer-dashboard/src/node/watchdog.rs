@@ -66,7 +66,7 @@ async fn watch(
             if !db.has_ledger(&current_epoch).unwrap() {
                 info!("Dumping staking ledger for epoch {current_epoch}");
                 let ledger: crate::node::epoch_ledgers::Ledger =
-                    Node::get_staking_ledger(current_epoch);
+                    node.get_staking_ledger(current_epoch);
                 let seed = best_tip.consensus_state().staking_epoch_data.seed.clone();
 
                 if let Err(e) = db.store_ledger(current_epoch, &ledger) {

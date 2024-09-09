@@ -33,12 +33,18 @@ pub fn calc_slot_timestamp(genesis_timestamp: i64, global_slot: u32) -> i64 {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
-    url: String,
+    graphql_url: String,
+    client_url: String,
 }
 
 impl Node {
-    pub fn new(url: String) -> Self {
-        Self { url }
+    pub fn new(graphql_url: String, client_url: String) -> Self {
+        // If we specify the url as http://<IP>:<PORT> we need to strip http:// as the client handler code expexts <IP>:<PORT>
+        let client_url = client_url.strip_prefix("http://").unwrap_or(&client_url);
+        Self {
+            graphql_url,
+            client_url: client_url.to_string(),
+        }
     }
 
     pub async fn wait_for_graphql(&self) -> Result<(), StakingToolError> {
@@ -51,7 +57,7 @@ impl Node {
         let start_time = tokio::time::Instant::now();
 
         while tokio::time::Instant::now() - start_time < timeout_duration {
-            match client.get(&self.url).send().await {
+            match client.get(&self.graphql_url).send().await {
                 Ok(response) => {
                     println!("[wait_for_graphql] Response status: {}", response.status());
                     if response.status().is_client_error() {
@@ -77,7 +83,7 @@ impl Node {
 
         let variables = daemon_status::Variables {};
 
-        let response_body = post_graphql::<DaemonStatus, _>(&client, &self.url, variables)
+        let response_body = post_graphql::<DaemonStatus, _>(&client, &self.graphql_url, variables)
             .await
             .unwrap();
 
@@ -97,9 +103,10 @@ impl Node {
 
         let variables = genesis_timestamp::Variables {};
 
-        let response_body = post_graphql::<GenesisTimestamp, _>(&client, &self.url, variables)
-            .await
-            .unwrap();
+        let response_body =
+            post_graphql::<GenesisTimestamp, _>(&client, &self.graphql_url, variables)
+                .await
+                .unwrap();
         let response_data: genesis_timestamp::ResponseData = response_body
             .data
             .ok_or(StakingToolError::EmptyGraphqlResponse)?;
@@ -117,7 +124,7 @@ impl Node {
             .unwrap();
 
         let variables = best_chain::Variables { max_length: 290 };
-        let response_body = post_graphql::<BestChain, _>(&client, &self.url, variables)
+        let response_body = post_graphql::<BestChain, _>(&client, &self.graphql_url, variables)
             .await
             .unwrap();
 
@@ -151,7 +158,7 @@ impl Node {
             .unwrap();
 
         let variables = best_chain::Variables { max_length: 1 };
-        let response_body = post_graphql::<BestChain, _>(&client, &self.url, variables)
+        let response_body = post_graphql::<BestChain, _>(&client, &self.graphql_url, variables)
             .await
             .unwrap();
 
@@ -165,13 +172,13 @@ impl Node {
             .ok_or(StakingToolError::EmptyGraphqlResponse)
     }
 
-    fn dump_current_staking_ledger() -> impl AsRef<[u8]> {
+    fn dump_current_staking_ledger(&self) -> impl AsRef<[u8]> {
         let output = Command::new("mina")
             .args([
                 "ledger",
                 "export",
                 "--daemon-port",
-                "mina:8301",
+                &self.client_url,
                 "staking-epoch-ledger",
             ])
             .output()
@@ -185,8 +192,8 @@ impl Node {
         output.stdout
     }
 
-    pub fn get_staking_ledger(_epoch_number: u32) -> Ledger {
-        let raw = Self::dump_current_staking_ledger();
+    pub fn get_staking_ledger(&self, _epoch_number: u32) -> Ledger {
+        let raw = self.dump_current_staking_ledger();
         let inner = serde_json::from_slice(raw.as_ref()).unwrap();
         Ledger::new(inner)
     }

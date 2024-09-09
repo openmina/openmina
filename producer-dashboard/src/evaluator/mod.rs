@@ -36,7 +36,7 @@ impl Evaluator {
     async fn run(&mut self) {
         while let Some(init) = self.receiver.recv().await {
             let (start, end) = init.bounds;
-            info!("[evaluator] Evaluating slots: {start} - {end}");
+            info!("Evaluating slots: {start} - {end}");
             let total_currency = init.ledger.total_currency();
 
             let pub_key = self.key.public_key();

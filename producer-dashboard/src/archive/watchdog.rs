@@ -2,7 +2,7 @@ use crate::{archive::Block, evaluator::epoch::SlotStatus, storage::db_sled::Data
 
 use super::ArchiveConnector;
 use tokio::{task::JoinHandle, time::Duration};
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, trace};
 
 #[derive(Debug)]
 pub struct ArchiveWatchdog {
@@ -34,7 +34,7 @@ impl ArchiveWatchdog {
         loop {
             interval.tick().await;
 
-            info!("[archive-watchdog] Tick");
+            trace!("Tick");
             let node_status = self.node_status.read().await.clone();
 
             let current_slot = node_status.current_slot();
@@ -113,7 +113,7 @@ impl ArchiveWatchdog {
                                 .unwrap();
                         }
                     } else if self.db.has_slot(slot).unwrap_or_default() {
-                        info!("[archive] saw produced block: {}", block.state_hash);
+                        info!("Saw produced block: {}", block.state_hash);
                         self.db.store_block(block.clone()).unwrap();
                         self.db
                             .update_slot_block(slot, block.into(), true, false)
