@@ -22,15 +22,15 @@
 
 <body class="f-base">
 <script type="module">
-  // function webNodeLoaded() {
-  //   const event = new CustomEvent('webNodeLoaded');
-  //   window.dispatchEvent(event);
-  // }
-  //
-  // import('./assets/webnode/pkg/openmina_node_web.js').then((v) => {
-  //   window.webnode = v;
-  //   webNodeLoaded();
-  // });
+  function webNodeLoaded() {
+    const event = new CustomEvent('webNodeLoaded');
+    window.dispatchEvent(event);
+  }
+
+  import('./assets/webnode/pkg/openmina_node_web.js').then((v) => {
+    window.webnode = v;
+    webNodeLoaded();
+  });
 </script>
 <app-root class="h-100"></app-root>
 </body>

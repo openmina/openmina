@@ -30,11 +30,11 @@ export class DashboardService {
           requests: 0,
         } as DashboardPeer)),
       ),
-      // tap((peers: any) => {
-      //   console.log('----------------PEERS----------------');
-      //   console.log(peers);
-      //   console.log('----------------PEERS----------------');
-      // }),
+      tap((peers: any) => {
+        console.log('----------------PEERS----------------');
+        console.log(peers);
+        console.log('----------------PEERS----------------');
+      }),
     );
   }
 
@@ -48,22 +48,22 @@ export class DashboardService {
         name,
         url,
       })),
-      // tap((peers: any) => {
-      //   console.log('----------------SYNC----------------');
-      //   console.log(peers);
-      //   console.log('----------------SYNC----------------');
-      // }),
+      tap((peers: any) => {
+        console.log('----------------SYNC----------------');
+        console.log(peers);
+        console.log('----------------SYNC----------------');
+      }),
     );
   }
 
   getRpcCalls(): Observable<DashboardRpcStats> {
     return this.rust.get<MessageProgressResponse>('/state/message-progress').pipe(
       map((response: MessageProgressResponse) => this.mapMessageProgressResponse(response)),
-      // tap((peers: any) => {
-      //   console.log('----------------MESSAGES----------------');
-      //   console.log(peers);
-      //   console.log('----------------MESSAGES----------------');
-      // }),
+      tap((peers: any) => {
+        console.log('----------------MESSAGES----------------');
+        console.log(peers);
+        console.log('----------------MESSAGES----------------');
+      }),
     );
   }
 
