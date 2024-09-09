@@ -4027,18 +4027,15 @@ pub mod zkapp_command {
             let mut tbl = HashMap::with_capacity(128);
             // Keep track of the verification keys that have been set so far
             // during this transaction.
-            let mut vks_overridden = HashMap::with_capacity(128);
+            let mut vks_overridden: HashMap<AccountId, Option<WithHash<VerificationKey>>> =
+                HashMap::with_capacity(128);
 
             let account_updates = account_updates.try_map_to(|p| {
                 let account_id = p.account_id();
 
-                if let SetOrKeep::Set(vk_next) = &p.body.update.verification_key {
-                    vks_overridden.insert(account_id.clone(), Some(vk_next.clone()));
-                }
-
                 check_authorization(p)?;
 
-                match (&p.body.authorization_kind, is_failed) {
+                let result = match (&p.body.authorization_kind, is_failed) {
                     (AuthorizationKind::Proof(vk_hash), false) => {
                         let prioritized_vk = {
                             // only lookup _past_ vk setting, ie exclude the new one we
@@ -4071,7 +4068,15 @@ pub mod zkapp_command {
                     _ => {
                         Ok((p.clone(), None))
                     }
+                };
+
+                // NOTE: we only update the overriden map AFTER verifying the update to make sure
+                // that the verification for the VK update itself is done against the previous VK.
+                if let SetOrKeep::Set(vk_next) = &p.body.update.verification_key {
+                    vks_overridden.insert(p.account_id().clone(), Some(vk_next.clone()));
                 }
+
+                result
             })?;
 
             Ok(ZkAppCommand {
