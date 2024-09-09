@@ -104,7 +104,6 @@ impl P2pNetworkPubsubState {
                         if err.to_string().contains("buffer underflow") && state.buffer.is_empty() {
                             state.buffer = data.to_vec();
                         }
-                        dbg!(err);
                     }
                 }
 
