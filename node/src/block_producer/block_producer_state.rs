@@ -310,7 +310,9 @@ impl BlockProducerCurrentState {
             return Some(BlockProducerWonSlotDiscardReason::BestTipGlobalSlotHigher);
         }
 
-        if &won_slot.staking_ledger_hash != best_tip.staking_epoch_ledger_hash() {
+        if &won_slot.staking_ledger_hash != best_tip.staking_epoch_ledger_hash()
+            && &won_slot.staking_ledger_hash != best_tip.next_epoch_ledger_hash()
+        {
             return Some(BlockProducerWonSlotDiscardReason::BestTipStakingLedgerDifferent);
         }
 
