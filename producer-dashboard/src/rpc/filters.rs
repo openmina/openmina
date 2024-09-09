@@ -18,8 +18,16 @@ pub fn filters(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()
-        .allow_header("content-type")
-        .allow_method("GET");
+        .allow_method("GET")
+        .allow_headers([
+            "User-Agent",
+            "Sec-Fetch-Mode",
+            "Referer",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers",
+            "Content-Type",
+        ]);
 
     genesis_timestamp()
         .or(latest_epoch_data(storage.clone(), node_status.clone()))
