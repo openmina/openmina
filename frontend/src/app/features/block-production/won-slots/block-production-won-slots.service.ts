@@ -36,6 +36,7 @@ export class BlockProductionWonSlotsService {
               age: this.calculateTimeAgo(attempt),
               slotTime: attempt.won_slot.slot_time,
               globalSlot: attempt.won_slot.global_slot,
+              slotInEpoch: attempt.won_slot.global_slot % 7140,
               vrfValueWithThreshold: attempt.won_slot.value_with_threshold,
               active: attempt.active,
 

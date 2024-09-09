@@ -5,6 +5,7 @@ export interface BlockProductionWonSlotsSlot {
   age: string;
   slotTime: number;
   globalSlot: number;
+  slotInEpoch: number;
   vrfValueWithThreshold: [number, number];
   active: boolean;
   percentage: number;

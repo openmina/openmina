@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2024-09-09
+
+### Fixed
+
+- Handling verification key updates with proof authorization kind.
+- Block producer incorrectly discarding blocks if staking ledger between best tip and won slot were different.
+
 ## [0.8.2] - 2024-09-06
 
 ### Fixed
@@ -228,7 +235,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.8.2...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.8.3...develop
+[0.8.3]: https://github.com/openmina/openmina/releases/tag/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/openmina/openmina/releases/tag/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/openmina/openmina/releases/tag/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/openmina/openmina/releases/tag/v0.7.0...v0.8.0

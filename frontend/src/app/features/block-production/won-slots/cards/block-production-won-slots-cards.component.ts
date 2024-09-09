@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
-import { lastItem, ONE_BILLION, ONE_MILLION, ONE_THOUSAND } from '@openmina/shared';
+import { lastItem, ONE_BILLION, ONE_MILLION, ONE_THOUSAND, toReadableDate } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { filter } from 'rxjs';
 import {
@@ -72,6 +72,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
         )
         .map(s => s.coinbaseRewards + s.txFeesRewards).reduce((a, b) => a + b, 0).toFixed(0);
 
+      this.card6.totalRewards = isNaN(+this.card6.totalRewards) ? '0' : this.card6.totalRewards;
       this.detect();
     }, filter(slots => slots.length > 0));
   }

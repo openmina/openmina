@@ -122,7 +122,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
   }));
 
   it('sort by transactions', () => execute(() => {
-    cy.get('mina-block-production-won-slots-table .head > span:nth-child(5)')
+    cy.get('mina-block-production-won-slots-table .head > span:nth-child(6)')
       .click()
       .window()
       .its('store')
@@ -135,7 +135,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
   }));
 
   it('sort by snark fees', () => execute(() => {
-    cy.get('mina-block-production-won-slots-table .head > span:nth-child(7)')
+    cy.get('mina-block-production-won-slots-table .head > span:nth-child(8)')
       .click()
       .window()
       .its('store')
@@ -148,7 +148,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
   }));
 
   it('sort by snark coinbase rewards', () => execute(() => {
-    cy.get('mina-block-production-won-slots-table .head > span:nth-child(8)')
+    cy.get('mina-block-production-won-slots-table .head > span:nth-child(9)')
       .click()
       .window()
       .its('store')
@@ -161,7 +161,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
   }));
 
   it('sort by snark tx fees rewards', () => execute(() => {
-    cy.get('mina-block-production-won-slots-table .head > span:nth-child(9)')
+    cy.get('mina-block-production-won-slots-table .head > span:nth-child(10)')
       .click()
       .window()
       .its('store')
