@@ -194,7 +194,7 @@ jobs:
       - name: Extract Version from package.json
         id: extract_version
         run: |
-          VERSION=$(jq -r '.version' ./frontend/package.json)
+          VERSION=$(jq -r '.version' ../../frontend/package.json)
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Extracted version: ${VERSION}"
 
