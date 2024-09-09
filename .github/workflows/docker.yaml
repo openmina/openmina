@@ -204,7 +204,7 @@ jobs:
             type=sha,format=short
             type=semver,pattern={{version}},event=tag
             type=ref,event=tag
-            type=raw,value=v0.8.3,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -220,5 +220,4 @@ jobs:
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY_FRONTEND_IMAGE }}:v0.8.3
-# ${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
