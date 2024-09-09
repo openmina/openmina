@@ -72,6 +72,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
         )
         .map(s => s.coinbaseRewards + s.txFeesRewards).reduce((a, b) => a + b, 0).toFixed(0);
 
+      this.card6.totalRewards = isNaN(+this.card6.totalRewards) ? '0' : this.card6.totalRewards;
       this.detect();
     }, filter(slots => slots.length > 0));
   }
