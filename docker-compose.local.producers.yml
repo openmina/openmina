@@ -1,7 +1,7 @@
 services:
   local-producer-cluster:
     container_name: local-producer-cluster
-    image: openmina/openmina:0.8.3
+    image: openmina/openmina:0.8.2
     environment:
       - RUST_BACKTRACE=1
     entrypoint: ["openmina-node-testing", "scenarios-generate", "--name", "simulation-small-forever-real-time"]
@@ -12,7 +12,7 @@ services:
 
   frontend:
     container_name: frontend
-    image: openmina/frontend:0.8.3-producer-demo
+    image: openmina/frontend:0.8.2
     # build:
     #   context: .
     #   dockerfile: Dockerfile_FE
