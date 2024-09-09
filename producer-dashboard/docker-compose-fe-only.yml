@@ -1,0 +1,9 @@
+services:
+
+  frontend:
+    image: adrnagy/openmina-fe:cluster-producers
+    platform: linux/amd64
+    container_name: producer-FE
+    ports:
+      - "80:80"
+
