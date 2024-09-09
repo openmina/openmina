@@ -176,7 +176,7 @@ jobs:
           - build_configuration: compose
             tag_suffix: ""
           - build_configuration: staging
-            tag_suffix: ""
+            tag_suffix: "-producer-demo"
     runs-on: ubuntu-latest
     needs:
       - build-openmina-frontend-image
