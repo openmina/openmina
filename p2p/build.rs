@@ -8,5 +8,5 @@ fn main() {
         ],
         &["src/network/pubsub", "src/network/identify"],
     )
-    .unwrap();
+    .expect("Proto build failed");
 }

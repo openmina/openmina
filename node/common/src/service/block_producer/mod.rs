@@ -3,8 +3,9 @@ mod vrf_evaluator;
 use ledger::proofs::{
     block::BlockParams, gates::get_provers, generate_block_proof, transaction::ProofError,
 };
-use mina_p2p_messages::v2::{
-    MinaBaseProofStableV2, ProverExtendBlockchainInputStableV2, StateHash,
+use mina_p2p_messages::{
+    binprot::BinProtWrite,
+    v2::{MinaBaseProofStableV2, ProverExtendBlockchainInputStableV2, StateHash},
 };
 use node::{
     account::AccountSecretKey,
@@ -98,8 +99,27 @@ impl node::service::BlockProducerService for crate::NodeService {
 
         let tx = self.event_sender().clone();
         thread::spawn(move || {
-            let res = prove(input, keypair, false).map_err(|err| format!("{err:?}"));
+            let res = prove(input.clone(), keypair, false).map_err(|err| format!("{err:?}"));
+            if res.is_err() {
+                // IMPORTANT: Make sure that `input` here is a copy from before `prove` is called, we don't
+                // want to leak the private key.
+                if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
+                    eprintln!("ERROR when dumping failed block proof inputs: {}", error);
+                }
+            }
             let _ = tx.send(BlockProducerEvent::BlockProve(block_hash, res).into());
         });
     }
+}
+
+fn dump_failed_block_proof_input(
+    block_hash: StateHash,
+    input: Box<ProverExtendBlockchainInputStableV2>,
+) -> std::io::Result<()> {
+    let filename = format!("/tmp/failed_block_proof_input_{block_hash}.binprot");
+    println!("Dumping failed block proof to {filename}");
+    let mut file = std::fs::File::create(&filename)?;
+    input.binprot_write(&mut file)?;
+    file.sync_all()?;
+    Ok(())
 }
