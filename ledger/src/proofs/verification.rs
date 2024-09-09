@@ -769,7 +769,12 @@ fn dump_zkapp_verification(
         vec
     };
 
-    let filename = generate_new_filename("/tmp/verify_zapp", "binprot", &bin)?;
+    let debug_dir = openmina_core::get_debug_dir();
+    let filename = debug_dir
+        .join(generate_new_filename("verify_zapp", "binprot", &bin)?)
+        .to_string_lossy()
+        .to_string();
+    std::fs::create_dir_all(&debug_dir)?;
 
     let mut file = std::fs::File::create(filename)?;
     file.write_all(&bin)?;

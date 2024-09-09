@@ -4525,6 +4525,7 @@ dependencies = [
  "mina-signer",
  "mina-tree",
  "node",
+ "openmina-core",
  "rand 0.8.5",
  "rayon",
  "redux",
