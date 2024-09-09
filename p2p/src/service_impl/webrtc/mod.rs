@@ -549,7 +549,9 @@ async fn peer_loop(
                             if msg.len() < 4 {
                                 return Err("WebRTCMessageTooSmall".to_owned());
                             } else {
-                                *len = u32::from_be_bytes(msg[..4].try_into().unwrap());
+                                *len = u32::from_be_bytes(
+                                    msg[..4].try_into().expect("Size checked above"),
+                                );
                                 *msg = &msg[4..];
                                 let len = *len as usize;
                                 if len > chan_id.max_msg_size() {

@@ -643,7 +643,7 @@ mod tests {
     }
 
     fn entry_with_peer_id(peer_id: PeerId) -> P2pNetworkKadEntry {
-        let key = peer_id.try_into().unwrap();
+        let key = peer_id.try_into().expect("Error converting PeerId");
         P2pNetworkKadEntry {
             key,
             peer_id,
@@ -655,11 +655,12 @@ mod tests {
     #[test]
     fn test_key_generation() {
         let random_peer_id = SecretKey::rand().public_key().peer_id();
-        let libp2p_peer_id = libp2p_identity::PeerId::try_from(random_peer_id).unwrap();
+        let libp2p_peer_id =
+            libp2p_identity::PeerId::try_from(random_peer_id).expect("Conversion failed");
         let cid = CID::from(libp2p_peer_id);
 
-        let key0 = P2pNetworkKadKey::try_from(&random_peer_id).unwrap();
-        let key1 = P2pNetworkKadKey::try_from(random_peer_id).unwrap();
+        let key0 = P2pNetworkKadKey::try_from(&random_peer_id).expect("Conversion failed");
+        let key1 = P2pNetworkKadKey::try_from(random_peer_id).expect("Conversion failed");
         let key2 = P2pNetworkKadKey::from(cid);
 
         assert_eq!(key0, key1);
@@ -756,14 +757,17 @@ mod tests {
         let closest = BTreeSet::from_iter(iter);
         println!("{}", closest.len());
 
-        let max_closest_dist = closest.iter().max_by_key(|e| entry.dist(e)).unwrap();
+        let max_closest_dist = closest
+            .iter()
+            .max_by_key(|e| entry.dist(e))
+            .expect("Failed to find entry");
         let min_non_closest_dist = rt
             .buckets
             .iter()
             .flat_map(|e| e.iter())
             .filter(|e| !closest.contains(*e))
             .min_by_key(|e| entry.dist(e))
-            .unwrap();
+            .expect("Failed to find entry");
 
         let max = entry.dist(max_closest_dist);
         let min = entry.dist(min_non_closest_dist);
@@ -791,7 +795,10 @@ mod tests {
             let find_node = rt.find_node(&entry.key);
             let closest = BTreeSet::from_iter(find_node);
 
-            let max_closest_dist = closest.iter().max_by_key(|e| entry.dist(e)).unwrap();
+            let max_closest_dist = closest
+                .iter()
+                .max_by_key(|e| entry.dist(e))
+                .expect("Error finding entry");
             let min_non_closest_dist = rt
                 .buckets
                 .iter()
@@ -799,7 +806,7 @@ mod tests {
                 .filter(|e| e.key != entry.key && e.key != rt.this_key)
                 .filter(|e| !closest.contains(*e))
                 .min_by_key(|e| entry.dist(e))
-                .unwrap();
+                .expect("Error finding entry");
 
             let max = entry.dist(max_closest_dist);
             let min = entry.dist(min_non_closest_dist);

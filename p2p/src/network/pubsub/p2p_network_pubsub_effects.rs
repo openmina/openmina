@@ -222,16 +222,6 @@ impl P2pNetworkPubsubAction {
             }
             P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id } => {
                 if !message_is_empty(&msg) {
-                    // println!(
-                    //     "(pubsub) {this} -> {peer_id}, {:?}, {:?}, {}",
-                    //     msg.subscriptions,
-                    //     msg.control,
-                    //     msg.publish.len()
-                    // );
-                    // for ele in &msg.publish {
-                    //     let id = super::p2p_network_pubsub_state::compute_message_id(ele);
-                    //     println!("{}", std::str::from_utf8(&id).unwrap());
-                    // }
                     let mut data = vec![];
                     if prost::Message::encode_length_delimited(&msg, &mut data).is_err() {
                         store.dispatch(P2pNetworkPubsubAction::OutgoingMessageError {

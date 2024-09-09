@@ -61,7 +61,7 @@ impl FromStr for PublicKey {
                 bs58::decode::Error::BufferTooSmall.to_string(),
             ));
         }
-        Self::from_bytes(bytes[1..33].try_into().unwrap())
+        Self::from_bytes(bytes[1..33].try_into().expect("Size checked above"))
             .map_err(|err| PublicKeyFromStrError::Ed25519(err.to_string()))
     }
 }

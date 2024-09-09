@@ -288,8 +288,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         let [_node1, _node2] =
-            super::rust_nodes_from_config(&mut cluster, RustNodeConfig::default()).unwrap();
-        let [node1, node2, node3] = super::rust_nodes_from_default_config(&mut cluster).unwrap();
+            super::rust_nodes_from_config(&mut cluster, RustNodeConfig::default())
+                .expect("Error creating nodes");
+        let [node1, node2, node3] =
+            super::rust_nodes_from_default_config(&mut cluster).expect("Error creating nodes");
 
         let ready =
             wait_for_nodes_to_listen(&mut cluster, [node1, node2, node3], Duration::from_secs(10))

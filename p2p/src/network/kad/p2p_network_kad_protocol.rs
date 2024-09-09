@@ -302,9 +302,10 @@ pub mod tests {
     #[test]
     fn cid_generation() {
         let random_peer_id = SecretKey::rand().public_key().peer_id();
-        let libp2p_peer_id = libp2p_identity::PeerId::try_from(random_peer_id).unwrap();
+        let libp2p_peer_id =
+            libp2p_identity::PeerId::try_from(random_peer_id).expect("PeerId conversion failed");
 
-        let cid0 = CID::try_from(random_peer_id).unwrap();
+        let cid0 = CID::try_from(random_peer_id).expect("Error generating CID");
         let cid1 = CID::from(libp2p_peer_id);
 
         assert_eq!(cid0, cid1);
@@ -319,14 +320,14 @@ pub mod tests {
 
         let peer_id = "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H"
             .parse::<PeerId>()
-            .unwrap();
+            .expect("Error parsing peer id");
         assert_eq!(
             from_bytes(
                 &libp2p_identity::PeerId::try_from(peer_id)
-                    .unwrap()
+                    .expect("Error converting to PeerId")
                     .to_bytes()
             )
-            .unwrap(),
+            .expect("Error generating from bytes"),
             peer_id
         );
     }
@@ -347,8 +348,11 @@ pub mod tests {
             "/ip4/198.51.100.1/tcp/80",
             "/dns4/ams-2.bootstrap.libp2p.io/tcp/443",
         ] {
-            let multiaddr = multiaddr.parse::<Multiaddr>().unwrap();
-            assert_eq!(from_bytes(&multiaddr.to_vec()).unwrap(), multiaddr);
+            let multiaddr = multiaddr.parse::<Multiaddr>().expect("Failed to parse");
+            assert_eq!(
+                from_bytes(&multiaddr.to_vec()).expect("Error converting from bytes"),
+                multiaddr
+            );
         }
     }
 
@@ -356,7 +360,7 @@ pub mod tests {
     fn find_nodes_from_wire() {
         let input = "2c0804500a1226002408011220bcbfc53faa51a1410b7599c1e4411d5ac45ed5a1ffdc4673c1a6e2b9e9125c4d";
 
-        let bytes = hex::decode(input).unwrap();
+        let bytes = hex::decode(input).expect("Error decoding");
         let protobuf_message = BytesReader::from_bytes(&bytes)
             .read_message::<super::super::Message>(&bytes)
             .expect("should be able to decode");
@@ -375,9 +379,9 @@ pub mod tests {
     fn find_nodes_from_wire_len() {
         let input = "2c0804500a1226002408011220bcbfc53faa51a1410b7599c1e4411d5ac45ed5a1ffdc4673c1a6e2b9e9125c4d";
 
-        let bytes = hex::decode(input).unwrap();
+        let bytes = hex::decode(input).expect("Error decoding");
         let from_bytes = &mut BytesReader::from_bytes(&bytes);
-        let len = from_bytes.read_varint32(&bytes).unwrap();
+        let len = from_bytes.read_varint32(&bytes).expect("Error reading len");
 
         println!("{} {}", len, from_bytes.len());
         let protobuf_message = BytesReader::from_bytes(&bytes)

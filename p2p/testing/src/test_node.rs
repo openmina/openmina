@@ -21,7 +21,7 @@ pub trait TestNode {
     }
 
     fn libp2p_dial_opts(&self, host: IpAddr) -> Multiaddr {
-        let peer_id: libp2p::PeerId = self.peer_id().try_into().unwrap();
+        let peer_id: libp2p::PeerId = self.peer_id().try_into().expect("Conversion failed");
 
         match host {
             IpAddr::V4(ip) => {
