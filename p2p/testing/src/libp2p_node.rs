@@ -46,7 +46,9 @@ impl Libp2pNode {
 
 impl TestNode for Libp2pNode {
     fn peer_id(&self) -> PeerId {
-        (*self.swarm.local_peer_id()).try_into().unwrap()
+        (*self.swarm.local_peer_id())
+            .try_into()
+            .expect("Conversion failed")
     }
 
     fn libp2p_port(&self) -> u16 {
@@ -126,9 +128,10 @@ pub(crate) fn create_swarm(
             .max_transmit_size(1024 * 1024 * 32)
             .validate_messages()
             .build()
-            .unwrap();
+            .expect("Error building gossipsub");
         let mut gossipsub: gossipsub::Behaviour =
-            gossipsub::Behaviour::new(message_authenticity, gossipsub_config).unwrap();
+            gossipsub::Behaviour::new(message_authenticity, gossipsub_config)
+                .expect("Error creating behaviour");
 
         gossipsub
             .subscribe(&gossipsub::IdentTopic::new("coda/consensus-messages/0.0.1"))
@@ -168,7 +171,7 @@ pub(crate) fn create_swarm(
     let swarm = libp2p::SwarmBuilder::with_existing_identity(identity_keys)
         .with_tokio()
         .with_other_transport(|key| {
-            let noise_config = libp2p::noise::Config::new(key).unwrap();
+            let noise_config = libp2p::noise::Config::new(key).expect("Error generating noise");
             let mut yamux_config = libp2p::yamux::Config::default();
 
             yamux_config.set_protocol_name("/coda/yamux/1.0.0");

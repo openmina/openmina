@@ -83,7 +83,9 @@ impl P2pServiceWebrtc for ClusterService {
         &mut self,
         list: &[p2p::connection::outgoing::P2pConnectionOutgoingInitOpts],
     ) -> p2p::connection::outgoing::P2pConnectionOutgoingInitOpts {
-        list.choose(&mut self.rng).unwrap().clone()
+        list.choose(&mut self.rng)
+            .expect("Error choosing random peer")
+            .clone()
     }
 
     fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event> {

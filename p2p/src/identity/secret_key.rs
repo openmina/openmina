@@ -77,7 +77,9 @@ impl FromStr for SecretKey {
                 bs58::decode::Error::BufferTooSmall.to_string(),
             ));
         }
-        Ok(Self::from_bytes(bytes[1..33].try_into().unwrap()))
+        Ok(Self::from_bytes(
+            bytes[1..33].try_into().expect("Size checked above"),
+        ))
     }
 }
 

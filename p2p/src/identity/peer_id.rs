@@ -107,7 +107,9 @@ impl FromStr for PeerId {
         if size != 33 {
             return Err(bs58::decode::Error::BufferTooSmall);
         }
-        Ok(Self::from_bytes(bytes[1..33].try_into().unwrap()))
+        Ok(Self::from_bytes(
+            bytes[1..33].try_into().expect("Size checked above"),
+        ))
     }
 }
 
@@ -139,14 +141,6 @@ impl TryFrom<PeerId> for libp2p_identity::PeerId {
         #[allow(deprecated)]
         let key = libp2p_identity::PublicKey::from(key);
         Ok(key.to_peer_id())
-    }
-}
-
-impl PartialEq<libp2p_identity::PeerId> for PeerId {
-    fn eq(&self, other: &libp2p_identity::PeerId) -> bool {
-        let key = libp2p_identity::PublicKey::try_decode_protobuf(other.as_ref().digest()).unwrap();
-        let bytes = key.try_into_ed25519().unwrap().to_bytes();
-        self == &PeerId::from_bytes(bytes)
     }
 }
 
@@ -209,16 +203,16 @@ mod tests {
     #[test]
     fn test_peer_id_bs58() {
         let s = "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H";
-        let id: PeerId = s.parse().unwrap();
+        let id: PeerId = s.parse().expect("Parsing failed");
         assert_eq!(s, id.to_string());
     }
 
     #[test]
     fn test_libp2p_peer_id_conv() {
         let s = "12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv";
-        let id: libp2p_identity::PeerId = s.parse().unwrap();
-        let conv: PeerId = id.try_into().unwrap();
-        let id_conv: libp2p_identity::PeerId = conv.try_into().unwrap();
+        let id: libp2p_identity::PeerId = s.parse().expect("Parsing failed");
+        let conv: PeerId = id.try_into().expect("Parsing failed");
+        let id_conv: libp2p_identity::PeerId = conv.try_into().expect("Parsing failed");
         assert_eq!(id_conv, id);
     }
 
@@ -226,9 +220,9 @@ mod tests {
     #[ignore = "doesn't work"]
     fn test_bare_base58btc_pk() {
         let s = "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3";
-        let id: libp2p_identity::PeerId = s.parse().unwrap();
-        let conv: PeerId = id.try_into().unwrap();
-        let id_conv: libp2p_identity::PeerId = conv.try_into().unwrap();
+        let id: libp2p_identity::PeerId = s.parse().expect("Error parsing");
+        let conv: PeerId = id.try_into().expect("Error converting");
+        let id_conv: libp2p_identity::PeerId = conv.try_into().expect("Error converting");
         assert_eq!(id_conv, id);
     }
 }
