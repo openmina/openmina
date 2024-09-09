@@ -386,6 +386,21 @@ impl LedgerManager {
         }
     }
 
+    pub fn get_accounts(
+        &self,
+        ledger_hash: &LedgerHash,
+        account_ids: Vec<AccountId>,
+    ) -> Result<Vec<Account>, String> {
+        // TODO: this should be asynchronous
+        match self.call_sync(LedgerRequest::AccountsGet {
+            ledger_hash: ledger_hash.clone(),
+            account_ids,
+        }) {
+            Ok(LedgerResponse::AccountsGet(result)) => result,
+            _ => panic!("get_accounts failed"),
+        }
+    }
+
     #[allow(clippy::type_complexity)]
     pub fn producers_with_delegates(
         &self,
