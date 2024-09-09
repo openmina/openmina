@@ -16,7 +16,12 @@ use openmina_node_native::{tracing, NodeBuilder};
 /// Openmina node
 #[derive(Debug, clap::Args)]
 pub struct Node {
-    #[arg(long, short = 'd', default_value = "~/.openmina", env)]
+    #[arg(
+        long,
+        short = 'd',
+        default_value = "~/.openmina",
+        env = "OPENMINA_HOME"
+    )]
     pub work_dir: String,
 
     /// Peer secret key
@@ -196,6 +201,7 @@ impl Node {
         }
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
+        openmina_core::set_work_dir(work_dir.clone().into());
 
         node_builder
             .http_server(self.port)

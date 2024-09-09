@@ -20,6 +20,7 @@ ledger = { workspace = true }
 sha3 = "0.10.8"
 
 node = { path = "../../node", features = ["replay"] }
+openmina-core = { path = "../../core" }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }
