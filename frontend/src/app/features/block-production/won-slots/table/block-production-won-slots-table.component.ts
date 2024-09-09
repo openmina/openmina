@@ -32,7 +32,7 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
     { name: 'status', sort: 'message' },
     { name: 'age', sort: 'slotTime' },
     { name: 'height' },
-    { name: 'global slot', sort: 'globalSlot' },
+    { name: 'slot in epoch', sort: 'globalSlot' },
     { name: 'transactions', sort: 'transactionsTotal' },
     { name: 'SNARKs', sort: 'completedWorksCount' },
     { name: 'SNARK fees', sort: 'snarkFees' },
