@@ -12,16 +12,14 @@ impl P2pNetworkAction {
             P2pNetworkAction::Scheduler(v) => v.effects(meta, store),
             P2pNetworkAction::Pnet(v) => v.effects(meta, store),
             P2pNetworkAction::Select(v) => v.effects(meta, store),
-            P2pNetworkAction::Noise(v) => v.effects(meta, store),
-            P2pNetworkAction::Yamux(v) => v.effects(meta, store),
+
             P2pNetworkAction::Identify(v) => match v.effects(meta, store) {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Identify stream action: {e}"),
             },
-            P2pNetworkAction::Kad(v) => match v.effects(meta, store) {
-                Ok(_) => {}
-                Err(e) => error!(meta.time(); "error dispatching Kademlia action: {e}"),
-            },
+            P2pNetworkAction::Noise(_) | P2pNetworkAction::Yamux(_) | P2pNetworkAction::Kad(_) => {
+                // handled by reducer
+            }
             P2pNetworkAction::Pubsub(v) => v.effects(meta, store),
             P2pNetworkAction::Rpc(v) => v.effects(meta, store),
         }

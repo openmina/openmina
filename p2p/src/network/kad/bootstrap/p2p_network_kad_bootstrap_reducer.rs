@@ -1,4 +1,5 @@
 use multiaddr::Multiaddr;
+use openmina_core::{Substate, SubstateAccess};
 use redux::{ActionWithMeta, Timestamp};
 
 use crate::{
@@ -8,7 +9,8 @@ use crate::{
         P2pNetworkKadBootstrapSuccessfulRequest,
     },
     connection::outgoing::P2pConnectionOutgoingInitOpts,
-    socket_addr_try_from_multiaddr, P2pNetworkKadEntry, P2pNetworkKadRoutingTable,
+    socket_addr_try_from_multiaddr, P2pNetworkKadEntry, P2pNetworkKadRequestAction,
+    P2pNetworkKadState, P2pNetworkKademliaAction, P2pState,
 };
 
 use super::{P2pNetworkKadBootstrapAction, P2pNetworkKadBootstrapState};
@@ -42,20 +44,26 @@ fn prepare_next_request(
 }
 
 impl P2pNetworkKadBootstrapState {
-    pub fn reducer(
-        &mut self,
-        routing_table: &P2pNetworkKadRoutingTable,
+    pub fn reducer<Action, State>(
+        mut state_context: Substate<Action, State, Self>,
         action: ActionWithMeta<&P2pNetworkKadBootstrapAction>,
         filter_addrs: bool,
-    ) -> Result<(), String> {
+    ) -> Result<(), String>
+    where
+        State: SubstateAccess<Self> + SubstateAccess<P2pState> + SubstateAccess<P2pNetworkKadState>,
+        Action: crate::P2pActionTrait<State>,
+    {
         let (action, meta) = action.split();
+        let discovery_state: &P2pNetworkKadState = state_context.get_state().substate()?;
+        let routing_table = &discovery_state.routing_table;
+        let bootstrap_state = state_context.get_substate()?;
 
         match action {
-            P2pNetworkKadBootstrapAction::CreateRequests {} => {
-                let requests_to_create = 3_usize.saturating_sub(self.requests.len());
+            P2pNetworkKadBootstrapAction::CreateRequests => {
+                let requests_to_create = 3_usize.saturating_sub(bootstrap_state.requests.len());
                 let peer_id_req_vec = routing_table
-                    .closest_peers(&self.kademlia_key) // for the next request we take closest peer
-                    .filter(|entry| !self.processed_peers.contains(&entry.peer_id)) // that is not yet processed during this bootstrap
+                    .closest_peers(&bootstrap_state.kademlia_key) // for the next request we take closest peer
+                    .filter(|entry| !bootstrap_state.processed_peers.contains(&entry.peer_id)) // that is not yet processed during this bootstrap
                     .filter_map(|P2pNetworkKadEntry { peer_id, addrs, .. }| {
                         // we create a request for it
                         prepare_next_request(addrs, meta.time(), filter_addrs)
@@ -64,11 +72,13 @@ impl P2pNetworkKadBootstrapState {
                     .take(requests_to_create) // and stop when we create enough requests so up to 3 will be executed in parallel
                     .collect::<Vec<_>>();
 
+                let state = state_context.get_substate_mut()?;
                 for (peer_id, request) in peer_id_req_vec {
-                    self.processed_peers.insert(peer_id);
+                    state.processed_peers.insert(peer_id);
                     let address =
                         P2pConnectionOutgoingInitOpts::LibP2P((peer_id, request.addr).into());
-                    self.stats
+                    state
+                        .stats
                         .requests
                         .push(P2pNetworkKadBootstrapRequestStat::Ongoing(
                             P2pNetworkKadBootstrapOngoingRequest {
@@ -77,31 +87,57 @@ impl P2pNetworkKadBootstrapState {
                                 start: meta.time(),
                             },
                         ));
-                    self.requests.insert(peer_id, request);
+                    state.requests.insert(peer_id, request);
                 }
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let bootstrap_state: &P2pNetworkKadBootstrapState = state.substate()?;
+                let discovery_state: &P2pNetworkKadState = state.substate()?;
+                let key = bootstrap_state.key;
+
+                if bootstrap_state.requests.is_empty() {
+                    dispatcher.push(P2pNetworkKademliaAction::BootstrapFinished {});
+                } else {
+                    bootstrap_state
+                        .requests
+                        .iter()
+                        .filter_map(|(peer_id, req)| {
+                            (!discovery_state.requests.contains_key(peer_id)).then_some(
+                                P2pNetworkKadRequestAction::New {
+                                    peer_id: *peer_id,
+                                    addr: req.addr,
+                                    key,
+                                },
+                            )
+                        })
+                        .for_each(|action| dispatcher.push(action));
+                }
+
                 Ok(())
             }
             P2pNetworkKadBootstrapAction::RequestDone {
                 peer_id,
                 closest_peers,
             } => {
-                let Some(req) = self.requests.remove(peer_id) else {
-                    return Err(format!("cannot find reques for peer {peer_id}"));
+                let state: &mut P2pNetworkKadBootstrapState = state_context.get_substate_mut()?;
+                let Some(req) = state.requests.remove(peer_id) else {
+                    return Err(format!("cannot find request for peer {peer_id}"));
                 };
-                self.successful_requests += 1;
+                state.successful_requests += 1;
                 let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());
 
-                if let Some(request_stats) = self.stats.requests.iter_mut().rev().find(|req_stat| {
-                    matches!(
-                        req_stat,
-                        P2pNetworkKadBootstrapRequestStat::Ongoing(
-                            P2pNetworkKadBootstrapOngoingRequest {
-                                address: a,
-                                ..
-                            },
-                        ) if a == &address
-                    )
-                }) {
+                let result = if let Some(request_stats) =
+                    state.stats.requests.iter_mut().rev().find(|req_stat| {
+                        matches!(
+                            req_stat,
+                            P2pNetworkKadBootstrapRequestStat::Ongoing(
+                                P2pNetworkKadBootstrapOngoingRequest {
+                                    address: a,
+                                    ..
+                                },
+                            ) if a == &address
+                        )
+                    }) {
                     *request_stats = P2pNetworkKadBootstrapRequestStat::Successful(
                         P2pNetworkKadBootstrapSuccessfulRequest {
                             peer_id: *peer_id,
@@ -111,29 +147,43 @@ impl P2pNetworkKadBootstrapState {
                             closest_peers: closest_peers.clone(),
                         },
                     );
+                    Ok(())
                 } else {
-                    return Err(format!("cannot find stats for request {req:?}"));
+                    Err(format!("cannot find stats for request {req:?}"))
+                };
+
+                if state.successful_requests < 20 {
+                    let dispatcher = state_context.into_dispatcher();
+                    dispatcher.push(P2pNetworkKadBootstrapAction::CreateRequests);
                 }
 
-                Ok(())
+                result
             }
             P2pNetworkKadBootstrapAction::RequestError { peer_id, error } => {
-                let Some(req) = self.requests.remove(peer_id) else {
-                    return Err(format!("cannot find reques for peer {peer_id}"));
-                };
-                let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());
+                let bootstrap_state: &mut P2pNetworkKadBootstrapState =
+                    state_context.get_substate_mut()?;
 
-                if let Some(request_stats) = self.stats.requests.iter_mut().rev().find(|req_stat| {
-                    matches!(
-                        req_stat,
-                        P2pNetworkKadBootstrapRequestStat::Ongoing(
-                            P2pNetworkKadBootstrapOngoingRequest {
-                                address: a,
-                                ..
-                            },
-                        ) if a == &address
-                    )
-                }) {
+                let Some(req) = bootstrap_state.requests.remove(peer_id) else {
+                    return Err(format!("cannot find request for peer {peer_id}"));
+                };
+
+                let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());
+                let result = if let Some(request_stats) = bootstrap_state
+                    .stats
+                    .requests
+                    .iter_mut()
+                    .rev()
+                    .find(|req_stat| {
+                        matches!(
+                            req_stat,
+                            P2pNetworkKadBootstrapRequestStat::Ongoing(
+                                P2pNetworkKadBootstrapOngoingRequest {
+                                    address: a,
+                                    ..
+                                },
+                            ) if a == &address
+                        )
+                    }) {
                     *request_stats = P2pNetworkKadBootstrapRequestStat::Failed(
                         P2pNetworkKadBootstrapFailedRequest {
                             peer_id: *peer_id,
@@ -143,11 +193,15 @@ impl P2pNetworkKadBootstrapState {
                             error: error.clone(),
                         },
                     );
-                } else {
-                    return Err(format!("cannot find stats for request {req:?}"));
-                }
 
-                Ok(())
+                    Ok(())
+                } else {
+                    Err(format!("cannot find stats for request {req:?}"))
+                };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pNetworkKadBootstrapAction::CreateRequests);
+                result
             }
         }
     }

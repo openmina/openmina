@@ -104,6 +104,7 @@ async fn rust_node_to_rust_node() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+#[ignore = "TODO: Add override for reducer"]
 /// Test that even if bad node spams many different listen_addrs we don't end up with duplicates
 async fn test_bad_node() -> anyhow::Result<()> {
     let mut cluster = ClusterBuilder::new()

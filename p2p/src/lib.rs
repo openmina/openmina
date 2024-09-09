@@ -5,7 +5,15 @@ pub mod disconnection;
 pub mod discovery;
 pub mod identity;
 pub mod peer;
+use bootstrap::P2pNetworkKadBootstrapState;
+use connection::incoming::P2pConnectionIncomingAction;
+use identify::P2pIdentifyAction;
 pub use identity::PeerId;
+use network::identify::{
+    stream_effectful::P2pNetworkIdentifyStreamEffectfulAction, P2pNetworkIdentifyState,
+    P2pNetworkIdentifyStreamAction,
+};
+use openmina_core::SubstateAccess;
 
 pub mod webrtc;
 
@@ -49,7 +57,8 @@ pub use multiaddr;
 ))]
 pub mod fuzzer;
 
-use redux::SubStore;
+use redux::{EnablingCondition, SubStore};
+
 pub trait P2pStore<GlobalState>: SubStore<GlobalState, P2pState, SubAction = P2pAction> {}
 impl<S, T: SubStore<S, P2pState, SubAction = P2pAction>> P2pStore<S> for T {}
 
@@ -61,4 +70,36 @@ fn is_time_passed(
     duration: Option<std::time::Duration>,
 ) -> bool {
     duration.map_or(false, |d| now.checked_sub(then) >= Some(d))
+}
+
+pub trait P2pStateTrait:
+    SubstateAccess<P2pState>
+    + SubstateAccess<P2pNetworkState>
+    + SubstateAccess<P2pNetworkKadState>
+    + SubstateAccess<P2pNetworkKadBootstrapState>
+    + SubstateAccess<P2pNetworkIdentifyState>
+    + SubstateAccess<P2pNetworkSchedulerState>
+    + SubstateAccess<P2pLimits>
+{
+}
+
+pub trait P2pActionTrait<State>:
+    EnablingCondition<State>
+    + From<P2pAction>
+    + From<P2pNetworkKademliaStreamAction>
+    + From<P2pNetworkKadRequestAction>
+    + From<P2pNetworkKadBootstrapAction>
+    + From<connection::outgoing::P2pConnectionOutgoingAction>
+    + From<P2pNetworkYamuxAction>
+    + From<peer::P2pPeerAction>
+    + From<P2pNetworkKademliaAction>
+    + From<P2pNetworkSchedulerAction>
+    + From<P2pNetworkIdentifyStreamAction>
+    + From<P2pIdentifyAction>
+    + From<P2pNetworkIdentifyStreamEffectfulAction>
+    + From<P2pNetworkSelectAction>
+    + From<P2pNetworkPnetAction>
+    + From<P2pNetworkNoiseAction>
+    + From<P2pConnectionIncomingAction>
+{
 }
