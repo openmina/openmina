@@ -65,8 +65,9 @@ impl BlockProducerVrfEvaluatorState {
                     BlockProducerVrfEvaluatorStatus::InitialisationComplete { time: meta.time() }
             }
             BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
-                current_epoch_number,
-                current_best_tip_height,
+                current_epoch,
+                best_tip_epoch,
+                best_tip_height,
                 transition_frontier_size,
                 staking_epoch_data,
                 next_epoch_data,
@@ -74,13 +75,14 @@ impl BlockProducerVrfEvaluatorState {
             } => {
                 self.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
                     time: meta.time(),
-                    current_epoch_number: *current_epoch_number,
-                    is_current_epoch_evaluated: self.is_epoch_evaluated(*current_epoch_number),
-                    is_next_epoch_evaluated: self.is_epoch_evaluated(current_epoch_number + 1),
+                    current_epoch: *current_epoch,
+                    best_tip_epoch: *best_tip_epoch,
+                    is_current_epoch_evaluated: self.is_epoch_evaluated(*best_tip_epoch),
+                    is_next_epoch_evaluated: self.is_epoch_evaluated(best_tip_epoch + 1),
                     transition_frontier_size: *transition_frontier_size,
-                    current_best_tip_height: *current_best_tip_height,
+                    best_tip_height: *best_tip_height,
                     last_evaluated_epoch: self.last_evaluated_epoch(),
-                    last_epoch_block_height: self.last_height(current_epoch_number - 1),
+                    last_epoch_block_height: self.last_height(best_tip_epoch - 1),
                     staking_epoch_data: staking_epoch_data.clone(),
                     next_epoch_data: next_epoch_data.clone(),
                 };
@@ -88,10 +90,10 @@ impl BlockProducerVrfEvaluatorState {
                 self.set_epoch_context();
             }
             BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
-                current_epoch_number,
-                current_best_tip_slot,
-                current_best_tip_height,
-                current_best_tip_global_slot,
+                best_tip_epoch,
+                best_tip_slot,
+                best_tip_height,
+                best_tip_global_slot,
                 next_epoch_first_slot,
                 staking_epoch_data,
                 producer,
@@ -100,12 +102,12 @@ impl BlockProducerVrfEvaluatorState {
             } => {
                 self.status = BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
                     time: meta.time(),
-                    current_epoch_number: *current_epoch_number,
-                    is_current_epoch_evaluated: self.is_epoch_evaluated(*current_epoch_number),
-                    is_next_epoch_evaluated: self.is_epoch_evaluated(current_epoch_number + 1),
-                    current_best_tip_slot: *current_best_tip_slot,
-                    current_best_tip_height: *current_best_tip_height,
-                    current_best_tip_global_slot: *current_best_tip_global_slot,
+                    best_tip_epoch: *best_tip_epoch,
+                    is_current_epoch_evaluated: self.is_epoch_evaluated(*best_tip_epoch),
+                    is_next_epoch_evaluated: self.is_epoch_evaluated(best_tip_epoch + 1),
+                    best_tip_slot: *best_tip_slot,
+                    best_tip_height: *best_tip_height,
+                    best_tip_global_slot: *best_tip_global_slot,
                     next_epoch_first_slot: *next_epoch_first_slot,
                     staking_epoch_data: staking_epoch_data.clone(),
                     producer: producer.clone(),
@@ -114,10 +116,10 @@ impl BlockProducerVrfEvaluatorState {
             }
             BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction => {
                 let BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
-                    current_epoch_number,
-                    current_best_tip_slot,
-                    current_best_tip_height,
-                    current_best_tip_global_slot,
+                    best_tip_epoch,
+                    best_tip_slot,
+                    best_tip_height,
+                    best_tip_global_slot,
                     next_epoch_first_slot,
                     staking_epoch_data,
                     producer,
@@ -129,11 +131,11 @@ impl BlockProducerVrfEvaluatorState {
                 };
                 self.status = BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending {
                     time: meta.time(),
-                    epoch_number: *current_epoch_number,
+                    best_tip_epoch: *best_tip_epoch,
                     staking_epoch_ledger_hash: staking_epoch_data.ledger.clone(),
-                    current_best_tip_slot: *current_best_tip_slot,
-                    current_best_tip_height: *current_best_tip_height,
-                    current_best_tip_global_slot: *current_best_tip_global_slot,
+                    best_tip_slot: *best_tip_slot,
+                    best_tip_height: *best_tip_height,
+                    best_tip_global_slot: *best_tip_global_slot,
                     next_epoch_first_slot: *next_epoch_first_slot,
                     staking_epoch_data: staking_epoch_data.clone(),
                     producer: producer.clone(),
@@ -144,10 +146,10 @@ impl BlockProducerVrfEvaluatorState {
                 delegator_table,
             } => {
                 let BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending {
-                    epoch_number,
-                    current_best_tip_slot,
-                    current_best_tip_height,
-                    current_best_tip_global_slot,
+                    best_tip_epoch,
+                    best_tip_slot,
+                    best_tip_height,
+                    best_tip_global_slot,
                     next_epoch_first_slot,
                     staking_epoch_data,
                     producer,
@@ -163,11 +165,11 @@ impl BlockProducerVrfEvaluatorState {
 
                 self.status = BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess {
                     time: meta.time(),
-                    epoch_number: *epoch_number,
+                    best_tip_epoch: *best_tip_epoch,
                     staking_epoch_ledger_hash: staking_epoch_data.ledger.clone(),
-                    current_best_tip_slot: *current_best_tip_slot,
-                    current_best_tip_height: *current_best_tip_height,
-                    current_best_tip_global_slot: *current_best_tip_global_slot,
+                    best_tip_slot: *best_tip_slot,
+                    best_tip_height: *best_tip_height,
+                    best_tip_global_slot: *best_tip_global_slot,
                     next_epoch_first_slot: *next_epoch_first_slot,
                     staking_epoch_data: staking_epoch_data.clone(),
                     producer: producer.clone(),
@@ -175,19 +177,19 @@ impl BlockProducerVrfEvaluatorState {
                 }
             }
             BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {
-                current_epoch_number,
+                best_tip_epoch,
                 latest_evaluated_global_slot,
                 staking_epoch_data,
                 ..
             } => {
                 self.set_pending_evaluation(PendingEvaluation {
-                    epoch_number: *current_epoch_number,
+                    epoch_number: *best_tip_epoch,
                     epoch_data: staking_epoch_data.clone(),
                     latest_evaluated_slot: *latest_evaluated_global_slot,
                 });
                 self.status = BlockProducerVrfEvaluatorStatus::EpochEvaluationPending {
                     time: meta.time(),
-                    epoch_number: *current_epoch_number,
+                    epoch_number: *best_tip_epoch,
                     epoch_data: staking_epoch_data.clone(),
                     latest_evaluated_global_slot: *latest_evaluated_global_slot,
                 }
@@ -221,36 +223,32 @@ impl BlockProducerVrfEvaluatorState {
                 self.set_last_evaluated_epoch();
             }
             BlockProducerVrfEvaluatorAction::WaitForNextEvaluation {
-                current_epoch_number,
-                current_best_tip_height,
-                current_best_tip_slot,
-                current_best_tip_global_slot,
+                best_tip_epoch,
+                best_tip_height,
+                best_tip_slot,
+                best_tip_global_slot,
                 last_epoch_block_height,
                 transition_frontier_size,
             } => {
                 self.status = BlockProducerVrfEvaluatorStatus::WaitingForNextEvaluation {
                     time: meta.time(),
-                    current_epoch_number: *current_epoch_number,
-                    current_best_tip_height: *current_best_tip_height,
-                    current_best_tip_global_slot: *current_best_tip_global_slot,
-                    current_best_tip_slot: *current_best_tip_slot,
+                    best_tip_epoch: *best_tip_epoch,
+                    best_tip_height: *best_tip_height,
+                    best_tip_global_slot: *best_tip_global_slot,
+                    best_tip_slot: *best_tip_slot,
                     last_epoch_block_height: *last_epoch_block_height,
                     transition_frontier_size: *transition_frontier_size,
                 };
             }
             BlockProducerVrfEvaluatorAction::SelectInitialSlot {
-                current_epoch_number,
+                best_tip_epoch,
                 current_global_slot,
                 next_epoch_first_slot,
                 ..
             } => {
                 let (epoch_number, initial_slot) = match self.epoch_context() {
-                    super::EpochContext::Current(_) => {
-                        (*current_epoch_number, *current_global_slot)
-                    }
-                    super::EpochContext::Next(_) => {
-                        (current_epoch_number + 1, next_epoch_first_slot - 1)
-                    }
+                    super::EpochContext::Current(_) => (*best_tip_epoch, *current_global_slot),
+                    super::EpochContext::Next(_) => (best_tip_epoch + 1, next_epoch_first_slot - 1),
                     super::EpochContext::Waiting => todo!(),
                 };
                 self.status = BlockProducerVrfEvaluatorStatus::InitialSlotSelection {
@@ -259,10 +257,8 @@ impl BlockProducerVrfEvaluatorState {
                     initial_slot,
                 }
             }
-            BlockProducerVrfEvaluatorAction::CleanupOldSlots {
-                current_epoch_number,
-            } => {
-                self.cleanup_old_won_slots(current_epoch_number);
+            BlockProducerVrfEvaluatorAction::CleanupOldSlots { best_tip_epoch } => {
+                self.cleanup_old_won_slots(best_tip_epoch);
             }
             BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { reason } => {
                 self.status = BlockProducerVrfEvaluatorStatus::EpochEvaluationInterrupted {
