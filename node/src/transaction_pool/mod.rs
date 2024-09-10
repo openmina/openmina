@@ -18,7 +18,7 @@ use redux::callback;
 use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 pub mod transaction_pool_actions;
@@ -419,7 +419,7 @@ pub trait VerifyUserCommandsService: redux::Service {
         req_id: SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
     );
 }
 

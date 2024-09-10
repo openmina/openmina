@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::{block_verify::VerifiableBlockWithHash, VerifierIndex, VerifierSRS};
 
@@ -9,7 +9,7 @@ pub trait SnarkBlockVerifyService: redux::Service {
         &mut self,
         req_id: SnarkBlockVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     );
 }
