@@ -116,8 +116,13 @@ fn dump_failed_block_proof_input(
     block_hash: StateHash,
     input: Box<ProverExtendBlockchainInputStableV2>,
 ) -> std::io::Result<()> {
-    let filename = format!("/tmp/failed_block_proof_input_{block_hash}.binprot");
+    let debug_dir = openmina_core::get_debug_dir();
+    let filename = debug_dir
+        .join(format!("failed_block_proof_input_{block_hash}.binprot"))
+        .to_string_lossy()
+        .to_string();
     println!("Dumping failed block proof to {filename}");
+    std::fs::create_dir_all(&debug_dir)?;
     let mut file = std::fs::File::create(&filename)?;
     input.binprot_write(&mut file)?;
     file.sync_all()?;

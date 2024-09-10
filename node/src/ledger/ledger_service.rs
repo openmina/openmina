@@ -1222,17 +1222,22 @@ fn dump_reconstruct_to_file(
         states: needed_blocks.clone(),
     };
 
-    const FILENAME: &str = "/tmp/failed_reconstruct_ctx.binprot";
+    let debug_dir = openmina_core::get_debug_dir();
+    let filename = debug_dir
+        .join("failed_reconstruct_ctx.binprot")
+        .to_string_lossy()
+        .to_string();
+    std::fs::create_dir_all(&debug_dir)?;
 
     use mina_p2p_messages::binprot::BinProtWrite;
-    let mut file = std::fs::File::create(FILENAME)?;
+    let mut file = std::fs::File::create(&filename)?;
     reconstruct_context.binprot_write(&mut file)?;
     file.sync_all()?;
 
     openmina_core::info!(
         openmina_core::log::system_time();
         kind = "LedgerService::dump - Failed reconstruct",
-        summary = format!("Reconstruction saved to: {FILENAME:?}")
+        summary = format!("Reconstruction saved to: {filename:?}")
     );
 
     Ok(())
@@ -1277,9 +1282,16 @@ fn dump_application_to_file(
         blocks: vec![(*block.block).clone()],
     };
 
-    use mina_p2p_messages::binprot::BinProtWrite;
-    let filename = format!("/tmp/failed_application_ctx_{}.binprot", block_height);
+    let debug_dir = openmina_core::get_debug_dir();
+    let filename = debug_dir
+        .join(format!("failed_application_ctx_{}.binprot", block_height))
+        .to_string_lossy()
+        .to_string();
+    std::fs::create_dir_all(&debug_dir)?;
+
     let mut file = std::fs::File::create(&filename)?;
+
+    use mina_p2p_messages::binprot::BinProtWrite;
     apply_context.binprot_write(&mut file)?;
     file.sync_all()?;
 
