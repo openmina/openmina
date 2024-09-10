@@ -1,3 +1,12 @@
+// REVIEW(dw): STATUS - DONE
+// REVIEW(dw): quick review, as it is mostly reading files, and implementing
+// converters from kimchi.
+// REVIEW(dw): could be moved in a library in proof-systems to provide the
+// functionality to external parties. Happy to have a discussion
+
+// REVIEW(dw): seems to be wrappers from the circuit_blobs, see
+// https://github.com/openmina/circuit-blobs. IMPORTANT: circuit-blobs have not
+// been reviewed!!
 use std::{collections::HashMap, path::Path, sync::Arc};
 
 use kimchi::circuits::gate::CircuitGate;
@@ -60,6 +69,7 @@ struct Gates {
     step_proved_rows_rev: Vec<Vec<Option<V>>>,
 }
 
+// REVIEW(dw): LGTM. No deep review as it is mainly reading files
 fn read_gates() -> Gates {
     fn read_gates_file<F: FieldWitness>(
         filepath: &impl AsRef<Path>,
