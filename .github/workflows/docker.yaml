@@ -190,24 +190,14 @@ jobs:
         with:
           path: frontend
 
-      - name: 🏷️ Generate Tag
-        id: generate_tag
-        run: echo "TAG_WEB=${{ steps.ocv-web.outputs.current-version }}" >> $GITHUB_ENV
-
-      - name: 🏷️ Print Tag
-        run: echo $TAG_WEB
-
-      - name: Conditionally Set Tag
+      - name: 🏷️ Conditionally Set Tag
         id: set_tag
         run: |
           if [[ "${{ matrix.configuration.build_configuration }}" == "staging" ]]; then
-            echo "FINAL_TAG=staging-${TAG_WEB}" >> $GITHUB_ENV
+            echo "FINAL_TAG=staging-${{ steps.ocv-web.outputs.current-version }}" >> $GITHUB_ENV
           else
             echo "FINAL_TAG=${{ steps.meta.outputs.version }}" >> $GITHUB_ENV
           fi
-
-      - name: 🏷️ Print Final Tag
-        run: echo $FINAL_TAG
 
       - name: Download digests
         uses: actions/download-artifact@v4
@@ -244,6 +234,9 @@ jobs:
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:%s ' *)
+        # Push the new image tag
+          docker buildx imagetools create --tag ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ env.FINAL_TAG }} \
             $(printf '${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:%s ' *)
 
       - name: Inspect image
