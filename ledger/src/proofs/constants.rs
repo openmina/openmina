@@ -81,6 +81,9 @@ impl ProofConstants for WrapZkappOptSignedProof {
     const ROWS: usize = WrapTransactionProof::ROWS;
 }
 
+// REVIEW(dw): could to have the number of rows! And also the number of
+// aux/public imputs, including challenges
+// Where does it come from?
 impl ProofConstants for StepTransactionProof {
     const PRIMARY_LEN: usize = 67;
     const AUX_LEN: usize = 94478;

@@ -22,6 +22,8 @@ use super::{
 pub type GroupAffine<F> =
     ark_ec::short_weierstrass_jacobian::GroupAffine<<F as FieldWitness>::Parameters>;
 
+// REVIEW(dw): is it something we should have here? Why not in proof-systems? I
+// see many things we could simplify
 /// All the generics we need during witness generation
 pub trait FieldWitness
 where

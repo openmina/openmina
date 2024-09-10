@@ -60,6 +60,10 @@ use super::{
     step,
 };
 
+// REVIEW(dw): is this code actually used? A lot seems to be some duplicated
+// code we can find in arkworks. Why not using it? Pretty dangerous.
+// If some methods are not in arkworks, we must move it in proof-systems. Let's
+// discuss.
 pub trait Check<F: FieldWitness> {
     fn check(&self, w: &mut Witness<F>);
 }
@@ -484,6 +488,8 @@ pub mod plonk_curve_ops {
         (acc, bits_lsb)
     }
 }
+// REVIEW(dw): end of the code that seems to be duplicated from arkworks or that
+// can be moved into proof-systems
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlonkVerificationKeyEvals<F: FieldWitness> {
@@ -1155,6 +1161,9 @@ impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
     }
 }
 
+// REVIEW(dw): could it not be simply the curve? and we parametrize with the
+// curve?
+// We should move into proof-systems some parts of it.
 /// Rust calls:
 /// https://github.com/openmina/mina/blob/8f83199a92faa8ff592b7ae5ad5b3236160e8c20/src/lib/crypto/kimchi_bindings/stubs/src/projective.rs
 /// Conversion to/from OCaml:
@@ -1260,8 +1269,12 @@ impl<F: FieldWitness> InnerCurve<F> {
     }
 }
 
+// REVIEW(dw): Is it really useful to have InnerCurve? It complicates the code.
+// Maybe simply parametrize the methods with the appropriate curve
+// (Pallas/Vesta)?
 impl InnerCurve<Fp> {
     // TODO: Remove this
+    // REVIEW(dw): no need to check prime subgroup as cofactor is one
     pub fn rand() -> Self {
         let kp = gen_keypair();
         let point = kp.public.into_point();

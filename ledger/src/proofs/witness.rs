@@ -5,6 +5,8 @@ use super::{
     transaction::{add_fast, scalar_challenge, Check},
 };
 
+// REVIEW(dw): I'm surprised to see this kind of code here. I would expect this
+// to be in proof-systems or reuse some part of it.
 #[derive(Debug)]
 pub struct Witness<F: FieldWitness> {
     pub(super) primary: Vec<F>,

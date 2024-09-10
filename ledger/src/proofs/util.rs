@@ -15,6 +15,12 @@ use super::{
     witness::Witness,
 };
 
+// REVIEW(dw): This converts two affine coordinates into a projective coordinate..
+// Code is
+// Self::of_affine(make_group(x, y))
+// There should be a check it is in the prime subgroup.
+// Mot of the code in transaction.rs could reuse some code from arkworkds, no?
+// It is dangerous to reimplement everything from scratch.
 pub fn extract_polynomial_commitment<
     'a,
     F: FieldWitness,
