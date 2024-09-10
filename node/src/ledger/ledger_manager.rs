@@ -173,10 +173,15 @@ impl LedgerRequest {
                                 AccountPublicKey::from(pub_key.clone()) == producer
                             })
                             .and_then(|list| list.into_iter().next())
-                            .map(|(_, table)| {
+                            // FIXME(tizoc): somehow the table data is being transposed somewhere, so we end
+                            // with the delegator pubkey as the key in the map, with the elements all containing
+                            // the block producer key.
+                            .map(|(delegator_key, table)| {
                                 table
                                     .into_iter()
-                                    .map(|(index, pub_key, balance)| (index, (pub_key, balance)))
+                                    .map(|(index, _pub_key, balance)| {
+                                        (index, (delegator_key.clone(), balance))
+                                    })
                                     .collect()
                             });
 
