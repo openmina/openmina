@@ -425,7 +425,7 @@ impl LedgerCtx {
         let mut accounts = Vec::new();
 
         mask.iter(|account| {
-            if filter(&account.public_key) || account.delegate.as_ref().map_or(false, &mut filter) {
+            if filter(account.delegate.as_ref().unwrap_or(&account.public_key)) {
                 accounts.push((
                     account.id(),
                     account.delegate.clone(),
