@@ -10,6 +10,7 @@ const CAPACITY: usize = 1;
 const RATE: usize = M - CAPACITY;
 const PERM_ROUNDS_FULL: usize = 55;
 
+// REVIEW(dw): why not using proof-system code instead directly for the sponge?
 pub enum SpongeState<F: FieldWitness> {
     Absorbing {
         next_index: Boolean,
@@ -132,6 +133,7 @@ impl<F: FieldWitness> OptSponge<F> {
     }
 }
 
+// REVIEW(dw): should it be here?
 fn add_in<F: FieldWitness>(a: &mut [F; 3], i: CircuitVar<Boolean>, x: F, w: &mut Witness<F>) {
     let i = i.as_boolean();
     let i_equals_0 = i.neg();
@@ -149,6 +151,7 @@ fn add_in<F: FieldWitness>(a: &mut [F; 3], i: CircuitVar<Boolean>, x: F, w: &mut
     }
 }
 
+// REVIEW(dw): should it be here?
 fn mul_by_boolean<F>(x: F, y: CircuitVar<Boolean>, w: &mut Witness<F>) -> F
 where
     F: FieldWitness,

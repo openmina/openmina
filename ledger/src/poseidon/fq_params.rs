@@ -1,3 +1,5 @@
+// REVIEW(dw): why not using proof-systems directly?
+
 use std::str::FromStr;
 
 use mina_curves::pasta::Fq;

@@ -81,6 +81,8 @@ impl From<&Radix2EvaluationDomain<Fq>> for Radix2EvaluationDomainCached {
 }
 
 // Note: This should be an enum but bincode encode the discriminant in 8 bytes
+// REVIEW(dw): why this type? It is to have a BigInt version of GroupAffine?
+// If yes, we should get something like this in proof-systems.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupAffineCached {
     x: BigInt,

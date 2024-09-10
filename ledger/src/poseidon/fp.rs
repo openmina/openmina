@@ -1,3 +1,5 @@
+// REVIEW(dw): why not using proof-systems directly?
+
 use std::cmp::Ordering;
 
 type BigInt = [u64; 4];

@@ -55,6 +55,10 @@ use super::{
     witness::Witness,
 };
 
+// REVIEW(DW): I see the code is mostly diplucating OCaml. I would have expected
+// something a bit different.
+// A lot of code could be moved into proof-systems or reuse proof-systems.
+
 /// Common.Max_degree.wrap_log2
 pub const COMMON_MAX_DEGREE_WRAP_LOG2: usize = 15;
 
@@ -311,6 +315,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let gamma = oracle.gamma();
     let zeta = oracle.zeta();
 
+    // REVIEW(dw): to check
     let to_bytes = |f: Fp| {
         let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
         assert_eq!([c, d], [0, 0]);
@@ -468,6 +473,7 @@ fn make_public_input(
     messages_for_next_wrap_proof_hash: &[[u64; 4]],
 ) -> Vec<Fp> {
     let to_fp = |v: [u64; 4]| Fp::from(BigInteger256(v));
+    // REVIEW(dw): why 135?
     let mut fields = Vec::with_capacity(135);
 
     for unfinalized_proofs in &step_statement.proof_state.unfinalized_proofs {
@@ -641,7 +647,9 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         prover_index: step_prover_index,
     });
 
+    // REVIEW(dw): check
     let to_fq = |[a, b]: [u64; 2]| Fq::from(BigInteger256([a, b, 0, 0]));
+    // REVIEW(dw): check
     let to_fqs = |v: &[[u64; 2]]| v.iter().copied().map(to_fq).collect::<Vec<_>>();
 
     let messages_for_next_wrap_proof = MessagesForNextWrapProof {
@@ -709,6 +717,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
     };
 
     // public input
+    // REVIEW(dw): check value 40
     w.primary = PreparedStatement {
         proof_state: ProofState {
             deferred_values,
@@ -786,6 +795,7 @@ pub struct WrapProof {
 }
 
 // TODO: Compute those values instead of hardcoded
+// REVIEW(dw): check where it comes from
 const FORBIDDEN_SHIFTED_VALUES: &[Fq; 2] = &[
     ark_ff::field_new!(Fq, "91120631062839412180561524743370440705"),
     ark_ff::field_new!(Fq, "91120631062839412180561524743370440706"),
@@ -1036,6 +1046,7 @@ pub fn ones_vector<F: FieldWitness>(first_zero: F, n: u64, w: &mut Witness<F>) -
 /// Max_proofs_verified.n
 pub const MAX_PROOFS_VERIFIED_N: u64 = 2;
 
+// REVIEW(dw): there are already methods for this in proof-systems
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Domain {
     Pow2RootsOfUnity(u64),
@@ -1065,6 +1076,7 @@ impl Domains {
         }
     }
 }
+// REVIEW(dw): end of domain, duplicated code.
 
 #[derive(Debug)]
 pub struct AllFeatureFlags<F: FieldWitness> {

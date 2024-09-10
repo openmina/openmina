@@ -15,6 +15,7 @@ use super::util::extract_bulletproof;
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 
+// REVIEW(dw): check values
 fn get_challenge_polynomial_commitments_padding() -> (BigInt, BigInt) {
     static PADDING: Lazy<(BigInt, BigInt)> = Lazy::new(|| {
         let first = Fp::from_str(

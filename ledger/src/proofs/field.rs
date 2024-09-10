@@ -24,6 +24,8 @@ pub type GroupAffine<F> =
 
 // REVIEW(dw): is it something we should have here? Why not in proof-systems? I
 // see many things we could simplify
+// REVIEW(dw): we could slighly move into a Rust version of snarky (not
+// snarky-rs because it needs to be rewritten).
 /// All the generics we need during witness generation
 pub trait FieldWitness
 where

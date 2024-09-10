@@ -3,6 +3,7 @@ use std::ops::Neg;
 use crate::proofs::field::{field, FieldWitness};
 use crate::proofs::witness::Witness;
 
+// REVIEW(dw): use code from arkworks or move into proof-systems?
 pub mod bw19 {
     use super::*;
 
