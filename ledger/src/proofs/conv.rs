@@ -1,3 +1,9 @@
+// REVIEW(dw): STATUS: Require checking mapping
+// REVIEW(dw): I did not check if the conversions map correctly the Caml types.
+// TODO.
+
+// REVIEW(dw): ! Careful ! I would use from mina_curves instead. Seems to be an
+// alias though, but ust cleaner to use directly from mina-curves
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
@@ -18,18 +24,26 @@ use super::{
     },
 };
 
+// REVIEW(dw): Mainly converters. I did not check if it was mapping the correct
+// values.
 fn state_hash(value: Fp) -> v2::StateHash {
     v2::DataHashLibStateHashStableV1(value.into()).into()
 }
 
+// REVIEW(dw): Mainly converters. I did not check if it was mapping the correct
+// values.
 fn ledger_hash(value: Fp) -> v2::LedgerHash {
     v2::MinaBaseLedgerHash0StableV1(value.into()).into()
 }
 
+// REVIEW(dw): Mainly converters. I did not check if it was mapping the correct
+// values.
 fn epoch_ledger_seed(value: Fp) -> v2::EpochSeed {
     v2::MinaBaseEpochSeedStableV1(value.into()).into()
 }
 
+// REVIEW(dw): Mainly converters. I did not check if it was mapping the correct
+// values.
 impl From<CheckedLength<Fp>> for v2::UnsignedExtendedUInt32StableV1 {
     fn from(value: CheckedLength<Fp>) -> Self {
         Self(value.to_inner().as_u32().into())

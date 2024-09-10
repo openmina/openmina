@@ -1,3 +1,5 @@
+// REVIEW(dw): STATUS WIP
+
 use std::str::FromStr;
 
 use crate::proofs::to_field_elements::ToFieldElements;
@@ -7,13 +9,16 @@ use crate::proofs::VerifierIndex;
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, PrimeField};
 use mina_curves::{pasta::Fq, pasta::Pallas};
+// REVIEW(dw): use Pasta::Fp!
 use mina_hasher::Fp;
 use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
 
+// REVIEW(dw): this should be in kimchi!
 impl<'a> From<&'a VerifierIndex<Fq>> for PlonkVerificationKeyEvals<Fp> {
     fn from(verifier_index: &'a VerifierIndex<Fq>) -> Self {
+        // REVIEW(dw): No! We did change that! Let's discuss unshifted/shifted!
         let to_curve = |v: &PolyComm<Pallas>| InnerCurve::of_affine(v.elems[0]);
 
         Self {
@@ -31,6 +36,7 @@ impl<'a> From<&'a VerifierIndex<Fq>> for PlonkVerificationKeyEvals<Fp> {
 
 /// Value of `Dummy.Ipa.Step.sg`
 /// TODO: Compute it instead of hardcoded values
+// REVIEW(dw): this should be in kimchi!
 pub fn dummy_ipa_step_sg() -> (Fq, Fq) {
     let fst = Fq::from_str(
         "7157847628472818669877981787153253278122158060570991904823379281596325861730",
@@ -44,6 +50,7 @@ pub fn dummy_ipa_step_sg() -> (Fq, Fq) {
     (fst, snd)
 }
 
+// REVIEW(dw): copy https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L338
 #[derive(Clone, Debug)]
 pub struct MessagesForNextWrapProof {
     pub challenge_polynomial_commitment: InnerCurve<Fq>,
@@ -80,6 +87,7 @@ impl MessagesForNextWrapProof {
 
     /// Implementation of `to_field_elements`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L356
+    /// REVIEW(dw): Convert all bulletproof challenges to field elements
     fn to_fields(&self) -> Vec<Fq> {
         const NFIELDS: usize = 32;
 
@@ -89,6 +97,7 @@ impl MessagesForNextWrapProof {
             .checked_sub(self.old_bulletproof_challenges.len())
             .expect("old_bulletproof_challenges must be of length <= 2");
 
+        // REVIEW(dw): not sure about the dummy padding. I cannot find it in the pickles codebase
         for _ in 0..padding {
             fields.extend_from_slice(&Self::dummy_padding());
         }
@@ -110,6 +119,8 @@ impl MessagesForNextWrapProof {
     ///
     /// Those are constants but they are computed once at runtime in Mina.
     /// TODO: Compute them instead of hardcoded values
+    /// 
+    /// // REVIEW(dw): create a test in pickles for this
     pub fn dummy_padding() -> [Fq; 15] {
         let f = |s| Fq::from_str(s).unwrap();
 
@@ -133,6 +144,7 @@ impl MessagesForNextWrapProof {
     }
 }
 
+// REVIEW(dw): this copies https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L478
 #[derive(Clone, Debug)]
 pub struct MessagesForNextStepProof<'a, AppState: ToFieldElements<Fp>> {
     pub app_state: &'a AppState,
@@ -158,12 +170,15 @@ where
     /// Implementation of `to_field_elements`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L493
     fn to_fields(&self) -> Vec<Fp> {
+        // REVIEW(dw): !!!!!!
+        // Old TODO?
         const NFIELDS: usize = 93; // TODO: This is bigger with transactions
 
         let mut fields = Vec::with_capacity(NFIELDS);
 
         // Self::dlog_plonk_index
         // Refactor with `src/account/account.rs`, this is the same code
+        // Review(dw): ok for the order, it is to_field_elements in composition_types.ml
         {
             let PlonkVerificationKeyEvals {
                 sigma,

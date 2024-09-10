@@ -1,3 +1,7 @@
+// REVIEW(dw): circuit encoding of currency, replicating src/lib/currency from
+// Mina.
+// REVIEW(dw): no tests. That would be important to check it is the same than
+// the caml implementation, in particular corner cases, like div by zero, etc.
 use std::cmp::Ordering::{Equal, Greater, Less};
 
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field};
@@ -447,7 +451,11 @@ macro_rules! impl_number {
             }
 
             fn of_field<F: FieldWitness>(field: F) -> Self {
+                // REVIEW(dw): check that it gives in decimal repr, and not
+                // Montgomery
                 let amount: BigInteger256 = field.into();
+                // REVIEW(dw): only getting the first limb, i.e. first 64 bits. LGTM.
+                // REVIEW(dw): endianness seem the same, i.e. big endian
                 let amount: $inner = amount.0[0].try_into().unwrap();
 
                 Self::$from_name(amount)
@@ -575,5 +583,7 @@ macro_rules! impl_number {
 
 impl_number!(
     32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, Epoch, },
+    // Blocktime mappiing https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_wire_types/block_time.ml
+    // Amount balance fee mapping https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_wire_types/currency.ml
     64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, N, },
 );

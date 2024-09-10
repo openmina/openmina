@@ -1,3 +1,9 @@
+// REVIEW(dw): STATUS: NOT REVIEW BUT CRITICAL!!!!
+// Numbers are very interesting. We should be careful on how it is generated,
+// how often, etc. Because there might be changes in the Pickles circuit that
+// would make this totally irrelevant.
+// No idea at the moment on how to process/review.
+
 use ark_ff::{One, Zero};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -81,6 +87,9 @@ impl ProofConstants for WrapZkappOptSignedProof {
     const ROWS: usize = WrapTransactionProof::ROWS;
 }
 
+// REVIEW(dw): could to have the number of rows! And also the number of
+// aux/public imputs, including challenges
+// Where does it come from?
 impl ProofConstants for StepTransactionProof {
     const PRIMARY_LEN: usize = 67;
     const AUX_LEN: usize = 94478;

@@ -1,3 +1,8 @@
+// REVIEW(dw): STATUS: DONE
+// REVIEW(dw): use code from arkworks or move into proof-systems?
+// IMPORTANT: I did NOT review the algebra. I would need some hours. I would
+// highly recommend ^^^
+
 use std::ops::Neg;
 
 use crate::proofs::field::{field, FieldWitness};

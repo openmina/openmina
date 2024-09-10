@@ -1,3 +1,8 @@
+// REVIEW(dw): STATUS: DONE - REQUIRE discussion
+// REVIEW(dw): Didn't review in details. I would expect test vectors.
+// REVIEW(dw): seems to try to map src/lib/pickles/opt_sponge.ml
+// REVIEW(dw): critical: test vectors?
+
 use crate::ArithmeticSpongeParams;
 
 use super::{
@@ -5,11 +10,13 @@ use super::{
     witness::Witness,
 };
 
+// REVIEW(dw): use proof-systems constants. See mina-poseidon constants.
 const M: usize = 3;
 const CAPACITY: usize = 1;
 const RATE: usize = M - CAPACITY;
 const PERM_ROUNDS_FULL: usize = 55;
 
+// REVIEW(dw): why not using proof-system code instead directly for the sponge?
 pub enum SpongeState<F: FieldWitness> {
     Absorbing {
         next_index: Boolean,
@@ -25,6 +32,7 @@ pub struct OptSponge<F: FieldWitness> {
     pub sponge_state: SpongeState<F>,
 }
 
+// REVIEW(dw): why not using proof-system code instead directly for the sponge?
 impl<F: FieldWitness> OptSponge<F> {
     pub fn create() -> Self {
         Self {
@@ -33,6 +41,7 @@ impl<F: FieldWitness> OptSponge<F> {
             needs_final_permute_if_empty: true,
             sponge_state: SpongeState::Absorbing {
                 next_index: Boolean::False,
+                // REVIEW(dw): why 32?
                 xs: Vec::with_capacity(32),
             },
         }
@@ -132,6 +141,7 @@ impl<F: FieldWitness> OptSponge<F> {
     }
 }
 
+// REVIEW(dw): should it be here?
 fn add_in<F: FieldWitness>(a: &mut [F; 3], i: CircuitVar<Boolean>, x: F, w: &mut Witness<F>) {
     let i = i.as_boolean();
     let i_equals_0 = i.neg();
@@ -145,10 +155,13 @@ fn add_in<F: FieldWitness>(a: &mut [F; 3], i: CircuitVar<Boolean>, x: F, w: &mut
                 Boolean::False => a_j,
             }
         });
+        // REVIEW(dw): note that there is no circuit construction, i.e. no
+        // assert_r1cs or other methods updating the constraint list.
         a[j] = a_j;
     }
 }
 
+// REVIEW(dw): should it be here?
 fn mul_by_boolean<F>(x: F, y: CircuitVar<Boolean>, w: &mut Witness<F>) -> F
 where
     F: FieldWitness,
@@ -294,6 +307,8 @@ fn full_round<F: FieldWitness>(
     w.exists(*state);
 }
 
+// REVIEW(dw): ok, doing x^7. However, let's be sure to use something from
+// proof-systems. We might change.
 fn sbox<F: FieldWitness>(x: F) -> F {
     let mut res = x.square();
     res *= x;

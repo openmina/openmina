@@ -85,6 +85,7 @@ impl InductiveRule<'_, 0> {
     }
 }
 
+// REVIEW(dw): OK
 #[derive(Clone, Copy, Debug)]
 pub enum OptFlag {
     Yes,
@@ -92,6 +93,7 @@ pub enum OptFlag {
     Maybe,
 }
 
+// REVIEW(dw): OK
 #[derive(Clone, Debug)]
 pub enum Opt<T> {
     Some(T),
@@ -99,6 +101,7 @@ pub enum Opt<T> {
     Maybe(Boolean, T),
 }
 
+// REVIEW(dw): OK
 impl<T> Opt<T> {
     fn map<V>(&self, fun: impl Fn(&T) -> V) -> Opt<V> {
         match self {
@@ -109,6 +112,7 @@ impl<T> Opt<T> {
     }
 }
 
+// REVIEW(dw): OK
 #[derive(Clone, Debug)]
 pub struct FeatureFlags<Bool> {
     pub range_check0: Bool,
@@ -121,6 +125,7 @@ pub struct FeatureFlags<Bool> {
     pub runtime_tables: Bool,
 }
 
+// REVIEW(dw): ok
 impl FeatureFlags<Boolean> {
     pub fn empty() -> Self {
         Self {
@@ -136,6 +141,7 @@ impl FeatureFlags<Boolean> {
     }
 }
 
+// REVIEW(dw): ok
 impl<F: FieldWitness> ToFieldElements<F> for FeatureFlags<bool> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
@@ -163,6 +169,7 @@ impl<F: FieldWitness> ToFieldElements<F> for FeatureFlags<bool> {
     }
 }
 
+// REVIEW(dw): ok
 impl FeatureFlags<bool> {
     pub fn empty_bool() -> Self {
         Self {
@@ -177,6 +184,7 @@ impl FeatureFlags<bool> {
         }
     }
 
+    // REVIEW(dw): ok
     pub fn to_boolean(&self) -> FeatureFlags<Boolean> {
         use super::field::ToBoolean;
 
@@ -206,13 +214,16 @@ impl FeatureFlags<bool> {
 
 #[derive(Debug)]
 pub struct Basic {
+    // REVIEW(dw): the code seems to not use it. Weird
     pub proof_verifieds: Vec<u64>,
     // branches: u64,
     pub wrap_domain: Domains,
+    // REVIEW(dw): Why box?
     pub step_domains: Box<[Domains]>,
     pub feature_flags: FeatureFlags<OptFlag>,
 }
 
+// REVIEW(dw): this is simply preloaded or computed. This is for the lagrange basis/SRS
 #[derive(Debug)]
 pub enum ForStepKind<T, T2 = ()> {
     Known(T),
@@ -223,6 +234,7 @@ pub enum ForStepKind<T, T2 = ()> {
 pub struct ForStep {
     pub branches: usize,
     pub max_proofs_verified: usize,
+    // REVIEW(dw): the code seems to not use it. Weird
     pub proof_verifieds: ForStepKind<Vec<Fp>>,
     pub public_input: (), // Typ
     pub wrap_key: CircuitPlonkVerificationKeyEvals<Fp>,
@@ -238,6 +250,7 @@ pub enum Packed {
     PackedBits(CircuitVar<Fq>, usize),
 }
 
+// REVIEW(dw): ok
 impl std::fmt::Debug for Packed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -910,6 +923,8 @@ pub mod step_verifier {
         sponge
     }
 
+    // REVIEW(dw): _widths is unused?
+    // REVIEW(dw): _max_width is unused?
     pub(super) fn hash_messages_for_next_step_proof_opt(
         msg: ReducedMessagesForNextStepProof,
         sponge: Sponge<Fp>,
@@ -1335,6 +1350,8 @@ pub mod step_verifier {
         w.add_fast(acc, add_opt(constant_part, &correction).to_affine())
     }
 
+    // REVIEW(dw): simply taking the commitment to the i-th lagrange polynomial.
+    // Note that it is already in SRS. We should move it there.
     fn lagrange_commitment<F: FieldWitness>(
         srs: &mut SRS<GroupAffine<F>>,
         domain: &Domain,
@@ -1343,7 +1360,10 @@ pub mod step_verifier {
         let d = domain.size();
         let elems = wrap_verifier::lagrange_commitment::<F>(srs, d, i).elems;
 
+        // REVIEW(dw): ok, because we have one chunk only.
         assert_eq!(elems.len(), 1);
+        // REVIEW(dw): Be careful here, it is simply taking the first chunk. Ok
+        // for now. But we will change this.
         InnerCurve::of_affine(elems[0])
     }
 
@@ -1409,7 +1429,6 @@ pub mod step_verifier {
 
         let (high, low) = to_high_low(advice.combined_inner_product.shifted_raw());
         sponge.absorb2(&[high, low.to_field()], w);
-
         let u = {
             let t = sponge.squeeze(w);
             wrap_verifier::group_map(t, w)
@@ -1535,14 +1554,20 @@ pub mod step_verifier {
     struct IncrementallyVerifyProofParams<'a> {
         pub proofs_verified: usize,
         pub srs: &'a mut poly_commitment::srs::SRS<Pallas>,
+        // REVIEW(dw): known or side-loaded commitments to SRS
         pub wrap_domain: &'a ForStepKind<Domain, Box<[Boolean]>>,
         pub sponge: Sponge<Fp>,
+        // REVIEW(dw): sponge after PI
         pub sponge_after_index: Sponge<Fp>,
         pub wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
+        // REVIEW(dw): this is the challenge to combine polynomials.
         pub xi: [u64; 2],
         pub public_input: Vec<Packed>,
         pub sg_old: &'a Vec<GroupAffine<Fp>>,
+        // REVIEW(dw): This contains polynomials b and the combined polynomial.
         pub advice: &'a Advice<Fp>,
+        // REVIEW(dw): this is the different challenges involved in the PlonK
+        // IOP + the configuration (i.e. feature flags)
         pub proof: &'a ProverProof<Fq>,
         pub plonk: &'a Plonk<Fq>,
     }
@@ -1578,6 +1603,11 @@ pub mod step_verifier {
         let sample = squeeze_challenge;
         let sample_scalar = squeeze_scalar;
 
+        // ----------------------
+        // REVIEW(dw): We start the verification part. It means we will reabsorb
+        // all the commitments and coin all challenges.
+        // This is mostly PlonK protocol.
+        // This must map the verifier in Kimchi
         let index_digest = {
             let mut index_sponge = sponge_after_index.clone();
             index_sponge.squeeze(w)
@@ -1592,6 +1622,7 @@ pub mod step_verifier {
         }
 
         let x_hat = match wrap_domain {
+            // REVIEW(dw): computing the commitment, using a precomputed domain
             ForStepKind::Known(domain) => {
                 let ts = public_input
                     .iter()
@@ -1606,6 +1637,7 @@ pub mod step_verifier {
             }
         };
 
+        // REVIEW(dw): I didn't check
         let x_hat = {
             w.exists(x_hat.y); // Because of `.neg()` above
             w.add_fast(x_hat, srs.h)
@@ -1613,35 +1645,45 @@ pub mod step_verifier {
 
         absorb_curve(&x_hat, &mut sponge, w);
 
+        // REVIEW(dw): starting to absorb all commitments to columns, i.e 15.
         let w_comm = &messages.w_comm;
         for g in w_comm.iter().flat_map(|w| &w.elems) {
             absorb_curve(g, &mut sponge, w);
         }
 
+        // REVIEW(dw): sampling β and γ for the permutation argument.
         let _beta = sample(&mut sponge, w);
         let _gamma = sample(&mut sponge, w);
 
+        // REVIEW(dw): absorbing commitments to the permutation argument
         let z_comm = &messages.z_comm;
         for z in z_comm.elems.iter() {
             absorb_curve(z, &mut sponge, w);
         }
 
+        // REVIEW(dw): sampling
         let _alpha = sample_scalar(&mut sponge, w);
 
+        // REVIEW(dw): quotient polynomial
         let t_comm = &messages.t_comm;
         for t in t_comm.elems.iter() {
             absorb_curve(t, &mut sponge, w);
         }
 
+        // REVIEW(dw): coin evaluation point.
         let _zeta = sample_scalar(&mut sponge, w);
 
         let sponge_before_evaluations = sponge.clone();
         let sponge_digest_before_evaluations = sponge.squeeze(w);
 
+        // REVIEW(dw): why 6?
         let sigma_comm_init = &wrap_verification_key.sigma[..PERMUTS_MINUS_1_ADD_N1];
 
+        // REVIEW(dw): linearization polynomial, Round 5, this is r(X) in the
+        // PlonK paper.
         let ft_comm = ft_comm(plonk, t_comm, wrap_verification_key, scale_for_ft_comm, w);
 
+        // REVIEW(dw): now the IPA
         let bulletproof_challenges = {
             /// Wrap_hack.Padded_length
             const WRAP_HACK_PADDED_LENGTH: usize = 2;
@@ -1727,6 +1769,7 @@ pub mod step_verifier {
             unfinalized,
         } = params;
 
+        // REVIEW(dw): verify these values
         let public_input = {
             let npublic_input = match hack_feature_flags {
                 OptFlag::No => 39,
@@ -1915,11 +1958,16 @@ fn verify_one(
     Ok((chals, b.as_boolean()))
 }
 
+// REVIEW(dw): note that this will give the decimal representation of the field
+// element in u64, not montgomery.
+// Note endianness = little endian
 fn to_bytes(f: Fp) -> [u64; 4] {
     let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
     [a, b, c, d]
 }
 
+// REVIEW(dw): endianess = little endian
+// REVIEW(dw): I would rename this. It is mostly "from_128bits".
 fn to_4limbs(v: [u64; 2]) -> [u64; 4] {
     [v[0], v[1], 0, 0]
 }
@@ -1945,7 +1993,9 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
 
     let plonk0 = &proof_state.deferred_values.plonk;
 
+    // Why not zeta?
     let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
+    // Why not alpha?
     let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
     let step_domain: u8 = proof_state.deferred_values.branch_data.domain_log2.as_u8();
     let domain: Radix2EvaluationDomain<Fp> =
@@ -1957,6 +2007,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         beta: plonk0.beta,
         gamma: plonk0.gamma,
         zeta,
+        // REVIEW(dw): why not joint_combiner directly?
         // joint_combiner: plonk0.joint_combiner,
         joint_combiner: plonk0
             .joint_combiner_bytes
@@ -2147,8 +2198,12 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
             .domain_log2
             .as_u8();
 
+        // Review(dw): why not alpha directly?
         let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
+        // Review(dw): why not zeta directly?
         let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
+        // Review(dw) I suppose Radix2EvaluationDomain::new(1 << domain).unwrap().group_gen
+        // could be cached. We only have 13, 14, 15 or 16.
         let w: Fp = Radix2EvaluationDomain::new(1 << domain).unwrap().group_gen;
         let zetaw = zeta * w;
 
@@ -2500,6 +2555,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
 
 #[derive(Debug)]
 struct ExpandedProof {
+    // REVIEW(dw): permutation
     sg: GroupAffine<Fp>,
     unfinalized: Unfinalized,
     prev_statement_with_hashes: PreparedStatement,
@@ -2512,14 +2568,17 @@ struct ExpandedProof {
 pub struct PerProofWitness {
     pub app_state: Option<Rc<dyn ToFieldElementsDebug>>,
     // app_state: AppState,
+    // REVIEW(dw): ProverProof is simply a KimchiProof
     pub wrap_proof: ProverProof<Fq>,
     pub proof_state: ProofState,
     pub prev_proof_evals: AllEvals<Fp>,
+    // REVIEW(dw): why 16?
     pub prev_challenges: Vec<[Fp; 16]>,
     pub prev_challenge_polynomial_commitments: Vec<GroupAffine<Fp>>,
     /// Hack until I understand how feature flags are used.
     /// So far they are always `OptFlag::No`, except for zkapps using proof authorization, in that
     /// case they are `OptFlag::Maybe`.
+    /// REVIEW(dw): still a hack?
     pub hack_feature_flags: OptFlag,
 }
 
@@ -2703,18 +2762,22 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
     ); N_PREVIOUS],
     pub prev_challenge_polynomial_commitments: Vec<RecursionChallenge<GroupAffine<Fq>>>,
     /// TODO: Remove this. See documentation in `PerProofWitness` struct.
+    /// REVIEW(dw): still required?
     pub hack_feature_flags: OptFlag,
     pub step_prover: &'a Prover<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
     pub only_verify_constraints: bool,
 }
 
+// REVIEW(dw): Ok. Proof is the current proof, and prev_evals are from the previous proof.
+// The statement is the actual circuit
 pub struct StepProof {
     pub statement: StepStatement,
     pub prev_evals: Vec<AllEvals<Fq>>,
     pub proof_with_public: ProofWithPublic<Fp>,
 }
 
+// REVIEW(dw): I suppose it generates a step proof from a given witness
 pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
@@ -2750,6 +2813,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 dlog_plonk_index,
                 app_state: public_input,
                 t: proof,
+                // REVIEW(dw): ?? 
                 public_input_length: 40,
                 tag: (),
                 must_verify: *proof_must_verify,
@@ -2814,6 +2878,9 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     let srs = get_srs_mut::<Fq>();
     let mut srs = srs.lock().unwrap();
 
+    // REVIEW(dw): Why 16? Because we do have a SRS of size 2^16 for step? Are
+    // we sure Pickles has a fixed value of 16 for step?
+    // REVIEW(dw): if 16 is because of the SRS, I would use a constant for that.
     let bulletproof_challenges = prevs
         .iter()
         .zip(messages_for_next_wrap_proof)
@@ -2888,6 +2955,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     w.primary = statement.to_field_elements_owned();
 
+    // REVIEW(dw): Actual proof generation. Contains the IVC part.
+    // Nothing more done here. Simply passing as the output.
     let proof = create_proof::<C, Fp>(
         CreateProofParams {
             prover: step_prover,
@@ -2897,11 +2966,13 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         w,
     )?;
 
+    // REVIEW(dw): Simply getting previous proofs
     let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; N_PREVIOUS] = rule
         .previous_proof_statements
         .each_ref()
         .map(|stmt| stmt.proof);
 
+    /// REVIEW(dw): getting evaluations of the previous proofs.
     let prev_evals = proofs
         .iter()
         .zip(&*expanded_proofs)
@@ -2920,11 +2991,14 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         })
         .collect::<Result<Vec<_>, InvalidBigInt>>()?;
 
+    // REVIEW(dw): getting the challenge polynomial commitments as affine coordinates, nothing more.
+    // REVIEW(dw): it is simply getting the permutation? Why?
     let challenge_polynomial_commitments = expanded_proofs
         .iter()
         .map(|v| InnerCurve::of_affine(v.sg))
         .collect();
 
+    // 
     let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs
         .iter()
         .map(|v| {
@@ -2942,6 +3016,9 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         .into_iter()
         .unzip();
 
+    // REVIEW(dw): why 16? Ok for [u64; 2] as it is challenge on 128bits (not 256bits).
+    // REVIEW(dw): even though we gotta check the conversions is using
+    // montgomery representation or decimal.
     let old_bulletproof_challenges = old_bulletproof_challenges
         .into_iter()
         .map(|v: [[u64; 2]; 16]| v.each_ref().map(two_u64_to_field))

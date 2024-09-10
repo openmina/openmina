@@ -1,3 +1,6 @@
+// REVIEW(dw): roughly DONE. Only had a pass to see what it is about. No deep
+// check as I don't think it is relevant.
+
 use crate::scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax, Sgn, Signed};
 use std::{cell::Cell, cmp::Ordering::Less};
 
@@ -515,6 +518,7 @@ macro_rules! impl_currency {
     )*)
 }
 
+// REVIEW(dw): matching https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_wire_types/currency.ml
 impl_currency!(
     {CheckedAmount, Amount},
     {CheckedFee, Fee},

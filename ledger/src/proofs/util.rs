@@ -1,3 +1,4 @@
+// REVIEW(dw): STATUS: DONE, with commecnts
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field};
 use kimchi::proof::{PointEvaluations, ProofEvaluations};
 use mina_p2p_messages::{
@@ -14,6 +15,12 @@ use super::{
     witness::Witness,
 };
 
+// REVIEW(dw): This converts two affine coordinates into a projective coordinate..
+// Code is
+// Self::of_affine(make_group(x, y))
+// There should be a check it is in the prime subgroup.
+// Mot of the code in transaction.rs could reuse some code from arkworkds, no?
+// It is dangerous to reimplement everything from scratch.
 pub fn extract_polynomial_commitment<
     'a,
     F: FieldWitness,
@@ -32,6 +39,7 @@ pub fn extract_polynomial_commitment<
         .collect()
 }
 
+// REVIEW(dw): move into proof-systems?
 pub fn extract_bulletproof<
     'a,
     F: FieldWitness,
@@ -55,6 +63,8 @@ pub fn extract_bulletproof<
         .collect()
 }
 
+// REVIEW(dw): I would add some size chek + unit tests
+// REVIEW(dw): doc should mention if it is from montgomery repr or decimal repr
 pub fn four_u64_to_field<F>(v: &[u64; 4]) -> Result<F, InvalidBigInt>
 where
     F: Field + TryFrom<BigInteger256, Error = InvalidBigInt>,
@@ -78,6 +88,8 @@ where
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
+// REVIEW(dw): would be nice to have simple unit tests to check with Caml code
+// REVIEW(dw): there might be somth already in proof-systems for this
 pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> impl Fn(F) -> F + '_ {
     |pt: F| {
         let k = chals.len();
@@ -101,6 +113,8 @@ pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> impl Fn(F) -> F + '
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
+// REVIEW(dw): would be nice to have simple unit tests to check with Caml code
+// REVIEW(dw): there might be somth already in proof-systems for this
 pub fn challenge_polynomial_checked<F: FieldWitness>(
     chals: &[F],
 ) -> impl Fn(F, &mut Witness<F>) -> F + '_ {
@@ -136,6 +150,7 @@ pub fn challenge_polynomial_checked<F: FieldWitness>(
 /// Note: Outdated URL
 /// Note: Different than `to_absorption_sequence`
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
+// REVIEW(dw): order checked with to_list in Plonk_types. OK
 pub fn proof_evaluation_to_list<F: FieldWitness>(
     e: &ProofEvaluations<PointEvaluations<Vec<F>>>,
 ) -> Vec<&PointEvaluations<Vec<F>>> {
@@ -343,6 +358,7 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
         zeta: vec![F::zero()],
         zeta_omega: vec![F::zero()],
     };
+    // REVIEW(dw): check this twice. I don't remember where it is linked to
     let to_opt = |v: &Option<PointEvaluations<Vec<F>>>| {
         if let OptFlag::Maybe = hack_feature_flags {
             match v {
@@ -388,6 +404,7 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L674
+// REVIEW(dw): Ok
 pub fn to_absorption_sequence_opt<F: FieldWitness>(
     evals: &ProofEvaluations<PointEvaluations<Vec<F>>>,
     hack_feature_flags: OptFlag,
@@ -486,6 +503,7 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
     list
 }
 
+// REVIEW(dw): test vectors?
 pub fn sha256_sum(s: &[u8]) -> String {
     use sha2::Digest;
     let mut hasher = sha2::Sha256::new();

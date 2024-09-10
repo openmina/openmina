@@ -57,6 +57,10 @@ use super::{
     ProverIndex, ProverProof, VerifierIndex,
 };
 
+// REVIEW(DW): I see the code is mostly diplucating OCaml. I would have expected
+// something a bit different.
+// A lot of code could be moved into proof-systems or reuse proof-systems.
+
 /// Common.Max_degree.wrap_log2
 pub const COMMON_MAX_DEGREE_WRAP_LOG2: usize = 15;
 
@@ -85,6 +89,8 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
     let CombinedInnerProductParams {
         env,
         old_bulletproof_challenges,
+        // REVIEW(dw): this is the polynomials given in evaluation forms, but it
+        // seems we do suppose they are coefficients as we do evaluate below?
         evals,
         combined_evals,
         minimal,
@@ -97,6 +103,7 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
 
     let ft_eval0 = ft_eval0::<F, NLIMB>(env, combined_evals, minimal, &public.zeta);
 
+    // REVIEW(dw): simply fetching the challenges
     let challenge_polys: Vec<_> = old_bulletproof_challenges
         .iter()
         .map(|v| challenge_polynomial(v))
@@ -104,6 +111,9 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
 
     let a = proof_evaluation_to_list(evals);
 
+    // REVIEW(dw): I suppose it is either ζ or ζω.
+    // REVIEW(dw): see code in proof-systems to get rid of this.
+    // REVIEW(dw): as in other places, we should use proof-systems code.
     enum WhichEval {
         First,
         Second,
@@ -116,6 +126,10 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
             WhichEval::Second => zeta_omega.clone(),
         };
 
+        // REVIEW(dw): Simply evaluating at the combinaison. See 
+        // https://github.com/o1-labs/proof-systems/blob/master/poly-commitment/src/ipa.rs#L865
+        // REVIEW(dw): this is simply gathering all evaluations and all
+        // polynomials. This is the batch evaluation.
         challenge_polys
             .iter()
             .map(|f| f(pt))
@@ -127,17 +141,24 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
             .unwrap()
     };
 
+    // REVIEW(dw): eval for ζ and ζω
     combine(WhichEval::First, ft_eval0, minimal.zeta)
         + (r * combine(WhichEval::Second, ft_eval1, zetaw))
 }
 
 pub struct Oracles<F: FieldWitness> {
+    // REVIEW(dw): The actual oracle.
     pub o: RandomOracles<F>,
+    // REVIEW(dw): I suppose the two evaluation points, i.e. ζ and ζω.
     pub p_eval: (F, F),
+    // REVIEW(dw): Opening challenges for the IPA
     pub opening_prechallenges: Vec<F>,
+    // REVIEW(dw): Oracle state before we absorb the evaluations, i.e. just
+    // after we commit to all witness columns and the quotient polynomial.
     pub digest_before_evaluations: F,
 }
 
+// REVIEW(dw): simple interface to get the values of the oracles.
 impl<F: FieldWitness> Oracles<F> {
     pub fn alpha(&self) -> F {
         self.o.alpha_chal.0
@@ -170,10 +191,12 @@ impl<F: FieldWitness> Oracles<F> {
         self.o.u_chal.clone()
     }
 
+    // REVIEW(dw): first evaluation point, i.e. ζ
     pub fn p_eval_1(&self) -> F {
         self.p_eval.0
     }
 
+    // REVIEW(dw): second evaluation point, i.e. ζω
     pub fn p_eval_2(&self) -> F {
         self.p_eval.1
     }
@@ -273,6 +296,10 @@ fn make_lagrange<F: FieldWitness>(
     lagrange_bases[..domain_size].to_vec()
 }
 
+// REVIEW(dw): OK, it is simply evaluate the polynomial [e] at the point [pt^(2^rounds)]
+// REVIEW(dw): maps actual_evaluation in plonk_checks.ml
+// REVIEW(dw): as many other methods, if FieldWitness is in proof-systems, we
+// could reuse existing code.
 /// Defined in `plonk_checks.ml`
 /// Note: there are other `actual_evaluation`, but they're different
 fn actual_evaluation<F: FieldWitness>(pt: F, e: &[F], rounds: usize) -> F {
@@ -284,6 +311,11 @@ fn actual_evaluation<F: FieldWitness>(pt: F, e: &[F], rounds: usize) -> F {
     es.iter().rfold(*e, |acc, fx| *fx + (pt_n * acc))
 }
 
+// REVIEW(dw): es are all polynomial evaluations, given as PointEvaluations
+// The output is simply all evaluations at zeta and zeta omega.
+// REVIEW(dw): as many other methods, if FieldWitness is in proof-systems, we
+// could reuse existing code.
+// REVIEW(dw): OK
 pub fn evals_of_split_evals<F: FieldWitness, S: AsRef<[F]>>(
     point_zeta: F,
     point_zetaw: F,
@@ -338,6 +370,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let gamma = oracle.gamma();
     let zeta = oracle.zeta();
 
+    // REVIEW(dw): to check
     let to_bytes = |f: Fp| {
         let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
         assert_eq!([c, d], [0, 0]);
@@ -753,6 +786,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
     };
 
     // public input
+    // REVIEW(dw): check value 40
     w.primary = PreparedStatement {
         proof_state: ProofState {
             deferred_values,
@@ -1080,6 +1114,7 @@ pub fn ones_vector<F: FieldWitness>(first_zero: F, n: u64, w: &mut Witness<F>) -
 /// Max_proofs_verified.n
 pub const MAX_PROOFS_VERIFIED_N: u64 = 2;
 
+// REVIEW(dw): there are already methods for this in proof-systems
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Domain {
     Pow2RootsOfUnity(u64),
@@ -1109,6 +1144,7 @@ impl Domains {
         }
     }
 }
+// REVIEW(dw): end of domain, duplicated code.
 
 #[derive(Debug)]
 pub struct AllFeatureFlags<F: FieldWitness> {

@@ -1,3 +1,11 @@
+// REVIEW(dw): DONE
+// REVIEW(dw): not a deep check if same file. TODO!
+// REVIEW(dw): compatibility with chunking?
+// REVIEW(dw): nothing strictly related to Mina, mostly proving systems. move into proof-systems?
+// REVIEW(dw): unit tests? Even though it seems to be a real copy paste from
+// kimchi_bindings. If it is, we must move it in proof-systems and only use this
+// to avoid incompatility
+
 /// Copy-pasted from https://github.com/MinaProtocol/mina/blob/cf2a732ae39f4e784707e1fc32832da805bb7d09/src/lib/crypto/kimchi_bindings/stubs/src/urs_utils.rs
 use ark_ec::{msm::VariableBaseMSM, ProjectiveCurve};
 use ark_ff::{batch_inversion, One, PrimeField, UniformRand, Zero};
@@ -69,7 +77,7 @@ pub fn batch_dlog_accumulator_check<G: CommitmentCurve>(
     VariableBaseMSM::multi_scalar_mul(&points, &scalars) == G::Projective::zero()
 }
 
-#[allow(unused)]
+// REVIEW(dw): then remove if unused?
 pub fn batch_dlog_accumulator_generate<G: CommitmentCurve>(
     urs: &SRS<G>,
     num_comms: usize,

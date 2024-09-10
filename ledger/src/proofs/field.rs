@@ -1,3 +1,10 @@
+// REVIEW(dw): STATUS - Require discussion
+// REVIEW(dw): is it something we should have here? Why not in proof-systems? I
+// see many things we could simplify
+// REVIEW(dw): we could slighly move into a Rust version of snarky (not
+// snarky-rs because it needs to be rewritten).
+// I didn't review the correctness of the file. But something to discuss quickly.
+
 use ark_ec::{
     short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve, SWModelParameters,
 };

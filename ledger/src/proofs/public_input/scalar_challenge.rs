@@ -1,3 +1,8 @@
+// REVIEW(dw): interface to get the first two u64 elements from a bigint 256 (Fp
+// or Fq)
+// REVIEW(dw): there seems to be relatively the same file in poseidon/src/sponge.rs
+// As it is related to the sponge, I would add in poseidon/src/sponge.rs
+
 use std::array::IntoIter;
 
 use ark_ff::{BigInteger256, Field};
@@ -116,6 +121,7 @@ mod tests {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    // REVIEW(dw): source of generation?
     #[test]
     fn test_fp_challenges() {
         #[rustfmt::skip]
@@ -168,6 +174,7 @@ mod tests {
         assert_eq!(challenges, OCAML_RESULTS);
     }
 
+    // REVIEW(dw): source of generation?
     #[test]
     fn test_fq_challenges() {
         #[rustfmt::skip]

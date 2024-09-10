@@ -1,3 +1,5 @@
+// REVIEW(dw): why not using proof-systems directly?
+
 // use crate::constants::SpongeConstants;
 // use crate::permutation::{full_round, poseidon_block_cipher};
 use ark_ff::Field;
