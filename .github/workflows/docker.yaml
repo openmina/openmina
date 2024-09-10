@@ -188,7 +188,7 @@ jobs:
         id: ocv-web
         uses: martinbeentjes/npm-get-version-action@v1.3.1
         with:
-          path: ../../frontend
+          path: frontend
 
       - name: 🏷️ Generate Tag
         id: generate_tag
