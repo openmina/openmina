@@ -1,4 +1,4 @@
-// REVIEW(dw): DONE, see comments. Mostly asking if it is worth to keep it here,
+// REVIEW(dw): STATUS: DONE, see comments. Mostly asking if it is worth to keep it here,
 // and if we should not have in proof-systems
 use std::{
     collections::HashMap,
