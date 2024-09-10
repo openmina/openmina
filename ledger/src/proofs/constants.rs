@@ -1,3 +1,9 @@
+// REVIEW(dw): NOT REVIEW BUT CRITICAL!!!!
+// Numbers are very interesting. We should be careful on how it is generated,
+// how often, etc. Because there might be changes in the Pickles circuit that
+// would make this totally irrelevant.
+// No idea at the moment on how to process/review.
+
 use ark_ff::{One, Zero};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
