@@ -1,3 +1,5 @@
+// REVIEW(dw): DONE, see comments. Mostly asking if it is worth to keep it here,
+// and if we should not have in proof-systems
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -41,6 +43,8 @@ where
     container.into_iter().map(fun).collect()
 }
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Radix2EvaluationDomainCached {
     size: u64,
@@ -104,6 +108,9 @@ where
     }
 }
 
+// REVIEW(dw): wondering if we should not move everything in proof-systems to
+// stay compatible with the latest changes there. This has nothing to do
+// strictly with the logic of the client.
 impl<T> From<&GroupAffineCached> for GroupAffine<T>
 where
     T: ark_ec::SWModelParameters,
@@ -114,6 +121,9 @@ where
     }
 }
 
+// REVIEW(dw): note - we're getting rid soon of unshifted and shifted. It is
+// already the case in proof-systems/master. Not update in mina yet.
+// Will be done in the next few weeks as I'm doing the cleanup.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PolyCommCached {
     unshifted: Vec<GroupAffineCached>,
@@ -284,6 +294,8 @@ where
     }
 }
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
 impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
     fn from(v: &VerifierIndex<Pallas>) -> Self {
         let VerifierIndex {
@@ -345,6 +357,8 @@ impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
     }
 }
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
 impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
     fn from(v: &VerifierIndexCached) -> Self {
         let VerifierIndexCached {
@@ -419,10 +433,14 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
     }
 }
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
 #[derive(Debug, thiserror::Error)]
 #[error("Error writing verifier index to bytes: {0}")]
 pub struct VerifierIndexToBytesError(#[from] postcard::Error);
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
 pub fn verifier_index_to_bytes(
     verifier: &VerifierIndex<Pallas>,
 ) -> Result<Vec<u8>, VerifierIndexToBytesError> {
@@ -430,10 +448,14 @@ pub fn verifier_index_to_bytes(
     Ok(postcard::to_stdvec(&verifier)?)
 }
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
 #[derive(Debug, thiserror::Error)]
 #[error("Error reading verifier index from bytes: {0}")]
 pub struct VerifierIndexFromBytesError(#[from] postcard::Error);
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
 pub fn verifier_index_from_bytes(
     bytes: &[u8],
 ) -> Result<VerifierIndex<Pallas>, VerifierIndexFromBytesError> {
@@ -441,6 +463,11 @@ pub fn verifier_index_from_bytes(
     Ok((&verifier).into())
 }
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
+// REVIEW(dw): check if we want to move to postcard (no-std serde) in
+// proof-systems. We can provide external serializer/deserializer, with
+// different backend, using a cargo feature.
 pub fn srs_to_bytes<'a, G>(srs: &'a SRS<G>) -> Vec<u8>
 where
     G: CommitmentCurve,
@@ -453,6 +480,11 @@ where
     postcard::to_stdvec(&srs).unwrap()
 }
 
+// REVIEW(dw): This seems to be strictly related to Kimchi/proof-systems. Move
+// there?
+// REVIEW(dw): check if we want to move to postcard (no-std serde) in
+// proof-systems. We can provide external serializer/deserializer, with
+// different backend, using a cargo feature.
 pub fn srs_from_bytes<G>(bytes: &[u8]) -> SRS<G>
 where
     G: CommitmentCurve,

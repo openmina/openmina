@@ -1,3 +1,4 @@
+// REVIEW(dw): roughly checked.
 use crate::{
     proofs::field::{field, Boolean, FieldWitness},
     proofs::witness::Witness,

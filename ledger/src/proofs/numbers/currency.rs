@@ -518,6 +518,7 @@ macro_rules! impl_currency {
     )*)
 }
 
+// REVIEW(dw): matching https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_wire_types/currency.ml
 impl_currency!(
     {CheckedAmount, Amount},
     {CheckedFee, Fee},

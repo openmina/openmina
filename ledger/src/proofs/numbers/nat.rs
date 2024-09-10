@@ -285,6 +285,7 @@ impl_nat!(
     {CheckedLength, Length},
     {CheckedNonce, Nonce},
     {CheckedIndex, Index},
+    // REVIEW(dw): Mapping https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_wire_types/block_time.ml
     {CheckedBlockTime, BlockTime},
     {CheckedBlockTimeSpan, BlockTimeSpan}
 );

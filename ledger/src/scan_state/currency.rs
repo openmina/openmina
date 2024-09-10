@@ -581,5 +581,7 @@ macro_rules! impl_number {
 
 impl_number!(
     32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, Epoch, },
+    // Blocktime mappiing https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_wire_types/block_time.ml
+    // Amount balance fee mapping https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_wire_types/currency.ml
     64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, N, },
 );
