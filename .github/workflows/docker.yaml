@@ -235,6 +235,10 @@ jobs:
         run: |
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:%s ' *) \
+
+      - name: Create manifest list and push 2
+        working-directory: /tmp/digests
+        run: |
           docker buildx imagetools create --tag ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ env.FINAL_TAG }} \
             $(printf '${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:%s ' *)
 
