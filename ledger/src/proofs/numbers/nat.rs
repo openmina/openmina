@@ -302,6 +302,8 @@ impl<F: FieldWitness> CheckedNat<F, 64> for CheckedN<F> {
     // It suppose it duplicates pickles_types/nat.ml. It is therefore wrong as
     // it is mapped to an OCaml int, i.e. a 63 bits signed value.
     // If the user gives 2^63, there might be issues between OCaml and Rust.
+    // REVIEW(dw): second thought: that might be linking to Currency, where
+    // uint64 is used.
     fn to_field(&self) -> F {
         self.0
     }
@@ -329,6 +331,7 @@ pub struct CheckedN32<F: FieldWitness>(F);
 
 impl<F: FieldWitness> CheckedNat<F, 32> for CheckedN32<F> {
     type Inner = crate::scan_state::currency::N;
+    // REVIEW(dw) same comment than above. What is it mapping to in OCaml?
     fn to_field(&self) -> F {
         self.0
     }
