@@ -43,32 +43,43 @@ pub fn block_producer_effects<S: crate::Service>(
                 .curr_global_slot_since_hard_fork
                 .clone();
 
-            let (epoch, slot) = to_epoch_and_slot(&global_slot);
+            let (best_tip_epoch, best_tip_slot) = to_epoch_and_slot(&global_slot);
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
-
-            // if we receive a block with higher epoch than the current one, interrupt the evaluation
-            if store.state().current_epoch() < Some(epoch) {
-                store.dispatch(BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation {
-                    reason: InterruptReason::BestTipWithHigherEpoch,
-                });
-            }
+            let current_epoch = store.state().current_epoch();
 
             store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
                 best_tip: best_tip.clone(),
             });
 
+            // None if the evaluator is not evaluating
+            let currenty_evaluated_epoch = store
+                .state()
+                .block_producer
+                .vrf_evaluator()
+                .and_then(|vrf_evaluator| vrf_evaluator.currently_evaluated_epoch());
+
+            if let Some(currently_evaluated_epoch) = currenty_evaluated_epoch {
+                // if we receive a block with higher epoch than the current one, interrupt the evaluation
+                if currently_evaluated_epoch < best_tip_epoch {
+                    store.dispatch(BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation {
+                        reason: InterruptReason::BestTipWithHigherEpoch,
+                    });
+                }
+            }
+
             store.dispatch(
                 BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch {
-                    epoch_number: epoch,
+                    epoch_number: best_tip_epoch,
                     last_block_height: best_tip.height(),
                 },
             );
 
             store.dispatch(BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
-                current_epoch_number: epoch,
-                current_best_tip_height: best_tip.height(),
-                current_best_tip_slot: slot,
-                current_best_tip_global_slot: best_tip.global_slot(),
+                current_epoch,
+                best_tip_epoch,
+                best_tip_height: best_tip.height(),
+                best_tip_slot,
+                best_tip_global_slot: best_tip.global_slot(),
                 next_epoch_first_slot,
                 staking_epoch_data: Box::new(best_tip.consensus_state().staking_epoch_data.clone()),
                 next_epoch_data: Box::new(best_tip.consensus_state().next_epoch_data.clone()),
