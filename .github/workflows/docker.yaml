@@ -176,11 +176,39 @@ jobs:
           - build_configuration: compose
             tag_suffix: ""
           - build_configuration: staging
-            tag_suffix: "-producer-demo"
+            tag_suffix: ""
     runs-on: ubuntu-latest
     needs:
       - build-openmina-frontend-image
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v3
+
+      - name: 🅰️ Get on-chain-voting web version from package.json
+        id: ocv-web
+        uses: martinbeentjes/npm-get-version-action@v1.3.1
+        with:
+          path: ../../frontend/package.json
+
+      - name: 🏷️ Generate Tag
+        id: generate_tag
+        run: echo "TAG_WEB=${{ steps.ocv-web.outputs.current-version }}" >> $GITHUB_ENV
+
+      - name: 🏷️ Print Tag
+        run: echo $TAG_WEB
+
+      - name: Conditionally Set Tag
+        id: set_tag
+        run: |
+          if [[ "${{ matrix.configuration.build_configuration }}" == "staging" ]]; then
+            echo "FINAL_TAG=staging-${TAG_WEB}" >> $GITHUB_ENV
+          else
+            echo "FINAL_TAG=${{ steps.meta.outputs.version }}" >> $GITHUB_ENV
+          fi
+
+      - name: 🏷️ Print Final Tag
+        run: echo $FINAL_TAG
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
@@ -220,4 +248,4 @@ jobs:
 
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ steps.meta.outputs.version }}
+          docker buildx imagetools inspect ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ env.FINAL_TAG }}
