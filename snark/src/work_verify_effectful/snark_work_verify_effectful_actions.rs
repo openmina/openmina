@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ pub enum SnarkWorkVerifyEffectfulAction {
         batch: Vec<Snark>,
         sender: String,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
     },
 }
 

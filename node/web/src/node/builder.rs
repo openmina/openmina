@@ -1,7 +1,4 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use node::{
@@ -33,7 +30,7 @@ pub struct NodeBuilder {
     block_producer: Option<BlockProducerConfig>,
     snarker: Option<SnarkerConfig>,
     service: NodeServiceCommonBuilder,
-    verifier_srs: Option<Arc<Mutex<VerifierSRS>>>,
+    verifier_srs: Option<Arc<VerifierSRS>>,
     block_verifier_index: Option<Arc<VerifierIndex>>,
     work_verifier_index: Option<Arc<VerifierIndex>>,
 }
@@ -173,7 +170,7 @@ impl NodeBuilder {
     }
 
     /// Set verifier srs. If not set, default will be used.
-    pub fn verifier_srs(&mut self, srs: Arc<Mutex<VerifierSRS>>) -> &mut Self {
+    pub fn verifier_srs(&mut self, srs: Arc<VerifierSRS>) -> &mut Self {
         self.verifier_srs = Some(srs);
         self
     }

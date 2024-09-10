@@ -526,7 +526,6 @@ pub fn dummy_ipa_wrap_sg() -> GroupAffine<Fp> {
 
         let comm = {
             let srs = get_srs::<Fq>();
-            let srs = srs.lock().unwrap();
             srs.commit_non_hiding(&p, None)
         };
         comm.unshifted[0]

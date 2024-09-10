@@ -1,7 +1,6 @@
 mod rpc_service;
 
 use std::collections::VecDeque;
-use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -374,7 +373,7 @@ impl SnarkBlockVerifyService for NodeTestingService {
         &mut self,
         req_id: SnarkBlockVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
         match self.proof_kind() {
@@ -400,7 +399,7 @@ impl SnarkUserCommandVerifyService for NodeTestingService {
         &mut self,
         req_id: SnarkUserCommandVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
         commands: List<v2::MinaBaseUserCommandStableV2>,
     ) {
         SnarkUserCommandVerifyService::verify_init(
@@ -418,7 +417,7 @@ impl SnarkWorkVerifyService for NodeTestingService {
         &mut self,
         req_id: SnarkWorkVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {
         match self.proof_kind() {

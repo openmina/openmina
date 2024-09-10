@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2;
@@ -22,7 +22,7 @@ impl node::service::SnarkBlockVerifyService for NodeService {
         &mut self,
         req_id: SnarkBlockVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
         if self.replayer.is_some() {
@@ -33,7 +33,6 @@ impl node::service::SnarkBlockVerifyService for NodeService {
             eprintln!("verify({}) - start", block.hash_ref());
             let header = block.header_ref();
             let result = {
-                let verifier_srs = verifier_srs.lock().expect("Failed to lock the SRS");
                 if !ledger::proofs::verification::verify_block(
                     header,
                     &verifier_index,
@@ -56,7 +55,7 @@ impl node::service::SnarkWorkVerifyService for NodeService {
         &mut self,
         req_id: SnarkWorkVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {
         if self.replayer.is_some() {
@@ -81,7 +80,6 @@ impl node::service::SnarkWorkVerifyService for NodeService {
                     })
                     .flatten()
                     .collect::<Vec<_>>();
-                let verifier_srs = verifier_srs.lock().expect("Failed to lock SRS");
                 if !ledger::proofs::verification::verify_transaction(
                     works.iter().map(|(v1, v2)| (v1, v2)),
                     &verifier_index,
@@ -103,7 +101,7 @@ impl node::service::SnarkUserCommandVerifyService for NodeService {
         &mut self,
         _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
         _verifier_index: Arc<VerifierIndex>,
-        _verifier_srs: Arc<Mutex<VerifierSRS>>,
+        _verifier_srs: Arc<VerifierSRS>,
         _commands: mina_p2p_messages::list::List<
             mina_p2p_messages::v2::MinaBaseUserCommandStableV2,
         >,
