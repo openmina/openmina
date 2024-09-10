@@ -1,3 +1,6 @@
+// REVIEW(dw): roughly DONE. Only had a pass to see what it is about. No deep
+// check as I don't think it is relevant.
+
 use crate::scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax, Sgn, Signed};
 use std::{cell::Cell, cmp::Ordering::Less};
 
