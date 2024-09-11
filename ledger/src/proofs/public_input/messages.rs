@@ -1,3 +1,5 @@
+// REVIEW(dw): STATUS WIP
+
 use std::str::FromStr;
 
 use crate::proofs::to_field_elements::ToFieldElements;
@@ -7,13 +9,16 @@ use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, PrimeField};
 use kimchi::verifier_index::VerifierIndex;
 use mina_curves::{pasta::Fq, pasta::Pallas};
+// REVIEW(dw): use Pasta::Fp!
 use mina_hasher::Fp;
 use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
 
+// REVIEW(dw): this should be in kimchi!
 impl<'a> From<&'a VerifierIndex<Pallas>> for PlonkVerificationKeyEvals<Fp> {
     fn from(verifier_index: &'a VerifierIndex<Pallas>) -> Self {
+        // REVIEW(dw): No! We did change that! Let's discuss unshifted/shifted!
         let to_curve = |v: &PolyComm<Pallas>| InnerCurve::of_affine(v.unshifted[0]);
 
         Self {
@@ -31,6 +36,7 @@ impl<'a> From<&'a VerifierIndex<Pallas>> for PlonkVerificationKeyEvals<Fp> {
 
 /// Value of `Dummy.Ipa.Step.sg`
 /// TODO: Compute it instead of hardcoded values
+// REVIEW(dw): this should be in kimchi!
 pub fn dummy_ipa_step_sg() -> (Fq, Fq) {
     let fst = Fq::from_str(
         "7157847628472818669877981787153253278122158060570991904823379281596325861730",
@@ -158,6 +164,7 @@ where
     /// Implementation of `to_field_elements`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/composition_types/composition_types.ml#L493
     fn to_fields(&self) -> Vec<Fp> {
+        // REVIEW(dw): !!!!!!
         const NFIELDS: usize = 93; // TODO: This is bigger with transactions
 
         let mut fields = Vec::with_capacity(NFIELDS);
