@@ -44,6 +44,11 @@ import {
   NETWORK_BOOTSTRAP_STATS_INIT,
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
 import { BLOCK_PRODUCTION_PREFIX } from '@block-production/block-production.actions';
+import {
+  BENCHMARKS_WALLETS_GET_ALL_TXS,
+  BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
+  BENCHMARKS_WALLETS_GET_WALLETS, BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
+} from '@benchmarks/wallets/benchmarks-wallets.actions';
 
 export type LoadingState = string[];
 
@@ -75,6 +80,9 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
 
     case NETWORK_NODE_DHT_INIT:
     case NETWORK_BOOTSTRAP_STATS_INIT:
+
+    case BENCHMARKS_WALLETS_GET_WALLETS:
+    case BENCHMARKS_WALLETS_GET_ALL_TXS:
       return add(state, action);
 
     /* ------------ REMOVE ------------ */
@@ -141,6 +149,11 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
       return remove(state, NETWORK_BOOTSTRAP_STATS_INIT);
     case NETWORK_BOOTSTRAP_STATS_CLOSE:
       return remove(state, [NETWORK_BOOTSTRAP_STATS_INIT]);
+
+    case BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS:
+      return remove(state, BENCHMARKS_WALLETS_GET_WALLETS);
+    case BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS:
+      return remove(state, BENCHMARKS_WALLETS_GET_ALL_TXS);
 
     default:
       return state;

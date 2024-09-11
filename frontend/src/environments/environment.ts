@@ -14,12 +14,9 @@ export const environment: Readonly<MinaEnv> = {
       'block-production': ['overview', 'won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
-      // 'block-production': ['won-slots'],
-      // 'nodes': ['overview', 'live', 'bootstrap'],
-      // 'mempool': [],
-      // 'state': ['actions'],
     },
     canAddNodes: false,
+    minaExplorerNetwork: 'devnet',
   },
   configs: [
     // {

@@ -7,10 +7,10 @@ import { RustService } from '@core/services/rust.service';
 import {
   MempoolTransaction,
   MempoolTransactionKind,
-  SignedCommand,
+  SignedCommand, ZkappCommand,
 } from '@shared/types/mempool/mempool-transaction.type';
 import { getTimeFromMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
-import { ONE_BILLION } from '@openmina/shared';
+import { any, ONE_BILLION } from '@openmina/shared';
 
 export const WALLETS: { privateKey: string, publicKey: string }[] = [
   {
@@ -4082,21 +4082,28 @@ export class BenchmarksWalletsService {
   }
 
   getAllIncludedTransactions(): Observable<MempoolTransaction[]> {
-    return this.rust.get<{ SignedCommand: SignedCommand }[]>('/best-chain-user-commands').pipe(
+    return this.rust.get<Array<{ SignedCommand: SignedCommand } | {
+      ZkappCommand: ZkappCommand
+    }>>('/best-chain-user-commands').pipe(
       map(data => this.mapTxPoolResponse(data)),
     );
   }
 
-  private mapTxPoolResponse(response: { SignedCommand: SignedCommand }[]): MempoolTransaction[] {
-    return response.map(tx => ({
-      kind: MempoolTransactionKind.PAYMENT,
-      sender: tx.SignedCommand.payload.common.fee_payer_pk,
-      fee: Number(tx.SignedCommand.payload.common.fee),
-      nonce: Number(tx.SignedCommand.payload.common.nonce),
-      memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
-      transactionData: tx.SignedCommand,
-      sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
-      sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
-    } as MempoolTransaction));
+  private mapTxPoolResponse(response: Array<{ SignedCommand: SignedCommand } | {
+    ZkappCommand: ZkappCommand
+  }>): MempoolTransaction[] {
+    return response
+      .filter(tx => !!any(tx).SignedCommand)
+      .map(tx => tx as { SignedCommand: SignedCommand })
+      .map((tx: { SignedCommand: SignedCommand }) => ({
+        kind: MempoolTransactionKind.PAYMENT,
+        sender: tx.SignedCommand.payload.common.fee_payer_pk,
+        fee: Number(tx.SignedCommand.payload.common.fee),
+        nonce: Number(tx.SignedCommand.payload.common.nonce),
+        memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
+        transactionData: tx.SignedCommand,
+        sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
+        sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
+      } as MempoolTransaction));
   }
 }
