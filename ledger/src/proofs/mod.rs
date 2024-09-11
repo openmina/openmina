@@ -1,10 +1,16 @@
 pub mod accumulator_check;
 pub mod block;
+// REVIEW(dw): STATUS: DONE
 pub mod caching;
+// REVIEW(dw): STATUS: NOT REVIEW BUT CRITICAL!!!!
 pub mod constants;
+// REVIEW(dw): STATUS: Require checking mapping
 mod conv;
+// REVIEW(dw): STATUS - Require discussion
 pub mod field;
+// REVIEW(dw): STATUS - DONE
 pub mod gates;
+// REVIEW(dw): STATUS: DONE
 pub mod group_map;
 pub mod merge;
 pub mod numbers;
@@ -16,6 +22,7 @@ pub mod to_field_elements;
 pub mod transaction;
 pub mod transition_chain;
 pub mod unfinalized;
+// REVIEW(dw): STATUS: DONE
 mod urs_utils;
 pub mod util;
 pub mod verification;
@@ -24,6 +31,7 @@ pub mod witness;
 pub mod wrap;
 pub mod zkapp;
 
+// REVIEW(dw): check!!!
 pub const BACKEND_TICK_ROUNDS_N: usize = 16;
 pub const BACKEND_TOCK_ROUNDS_N: usize = 15;
 
