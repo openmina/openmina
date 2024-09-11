@@ -2,7 +2,9 @@ use crate::{archive::Block, evaluator::epoch::SlotStatus, storage::db_sled::Data
 
 use super::ArchiveConnector;
 use tokio::{task::JoinHandle, time::Duration};
-use tracing::{error, info, instrument, trace};
+use tracing::{debug, error, info, instrument, trace};
+use crate::archive::ChainStatus;
+
 
 #[derive(Debug)]
 pub struct ArchiveWatchdog {
@@ -70,6 +72,7 @@ impl ArchiveWatchdog {
                     .into_iter()
                     .partition(|block| block.height >= (best_tip.height() - 290) as i64);
 
+
                 // get blocks
                 let blocks = match self
                     .archive_connector
@@ -86,6 +89,18 @@ impl ArchiveWatchdog {
                 let (our_blocks, other_blocks): (Vec<Block>, Vec<Block>) = blocks
                     .into_iter()
                     .partition(|block| block.creator_key == self.producer_pk);
+
+
+                // Optimize: count all statuses in one iteration
+                let (our_canonical, our_orphaned, our_pending) = our_blocks.iter().fold((0, 0, 0), |(canonical, orphaned, pending), block| {
+                    match block.chain_status {
+                        ChainStatus::Canonical => (canonical + 1, orphaned, pending),
+                        ChainStatus::Orphaned => (canonical, orphaned + 1, pending),
+                        ChainStatus::Pending => (canonical, orphaned, pending + 1),
+                    }
+                });
+                
+                debug!("Our blocks: [Canonical: {}, Orphaned: {}, Pending: {}]", our_canonical, our_orphaned, our_pending);
 
                 our_blocks.iter().for_each(|block| {
                     let slot = block.global_slot_since_hard_fork as u32;
