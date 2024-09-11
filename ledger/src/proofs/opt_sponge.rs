@@ -1,4 +1,4 @@
-// REVIEW(dw): STATUS: DONE
+// REVIEW(dw): STATUS: DONE - REQUIRE discussion
 // REVIEW(dw): Didn't review in details. I would expect test vectors.
 // REVIEW(dw): seems to try to map src/lib/pickles/opt_sponge.ml
 // REVIEW(dw): critical: test vectors?
