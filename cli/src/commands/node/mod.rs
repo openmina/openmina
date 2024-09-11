@@ -3,6 +3,7 @@ use std::{fs::File, path::PathBuf, sync::Arc};
 use anyhow::Context;
 use node::{account::AccountSecretKey, transition_frontier::genesis::GenesisConfig};
 
+use openmina_node_account::AccountPublicKey;
 use reqwest::Url;
 
 use node::core::log::inner::Level;
@@ -72,22 +73,32 @@ pub struct Node {
     /// Run Snark Worker.
     ///
     /// Pass snarker private key as an argument.
-    #[arg(long, env)]
+    #[arg(long, env, group = "snarker")]
     pub run_snarker: Option<AccountSecretKey>,
+
+    /// Snark fee, in Mina
+    #[arg(long, env, default_value_t = 1_000_000, requires = "snarker")]
+    pub snarker_fee: u64,
+
+    #[arg(long, env, default_value = "seq", requires = "snarker")]
+    pub snarker_strategy: SnarkerStrategy,
 
     /// Enable block producer with this key file
     ///
     /// MINA_PRIVKEY_PASS must be set to decrypt the keyfile
-    #[arg(long, env)]
+    #[arg(long, env, group = "producer")]
     pub producer_key: Option<PathBuf>,
     #[arg(env = "MINA_PRIVKEY_PASS")]
     pub producer_key_password: Option<String>,
-    /// Snark fee, in Mina
-    #[arg(long, env, default_value_t = 1_000_000)]
-    pub snarker_fee: u64,
 
-    #[arg(long, env, default_value = "seq")]
-    pub snarker_strategy: SnarkerStrategy,
+    /// Address to send coinbase rewards to (if this node is producing blocks).
+    /// If not provided, coinbase rewards will be sent to the producer
+    /// of a block.
+    ///
+    /// Warning: If the key is from a zkApp account, the account's
+    /// receive permission must be None.
+    #[arg(long, requires = "producer")]
+    pub coinbase_receiver: Option<AccountPublicKey>,
 
     #[arg(long, default_value = "none", env)]
     pub record: String,
@@ -194,6 +205,12 @@ impl Node {
             ledger::proofs::gates::get_provers();
             node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
             node_builder.block_producer_from_file(producer_key_path, pasword)?;
+
+            if let Some(pub_key) = self.coinbase_receiver {
+                node_builder
+                    .custom_coinbase_receiver(pub_key.into())
+                    .unwrap();
+            }
         }
 
         if let Some(sec_key) = self.run_snarker {
