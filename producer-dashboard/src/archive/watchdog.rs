@@ -55,6 +55,9 @@ impl ArchiveWatchdog {
             if let Some(best_tip) = node_status.best_tip() {
                 let (start, end) = best_tip.epoch_bounds().0;
 
+                info!("Best tip epoch bounds: {start} - {end}");
+                info!("Best tip state hash: {}", best_tip.state_hash());
+
                 let cannonical_chain = match self
                     .archive_connector
                     .clone()
