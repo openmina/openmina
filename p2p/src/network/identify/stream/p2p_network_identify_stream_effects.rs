@@ -85,19 +85,8 @@ impl P2pNetworkIdentifyStreamAction {
                 let public_key = Some(store.state().config.identity_pub_key.clone());
 
                 let mut protocols = vec![
-                    // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
                     token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
-                    // token::StreamKind::Identify(
-                    //     token::IdentifyAlgorithm::IdentifyPush1_0_0,
-                    // ),
-                    // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_0_0),
                     token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
-                    // token::StreamKind::Ping(token::PingAlgorithm::Ping1_0_0),
-                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap),
-                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_0_0),
-                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_1_0),
-                    // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_2_0),
-                    // token::StreamKind::Status(token::StatusAlgorithm::MinaNodeStatus),
                     token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
                 ];
                 if store.state().network.scheduler.discovery_state.is_some() {
@@ -119,13 +108,19 @@ impl P2pNetworkIdentifyStreamAction {
                 //println!("{:?}", identify_msg);
 
                 let mut out = Vec::new();
-                let identify_msg_proto: pb::Identify = (&identify_msg).into();
+                let identify_msg_proto: pb::Identify = match (&identify_msg).try_into() {
+                    Ok(identify_msg_proto) => identify_msg_proto,
+                    Err(err) => {
+                        bug_condition!("error encoding message {:?}", err);
+                        return Err(err.to_string());
+                    }
+                };
 
                 if let Err(err) =
                     prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
                 {
-                    warn!(meta.time(); summary = "error serializing Identify message", error = err.to_string(), action = format!("{self:?}"));
-                    return Ok(());
+                    bug_condition!("error serializing message {:?}", err);
+                    return Err(err.to_string());
                 }
 
                 let data = fuzzed_maybe!(

@@ -7,7 +7,7 @@ use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::outgoing::P2pConnectionOutgoingInitOpts, P2pNetworkKadKey,
+    connection::outgoing::P2pConnectionOutgoingInitOpts, P2pNetworkKadKey, P2pNetworkKadKeyError,
     P2pNetworkKadLatestRequestPeers, PeerId,
 };
 
@@ -30,15 +30,15 @@ pub struct P2pNetworkKadBootstrapState {
 }
 
 impl P2pNetworkKadBootstrapState {
-    pub fn new(key: PeerId) -> Self {
-        P2pNetworkKadBootstrapState {
+    pub fn new(key: PeerId) -> Result<Self, P2pNetworkKadKeyError> {
+        Ok(P2pNetworkKadBootstrapState {
             key,
-            kademlia_key: key.try_into().expect("valid key"), // TODO: propagate error
+            kademlia_key: key.try_into()?,
             processed_peers: BTreeSet::new(),
             requests: BTreeMap::new(),
             successful_requests: 0,
             stats: Default::default(),
-        }
+        })
     }
 
     pub fn request(&self, peer_id: &PeerId) -> Option<&P2pNetworkKadBoostrapRequestState> {

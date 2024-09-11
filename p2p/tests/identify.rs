@@ -233,7 +233,8 @@ fn bad_node_effects(
                             };
 
                             let mut out = Vec::new();
-                            let identify_msg_proto = identify_msg.to_proto_message();
+                            let identify_msg_proto =
+                                identify_msg.to_proto_message().expect("serialized message");
 
                             prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
                                 .expect("Error converting message");

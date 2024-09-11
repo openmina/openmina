@@ -1,4 +1,4 @@
-use openmina_core::SubstateAccess;
+use openmina_core::{bug_condition, SubstateAccess};
 
 use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingAction};
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
@@ -18,7 +18,7 @@ impl P2pState {
         Action: From<P2pAction>,
     {
         let Ok(state) = state_context.get_substate_mut() else {
-            // TODO: log or propagate
+            bug_condition!("no P2pState");
             return;
         };
         let (action, meta) = action.split();

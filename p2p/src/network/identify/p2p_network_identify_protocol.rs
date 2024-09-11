@@ -77,29 +77,46 @@ impl TryFrom<super::pb::Identify> for P2pNetworkIdentify {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error)]
+pub enum P2pNetworkMessageFromIdentifyError {
+    #[error("encoding error: {0}")]
+    EncodingError(String),
+}
+
 impl P2pNetworkIdentify {
-    pub fn to_proto_message(&self) -> super::pb::Identify {
-        super::pb::Identify::from(self)
+    pub fn to_proto_message(
+        &self,
+    ) -> Result<super::pb::Identify, P2pNetworkMessageFromIdentifyError> {
+        super::pb::Identify::try_from(self)
     }
 }
 
-impl<'a> From<&'a P2pNetworkIdentify> for super::pb::Identify {
-    fn from(value: &'a P2pNetworkIdentify) -> Self {
-        Self {
+impl<'a> TryFrom<&'a P2pNetworkIdentify> for super::pb::Identify {
+    type Error = P2pNetworkMessageFromIdentifyError;
+
+    fn try_from(value: &'a P2pNetworkIdentify) -> Result<Self, Self::Error> {
+        let public_key = if let Some(key) = value.public_key.as_ref() {
+            let key_bytes = key.to_bytes();
+            let pubkey = keys_proto::PublicKey {
+                Type: crate::network::identify::KeyType::Ed25519,
+                Data: key_bytes.as_ref().into(),
+            };
+            let mut buf = Vec::with_capacity(pubkey.get_size());
+            let mut writer = Writer::new(&mut buf);
+
+            pubkey
+                .write_message(&mut writer)
+                .map_err(|e| P2pNetworkMessageFromIdentifyError::EncodingError(e.to_string()))?;
+
+            Some(buf)
+        } else {
+            None
+        };
+
+        Ok(Self {
             protocol_version: value.protocol_version.as_ref().map(|v| v.into()),
             agent_version: value.agent_version.as_ref().map(|v| v.into()),
-            public_key: value.public_key.as_ref().map(|key| {
-                let key_bytes = key.to_bytes();
-                let pubkey = keys_proto::PublicKey {
-                    Type: crate::network::identify::KeyType::Ed25519,
-                    Data: key_bytes.as_ref().into(),
-                };
-                let mut buf = Vec::with_capacity(pubkey.get_size());
-                let mut writer = Writer::new(&mut buf);
-
-                pubkey.write_message(&mut writer).expect("encoding success");
-                buf
-            }),
+            public_key,
             listen_addrs: value.listen_addrs.iter().map(|v| v.to_vec()).collect(),
             observed_addr: value.observed_addr.as_ref().map(|v| v.to_vec()),
             protocols: value
@@ -107,7 +124,7 @@ impl<'a> From<&'a P2pNetworkIdentify> for super::pb::Identify {
                 .iter()
                 .map(|v| v.name_str().into())
                 .collect(),
-        }
+        })
     }
 }
 

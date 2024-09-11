@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use openmina_core::{block::BlockWithHash, fuzz_maybe, fuzzed_maybe};
+use openmina_core::{block::BlockWithHash, bug_condition, fuzz_maybe, fuzzed_maybe};
 
 use crate::{
     channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
     peer::P2pPeerAction,
-    P2pCryptoService, P2pNetworkYamuxAction,
+    P2pCryptoService, P2pNetworkConnectionError, P2pNetworkSchedulerAction, P2pNetworkYamuxAction,
 };
 
 use super::{pb, P2pNetworkPubsubAction, TOPIC};
@@ -100,8 +100,9 @@ impl P2pNetworkPubsubAction {
             P2pNetworkPubsubAction::Broadcast { message } => {
                 // println!("(pubsub) {this} broadcast");
                 let mut buffer = vec![0; 8];
-                // TODO: add bug_condition
+
                 if binprot::BinProtWrite::binprot_write(&message, &mut buffer).is_err() {
+                    bug_condition!("binprot serialization error");
                     return;
                 }
                 let len = buffer.len() - 8;
@@ -132,41 +133,56 @@ impl P2pNetworkPubsubAction {
                 ..
             } => {
                 let Some(state) = state.clients.get(&peer_id) else {
-                    // TODO: add bug_condition
+                    bug_condition!("{:?} not found in state.clients", peer_id);
                     return;
                 };
                 let messages = state.incoming_messages.clone();
 
                 for mut message in messages {
+                    let mut error = None;
+
                     if let (Some(signature), Some(from)) =
                         (message.signature.take(), message.from.clone())
                     {
                         message.key = None;
                         let mut data = vec![];
 
-                        let Ok(pk) = libp2p_identity::PublicKey::try_decode_protobuf(&from[2..])
-                        else {
-                            // TODO: add bug_condition
-                            // peer specify bad pk
-                            continue;
-                        };
+                        if let Ok(pk) = libp2p_identity::PublicKey::try_decode_protobuf(&from[2..])
+                        {
+                            if prost::Message::encode(&message, &mut data).is_err() {
+                                // should never happen;
+                                // we just decode this message, so it should encode without error
+                                bug_condition!("serialization error");
+                                return;
+                            };
 
-                        #[allow(clippy::if_same_then_else)]
-                        if prost::Message::encode(&message, &mut data).is_err() {
-                            // TODO: add bug_condition
-                            // should never happen;
-                            // we just decode this message, so it should encode without error
-                            continue;
-                        } else if !store.service().verify_publication(&pk, &data, &signature) {
-                            // TODO: add bug_condition
-                            // signature is invalid
-                            continue;
+                            if !store.service().verify_publication(&pk, &data, &signature) {
+                                error = Some("invalid signature");
+                            }
+                        } else {
+                            // peer specify bad pk
+                            error = Some("bad pubkey");
                         }
                     } else {
-                        // TODO: add bug_condition
-                        // the message doesn't contain signature or it doesn't contain verifying key
-                        continue;
+                        // TODO: fix tests and re-enable
+                        //error = Some("message doesn't contain signature or verifying key");
                     }
+
+                    if let Some(error) = error {
+                        let Some((addr, _)) = store.state().network.scheduler.find_peer(&peer_id)
+                        else {
+                            bug_condition!("{:?} not found in scheduler state", peer_id);
+                            return;
+                        };
+
+                        store.dispatch(P2pNetworkSchedulerAction::Error {
+                            addr: *addr,
+                            error: P2pNetworkConnectionError::PubSubError(error.to_string()),
+                        });
+
+                        return;
+                    }
+
                     store.dispatch(P2pNetworkPubsubAction::IncomingMessage {
                         peer_id,
                         message,

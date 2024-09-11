@@ -1,5 +1,6 @@
 use chacha20poly1305::{aead::generic_array::GenericArray, AeadInPlace, ChaCha20Poly1305, KeyInit};
 use crypto_bigint::consts::U12;
+use openmina_core::bug_condition;
 
 use self::p2p_network_noise_state::ResponderConsumeOutput;
 
@@ -71,7 +72,8 @@ impl P2pNetworkNoiseState {
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
-                    // TODO: add bug_condition
+                    // Note: there is no way to determine if a peer is not sending more data on purpose or not.
+                    // Let the timeout logic handle this.
                     let len = buf
                         .get(..2)
                         .and_then(|buf| Some(u16::from_be_bytes(buf.try_into().ok()?)));
@@ -90,6 +92,7 @@ impl P2pNetworkNoiseState {
             }
             P2pNetworkNoiseAction::IncomingChunk { .. } => {
                 let Some(state) = &mut self.inner else {
+                    bug_condition!("action {:?}: no inner state", action.action());
                     return;
                 };
                 if let Some(mut chunk) = self.incoming_chunks.pop_front() {
@@ -183,6 +186,7 @@ impl P2pNetworkNoiseState {
             }
             P2pNetworkNoiseAction::OutgoingData { data, .. } => {
                 let Some(state) = &mut self.inner else {
+                    bug_condition!("action {:?}: no inner state", action.action());
                     return;
                 };
 
@@ -278,6 +282,7 @@ impl P2pNetworkNoiseState {
                     ..
                 }) = &mut self.inner
                 else {
+                    bug_condition!("action {:?}: no inner state", action.action());
                     return;
                 };
 
