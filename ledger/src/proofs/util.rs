@@ -1,3 +1,5 @@
+// REVIEW(dw): STATUS: DONE, with commecnts
+
 use ark_ff::{BigInteger256, Field};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
@@ -34,6 +36,7 @@ pub fn extract_polynomial_commitment<
         .collect()
 }
 
+// REVIEW(dw): move into proof-systems?
 pub fn extract_bulletproof<
     'a,
     F: FieldWitness,
@@ -57,6 +60,8 @@ pub fn extract_bulletproof<
         .collect()
 }
 
+// REVIEW(dw): I would add some size chek + unit tests
+// REVIEW(dw): doc should mention if it is from montgomery repr or decimal repr
 pub fn u64_to_field<F, const N: usize>(v: &[u64; N]) -> F
 where
     F: Field + From<BigInteger256>,
@@ -69,6 +74,8 @@ where
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
+// REVIEW(dw): would be nice to have simple unit tests to check with Caml code
+// REVIEW(dw): there might be somth already in proof-systems for this
 pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> impl Fn(F) -> F + '_ {
     |pt: F| {
         let k = chals.len();
@@ -92,6 +99,8 @@ pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> impl Fn(F) -> F + '
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
+// REVIEW(dw): would be nice to have simple unit tests to check with Caml code
+// REVIEW(dw): there might be somth already in proof-systems for this
 pub fn challenge_polynomial_checked<F: FieldWitness>(
     chals: &[F],
 ) -> impl Fn(F, &mut Witness<F>) -> F + '_ {
@@ -125,6 +134,7 @@ pub fn challenge_polynomial_checked<F: FieldWitness>(
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
+// REVIEW(dw): order checked with to_list in Plonk_types. OK
 pub fn proof_evaluation_to_list<F: FieldWitness>(e: &ProofEvaluations<[F; 2]>) -> Vec<[F; 2]> {
     let ProofEvaluations::<[F; 2]> {
         w,
@@ -245,6 +255,7 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
     list.extend(s.iter().copied().map(Opt::Some));
 
     let zero = F::zero();
+    // REVIEW(dw): check this twice. I don't remember where it is linked to
     let to_opt = |v: &Option<[F; 2]>| {
         if let OptFlag::Maybe = hack_feature_flags {
             match v {
@@ -290,6 +301,9 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L459
+// REVIEW(dw): checked order, and ok
+// REVIEW(dw): CRITICAL - what about the field? Check if it is always the
+// correct one.
 pub fn to_absorption_sequence(
     evals: &mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
 ) -> Vec<(Vec<Fp>, Vec<Fp>)> {
@@ -321,6 +335,7 @@ pub fn to_absorption_sequence(
         foreign_field_mul_lookup_selector,
     } = evals;
 
+    // REVIEW(dw): always present
     let mut list = vec![
         z,
         generic_selector,
@@ -335,6 +350,7 @@ pub fn to_absorption_sequence(
     list.extend(coefficients.iter());
     list.extend(s.iter());
 
+    // REVIEW(dw): optional gates
     list.extend(
         [
             range_check0_selector,
@@ -352,6 +368,7 @@ pub fn to_absorption_sequence(
 
     list.extend(lookup_sorted.iter().filter_map(|v| v.as_ref()));
 
+    // REVIEW(dw): lookup_final_term
     list.extend(
         [
             runtime_lookup_table,
@@ -375,6 +392,7 @@ pub fn to_absorption_sequence(
 }
 
 // TODO: Dedup with above
+// REVIEW(dw): use a lambda as a param then?
 pub fn to_absorption_sequence2<F: FieldWitness>(
     evals: &ProofEvaluations<[F; 2]>,
 ) -> Vec<(Vec<F>, Vec<F>)> {
@@ -454,6 +472,7 @@ pub fn to_absorption_sequence2<F: FieldWitness>(
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L674
+// REVIEW(dw): Ok
 pub fn to_absorption_sequence_opt<F: FieldWitness>(
     evals: &ProofEvaluations<[F; 2]>,
     hack_feature_flags: OptFlag,
@@ -501,6 +520,7 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
     list.extend(s.iter().copied().map(Opt::Some));
 
     let zero = F::zero();
+    // REVIEW(dw): check this twice. I don't remember where it is linked to
     let to_opt = |v: &Option<[F; 2]>| {
         if let OptFlag::Maybe = hack_feature_flags {
             match v {
@@ -548,6 +568,7 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
     list
 }
 
+// REVIEW(dw): test vectors?
 pub fn sha256_sum(s: &[u8]) -> String {
     use sha2::Digest;
     let mut hasher = sha2::Sha256::new();
