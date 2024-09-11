@@ -85,6 +85,7 @@ impl InductiveRule<'_, 0> {
     }
 }
 
+// REVIEW(dw): OK
 #[derive(Clone, Copy, Debug)]
 pub enum OptFlag {
     Yes,
@@ -92,6 +93,7 @@ pub enum OptFlag {
     Maybe,
 }
 
+// REVIEW(dw): OK
 #[derive(Debug)]
 pub enum Opt<T> {
     Some(T),
@@ -99,6 +101,7 @@ pub enum Opt<T> {
     Maybe(Boolean, T),
 }
 
+// REVIEW(dw): OK
 impl<T> Opt<T> {
     fn map<V>(&self, fun: impl Fn(&T) -> V) -> Opt<V> {
         match self {
