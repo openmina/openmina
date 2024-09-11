@@ -156,14 +156,10 @@ jobs:
           outputs: type=image,name=${{ env.REGISTRY_FRONTEND_IMAGE }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
-#        run: |
-#          mkdir -p /tmp/digests
-#          digest="${{ steps.build.outputs.digest }}"
-#          touch "/tmp/digests/${digest#sha256:}"
         run: |
           mkdir -p /tmp/digests
           digest="${{ steps.build.outputs.digest }}"
-          echo "${digest#sha256:}" > "/tmp/digests/${{ env.PLATFORM_PAIR }}"
+          touch "/tmp/digests/${digest#sha256:}"
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
@@ -237,24 +233,13 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
-          DIGEST_FILES=$(ls /tmp/digests/frontend-${{ matrix.configuration.build_configuration }}-digests-*)
-          if [[ -z "$DIGEST_FILES" ]]; then
-          echo "No digests found!"
-          exit 1
-          fi
-          DIGESTS=""
-          for digest in $DIGEST_FILES; do
-          DIGESTS="$DIGESTS ${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:$(cat $digest)"
-          done
-          docker buildx imagetools create --tag ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ env.FINAL_TAG }} $DIGESTS
-#        run: |
-#          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-#            $(printf '${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:%s ' *) \
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:%s ' *) \
 
-#      - name: Create manifest list and push 2
-#        working-directory: /tmp/digests
-#        run: |
-#          docker buildx imagetools create --tag ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ env.FINAL_TAG }}
+      - name: Create manifest list and push 2
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create --tag ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ env.FINAL_TAG }}
 
       - name: Inspect image
         run: |
