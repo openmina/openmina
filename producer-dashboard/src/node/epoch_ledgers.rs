@@ -196,7 +196,7 @@ impl Ledger {
             .iter()
             .enumerate()
             .filter_map(|(index, entry)| {
-                if entry.pk == producer || entry.delegate.as_deref() == Some(producer) {
+                if entry.delegate.as_deref() == Some(producer) {
                     Some((index, entry.clone()))
                 } else {
                     None
