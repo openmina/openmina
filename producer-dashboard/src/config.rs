@@ -27,6 +27,23 @@ pub struct Config {
     )]
     pub database_path: PathBuf,
 
+    /// Forces the dashboard BE to start with a clean DB
+    #[arg(
+        short,
+        long,
+        env = "OPENMINA_PDASH_FORCE_RECREATE_DB",
+        default_value_t = false
+    )]
+    pub force_recreate_db: bool,
+
+    /// Deletes the dir at the databas_path, use carefully!
+    ///
+    /// Usefull when the shape of the DB changes
+    ///
+    /// Use carefully!
+    #[arg(long, default_value_t = false)]
+    pub force_recreate_db_unsafe: bool,
+
     /// Node's graphql endpoint URL
     #[arg(
         short,

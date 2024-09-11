@@ -41,7 +41,10 @@ impl Evaluator {
 
             let pub_key = self.key.public_key();
 
-            let delegates = Arc::new(init.ledger.gather_producer_and_delegates(&self.key.public_key().to_string()));
+            let delegates = Arc::new(
+                init.ledger
+                    .gather_producer_and_delegates(&self.key.public_key().to_string()),
+            );
 
             let epoch_seed = Arc::new(EpochSeed::from_str(&init.seed).unwrap());
 
@@ -87,7 +90,7 @@ impl Evaluator {
                                 }
                             }
 
-                            db.store_slot(global_slot, &slot_data)
+                            db.store_won_slot(global_slot, &slot_data)
                         })
                     })
                     .collect();

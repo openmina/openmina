@@ -44,6 +44,10 @@ async fn main() {
 
     let config = config::Config::parse();
 
+    if config.force_recreate_db_unsafe {
+        std::fs::remove_dir_all(&config.database_path).expect("Failed deleting databse dir");
+    }
+
     let db = match Database::open(config.database_path) {
         Ok(db) => db,
         Err(e) => {
@@ -52,6 +56,10 @@ async fn main() {
         }
     };
     info!("DB opened");
+
+    if config.force_recreate_db {
+        db.clear().expect("Failed to clear DB");
+    }
 
     let password = std::env::var("MINA_PRIVKEY_PASS")
         .expect("Expected password in the variable `MINA_PRIVKEY_PASS`");

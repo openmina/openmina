@@ -22,6 +22,7 @@ impl Database {
     pub fn open(path: PathBuf) -> Result<Self, sled::Error> {
         let db = sled::open(path)?;
         let seeds = db.open_tree("seeds")?;
+        // TODO(adonagy): rename
         let current_epoch = db.open_tree("current_epoch")?;
         let epoch_ledgers = db.open_tree("epoch_ledgers")?;
         let blocks = db.open_tree("produced_blocks")?;
@@ -39,7 +40,6 @@ impl Database {
         })
     }
 
-    #[cfg(test)]
     pub fn clear(&self) -> Result<(), sled::Error> {
         self._db.clear()?;
         self.epoch_data.clear()?;
@@ -122,7 +122,7 @@ impl Database {
         self.retrieve(&self.seeds, epoch.to_be_bytes())
     }
 
-    pub fn store_slot(&self, slot: u32, slot_data: &SlotData) -> Result<(), sled::Error> {
+    pub fn store_won_slot(&self, slot: u32, slot_data: &SlotData) -> Result<(), sled::Error> {
         self.store(&self.epoch_data, slot.to_be_bytes(), slot_data)
     }
 
@@ -166,7 +166,7 @@ impl Database {
         )
     }
 
-    pub fn has_slot(&self, slot: u32) -> Result<bool, sled::Error> {
+    pub fn has_won_slot(&self, slot: u32) -> Result<bool, sled::Error> {
         self.epoch_data.contains_key(slot.to_be_bytes())
     }
 

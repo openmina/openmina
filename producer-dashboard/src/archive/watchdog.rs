@@ -41,7 +41,7 @@ impl ArchiveWatchdog {
 
             if self
                 .db
-                .has_slot(current_slot.global_slot().to_u32())
+                .has_won_slot(current_slot.global_slot().to_u32())
                 .unwrap()
             {
                 let old = current_slot.global_slot().to_u32() - 1;
@@ -112,7 +112,7 @@ impl ArchiveWatchdog {
                                 .update_slot_status(slot, SlotStatus::Orphaned)
                                 .unwrap();
                         }
-                    } else if self.db.has_slot(slot).unwrap_or_default() {
+                    } else if self.db.has_won_slot(slot).unwrap_or_default() {
                         info!("Saw produced block: {}", block.state_hash);
                         self.db.store_block(block.clone()).unwrap();
                         self.db
@@ -123,7 +123,7 @@ impl ArchiveWatchdog {
 
                 other_blocks.iter().for_each(|block| {
                     let slot = block.global_slot();
-                    if self.db.has_slot(slot).ok().unwrap_or_default()
+                    if self.db.has_won_slot(slot).ok().unwrap_or_default()
                         && !self.db.seen_slot(slot).ok().unwrap_or_default()
                     {
                         if slot < current_slot.global_slot().to_u32() {
