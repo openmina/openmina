@@ -407,18 +407,21 @@ impl ToInputs for ProtocolStateBody {
     }
 }
 
+// REVIEW(dw): should be top-level constant str?
 impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
     fn hash(&self) -> Fp {
         self.hash_with_param("MinaProtoStateBody")
     }
 }
 
+// REVIEW(ok): test vectors/regression tests?
 pub fn hashes_abstract(previous_state_hash: Fp, body_hash: Fp) -> Fp {
     let mut inputs = Inputs::new();
 
     inputs.append_field(previous_state_hash);
     inputs.append_field(body_hash);
 
+    // REVIEW(dw): should be top-level constant str?
     hash_with_kimchi("MinaProtoState", &inputs.to_fields())
 }
 

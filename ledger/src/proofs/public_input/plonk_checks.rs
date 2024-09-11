@@ -1,9 +1,12 @@
+// REVIEW(dw): STATUS: DONE
+
 use std::rc::Rc;
 
 use ark_ff::{Field, One};
 use ark_poly::Radix2EvaluationDomain;
 use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
 use mina_curves::pasta::Fq;
+// REVIEW(dw): Use Fp from Pasta!!!
 use mina_hasher::Fp;
 
 use crate::proofs::{
@@ -15,18 +18,23 @@ use crate::proofs::{
     wrap::{wrap_verifier::PlonkWithField, AllFeatureFlags},
 };
 
+// REVIEW(dw): map composition_types, deferred values. However, the byets are not in the
+// Caml type.
 #[derive(Clone, Debug)]
 pub struct PlonkMinimal<F: FieldWitness, const NLIMB: usize = 2> {
+    // REVIEW(dw): Field on 256bits
     pub alpha: F,
     pub beta: F,
     pub gamma: F,
     pub zeta: F,
     pub joint_combiner: Option<F>,
+    // REVIEW(dw): Bytes on 128bits
     pub alpha_bytes: [u64; NLIMB],
     pub beta_bytes: [u64; NLIMB],
     pub gamma_bytes: [u64; NLIMB],
     pub zeta_bytes: [u64; NLIMB],
     pub joint_combiner_bytes: Option<[u64; NLIMB]>,
+    // FF
     pub feature_flags: crate::proofs::step::FeatureFlags<bool>,
 }
 
@@ -57,6 +65,9 @@ pub struct InCircuit<F: FieldWitness> {
     pub feature_flags: crate::proofs::step::FeatureFlags<bool>,
 }
 
+// REVIEW(dw): Shift objects should be moved into proof-systems
+// REVIEW(dw): duplicating
+// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml
 pub trait ShiftingValue<F: Field> {
     type MyShift;
     fn shift() -> Self::MyShift;
@@ -66,13 +77,18 @@ pub trait ShiftingValue<F: Field> {
     fn of_raw(shifted: F) -> Self;
 }
 
+// REVIEW(dw): OK
 impl ShiftingValue<Fp> for ShiftedValue<Fp> {
     type MyShift = Shift<Fp>;
 
+    // REVIEW(dw): OK
     fn shift() -> Self::MyShift {
         type MyShift = Shift<Fp>;
 
         cache_one! {MyShift, {
+            // REVIEW(dw): worth noting that it is because 255 is the size in
+            // bits of Fp and Fq. Please, use Fp::size_in_bits(). Dangerous
+            // otherwise if not generic.
             let c = (0..255).fold(Fp::one(), |accum, _| accum + accum) + Fp::one();
 
             let scale: Fp = 2.into();
@@ -82,6 +98,8 @@ impl ShiftingValue<Fp> for ShiftedValue<Fp> {
         }}
     }
 
+    // REVIEW(dw): OK. This is a method, instead of a function having the obj as
+    // the first arg
     fn of_field(field: Fp) -> Self {
         let shift = Self::shift();
         Self {
@@ -89,20 +107,25 @@ impl ShiftingValue<Fp> for ShiftedValue<Fp> {
         }
     }
 
+    // REVIEW(dw): OK
     fn shifted_to_field(&self) -> Fp {
         let shift = Self::shift();
         self.shifted + self.shifted + shift.c
     }
 
+    // REVIEW(dw): OK
     fn shifted_raw(&self) -> Fp {
         self.shifted
     }
 
+    // REVIEW(dw): OK
     fn of_raw(shifted: Fp) -> Self {
         Self { shifted }
     }
 }
 
+// REVIEW(dw): Equiv to
+// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L150
 impl ShiftingValue<Fq> for ShiftedValue<Fq> {
     type MyShift = ShiftFq;
 
@@ -135,23 +158,28 @@ impl ShiftingValue<Fq> for ShiftedValue<Fq> {
     }
 }
 
+// REVIEW(dw): Why not parametrize by the type?
+// REVIEW(dw): used before, I suppose we should move it above.
 #[derive(Clone, Debug)]
 pub struct ShiftFq {
     shift: Fq,
 }
 
+// REVIEW(dw): used before, I suppose we should move it above.
 #[derive(Clone, Debug)]
 pub struct Shift<F: Field> {
     c: F,
     scale: F,
 }
 
+// REVIEW(dw): OK
 impl<F> Shift<F>
 where
     F: Field + From<i32>,
 {
     /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L121
     pub fn create() -> Self {
+        // REVIEW(dw): should use size_in_bits instead of 255, see comment above
         let c = (0..255).fold(F::one(), |accum, _| accum + accum) + F::one();
 
         let scale: F = 2.into();
@@ -161,11 +189,13 @@ where
     }
 }
 
+// REVIEW(dw): OK
 #[derive(Clone, Debug)]
 pub struct ShiftedValue<F: Field> {
     pub shifted: F,
 }
 
+// REVIEW(dw): delete or use BigInt conversion, see field_helpers
 // impl<F: Field + FpExt> std::fmt::Debug for ShiftedValue<F> {
 //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 //         f.debug_struct("ShiftedValue")
@@ -187,6 +217,7 @@ impl<F: FieldWitness, F2: FieldWitness + ToFieldElements<F>> ToFieldElements<F>
     }
 }
 
+// REVIEW(dw): OK
 impl<F> ShiftedValue<F>
 where
     F: Field,
@@ -196,6 +227,7 @@ where
         Self { shifted: field }
     }
 
+    // REVIEW(dw): delete?
     // /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L127
     // pub fn of_field(field: F, shift: &Shift<F>) -> Self {
     //     Self {
@@ -203,6 +235,7 @@ where
     //     }
     // }
 
+    // REVIEW(dw): delete?
     // /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles_types/shifted_value.ml#L131
     // #[allow(unused)]
     // pub fn to_field(&self, shift: &Shift<F>) -> F {
@@ -210,16 +243,21 @@ where
     // }
 }
 
+// REVIEW(dw): OK
 /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L218
 pub const PERM_ALPHA0: usize = 21;
 
+// REVIEW(dw): OK
 pub const NPOWERS_OF_ALPHA: usize = PERM_ALPHA0 + 3;
 
+// REVIEW(dw): OK
 /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L141
 pub fn powers_of_alpha<F: FieldWitness>(alpha: F) -> Box<[F; NPOWERS_OF_ALPHA]> {
+    // REVIEW(dw): OK
     // The OCaml code computes until alpha^71, but we don't need that much here
     let mut alphas = Box::new([F::one(); NPOWERS_OF_ALPHA]);
 
+    // REVIEW(dw): OK
     alphas[1] = alpha;
     for i in 2..alphas.len() {
         alphas[i] = alpha * alphas[i - 1];
@@ -228,6 +266,8 @@ pub fn powers_of_alpha<F: FieldWitness>(alpha: F) -> Box<[F; NPOWERS_OF_ALPHA]> 
     alphas
 }
 
+// REVIEW(dw): duplicating https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L379
+// REVIEW(dw): could use proof-systems
 pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
     evals: &ProofEvaluations<[F; 2]>,
@@ -240,9 +280,13 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
         zeta,
         joint_combiner,
         feature_flags: actual_feature_flags,
+        // REVIEW(dw): personal taste - always unroll everything, just in case a
+        // new field is added. The compiler will notify you. Eror prone
+        // otherwise
         ..
     } = minimal;
 
+    // REVIEW(dw): OK
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(*alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
@@ -251,6 +295,7 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     let beta = *beta;
     let gamma = *gamma;
 
+    // REVIEW(dw): OK
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L397
     let perm = evals.s.iter().enumerate().fold(
         evals.z[1] * beta * alpha_pow(PERM_ALPHA0) * zkp,
@@ -265,6 +310,7 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     // Shift values
     let shift = |f: F| F::Shifting::of_field(f);
 
+    // REVIEW(dw): OK
     InCircuit {
         alpha: minimal.alpha,
         beta: minimal.beta,
@@ -310,6 +356,7 @@ pub fn derive_plonk_checked<F: FieldWitness>(
     let zeta_to_domain_size = env.zeta_to_n_minus_1 + F::one();
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
 
+    // REVIEW(dw): remove, or check custom gates use + lookups
     // let minimal_for_scalar = MinimalForScalar {
     //     alpha: minimal.alpha,
     //     beta: minimal.beta,
@@ -337,11 +384,14 @@ pub fn derive_plonk_checked<F: FieldWitness>(
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
         perm: shift(perm),
+        // REVIEW(dw): what about lookup/custom gates? It seems ok.
         lookup: None,
         feature_flags: crate::proofs::step::FeatureFlags::empty_bool(),
     }
 }
 
+// REVIEW(dw): could be nice to have tests vectors with Caml, in particular
+// empty case
 pub fn checked<F: FieldWitness>(
     env: &ScalarsEnv<F>,
     evals: &ProofEvaluations<[F; 2]>,
@@ -351,6 +401,8 @@ pub fn checked<F: FieldWitness>(
     let actual = derive_plonk_checked(env, evals, plonk, w);
 
     let list = [
+        // REVIEW(dw): seems because it is basic plonk without custom gates nor
+        // lookup
         // field::equal(plonk.vbmul.shifted, actual.vbmul.shifted, w),
         // field::equal(plonk.complete_add.shifted, actual.complete_add.shifted, w),
         // field::equal(plonk.endomul.shifted, actual.endomul.shifted, w),
@@ -363,11 +415,14 @@ pub fn checked<F: FieldWitness>(
 pub fn make_shifts<F: FieldWitness>(
     domain: &Radix2EvaluationDomain<F>,
 ) -> kimchi::circuits::polynomials::permutation::Shifts<F> {
+    // REVIEW(dw): delete
     // let value = 1 << log2_size;
     // let domain = Domain::<Fq>::new(value).unwrap();
     kimchi::circuits::polynomials::permutation::Shifts::new(domain)
 }
 
+// REVIEW(dw): could be nice to have tests vectors with Caml
+// REVIEW(dw): duplicate plonk_checks.ml, line 341, ft_eval0
 pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
     evals: &ProofEvaluations<[F; 2]>,
@@ -393,9 +448,12 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
         })
     };
 
+    // REVIEW(dw): OK
     let shifts = env.domain.shifts();
+    // REVIEW(dw): OK
     let ft_eval0 = ft_eval0 - p_eval0;
 
+    // REVIEW(dw): OK
     let ft_eval0 = ft_eval0
         - shifts
             .iter()
@@ -404,25 +462,33 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
                 acc * (minimal.gamma + (minimal.beta * minimal.zeta * s) + w0[i])
             });
 
+    // REVIEW(dw): OK
     let nominator = (zeta1m1 * alpha_pow(PERM_ALPHA0 + 1) * (minimal.zeta - env.omega_to_minus_3)
         + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - F::one())))
         * (F::one() - evals.z[0]);
 
+    // REVIEW(dw): OK
     let denominator = (minimal.zeta - env.omega_to_minus_3) * (minimal.zeta - F::one());
+    // REVIEW(dw): OK
     let ft_eval0 = ft_eval0 + (nominator / denominator);
 
+    // REVIEW(dw): OK
     let minimal = MinimalForScalar {
         alpha: minimal.alpha,
         beta: minimal.beta,
         gamma: minimal.gamma,
         lookup: minimal.joint_combiner,
     };
+    // REVIEW(dw): OK
     let mut w = Witness::empty();
+    // REVIEW(dw): OK
     let constant_term = scalars::compute(None, &minimal, evals, env, &mut w);
 
     ft_eval0 - constant_term
 }
 
+// REVIEW(dw): duplicate plonk_types.ml, get_feature_flags
+// REVIEW(dw): ok
 fn get_feature_flag<F: FieldWitness>(
     feature_flags: &AllFeatureFlags<F>,
     feature: &kimchi::circuits::expr::FeatureFlag,
@@ -432,32 +498,51 @@ fn get_feature_flag<F: FieldWitness>(
     use kimchi::circuits::lookup::lookups::LookupPattern;
 
     match feature {
+        // REVIEW(dw): ok
         RangeCheck0 => Some(feature_flags.features.range_check0),
+        // REVIEW(dw): ok
         RangeCheck1 => Some(feature_flags.features.range_check1),
+        // REVIEW(dw): ok
         ForeignFieldAdd => Some(feature_flags.features.foreign_field_add),
+        // REVIEW(dw): ok
         ForeignFieldMul => Some(feature_flags.features.foreign_field_mul),
+        // REVIEW(dw): ok
         Xor => Some(feature_flags.features.xor),
+        // REVIEW(dw): ok
         Rot => Some(feature_flags.features.rot),
+        // REVIEW(dw): ok - renamed in uses_lookups
         LookupTables => Some(*feature_flags.lookup_tables.get(w)),
+        // REVIEW(dw): ok
         RuntimeLookupTables => Some(feature_flags.features.runtime_tables),
+        // REVIEW(dw): ok - TableWidth 3
         TableWidth(3) => Some(*feature_flags.table_width_3.get(w)),
+        // REVIEW(dw): ok - TableWidth 2
         TableWidth(2) => Some(*feature_flags.table_width_at_least_2.get(w)),
+        // REVIEW(dw): ok - TableWidth i when i <= 1
         TableWidth(i) if *i <= 1 => Some(*feature_flags.table_width_at_least_1.get(w)),
+        // REVIEW(dw): ok
         TableWidth(_) => None,
         LookupsPerRow(4) => Some(*feature_flags.lookups_per_row_4.get(w)),
+        // REVIEW(dw): ok
         LookupsPerRow(i) if *i <= 3 => Some(*feature_flags.lookups_per_row_3.get(w)),
+        // REVIEW(dw): ok
         LookupsPerRow(_) => None,
+        // REVIEW(dw): ok
         LookupPattern(LookupPattern::Lookup) => Some(feature_flags.features.lookup),
+        // REVIEW(dw): ok
         LookupPattern(LookupPattern::Xor) => Some(*feature_flags.lookup_pattern_xor.get(w)),
+        // REVIEW(dw): ok
         LookupPattern(LookupPattern::RangeCheck) => {
             Some(*feature_flags.lookup_pattern_range_check.get(w))
         }
+        // REVIEW(dw): ok
         LookupPattern(LookupPattern::ForeignFieldMul) => {
             Some(feature_flags.features.foreign_field_mul)
         }
     }
 }
 
+// REVIEW(dw): until 950, why not use expr framework?
 mod scalars {
     use std::collections::BTreeMap;
 
@@ -475,6 +560,7 @@ mod scalars {
 
     use super::*;
 
+    // REVIEW(dw): we can make it public.
     // This method `Variable::evaluate` is private in proof-systems :(
     fn var_evaluate<F: FieldWitness>(
         v: &Variable,
@@ -549,6 +635,8 @@ mod scalars {
         }
     }
 
+    // REVIEW(dw): ok
+    // REVIEW(wd): would be nice to have simply test
     fn pow<F: FieldWitness>(x: F, n: u64, w: &mut Witness<F>) -> F {
         if n == 0 {
             F::one()
@@ -564,6 +652,7 @@ mod scalars {
         }
     }
 
+    // REVIEW(dw): ok
     fn pow_const<F: FieldWitness>(x: F, n: u64) -> F {
         if n == 0 {
             F::one()
@@ -593,13 +682,16 @@ mod scalars {
         }
     }
 
+    // REVIEW(dw): use proof-systems?
     pub fn eval<F: FieldWitness>(e: &Expr<ConstantExpr<F>>, ctx: &mut EvalContext<F>) -> F {
         use Expr::*;
         match e {
+            // REVIEW(dw): ok
             Double(x) => {
                 let v = eval(x, ctx);
                 v.double()
             }
+            // REVIEW(dw): Why special case Mul
             Constant(x) => {
                 let v = x.value(ctx.constants);
                 if let ConstantExpr::Mul(_, _) = x {
@@ -607,6 +699,7 @@ mod scalars {
                 };
                 v
             }
+            // REVIEW(dw): ok
             Pow(x, p) => {
                 let p = *p;
                 let v = eval(x, ctx);
@@ -617,6 +710,7 @@ mod scalars {
                     pow(v, p, ctx.w)
                 }
             }
+            // REVIEW(dw): ok
             BinOp(Op2::Mul, x, y) => {
                 let is_x_const = is_const(x);
                 let is_y_const = is_const(y);
@@ -628,6 +722,7 @@ mod scalars {
                     field::mul(x, y, ctx.w)
                 }
             }
+            // REVIEW(dw): ok
             Square(x) => {
                 let is_x_const = is_const(x);
                 let x = eval(x, ctx);
@@ -637,28 +732,36 @@ mod scalars {
                     field::mul(x, x, ctx.w)
                 }
             }
+            // REVIEW(dw): ok
             BinOp(Op2::Add, x, y) => {
                 let y = eval(y, ctx);
                 let x = eval(x, ctx);
                 x + y
             }
+            // REVIEW(dw): ok
             BinOp(Op2::Sub, x, y) => {
                 let y = eval(y, ctx);
                 let x = eval(x, ctx);
                 x - y
             }
+            // REVIEW(dw): ok
             VanishesOnLast4Rows => ctx.env.vanishes_on_last_4_rows,
+            // REVIEW(dw): ok
             UnnormalizedLagrangeBasis(i) => {
                 let unnormalized_lagrange_basis =
                     ctx.env.unnormalized_lagrange_basis.as_ref().unwrap();
                 unnormalized_lagrange_basis(*i, ctx.w)
             }
+            // REVIEW(dw): can we not keep the exception? Check what is expected
+            // otherwise, and link with th ecode
             Cell(v) => {
                 var_evaluate(v, ctx.evals).unwrap_or_else(|_| F::zero()) // TODO: Is that correct ?
             }
+            // REVIEW(dw): ok
             Cache(id, _e) => {
                 ctx.cache.get(id).copied().unwrap() // Cached values were already computed
             }
+            // REVIEW(dw): ok
             IfFeature(feature, e1, e2) => match ctx.env.feature_flags.as_ref() {
                 None => eval(e2, ctx),
                 Some(feature_flags) => {
@@ -679,12 +782,14 @@ mod scalars {
         }
     }
 
+    // REVIEW(dw): ok
     #[derive(Default)]
     pub struct Cached<F: FieldWitness> {
         /// cache may contain their own caches
         expr: BTreeMap<CacheId, (Box<Cached<F>>, Box<Expr<ConstantExpr<F>>>)>,
     }
 
+    // REVIEW(dw): ok
     #[inline(never)]
     pub fn extract_caches<F: FieldWitness>(e: &Expr<ConstantExpr<F>>, cache: &mut Cached<F>) {
         use Expr::*;
@@ -842,6 +947,8 @@ mod scalars {
     }
 }
 
+// REVIEW(dw): use proof-systems? Make it more generic and don't duplicate?
+// REVIEW(dw): test vectors with caml?
 // TODO: De-duplicate with `ft_eval0`
 pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
@@ -931,6 +1038,7 @@ mod tests {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    // REVIEW(dw): Why commented?
     // #[test]
     // fn test_derive_plonk() {
     //     let f = |s| Fp::from_str(s).unwrap();
