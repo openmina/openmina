@@ -7,6 +7,7 @@ use crypto_bigint::{ArrayEncoding, Encoding, U256};
 use derive_more::From;
 use libp2p_identity::DecodingError;
 use multiaddr::Multiaddr;
+use openmina_core::bug_condition;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -294,7 +295,7 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
                     .pop()
                     .map(|b| b.split(|e| (&self.this_key - &e.key) >= split_dist))
                 else {
-                    debug_assert!(false, "should be unreachable");
+                    bug_condition!("should be unreachable");
                     return Err(P2pNetworkKadRoutingTableInsertError);
                 };
                 self.buckets.extend([bucket1, bucket2]);
@@ -550,7 +551,15 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
     fn insert(&mut self, entry: P2pNetworkKadEntry) -> bool {
         if let Some(pos) = self.0.iter().position(|e| e.key == entry.key) {
             let e = &mut self.0[pos];
-            debug_assert!(e.peer_id == entry.peer_id);
+
+            if e.peer_id != entry.peer_id {
+                bug_condition!(
+                    "Kad entry peer_id mismatch {:?} != {:?}",
+                    e.peer_id,
+                    entry.peer_id
+                );
+            }
+
             for addr in entry.addrs {
                 if !e.addrs.contains(&addr) {
                     e.addrs.push(addr);
@@ -558,7 +567,9 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
             }
             false
         } else {
-            debug_assert!(self.len() < K);
+            if self.len() >= K {
+                bug_condition!("Kad bucket len {:?} >= K ({:?})", self.len(), K);
+            }
             self.0.push(entry);
             true
         }

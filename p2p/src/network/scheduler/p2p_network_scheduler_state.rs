@@ -139,6 +139,8 @@ pub enum P2pNetworkConnectionError {
     KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
     #[error("peer reset yamux stream")]
     StreamReset(StreamId),
+    #[error("pubsub error: {0}")]
+    PubSubError(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

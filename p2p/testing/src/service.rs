@@ -34,7 +34,7 @@ impl ClusterService {
     ) -> Self {
         let mio = {
             let event_sender = event_sender.clone();
-            let mut mio = MioService::pending(secret_key.into());
+            let mut mio = MioService::pending(secret_key.try_into().expect("valid keypair"));
             mio.run(move |mio_event| {
                 let _ = event_sender.send(mio_event.into());
                 //.expect("cannot send mio event")

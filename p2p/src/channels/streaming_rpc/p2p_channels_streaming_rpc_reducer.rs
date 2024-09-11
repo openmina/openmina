@@ -1,3 +1,5 @@
+use openmina_core::bug_condition;
+
 use super::{
     staged_ledger_parts::{StagedLedgerPartsReceiveProgress, StagedLedgerPartsSendProgress},
     P2pChannelsStreamingRpcAction, P2pChannelsStreamingRpcActionWithMetaRef,
@@ -30,6 +32,7 @@ impl P2pChannelsStreamingRpcState {
             }
             P2pChannelsStreamingRpcAction::RequestSend { id, request, .. } => {
                 let Self::Ready { local, .. } = self else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 *next_local_rpc_id += 1;
@@ -53,13 +56,17 @@ impl P2pChannelsStreamingRpcState {
                     ..
                 } = self
                 else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
 
                 if !progress.set_next_pending(meta.time()) {
-                    todo!("progress state already pending: {progress:?}");
+                    bug_condition!("progress state already pending: {progress:?}");
                 }
-                debug_assert!(progress.is_part_pending());
+
+                if !progress.is_part_pending() {
+                    bug_condition!("progress state is not pending {:?}", progress);
+                }
             }
             P2pChannelsStreamingRpcAction::ResponsePartReceived { response, .. } => {
                 let Self::Ready {
@@ -67,17 +74,20 @@ impl P2pChannelsStreamingRpcState {
                     ..
                 } = self
                 else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 if !progress.update(meta.time(), response) {
-                    todo!("progress response mismatch! {progress:?}\n{response:?}");
+                    bug_condition!("progress response mismatch! {progress:?}\n{response:?}");
                 }
             }
             P2pChannelsStreamingRpcAction::ResponseReceived { .. } => {
                 let Self::Ready { local, .. } = self else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 let P2pStreamingRpcLocalState::Requested { id, request, .. } = local else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 *local = P2pStreamingRpcLocalState::Responded {
@@ -88,6 +98,7 @@ impl P2pChannelsStreamingRpcState {
             }
             P2pChannelsStreamingRpcAction::RequestReceived { id, request, .. } => {
                 let Self::Ready { remote, .. } = self else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 *remote = P2pStreamingRpcRemoteState::Requested {
@@ -107,6 +118,7 @@ impl P2pChannelsStreamingRpcState {
                     ..
                 } = self
                 else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 match &**request {
@@ -126,6 +138,7 @@ impl P2pChannelsStreamingRpcState {
                     ..
                 } = self
                 else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 match (&**request, response) {
@@ -149,6 +162,7 @@ impl P2pChannelsStreamingRpcState {
                     ..
                 } = self
                 else {
+                    bug_condition!("{:?} with state {:?}", action, self);
                     return;
                 };
                 match progress {
@@ -191,7 +205,8 @@ impl P2pChannelsStreamingRpcState {
                                 tree_index: *tree_index + 1,
                             },
                             progress => {
-                                todo!("unexpected state during `P2pStreamingRpcSendProgress::StagedLedgerParts`: {progress:?}");
+                                bug_condition!("unexpected state during `P2pStreamingRpcSendProgress::StagedLedgerParts`: {progress:?}");
+                                return;
                             }
                         };
 
@@ -217,9 +232,15 @@ impl P2pChannelsStreamingRpcState {
                             let request = std::mem::take(request);
                             (remote, request)
                         }
-                        _ => return,
+                        _ => {
+                            bug_condition!("{:?} with state {:?}", action, self);
+                            return;
+                        }
                     },
-                    _ => return,
+                    _ => {
+                        bug_condition!("{:?} with state {:?}", action, self);
+                        return;
+                    }
                 };
                 *remote = P2pStreamingRpcRemoteState::Responded {
                     time: meta.time(),

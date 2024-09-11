@@ -225,7 +225,7 @@ impl Inner {
                         },
                     );
                     let mut bytes = vec![0; 8];
-                    msg.binprot_write(&mut bytes).unwrap();
+                    msg.binprot_write(&mut bytes)?;
                     let len = (bytes.len() - 8) as u64;
                     bytes[..8].clone_from_slice(&len.to_le_bytes());
 

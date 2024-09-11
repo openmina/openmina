@@ -88,8 +88,10 @@ impl super::P2pNetworkKadState {
                 Ok(())
             }
             (_, StartBootstrap { key }) => {
-                self.status =
-                    Bootstrapping(super::bootstrap::P2pNetworkKadBootstrapState::new(*key));
+                self.status = Bootstrapping(
+                    super::bootstrap::P2pNetworkKadBootstrapState::new(*key)
+                        .map_err(|e| e.to_string())?,
+                );
                 Ok(())
             }
             (Bootstrapping(state), BootstrapFinished {}) => {

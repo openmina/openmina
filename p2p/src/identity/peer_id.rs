@@ -185,13 +185,11 @@ impl BinProtRead for PeerId {
     where
         Self: Sized,
     {
-        let mut iter = std::iter::repeat(()).map(|_| Nat0::binprot_read(r));
-
         Ok(Self([
-            iter.next().unwrap()?.0,
-            iter.next().unwrap()?.0,
-            iter.next().unwrap()?.0,
-            iter.next().unwrap()?.0,
+            Nat0::binprot_read(r)?.0,
+            Nat0::binprot_read(r)?.0,
+            Nat0::binprot_read(r)?.0,
+            Nat0::binprot_read(r)?.0,
         ]))
     }
 }
