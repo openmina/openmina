@@ -41,6 +41,7 @@ export const blockProductionWonSlotsReducer = createReducer(
   on(BlockProductionWonSlotsActions.setActiveSlot, (state, { slot }) => ({
     ...state,
     activeSlot: slot,
+    activeSlotRoute: slot.globalSlot.toString(),
   })),
   on(BlockProductionWonSlotsActions.sort, (state, { sort }) => ({
     ...state,
