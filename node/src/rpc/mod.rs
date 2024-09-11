@@ -431,6 +431,7 @@ pub struct RpcNodeStatusTransitionFrontier {
 pub struct RpcNodeStatusTransitionFrontierSync {
     pub time: Option<redux::Timestamp>,
     pub status: String,
+    pub phase: String,
     pub target: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
 }
 

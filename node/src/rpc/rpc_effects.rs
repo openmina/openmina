@@ -67,6 +67,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     sync: RpcNodeStatusTransitionFrontierSync {
                         time: state.transition_frontier.sync.time(),
                         status: state.transition_frontier.sync.to_string(),
+                        phase: state.transition_frontier.sync.sync_phase().to_string(),
                         target: state.transition_frontier.sync.best_tip().map(block_summary),
                     },
                 },

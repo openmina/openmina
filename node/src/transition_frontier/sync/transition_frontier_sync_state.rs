@@ -148,6 +148,13 @@ pub enum PeerRpcState {
     },
 }
 
+#[derive(Serialize, Deserialize, Display, Debug, Clone)]
+pub enum SyncPhase {
+    Bootstrap,
+    Catchup,
+    Synced,
+}
+
 impl TransitionFrontierSyncState {
     /// If the synchronization process has started but is not yet complete
     pub fn is_pending(&self) -> bool {
@@ -330,6 +337,24 @@ impl TransitionFrontierSyncState {
             }
         }
         None
+    }
+
+    pub fn sync_phase(&self) -> SyncPhase {
+        match self {
+            TransitionFrontierSyncState::Idle
+            | TransitionFrontierSyncState::Init { .. }
+            | TransitionFrontierSyncState::StakingLedgerPending(_)
+            | TransitionFrontierSyncState::StakingLedgerSuccess { .. }
+            | TransitionFrontierSyncState::NextEpochLedgerPending(_)
+            | TransitionFrontierSyncState::NextEpochLedgerSuccess { .. }
+            | TransitionFrontierSyncState::RootLedgerPending(_)
+            | TransitionFrontierSyncState::RootLedgerSuccess { .. } => SyncPhase::Bootstrap,
+            TransitionFrontierSyncState::BlocksPending { .. }
+            | TransitionFrontierSyncState::BlocksSuccess { .. }
+            | TransitionFrontierSyncState::CommitPending { .. }
+            | TransitionFrontierSyncState::CommitSuccess { .. } => SyncPhase::Catchup,
+            TransitionFrontierSyncState::Synced { .. } => SyncPhase::Synced,
+        }
     }
 }
 
