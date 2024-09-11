@@ -1,4 +1,5 @@
 FROM node:18 AS BUILD_IMAGE
+# Doesn't matter what we put here - it get's overwritten by the docker build command
 ARG BUILD_CONFIGURATION=staging
 WORKDIR /app
 COPY . .
