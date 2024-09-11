@@ -221,7 +221,7 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
   private getSlotText(d: BlockProductionOverviewSlot): string {
     let text = '';
     if (d.finished) {
-      text = 'Slot not won';
+      text = 'Block by another producer';
     }
 
     if (d.canonical) {

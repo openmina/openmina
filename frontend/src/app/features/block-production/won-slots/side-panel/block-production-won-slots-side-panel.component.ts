@@ -19,6 +19,7 @@ import { any, hasValue, noMillisFormat, ONE_THOUSAND, SecDurationConfig, toReada
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
+import { CONFIG } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-block-production-won-slots-side-panel',
@@ -68,7 +69,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
 
   private listenToActiveNode(): void {
     this.select(AppSelectors.activeNode, (node) => {
-      this.minaExplorer = node.minaExplorerNetwork;
+      this.minaExplorer = node.minaExplorerNetwork ?? CONFIG.globalConfig?.minaExplorerNetwork;
     });
   }
 
