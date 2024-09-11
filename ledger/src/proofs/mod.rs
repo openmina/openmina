@@ -14,6 +14,7 @@ pub mod gates;
 pub mod group_map;
 pub mod merge;
 pub mod numbers;
+// REVIEW(dw): STATUS: DONE
 pub mod opt_sponge;
 mod prover;
 pub mod public_input;
