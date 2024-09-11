@@ -115,6 +115,14 @@ impl BlockProducerStats {
             .iter_mut()
             .rev()
             .take_while(|v| v.won_slot.global_slot >= root_block.global_slot())
+            .filter(|attempt| {
+                matches!(
+                    attempt.status,
+                    BlockProductionStatus::Committed
+                        | BlockProductionStatus::Canonical { .. }
+                        | BlockProductionStatus::Orphaned { .. }
+                )
+            })
             .for_each(|attempt| {
                 let Some(block) = attempt.block.as_ref() else {
                     return;
