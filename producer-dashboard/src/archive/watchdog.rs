@@ -68,6 +68,11 @@ impl ArchiveWatchdog {
                     }
                 };
 
+                debug!("Canonical chain in epoch bounds lenght: {}", cannonical_chain.len());
+
+                let can_chain_prod_blocks = cannonical_chain.clone().into_iter().filter(|b| b.creator_key == self.producer_pk).map(|b| b.state_hash).collect::<Vec<_>>();
+                debug!("Canonical chain: {:?}", can_chain_prod_blocks);
+
                 let (canonical_pending, canonical): (Vec<Block>, Vec<Block>) = cannonical_chain
                     .into_iter()
                     .partition(|block| block.height >= (best_tip.height() - 290) as i64);
