@@ -175,6 +175,7 @@ pub struct Balances {
     balance_producer: NanoMina,
     balance_delegated: NanoMina,
     balance_staked: NanoMina,
+    delegated_to_itslef: bool,
 }
 
 #[allow(dead_code)]
@@ -216,17 +217,29 @@ impl Ledger {
     pub fn producer_balances(&self, producer: &str) -> Balances {
         let mut balances = Balances::default();
 
+        // NOTE: Correctly identify the case when a producer is delegating to different account
+        // and he's not "using" his stake for production
         for entry in &self.inner {
-            if entry.pk == producer {
-                balances.balance_producer = entry.balance.clone().into();
-            } else if let Some(delegate) = &entry.delegate {
+            if let Some(delegate) = &entry.delegate {
                 if delegate == producer {
                     balances.balance_delegated += entry.balance.clone().into();
+
+                    if entry.pk == producer {
+                        balances.delegated_to_itslef = true;
+                    }
                 }
             }
+
+            if entry.pk == producer {
+                balances.balance_producer = entry.balance.clone().into();
+            }
         }
-        balances.balance_staked =
-            balances.balance_delegated.clone() + balances.balance_producer.clone();
+
+        balances.balance_staked = if balances.delegated_to_itslef {
+            balances.balance_delegated.clone() + balances.balance_producer.clone()
+        } else {
+            balances.balance_delegated.clone()
+        };
         balances
     }
 }
