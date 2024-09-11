@@ -35,11 +35,11 @@ export class NodesOverviewTableComponent extends MinaTableRustWrapper<NodesOverv
       sort: 'appliedBlocks',
       tooltip: 'Number of blocks that node has applied with the latest synchronization attempt.',
     },
-    {
-      name: 'applying',
-      sort: 'applyingBlocks',
-      tooltip: 'Number of blocks that node is currently applying with the latest synchronization attempt.',
-    },
+    // {
+    //   name: 'applying',
+    //   sort: 'applyingBlocks',
+    //   tooltip: 'Number of blocks that node is currently applying with the latest synchronization attempt.',
+    // },
     {
       name: 'fetching',
       sort: 'fetchingBlocks',
@@ -70,8 +70,8 @@ export class NodesOverviewTableComponent extends MinaTableRustWrapper<NodesOverv
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [100, 180, 80, 130, 165, 120, 120, 120, 120, 120];
-    this.table.minWidth = 1335;
+    this.table.gridTemplateColumns = [100, 180, 95, 130, 165, 120, 120, 120, 150];
+    this.table.minWidth = 1180;
     this.table.propertyForActiveCheck = 'name';
     this.table.thGroupsTemplate = this.thGroupsTemplate;
     this.table.sortClz = NodesOverviewSortNodes;

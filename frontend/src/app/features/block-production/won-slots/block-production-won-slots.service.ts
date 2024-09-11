@@ -52,7 +52,7 @@ export class BlockProductionWonSlotsService {
               txFeesRewards: attempt.block ? attempt.block.fees / ONE_BILLION : undefined,
 
               status: attempt.status,
-              discardReason: this.getDiscardReason(attempt),
+              discardReason: attempt.discard_reason,
               lastObservedConfirmations: attempt.last_observed_confirmations,
               orphanedBy: attempt.orphaned_by,
 
@@ -149,16 +149,6 @@ export class BlockProductionWonSlotsService {
       return `${diff} ago`;
     }
   }
-
-  private getDiscardReason(attempt: Attempt): BlockProductionWonSlotsDiscardReason {
-    let reason;
-    Object.keys(attempt).forEach((key) => {
-      if (key in BlockProductionWonSlotsDiscardReason) {
-        reason = key;
-      }
-    });
-    return reason;
-  }
 }
 
 export interface WonSlotResponse {
@@ -178,9 +168,7 @@ interface Attempt {
   active?: boolean;
   last_observed_confirmations?: number;
   orphaned_by?: string;
-  BestTipStakingLedgerDifferent?: null;
-  BestTipGlobalSlotHigher?: null;
-  BestTipSuperior?: null;
+  discard_reason?: BlockProductionWonSlotsDiscardReason;
 }
 
 interface WonSlot {

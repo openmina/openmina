@@ -14,6 +14,7 @@ import {
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { NodesOverviewResync } from '@shared/types/nodes/dashboard/nodes-overview-resync.type';
+import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
 
 @Injectable({
   providedIn: 'root',
@@ -107,6 +108,17 @@ export class NodesOverviewService {
           blocks,
         } as NodesOverviewNode;
       });
+  }
+
+  private getKind(node: any): NodesOverviewNodeKindType {
+    if (node.kind === 'Synced') {
+      return NodesOverviewNodeKindType.SYNCED;
+    } else {
+      if (!node.blocks[0]?.hash) {
+        return NodesOverviewNodeKindType.BOOTSTRAP;
+      }
+      return NodesOverviewNodeKindType.CATCHUP;
+    }
   }
 
   private getLedgers(ledgers: any): NodesOverviewLedger {

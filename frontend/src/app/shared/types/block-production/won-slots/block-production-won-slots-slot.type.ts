@@ -47,11 +47,10 @@ export interface BlockProductionWonSlotTimes {
   blockApplyEnd: number;
 }
 
-export enum BlockProductionWonSlotsDiscardReason {
-  BestTipStakingLedgerDifferent = 'BestTipStakingLedgerDifferent',
-  BestTipGlobalSlotHigher = 'BestTipGlobalSlotHigher',
-  BestTipSuperior = 'BestTipSuperior',
-}
+export type BlockProductionWonSlotsDiscardReason =
+  'BestTipStakingLedgerDifferent'
+  | 'BestTipGlobalSlotHigher'
+  | 'BestTipSuperior';
 
 export enum BlockProductionWonSlotsStatus {
   Scheduled = 'Scheduled',
