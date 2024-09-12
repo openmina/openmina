@@ -104,6 +104,16 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     block_height = tip.height(),
                 );
             }
+            TransitionFrontierAction::SyncFailed { best_tip, error } => {
+                openmina_core::action_error!(
+                    context,
+                    kind = action.kind().to_string(),
+                    summary = "transition frontier failed to sync",
+                    block_hash = best_tip.hash().to_string(),
+                    block_height = best_tip.height(),
+                    error = error.to_string(),
+                );
+            }
             a => a.action_event(&context),
         },
         Action::BlockProducer(a) => match a {

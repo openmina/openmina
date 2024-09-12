@@ -23,6 +23,10 @@ pub struct TransitionFrontierState {
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     /// Transition frontier synchronization state
     pub sync: TransitionFrontierSyncState,
+
+    /// Blocks which had valid proof but failed block application or
+    /// other validations after it reached transition frontier.
+    pub blacklist: BTreeMap<StateHash, u32>,
     /// The diff of `Self::best_chain` with the previous one
     pub chain_diff: Option<BestTipDiff>,
 }
@@ -35,6 +39,7 @@ impl TransitionFrontierState {
             best_chain: Vec::with_capacity(290),
             needed_protocol_states: Default::default(),
             sync: TransitionFrontierSyncState::Idle,
+            blacklist: Default::default(),
             chain_diff: None,
         }
     }

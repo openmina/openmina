@@ -86,6 +86,16 @@ macro_rules! action_event {
  }
 
 #[macro_export]
+macro_rules! action_error {
+    ($context:expr, $($tts:tt)*) => {
+        $crate::action_event!($crate::log::inner::Level::ERROR, $context, $($tts)*)
+    };
+    ($context:expr) => {
+        $crate::action_event!($crate::log::inner::Level::ERROR, $context)
+    };
+}
+
+#[macro_export]
 macro_rules! action_warn {
     ($context:expr, $($tts:tt)*) => {
         $crate::action_event!($crate::log::inner::Level::WARN, $context, $($tts)*)

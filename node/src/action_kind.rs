@@ -456,6 +456,7 @@ pub enum ActionKind {
     TransactionPoolVerifyError,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
+    TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
     TransitionFrontierGenesisLedgerLoadPending,
@@ -468,6 +469,7 @@ pub enum ActionKind {
     TransitionFrontierGenesisEffectfulProveInit,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
+    TransitionFrontierSyncBlocksNextApplyError,
     TransitionFrontierSyncBlocksNextApplyInit,
     TransitionFrontierSyncBlocksNextApplyPending,
     TransitionFrontierSyncBlocksNextApplySuccess,
@@ -543,7 +545,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 450;
+    pub const COUNT: u16 = 452;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -653,6 +655,7 @@ impl ActionKindGet for TransitionFrontierAction {
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
+            Self::SyncFailed { .. } => ActionKind::TransitionFrontierSyncFailed,
         }
     }
 }
@@ -1098,6 +1101,9 @@ impl ActionKindGet for TransitionFrontierSyncAction {
             Self::BlocksNextApplyInit => ActionKind::TransitionFrontierSyncBlocksNextApplyInit,
             Self::BlocksNextApplyPending { .. } => {
                 ActionKind::TransitionFrontierSyncBlocksNextApplyPending
+            }
+            Self::BlocksNextApplyError { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksNextApplyError
             }
             Self::BlocksNextApplySuccess { .. } => {
                 ActionKind::TransitionFrontierSyncBlocksNextApplySuccess

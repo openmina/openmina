@@ -589,6 +589,20 @@ impl TransitionFrontierSyncState {
                     block: block.clone(),
                 };
             }
+            TransitionFrontierSyncAction::BlocksNextApplyError { hash, error } => {
+                let Some(block_state) = state.block_state_mut(hash) else {
+                    return;
+                };
+                let Some(block) = block_state.block() else {
+                    return;
+                };
+
+                *block_state = TransitionFrontierSyncBlockState::ApplyError {
+                    time: meta.time(),
+                    block: block.clone(),
+                    error: error.clone(),
+                };
+            }
             TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
                 let Some(block_state) = state.block_state_mut(hash) else {
                     return;

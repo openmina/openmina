@@ -122,6 +122,11 @@ pub enum TransitionFrontierSyncBlockState {
         time: Timestamp,
         block: ArcBlockWithHash,
     },
+    ApplyError {
+        time: Timestamp,
+        block: ArcBlockWithHash,
+        error: String,
+    },
     ApplySuccess {
         time: Timestamp,
         block: ArcBlockWithHash,
@@ -367,6 +372,10 @@ impl TransitionFrontierSyncBlockState {
         matches!(self, Self::ApplyPending { .. })
     }
 
+    pub fn is_apply_error(&self) -> bool {
+        matches!(self, Self::ApplyError { .. })
+    }
+
     pub fn is_apply_success(&self) -> bool {
         matches!(self, Self::ApplySuccess { .. })
     }
@@ -374,27 +383,30 @@ impl TransitionFrontierSyncBlockState {
     pub fn block_hash(&self) -> &StateHash {
         match self {
             Self::FetchPending { block_hash, .. } => block_hash,
-            Self::FetchSuccess { block, .. } => &block.hash,
-            Self::ApplyPending { block, .. } => &block.hash,
-            Self::ApplySuccess { block, .. } => &block.hash,
+            Self::FetchSuccess { block, .. }
+            | Self::ApplyPending { block, .. }
+            | Self::ApplyError { block, .. }
+            | Self::ApplySuccess { block, .. } => &block.hash,
         }
     }
 
     pub fn block(&self) -> Option<&ArcBlockWithHash> {
         match self {
             Self::FetchPending { .. } => None,
-            Self::FetchSuccess { block, .. } => Some(block),
-            Self::ApplyPending { block, .. } => Some(block),
-            Self::ApplySuccess { block, .. } => Some(block),
+            Self::FetchSuccess { block, .. }
+            | Self::ApplyPending { block, .. }
+            | Self::ApplyError { block, .. }
+            | Self::ApplySuccess { block, .. } => Some(block),
         }
     }
 
     pub fn take_block(self) -> Option<ArcBlockWithHash> {
         match self {
             Self::FetchPending { .. } => None,
-            Self::FetchSuccess { block, .. } => Some(block),
-            Self::ApplyPending { block, .. } => Some(block),
-            Self::ApplySuccess { block, .. } => Some(block),
+            Self::FetchSuccess { block, .. }
+            | Self::ApplyPending { block, .. }
+            | Self::ApplyError { block, .. }
+            | Self::ApplySuccess { block, .. } => Some(block),
         }
     }
 

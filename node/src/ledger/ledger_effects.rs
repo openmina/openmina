@@ -137,7 +137,9 @@ fn propagate_write_response<S: redux::Service>(
                 result,
             },
         ) => match result {
-            Err(err) => todo!("handle block({hash}) apply err: {err}"),
+            Err(error) => {
+                store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyError { hash, error });
+            }
             Ok(_) => {
                 store.dispatch(TransitionFrontierSyncAction::BlocksNextApplySuccess { hash });
             }

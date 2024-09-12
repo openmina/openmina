@@ -190,6 +190,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                     }
                 }
+                TransitionFrontierSyncAction::BlocksNextApplyError { .. } => {}
                 TransitionFrontierSyncAction::BlocksNextApplySuccess { ref hash } => {
                     if let Some(stats) = store.service.stats() {
                         if let Some(state) =
@@ -258,6 +259,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
         }
         TransitionFrontierAction::Synced { .. } => {
             synced_effects(&meta, store);
+        }
+        TransitionFrontierAction::SyncFailed { .. } => {
+            // TODO(SEC): disconnect/blacklist peers that caused this.
         }
     }
 }
