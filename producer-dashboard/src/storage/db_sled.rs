@@ -122,7 +122,7 @@ impl Database {
         self.retrieve(&self.seeds, epoch.to_be_bytes())
     }
 
-    pub fn store_won_slot(&self, slot: u32, slot_data: &SlotData) -> Result<(), sled::Error> {
+    pub fn store_evaluated_slot(&self, slot: u32, slot_data: &SlotData) -> Result<(), sled::Error> {
         self.store(&self.epoch_data, slot.to_be_bytes(), slot_data)
     }
 
@@ -166,7 +166,7 @@ impl Database {
         )
     }
 
-    pub fn has_won_slot(&self, slot: u32) -> Result<bool, sled::Error> {
+    pub fn has_evaluated_slot(&self, slot: u32) -> Result<bool, sled::Error> {
         self.epoch_data.contains_key(slot.to_be_bytes())
     }
 

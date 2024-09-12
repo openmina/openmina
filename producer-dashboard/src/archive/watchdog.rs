@@ -1,10 +1,9 @@
 use crate::{archive::Block, evaluator::epoch::SlotStatus, storage::db_sled::Database, NodeStatus};
 
 use super::ArchiveConnector;
+use crate::archive::ChainStatus;
 use tokio::{task::JoinHandle, time::Duration};
 use tracing::{debug, error, info, instrument, trace};
-use crate::archive::ChainStatus;
-
 
 #[derive(Debug)]
 pub struct ArchiveWatchdog {
@@ -43,7 +42,7 @@ impl ArchiveWatchdog {
 
             if self
                 .db
-                .has_won_slot(current_slot.global_slot().to_u32())
+                .has_evaluated_slot(current_slot.global_slot().to_u32())
                 .unwrap()
             {
                 let old = current_slot.global_slot().to_u32() - 1;
@@ -71,15 +70,28 @@ impl ArchiveWatchdog {
                     }
                 };
 
-                debug!("Canonical chain in epoch bounds lenght: {}", cannonical_chain.len());
+                if cannonical_chain.is_empty() {
+                    error!("Retrieved cannonical chain from archive DB is empty! Bounded by slots {start} - {end}");
+                    continue;
+                }
 
-                let can_chain_prod_blocks = cannonical_chain.clone().into_iter().filter(|b| b.creator_key == self.producer_pk).map(|b| b.state_hash).collect::<Vec<_>>();
-                debug!("Canonical chain: {:?}", can_chain_prod_blocks);
+                debug!(
+                    "Canonical chain in epoch bounds lenght: {}",
+                    cannonical_chain.len()
+                );
+
+                trace!("Canonical chain from archive DB: {:?}", {
+                    cannonical_chain
+                        .clone()
+                        .into_iter()
+                        .filter(|b| b.creator_key == self.producer_pk)
+                        .map(|b| b.state_hash)
+                        .collect::<Vec<_>>()
+                });
 
                 let (canonical_pending, canonical): (Vec<Block>, Vec<Block>) = cannonical_chain
                     .into_iter()
                     .partition(|block| block.height >= (best_tip.height() - 290) as i64);
-
 
                 // get blocks
                 let blocks = match self
@@ -98,17 +110,23 @@ impl ArchiveWatchdog {
                     .into_iter()
                     .partition(|block| block.creator_key == self.producer_pk);
 
-
                 // Optimize: count all statuses in one iteration
-                let (our_canonical, our_orphaned, our_pending) = our_blocks.iter().fold((0, 0, 0), |(canonical, orphaned, pending), block| {
-                    match block.chain_status {
-                        ChainStatus::Canonical => (canonical + 1, orphaned, pending),
-                        ChainStatus::Orphaned => (canonical, orphaned + 1, pending),
-                        ChainStatus::Pending => (canonical, orphaned, pending + 1),
-                    }
-                });
-                
-                debug!("Our blocks: [Canonical: {}, Orphaned: {}, Pending: {}]", our_canonical, our_orphaned, our_pending);
+                let (our_canonical, our_orphaned, our_pending) =
+                    our_blocks
+                        .iter()
+                        .fold(
+                            (0, 0, 0),
+                            |(canonical, orphaned, pending), block| match block.chain_status {
+                                ChainStatus::Canonical => (canonical + 1, orphaned, pending),
+                                ChainStatus::Orphaned => (canonical, orphaned + 1, pending),
+                                ChainStatus::Pending => (canonical, orphaned, pending + 1),
+                            },
+                        );
+
+                debug!(
+                    "Our blocks: [Canonical: {}, Orphaned: {}, Pending: {}]",
+                    our_canonical, our_orphaned, our_pending
+                );
 
                 our_blocks.iter().for_each(|block| {
                     let slot = block.global_slot_since_hard_fork as u32;
@@ -122,20 +140,24 @@ impl ArchiveWatchdog {
                             self.db
                                 .update_slot_status(slot, SlotStatus::Canonical)
                                 .unwrap();
+                            info!("{} -> Canonical", block.state_hash);
                         } else if canonical_pending.contains(block) {
                             self.db
                                 .update_slot_status(slot, SlotStatus::CanonicalPending)
                                 .unwrap();
+                            info!("{} -> CanonicalPending", block.state_hash);
                         } else if block.height >= (best_tip.height() - 290) as i64 {
                             self.db
                                 .update_slot_status(slot, SlotStatus::OrphanedPending)
                                 .unwrap();
+                            info!("{} -> OrphanedPending", block.state_hash);
                         } else {
                             self.db
                                 .update_slot_status(slot, SlotStatus::Orphaned)
                                 .unwrap();
+                            info!("{} -> Orphaned", block.state_hash);
                         }
-                    } else if self.db.has_won_slot(slot).unwrap_or_default() {
+                    } else if self.db.has_evaluated_slot(slot).unwrap_or_default() {
                         info!("Saw produced block: {}", block.state_hash);
                         self.db.store_block(block.clone()).unwrap();
                         self.db
@@ -146,7 +168,7 @@ impl ArchiveWatchdog {
 
                 other_blocks.iter().for_each(|block| {
                     let slot = block.global_slot();
-                    if self.db.has_won_slot(slot).ok().unwrap_or_default()
+                    if self.db.has_evaluated_slot(slot).ok().unwrap_or_default()
                         && !self.db.seen_slot(slot).ok().unwrap_or_default()
                     {
                         if slot < current_slot.global_slot().to_u32() {

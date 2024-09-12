@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use mina_p2p_messages::v2::EpochSeed;
 use openmina_node_account::AccountSecretKey;
+use time::OffsetDateTime;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::JoinHandle;
 use tracing::{info, instrument};
@@ -85,12 +86,12 @@ impl Evaluator {
                                     vrf::evaluate_vrf(vrf_input)
                                 {
                                     info!("Won slot: {global_slot}");
-                                    slot_data = SlotData::new(global_slot, timestamp, None);
+                                    slot_data = SlotData::new_won(global_slot, timestamp);
                                     break;
                                 }
                             }
 
-                            db.store_won_slot(global_slot, &slot_data)
+                            db.store_evaluated_slot(global_slot, &slot_data)
                         })
                     })
                     .collect();

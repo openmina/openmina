@@ -1,6 +1,7 @@
 use std::ops::AddAssign;
 
 use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
 
 use crate::{
     archive::{Block, ChainStatus},
@@ -265,20 +266,23 @@ impl From<&Block> for SlotBlockUpdate {
 }
 
 impl SlotData {
-    pub fn new(global_slot: u32, timestamp: i64, block: Option<SlotBlockUpdate>) -> Self {
-        let block_status = block
-            .clone()
-            .map_or(SlotStatus::ToBeProduced, |block| block.block_status);
-        let state_hash = block.clone().map(|block| block.state_hash);
-        let height = block.map(|block| block.height);
+    pub fn new_won(global_slot: u32, timestamp: i64) -> Self {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+        let block_status = if timestamp >= now {
+            // Future
+            SlotStatus::ToBeProduced
+        } else {
+            // Default to missed for past slots, if there were not missed the archive watcdog will ammend the status immediately a block has been seen
+            SlotStatus::Missed
+        };
         let global_slot: RawGlobalSlot = global_slot.into();
 
         Self {
             slot: global_slot.clone().into(),
             global_slot,
             block_status,
-            state_hash,
-            height,
+            state_hash: None,
+            height: None,
             timestamp,
             is_current_slot: false,
         }
