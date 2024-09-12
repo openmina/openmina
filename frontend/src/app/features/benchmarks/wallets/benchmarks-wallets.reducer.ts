@@ -33,7 +33,7 @@ const initialState: BenchmarksWalletsState = {
   sentTxCount: 0,
   randomWallet: true,
   activeWallet: undefined,
-  sendingFee: 1,
+  sendingFee: 0.001,
 };
 
 export function reducer(state: BenchmarksWalletsState = initialState, action: BenchmarksWalletsActions): BenchmarksWalletsState {
@@ -99,9 +99,9 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
               from: wallet.publicKey,
               nonce,
               to: getRandomReceiver(wallet, state.wallets),
-              // to: 'B62qp6QqfMrDGULkuCTMhLYrG4iTxnjnyS3pv8bFppRsz488HCxExEY', // Teo's ledger address
+              // to: 'B62qp6QqfMrDGULkuCTMhLYrG4iTxnjnyS3pv8bFppRsz488HCxExEY', // Teo's work Ledger address
               fee: (state.sendingFee * ONE_BILLION).toString(),
-              amount: (2 * ONE_BILLION).toString(),
+              amount: (1 * ONE_BILLION).toString(),
               memo,
               validUntil: '4294967295',
             };
@@ -123,7 +123,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             nonce: nonce.toString(),
             to: state.wallets[i].publicKey,
             fee: (state.sendingFee * ONE_BILLION).toString(),
-            amount: (2 * ONE_BILLION).toString(),
+            amount: (1 * ONE_BILLION).toString(),
             memo,
             validUntil: '4294967295',
           };
