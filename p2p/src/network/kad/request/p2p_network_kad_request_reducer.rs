@@ -1,7 +1,6 @@
-use std::net::SocketAddr;
-
 use openmina_core::{bug_condition, Substate, SubstateAccess};
 use redux::{ActionWithMeta, Dispatcher};
+use std::net::SocketAddr;
 
 use crate::{
     connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts},
@@ -170,8 +169,15 @@ impl P2pNetworkKadRequestState {
                 stream_id,
                 addr,
             } => {
-                let find_node = P2pNetworkKademliaRpcRequest::find_node(request_state.key)
-                    .map_err(|e| e.to_string())?;
+                let find_node = match P2pNetworkKademliaRpcRequest::find_node(request_state.key) {
+                    Ok(find_node) => find_node,
+                    Err(error) => {
+                        bug_condition!(
+                            "P2pNetworkKadRequestAction::StreamReady invalid request key error: {error}"
+                        );
+                        return Ok(());
+                    }
+                };
 
                 let message = super::super::Message::from(&find_node);
                 request_state.status = quick_protobuf::serialize_into_vec(&message).map_or_else(
@@ -190,6 +196,8 @@ impl P2pNetworkKadRequestState {
                 let dispatcher = state_context.into_dispatcher();
                 let data =
                     P2pNetworkKademliaRpcRequest::find_node(key).map_err(|e| e.to_string())?;
+
+                // TODO: move action bellow to callback
                 dispatcher.push(P2pNetworkKademliaStreamAction::SendRequest {
                     addr,
                     peer_id,
@@ -267,7 +275,7 @@ impl P2pNetworkKadRequestState {
             }
             P2pNetworkKadRequestAction::Prune { .. } => {
                 bug_condition!("Handled above shouldn't happen");
-                return Ok(());
+                Ok(())
             }
             P2pNetworkKadRequestAction::Error { peer_id, error } => {
                 request_state.status = P2pNetworkKadRequestStatus::Error(error.clone());

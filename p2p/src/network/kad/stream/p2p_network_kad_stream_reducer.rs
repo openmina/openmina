@@ -95,6 +95,7 @@ impl P2pNetworkKadIncomingStreamState {
                     P2pNetworkKadIncomingStreamState::RequestIsReady {
                         data: P2pNetworkKademliaRpcRequest::FindNode { key },
                     } => {
+                        // TODO: add callback
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
                             addr: *addr,
                             peer_id: *peer_id,

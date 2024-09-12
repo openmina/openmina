@@ -42,7 +42,6 @@ impl P2pNetworkNoiseState {
                 static_sk,
                 signature,
                 addr,
-                ..
             } => {
                 let esk = ephemeral_sk.clone();
                 let epk = esk.pk();
@@ -96,7 +95,7 @@ impl P2pNetworkNoiseState {
 
                 Ok(())
             }
-            P2pNetworkNoiseAction::IncomingData { data, addr, .. } => {
+            P2pNetworkNoiseAction::IncomingData { data, addr } => {
                 noise_state.buffer.extend_from_slice(data);
                 let mut offset = 0;
                 loop {
@@ -121,17 +120,14 @@ impl P2pNetworkNoiseState {
                 }
                 noise_state.buffer = noise_state.buffer[offset..].to_vec();
 
-                let mut incoming = noise_state.incoming_chunks.clone();
+                let incoming_chunks = noise_state.incoming_chunks.len();
                 let dispatcher = state_context.into_dispatcher();
-                while let Some(data) = incoming.pop_front() {
-                    dispatcher.push(P2pNetworkNoiseAction::IncomingChunk {
-                        addr: *addr,
-                        data: Data::from(data),
-                    });
+                for _ in 0..incoming_chunks {
+                    dispatcher.push(P2pNetworkNoiseAction::IncomingChunk { addr: *addr });
                 }
                 Ok(())
             }
-            action @ P2pNetworkNoiseAction::IncomingChunk { addr, .. } => {
+            action @ P2pNetworkNoiseAction::IncomingChunk { addr } => {
                 let Some(state) = &mut noise_state.inner else {
                     bug_condition!("action {:?}: no inner state", action);
                     return Ok(());

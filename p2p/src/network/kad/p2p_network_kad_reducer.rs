@@ -1,4 +1,4 @@
-use crate::{P2pLimits, P2pNetworkKadEntry, P2pState};
+use crate::{P2pLimits, P2pNetworkKadEntry};
 use openmina_core::{debug, Substate, SubstateAccess};
 use redux::ActionWithMeta;
 
@@ -18,9 +18,7 @@ impl super::P2pNetworkKadState {
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
-        State: SubstateAccess<Self>
-            + SubstateAccess<P2pState>
-            + SubstateAccess<P2pNetworkKadBootstrapState>,
+        State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
         let state = state_context.get_substate_mut()?;

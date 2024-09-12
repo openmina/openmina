@@ -45,21 +45,23 @@ fn prepare_next_request(
 
 impl P2pNetworkKadBootstrapState {
     pub fn reducer<Action, State>(
-        mut state_context: Substate<Action, State, Self>,
+        mut state_context: Substate<Action, State, P2pState>,
         action: ActionWithMeta<&P2pNetworkKadBootstrapAction>,
         filter_addrs: bool,
     ) -> Result<(), String>
     where
-        State: SubstateAccess<Self> + SubstateAccess<P2pState> + SubstateAccess<P2pNetworkKadState>,
+        State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
         let (action, meta) = action.split();
-        let discovery_state: &P2pNetworkKadState = state_context.get_state().substate()?;
-        let routing_table = &discovery_state.routing_table;
-        let bootstrap_state = state_context.get_substate()?;
 
         match action {
             P2pNetworkKadBootstrapAction::CreateRequests => {
+                let discovery_state: &P2pNetworkKadState =
+                    state_context.get_substate()?.substate()?;
+                let routing_table = &discovery_state.routing_table;
+                let bootstrap_state: &Self = state_context.get_substate()?.substate()?;
+
                 let requests_to_create = 3_usize.saturating_sub(bootstrap_state.requests.len());
                 let peer_id_req_vec = routing_table
                     .closest_peers(&bootstrap_state.kademlia_key) // for the next request we take closest peer
@@ -72,7 +74,7 @@ impl P2pNetworkKadBootstrapState {
                     .take(requests_to_create) // and stop when we create enough requests so up to 3 will be executed in parallel
                     .collect::<Vec<_>>();
 
-                let state = state_context.get_substate_mut()?;
+                let state: &mut Self = state_context.get_substate_mut()?.substate_mut()?;
                 for (peer_id, request) in peer_id_req_vec {
                     state.processed_peers.insert(peer_id);
                     let address =
@@ -119,7 +121,8 @@ impl P2pNetworkKadBootstrapState {
                 peer_id,
                 closest_peers,
             } => {
-                let state: &mut P2pNetworkKadBootstrapState = state_context.get_substate_mut()?;
+                let state: &mut P2pNetworkKadBootstrapState =
+                    state_context.get_substate_mut()?.substate_mut()?;
                 let Some(req) = state.requests.remove(peer_id) else {
                     return Err(format!("cannot find request for peer {peer_id}"));
                 };
@@ -161,7 +164,7 @@ impl P2pNetworkKadBootstrapState {
             }
             P2pNetworkKadBootstrapAction::RequestError { peer_id, error } => {
                 let bootstrap_state: &mut P2pNetworkKadBootstrapState =
-                    state_context.get_substate_mut()?;
+                    state_context.get_substate_mut()?.substate_mut()?;
 
                 let Some(req) = bootstrap_state.requests.remove(peer_id) else {
                     return Err(format!("cannot find request for peer {peer_id}"));
