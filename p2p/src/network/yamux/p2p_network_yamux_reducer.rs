@@ -20,7 +20,6 @@ impl P2pNetworkYamuxState {
 
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
-        // streams: &mut BTreeMap<StreamId, P2pNetworkStreamState>,
         action: redux::ActionWithMeta<&P2pNetworkYamuxAction>,
     ) -> Result<(), String>
     where

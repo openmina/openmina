@@ -49,18 +49,10 @@ impl P2pNetworkState {
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(a),
             ),
-            P2pNetworkAction::Yamux(a) => {
-                // if let Some(cn) = state.scheduler.connections.get_mut(a.addr()) {
-                //     if let Some(P2pNetworkConnectionMuxState::Yamux(state)) = &mut cn.mux {
-                //         state.reducer(&mut cn.streams, meta.with_action(a))?;
-                //     }
-                // }
-                // Ok(())
-                P2pNetworkYamuxState::reducer(
-                    Substate::from_compatible_substate(state_context),
-                    meta.with_action(a),
-                )
-            }
+            P2pNetworkAction::Yamux(a) => P2pNetworkYamuxState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
             P2pNetworkAction::Identify(a) => P2pNetworkIdentifyState::reducer(
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(a),

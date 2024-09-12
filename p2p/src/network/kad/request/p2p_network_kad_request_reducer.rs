@@ -54,6 +54,7 @@ impl P2pNetworkKadRequestState {
                 let on_initialize_connection = |dispatcher: &mut Dispatcher<Action, State>| {
                     // initialize connection to the peer.
                     // when connection is establised and yamux layer is ready, we will continue with TODO
+                    // TODO: add callbacks
                     let opts = crate::connection::outgoing::P2pConnectionOutgoingInitOpts::LibP2P(
                         (peer_id, addr).into(),
                     );
@@ -70,14 +71,16 @@ impl P2pNetworkKadRequestState {
                 let on_connection_established = |dispatcher: &mut Dispatcher<Action, State>| {
                     let Some((_, conn_state)) = p2p_state.network.scheduler.find_peer(&peer_id)
                     else {
-                        return Err(format!(
+                        bug_condition!(
                             "peer {peer_id} is connected, its network connection is {:?}",
                             p2p_state
                                 .network
                                 .scheduler
                                 .find_peer(&peer_id)
                                 .map(|(_, s)| s)
-                        ));
+                        );
+
+                        return Ok(());
                     };
                     if let Some(stream_id) = conn_state.mux.as_ref().and_then(
                         |P2pNetworkConnectionMuxState::Yamux(yamux)| {
@@ -88,6 +91,7 @@ impl P2pNetworkKadRequestState {
                         },
                     ) {
                         // multiplexing is ready, open a stream
+                        // TODO: add callbacks
                         dispatcher.push(P2pNetworkYamuxAction::OpenStream {
                             addr: crate::ConnectionAddr {
                                 sock_addr: addr,
@@ -146,6 +150,7 @@ impl P2pNetworkKadRequestState {
                             .ok_or_else(|| format!("cannot get next stream for {addr}"))
                     })?;
 
+                // TODO: add callbacks
                 dispatcher.push(P2pNetworkYamuxAction::OpenStream {
                     addr: *addr,
                     stream_id,

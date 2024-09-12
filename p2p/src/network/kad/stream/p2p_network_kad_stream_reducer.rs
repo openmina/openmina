@@ -150,6 +150,7 @@ impl P2pNetworkKadIncomingStreamState {
                     P2pNetworkKadIncomingStreamState::RequestIsReady {
                         data: P2pNetworkKademliaRpcRequest::FindNode { key },
                     } => {
+                        // TODO: add callbacks
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
                             addr: *addr,
                             peer_id: *peer_id,
@@ -293,7 +294,8 @@ impl P2pNetworkKadOutgoingStreamState {
             .get_substate_mut()?
             .find_kad_stream_state_mut(action.peer_id(), action.stream_id())
         else {
-            return Err("invalid stream".to_owned());
+            bug_condition!("Stream not found");
+            return Ok(());
         };
 
         match (&state, action) {
