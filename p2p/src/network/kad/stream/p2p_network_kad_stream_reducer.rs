@@ -1,11 +1,12 @@
-use openmina_core::{fuzzed_maybe, warn, Substate, SubstateAccess};
+use openmina_core::{bug_condition, fuzzed_maybe, warn, Substate, SubstateAccess};
 use quick_protobuf::{serialize_into_vec, BytesReader};
 use redux::ActionWithMeta;
 
 use crate::{
-    Data, P2pLimits, P2pNetworkConnectionError, P2pNetworkKadState, P2pNetworkKademliaAction,
-    P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest, P2pNetworkSchedulerAction,
-    P2pNetworkStreamProtobufError, P2pNetworkYamuxAction, P2pState, YamuxFlags,
+    stream::P2pNetworkKadOutgoingStreamError, Data, P2pLimits, P2pNetworkConnectionError,
+    P2pNetworkKadState, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
+    P2pNetworkKademliaRpcRequest, P2pNetworkSchedulerAction, P2pNetworkStreamProtobufError,
+    P2pNetworkYamuxAction, P2pState, YamuxFlags,
 };
 
 use super::{
@@ -53,55 +54,47 @@ impl P2pNetworkKadIncomingStreamState {
                 let data = &data.0;
                 let mut reader = BytesReader::from_bytes(data);
 
-                let Ok(encoded_len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    let error = P2pNetworkStreamProtobufError::MessageLength;
-                    *state = P2pNetworkKadIncomingStreamState::Error(error.clone());
-                    let dispatcher = state_context.into_dispatcher();
-                    warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
-                    dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
-                        error: P2pNetworkConnectionError::from(
-                            P2pNetworkKadIncomingStreamError::from(error),
-                        ),
-                    });
-                    return Ok(());
+                match reader.read_varint32(data).map(|v| v as usize) {
+                    Ok(encoded_len) if encoded_len > limits.kademlia_request() => {
+                        *state = P2pNetworkKadIncomingStreamState::Error(
+                            P2pNetworkStreamProtobufError::Limit(
+                                encoded_len,
+                                limits.kademlia_request(),
+                            ),
+                        );
+                    }
+                    Ok(encoded_len) => {
+                        let remaining_len = reader.len();
+                        if let Some(remaining_data) = data.get(data.len() - remaining_len..) {
+                            if encoded_len > remaining_len {
+                                *state = P2pNetworkKadIncomingStreamState::PartialRequestReceived {
+                                    len: encoded_len,
+                                    data: remaining_data.to_vec(),
+                                };
+                                return Ok(());
+                            }
+
+                            state.handle_incoming_request(encoded_len, remaining_data)?;
+                        } else {
+                            *state = P2pNetworkKadIncomingStreamState::Error(
+                                P2pNetworkStreamProtobufError::Message("out of bounds".to_owned()),
+                            );
+                        }
+                    }
+                    Err(_) => {
+                        *state = P2pNetworkKadIncomingStreamState::Error(
+                            P2pNetworkStreamProtobufError::MessageLength,
+                        );
+                    }
                 };
 
-                if encoded_len > limits.kademlia_request() {
-                    let error = P2pNetworkStreamProtobufError::Limit(
-                        encoded_len,
-                        limits.kademlia_request(),
-                    );
-                    *state = P2pNetworkKadIncomingStreamState::Error(error.clone());
-                    let dispatcher = state_context.into_dispatcher();
-                    warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
-                    dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
-                        error: P2pNetworkConnectionError::from(
-                            P2pNetworkKadIncomingStreamError::from(error),
-                        ),
-                    });
-                    return Ok(());
-                }
+                let state = state.clone();
+                let dispatcher = state_context.into_dispatcher();
 
-                let remaining_len = reader.len();
-
-                if let Some(remaining_data) = data.get(data.len() - remaining_len..) {
-                    if encoded_len > remaining_len {
-                        *state = P2pNetworkKadIncomingStreamState::PartialRequestReceived {
-                            len: encoded_len,
-                            data: remaining_data.to_vec(),
-                        };
-                        return Ok(());
-                    }
-
-                    state.handle_incoming_request(encoded_len, remaining_data)?;
-                    if let P2pNetworkKadIncomingStreamState::RequestIsReady {
+                match state {
+                    P2pNetworkKadIncomingStreamState::RequestIsReady {
                         data: P2pNetworkKademliaRpcRequest::FindNode { key },
-                    } = state
-                    {
-                        let key = key.clone();
-                        let dispatcher = state_context.into_dispatcher();
+                    } => {
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
                             addr: *addr,
                             peer_id: *peer_id,
@@ -113,13 +106,8 @@ impl P2pNetworkKadIncomingStreamState {
                             stream_id: *stream_id,
                             key,
                         });
-                        Ok(())
-                    } else {
-                        let P2pNetworkKadIncomingStreamState::Error(error) = state else {
-                            return Ok(());
-                        };
-                        let error = error.clone();
-                        let dispatcher = state_context.into_dispatcher();
+                    }
+                    P2pNetworkKadIncomingStreamState::Error(error) => {
                         warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
                         dispatcher.push(P2pNetworkSchedulerAction::Error {
                             addr: *addr,
@@ -127,21 +115,11 @@ impl P2pNetworkKadIncomingStreamState {
                                 P2pNetworkKadIncomingStreamError::from(error),
                             ),
                         });
-                        Ok(())
                     }
-                } else {
-                    let error = P2pNetworkStreamProtobufError::Message("out of bounds".to_owned());
-                    *state = P2pNetworkKadIncomingStreamState::Error(error.clone());
-                    let dispatcher = state_context.into_dispatcher();
-                    warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
-                    dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
-                        error: P2pNetworkConnectionError::from(
-                            P2pNetworkKadIncomingStreamError::from(error),
-                        ),
-                    });
-                    Ok(())
+                    _ => bug_condition!("Invalid state"),
                 }
+
+                Ok(())
             }
             (
                 P2pNetworkKadIncomingStreamState::PartialRequestReceived { len, data },
@@ -164,40 +142,38 @@ impl P2pNetworkKadIncomingStreamState {
                 }
 
                 state.handle_incoming_request(*len, &data)?;
+                let state = state.clone();
+                let dispatcher = state_context.into_dispatcher();
 
-                if let P2pNetworkKadIncomingStreamState::RequestIsReady {
-                    data: P2pNetworkKademliaRpcRequest::FindNode { key },
-                } = state
-                {
-                    let key = key.clone();
-                    let dispatcher = state_context.into_dispatcher();
-                    dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
-                        addr: *addr,
-                        peer_id: *peer_id,
-                        stream_id: *stream_id,
-                    });
-                    dispatcher.push(P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                        addr: *addr,
-                        peer_id: *peer_id,
-                        stream_id: *stream_id,
-                        key,
-                    });
-                    Ok(())
-                } else {
-                    let P2pNetworkKadIncomingStreamState::Error(error) = state else {
-                        return Ok(());
-                    };
-                    let error = error.clone();
-                    let dispatcher = state_context.into_dispatcher();
-                    warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
-                    dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
-                        error: P2pNetworkConnectionError::from(
-                            P2pNetworkKadIncomingStreamError::from(error),
-                        ),
-                    });
-                    Ok(())
+                match state {
+                    P2pNetworkKadIncomingStreamState::RequestIsReady {
+                        data: P2pNetworkKademliaRpcRequest::FindNode { key },
+                    } => {
+                        dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
+                            addr: *addr,
+                            peer_id: *peer_id,
+                            stream_id: *stream_id,
+                        });
+                        dispatcher.push(P2pNetworkKademliaAction::AnswerFindNodeRequest {
+                            addr: *addr,
+                            peer_id: *peer_id,
+                            stream_id: *stream_id,
+                            key,
+                        });
+                    }
+                    P2pNetworkKadIncomingStreamState::Error(error) => {
+                        warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
+                        dispatcher.push(P2pNetworkSchedulerAction::Error {
+                            addr: *addr,
+                            error: P2pNetworkConnectionError::from(
+                                P2pNetworkKadIncomingStreamError::from(error),
+                            ),
+                        });
+                    }
+                    _ => bug_condition!("Invalid state"),
                 }
+
+                Ok(())
             }
             (
                 P2pNetworkKadIncomingStreamState::RequestIsReady { .. },
@@ -311,7 +287,7 @@ impl P2pNetworkKadOutgoingStreamState {
         State: SubstateAccess<P2pNetworkKadState> + SubstateAccess<P2pState>,
         Action: crate::P2pActionTrait<State>,
     {
-        let (action, _meta) = action.split();
+        let (action, meta) = action.split();
         let Some(P2pNetworkKadStreamState::Outgoing(state)) = state_context
             .get_substate_mut()?
             .find_kad_stream_state_mut(action.peer_id(), action.stream_id())
@@ -382,42 +358,51 @@ impl P2pNetworkKadOutgoingStreamState {
                 let data = &data.0;
 
                 let mut reader = BytesReader::from_bytes(data);
-                let Ok(encoded_len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    *state = P2pNetworkKadOutgoingStreamState::Error(
-                        P2pNetworkStreamProtobufError::MessageLength,
-                    );
-                    return Ok(());
+
+                match reader.read_varint32(data).map(|v| v as usize) {
+                    Ok(encoded_len) if encoded_len > limits.kademlia_response() => {
+                        *state = P2pNetworkKadOutgoingStreamState::Error(
+                            P2pNetworkStreamProtobufError::Limit(
+                                encoded_len,
+                                limits.kademlia_response(),
+                            ),
+                        );
+                    }
+                    Ok(encoded_len) => {
+                        let remaining_len = reader.len();
+                        if let Some(remaining_data) = data.get(data.len() - remaining_len..) {
+                            if encoded_len > remaining_len {
+                                *state = P2pNetworkKadOutgoingStreamState::PartialReplyReceived {
+                                    len: encoded_len,
+                                    data: remaining_data.to_vec(),
+                                };
+                                return Ok(());
+                            }
+
+                            state.handle_incoming_response(encoded_len, remaining_data)?;
+                        } else {
+                            *state = P2pNetworkKadOutgoingStreamState::Error(
+                                P2pNetworkStreamProtobufError::Message("out of bounds".to_owned()),
+                            );
+                        }
+                    }
+                    Err(_) => {
+                        *state = P2pNetworkKadOutgoingStreamState::Error(
+                            P2pNetworkStreamProtobufError::MessageLength,
+                        );
+                    }
                 };
 
-                if encoded_len > limits.kademlia_response() {
-                    *state = P2pNetworkKadOutgoingStreamState::Error(
-                        P2pNetworkStreamProtobufError::Limit(
-                            encoded_len,
-                            limits.kademlia_response(),
-                        ),
-                    );
-                    return Ok(());
-                }
+                let state = state.clone();
+                let dispatcher = state_context.into_dispatcher();
 
-                let remaining_len = reader.len();
-
-                if let Some(remaining_data) = data.get(data.len() - remaining_len..) {
-                    if encoded_len > remaining_len {
-                        *state = P2pNetworkKadOutgoingStreamState::PartialReplyReceived {
-                            len: encoded_len,
-                            data: remaining_data.to_vec(),
-                        };
-                        return Ok(());
-                    }
-
-                    state.handle_incoming_response(encoded_len, remaining_data)?;
-
-                    if let P2pNetworkKadOutgoingStreamState::ResponseIsReady {
-                        data: P2pNetworkKademliaRpcReply::FindNode { closer_peers },
-                    } = state
-                    {
-                        let closest_peers = closer_peers.clone();
-                        let dispatcher = state_context.into_dispatcher();
+                match state {
+                    P2pNetworkKadOutgoingStreamState::ResponseIsReady {
+                        data:
+                            P2pNetworkKademliaRpcReply::FindNode {
+                                closer_peers: closest_peers,
+                            },
+                    } => {
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
                             addr: *addr,
                             peer_id: *peer_id,
@@ -429,16 +414,22 @@ impl P2pNetworkKadOutgoingStreamState {
                             stream_id: *stream_id,
                             closest_peers,
                         });
-                        Ok(())
-                    } else {
-                        todo!();
                     }
-                } else {
-                    *state = P2pNetworkKadOutgoingStreamState::Error(
-                        P2pNetworkStreamProtobufError::Message("out of bounds".to_owned()),
-                    );
-                    Ok(())
+                    P2pNetworkKadOutgoingStreamState::Error(error) => {
+                        warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
+                        dispatcher.push(P2pNetworkSchedulerAction::Error {
+                            addr: *addr,
+                            error: P2pNetworkConnectionError::from(
+                                P2pNetworkKadOutgoingStreamError::from(error),
+                            ),
+                        });
+                    }
+                    _ => {
+                        bug_condition!("Invalid state");
+                    }
                 }
+
+                Ok(())
             }
             (
                 P2pNetworkKadOutgoingStreamState::PartialReplyReceived { len, data },
@@ -459,27 +450,41 @@ impl P2pNetworkKadOutgoingStreamState {
                 }
 
                 state.handle_incoming_response(*len, &data)?;
-                if let P2pNetworkKadOutgoingStreamState::ResponseIsReady {
-                    data: P2pNetworkKademliaRpcReply::FindNode { closer_peers },
-                } = state
-                {
-                    let closest_peers = closer_peers.clone();
-                    let dispatcher = state_context.into_dispatcher();
-                    dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
-                        addr: *addr,
-                        peer_id: *peer_id,
-                        stream_id: *stream_id,
-                    });
-                    dispatcher.push(P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                        addr: *addr,
-                        peer_id: *peer_id,
-                        stream_id: *stream_id,
-                        closest_peers,
-                    });
-                    Ok(())
-                } else {
-                    todo!();
+                let state = state.clone();
+                let dispatcher = state_context.into_dispatcher();
+
+                match state {
+                    P2pNetworkKadOutgoingStreamState::ResponseIsReady {
+                        data:
+                            P2pNetworkKademliaRpcReply::FindNode {
+                                closer_peers: closest_peers,
+                            },
+                    } => {
+                        dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
+                            addr: *addr,
+                            peer_id: *peer_id,
+                            stream_id: *stream_id,
+                        });
+                        dispatcher.push(P2pNetworkKademliaAction::UpdateFindNodeRequest {
+                            addr: *addr,
+                            peer_id: *peer_id,
+                            stream_id: *stream_id,
+                            closest_peers,
+                        });
+                    }
+                    P2pNetworkKadOutgoingStreamState::Error(error) => {
+                        warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
+                        dispatcher.push(P2pNetworkSchedulerAction::Error {
+                            addr: *addr,
+                            error: P2pNetworkConnectionError::from(
+                                P2pNetworkKadOutgoingStreamError::from(error),
+                            ),
+                        });
+                    }
+                    _ => bug_condition!("Invalid state"),
                 }
+
+                Ok(())
             }
             (
                 P2pNetworkKadOutgoingStreamState::ResponseIsReady { .. },

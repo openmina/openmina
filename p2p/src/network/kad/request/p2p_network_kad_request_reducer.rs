@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use openmina_core::{Substate, SubstateAccess};
+use openmina_core::{bug_condition, Substate, SubstateAccess};
 use redux::{ActionWithMeta, Dispatcher};
 
 use crate::{
@@ -266,7 +266,8 @@ impl P2pNetworkKadRequestState {
                 Ok(())
             }
             P2pNetworkKadRequestAction::Prune { .. } => {
-                Err("Handled above shouldn't happen".to_owned())
+                bug_condition!("Handled above shouldn't happen");
+                return Ok(());
             }
             P2pNetworkKadRequestAction::Error { peer_id, error } => {
                 request_state.status = P2pNetworkKadRequestStatus::Error(error.clone());
