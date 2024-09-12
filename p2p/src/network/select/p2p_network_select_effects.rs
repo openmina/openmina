@@ -3,7 +3,7 @@ use self::token::{
     Token,
 };
 
-use openmina_core::{bug_condition, fuzz_maybe, fuzzed_maybe};
+use openmina_core::{bug_condition, error, fuzz_maybe, fuzzed_maybe};
 
 use crate::{
     fuzzer::{mutate_select_authentication, mutate_select_multiplexing, mutate_select_stream},
@@ -192,9 +192,9 @@ impl P2pNetworkSelectAction {
                                     });
                                 }
                                 _ => {
-                                    bug_condition!(
-                                        "trying to negotiate unimplemented stream kind {:?}",
-                                        kind
+                                    let time = meta.time();
+                                    error!(time;
+                                        "trying to negotiate unimplemented stream kind {kind:?}"
                                     );
                                 }
                             }
