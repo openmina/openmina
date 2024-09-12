@@ -1,5 +1,7 @@
 use openmina_core::bug_condition;
 
+use libp2p_identity::PublicKey;
+
 use crate::{
     P2pCryptoService, P2pNetworkConnectionError, P2pNetworkPubsubAction, P2pNetworkSchedulerAction,
 };
@@ -39,14 +41,17 @@ impl P2pNetworkPubsubEffectfulAction {
                 for mut message in messages {
                     let mut error = None;
 
-                    if let (Some(signature), Some(from)) =
-                        (message.signature.take(), message.from.clone())
-                    {
-                        message.key = None;
-                        let mut data = vec![];
+                    let originator =
+                        match message.key.as_deref().map(PublicKey::try_decode_protobuf) {
+                            Some(Ok(v)) => Some(v),
+                            _ => PublicKey::try_decode_protobuf(&message.from()[2..]).ok(),
+                        };
 
-                        if let Ok(pk) = libp2p_identity::PublicKey::try_decode_protobuf(&from[2..])
-                        {
+                    if let Some(signature) = message.signature.take() {
+                        if let Some(pk) = originator {
+                            message.key = None;
+                            let mut data = vec![];
+
                             if prost::Message::encode(&message, &mut data).is_err() {
                                 // should never happen;
                                 // we just decode this message, so it should encode without error
@@ -58,12 +63,10 @@ impl P2pNetworkPubsubEffectfulAction {
                                 error = Some("invalid signature");
                             }
                         } else {
-                            // peer specify bad pk
-                            error = Some("bad pubkey");
+                            error = Some("message doesn't contain verifying key");
                         }
                     } else {
-                        // TODO: fix tests and re-enable
-                        //error = Some("message doesn't contain signature or verifying key");
+                        error = Some("message doesn't contain signature");
                     }
 
                     if let Some(error) = error {
