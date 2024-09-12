@@ -238,6 +238,15 @@ jobs:
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY_FRONTEND_IMAGE }}@sha256:%s ' *) \
 
+      - name: Determine tag to use
+        id: get-tag
+        run: |
+          if [ -n "${{ env.FINAL_TAG }}" ]; then
+            echo "INSPECT_TAG=${{ env.FINAL_TAG }}" >> $GITHUB_OUTPUT
+          else
+            echo "INSPECT_TAG=${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Inspect image
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ env.FINAL_TAG }}
+          docker buildx imagetools inspect ${{ env.REGISTRY_FRONTEND_IMAGE }}:${{ steps.get-tag.outputs.INSPECT_TAG }}
