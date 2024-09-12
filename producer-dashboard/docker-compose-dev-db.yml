@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: archive
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U postgres -d archive -tAc \"SELECT COUNT(*) FROM pg_database WHERE datname='archive';\" | grep -q '^1$'"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - './archive/postgresql/data:/var/lib/postgresql/data'
+    ports:
+      - '5432:5432'
+  bootstrap_db:
+    # image: 'minaprotocol/mina-archive:3.0.0-93e0279-bullseye'
+    image: 'postgres:custom-local' # Use this image for Devnet
+    command: >
+      bash -c '
+      curl -O https://673156464838-mina-archive-node-backups.s3.us-west-2.amazonaws.com/devnet/devnet-archive-dump-$(date +%F_0000).sql.tar.gz;
+      tar -zxvf devnet-archive-dump-$(date +%F_0000).sql.tar.gz;
+      psql postgres://postgres:postgres@postgres:5432/archive -c "
+      ALTER SYSTEM SET max_connections = 500;
+      ALTER SYSTEM SET max_locks_per_transaction = 100;
+      ALTER SYSTEM SET max_pred_locks_per_relation = 100;
+      ALTER SYSTEM SET max_pred_locks_per_transaction = 5000;
+      "
+      psql postgres://postgres:postgres@postgres:5432/archive -f devnet-archive-dump-$(date +%F_0000).sql;
+      '
+    # For Devnet Network, replace "mainnet" references with "devnet" in the block above
+    depends_on:
+      postgres:
+        condition: service_healthy

@@ -5,3 +5,4 @@ docker/.mina-config/*
 .mina-env
 docker/init-db/dump.sql
 dumps
+archive

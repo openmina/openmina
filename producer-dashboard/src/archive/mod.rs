@@ -75,7 +75,7 @@ impl ArchiveConnector {
                 JOIN 
                     public_keys pk_winner ON b.block_winner_id = pk_winner.id
                 WHERE 
-                    b.global_slot_since_hard_fork BETWEEN $1 AND $2"#,
+                    b.global_slot_since_genesis BETWEEN $1 AND $2"#,
             start_slot,
             finish_slot
         )
@@ -119,7 +119,7 @@ impl ArchiveConnector {
               JOIN 
                 public_keys pk_winner ON c.block_winner_id = pk_winner.id
               WHERE 
-                c.global_slot_since_hard_fork BETWEEN $2 AND $3
+                c.global_slot_since_genesis BETWEEN $2 AND $3
             "#,
             best_tip_hash,
             start_slot,

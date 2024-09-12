@@ -1,0 +1,10 @@
+query GenesisBlock {
+  genesisBlock {
+    protocolState {
+      consensusState {
+        slotSinceGenesis
+        slot
+      }
+    }
+  }
+}

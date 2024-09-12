@@ -37,10 +37,12 @@ async fn watch(
     }
 
     let genesis_timestamp = node.get_genesis_timestmap().await.unwrap();
+    let genesis_slot_since_genesis = node.get_genesis_slot_since_genesis().await.unwrap();
 
     {
         let mut node_status = status.write().await;
         node_status.genesis_timestamp = genesis_timestamp;
+        node_status.genesis_slot_since_genesis = genesis_slot_since_genesis;
     }
 
     loop {

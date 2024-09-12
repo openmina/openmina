@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use mina_p2p_messages::v2::EpochSeed;
 use openmina_node_account::AccountSecretKey;
-use time::OffsetDateTime;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::task::JoinHandle;
 use tracing::{info, instrument};

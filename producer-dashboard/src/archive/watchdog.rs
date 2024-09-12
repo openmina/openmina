@@ -53,14 +53,22 @@ impl ArchiveWatchdog {
 
             if let Some(best_tip) = node_status.best_tip() {
                 let (start, end) = best_tip.epoch_bounds().0;
+                let (start_since_genesis, end_since_genesis) = (
+                    node_status.to_global_slot_since_genesis(start),
+                    node_status.to_global_slot_since_genesis(end),
+                );
 
-                info!("Best tip epoch bounds: {start} - {end}");
+                info!("Best tip epoch bounds: {start} - {end} -- Since genesis {start_since_genesis} - {end_since_genesis}");
                 info!("Best tip state hash: {}", best_tip.state_hash());
 
                 let cannonical_chain = match self
                     .archive_connector
                     .clone()
-                    .get_canonical_chain(start.into(), end.into(), best_tip.state_hash())
+                    .get_canonical_chain(
+                        start_since_genesis.into(),
+                        end_since_genesis.into(),
+                        best_tip.state_hash(),
+                    )
                     .await
                 {
                     Ok(blocks) => blocks,
@@ -96,7 +104,7 @@ impl ArchiveWatchdog {
                 // get blocks
                 let blocks = match self
                     .archive_connector
-                    .get_blocks_in_slot_range(start.into(), end.into())
+                    .get_blocks_in_slot_range(start_since_genesis.into(), end_since_genesis.into())
                     .await
                 {
                     Ok(blocks) => blocks,

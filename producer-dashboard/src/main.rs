@@ -30,6 +30,8 @@ pub enum StakingToolError {
     Serde(#[from] serde_json::Error),
     #[error("Node offline")]
     NodeOffline,
+    #[error(transparent)]
+    ParseInt(#[from] std::num::ParseIntError),
 }
 
 pub type NodeStatus = Arc<RwLock<NodeData>>;

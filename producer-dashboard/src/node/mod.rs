@@ -116,6 +116,30 @@ impl Node {
         Ok(datetime.unix_timestamp())
     }
 
+    pub async fn get_genesis_slot_since_genesis(&self) -> Result<u32, StakingToolError> {
+        let client = Client::builder()
+            .user_agent("graphql-rust/0.10.0")
+            .build()
+            .unwrap();
+
+        let variables = genesis_block::Variables {};
+
+        let response_body = post_graphql::<GenesisBlock, _>(&client, &self.graphql_url, variables)
+            .await
+            .unwrap();
+
+        let response_data: genesis_block::ResponseData = response_body
+            .data
+            .ok_or(StakingToolError::EmptyGraphqlResponse)?;
+
+        let slot_since_genesis = response_data
+            .genesis_block
+            .protocol_state
+            .consensus_state
+            .slot_since_genesis;
+        Ok(slot_since_genesis.parse()?)
+    }
+
     #[allow(dead_code)]
     pub async fn get_best_chain(&self) -> Result<Vec<(u32, String)>, StakingToolError> {
         let client = Client::builder()
@@ -207,6 +231,7 @@ pub struct NodeData {
     dumped_ledgers: BTreeSet<u32>,
     // TODO: make sure it's available, make it an option
     genesis_timestamp: i64,
+    genesis_slot_since_genesis: u32,
 }
 
 impl Default for NodeData {
@@ -217,6 +242,7 @@ impl Default for NodeData {
             sync_status: SyncStatus::OFFLINE,
             dumped_ledgers: Default::default(),
             genesis_timestamp: 0,
+            genesis_slot_since_genesis: 0,
         }
     }
 }
@@ -234,13 +260,17 @@ impl NodeData {
         self.best_tip.clone()
     }
 
-    pub fn current_slot(&self) -> CurrentSlot {
+    pub fn to_global_slot_since_genesis(&self, global_slot: u32) -> u32 {
+        global_slot + self.genesis_slot_since_genesis
+    }
+
+    pub fn current_slot(&self) -> MinaSlot {
         let now = OffsetDateTime::now_utc().unix_timestamp();
 
         let elapsed = now - self.genesis_timestamp;
 
         let slot = (elapsed / (3 * 60)) as u32;
-        CurrentSlot::new(slot)
+        MinaSlot::new(slot, self.genesis_slot_since_genesis)
     }
 
     pub fn best_chain(&self) -> &[(u32, String)] {
@@ -249,18 +279,21 @@ impl NodeData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CurrentSlot {
+pub struct MinaSlot {
     slot: RawSlot,
     global_slot: RawGlobalSlot,
+    global_slot_since_genesis: u32,
 }
 
-impl CurrentSlot {
-    pub fn new(global_slot: u32) -> Self {
+impl MinaSlot {
+    pub fn new(global_slot: u32, genesis_slot_since_genesis: u32) -> Self {
+        let global_slot_since_genesis = global_slot + genesis_slot_since_genesis;
         let global_slot: RawGlobalSlot = global_slot.into();
 
         Self {
             global_slot: global_slot.clone(),
             slot: global_slot.into(),
+            global_slot_since_genesis,
         }
     }
 
@@ -331,6 +364,14 @@ struct GenesisTimestamp;
     response_derives = "Debug, Clone, Serialize"
 )]
 struct BestChain;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/graphql/schema.json",
+    query_path = "src/graphql/genesis_block.graphql",
+    response_derives = "Debug, Clone, Serialize"
+)]
+struct GenesisBlock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BestTip(best_chain::BestChainBestChain);
