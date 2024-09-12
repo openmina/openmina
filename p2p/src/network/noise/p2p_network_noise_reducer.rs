@@ -449,13 +449,9 @@ impl P2pNetworkNoiseState {
                         addr: *addr,
                         error: P2pNetworkConnectionError::Noise(error),
                     });
-                } else {
-                    if let Some(data) = outgoing {
-                        dispatcher.push(P2pNetworkNoiseAction::OutgoingChunkSelectMux {
-                            addr: *addr,
-                            data,
-                        })
-                    }
+                } else if let Some(data) = outgoing {
+                    dispatcher
+                        .push(P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr: *addr, data })
                 }
 
                 Ok(())

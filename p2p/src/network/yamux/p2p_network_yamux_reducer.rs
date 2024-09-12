@@ -239,8 +239,7 @@ impl P2pNetworkYamuxState {
                 let peer_id = match connection_state
                     .auth
                     .as_ref()
-                    .map(|P2pNetworkAuthState::Noise(noise)| noise.peer_id())
-                    .flatten()
+                    .and_then(|P2pNetworkAuthState::Noise(noise)| noise.peer_id())
                 {
                     Some(peer_id) => *peer_id,
                     None => return Ok(()),
@@ -387,8 +386,7 @@ impl P2pNetworkYamuxState {
                 let peer_id = match connection_state
                     .auth
                     .as_ref()
-                    .map(|P2pNetworkAuthState::Noise(noise)| noise.peer_id())
-                    .flatten()
+                    .and_then(|P2pNetworkAuthState::Noise(noise)| noise.peer_id())
                 {
                     Some(peer_id) => *peer_id,
                     None => return Ok(()),
