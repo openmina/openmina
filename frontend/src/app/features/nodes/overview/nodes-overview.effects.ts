@@ -57,10 +57,7 @@ export class NodesOverviewEffects extends MinaRustBaseEffect<NodesOverviewAction
       ofType(NODES_OVERVIEW_GET_NODE_STATUS),
       this.latestActionState<NodesOverviewGetNodeStatus>(),
       mergeMap(({ action }) =>
-        this.nodesOverviewService.getNodeTips({
-          url: action.payload.url,
-          name: action.payload.name,
-        }, '?limit=1', true),
+        this.nodesOverviewService.getNodeTips({ url: action.payload.url, name: action.payload.name }, '?limit=1'),
       ),
       map((nodeTips: NodesOverviewNode[]) => ({
         type: NODES_OVERVIEW_GET_NODE_STATUS_SUCCESS,

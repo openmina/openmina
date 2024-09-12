@@ -40,7 +40,7 @@ export class DashboardService {
 
   getTips({ url, name }: { url: string, name: string }): Observable<NodesOverviewNode[]> {
     return this.rust.get<NodesOverviewNode[]>('/stats/sync?limit=1').pipe(
-      map((response: NodesOverviewNode[]) => this.nodesOverviewService.mapNodeTipsResponse(response, true, {
+      map((response: NodesOverviewNode[]) => this.nodesOverviewService.mapNodeTipsResponse([response, undefined], {
         name,
         url,
       })),

@@ -14,6 +14,10 @@ import { any, ONE_BILLION } from '@openmina/shared';
 
 export const WALLETS: { privateKey: string, publicKey: string }[] = [
   {
+    privateKey: 'EKEQGWy4TjbVeqKjbe7TW81DKQM34min5FNmXpKArHKLyGVd3KSP',
+    publicKey: 'B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV',
+  },
+  {
     privateKey: 'EKETKywEr7ktbzqj8D2aj4yYZVMyj33sHuWLQydbzt1M3sGnAbTh',
     publicKey: 'B62qnLjgW4LAnrxkcdLc7Snb49qx6aP5qsmPsp6ueZN4XPMC621cqGc',
   },
@@ -4009,10 +4013,10 @@ export const WALLETS: { privateKey: string, publicKey: string }[] = [
     privateKey: 'EKEA8wHHpnBCzzNvCJSPqoaF66V9cQcpd7xNN9kQxs36PV293pcU',
     publicKey: 'B62qrZG1qRV82D2CJa9FJW5BYMyC7AbL1J5aKVEgi6VMmBNcHVreozY',
   },
-  {
-    privateKey: 'EKEeNntJDZ7whPrxjNKPTj2QisoKdzWzJ59s2KmxaLHJWJhPKKxY',
-    publicKey: 'B62qruoEM1ijZPXkkLubNKRn8DQHbdfTG2BP8ut4kE4EqxT7EmnMGRA',
-  },
+  // {
+  //   privateKey: 'EKEeNntJDZ7whPrxjNKPTj2QisoKdzWzJ59s2KmxaLHJWJhPKKxY',
+  //   publicKey: 'B62qruoEM1ijZPXkkLubNKRn8DQHbdfTG2BP8ut4kE4EqxT7EmnMGRA',
+  // },
 ];
 
 @Injectable({
@@ -4037,9 +4041,15 @@ export class BenchmarksWalletsService {
         nonce: wallet.nonce,
       }))),
       // TODO: This is a backend issue, must delete this map when we have all 1000 accounts in the backend
-      map(wall => {
+      map(wallets => {
         return [
-          ...wall.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
+          ...wallets.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
+          ...WALLETS.filter(w => !wallets.some(w1 => w1.publicKey === w.publicKey)).map(wallet => ({
+            privateKey: wallet.privateKey,
+            publicKey: wallet.publicKey,
+            minaTokens: 0,
+            nonce: 0,
+          })),
         ];
       }),
     );

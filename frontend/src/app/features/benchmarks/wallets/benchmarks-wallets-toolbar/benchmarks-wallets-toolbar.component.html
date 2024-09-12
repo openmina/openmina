@@ -14,10 +14,16 @@
       <div class="button-group fx-row-vert-cent ml-5 mr-16">
         <button class="fx-row-vert-cent pl-12 pr-12 lh-md"
                 [ngClass]="randomWallet ? 'btn-selected' : 'btn-primary'"
+                [tooltip]="'Send transactions from <b>random</b> senders to <b>random</b> receivers'"
+                [html]="true"
+                [maxWidth]="1000"
                 (click)="!randomWallet ? toggleRandomWallet() : null">Random Senders
         </button>
         <button class="fx-row-vert-cent pl-12 pr-12 lh-md"
                 [ngClass]="!randomWallet ? 'btn-selected' : 'btn-primary'"
+                [tooltip]="'Send transactions from <b>specific</b> sender to <b>random</b> receivers'"
+                [html]="true"
+                [maxWidth]="1000"
                 (click)="randomWallet ? toggleRandomWallet() : null">Specific Sender
         </button>
       </div>
