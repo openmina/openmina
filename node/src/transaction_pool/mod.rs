@@ -100,7 +100,7 @@ impl TransactionPoolState {
         let substate = state.get_substate_mut().unwrap();
         if substate.file.is_none() {
             let mut file = std::fs::File::create("/tmp/pool.bin").unwrap();
-            postcard::to_io(&state.get_state(), &mut file).unwrap();
+            postcard::to_io(&state.unsafe_get_state(), &mut file).unwrap();
             let substate = state.get_substate_mut().unwrap();
             substate.file = Some(file);
         }
@@ -126,7 +126,9 @@ impl TransactionPoolState {
     }
 
     fn handle_action(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
-        let Some((global_slot, global_slot_from_genesis)) = Self::global_slots(state.get_state())
+        let Some((global_slot, global_slot_from_genesis)) =
+            // TODO: remove usage of `unsafe_get_state`
+            Self::global_slots(state.unsafe_get_state())
         else {
             return;
         };

@@ -1,6 +1,9 @@
 use crate::{
-    network::identify::stream::P2pNetworkIdentifyStreamAction, P2pAction, P2pNetworkAction,
-    P2pState,
+    network::identify::{
+        stream::P2pNetworkIdentifyStreamAction,
+        stream_effectful::P2pNetworkIdentifyStreamEffectfulAction,
+    },
+    P2pAction, P2pNetworkAction, P2pState,
 };
 use openmina_core::ActionEvent;
 use redux::EnablingCondition;
@@ -10,12 +13,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, derive_more::From, ActionEvent)]
 pub enum P2pNetworkIdentifyAction {
     Stream(P2pNetworkIdentifyStreamAction),
+    StreamEffectful(P2pNetworkIdentifyStreamEffectfulAction),
 }
 
 impl EnablingCondition<P2pState> for P2pNetworkIdentifyAction {
     fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pNetworkIdentifyAction::Stream(action) => action.is_enabled(state, time),
+            P2pNetworkIdentifyAction::StreamEffectful(action) => action.is_enabled(state, time),
         }
     }
 }

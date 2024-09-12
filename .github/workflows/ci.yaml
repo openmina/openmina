@@ -9,6 +9,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: full
+  OPENMINA_PANIC_ON_BUG: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -299,7 +300,9 @@ jobs:
       matrix:
         test:
           - single_node
-          - multi_node
+          - multi_node_initial_joining
+          - multi_node_peer_discovery
+          - multi_node_propagate_block
           - connection_discovery_ocaml_to_rust_via_seed
           - connection_discovery_ocaml_to_rust
           - connection_discovery_rust_as_seed

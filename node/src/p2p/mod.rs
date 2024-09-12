@@ -96,3 +96,19 @@ impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
 impl_into_global_action!(channels::rpc::P2pChannelsRpcAction);
 impl_into_global_action!(channels::streaming_rpc::P2pChannelsStreamingRpcAction);
+
+impl_into_global_action!(p2p::P2pNetworkKademliaStreamAction);
+impl_into_global_action!(p2p::P2pNetworkKadRequestAction);
+impl_into_global_action!(p2p::P2pNetworkKadBootstrapAction);
+impl_into_global_action!(p2p::P2pNetworkYamuxAction);
+impl_into_global_action!(p2p::peer::P2pPeerAction);
+impl_into_global_action!(p2p::network::identify::stream::P2pNetworkIdentifyStreamAction);
+impl_into_global_action!(
+    p2p::network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction
+);
+impl_into_global_action!(p2p::identify::P2pIdentifyAction);
+impl_into_global_action!(p2p::P2pNetworkSelectAction);
+impl_into_global_action!(p2p::P2pNetworkPnetAction);
+impl_into_global_action!(p2p::P2pNetworkNoiseAction);
+
+impl p2p::P2pActionTrait<crate::State> for crate::Action {}

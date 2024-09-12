@@ -37,6 +37,7 @@ use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::identify::P2pIdentifyAction;
 use crate::p2p::network::identify::stream::P2pNetworkIdentifyStreamAction;
+use crate::p2p::network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction;
 use crate::p2p::network::identify::P2pNetworkIdentifyAction;
 use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
 use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
@@ -263,6 +264,7 @@ pub enum ActionKind {
     P2pNetworkIdentifyStreamNew,
     P2pNetworkIdentifyStreamPrune,
     P2pNetworkIdentifyStreamRemoteClose,
+    P2pNetworkIdentifyStreamEffectfulSendIdentify,
     P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapRequestDone,
     P2pNetworkKadBootstrapRequestError,
@@ -541,7 +543,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 449;
+    pub const COUNT: u16 = 450;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1445,6 +1447,7 @@ impl ActionKindGet for P2pNetworkIdentifyAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Stream(a) => a.kind(),
+            Self::StreamEffectful(a) => a.kind(),
         }
     }
 }
@@ -1513,6 +1516,14 @@ impl ActionKindGet for P2pNetworkIdentifyStreamAction {
             Self::Close { .. } => ActionKind::P2pNetworkIdentifyStreamClose,
             Self::RemoteClose { .. } => ActionKind::P2pNetworkIdentifyStreamRemoteClose,
             Self::Prune { .. } => ActionKind::P2pNetworkIdentifyStreamPrune,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkIdentifyStreamEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::SendIdentify { .. } => ActionKind::P2pNetworkIdentifyStreamEffectfulSendIdentify,
         }
     }
 }

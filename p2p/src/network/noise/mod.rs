@@ -8,6 +8,3 @@ pub use self::p2p_network_noise_state::{
 
 #[cfg(feature = "p2p-libp2p")]
 mod p2p_network_noise_reducer;
-
-#[cfg(feature = "p2p-libp2p")]
-mod p2p_network_noise_effects;

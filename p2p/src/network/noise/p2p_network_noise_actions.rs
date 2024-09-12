@@ -1,4 +1,4 @@
-use super::p2p_network_noise_state::{Pk, Sk};
+use super::p2p_network_noise_state::Sk;
 use crate::{ConnectionAddr, Data, P2pNetworkAction, P2pState, PeerId};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
@@ -10,9 +10,7 @@ pub enum P2pNetworkNoiseAction {
         addr: ConnectionAddr,
         incoming: bool,
         ephemeral_sk: Sk,
-        ephemeral_pk: Pk,
         static_sk: Sk,
-        static_pk: Pk,
         signature: Data,
     },
     /// remote peer sends the data to the noise
@@ -22,7 +20,6 @@ pub enum P2pNetworkNoiseAction {
     },
     IncomingChunk {
         addr: ConnectionAddr,
-        data: Data,
     },
     OutgoingChunk {
         addr: ConnectionAddr,

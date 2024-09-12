@@ -8,6 +8,3 @@ pub use self::p2p_network_yamux_state::{
 
 #[cfg(feature = "p2p-libp2p")]
 mod p2p_network_yamux_reducer;
-
-#[cfg(feature = "p2p-libp2p")]
-mod p2p_network_yamux_effects;

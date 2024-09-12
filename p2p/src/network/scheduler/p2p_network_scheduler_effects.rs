@@ -139,8 +139,6 @@ impl P2pNetworkSchedulerAction {
                 match protocol {
                     Some(Protocol::Auth(AuthKind::Noise)) => {
                         let ephemeral_sk = Sk::from_random(store.service().ephemeral_sk());
-                        let ephemeral_pk = ephemeral_sk.pk();
-
                         let static_sk = Sk::from_random(store.service().static_sk());
                         let static_pk = static_sk.pk();
 
@@ -150,8 +148,6 @@ impl P2pNetworkSchedulerAction {
                             addr,
                             incoming,
                             ephemeral_sk,
-                            ephemeral_pk,
-                            static_pk,
                             static_sk,
                             signature,
                         });

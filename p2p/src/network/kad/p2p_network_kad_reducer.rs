@@ -1,108 +1,142 @@
+use crate::{P2pLimits, P2pNetworkKadEntry};
+use openmina_core::{debug, Substate, SubstateAccess};
 use redux::ActionWithMeta;
 
-use crate::{P2pLimits, P2pNetworkKadEntry};
-
-use super::{P2pNetworkKadAction, P2pNetworkKadLatestRequestPeerKind, P2pNetworkKadStatus};
-
-use super::stream::P2pNetworkKademliaStreamAction;
+use super::{
+    bootstrap::P2pNetworkKadBootstrapState,
+    request::P2pNetworkKadRequestState,
+    stream::{P2pNetworkKadStreamState, P2pNetworkKademliaStreamAction},
+    P2pNetworkKadAction, P2pNetworkKadBootstrapAction, P2pNetworkKadKey,
+    P2pNetworkKadLatestRequestPeerKind, P2pNetworkKadRequestAction, P2pNetworkKadState,
+    P2pNetworkKadStatus, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
+};
 
 impl super::P2pNetworkKadState {
-    pub fn reducer(
-        &mut self,
+    pub fn reducer<State, Action>(
+        mut state_context: Substate<Action, State, Self>,
         action: ActionWithMeta<&P2pNetworkKadAction>,
         limits: &P2pLimits,
-    ) -> Result<(), String> {
+    ) -> Result<(), String>
+    where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
+        let state = state_context.get_substate_mut()?;
         let (action, meta) = action.split();
         match action {
-            P2pNetworkKadAction::System(action) => self.system_reducer(meta.with_action(action)),
+            P2pNetworkKadAction::System(action) => P2pNetworkKadState::system_reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(action),
+            ),
             P2pNetworkKadAction::Bootstrap(action) => {
-                if let P2pNetworkKadStatus::Bootstrapping(state) = &mut self.status {
-                    state.reducer(
-                        &self.routing_table,
-                        meta.with_action(action),
-                        self.filter_addrs,
-                    )
-                } else {
-                    Err(format!("kademlia is not bootstrapping: {action:?}"))
-                }
+                let filter_addrs = state.filter_addrs;
+                P2pNetworkKadBootstrapState::reducer(
+                    Substate::from_compatible_substate(state_context),
+                    meta.with_action(action),
+                    filter_addrs,
+                )
             }
-            P2pNetworkKadAction::Request(
-                action @ super::request::P2pNetworkKadRequestAction::New { addr, peer_id, key },
-            ) => self
-                .create_request(*addr, *peer_id, *key)
-                .map_err(|_request| format!("kademlia request to {addr} is already in progress"))
-                .and_then(|request| request.reducer(meta.with_action(action))),
-            P2pNetworkKadAction::Request(super::request::P2pNetworkKadRequestAction::Prune {
-                peer_id,
-            }) => self
-                .requests
-                .remove(peer_id)
-                .map(|_| ())
-                .ok_or_else(|| format!("kademlia request for {peer_id} is not found")),
-            P2pNetworkKadAction::Request(action) => self
-                .requests
-                .get_mut(action.peer_id())
-                .ok_or_else(|| format!("kademlia request for {} is not found", action.peer_id()))
-                .and_then(|request| request.reducer(meta.with_action(action))),
-
-            P2pNetworkKadAction::Stream(
-                action @ P2pNetworkKademliaStreamAction::New { incoming, .. },
-            ) => self
-                .create_kad_stream_state(*incoming, action.peer_id(), action.stream_id())
-                .map_err(|stream| {
-                    format!("kademlia stream already exists for action {action:?}: {stream:?}")
-                })
-                .and_then(|stream| stream.reducer(meta.with_action(action), limits)),
-            P2pNetworkKadAction::Stream(action @ P2pNetworkKademliaStreamAction::Prune { .. }) => {
-                self.remove_kad_stream_state(action.peer_id(), action.stream_id())
-                    .then_some(())
-                    .ok_or_else(|| format!("kademlia stream not found for action {action:?}"))
+            P2pNetworkKadAction::Request(request) => {
+                P2pNetworkKadRequestState::reducer(state_context, meta.with_action(request))
             }
-            P2pNetworkKadAction::Stream(action) => self
-                .find_kad_stream_state_mut(action.peer_id(), action.stream_id())
-                .ok_or_else(|| format!("kademlia stream not found for action {action:?}"))
-                .and_then(|stream| stream.reducer(meta.with_action(action), limits)),
+            P2pNetworkKadAction::Stream(action) => {
+                P2pNetworkKadStreamState::reducer(state_context, meta.with_action(action), limits)
+            }
         }
     }
 
-    pub fn system_reducer(
-        &mut self,
-        action: ActionWithMeta<&super::P2pNetworkKademliaAction>,
-    ) -> Result<(), String> {
-        use super::P2pNetworkKadStatus::*;
-        use super::P2pNetworkKademliaAction::*;
+    pub fn system_reducer<State, Action>(
+        mut state_context: Substate<Action, State, Self>,
+        action: ActionWithMeta<&P2pNetworkKademliaAction>,
+    ) -> Result<(), String>
+    where
+        State: SubstateAccess<Self>,
+        Action: crate::P2pActionTrait<State>,
+    {
+        let state = state_context.get_substate_mut()?;
+
         let (action, meta) = action.split();
-        match (&mut self.status, action) {
-            (_, AnswerFindNodeRequest { .. }) => Ok(()),
-            (_, UpdateFindNodeRequest { closest_peers, .. }) => {
+        match (&mut state.status, action) {
+            (
+                _,
+                P2pNetworkKademliaAction::AnswerFindNodeRequest {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    key,
+                },
+            ) => {
+                let kad_key = P2pNetworkKadKey::from(key.clone());
+                let closer_peers: Vec<_> =
+                    state.routing_table.find_node(&kad_key).cloned().collect();
+                debug!(meta.time(); "found {} peers", closer_peers.len());
+                let message = P2pNetworkKademliaRpcReply::FindNode { closer_peers };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pNetworkKademliaStreamAction::SendResponse {
+                    addr: *addr,
+                    peer_id: *peer_id,
+                    stream_id: *stream_id,
+                    data: message,
+                });
+                Ok(())
+            }
+            (
+                _,
+                P2pNetworkKademliaAction::UpdateFindNodeRequest {
+                    closest_peers,
+                    peer_id,
+                    stream_id,
+                    ..
+                },
+            ) => {
                 let mut latest_request_peers = Vec::new();
                 for entry in closest_peers {
-                    let kind = match self.routing_table.insert(entry.clone()) {
+                    let kind = match state.routing_table.insert(entry.clone()) {
                         Ok(true) => P2pNetworkKadLatestRequestPeerKind::New,
                         Ok(false) => P2pNetworkKadLatestRequestPeerKind::Existing,
                         Err(_) => P2pNetworkKadLatestRequestPeerKind::Discarded,
                     };
                     latest_request_peers.push((entry.peer_id, kind));
                 }
-                self.latest_request_peers = latest_request_peers.into();
+                state.latest_request_peers = latest_request_peers.into();
+
+                let data = closest_peers.clone();
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pNetworkKadRequestAction::ReplyReceived {
+                    peer_id: *peer_id,
+                    stream_id: *stream_id,
+                    data,
+                });
+
                 Ok(())
             }
-            (_, StartBootstrap { key }) => {
-                self.status = Bootstrapping(
-                    super::bootstrap::P2pNetworkKadBootstrapState::new(*key)
-                        .map_err(|e| e.to_string())?,
+            (_, P2pNetworkKademliaAction::StartBootstrap { key }) => {
+                state.status = P2pNetworkKadStatus::Bootstrapping(
+                    P2pNetworkKadBootstrapState::new(*key).map_err(|k| k.to_string())?,
                 );
+
+                if state.bootstrap_state().map_or(false, |bootstrap_state| {
+                    bootstrap_state.requests.len() < super::ALPHA
+                }) {
+                    let dispatcher = state_context.into_dispatcher();
+                    dispatcher.push(P2pNetworkKadBootstrapAction::CreateRequests);
+                }
+
                 Ok(())
             }
-            (Bootstrapping(state), BootstrapFinished {}) => {
-                self.status = Bootstrapped {
+            (
+                P2pNetworkKadStatus::Bootstrapping(bootstrap_state),
+                P2pNetworkKademliaAction::BootstrapFinished {},
+            ) => {
+                state.status = P2pNetworkKadStatus::Bootstrapped {
                     time: meta.time(),
-                    stats: state.stats.clone(),
+                    stats: bootstrap_state.stats.clone(),
                 };
                 Ok(())
             }
-            (_, UpdateRoutingTable { peer_id, addrs }) => {
-                let _ = self.routing_table.insert(
+            (_, P2pNetworkKademliaAction::UpdateRoutingTable { peer_id, addrs }) => {
+                let _ = state.routing_table.insert(
                     P2pNetworkKadEntry::new(*peer_id, addrs.clone()).map_err(|e| e.to_string())?,
                 );
                 Ok(())

@@ -6,6 +6,3 @@ pub use self::p2p_network_kad_stream_actions::*;
 
 #[cfg(feature = "p2p-libp2p")]
 mod p2p_network_kad_stream_reducer;
-
-#[cfg(feature = "p2p-libp2p")]
-mod p2p_network_kad_stream_effects;
