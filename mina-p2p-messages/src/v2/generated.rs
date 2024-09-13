@@ -2220,7 +2220,19 @@ pub struct MinaBasePendingCoinbaseStateStackStableV1 {
 ///
 /// Gid: `863`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:373:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/pending_coinbase.ml#L373)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    Deref,
+)]
 pub struct MinaBasePendingCoinbaseHashBuilderStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.Update.Action.Stable.V1`
@@ -2269,7 +2281,19 @@ pub struct MinaBasePendingCoinbaseStackVersionedStableV1 {
 ///
 /// Gid: `871`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:535:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/pending_coinbase.ml#L535)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    Deref,
+)]
 pub struct MinaBasePendingCoinbaseHashVersionedStableV1(
     pub MinaBasePendingCoinbaseHashBuilderStableV1,
 );
@@ -2311,7 +2335,9 @@ pub struct MinaBaseStagedLedgerHashPendingCoinbaseAuxStableV1(pub crate::string:
 ///
 /// Gid: `877`
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:154:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/staged_ledger_hash.ml#L154)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+)]
 pub struct MinaBaseStagedLedgerHashNonSnarkStableV1 {
     pub ledger_hash: LedgerHash,
     pub aux_hash: StagedLedgerHashAuxHash,
@@ -2327,7 +2353,9 @@ pub struct MinaBaseStagedLedgerHashNonSnarkStableV1 {
 /// Gid: `878`
 /// Location: [src/lib/mina_base/staged_ledger_hash.ml:243:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/staged_ledger_hash.ml#L243)
 /// Args: MinaBaseStagedLedgerHashNonSnarkStableV1 , PendingCoinbaseHash
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+)]
 pub struct MinaBaseStagedLedgerHashStableV1 {
     pub non_snark: MinaBaseStagedLedgerHashNonSnarkStableV1,
     pub pending_coinbase_hash: PendingCoinbaseHash,
