@@ -77,7 +77,8 @@ pub struct LedgerCtx {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     /// Additional snarked ledgers specified at startup (loaded from disk)
     additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
-    staged_ledgers: BTreeMap<MinaBaseStagedLedgerHashStableV1, StagedLedger>,
+    staged_ledgers: BTreeMap<v2::StagedLedgerHash, StagedLedger>,
+    staged_ledger_hashes: BTreeMap<LedgerHash, Vec<v2::StagedLedgerHash>>,
     sync: LedgerSyncState,
     event_sender:
         Option<openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>>,
@@ -86,7 +87,7 @@ pub struct LedgerCtx {
 #[derive(Default)]
 struct LedgerSyncState {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
-    staged_ledgers: BTreeMap<MinaBaseStagedLedgerHashStableV1, StagedLedger>,
+    staged_ledgers: BTreeMap<v2::StagedLedgerHash, StagedLedger>,
 }
 
 impl LedgerCtx {
@@ -151,13 +152,24 @@ impl LedgerCtx {
         let hash = merkle_root(&mut mask);
         let staged_ledger =
             StagedLedger::create_exn(constraint_constants().clone(), mask.copy()).unwrap();
-        self.snarked_ledgers.insert(hash.clone(), mask);
-        self.staged_ledgers.insert(hash.clone(), staged_ledger);
+        let staged_ledger_hash: MinaBaseStagedLedgerHashStableV1 =
+            v2::StagedLedgerHash::from(&staged_ledger.clone().hash());
+        self.snarked_ledgers.insert(hash, mask);
+        self.staged_ledgers
+            .insert(staged_ledger_hash.clone(), staged_ledger);
+        self.staged_ledger_hashes
+            .entry(staged_ledger_hash.non_snark.ledger_hash.clone())
+            .or_default()
+            .push(staged_ledger_hash);
     }
 
     pub fn staged_ledger_reconstruct_result_store(&mut self, ledger: StagedLedger) {
-        let hash = (&ledger.clone().hash()).into();
-        self.staged_ledgers.insert(hash, ledger);
+        let hash = v2::StagedLedgerHash::from(&ledger.clone().hash());
+        self.staged_ledgers.insert(hash.clone(), ledger);
+        self.staged_ledger_hashes
+            .entry(hash.non_snark.ledger_hash.clone())
+            .or_default()
+            .push(hash);
     }
 
     // TODO(adonagy): Uh-oh, clean this up
@@ -196,7 +208,14 @@ impl LedgerCtx {
             .get(hash)
             .cloned()
             .map(|mask| (mask, true))
-            .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
+            .or_else(|| {
+                Some((
+                    self.staged_ledgers
+                        .get(self.staged_ledger_hashes.get(hash)?.first()?)?
+                        .ledger(),
+                    true,
+                ))
+            })
             .or_else(|| self.sync.mask(hash))
             .or_else(|| {
                 self.additional_snarked_ledgers
@@ -273,7 +292,7 @@ impl LedgerCtx {
     }
 
     /// Returns a mutable reference to the [StagedLedger] with the specified `hash` if it exists or `None` otherwise.
-    fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
+    fn staged_ledger_mut(&mut self, hash: &v2::StagedLedgerHash) -> Option<&mut StagedLedger> {
         match self.staged_ledgers.get_mut(hash) {
             Some(v) => Some(v),
             None => self.sync.staged_ledger_mut(hash),
@@ -308,7 +327,7 @@ impl LedgerCtx {
         protocol_states: &BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
         old_root_snarked_ledger_hash: &LedgerHash,
         new_root_snarked_ledger_hash: &LedgerHash,
-        new_root_staged_ledger_hash: &LedgerHash,
+        new_root_staged_ledger_hash: &v2::StagedLedgerHash,
     ) -> Result<(), String> {
         openmina_core::debug!(openmina_core::log::system_time();
             kind = "LedgerService::push_snarked_ledger",
@@ -380,9 +399,10 @@ impl LedgerCtx {
         let scan_state = self
             .staged_ledger_mut(new_root_staged_ledger_hash)
             .ok_or_else(|| {
+                // TODO: we are using the merkle root hash here
                 format!(
                     "Failed to find staged ledger with hash: {}",
-                    new_root_staged_ledger_hash
+                    new_root_staged_ledger_hash.non_snark.ledger_hash
                 )
             })?
             .scan_state();
@@ -539,7 +559,7 @@ impl LedgerCtx {
             staged_ledger_hash = block.staged_ledger_hash().to_string(),
         );
         let mut staged_ledger = self
-            .staged_ledger_mut(pred_block.staged_ledger_hash())
+            .staged_ledger_mut(pred_block.staged_ledger_hashes())
             .ok_or_else(|| {
                 format!(
                     "parent staged ledger missing: {}",
@@ -579,7 +599,7 @@ impl LedgerCtx {
         let expected_ledger_hashes = block.staged_ledger_hashes();
         if &ledger_hashes != expected_ledger_hashes {
             let staged_ledger = self
-                .staged_ledger_mut(pred_block.staged_ledger_hash())
+                .staged_ledger_mut(pred_block.staged_ledger_hashes())
                 .unwrap(); // We already know the ledger exists, see the same call a few lines above
 
             match dump_application_to_file(staged_ledger, block.clone(), pred_block) {
@@ -598,7 +618,7 @@ impl LedgerCtx {
             panic!("staged ledger hash mismatch. found: {ledger_hashes:#?}, expected: {expected_ledger_hashes:#?}");
         }
 
-        let ledger_hash = block.staged_ledger_hash();
+        let ledger_hash = block.staged_ledger_hashes();
         self.sync
             .staged_ledgers
             .insert(ledger_hash.clone(), staged_ledger);
@@ -653,11 +673,22 @@ impl LedgerCtx {
         );
 
         self.staged_ledgers
+            .retain(|hash, _| ledgers_to_keep.contains(&hash.non_snark.ledger_hash));
+        self.staged_ledger_hashes
             .retain(|hash, _| ledgers_to_keep.contains(hash));
+        self.sync
+            .staged_ledgers
+            .keys()
+            .filter(|&hash| ledgers_to_keep.contains(&hash.non_snark.ledger_hash))
+            .cloned()
+            .for_each(|hash| {
+                let key = hash.non_snark.ledger_hash.clone();
+                self.staged_ledger_hashes.entry(key).or_default().push(hash);
+            });
         self.staged_ledgers.extend(
             std::mem::take(&mut self.sync.staged_ledgers)
                 .into_iter()
-                .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
+                .filter(|(hash, _)| ledgers_to_keep.contains(&hash.non_snark.ledger_hash)),
         );
 
         for ledger_hash in [
@@ -692,7 +723,7 @@ impl LedgerCtx {
         }
 
         // TODO(tizoc): should this fail silently?
-        let Some(new_root_ledger) = self.staged_ledgers.get_mut(new_root.staged_ledger_hash())
+        let Some(new_root_ledger) = self.staged_ledgers.get_mut(new_root.staged_ledger_hashes())
         else {
             return Default::default();
         };
@@ -701,7 +732,7 @@ impl LedgerCtx {
         new_root_ledger.commit_and_reparent_to_root();
 
         let needed_protocol_states = self
-            .staged_ledger_mut(new_root.staged_ledger_hash())
+            .staged_ledger_mut(new_root.staged_ledger_hashes())
             .map(|l| {
                 l.scan_state()
                     .required_state_hashes()
@@ -712,7 +743,7 @@ impl LedgerCtx {
             .unwrap_or_default();
 
         let available_jobs = self
-            .staged_ledger_mut(new_best_tip.staged_ledger_hash())
+            .staged_ledger_mut(new_best_tip.staged_ledger_hashes())
             .map(|l| {
                 l.scan_state()
                     .all_job_pairs_iter()
@@ -813,6 +844,7 @@ impl LedgerCtx {
         ledger_hash: LedgerHash,
         protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     ) -> Option<Arc<StagedLedgerAuxAndPendingCoinbases>> {
+        let ledger_hash = self.staging_ledger_merkle_hash(&ledger_hash).unwrap();
         let ledger = self.staged_ledger_mut(&ledger_hash)?;
         let needed_blocks = ledger
             .scan_state()
@@ -825,7 +857,7 @@ impl LedgerCtx {
         Some(
             StagedLedgerAuxAndPendingCoinbases {
                 scan_state: (ledger.scan_state()).into(),
-                staged_ledger_hash: ledger_hash,
+                staged_ledger_hash: ledger_hash.non_snark.ledger_hash,
                 pending_coinbase: (ledger.pending_coinbase_collection()).into(),
                 needed_blocks,
             }
@@ -846,7 +878,7 @@ impl LedgerCtx {
         transactions_by_fee: Vec<valid::UserCommand>,
     ) -> Result<StagedLedgerDiffCreateOutput, String> {
         let mut staged_ledger = self
-            .staged_ledger_mut(pred_block.staged_ledger_hash())
+            .staged_ledger_mut(pred_block.staged_ledger_hashes())
             .ok_or_else(|| {
                 format!(
                     "parent staged ledger missing: {}",
@@ -944,6 +976,9 @@ impl LedgerCtx {
     ) -> Result<Vec<Vec<RpcScanStateSummaryScanStateJob>>, String> {
         use ledger::scan_state::scan_state::JobValue;
 
+        let staged_ledger_hash = self
+            .staging_ledger_merkle_hash(&staged_ledger_hash)
+            .unwrap();
         let ledger = self.staged_ledgers.get(&staged_ledger_hash);
         let Some(ledger) = ledger else {
             return Ok(Vec::new());
@@ -1069,6 +1104,13 @@ impl LedgerCtx {
             })
             .collect()
     }
+
+    fn staging_ledger_merkle_hash(&self, ledger_hash: &LedgerHash) -> Option<v2::StagedLedgerHash> {
+        self.staged_ledger_hashes
+            .get(ledger_hash)
+            .and_then(|hashes| hashes.first())
+            .cloned()
+    }
 }
 
 impl LedgerSyncState {
@@ -1077,7 +1119,7 @@ impl LedgerSyncState {
             .get(hash)
             .cloned()
             .map(|mask| (mask, false))
-            .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
+        //.or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
     }
 
     fn pending_sync_snarked_ledger_mask(&self, hash: &LedgerHash) -> Result<Mask, String> {
@@ -1097,7 +1139,7 @@ impl LedgerSyncState {
         })
     }
 
-    fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
+    fn staged_ledger_mut(&mut self, hash: &v2::StagedLedgerHash) -> Option<&mut StagedLedger> {
         self.staged_ledgers.get_mut(hash)
     }
 }

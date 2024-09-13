@@ -194,6 +194,8 @@ macro_rules! base58check_of_bytes {
     };
 }
 
+pub type StagedLedgerHash = generated::MinaBaseStagedLedgerHashStableV1;
+
 base58check_of_binprot!(LedgerHash, versioned MinaBaseLedgerHash0StableV1, LEDGER_HASH);
 base58check_of_bytes!(
     StagedLedgerHashAuxHash,
