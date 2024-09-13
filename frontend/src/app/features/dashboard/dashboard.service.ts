@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { catchError, map, Observable, tap } from 'rxjs';
+import { catchError, map, Observable } from 'rxjs';
 import { DashboardPeer, DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { RustService } from '@core/services/rust.service';
 import { ONE_MILLION, toReadableDate } from '@openmina/shared';
