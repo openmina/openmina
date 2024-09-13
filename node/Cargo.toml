@@ -4,6 +4,9 @@ version = "0.8.3"
 edition = "2021"
 license = "Apache-2.0"
 
+[lints]
+workspace = true
+
 [dependencies]
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
