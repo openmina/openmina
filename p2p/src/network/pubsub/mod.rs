@@ -14,7 +14,7 @@ pub use self::p2p_network_pubsub_state::{
 mod p2p_network_pubsub_reducer;
 
 #[cfg(feature = "p2p-libp2p")]
-mod p2p_network_pubsub_effects;
-
-#[cfg(feature = "p2p-libp2p")]
 const TOPIC: &str = "coda/consensus-messages/0.0.1";
+
+pub mod pubsub_effectful;
+pub use pubsub_effectful::P2pNetworkPubsubEffectfulAction;

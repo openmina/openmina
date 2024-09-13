@@ -6,6 +6,7 @@ pub mod discovery;
 pub mod identity;
 pub mod peer;
 use bootstrap::P2pNetworkKadBootstrapState;
+use channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction};
 use connection::incoming::P2pConnectionIncomingAction;
 use identify::P2pIdentifyAction;
 pub use identity::PeerId;
@@ -80,6 +81,8 @@ pub trait P2pStateTrait:
     + SubstateAccess<P2pNetworkIdentifyState>
     + SubstateAccess<P2pNetworkSchedulerState>
     + SubstateAccess<P2pLimits>
+    + SubstateAccess<P2pNetworkPubsubState>
+    + SubstateAccess<P2pConfig>
 {
 }
 
@@ -101,5 +104,9 @@ pub trait P2pActionTrait<State>:
     + From<P2pNetworkPnetAction>
     + From<P2pNetworkNoiseAction>
     + From<P2pConnectionIncomingAction>
+    + From<P2pNetworkPubsubAction>
+    + From<P2pNetworkPubsubEffectfulAction>
+    + From<P2pChannelsTransactionAction>
+    + From<P2pChannelsSnarkAction>
 {
 }

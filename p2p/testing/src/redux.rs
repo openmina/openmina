@@ -11,6 +11,7 @@ use openmina_core::{
 };
 use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
+    channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
     connection::outgoing::P2pConnectionOutgoingAction,
     identify::P2pIdentifyAction,
     network::identify::{
@@ -101,6 +102,8 @@ impl_p2p_state_access!(State, P2pNetworkKadBootstrapState);
 impl_p2p_state_access!(State, p2p::P2pNetworkKadState);
 impl_p2p_state_access!(State, p2p::P2pNetworkSchedulerState);
 impl_p2p_state_access!(State, p2p::P2pLimits);
+impl_p2p_state_access!(State, p2p::P2pNetworkPubsubState);
+impl_p2p_state_access!(State, p2p::P2pConfig);
 
 impl P2pStateTrait for State {}
 
@@ -250,5 +253,9 @@ impl_from_p2p!(p2p::P2pNetworkSelectAction);
 impl_from_p2p!(p2p::P2pNetworkPnetAction);
 impl_from_p2p!(p2p::P2pNetworkNoiseAction);
 impl_from_p2p!(p2p::connection::incoming::P2pConnectionIncomingAction);
+impl_from_p2p!(p2p::P2pNetworkPubsubAction);
+impl_from_p2p!(p2p::P2pNetworkPubsubEffectfulAction);
+impl_from_p2p!(P2pChannelsTransactionAction);
+impl_from_p2p!(P2pChannelsSnarkAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

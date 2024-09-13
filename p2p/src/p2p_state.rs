@@ -15,8 +15,8 @@ use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOu
 use crate::network::identify::{P2pNetworkIdentify, P2pNetworkIdentifyState};
 use crate::network::P2pNetworkState;
 use crate::{
-    is_time_passed, Limit, P2pLimits, P2pNetworkKadState, P2pNetworkSchedulerState, P2pTimeouts,
-    PeerId,
+    is_time_passed, Limit, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
+    P2pNetworkSchedulerState, P2pTimeouts, PeerId,
 };
 
 use super::connection::P2pConnectionState;
@@ -483,3 +483,9 @@ impl_substate_access!(
     P2pNetworkIdentifyState,
     network.scheduler.identify_state
 );
+impl_substate_access!(
+    P2pState,
+    P2pNetworkPubsubState,
+    network.scheduler.broadcast_state
+);
+impl_substate_access!(P2pState, P2pConfig, config);
