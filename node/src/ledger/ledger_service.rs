@@ -77,7 +77,7 @@ pub struct LedgerCtx {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     /// Additional snarked ledgers specified at startup (loaded from disk)
     additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
-    staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
+    staged_ledgers: BTreeMap<MinaBaseStagedLedgerHashStableV1, StagedLedger>,
     sync: LedgerSyncState,
     event_sender:
         Option<openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>>,
@@ -86,7 +86,7 @@ pub struct LedgerCtx {
 #[derive(Default)]
 struct LedgerSyncState {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
-    staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
+    staged_ledgers: BTreeMap<MinaBaseStagedLedgerHashStableV1, StagedLedger>,
 }
 
 impl LedgerCtx {
@@ -156,7 +156,7 @@ impl LedgerCtx {
     }
 
     pub fn staged_ledger_reconstruct_result_store(&mut self, ledger: StagedLedger) {
-        let hash = merkle_root(&mut ledger.ledger().clone());
+        let hash = (&ledger.clone().hash()).into();
         self.staged_ledgers.insert(hash, ledger);
     }
 
