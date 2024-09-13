@@ -58,6 +58,7 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
   details: AppNodeDetails;
   isOnline: boolean;
   blockTimeAgo: string;
+  hideNodeStats: boolean = CONFIG.hideNodeStats;
 
   @ViewChild('overlayOpener') private overlayOpener: ElementRef<HTMLDivElement>;
 

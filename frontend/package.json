@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.8.15",
+  "version": "0.8.17",
   "scripts": {
     "install:deps": "npm install",
     "start": "npm install && ng serve --configuration local --open",
@@ -29,7 +29,7 @@
     "@ngrx/effects": "^16.2.0",
     "@ngrx/router-store": "^16.2.0",
     "@ngrx/store": "^16.2.0",
-    "@openmina/shared": "^0.101.0",
+    "@openmina/shared": "^0.102.0",
     "base-x": "^5.0.0",
     "buffer": "^6.0.3",
     "d3": "^7.8.4",

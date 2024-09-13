@@ -37,6 +37,8 @@ export class NodesOverviewService {
     return of([{
       name: nodeParam.name,
       kind: NodesOverviewNodeKindType.OFFLINE,
+      snarks: 0,
+      transactions: 0,
       bestTipReceived: '-',
       bestTipReceivedTimestamp: 0,
       bestTip: '-',
@@ -81,6 +83,8 @@ export class NodesOverviewService {
         return {
           name: nodeParam.name,
           kind: nodeDetails?.transition_frontier.sync.phase,
+          snarks: nodeDetails.snark_pool.snarks,
+          transactions: nodeDetails.transaction_pool.transactions,
           bestTipReceived: toReadableDate(node.best_tip_received / ONE_MILLION),
           bestTipReceivedTimestamp: node.best_tip_received / ONE_MILLION,
           bestTip: node.blocks[0]?.hash,

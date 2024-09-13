@@ -8,6 +8,8 @@
       </button>
       <input type="number" class="mina-input border-rad-4 mr-8 ml-8 text-center" formControlName="batch">
       <div>transactions with</div>
+      <input type="number" class="mina-input border-rad-4 mr-8 ml-8 text-center" formControlName="amount">
+      <div>MINA amount and</div>
       <input type="number" class="mina-input border-rad-4 mr-8 ml-8 text-center" formControlName="fee">
       <div>MINA fee from</div>
 
@@ -57,7 +59,7 @@
              [class.active]="activeWallet.publicKey === wallet.publicKey"
              (click)="changeWallet(wallet)">
           <span class="mina-icon f-20">check_small</span>
-          <span class="text-right pr-12">{{ wallet.minaTokens | number:'1.0-3':'fr' }} MINA</span>
+          <span class="text-right pr-12 text-nowrap">{{ wallet.minaTokens | number:'1.0-3':'fr' }} MINA</span>
           <span class="monospace text-right">{{ wallet.publicKey | truncateMid }}</span>
         </div>
       </cdk-virtual-scroll-viewport>

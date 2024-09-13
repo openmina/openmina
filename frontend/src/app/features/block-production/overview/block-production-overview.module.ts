@@ -25,6 +25,9 @@ import {
   BlockProductionOverviewEpochGraphsComponent,
 } from '@block-production/overview/epoch-graphs/block-production-overview-epoch-graphs.component';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
+import {
+  BlockProductionOverviewSlotDetailsComponent,
+} from '@block-production/overview/slot-details/block-production-overview-slot-details.component';
 
 @NgModule({
   declarations: [
@@ -33,6 +36,7 @@ import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner
     BlockProductionOverviewToolbarComponent,
     BlockProductionOverviewSidePanelComponent,
     BlockProductionOverviewEpochGraphsComponent,
+    BlockProductionOverviewSlotDetailsComponent,
   ],
   imports: [
     SharedModule,

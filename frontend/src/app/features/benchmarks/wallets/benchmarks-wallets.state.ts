@@ -16,6 +16,7 @@ export interface BenchmarksWalletsState {
   randomWallet: boolean;
   activeWallet: BenchmarksWallet;
   sendingFee: number;
+  sendingAmount: number;
 }
 
 const select = <T>(selector: (state: BenchmarksWalletsState) => T): MemoizedSelector<MinaState, T> => createSelector(
@@ -28,5 +29,6 @@ export const selectBenchmarksBlockSending = select((state: BenchmarksWalletsStat
 export const selectBenchmarksSentTransactionsStats = select((state: BenchmarksWalletsState): SentTransactionsStats => state.sentTransactions);
 export const selectBenchmarksSendingBatch = select((state: BenchmarksWalletsState): number => state.txSendingBatch);
 export const selectBenchmarksSendingFee = select((state: BenchmarksWalletsState): number => state.sendingFee);
+export const selectBenchmarksSendingAmount = select((state: BenchmarksWalletsState): number => state.sendingAmount);
 export const selectBenchmarksRandomWallet = select((state: BenchmarksWalletsState): boolean => state.randomWallet);
 export const selectBenchmarksActiveWallet = select((state: BenchmarksWalletsState): BenchmarksWallet => state.activeWallet);

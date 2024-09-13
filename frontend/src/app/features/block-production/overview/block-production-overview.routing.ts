@@ -15,6 +15,13 @@ const routes: Routes = [
         path: ':epoch',
         component: BlockProductionOverviewComponent,
         title: BLOCK_PRODUCTION_TITLE,
+        children: [
+          {
+            path: ':slot',
+            component: BlockProductionOverviewComponent,
+            title: BLOCK_PRODUCTION_TITLE,
+          },
+        ],
       },
     ],
   },

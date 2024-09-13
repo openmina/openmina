@@ -4,6 +4,8 @@ export interface MinaEnv {
   production: boolean;
   configs: MinaNode[];
   identifier?: string;
+  hideToolbar?: boolean;
+  hideNodeStats?: boolean;
   globalConfig?: {
     features?: FeaturesConfig;
     canAddNodes?: boolean;
