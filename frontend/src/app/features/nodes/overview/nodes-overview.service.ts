@@ -29,7 +29,7 @@ export class NodesOverviewService {
     ])
       .pipe(
         map((response: [any, NodeDetailsResponse]) => this.mapNodeTipsResponse(response, nodeParam)),
-        catchError(err => this.mapNodeTipsErrorResponse(nodeParam)),
+        catchError(() => this.mapNodeTipsErrorResponse(nodeParam)),
       );
   }
 
@@ -82,9 +82,9 @@ export class NodesOverviewService {
         }
         return {
           name: nodeParam.name,
-          kind: nodeDetails?.transition_frontier.sync.phase,
-          snarks: nodeDetails.snark_pool.snarks,
-          transactions: nodeDetails.transaction_pool.transactions,
+          kind: nodeDetails ? nodeDetails.transition_frontier.sync.phase : (hasValue(node.synced) ? NodesOverviewNodeKindType.SYNCED : node.kind),
+          snarks: nodeDetails?.snark_pool.snarks,
+          transactions: nodeDetails?.transaction_pool.transactions,
           bestTipReceived: toReadableDate(node.best_tip_received / ONE_MILLION),
           bestTipReceivedTimestamp: node.best_tip_received / ONE_MILLION,
           bestTip: node.blocks[0]?.hash,
