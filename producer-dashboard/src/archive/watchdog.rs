@@ -45,10 +45,19 @@ impl ArchiveWatchdog {
                 .has_evaluated_slot(current_slot.global_slot().to_u32())
                 .unwrap()
             {
+                debug!(
+                    "Setting current slot to {}",
+                    current_slot.global_slot().to_u32()
+                );
                 let old = current_slot.global_slot().to_u32() - 1;
                 self.db
                     .set_current_slot(old, current_slot.global_slot().to_u32())
                     .unwrap();
+            } else {
+                debug!(
+                    "Current slot [{}] not yet evaluated",
+                    current_slot.global_slot().to_u32()
+                );
             }
 
             if let Some(best_tip) = node_status.best_tip() {
