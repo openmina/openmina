@@ -460,6 +460,10 @@ thread_local! {
 }
 
 impl BlockProducerService for NodeTestingService {
+    fn provers(&self) -> Arc<ledger::proofs::gates::Provers> {
+        self.real.provers()
+    }
+
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
         fn dummy_proof_event(block_hash: StateHash) -> Event {
             let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();

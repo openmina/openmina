@@ -1,7 +1,9 @@
 mod vrf_evaluator;
 
+use std::sync::Arc;
+
 use ledger::proofs::{
-    block::BlockParams, gates::get_provers, generate_block_proof, transaction::ProofError,
+    block::BlockParams, gates::Provers, generate_block_proof, transaction::ProofError,
 };
 use mina_p2p_messages::{
     binprot::BinProtWrite,
@@ -16,22 +18,29 @@ use node::{
 use crate::EventSender;
 
 pub struct BlockProducerService {
+    provers: Arc<Provers>,
     keypair: AccountSecretKey,
     vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
 }
 
 impl BlockProducerService {
     pub fn new(
+        provers: Arc<Provers>,
         keypair: AccountSecretKey,
         vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
     ) -> Self {
         Self {
+            provers,
             keypair,
             vrf_evaluation_sender,
         }
     }
 
-    pub fn start(event_sender: EventSender, keypair: AccountSecretKey) -> Self {
+    pub fn start(
+        provers: Arc<Provers>,
+        event_sender: EventSender,
+        keypair: AccountSecretKey,
+    ) -> Self {
         let (vrf_evaluation_sender, vrf_evaluation_receiver) =
             mpsc::unbounded_channel::<VrfEvaluatorInput>();
 
@@ -47,7 +56,7 @@ impl BlockProducerService {
             })
             .unwrap();
 
-        BlockProducerService::new(keypair, vrf_evaluation_sender)
+        BlockProducerService::new(provers, keypair, vrf_evaluation_sender)
     }
 
     pub fn keypair(&self) -> AccountSecretKey {
@@ -56,6 +65,7 @@ impl BlockProducerService {
 }
 
 pub fn prove(
+    provers: Arc<Provers>,
     mut input: Box<ProverExtendBlockchainInputStableV2>,
     keypair: AccountSecretKey,
     only_verify_constraints: bool,
@@ -75,8 +85,6 @@ pub fn prove(
         input.prover_state.producer_private_key = keypair.into();
     }
 
-    let provers = get_provers();
-
     let res = generate_block_proof(BlockParams {
         input: &input,
         block_step_prover: &provers.block_step_prover,
@@ -91,15 +99,25 @@ pub fn prove(
 }
 
 impl node::service::BlockProducerService for crate::NodeService {
+    fn provers(&self) -> Arc<Provers> {
+        self.block_producer
+            .as_ref()
+            .expect("provers shouldn't be needed if block producer isn't initialized")
+            .provers
+            .clone()
+    }
+
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
         if self.replayer.is_some() {
             return;
         }
+        let provers = self.provers();
         let keypair = self.block_producer.as_ref().unwrap().keypair();
 
         let tx = self.event_sender().clone();
         thread::spawn(move || {
-            let res = prove(input.clone(), keypair, false).map_err(|err| format!("{err:?}"));
+            let res =
+                prove(provers, input.clone(), keypair, false).map_err(|err| format!("{err:?}"));
             if res.is_err() {
                 // IMPORTANT: Make sure that `input` here is a copy from before `prove` is called, we don't
                 // want to leak the private key.

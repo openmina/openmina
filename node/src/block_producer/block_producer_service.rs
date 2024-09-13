@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use ledger::proofs::gates::Provers;
 use mina_p2p_messages::v2::{
     ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBasePendingCoinbaseUpdateStableV1,
     MinaBasePendingCoinbaseWitnessStableV2, MinaBaseSparseLedgerBaseStableV2,
@@ -19,5 +22,6 @@ pub struct StagedLedgerDiffCreateOutput {
 }
 
 pub trait BlockProducerService {
+    fn provers(&self) -> Arc<Provers>;
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>);
 }
