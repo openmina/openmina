@@ -1,12 +1,13 @@
 use std::collections::BTreeSet;
 
 use mina_p2p_messages::v2::StateHash;
+use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisAction;
 use super::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
-use super::sync::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
+use super::sync::{SyncError, TransitionFrontierSyncAction, TransitionFrontierSyncState};
 
 pub type TransitionFrontierActionWithMeta = redux::ActionWithMeta<TransitionFrontierAction>;
 pub type TransitionFrontierActionWithMetaRef<'a> =
@@ -27,10 +28,13 @@ pub enum TransitionFrontierAction {
 
     Sync(TransitionFrontierSyncAction),
     /// Transition frontier synced.
-    #[action_event(level = info)]
     Synced {
         /// Required protocol states for root block.
         needed_protocol_states: BTreeSet<StateHash>,
+    },
+    SyncFailed {
+        best_tip: ArcBlockWithHash,
+        error: SyncError,
     },
 }
 
@@ -55,6 +59,16 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                 state.transition_frontier.sync,
                 TransitionFrontierSyncState::CommitSuccess { .. }
             ),
+            TransitionFrontierAction::SyncFailed { best_tip, error } => {
+                let sync = &state.transition_frontier.sync;
+                sync.best_tip()
+                    .map_or(false, |b| b.hash() == best_tip.hash())
+                    && match error {
+                        SyncError::BlockApplyFailed(block, _) => sync
+                            .block_state(block.hash())
+                            .map_or(false, |s| s.is_apply_error()),
+                    }
+            }
         }
     }
 }

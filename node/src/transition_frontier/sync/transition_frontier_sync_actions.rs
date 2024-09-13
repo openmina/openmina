@@ -96,6 +96,10 @@ pub enum TransitionFrontierSyncAction {
     BlocksNextApplyPending {
         hash: StateHash,
     },
+    BlocksNextApplyError {
+        hash: StateHash,
+        error: String,
+    },
     BlocksNextApplySuccess {
         hash: StateHash,
     },
@@ -124,7 +128,13 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                         .best_tip()
                         .map_or(false, |tip| &best_tip.hash == tip.hash)
             }
-            TransitionFrontierSyncAction::BestTipUpdate { best_tip, .. } => {
+            TransitionFrontierSyncAction::BestTipUpdate {
+                best_tip,
+                blocks_inbetween,
+                root_block,
+                ..
+            } => {
+                let blacklist = &state.transition_frontier.blacklist;
                 (state.transition_frontier.sync.is_pending() || state.transition_frontier.sync.is_synced())
                     && !matches!(&state.transition_frontier.sync, TransitionFrontierSyncState::CommitPending { .. } | TransitionFrontierSyncState::CommitSuccess { .. })
                 && state
@@ -151,6 +161,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                             consensus_take(tip.consensus_state(), best_tip.consensus_state(), tip.hash(), best_tip.hash())
                         }
                     })
+                // check the block blacklist
+                && !blacklist.contains_key(best_tip.hash())
+                && !blacklist.contains_key(root_block.hash())
+                && !blocks_inbetween.iter().any(|hash| blacklist.contains_key(hash))
                 // Don't sync to best tip if we are in the middle of producing
                 // a block unless that best tip candidate is better consensus-wise
                 // than the one that we are producing.
@@ -318,6 +332,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .sync
                 .blocks_apply_next()
                 .map_or(false, |(b, _)| &b.hash == hash),
+            TransitionFrontierSyncAction::BlocksNextApplyError { hash, .. } => state
+                .transition_frontier
+                .sync
+                .blocks_apply_pending()
+                .map_or(false, |b| &b.hash == hash),
             TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => state
                 .transition_frontier
                 .sync
