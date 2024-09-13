@@ -1,4 +1,5 @@
 import {
+  BENCHMARKS_WALLETS_CHANGE_AMOUNT,
   BENCHMARKS_WALLETS_CHANGE_FEE,
   BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH,
   BENCHMARKS_WALLETS_CLOSE,
@@ -34,6 +35,7 @@ const initialState: BenchmarksWalletsState = {
   randomWallet: true,
   activeWallet: undefined,
   sendingFee: 0.001,
+  sendingAmount: 1,
 };
 
 export function reducer(state: BenchmarksWalletsState = initialState, action: BenchmarksWalletsActions): BenchmarksWalletsState {
@@ -101,7 +103,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
               to: getRandomReceiver(wallet, state.wallets),
               // to: 'B62qp6QqfMrDGULkuCTMhLYrG4iTxnjnyS3pv8bFppRsz488HCxExEY', // Teo's work Ledger address
               fee: (state.sendingFee * ONE_BILLION).toString(),
-              amount: (1 * ONE_BILLION).toString(),
+              amount: (state.sendingAmount * ONE_BILLION).toString(),
               memo,
               validUntil: '4294967295',
             };
@@ -123,7 +125,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             nonce: nonce.toString(),
             to: state.wallets[i].publicKey,
             fee: (state.sendingFee * ONE_BILLION).toString(),
-            amount: (1 * ONE_BILLION).toString(),
+            amount: (state.sendingAmount * ONE_BILLION).toString(),
             memo,
             validUntil: '4294967295',
           };
@@ -223,6 +225,13 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
       return {
         ...state,
         sendingFee: action.payload,
+      };
+    }
+
+    case BENCHMARKS_WALLETS_CHANGE_AMOUNT: {
+      return {
+        ...state,
+        sendingAmount: action.payload,
       };
     }
 

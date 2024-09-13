@@ -62,13 +62,25 @@ mat-sidenav-content {
   $toolbar: 40px;
   height: calc(100% - #{$toolbar});
 
+  &.no-toolbar {
+    height: 100%;
+  }
+
   &.mobile {
     $toolbar: 56px;
     $subMenus: 56px;
     height: calc(100% - #{$toolbar} - #{$subMenus});
 
+    &.no-toolbar {
+      height: calc(100% - #{$subMenus});
+    }
+
     &.no-submenus {
       height: calc(100% - #{$toolbar});
+
+      &.no-toolbar {
+        height: 100%;
+      }
     }
   }
 }

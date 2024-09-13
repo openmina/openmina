@@ -1,6 +1,7 @@
 import { BlockProductionOverviewState } from '@block-production/overview/block-production-overview.state';
 import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
 import { createReducer, on } from '@ngrx/store';
+import { SLOTS_PER_EPOCH } from '@shared/constants/mina';
 
 const initialState: BlockProductionOverviewState = {
   epochs: [],
@@ -13,7 +14,11 @@ const initialState: BlockProductionOverviewState = {
     missed: true,
     future: true,
   },
+  activeSlot: undefined,
+  activeSlotRoute: undefined,
   scale: 'adaptive',
+  isLoading: true,
+  isCalculatingVRF: false,
 };
 
 export const blockProductionOverviewReducer = createReducer(
@@ -44,6 +49,9 @@ export const blockProductionOverviewReducer = createReducer(
       ...state.activeEpoch,
       slots,
     },
+    activeSlot: slots.find(s => s.slot === state.activeSlotRoute),
+    isLoading: false,
+    isCalculatingVRF: slots.length !== 0 && slots.length !== SLOTS_PER_EPOCH,
   })),
   on(BlockProductionOverviewActions.changeFilters, (state, { filters }) => ({
     ...state,
@@ -56,6 +64,11 @@ export const blockProductionOverviewReducer = createReducer(
   on(BlockProductionOverviewActions.changeScale, (state, { scale }) => ({
     ...state,
     scale,
+  })),
+  on(BlockProductionOverviewActions.setActiveSlot, (state, { slot }) => ({
+    ...state,
+    activeSlotRoute: slot,
+    activeSlot: state.activeEpoch?.slots.find(s => s.slot === slot),
   })),
   on(BlockProductionOverviewActions.close, () => initialState),
 );

@@ -3,6 +3,7 @@ export interface BlockProductionOverviewSlot {
   globalSlot: number;
   height: number;
   time: number;
+  status: string;
   finished: boolean;
   canonical: boolean;
   orphaned: boolean;

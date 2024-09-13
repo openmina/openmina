@@ -53,13 +53,13 @@ export class AppService {
   }
 
   private getStatus(data: NodeDetailsResponse): AppNodeStatus {
-    if (data.transition_frontier.sync.status === 'Bootstrap') {
+    if (data.transition_frontier.sync.phase === 'Bootstrap') {
       return AppNodeStatus.BOOTSTRAP;
     }
-    if (data.transition_frontier.sync.status === 'Catchup') {
+    if (data.transition_frontier.sync.phase === 'Catchup') {
       return AppNodeStatus.CATCHUP;
     }
-    if (data.transition_frontier.sync.status === 'Synced') {
+    if (data.transition_frontier.sync.phase === 'Synced') {
       return AppNodeStatus.SYNCED;
     }
     return AppNodeStatus.PENDING;

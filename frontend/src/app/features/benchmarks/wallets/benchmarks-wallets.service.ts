@@ -4013,10 +4013,10 @@ export const WALLETS: { privateKey: string, publicKey: string }[] = [
     privateKey: 'EKEA8wHHpnBCzzNvCJSPqoaF66V9cQcpd7xNN9kQxs36PV293pcU',
     publicKey: 'B62qrZG1qRV82D2CJa9FJW5BYMyC7AbL1J5aKVEgi6VMmBNcHVreozY',
   },
-  // {
-  //   privateKey: 'EKEeNntJDZ7whPrxjNKPTj2QisoKdzWzJ59s2KmxaLHJWJhPKKxY',
-  //   publicKey: 'B62qruoEM1ijZPXkkLubNKRn8DQHbdfTG2BP8ut4kE4EqxT7EmnMGRA',
-  // },
+  {
+    privateKey: 'EKEeNntJDZ7whPrxjNKPTj2QisoKdzWzJ59s2KmxaLHJWJhPKKxY',
+    publicKey: 'B62qruoEM1ijZPXkkLubNKRn8DQHbdfTG2BP8ut4kE4EqxT7EmnMGRA',
+  },
 ];
 
 @Injectable({
@@ -4034,22 +4034,28 @@ export class BenchmarksWalletsService {
 
   getAccounts(): Observable<Pick<BenchmarksWallet, 'publicKey' | 'privateKey' | 'minaTokens' | 'nonce'>[]> {
     return this.rust.get<any[]>('/accounts').pipe(
-      map(wallets => wallets.map(wallet => ({
-        privateKey: WALLETS.find(w => w.publicKey === wallet.public_key)?.privateKey,
-        publicKey: wallet.public_key,
-        minaTokens: wallet.balance / ONE_BILLION,
-        nonce: wallet.nonce,
-      }))),
-      // TODO: This is a backend issue, must delete this map when we have all 1000 accounts in the backend
+      map(wallets => wallets.map(wallet => {
+        return ({
+          privateKey: WALLETS.find(w => w.publicKey === wallet.public_key)?.privateKey,
+          publicKey: wallet.public_key,
+          minaTokens: wallet.balance / ONE_BILLION,
+          nonce: wallet.nonce,
+        });
+      })),
       map(wallets => {
         return [
           ...wallets.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
-          ...WALLETS.filter(w => !wallets.some(w1 => w1.publicKey === w.publicKey)).map(wallet => ({
-            privateKey: wallet.privateKey,
-            publicKey: wallet.publicKey,
-            minaTokens: 0,
-            nonce: 0,
-          })),
+          // ...wallets
+          //   .filter(w => {
+          //     let foundW = WALLETS.find(wa => wa.publicKey === w.publicKey);
+          //     return foundW?.publicKey === 'B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV';
+          //   }),
+          //   .map(wallet => ({
+          //     privateKey: wallet.privateKey,
+          //     publicKey: wallet.publicKey,
+          //     minaTokens: 0,
+          //     nonce: 0,
+          //   })),
         ];
       }),
     );
