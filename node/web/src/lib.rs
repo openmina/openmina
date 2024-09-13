@@ -20,6 +20,7 @@ use crate::node::P2pTaskRemoteSpawner;
 /// Automatically run after wasm is loaded.
 #[wasm_bindgen(start)]
 fn main() {
+    thread::main_thread_init();
     wasm_bindgen_futures::spawn_local(async {
         console_error_panic_hook::set_once();
         tracing::initialize(tracing::Level::INFO);
@@ -29,12 +30,11 @@ fn main() {
 }
 
 #[wasm_bindgen]
-pub async fn run() -> RpcSender {
-    let block_producer: Option<AccountSecretKey> = None;
-
-    // TODO(binier): what if above init in the `main` function isn't done
-    // and this function gets called.
-    let p2p_task_spawner = P2pTaskRemoteSpawner::create();
+pub async fn run(block_producer: Option<String>) -> RpcSender {
+    let block_producer: Option<AccountSecretKey> = block_producer.map(|key| {
+        key.parse()
+            .expect("failed to parse passed block producer keys")
+    });
 
     if block_producer.is_some() {
         ledger::proofs::gates::read_and_cache_gates().await;
@@ -43,7 +43,7 @@ pub async fn run() -> RpcSender {
     let (rpc_sender_tx, rpc_sender_rx) = ::node::core::channels::oneshot::channel();
     let _ = thread::spawn(move || {
         wasm_bindgen_futures::spawn_local(async move {
-            let mut node = setup_node(p2p_task_spawner, block_producer).await;
+            let mut node = setup_node(block_producer).await;
             let _ = rpc_sender_tx.send(node.rpc());
             node.run_forever().await;
         });
@@ -55,7 +55,6 @@ pub async fn run() -> RpcSender {
 }
 
 async fn setup_node(
-    p2p_task_spawner: P2pTaskRemoteSpawner,
     block_producer: Option<AccountSecretKey>,
 ) -> openmina_node_common::Node<NodeService> {
     let block_verifier_index = get_verifier_index(VerifierKind::Blockchain).into();
@@ -74,7 +73,7 @@ async fn setup_node(
 
     node_builder
         .p2p_no_discovery()
-        .p2p_custom_task_spawner(p2p_task_spawner)
+        .p2p_custom_task_spawner(P2pTaskRemoteSpawner {})
         .unwrap();
     node_builder.gather_stats();
     node_builder.build().context("node build failed!").unwrap()

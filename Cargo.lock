@@ -4464,6 +4464,8 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm_thread",
 ]
 
