@@ -186,6 +186,8 @@ impl_p2p_state_access!(State, P2pNetworkKadBootstrapState);
 impl_p2p_state_access!(State, p2p::P2pNetworkKadState);
 impl_p2p_state_access!(State, P2pNetworkSchedulerState);
 impl_p2p_state_access!(State, p2p::P2pLimits);
+impl_p2p_state_access!(State, p2p::P2pNetworkPubsubState);
+impl_p2p_state_access!(State, p2p::P2pConfig);
 
 impl p2p::P2pStateTrait for State {}
 

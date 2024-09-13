@@ -63,8 +63,12 @@ impl P2pNetworkState {
                 meta.with_action(a),
                 limits,
             ),
-            P2pNetworkAction::Pubsub(a) => {
-                state.scheduler.broadcast_state.reducer(meta.with_action(a));
+            P2pNetworkAction::Pubsub(a) => P2pNetworkPubsubState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
+            P2pNetworkAction::PubsubEffectful(_) => {
+                // Effectful action; no reducer
                 Ok(())
             }
             P2pNetworkAction::Rpc(a) => {

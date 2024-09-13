@@ -17,6 +17,7 @@ pub enum P2pNetworkAction {
     Identify(P2pNetworkIdentifyAction),
     Kad(P2pNetworkKadAction),
     Pubsub(P2pNetworkPubsubAction),
+    PubsubEffectful(P2pNetworkPubsubEffectfulAction),
     Rpc(P2pNetworkRpcAction),
 }
 
@@ -31,6 +32,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
             Self::Identify(v) => v.is_enabled(state, time),
             Self::Kad(v) => v.is_enabled(state, time),
             Self::Pubsub(v) => v.is_enabled(state, time),
+            Self::PubsubEffectful(v) => v.is_enabled(state, time),
             Self::Rpc(v) => v.is_enabled(state, time),
         }
     }

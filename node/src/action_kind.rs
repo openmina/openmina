@@ -45,6 +45,7 @@ use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
 use crate::p2p::network::noise::P2pNetworkNoiseAction;
 use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::pubsub::pubsub_effectful::P2pNetworkPubsubEffectfulAction;
 use crate::p2p::network::pubsub::P2pNetworkPubsubAction;
 use crate::p2p::network::rpc::P2pNetworkRpcAction;
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
@@ -317,6 +318,8 @@ pub enum ActionKind {
     P2pNetworkPubsubPrune,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
+    P2pNetworkPubsubEffectfulIncomingData,
+    P2pNetworkPubsubEffectfulSign,
     P2pNetworkRpcHeartbeatSend,
     P2pNetworkRpcIncomingData,
     P2pNetworkRpcIncomingMessage,
@@ -545,7 +548,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 452;
+    pub const COUNT: u16 = 454;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -950,6 +953,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Identify(a) => a.kind(),
             Self::Kad(a) => a.kind(),
             Self::Pubsub(a) => a.kind(),
+            Self::PubsubEffectful(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
     }
@@ -1484,6 +1488,15 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::OutgoingMessage { .. } => ActionKind::P2pNetworkPubsubOutgoingMessage,
             Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPubsubEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Sign { .. } => ActionKind::P2pNetworkPubsubEffectfulSign,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubEffectfulIncomingData,
         }
     }
 }
