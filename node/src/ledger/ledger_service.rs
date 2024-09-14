@@ -45,7 +45,6 @@ use openmina_core::thread;
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 
-use crate::account::AccountPublicKey;
 use crate::block_producer::StagedLedgerDiffCreateOutput;
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use crate::rpc::{
@@ -56,6 +55,7 @@ use crate::transition_frontier::sync::{
     ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
     TransitionFrontierRootSnarkedLedgerUpdates,
 };
+use crate::{account::AccountPublicKey, transition_frontier::genesis::empty_pending_coinbase_hash};
 
 use super::write::CommitResult;
 
@@ -234,12 +234,15 @@ impl LedgerCtx {
     }
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
-        let hash = merkle_root(&mut mask);
+        let merkle_root_hash = merkle_root(&mut mask);
         let staged_ledger =
             StagedLedger::create_exn(constraint_constants().clone(), mask.copy()).unwrap();
-        self.snarked_ledgers.insert(hash, mask);
+        self.snarked_ledgers.insert(merkle_root_hash.clone(), mask);
+        // The genesis ledger is a specific case, some of its hashes are zero
+        let staged_ledger_hash =
+            MinaBaseStagedLedgerHashStableV1::zero(merkle_root_hash, empty_pending_coinbase_hash());
         self.staged_ledgers
-            .insert_by_recomputing_hash(staged_ledger);
+            .insert(Arc::new(staged_ledger_hash), staged_ledger);
     }
 
     pub fn staged_ledger_reconstruct_result_store(&mut self, ledger: StagedLedger) {
