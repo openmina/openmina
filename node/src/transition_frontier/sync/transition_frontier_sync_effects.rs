@@ -319,7 +319,7 @@ impl TransitionFrontierSyncAction {
                     .flat_map(|b| {
                         [
                             b.snarked_ledger_hash(),
-                            b.staged_ledger_hash(),
+                            b.merkle_root_hash(),
                             b.staking_epoch_ledger_hash(),
                             b.next_epoch_ledger_hash(),
                         ]

@@ -294,7 +294,7 @@ fn synced_effects<S: crate::Service>(
         });
     }
 
-    let best_tip_hash = best_tip.staged_ledger_hash().clone();
+    let best_tip_hash = best_tip.merkle_root_hash().clone();
     store.dispatch(ConsensusAction::Prune);
     store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
     store.dispatch(TransactionPoolAction::BestTipChanged {

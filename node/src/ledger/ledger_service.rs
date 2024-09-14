@@ -624,15 +624,15 @@ impl LedgerCtx {
         openmina_core::info!(openmina_core::log::system_time();
             kind = "LedgerService::block_apply",
             summary = format!("{}, {} <- {}", block.height(), block.hash(), block.pred_hash()),
-            pred_staged_ledger_hash = pred_block.staged_ledger_hash().to_string(),
-            staged_ledger_hash = block.staged_ledger_hash().to_string(),
+            pred_staged_ledger_hash = pred_block.merkle_root_hash().to_string(),
+            staged_ledger_hash = block.merkle_root_hash().to_string(),
         );
         let mut staged_ledger = self
             .staged_ledger_mut(pred_block.staged_ledger_hashes())
             .ok_or_else(|| {
                 format!(
-                    "parent staged ledger missing: {}",
-                    pred_block.staged_ledger_hash()
+                    "parent staged ledger missing: {:#?}",
+                    pred_block.staged_ledger_hashes()
                 )
             })?
             .clone();
@@ -753,7 +753,7 @@ impl LedgerCtx {
         for ledger_hash in [
             new_best_tip.staking_epoch_ledger_hash(),
             new_root.snarked_ledger_hash(),
-            new_root.staged_ledger_hash(),
+            new_root.merkle_root_hash(),
         ] {
             if let Some((mut mask, is_synced)) = self.mask(ledger_hash) {
                 if !is_synced {
@@ -940,7 +940,7 @@ impl LedgerCtx {
             .ok_or_else(|| {
                 format!(
                     "parent staged ledger missing: {}",
-                    pred_block.staged_ledger_hash()
+                    pred_block.merkle_root_hash()
                 )
             })?
             .clone();

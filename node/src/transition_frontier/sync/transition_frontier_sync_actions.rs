@@ -37,7 +37,7 @@ pub enum TransitionFrontierSyncAction {
         new_best_tip_height = best_tip.height(),
         new_root_block_hash = display(&root_block.hash),
         new_root_snarked_ledger_hash = display(root_block.snarked_ledger_hash()),
-        new_root_staged_ledger_hash = display(root_block.staged_ledger_hash()),
+        new_root_staged_ledger_hash = display(root_block.merkle_root_hash()),
     ))]
     BestTipUpdate {
         // Required to be able to reuse partially synced root ledgers
