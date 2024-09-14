@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::{LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
+use mina_p2p_messages::v2::{self, LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -104,7 +104,7 @@ pub struct TransitionFrontierRootSnarkedLedgerUpdate {
     /// ledger as the target. From that staged ledger we can fetch
     /// transactions that we need to apply on top of `parent` in order
     /// to construct target snarked ledger.
-    pub staged_ledger_hash: LedgerHash,
+    pub staged_ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -560,7 +560,7 @@ impl TransitionFrontierRootSnarkedLedgerUpdates {
                     let last_block = std::mem::replace(last_block, b);
                     let update = TransitionFrontierRootSnarkedLedgerUpdate {
                         parent: b.snarked_ledger_hash().clone(),
-                        staged_ledger_hash: last_block.staged_ledger_hash().clone(),
+                        staged_ledger_hash: last_block.staged_ledger_hashes().clone(),
                     };
                     let snarked_ledger_hash = last_block.snarked_ledger_hash().clone();
 

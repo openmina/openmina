@@ -272,7 +272,7 @@ fn build_staged_ledger_parts_request(
         .best_chain
         .iter()
         .find(|b| &b.hash == block_hash)
-        .map(|b| b.staged_ledger_hash().clone())?;
+        .map(|b| b.staged_ledger_hashes().clone())?;
     let protocol_states = tf
         .needed_protocol_states
         .iter()
@@ -336,8 +336,7 @@ fn find_peers_with_ledger_rpc(
                         .transition_frontier
                         .get_state_body(block_hash)
                         .map_or(false, |b| {
-                            b.blockchain_state.staged_ledger_hash.non_snark.ledger_hash
-                                == data.ledger_hash
+                            b.blockchain_state.staged_ledger_hash == data.ledger_hash
                         }),
                     _ => false,
                 })
@@ -355,8 +354,7 @@ fn find_peers_with_ledger_rpc(
                         .transition_frontier
                         .get_state_body(block_hash)
                         .map_or(false, |b| {
-                            b.blockchain_state.staged_ledger_hash.non_snark.ledger_hash
-                                == data.ledger_hash
+                            b.blockchain_state.staged_ledger_hash == data.ledger_hash
                         }),
                     _ => false,
                 })

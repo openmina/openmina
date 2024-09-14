@@ -346,7 +346,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 }
             };
             if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::ScanStateSummary(block.staged_ledger_hash().clone()),
+                request: LedgerReadRequest::ScanStateSummary(block.staged_ledger_hashes().clone()),
             }) {
                 store.dispatch(RpcAction::ScanStateSummaryGetPending {
                     rpc_id,
