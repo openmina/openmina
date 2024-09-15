@@ -148,7 +148,7 @@ async fn test_bad_node() -> anyhow::Result<()> {
         .expect("Node not found");
 
     let bad_peer_addresses = bad_peer_entry
-        .addrs
+        .addresses()
         .iter()
         .map(Clone::clone)
         .collect::<HashSet<_>>();

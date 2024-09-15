@@ -9,8 +9,8 @@ use crate::{
         P2pNetworkKadBootstrapSuccessfulRequest,
     },
     connection::outgoing::P2pConnectionOutgoingInitOpts,
-    socket_addr_try_from_multiaddr, P2pNetworkKadEntry, P2pNetworkKadRequestAction,
-    P2pNetworkKadState, P2pNetworkKademliaAction, P2pState,
+    socket_addr_try_from_multiaddr, P2pNetworkKadRequestAction, P2pNetworkKadState,
+    P2pNetworkKademliaAction, P2pState,
 };
 
 use super::{P2pNetworkKadBootstrapAction, P2pNetworkKadBootstrapState};
@@ -66,10 +66,10 @@ impl P2pNetworkKadBootstrapState {
                 let peer_id_req_vec = routing_table
                     .closest_peers(&bootstrap_state.kademlia_key) // for the next request we take closest peer
                     .filter(|entry| !bootstrap_state.processed_peers.contains(&entry.peer_id)) // that is not yet processed during this bootstrap
-                    .filter_map(|P2pNetworkKadEntry { peer_id, addrs, .. }| {
+                    .filter_map(|entry| {
                         // we create a request for it
-                        prepare_next_request(addrs, meta.time(), filter_addrs)
-                            .map(|req| (*peer_id, req))
+                        prepare_next_request(entry.addresses(), meta.time(), filter_addrs)
+                            .map(|req| (entry.peer_id, req))
                     })
                     .take(requests_to_create) // and stop when we create enough requests so up to 3 will be executed in parallel
                     .collect::<Vec<_>>();

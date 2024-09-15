@@ -253,7 +253,7 @@ impl P2pNetworkKadRequestState {
                     let peer_id = entry.peer_id;
                     let to_opts = |addr| (peer_id, addr).into();
                     let mut addresses = entry
-                        .addrs
+                        .addresses()
                         .iter()
                         .map(socket_addr_try_from_multiaddr)
                         .filter_map(Result::ok)
