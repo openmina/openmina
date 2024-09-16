@@ -30,12 +30,12 @@ impl P2pNetworkYamuxState {
         let connection_state = state_context
             .get_substate_mut()?
             .connection_state_mut(action.addr())
-            .ok_or_else(|| "Connection not found".to_owned())?;
+            .ok_or_else(|| format!("Connection not found for action: {action:?}"))?;
 
         let P2pNetworkConnectionMuxState::Yamux(yamux_state) = connection_state
             .mux
             .as_mut()
-            .ok_or_else(|| "Invalid yamux state".to_owned())?;
+            .ok_or_else(|| format!("Invalid yamux state for action: {action:?}"))?;
 
         if yamux_state.terminated.is_some() {
             return Ok(());
