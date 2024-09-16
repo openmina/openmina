@@ -3,13 +3,14 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { ScanStateSetActiveLeaf, ScanStateToggleSidePanel } from '@snarks/scan-state/scan-state.actions';
 import { selectScanStateActiveLeaf, selectScanStateBlock } from '@snarks/scan-state/scan-state.state';
 import { ScanStateBlock } from '@shared/types/snarks/scan-state/scan-state-block.type';
-import { CONFIG } from '@shared/constants/config';
 import { filter } from 'rxjs';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { ScanStateLeaf } from '@shared/types/snarks/scan-state/scan-state-leaf.type';
+import { AppSelectors } from '@app/app.state';
+import { getFeaturesConfig } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-scan-state-side-panel',
@@ -24,6 +25,7 @@ export class ScanStateSidePanelComponent extends StoreDispatcher implements OnIn
   workingSnarkersLength: number;
   hasError: boolean = false;
   activeLeaf: ScanStateLeaf;
+  workingPoolEnabled: boolean = false;
 
   @ViewChild('navDropdown') private dropdown: TemplateRef<void>;
 
@@ -36,6 +38,7 @@ export class ScanStateSidePanelComponent extends StoreDispatcher implements OnIn
   ngOnInit(): void {
     this.listenToBlockChange();
     this.listenToActiveJobID();
+    this.listenToActiveNode();
   }
 
   toggleSidePanel(): void {
@@ -58,6 +61,13 @@ export class ScanStateSidePanelComponent extends StoreDispatcher implements OnIn
       if (this.activeLeaf) {
         this.activeStep = 1;
       }
+      this.detect();
+    });
+  }
+
+  private listenToActiveNode(): void {
+    this.select(AppSelectors.activeNode, (node) => {
+      this.workingPoolEnabled = getFeaturesConfig(node).snarks?.includes('work-pool');
       this.detect();
     });
   }

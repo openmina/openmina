@@ -83,9 +83,9 @@ export class SnarksWorkPoolEffects extends MinaRustBaseEffect<SnarksWorkPoolActi
       ),
       map((payload: [WorkPoolSpecs, WorkPoolDetail]) => ({
         type: SNARKS_WORK_POOL_GET_WORK_POOL_DETAIL_SUCCESS,
-        payload
+        payload,
       })),
-      catchErrorAndRepeat(MinaErrorType.GENERIC, SNARKS_WORK_POOL_GET_WORK_POOL_DETAIL_SUCCESS),
+      catchErrorAndRepeat(MinaErrorType.GENERIC, SNARKS_WORK_POOL_GET_WORK_POOL_DETAIL_SUCCESS, []),
     ));
   }
 }

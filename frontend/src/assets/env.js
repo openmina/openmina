@@ -1,15 +1,16 @@
-import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
-
-export const environment: Readonly<MinaEnv> = {
-  production: true,
+export default {
+  production: false,
   globalConfig: {
     features: {
       'dashboard': [],
-      'block-production': ['won-slots'],
       'nodes': ['overview', 'live', 'bootstrap'],
-      'mempool': [],
       'state': ['actions'],
+      'network': ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
       'snarks': ['scan-state', 'work-pool'],
+      'testing-tool': ['scenarios'],
+      'resources': ['memory'],
+      'block-production': ['overview', 'won-slots'],
+      'mempool': [],
       'benchmarks': ['wallets'],
     },
     canAddNodes: false,
@@ -34,4 +35,3 @@ export const environment: Readonly<MinaEnv> = {
     },
   ],
 };
-
