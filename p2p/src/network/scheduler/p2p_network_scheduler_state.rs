@@ -114,6 +114,12 @@ impl P2pNetworkConnectionState {
         }
     }
 
+    pub fn noise_state(&self) -> Option<&P2pNetworkNoiseState> {
+        self.auth
+            .as_ref()
+            .map(|P2pNetworkAuthState::Noise(state)| state)
+    }
+
     pub fn noise_state_mut(&mut self) -> Option<&mut P2pNetworkNoiseState> {
         self.auth
             .as_mut()
@@ -130,6 +136,26 @@ impl P2pNetworkConnectionState {
         self.mux
             .as_ref()
             .map(|P2pNetworkConnectionMuxState::Yamux(state)| state)
+    }
+
+    pub fn select_state_mut(&mut self, kind: &SelectKind) -> Option<&mut P2pNetworkSelectState> {
+        match kind {
+            SelectKind::Authentication => Some(&mut self.select_auth),
+            SelectKind::MultiplexingNoPeerId | SelectKind::Multiplexing(_) => {
+                Some(&mut self.select_mux)
+            }
+            SelectKind::Stream(_, stream_id) => Some(&mut self.streams.get_mut(stream_id)?.select),
+        }
+    }
+
+    pub fn select_state(&self, kind: &SelectKind) -> Option<&P2pNetworkSelectState> {
+        match kind {
+            SelectKind::Authentication => Some(&self.select_auth),
+            SelectKind::MultiplexingNoPeerId | SelectKind::Multiplexing(_) => {
+                Some(&self.select_mux)
+            }
+            SelectKind::Stream(_, stream_id) => Some(&self.streams.get(stream_id)?.select),
+        }
     }
 }
 

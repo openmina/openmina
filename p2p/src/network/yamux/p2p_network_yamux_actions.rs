@@ -58,24 +58,24 @@ impl From<P2pNetworkYamuxAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        #[allow(unused_variables)]
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
+        if state
+            .network
+            .scheduler
+            .connection_state(self.addr())
+            .and_then(|state| state.yamux_state())
+            .is_none()
+        {
+            return false;
+        };
+
         match self {
-            P2pNetworkYamuxAction::IncomingData { addr, data } => true,
-            P2pNetworkYamuxAction::OutgoingData {
-                addr,
-                stream_id,
-                data,
-                flags,
-            } => true,
-            P2pNetworkYamuxAction::IncomingFrame { addr, frame } => true,
-            P2pNetworkYamuxAction::OutgoingFrame { addr, frame } => true,
-            P2pNetworkYamuxAction::PingStream { addr, ping } => true,
-            P2pNetworkYamuxAction::OpenStream {
-                addr,
-                stream_id,
-                stream_kind,
-            } => true,
+            P2pNetworkYamuxAction::IncomingData { .. } => true,
+            P2pNetworkYamuxAction::OutgoingData { .. } => true,
+            P2pNetworkYamuxAction::IncomingFrame { .. } => true,
+            P2pNetworkYamuxAction::OutgoingFrame { .. } => true,
+            P2pNetworkYamuxAction::PingStream { .. } => true,
+            P2pNetworkYamuxAction::OpenStream { .. } => true,
         }
     }
 }
