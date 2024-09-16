@@ -11,8 +11,12 @@ use openmina_core::{
 };
 use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
-    channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
+    channels::{
+        rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
+        transaction::P2pChannelsTransactionAction,
+    },
     connection::outgoing::P2pConnectionOutgoingAction,
+    disconnection::P2pDisconnectionAction,
     identify::P2pIdentifyAction,
     network::identify::{
         stream_effectful::P2pNetworkIdentifyStreamEffectfulAction, P2pNetworkIdentifyState,
@@ -257,5 +261,8 @@ impl_from_p2p!(p2p::P2pNetworkPubsubAction);
 impl_from_p2p!(p2p::P2pNetworkPubsubEffectfulAction);
 impl_from_p2p!(P2pChannelsTransactionAction);
 impl_from_p2p!(P2pChannelsSnarkAction);
+impl_from_p2p!(p2p::P2pNetworkRpcAction);
+impl_from_p2p!(P2pChannelsRpcAction);
+impl_from_p2p!(P2pDisconnectionAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

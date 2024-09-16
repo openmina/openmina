@@ -19,11 +19,11 @@ impl P2pNetworkAction {
             P2pNetworkAction::Noise(_)
             | P2pNetworkAction::Yamux(_)
             | P2pNetworkAction::Kad(_)
-            | P2pNetworkAction::Pubsub(_) => {
+            | P2pNetworkAction::Pubsub(_)
+            | P2pNetworkAction::Rpc(_) => {
                 // handled by reducer
             }
             P2pNetworkAction::PubsubEffectful(v) => v.effects(meta, store),
-            P2pNetworkAction::Rpc(v) => v.effects(meta, store),
         }
     }
 }

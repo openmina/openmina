@@ -71,17 +71,18 @@ impl P2pNetworkState {
                 // Effectful action; no reducer
                 Ok(())
             }
-            P2pNetworkAction::Rpc(a) => {
-                if let Some(state) = state.find_rpc_state_mut(a) {
-                    state.reducer(meta.with_action(a), limits);
-                }
-
-                Ok(())
-            }
+            P2pNetworkAction::Rpc(a) => P2pNetworkRpcState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+                limits,
+            ),
         }
     }
 
-    fn find_rpc_state_mut(&mut self, a: &P2pNetworkRpcAction) -> Option<&mut P2pNetworkRpcState> {
+    pub fn find_rpc_state_mut(
+        &mut self,
+        a: &P2pNetworkRpcAction,
+    ) -> Option<&mut P2pNetworkRpcState> {
         match a.stream_id() {
             RpcStreamId::Exact(stream_id) => self
                 .scheduler
