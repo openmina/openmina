@@ -21,5 +21,9 @@ export const environment: Readonly<MinaEnv> = {
       name: 'Producer-2',
       url: 'https://staging-devnet-openmina-bp-2-dashboard.minaprotocol.network',
     },
+    {
+      name: 'Producer-3',
+      url: 'https://staging-devnet-openmina-bp-3-dashboard.minaprotocol.network',
+    },
   ],
 };
