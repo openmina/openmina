@@ -1,40 +1,16 @@
-use node::NodeData;
 use openmina_node_account::AccountSecretKey;
 
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::mpsc;
 
 use clap::Parser;
 
-use crate::{
+use producer_dashboard::{
     archive::watchdog::ArchiveWatchdog,
     evaluator::{EpochInit, Evaluator},
     node::{watchdog::spawn_watchdog, Node},
     storage::db_sled::Database,
+    NodeStatus,
 };
-
-mod archive;
-mod config;
-pub mod evaluator;
-mod node;
-mod rpc;
-mod storage;
-
-#[derive(Debug, thiserror::Error)]
-pub enum StakingToolError {
-    #[error("Empty graphql response")]
-    EmptyGraphqlResponse,
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
-    #[error("Node offline")]
-    NodeOffline,
-    #[error(transparent)]
-    ParseInt(#[from] std::num::ParseIntError),
-}
-
-pub type NodeStatus = Arc<RwLock<NodeData>>;
 
 use tracing::{error, info, instrument};
 
@@ -44,7 +20,7 @@ async fn main() {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    let config = config::Config::parse();
+    let config = producer_dashboard::config::Config::parse();
 
     if config.force_recreate_db_unsafe {
         std::fs::remove_dir_all(&config.database_path).expect("Failed deleting databse dir");
@@ -96,7 +72,7 @@ async fn main() {
     );
     info!("Archive watchdog created");
 
-    let rpc_handle = rpc::spawn_rpc_server(
+    let rpc_handle = producer_dashboard::rpc::spawn_rpc_server(
         3000,
         db.clone(),
         node_status.clone(),

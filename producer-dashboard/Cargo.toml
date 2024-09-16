@@ -8,6 +8,10 @@ license = "Apache-2.0"
 name = "openmina-producer-dashboard"
 path = "src/main.rs"
 
+[lib]
+name = "producer_dashboard"
+path = "src/lib.rs"
+
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 warp = "0.3"
