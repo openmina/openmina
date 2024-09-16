@@ -374,22 +374,36 @@ impl Extend<P2pNetworkKadEntry> for P2pNetworkKadRoutingTable {
 pub struct P2pNetworkKadEntry {
     pub key: P2pNetworkKadKey,
     pub peer_id: PeerId,
-    pub addrs: Vec<Multiaddr>,
+    addrs: Vec<Multiaddr>,
     pub connection: ConnectionType,
 }
 
 impl P2pNetworkKadEntry {
+    pub const MAX_ADDRS: usize = 16;
+
     pub fn new(peer_id: PeerId, addrs: Vec<Multiaddr>) -> Result<Self, P2pNetworkKadKeyError> {
+        if addrs.len() > Self::MAX_ADDRS {
+            openmina_core::log::info!(
+                openmina_core::log::system_time();
+                kind = "P2pNetworkKadEntry new",
+                summary = format!("truncating {addrs:?} to {} elements", Self::MAX_ADDRS),
+            );
+        }
+
         Ok(P2pNetworkKadEntry {
             key: peer_id.try_into()?,
             peer_id,
-            addrs,
+            addrs: addrs.into_iter().take(Self::MAX_ADDRS).collect(),
             connection: ConnectionType::NotConnected,
         })
     }
 
     pub fn dist(&self, other: &P2pNetworkKadEntry) -> P2pNetworkKadDist {
         &self.key - &other.key
+    }
+
+    pub fn addresses(&self) -> &Vec<Multiaddr> {
+        &self.addrs
     }
 
     pub fn filter_addrs(&mut self) {
@@ -561,6 +575,15 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
             }
 
             for addr in entry.addrs {
+                if e.addrs.len() >= P2pNetworkKadEntry::MAX_ADDRS {
+                    openmina_core::log::info!(
+                        openmina_core::log::system_time();
+                        kind = "P2pNetworkKadBucket insert",
+                        summary = format!("Skipping updates to Kad entry multiaddress list"),
+                    );
+                    break;
+                }
+
                 if !e.addrs.contains(&addr) {
                     e.addrs.push(addr);
                 }
