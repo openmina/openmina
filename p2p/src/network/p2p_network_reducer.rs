@@ -28,23 +28,10 @@ impl P2pNetworkState {
                 }
                 Ok(())
             }
-            P2pNetworkAction::Select(a) => {
-                if let Some(cn) = state.scheduler.connections.get_mut(a.addr()) {
-                    match a.select_kind() {
-                        SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(a)),
-                        SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                            cn.select_mux.reducer(meta.with_action(a));
-                        }
-                        SelectKind::Stream(_, stream_id) => {
-                            if let Some(stream) = cn.streams.get_mut(&stream_id) {
-                                stream.select.reducer(meta.with_action(a))
-                            }
-                        }
-                    };
-                }
-
-                Ok(())
-            }
+            P2pNetworkAction::Select(a) => P2pNetworkSelectState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
             P2pNetworkAction::Noise(a) => P2pNetworkNoiseState::reducer(
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(a),

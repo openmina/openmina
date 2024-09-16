@@ -11,12 +11,12 @@ impl P2pNetworkAction {
         match self {
             P2pNetworkAction::Scheduler(v) => v.effects(meta, store),
             P2pNetworkAction::Pnet(v) => v.effects(meta, store),
-            P2pNetworkAction::Select(v) => v.effects(meta, store),
             P2pNetworkAction::Identify(v) => match v.effects(meta, store) {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Identify stream action: {e}"),
             },
-            P2pNetworkAction::Noise(_)
+            P2pNetworkAction::Select(_)
+            | P2pNetworkAction::Noise(_)
             | P2pNetworkAction::Yamux(_)
             | P2pNetworkAction::Kad(_)
             | P2pNetworkAction::Pubsub(_)
