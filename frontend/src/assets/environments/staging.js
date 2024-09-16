@@ -1,16 +1,13 @@
 export default {
-  production: false,
+  production: true,
   globalConfig: {
     features: {
       'dashboard': [],
+      'block-production': ['won-slots'],
       'nodes': ['overview', 'live', 'bootstrap'],
-      'state': ['actions'],
-      'network': ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
-      'snarks': ['scan-state', 'work-pool'],
-      'testing-tool': ['scenarios'],
-      'resources': ['memory'],
-      'block-production': ['overview', 'won-slots'],
       'mempool': [],
+      'state': ['actions'],
+      'snarks': ['scan-state', 'work-pool'],
       'benchmarks': ['wallets'],
     },
     canAddNodes: false,
