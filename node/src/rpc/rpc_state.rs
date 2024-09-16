@@ -64,7 +64,13 @@ impl RpcState {
 
     pub fn scan_state_summary_rpc_ids(
         &self,
-    ) -> impl Iterator<Item = (RpcId, &v2::LedgerHash, &RpcRequestStatus)> {
+    ) -> impl Iterator<
+        Item = (
+            RpcId,
+            &v2::MinaBaseStagedLedgerHashStableV1,
+            &RpcRequestStatus,
+        ),
+    > {
         self.requests
             .iter()
             .filter(|(_, req)| matches!(req.req, RpcRequest::ScanStateSummaryGet(_)))
@@ -73,7 +79,7 @@ impl RpcState {
                     RpcRequestExtraData::FullBlockOpt(block) => block.as_ref()?,
                     _ => return None,
                 };
-                Some((*id, block.staged_ledger_hash(), &req.status))
+                Some((*id, block.staged_ledger_hashes(), &req.status))
             })
     }
 

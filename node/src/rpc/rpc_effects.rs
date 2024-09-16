@@ -346,7 +346,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 }
             };
             if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::ScanStateSummary(block.staged_ledger_hash().clone()),
+                request: LedgerReadRequest::ScanStateSummary(block.staged_ledger_hashes().clone()),
             }) {
                 store.dispatch(RpcAction::ScanStateSummaryGetPending {
                     rpc_id,
@@ -670,7 +670,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
             let ledger_hash = if let Some(best_tip) = store.state().transition_frontier.best_tip() {
-                best_tip.staged_ledger_hash()
+                best_tip.merkle_root_hash()
             } else {
                 return;
             };

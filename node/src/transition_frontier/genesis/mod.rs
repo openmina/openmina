@@ -29,7 +29,7 @@ pub(super) fn empty_pending_coinbase() -> PendingCoinbase {
     v
 }
 
-pub(super) fn empty_pending_coinbase_hash() -> v2::PendingCoinbaseHash {
+pub fn empty_pending_coinbase_hash() -> v2::PendingCoinbaseHash {
     v2::MinaBasePendingCoinbaseHashVersionedStableV1(
         v2::MinaBasePendingCoinbaseHashBuilderStableV1(
             empty_pending_coinbase().merkle_root().into(),

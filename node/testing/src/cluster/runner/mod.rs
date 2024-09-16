@@ -284,7 +284,7 @@ impl<'a> ClusterRunner<'a> {
     ) -> Box<dyn 'b + Iterator<Item = (AccountSecretKey, Box<ledger::Account>)>> {
         let Some(mask) = self.node(node_id).and_then(|node| {
             let best_tip = node.state().transition_frontier.best_tip()?;
-            let ledger_hash = best_tip.staged_ledger_hash();
+            let ledger_hash = best_tip.merkle_root_hash();
             let (mask, _) = LedgerService::ledger_manager(node.service()).get_mask(ledger_hash)?;
             Some(mask)
         }) else {
