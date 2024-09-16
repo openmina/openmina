@@ -4,6 +4,7 @@ use std::{
 };
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
+use rsexp::OfSexp;
 
 pub type Backend<T> = LinkedList<T>;
 
@@ -40,6 +41,28 @@ impl<T> List<T> {
 
     pub fn push_front(&mut self, element: T) {
         self.0.push_front(element)
+    }
+}
+
+impl<T: OfSexp> OfSexp for List<T> {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        let elts = s.extract_list("List")?;
+        let mut backend = Backend::new();
+        for elt in elts.iter() {
+            backend.push_back(rsexp::OfSexp::of_sexp(elt)?);
+        }
+        Ok(Self(backend))
+    }
+}
+
+impl<T: rsexp::SexpOf> rsexp::SexpOf for List<T> {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        let elements: Vec<rsexp::Sexp> = self.0.iter().map(|item| item.sexp_of()).collect();
+
+        rsexp::Sexp::List(elements)
     }
 }
 

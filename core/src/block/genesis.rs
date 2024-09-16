@@ -137,7 +137,7 @@ fn blockchain_state(
     let empty_fee_excess = v2::TokenFeeExcess {
         token: v2::TokenIdKeyHash::default(),
         amount: v2::SignedAmount {
-            magnitude: v2::CurrencyAmountStableV1(0u64.into()),
+            magnitude: v2::CurrencyFeeStableV1(0u64.into()),
             sgn: v2::SgnStableV1::Pos,
         },
     };

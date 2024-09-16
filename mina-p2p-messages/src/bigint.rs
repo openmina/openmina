@@ -1,4 +1,5 @@
 use ark_ff::BigInteger256;
+use rsexp::{OfSexp, SexpOf};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into)]
@@ -116,6 +117,57 @@ impl From<&BigInt> for mina_curves::pasta::Fp {
 impl From<&BigInt> for mina_curves::pasta::Fq {
     fn from(bigint: &BigInt) -> Self {
         bigint.to_field()
+    }
+}
+
+impl OfSexp for BigInt {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        let bytes = s.extract_atom("BigInt")?;
+        let hex_str = std::str::from_utf8(bytes).map_err(|_| {
+            rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected hex string with 0x prefix, got {bytes:?}"),
+            }
+        })?;
+
+        let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
+
+        let padded_hex = format!("{:0>64}", hex_str);
+
+        if padded_hex.len() != 64 {
+            return Err(rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected 64-character hex string, got {padded_hex:?}"),
+            });
+        }
+
+        let byte_vec: Vec<u8> = (0..padded_hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&padded_hex[i..i + 2], 16))
+            .rev()
+            .collect::<Result<Vec<u8>, _>>()
+            .map_err(|_| rsexp::IntoSexpError::StringConversionError {
+                err: format!("Failed to parse hex string: {padded_hex:?}"),
+            })?;
+
+        Ok(BigInt::from_bytes(byte_vec.try_into().unwrap()))
+    }
+}
+
+impl SexpOf for BigInt {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        use std::fmt::Write;
+        let byte_vec = self.to_bytes();
+        let hex_str = byte_vec
+            .iter()
+            .rev()
+            .fold("0x".to_string(), |mut output, byte| {
+                let _ = write!(output, "{byte:02X}");
+                output
+            });
+
+        rsexp::Sexp::Atom(hex_str.into_bytes())
     }
 }
 
@@ -372,5 +424,30 @@ mod tests {
         println!("rx OK");
         let _ = deser_s.to_fp().unwrap();
         println!("s OK");
+    }
+
+    use super::*;
+    use rsexp::Sexp;
+
+    #[test]
+    fn test_sexp_bigint() {
+        let hex_str = "0x248D179F4E92EA85C644CD99EF72187463B541D5F797943898C3D7A6CEEEC523";
+        let expected_array = [
+            0x98C3D7A6CEEEC523,
+            0x63B541D5F7979438,
+            0xC644CD99EF721874,
+            0x248D179F4E92EA85,
+        ];
+
+        let original_sexp = Sexp::Atom(hex_str.as_bytes().to_vec());
+
+        let result = BigInt::of_sexp(&original_sexp).expect("Failed to convert Sexp to BigInt");
+        let expected_result = BigInt(BigInteger256::new(expected_array));
+
+        assert_eq!(result, expected_result);
+
+        let produced_sexp = result.sexp_of();
+
+        assert_eq!(original_sexp, produced_sexp);
     }
 }
