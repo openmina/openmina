@@ -44,7 +44,7 @@ impl NodeServiceBuilder {
     }
 
     pub fn block_producer_init(&mut self, keypair: AccountSecretKey) -> &mut Self {
-        let provers = ledger::proofs::gates::get_provers();
+        let provers = ledger::proofs::gates::BlockProver::make();
         self.common.block_producer_init(provers, keypair);
         self
     }

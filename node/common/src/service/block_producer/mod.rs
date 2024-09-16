@@ -1,9 +1,7 @@
 mod vrf_evaluator;
 
-use std::sync::Arc;
-
 use ledger::proofs::{
-    block::BlockParams, gates::Provers, generate_block_proof, transaction::ProofError,
+    block::BlockParams, gates::BlockProver, generate_block_proof, transaction::ProofError,
 };
 use mina_p2p_messages::{
     binprot::BinProtWrite,
@@ -18,14 +16,14 @@ use node::{
 use crate::EventSender;
 
 pub struct BlockProducerService {
-    provers: Arc<Provers>,
+    provers: BlockProver,
     keypair: AccountSecretKey,
     vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
 }
 
 impl BlockProducerService {
     pub fn new(
-        provers: Arc<Provers>,
+        provers: BlockProver,
         keypair: AccountSecretKey,
         vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
     ) -> Self {
@@ -37,7 +35,7 @@ impl BlockProducerService {
     }
 
     pub fn start(
-        provers: Arc<Provers>,
+        provers: BlockProver,
         event_sender: EventSender,
         keypair: AccountSecretKey,
     ) -> Self {
@@ -65,7 +63,7 @@ impl BlockProducerService {
 }
 
 pub fn prove(
-    provers: Arc<Provers>,
+    provers: BlockProver,
     mut input: Box<ProverExtendBlockchainInputStableV2>,
     keypair: AccountSecretKey,
     only_verify_constraints: bool,
@@ -99,7 +97,7 @@ pub fn prove(
 }
 
 impl node::service::BlockProducerService for crate::NodeService {
-    fn provers(&self) -> Arc<Provers> {
+    fn provers(&self) -> BlockProver {
         self.block_producer
             .as_ref()
             .expect("provers shouldn't be needed if block producer isn't initialized")

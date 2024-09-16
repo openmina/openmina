@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use ledger::proofs::gates::Provers;
+use ledger::proofs::gates::BlockProver;
 use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use node::{
     account::AccountSecretKey,
@@ -117,7 +117,7 @@ impl NodeBuilder {
     }
 
     /// Set up block producer.
-    pub fn block_producer(&mut self, provers: Arc<Provers>, key: AccountSecretKey) -> &mut Self {
+    pub fn block_producer(&mut self, provers: BlockProver, key: AccountSecretKey) -> &mut Self {
         let config = BlockProducerConfig {
             pub_key: key.public_key().into(),
             custom_coinbase_receiver: None,

@@ -202,7 +202,7 @@ impl Node {
             (self.producer_key, &self.producer_key_password)
         {
             node::core::info!(node::core::log::system_time(); summary = "loading provers index");
-            ledger::proofs::gates::get_provers();
+            ledger::proofs::gates::BlockProver::make();
             node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
             node_builder.block_producer_from_file(producer_key_path, pasword)?;
 

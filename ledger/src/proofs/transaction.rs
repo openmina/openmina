@@ -4170,7 +4170,7 @@ mod tests {
         proofs::{
             block::{generate_block_proof, BlockParams},
             constants::{StepBlockProof, StepMergeProof},
-            gates::{devnet_circuit_directory, get_provers, Provers},
+            gates::{devnet_circuit_directory, BlockProver, TransactionProver, ZkappProver},
             merge::{generate_merge_proof, MergeParams},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
@@ -4371,17 +4371,8 @@ mod tests {
     #[allow(unused)]
     #[test]
     fn test_make_verifier_index() {
-        let Provers {
-            tx_step_prover,
-            tx_wrap_prover,
-            merge_step_prover,
-            block_step_prover,
-            block_wrap_prover,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-            // } = crate::proofs::gates::make_provers2();
-        } = &*get_provers();
+        BlockProver::make();
+        TransactionProver::make();
 
         // use crate::proofs::caching::verifier_index_to_bytes;
         // use crate::proofs::verifier_index::get_verifier_index;
@@ -4460,16 +4451,11 @@ mod tests {
         };
 
         let (statement, tx_witness, message) = extract_request(&data);
-        let Provers {
+        let TransactionProver {
             tx_step_prover,
             tx_wrap_prover,
             merge_step_prover: _,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover: _,
-            zkapp_step_opt_signed_prover: _,
-            zkapp_step_proof_prover: _,
-        } = &*get_provers();
+        } = TransactionProver::make();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
         // witnesses.ocaml_aux = read_witnesses("tx_fps.txt").unwrap();
@@ -4479,8 +4465,8 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                tx_step_prover,
-                tx_wrap_prover,
+                tx_step_prover: &tx_step_prover,
+                tx_wrap_prover: &tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4591,16 +4577,11 @@ mod tests {
         };
 
         let (statement, proofs, message) = extract_merge(&data);
-        let Provers {
+        let TransactionProver {
             tx_step_prover: _,
             tx_wrap_prover,
             merge_step_prover,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover: _,
-            zkapp_step_opt_signed_prover: _,
-            zkapp_step_proof_prover: _,
-        } = &*get_provers();
+        } = TransactionProver::make();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
         // witnesses.ocaml_aux = read_witnesses("fps_merge.txt").unwrap();
@@ -4610,8 +4591,8 @@ mod tests {
                 statement: (&*statement).try_into().unwrap(),
                 proofs: &proofs,
                 message: &message,
-                step_prover: merge_step_prover,
-                wrap_prover: tx_wrap_prover,
+                step_prover: &merge_step_prover,
+                wrap_prover: &tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 // expected_step_proof: Some(
@@ -4647,29 +4628,26 @@ mod tests {
 
         let (statement, tx_witness, message) = extract_request(&data);
 
-        let Provers {
-            tx_step_prover: _,
+        let ZkappProver {
             tx_wrap_prover,
             merge_step_prover,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-        } = &*get_provers();
+            step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover,
+            step_proof_prover,
+        } = ZkappProver::make();
 
-        dbg!(zkapp_step_opt_signed_opt_signed_prover.rows_rev.len());
-        // dbg!(zkapp_step_opt_signed_opt_signed_prover.rows_rev.iter().map(|v| v.len()).collect::<Vec<_>>());
+        dbg!(step_opt_signed_opt_signed_prover.rows_rev.len());
+        // dbg!(step_opt_signed_opt_signed_prover.rows_rev.iter().map(|v| v.len()).collect::<Vec<_>>());
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: zkapp_step_opt_signed_prover,
-            step_proof_prover: zkapp_step_proof_prover,
-            merge_step_prover,
-            tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: &step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: &step_opt_signed_prover,
+            step_proof_prover: &step_proof_prover,
+            merge_step_prover: &merge_step_prover,
+            tx_wrap_prover: &tx_wrap_prover,
             opt_signed_path: None,
             // opt_signed_path: Some("zkapp_opt_signed"),
             proved_path: None,
@@ -4700,26 +4678,23 @@ mod tests {
 
         let (statement, tx_witness, message) = extract_request(&data);
 
-        let Provers {
-            tx_step_prover: _,
+        let ZkappProver {
             tx_wrap_prover,
             merge_step_prover,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-        } = &*get_provers();
+            step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover,
+            step_proof_prover,
+        } = ZkappProver::make();
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: zkapp_step_opt_signed_prover,
-            step_proof_prover: zkapp_step_proof_prover,
-            merge_step_prover,
-            tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: &step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: &step_opt_signed_prover,
+            step_proof_prover: &step_proof_prover,
+            merge_step_prover: &merge_step_prover,
+            tx_wrap_prover: &tx_wrap_prover,
             opt_signed_path: None,
             proved_path: None,
             // opt_signed_path: Some("zkapp_proof"),
@@ -4752,25 +4727,20 @@ mod tests {
         let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
             read_binprot(&mut data.as_slice());
 
-        let Provers {
-            tx_step_prover: _,
-            tx_wrap_prover,
-            merge_step_prover: _,
+        let BlockProver {
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_opt_signed_opt_signed_prover: _,
-            zkapp_step_opt_signed_prover: _,
-            zkapp_step_proof_prover: _,
-        } = &*get_provers();
+            tx_wrap_prover,
+        } = BlockProver::make();
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
         // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
         let WrapProof { proof, .. } = generate_block_proof(
             BlockParams {
                 input: &blockchain_input,
-                block_step_prover,
-                block_wrap_prover,
-                tx_wrap_prover,
+                block_step_prover: &block_step_prover,
+                block_wrap_prover: &block_wrap_prover,
+                tx_wrap_prover: &tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4804,16 +4774,19 @@ mod tests {
             return;
         }
 
-        let Provers {
-            tx_step_prover,
-            tx_wrap_prover,
-            merge_step_prover,
+        let BlockProver {
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-        } = &*get_provers();
+            tx_wrap_prover: _,
+        } = BlockProver::make();
+        let TransactionProver { tx_step_prover, .. } = TransactionProver::make();
+        let ZkappProver {
+            tx_wrap_prover,
+            merge_step_prover,
+            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: zkapp_step_opt_signed_prover,
+            step_proof_prover: zkapp_step_proof_prover,
+        } = ZkappProver::make();
 
         // TODO: Compare checksum with OCaml
         #[rustfmt::skip]
@@ -4834,11 +4807,11 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
-                step_opt_signed_prover: zkapp_step_opt_signed_prover,
-                step_proof_prover: zkapp_step_proof_prover,
-                merge_step_prover,
-                tx_wrap_prover,
+                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
+                step_proof_prover: &zkapp_step_proof_prover,
+                merge_step_prover: &merge_step_prover,
+                tx_wrap_prover: &tx_wrap_prover,
                 opt_signed_path,
                 proved_path,
             })
@@ -4869,9 +4842,9 @@ mod tests {
             let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {
                     input: &blockchain_input,
-                    block_step_prover,
-                    block_wrap_prover,
-                    tx_wrap_prover,
+                    block_step_prover: &block_step_prover,
+                    block_wrap_prover: &block_wrap_prover,
+                    tx_wrap_prover: &tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4906,8 +4879,8 @@ mod tests {
                     statement: (&*statement).try_into().unwrap(),
                     proofs: &proofs,
                     message: &message,
-                    step_prover: merge_step_prover,
-                    wrap_prover: tx_wrap_prover,
+                    step_prover: &merge_step_prover,
+                    wrap_prover: &tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4972,8 +4945,8 @@ mod tests {
                     statement: &statement,
                     tx_witness: &tx_witness,
                     message: &message,
-                    tx_step_prover,
-                    tx_wrap_prover,
+                    tx_step_prover: &tx_step_prover,
+                    tx_wrap_prover: &tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,

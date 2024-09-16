@@ -1,6 +1,5 @@
 #![cfg(target_family = "wasm")]
 
-use ::node::account::AccountSecretKey;
 use openmina_node_common::rpc::RpcSender;
 pub use openmina_node_common::*;
 
@@ -10,9 +9,11 @@ pub use rayon::init_rayon;
 mod node;
 pub use node::{Node, NodeBuilder};
 
+use ::node::account::AccountSecretKey;
 use ::node::core::thread;
 use ::node::snark::{get_verifier_index, VerifierKind};
 use anyhow::Context;
+use ledger::proofs::gates::BlockProver;
 use wasm_bindgen::prelude::*;
 
 use crate::node::P2pTaskRemoteSpawner;
@@ -35,10 +36,6 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
         key.parse()
             .expect("failed to parse passed block producer keys")
     });
-
-    if block_producer.is_some() {
-        ledger::proofs::gates::read_and_cache_gates().await;
-    }
 
     let (rpc_sender_tx, rpc_sender_rx) = ::node::core::channels::oneshot::channel();
     let _ = thread::spawn(move || {
@@ -67,7 +64,7 @@ async fn setup_node(
         .work_verifier_index(work_verifier_index);
 
     if let Some(bp_key) = block_producer {
-        let provers = ledger::proofs::gates::get_provers();
+        let provers = BlockProver::make().await;
         node_builder.block_producer(provers, bp_key);
     }
 

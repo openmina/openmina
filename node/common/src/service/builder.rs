@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use ledger::proofs::gates::Provers;
+use ledger::proofs::gates::BlockProver;
 use node::{
     account::AccountSecretKey,
     core::channels::mpsc,
@@ -82,7 +80,7 @@ impl NodeServiceCommonBuilder {
 
     pub fn block_producer_init(
         &mut self,
-        provers: Arc<Provers>,
+        provers: BlockProver,
         keypair: AccountSecretKey,
     ) -> &mut Self {
         self.block_producer = Some(BlockProducerService::start(

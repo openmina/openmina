@@ -3,6 +3,8 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use kimchi::circuits::gate::CircuitGate;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
+use once_cell::sync::OnceCell;
+use openmina_core::network::CircuitsConfig;
 
 use super::{
     constants::{
@@ -85,19 +87,21 @@ fn read_gates_file<F: FieldWitness>(
 
 #[cfg(target_family = "wasm")]
 mod http {
+    use openmina_core::thread;
     use wasm_bindgen::prelude::*;
+
     fn to_io_err(err: JsValue) -> std::io::Error {
         std::io::Error::new(std::io::ErrorKind::Other, format!("{err:?}"))
     }
 
-    pub async fn get_bytes(url: &str) -> std::io::Result<impl AsRef<[u8]>> {
+    async fn _get_bytes(url: String) -> std::io::Result<Vec<u8>> {
         use wasm_bindgen_futures::JsFuture;
         use web_sys::Response;
 
         // let window = js_sys::global().dyn_into::<web_sys::WorkerGlobalScope>().unwrap();
         let window = web_sys::window().unwrap();
 
-        let resp_value = JsFuture::from(window.fetch_with_str(url))
+        let resp_value = JsFuture::from(window.fetch_with_str(&url))
             .await
             .map_err(to_io_err)?;
 
@@ -108,6 +112,15 @@ mod http {
             .map_err(to_io_err)?;
         Ok(js_sys::Uint8Array::new(&js).to_vec())
     }
+
+    pub async fn get_bytes(url: &str) -> std::io::Result<Vec<u8>> {
+        let url = url.to_owned();
+        if thread::is_web_worker_thread() {
+            thread::run_async_fn_in_main_thread(move || _get_bytes(url)).await.expect("failed to run task in the main thread! Maybe main thread crashed or not initialized?")
+        } else {
+            _get_bytes(url).await
+        }
+    }
 }
 
 #[cfg(target_family = "wasm")]
@@ -116,11 +129,11 @@ async fn read_gates_file<F: FieldWitness>(
 ) -> std::io::Result<Vec<CircuitGate<F>>> {
     let url = filepath.as_ref().to_str().unwrap();
     let resp = http::get_bytes(url).await?;
-    decode_gates_file(&mut resp.as_ref())
+    decode_gates_file(&mut resp.as_slice())
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn make<F: FieldWitness>(
+fn make_gates<F: FieldWitness>(
     filename: &str,
 ) -> (
     HashMap<usize, (Vec<(F, V)>, Option<F>)>,
@@ -150,7 +163,7 @@ fn make<F: FieldWitness>(
 }
 
 #[cfg(target_family = "wasm")]
-async fn make<F: FieldWitness>(
+async fn make_gates<F: FieldWitness>(
     filename: &str,
 ) -> (
     HashMap<usize, (Vec<(F, V)>, Option<F>)>,
@@ -174,217 +187,285 @@ async fn make<F: FieldWitness>(
     (internal_vars_path, rows_rev_path, gates)
 }
 
-macro_rules! make {
-    ($filename: expr) => {{
-        #[cfg(not(target_family = "wasm"))]
-        let res = make($filename);
-        #[cfg(target_family = "wasm")]
-        let res = make($filename).await;
-        res
+macro_rules! get_or_make {
+    ($constant: ident, $type: ty, $filename: expr) => {{
+        if let Some(prover) = $constant.get() {
+            return prover.clone();
+        }
+
+        let (internal_vars, rows_rev, gates) = {
+            #[cfg(not(target_family = "wasm"))]
+            let res = make_gates($filename);
+            #[cfg(target_family = "wasm")]
+            let res = make_gates($filename).await;
+            res
+        };
+
+        let index = make_prover_index::<$type, _>(gates);
+        let prover = Prover {
+            internal_vars,
+            rows_rev,
+            index,
+        };
+
+        $constant.get_or_init(|| prover.into()).clone()
     }};
 }
 
-macro_rules! read_gates {
-    () => {{
-        let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
+static TX_STEP_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static TX_WRAP_PROVER: OnceCell<Arc<Prover<Fq>>> = OnceCell::new();
+static MERGE_STEP_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static BLOCK_STEP_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static BLOCK_WRAP_PROVER: OnceCell<Arc<Prover<Fq>>> = OnceCell::new();
+static ZKAPP_STEP_OPT_SIGNED_OPT_SIGNED_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static ZKAPP_STEP_OPT_SIGNED_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static ZKAPP_STEP_PROOF_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
 
-        let (step_tx_internal_vars, step_tx_rows_rev, step_tx_gates) =
-            { make!(circuits_config.step_transaction_gates) };
-        let (wrap_tx_internal_vars, wrap_tx_rows_rev, wrap_tx_gates) =
-            { make!(circuits_config.wrap_transaction_gates) };
-        let (step_merge_internal_vars, step_merge_rows_rev, step_merge_gates) =
-            { make!(circuits_config.step_merge_gates) };
-        let (step_block_internal_vars, step_block_rows_rev, step_block_gates) =
-            { make!(circuits_config.step_blockchain_gates) };
-        let (wrap_block_internal_vars, wrap_block_rows_rev, wrap_block_gates) =
-            { make!(circuits_config.wrap_blockchain_gates) };
-        let (
-            step_opt_signed_opt_signed_internal_vars,
-            step_opt_signed_opt_signed_rows_rev,
-            step_opt_signed_opt_signed_gates,
-        ) = { make!(circuits_config.step_transaction_opt_signed_opt_signed_gates) };
-        let (step_opt_signed_internal_vars, step_opt_signed_rows_rev, step_opt_signed_gates) =
-            { make!(circuits_config.step_transaction_opt_signed_gates) };
-        let (step_proved_internal_vars, step_proved_rows_rev, step_proved_gates) =
-            { make!(circuits_config.step_transaction_proved_gates) };
-
-        Gates {
-            step_tx_gates,
-            wrap_tx_gates,
-            step_merge_gates,
-            step_block_gates,
-            step_tx_internal_vars,
-            step_tx_rows_rev,
-            wrap_tx_internal_vars,
-            wrap_tx_rows_rev,
-            step_merge_internal_vars,
-            step_merge_rows_rev,
-            step_block_internal_vars,
-            step_block_rows_rev,
-            wrap_block_gates,
-            wrap_block_internal_vars,
-            wrap_block_rows_rev,
-            step_opt_signed_opt_signed_gates,
-            step_opt_signed_opt_signed_internal_vars,
-            step_opt_signed_opt_signed_rows_rev,
-            step_opt_signed_gates,
-            step_opt_signed_internal_vars,
-            step_opt_signed_rows_rev,
-            step_proved_gates,
-            step_proved_internal_vars,
-            step_proved_rows_rev,
-        }
-    }};
+fn default_circuits_config() -> &'static CircuitsConfig {
+    openmina_core::NetworkConfig::global().circuits_config
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn read_gates() -> Gates {
-    read_gates!()
-}
+mod prover_makers {
+    use super::*;
 
-#[cfg(target_family = "wasm")]
-async fn read_gates() -> Gates {
-    read_gates!()
-}
-
-#[cfg(target_family = "wasm")]
-static GATES_CACHE: std::sync::Mutex<Option<Gates>> = std::sync::Mutex::new(None);
-
-#[cfg(target_family = "wasm")]
-pub async fn read_and_cache_gates() {
-    let gates = read_gates().await;
-    let _ = GATES_CACHE.try_lock().unwrap().insert(gates);
-}
-
-#[cfg(target_family = "wasm")]
-fn read_gates_from_cache() -> Gates {
-    GATES_CACHE.try_lock().unwrap().take().expect("Gates aren't cached. From the main thread `ledger::proofs::gates::read_and_cache_gates` needs to be called.")
-}
-
-static PROVERS: once_cell::sync::Lazy<Arc<Provers>> =
-    once_cell::sync::Lazy::new(|| Arc::new(make_provers()));
-
-pub struct Provers {
-    pub tx_step_prover: Prover<Fp>,
-    pub tx_wrap_prover: Prover<Fq>,
-    pub merge_step_prover: Prover<Fp>,
-    pub block_step_prover: Prover<Fp>,
-    pub block_wrap_prover: Prover<Fq>,
-    pub zkapp_step_opt_signed_opt_signed_prover: Prover<Fp>,
-    pub zkapp_step_opt_signed_prover: Prover<Fp>,
-    pub zkapp_step_proof_prover: Prover<Fp>,
-}
-
-/// Panics: if `read_gates_from_cache()` wasn't called and finished before this.
-pub fn get_provers() -> Arc<Provers> {
-    Arc::clone(&*PROVERS)
-}
-
-/// Slow, use `get_provers` instead
-fn make_provers() -> Provers {
-    let Gates {
-        step_tx_gates,
-        wrap_tx_gates,
-        step_merge_gates,
-        step_block_gates,
-        step_tx_internal_vars,
-        step_tx_rows_rev,
-        wrap_tx_internal_vars,
-        wrap_tx_rows_rev,
-        step_merge_internal_vars,
-        step_merge_rows_rev,
-        step_block_internal_vars,
-        step_block_rows_rev,
-        wrap_block_gates,
-        wrap_block_internal_vars,
-        wrap_block_rows_rev,
-        step_opt_signed_opt_signed_gates,
-        step_opt_signed_opt_signed_internal_vars,
-        step_opt_signed_opt_signed_rows_rev,
-        step_opt_signed_gates,
-        step_opt_signed_internal_vars,
-        step_opt_signed_rows_rev,
-        step_proved_gates,
-        step_proved_internal_vars,
-        step_proved_rows_rev,
-    } = {
-        #[cfg(not(target_family = "wasm"))]
-        let res = read_gates();
-        #[cfg(target_family = "wasm")]
-        let res = read_gates_from_cache();
-        res
-    };
-
-    let tx_prover_index = make_prover_index::<StepTransactionProof, _>(step_tx_gates);
-    let merge_prover_index = make_prover_index::<StepMergeProof, _>(step_merge_gates);
-    let wrap_prover_index = make_prover_index::<WrapTransactionProof, _>(wrap_tx_gates);
-    let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(wrap_block_gates);
-    let block_prover_index = make_prover_index::<StepBlockProof, _>(step_block_gates);
-    let zkapp_step_opt_signed_opt_signed_prover_index =
-        make_prover_index::<StepZkappOptSignedOptSignedProof, _>(step_opt_signed_opt_signed_gates);
-    let zkapp_step_opt_signed_prover_index =
-        make_prover_index::<StepZkappOptSignedProof, _>(step_opt_signed_gates);
-    let zkapp_step_proof_prover_index =
-        make_prover_index::<StepZkappProvedProof, _>(step_proved_gates);
-
-    let tx_step_prover = Prover {
-        internal_vars: step_tx_internal_vars,
-        rows_rev: step_tx_rows_rev,
-        index: tx_prover_index,
-    };
-
-    let merge_step_prover = Prover {
-        internal_vars: step_merge_internal_vars,
-        rows_rev: step_merge_rows_rev,
-        index: merge_prover_index,
-    };
-
-    let tx_wrap_prover = Prover {
-        internal_vars: wrap_tx_internal_vars,
-        rows_rev: wrap_tx_rows_rev,
-        index: wrap_prover_index,
-    };
-
-    let block_step_prover = Prover {
-        internal_vars: step_block_internal_vars,
-        rows_rev: step_block_rows_rev,
-        index: block_prover_index,
-    };
-
-    let block_wrap_prover = Prover {
-        internal_vars: wrap_block_internal_vars,
-        rows_rev: wrap_block_rows_rev,
-        index: wrap_block_prover_index,
-    };
-
-    let zkapp_step_opt_signed_opt_signed_prover = Prover {
-        internal_vars: step_opt_signed_opt_signed_internal_vars,
-        rows_rev: step_opt_signed_opt_signed_rows_rev,
-        index: zkapp_step_opt_signed_opt_signed_prover_index,
-    };
-
-    let zkapp_step_opt_signed_prover = Prover {
-        internal_vars: step_opt_signed_internal_vars,
-        rows_rev: step_opt_signed_rows_rev,
-        index: zkapp_step_opt_signed_prover_index,
-    };
-
-    let zkapp_step_proof_prover = Prover {
-        internal_vars: step_proved_internal_vars,
-        rows_rev: step_proved_rows_rev,
-        index: zkapp_step_proof_prover_index,
-    };
-
-    Provers {
-        tx_step_prover,
-        tx_wrap_prover,
-        merge_step_prover,
-        block_step_prover,
-        block_wrap_prover,
-        zkapp_step_opt_signed_opt_signed_prover,
-        zkapp_step_opt_signed_prover,
-        zkapp_step_proof_prover,
+    fn get_or_make_tx_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            TX_STEP_PROVER,
+            StepTransactionProof,
+            config.step_transaction_gates
+        )
     }
+    fn get_or_make_tx_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            TX_WRAP_PROVER,
+            WrapTransactionProof,
+            config.wrap_transaction_gates
+        )
+    }
+    fn get_or_make_merge_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(MERGE_STEP_PROVER, StepMergeProof, config.step_merge_gates)
+    }
+    fn get_or_make_block_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            BLOCK_STEP_PROVER,
+            StepBlockProof,
+            config.step_blockchain_gates
+        )
+    }
+    fn get_or_make_block_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            BLOCK_WRAP_PROVER,
+            WrapBlockProof,
+            config.wrap_blockchain_gates
+        )
+    }
+    fn get_or_make_zkapp_step_opt_signed_opt_signed_prover(
+        config: &CircuitsConfig,
+    ) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_OPT_SIGNED_PROVER,
+            StepZkappOptSignedOptSignedProof,
+            config.step_transaction_opt_signed_opt_signed_gates
+        )
+    }
+    fn get_or_make_zkapp_step_opt_signed_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_PROVER,
+            StepZkappOptSignedProof,
+            config.step_transaction_opt_signed_gates
+        )
+    }
+    fn get_or_make_zkapp_step_proof_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_PROOF_PROVER,
+            StepZkappProvedProof,
+            config.step_transaction_proved_gates
+        )
+    }
+
+    impl BlockProver {
+        pub fn make() -> Self {
+            let config = default_circuits_config();
+            let block_step_prover = get_or_make_block_step_prover(config);
+            let block_wrap_prover = get_or_make_block_wrap_prover(config);
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config);
+
+            Self {
+                block_step_prover,
+                block_wrap_prover,
+                tx_wrap_prover,
+            }
+        }
+    }
+
+    impl TransactionProver {
+        pub fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_step_prover = get_or_make_tx_step_prover(config);
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config);
+            let merge_step_prover = get_or_make_merge_step_prover(config);
+
+            Self {
+                tx_step_prover,
+                tx_wrap_prover,
+                merge_step_prover,
+            }
+        }
+    }
+
+    impl ZkappProver {
+        pub fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config);
+            let merge_step_prover = get_or_make_merge_step_prover(config);
+            let step_opt_signed_opt_signed_prover =
+                get_or_make_zkapp_step_opt_signed_opt_signed_prover(config);
+            let step_opt_signed_prover = get_or_make_zkapp_step_opt_signed_prover(config);
+            let step_proof_prover = get_or_make_zkapp_step_proof_prover(config);
+
+            Self {
+                tx_wrap_prover,
+                merge_step_prover,
+                step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover,
+                step_proof_prover,
+            }
+        }
+    }
+}
+
+#[cfg(target_family = "wasm")]
+mod prover_makers {
+    use super::*;
+
+    async fn get_or_make_tx_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            TX_STEP_PROVER,
+            StepTransactionProof,
+            config.step_transaction_gates
+        )
+    }
+    async fn get_or_make_tx_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            TX_WRAP_PROVER,
+            WrapTransactionProof,
+            config.wrap_transaction_gates
+        )
+    }
+    async fn get_or_make_merge_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(MERGE_STEP_PROVER, StepMergeProof, config.step_merge_gates)
+    }
+    async fn get_or_make_block_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            BLOCK_STEP_PROVER,
+            StepBlockProof,
+            config.step_blockchain_gates
+        )
+    }
+    async fn get_or_make_block_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            BLOCK_WRAP_PROVER,
+            WrapBlockProof,
+            config.wrap_blockchain_gates
+        )
+    }
+    async fn get_or_make_zkapp_step_opt_signed_opt_signed_prover(
+        config: &CircuitsConfig,
+    ) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_OPT_SIGNED_PROVER,
+            StepZkappOptSignedOptSignedProof,
+            config.step_transaction_opt_signed_opt_signed_gates
+        )
+    }
+    async fn get_or_make_zkapp_step_opt_signed_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_PROVER,
+            StepZkappOptSignedProof,
+            config.step_transaction_opt_signed_gates
+        )
+    }
+    async fn get_or_make_zkapp_step_proof_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_PROOF_PROVER,
+            StepZkappProvedProof,
+            config.step_transaction_proved_gates
+        )
+    }
+
+    impl BlockProver {
+        pub async fn make() -> Self {
+            let config = default_circuits_config();
+            let block_step_prover = get_or_make_block_step_prover(config).await;
+            let block_wrap_prover = get_or_make_block_wrap_prover(config).await;
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config).await;
+
+            Self {
+                block_step_prover,
+                block_wrap_prover,
+                tx_wrap_prover,
+            }
+        }
+    }
+
+    impl TransactionProver {
+        pub async fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_step_prover = get_or_make_tx_step_prover(config).await;
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config).await;
+            let merge_step_prover = get_or_make_merge_step_prover(config).await;
+
+            Self {
+                tx_step_prover,
+                tx_wrap_prover,
+                merge_step_prover,
+            }
+        }
+    }
+
+    impl ZkappProver {
+        pub async fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config).await;
+            let merge_step_prover = get_or_make_merge_step_prover(config).await;
+            let step_opt_signed_opt_signed_prover =
+                get_or_make_zkapp_step_opt_signed_opt_signed_prover(config).await;
+            let step_opt_signed_prover = get_or_make_zkapp_step_opt_signed_prover(config).await;
+            let step_proof_prover = get_or_make_zkapp_step_proof_prover(config).await;
+
+            Self {
+                tx_wrap_prover,
+                merge_step_prover,
+                step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover,
+                step_proof_prover,
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct BlockProver {
+    pub block_step_prover: Arc<Prover<Fp>>,
+    pub block_wrap_prover: Arc<Prover<Fq>>,
+    pub tx_wrap_prover: Arc<Prover<Fq>>,
+}
+
+#[derive(Clone)]
+pub struct TransactionProver {
+    pub tx_step_prover: Arc<Prover<Fp>>,
+    pub tx_wrap_prover: Arc<Prover<Fq>>,
+    pub merge_step_prover: Arc<Prover<Fp>>,
+}
+
+#[derive(Clone)]
+pub struct ZkappProver {
+    pub tx_wrap_prover: Arc<Prover<Fq>>,
+    pub merge_step_prover: Arc<Prover<Fp>>,
+    pub step_opt_signed_opt_signed_prover: Arc<Prover<Fp>>,
+    pub step_opt_signed_prover: Arc<Prover<Fp>>,
+    pub step_proof_prover: Arc<Prover<Fp>>,
 }
 
 fn decode_constraints_data<F: FieldWitness>(

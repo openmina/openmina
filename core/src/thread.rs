@@ -55,6 +55,24 @@ mod main_thread {
         }));
         rx.await.ok()
     }
+
+    pub async fn run_async_fn_in_main_thread<F, FU, T>(f: F) -> Option<T>
+    where
+        T: 'static + Send,
+        FU: Future<Output = T>,
+        F: 'static + Send + FnOnce() -> FU,
+    {
+        let sender = MAIN_THREAD_TASK_SENDER
+            .get()
+            .expect("main thread not initialized");
+        let (tx, rx) = oneshot::channel();
+        let _ = sender.send(Box::pin(async move {
+            wasm_bindgen_futures::spawn_local(async move {
+                let _ = tx.send(f().await);
+            })
+        }));
+        rx.await.ok()
+    }
 }
 #[cfg(target_family = "wasm")]
 pub use main_thread::*;
