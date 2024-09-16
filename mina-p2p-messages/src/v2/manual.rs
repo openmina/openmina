@@ -959,9 +959,9 @@ impl<'de> Deserialize<'de> for ConsensusBodyReferenceStableV1 {
         if deserializer.is_human_readable() {
             let hex_string = String::deserialize(deserializer)?;
             let decoded_bytes = hex::decode(&hex_string).map_err(serde::de::Error::custom)?;
-            Ok(ConsensusBodyReferenceStableV1(crate::string::ByteString(
-                decoded_bytes,
-            )))
+            Ok(ConsensusBodyReferenceStableV1(
+                crate::string::ByteString::from(decoded_bytes),
+            ))
         } else {
             let inner_value = crate::string::ByteString::deserialize(deserializer)?;
             Ok(ConsensusBodyReferenceStableV1(inner_value))
