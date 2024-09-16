@@ -296,6 +296,10 @@ impl SlotData {
         self.state_hash.is_some()
     }
 
+    pub fn block(&self) -> Option<String> {
+        self.state_hash.clone()
+    }
+
     pub fn block_status(&self) -> SlotStatus {
         self.block_status.clone()
     }

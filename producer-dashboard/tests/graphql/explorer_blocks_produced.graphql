@@ -1,0 +1,6 @@
+query CanonicalBlocksProduced($limit: Int!, $pk: String!, $epoch: Int!) {
+blocks(limit: $limit, query: {canonical: true, AND: {creatorAccount: {publicKey: $pk}, AND: {protocolState: {consensusState: {epoch: $epoch}}, blockHeight_gt: 300000}}}) {
+    canonical
+    stateHash
+  }
+}
