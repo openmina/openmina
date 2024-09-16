@@ -1,4 +1,4 @@
-use openmina_core::{fuzz_maybe, fuzzed_maybe, Substate, SubstateAccess};
+use openmina_core::{bug_condition, fuzz_maybe, fuzzed_maybe, Substate, SubstateAccess};
 
 use crate::P2pLimits;
 
@@ -18,6 +18,7 @@ impl P2pNetworkYamuxState {
         self.terminated = Some(Ok(res));
     }
 
+    /// Substate is accessed
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
         action: redux::ActionWithMeta<&P2pNetworkYamuxAction>,
@@ -30,7 +31,8 @@ impl P2pNetworkYamuxState {
         let connection_state = state_context
             .get_substate_mut()?
             .connection_state_mut(action.addr())
-            .ok_or_else(|| format!("Connection not found for action: {action:?}"))?;
+            .ok_or_else(|| format!("Connection not found for action: {action:?}"))
+            .inspect_err(|e| bug_condition!("{}", e))?;
 
         let P2pNetworkConnectionMuxState::Yamux(yamux_state) = connection_state
             .mux

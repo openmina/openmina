@@ -10,7 +10,7 @@ use mina_p2p_messages::{
     v2,
     versioned::Ver,
 };
-use openmina_core::{error, fuzz_maybe, fuzzed_maybe, Substate};
+use openmina_core::{bug_condition, error, fuzz_maybe, fuzzed_maybe, Substate};
 use redux::Dispatcher;
 
 use crate::{
@@ -28,6 +28,7 @@ use self::p2p_network_rpc_state::P2pNetworkRpcError;
 use super::*;
 
 impl P2pNetworkRpcState {
+    /// Substate is accessed
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkState>,
         action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
@@ -40,7 +41,8 @@ impl P2pNetworkRpcState {
         let rpc_state = state_context
             .get_substate_mut()?
             .find_rpc_state_mut(action.action())
-            .ok_or_else(|| format!("RPC state not found for action: {:?}", action.action()))?;
+            .ok_or_else(|| format!("RPC state not found for action: {:?}", action.action()))
+            .inspect_err(|e| bug_condition!("{}", e))?;
 
         let (action, meta) = action.split();
         match action {
@@ -72,16 +74,18 @@ impl P2pNetworkRpcState {
                 let mut offset = 0;
                 // TODO(akoptelov): there shouldn't be the case where we have multiple incoming messages at once (or at least other than heartbeat)
                 loop {
-                    let buf = &rpc_state.buffer[offset..];
+                    let Some(buf) = &rpc_state.buffer.get(offset..) else {
+                        bug_condition!("Invalid range `buffer[{offset}..]`");
+                        return Ok(());
+                    };
                     if let Some(len_bytes) = buf.get(..8).and_then(|s| s.try_into().ok()) {
                         let len = u64::from_le_bytes(len_bytes) as usize;
                         if let Err(err) = rpc_state.check_rpc_limit(len, limits) {
                             rpc_state.error = Some(err);
                             break;
                         }
-                        if buf.len() >= 8 + len {
+                        if let Some(mut slice) = buf.get(8..(8 + len)) {
                             offset += 8 + len;
-                            let mut slice = &buf[8..(8 + len)];
                             let msg = match MessageHeader::binprot_read(&mut slice) {
                                 Ok(MessageHeader::Heartbeat) => RpcMessage::Heartbeat,
                                 Ok(MessageHeader::Response(h))
@@ -109,7 +113,11 @@ impl P2pNetworkRpcState {
                     }
 
                     if offset != 0 {
-                        rpc_state.buffer = rpc_state.buffer[offset..].to_vec();
+                        let Some(buf) = rpc_state.buffer.get(offset..) else {
+                            bug_condition!("Invalid range `buffer[{offset}..]`");
+                            return Ok(());
+                        };
+                        rpc_state.buffer = buf.to_vec();
                     }
                     break;
                 }
@@ -141,16 +149,16 @@ impl P2pNetworkRpcState {
                             .entry((tag.clone(), *version))
                             .or_default() += 1;
                         if id != &header.id {
-                            openmina_core::error!(meta.time(); "receiving response with wrong id: {}", header.id);
+                            error!(meta.time(); "receiving response with wrong id: {}", header.id);
                         }
                     } else {
-                        openmina_core::error!(meta.time(); "receiving response without query");
+                        error!(meta.time(); "receiving response without query");
                     }
                 } else if let RpcMessage::Query { header, .. } = message {
                     if rpc_state.pending.is_none() {
                         rpc_state.pending = Some(header.clone());
                     } else {
-                        openmina_core::error!(meta.time(); "receiving query while another query is pending");
+                        error!(meta.time(); "receiving query while another query is pending");
                     }
                 }
 
@@ -170,7 +178,7 @@ impl P2pNetworkRpcState {
                     }
                     RpcMessage::Heartbeat => {}
                     RpcMessage::Query { header, bytes } => {
-                        if let Err(e) = rpc_query_effects(*peer_id, header, bytes, dispatcher) {
+                        if let Err(e) = dispatch_rpc_query(*peer_id, header, bytes, dispatcher) {
                             dispatcher.push(P2pDisconnectionAction::Init {
                                 peer_id: *peer_id,
                                 reason: P2pDisconnectionReason::P2pChannelReceiveFailed(
@@ -201,7 +209,7 @@ impl P2pNetworkRpcState {
                         });
 
                         if let Err(e) =
-                            rpc_response_effects(*peer_id, &query_header, bytes, dispatcher)
+                            dispatch_rpc_response(*peer_id, &query_header, bytes, dispatcher)
                         {
                             dispatcher.push(P2pDisconnectionAction::Init {
                                 peer_id: *peer_id,
@@ -299,7 +307,7 @@ impl P2pNetworkRpcState {
                 data,
             } => {
                 if !matches!(rpc_state.pending, Some(QueryHeader { id, .. }) if id == response.id) {
-                    openmina_core::error!(meta.time(); "pending query does not match the response");
+                    bug_condition!("pending query does not match the response");
                     return Ok(());
                 }
                 let stream_id = rpc_state.stream_id;
@@ -366,7 +374,7 @@ impl P2pNetworkRpcState {
     }
 }
 
-fn rpc_query_effects<'a, State, Action>(
+fn dispatch_rpc_query<'a, State, Action>(
     peer_id: PeerId,
     QueryHeader { tag, version, id }: &'a QueryHeader,
     mut bytes: &[u8],
@@ -438,7 +446,7 @@ where
     Ok(())
 }
 
-fn rpc_response_effects<State, Action>(
+fn dispatch_rpc_response<State, Action>(
     peer_id: PeerId,
     QueryHeader { tag, version, id }: &QueryHeader,
     mut bytes: &[u8],

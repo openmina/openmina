@@ -391,7 +391,7 @@ impl P2pNetworkSelectState {
                                     str
                                 ));
 
-                                openmina_core::error!(time; "unknown protocol: {str}, {kind:?}");
+                                error!(time; "unknown protocol: {str}, {kind:?}");
                             }
                         } else {
                             self.inner = P2pNetworkSelectStateInner::Error(format!(
@@ -399,14 +399,14 @@ impl P2pNetworkSelectState {
                                 name
                             ));
 
-                            openmina_core::error!(time; "invalid protocol: {name:?}, {kind:?}");
+                            error!(time; "invalid protocol: {name:?}, {kind:?}");
                         }
                     } else {
                         self.inner = P2pNetworkSelectStateInner::Error(
                             "responder with empty protocol".to_string(),
                         );
 
-                        openmina_core::error!(time; "empty protocol: {kind:?}");
+                        error!(time; "empty protocol: {kind:?}");
                     }
                     self.to_send = Some(token::Token::Na);
                     self.negotiated = Some(None);

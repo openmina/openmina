@@ -76,12 +76,13 @@ impl From<P2pNetworkNoiseAction> for crate::P2pAction {
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
-        let Some(_noise_state) = state
+        if state
             .network
             .scheduler
             .connection_state(self.addr())
             .and_then(|state| state.noise_state())
-        else {
+            .is_none()
+        {
             return false;
         };
 
