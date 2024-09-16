@@ -75,6 +75,7 @@
     </div>
     <div class="fx-row-vert-cent">
       <button class="btn-primary mr-10"
+              *ngIf="workingPoolEnabled"
               (clickOutside)="detach()"
               (click)="openNavDropdown($event)">
         <span class="fx-row-vert-cent">
