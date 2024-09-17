@@ -12,11 +12,9 @@ services:
 
   frontend:
     container_name: frontend
+    # TODO: remove `-producer-demo` suffix in the next release, not needed anymore
     image: openmina/frontend:0.8.3-producer-demo
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile_FE
-    #   args:
-    #     BUILD_CONFIGURATION: block_producers
+    environment:
+      OPENMINA_FRONTEND_ENVIRONMENT: block_producers
     ports:
       - "8070:80"
