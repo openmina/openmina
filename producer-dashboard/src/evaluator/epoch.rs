@@ -304,6 +304,10 @@ impl SlotData {
         self.block_status.clone()
     }
 
+    pub fn state_hash(&self) -> Option<String> {
+        self.state_hash.clone()
+    }
+
     pub fn new_lost(global_slot: u32, timestamp: i64) -> Self {
         let global_slot: RawGlobalSlot = global_slot.into();
         Self {

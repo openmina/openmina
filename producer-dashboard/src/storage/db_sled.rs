@@ -130,12 +130,21 @@ impl Database {
         &self,
         slot: u32,
         block_status: SlotStatus,
+        update_source: &str, // state_hash
     ) -> Result<(), sled::Error> {
         self.update(
             &self.epoch_data,
             slot.to_be_bytes(),
             |mut slot_entry: SlotData| {
-                slot_entry.update_block_status(block_status.clone());
+                match slot_entry.state_hash() {
+                    Some(stored_state_hash) if stored_state_hash == update_source => {
+                        slot_entry.update_block_status(block_status.clone());
+                    }
+                    None => {
+                        slot_entry.update_block_status(block_status.clone());
+                    }
+                    _ => {} // do nothing if state_hash doesn't match
+                }
                 slot_entry
             },
         )

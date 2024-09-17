@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::{archive::Block, evaluator::epoch::SlotStatus, storage::db_sled::Database, NodeStatus};
 
 use super::ArchiveConnector;
@@ -153,33 +155,42 @@ impl ArchiveWatchdog {
 
                 our_blocks.iter().for_each(|block| {
                     let slot = block.global_slot_since_hard_fork as u32;
+                    let mut categorized_slots: BTreeSet<u32> = BTreeSet::new();
                     if self
                         .db
                         .seen_block(block.state_hash.clone())
                         .ok()
                         .unwrap_or_default()
                     {
+
+                        // already categorized a slot, but we saw anoter block, if we have already saw the canonical
+                        // block for that slow, we ignore
+                        if categorized_slots.contains(&slot) && self.db.has_canonical_block_on_slot(slot).unwrap_or_default() {
+                            return;
+                        }
+
                         if canonical.contains(block) {
                             self.db
-                                .update_slot_status(slot, SlotStatus::Canonical)
+                                .update_slot_status(slot, SlotStatus::Canonical, &block.state_hash)
                                 .unwrap();
                             debug!("{} -> Canonical", block.state_hash);
                         } else if canonical_pending.contains(block) {
                             self.db
-                                .update_slot_status(slot, SlotStatus::CanonicalPending)
+                                .update_slot_status(slot, SlotStatus::CanonicalPending, &block.state_hash)
                                 .unwrap();
                             debug!("{} -> CanonicalPending", block.state_hash);
                         } else if block.height >= (best_tip.height() - 290) as i64 {
                             self.db
-                                .update_slot_status(slot, SlotStatus::OrphanedPending)
+                                .update_slot_status(slot, SlotStatus::OrphanedPending, &block.state_hash)
                                 .unwrap();
                             debug!("{} -> OrphanedPending", block.state_hash);
                         } else {
                             self.db
-                                .update_slot_status(slot, SlotStatus::Orphaned)
+                                .update_slot_status(slot, SlotStatus::Orphaned, &block.state_hash)
                                 .unwrap();
                             debug!("{} -> Orphaned", block.state_hash);
                         }
+                        categorized_slots.insert(slot);
                     } else if self.db.has_evaluated_slot(slot).unwrap_or_default() {
                         if !self.db.has_canonical_block_on_slot(slot).unwrap_or_default() {
                             info!("Saw produced block: {}", block.state_hash);
