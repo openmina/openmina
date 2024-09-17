@@ -333,6 +333,7 @@ pub enum ActionKind {
     P2pNetworkSchedulerDisconnected,
     P2pNetworkSchedulerError,
     P2pNetworkSchedulerIncomingDataDidReceive,
+    P2pNetworkSchedulerIncomingDataIsReady,
     P2pNetworkSchedulerIncomingDidAccept,
     P2pNetworkSchedulerInterfaceDetected,
     P2pNetworkSchedulerInterfaceExpired,
@@ -344,6 +345,7 @@ pub enum ActionKind {
     P2pNetworkSchedulerPruneStream,
     P2pNetworkSchedulerPruneStreams,
     P2pNetworkSchedulerSelectDone,
+    P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
     P2pNetworkSchedulerEffectfulDisconnect,
     P2pNetworkSchedulerEffectfulError,
@@ -351,9 +353,9 @@ pub enum ActionKind {
     P2pNetworkSchedulerEffectfulIncomingDataIsReady,
     P2pNetworkSchedulerEffectfulIncomingDidAccept,
     P2pNetworkSchedulerEffectfulInterfaceDetected,
+    P2pNetworkSchedulerEffectfulNoiseSelectDone,
     P2pNetworkSchedulerEffectfulOutgoingConnect,
     P2pNetworkSchedulerEffectfulOutgoingDidConnect,
-    P2pNetworkSchedulerEffectfulSelectDone,
     P2pNetworkSchedulerEffectfulSelectError,
     P2pNetworkSelectIncomingData,
     P2pNetworkSelectIncomingDataAuth,
@@ -556,7 +558,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 461;
+    pub const COUNT: u16 = 463;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1381,12 +1383,14 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::ListenerReady { .. } => ActionKind::P2pNetworkSchedulerListenerReady,
             Self::ListenerError { .. } => ActionKind::P2pNetworkSchedulerListenerError,
             Self::IncomingDidAccept { .. } => ActionKind::P2pNetworkSchedulerIncomingDidAccept,
+            Self::IncomingDataIsReady { .. } => ActionKind::P2pNetworkSchedulerIncomingDataIsReady,
             Self::OutgoingConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingConnect,
             Self::OutgoingDidConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingDidConnect,
             Self::IncomingDataDidReceive { .. } => {
                 ActionKind::P2pNetworkSchedulerIncomingDataDidReceive
             }
             Self::SelectDone { .. } => ActionKind::P2pNetworkSchedulerSelectDone,
+            Self::SelectError { .. } => ActionKind::P2pNetworkSchedulerSelectError,
             Self::YamuxDidInit { .. } => ActionKind::P2pNetworkSchedulerYamuxDidInit,
             Self::Disconnect { .. } => ActionKind::P2pNetworkSchedulerDisconnect,
             Self::Error { .. } => ActionKind::P2pNetworkSchedulerError,
@@ -1417,7 +1421,7 @@ impl ActionKindGet for P2pNetworkSchedulerEffectfulAction {
             Self::IncomingDataIsReady { .. } => {
                 ActionKind::P2pNetworkSchedulerEffectfulIncomingDataIsReady
             }
-            Self::SelectDone { .. } => ActionKind::P2pNetworkSchedulerEffectfulSelectDone,
+            Self::NoiseSelectDone { .. } => ActionKind::P2pNetworkSchedulerEffectfulNoiseSelectDone,
             Self::SelectError { .. } => ActionKind::P2pNetworkSchedulerEffectfulSelectError,
             Self::Disconnect { .. } => ActionKind::P2pNetworkSchedulerEffectfulDisconnect,
             Self::Error { .. } => ActionKind::P2pNetworkSchedulerEffectfulError,

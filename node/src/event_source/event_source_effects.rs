@@ -93,9 +93,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         });
                     }
                     MioEvent::IncomingDataIsReady(addr) => {
-                        store.dispatch(P2pNetworkSchedulerEffectfulAction::IncomingDataIsReady {
-                            addr,
-                        });
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingDataIsReady { addr });
                     }
                     MioEvent::IncomingDataDidReceive(addr, result) => {
                         store.dispatch(P2pNetworkSchedulerAction::IncomingDataDidReceive {

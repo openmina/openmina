@@ -1,13 +1,21 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::OnceLock};
 
-use openmina_core::{bug_condition, error, Substate};
-use token::{RpcAlgorithm, StreamKind};
+use identify::P2pNetworkIdentifyStreamAction;
+use openmina_core::{bug_condition, error, warn, Substate};
+use request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus};
+use token::{
+    AuthKind, DiscoveryAlgorithm, IdentifyAlgorithm, MuxKind, PingAlgorithm, Protocol,
+    RpcAlgorithm, StreamKind,
+};
 
 use crate::{
-    connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
+    connection::{
+        incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
+        P2pConnectionState,
+    },
     disconnection::P2pDisconnectionAction,
     identify::P2pIdentifyAction,
-    P2pState,
+    P2pConfig, P2pPeerStatus, P2pState,
 };
 
 use super::{super::*, p2p_network_scheduler_state::P2pNetworkConnectionState, *};
@@ -28,8 +36,16 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::InterfaceDetected { ip, .. } => {
                 scheduler_state.interfaces.insert(*ip);
 
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::InterfaceDetected { ip: *ip });
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_config: &P2pConfig = state.substate()?;
+
+                if let Some(port) = p2p_config.libp2p_port {
+                    dispatcher.push(P2pNetworkSchedulerEffectfulAction::InterfaceDetected {
+                        ip: *ip,
+                        port,
+                    });
+                }
+
                 Ok(())
             }
             P2pNetworkSchedulerAction::InterfaceExpired { ip, .. } => {
@@ -42,6 +58,26 @@ impl P2pNetworkSchedulerState {
             }
             P2pNetworkSchedulerAction::ListenerError { listener, .. } => {
                 scheduler_state.listeners.remove(listener);
+                Ok(())
+            }
+            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let scheduler: &Self = state.substate()?;
+                let Some(connection_state) = scheduler.connection_state(addr) else {
+                    bug_condition!(
+                        "Invalid state for `P2pNetworkSchedulerAction::IncomingDataIsReady`"
+                    );
+                    return Ok(());
+                };
+
+                let limit = connection_state.limit();
+                if limit > 0 {
+                    dispatcher.push(P2pNetworkSchedulerEffectfulAction::IncomingDataIsReady {
+                        addr: *addr,
+                        limit,
+                    });
+                }
+
                 Ok(())
             }
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => {
@@ -63,10 +99,13 @@ impl P2pNetworkSchedulerState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::IncomingDidAccept {
-                    addr: *addr,
-                    result: result.clone(),
-                });
+                if let Some(addr) = addr {
+                    dispatcher.push(P2pNetworkSchedulerEffectfulAction::IncomingDidAccept {
+                        addr: *addr,
+                        result: result.clone(),
+                    });
+                }
+
                 Ok(())
             }
             P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
@@ -102,11 +141,34 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => {
                 // TODO: change to connected
 
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::OutgoingDidConnect {
-                    addr: *addr,
-                    result: result.clone(),
-                });
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                match result {
+                    Ok(()) => {
+                        dispatcher.push(P2pNetworkSchedulerEffectfulAction::OutgoingDidConnect {
+                            addr: *addr,
+                        });
+                    }
+                    Err(error) => {
+                        let Some((peer_id, peer_state)) = p2p_state.peer_with_connection(*addr)
+                        else {
+                            bug_condition!(
+                                "outgoing connection to {addr} failed, but there is no peer for it"
+                            );
+                            return Ok(());
+                        };
+                        if matches!(
+                            peer_state.status,
+                            P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(_))
+                        ) {
+                            dispatcher.push(P2pConnectionOutgoingAction::FinalizeError {
+                                peer_id,
+                                error: error.to_string(),
+                            });
+                        }
+                    }
+                }
                 Ok(())
             }
             P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr } => {
@@ -195,14 +257,161 @@ impl P2pNetworkSchedulerState {
                     }
                 };
 
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+                let select_kind = *kind;
+                let addr = *addr;
+                let incoming = *incoming;
+
+                match protocol {
+                    Some(Protocol::Auth(AuthKind::Noise)) => {
+                        dispatcher.push(P2pNetworkSchedulerEffectfulAction::NoiseSelectDone {
+                            addr,
+                            incoming,
+                        });
+                    }
+                    Some(Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0)) => {
+                        let SelectKind::Multiplexing(peer_id) = select_kind else {
+                            error!(meta.time(); "wrong kind for multiplexing protocol action: {select_kind:?}");
+                            return Ok(());
+                        };
+                        let message_size_limit = p2p_state.config.limits.yamux_message_size();
+                        dispatcher.push(P2pNetworkSchedulerAction::YamuxDidInit {
+                            addr,
+                            peer_id,
+                            message_size_limit,
+                        });
+                    }
+                    Some(Protocol::Stream(kind)) => {
+                        let SelectKind::Stream(peer_id, stream_id) = select_kind else {
+                            error!(meta.time(); "wrong kind for stream protocol action: {kind:?}");
+                            return Ok(());
+                        };
+                        match kind {
+                            StreamKind::Status(_)
+                            | StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0)
+                            | StreamKind::Bitswap(_)
+                            | StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
+                                //unimplemented!()
+                            }
+                            StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
+                                dispatcher.push(P2pNetworkIdentifyStreamAction::New {
+                                    addr,
+                                    peer_id,
+                                    stream_id,
+                                    incoming,
+                                });
+                            }
+
+                            StreamKind::Broadcast(protocol) => {
+                                dispatcher.push(P2pNetworkPubsubAction::NewStream {
+                                    incoming,
+                                    peer_id,
+                                    addr,
+                                    stream_id,
+                                    protocol: *protocol,
+                                });
+                            }
+                            StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
+                                if let Some(discovery_state) =
+                                    p2p_state.network.scheduler.discovery_state()
+                                {
+                                    let request =
+                                        !incoming && discovery_state.request(&peer_id).is_some();
+                                    dispatcher.push(P2pNetworkKademliaStreamAction::New {
+                                        addr,
+                                        peer_id,
+                                        stream_id,
+                                        incoming,
+                                    });
+                                    // if our node initiated a request to the peer, notify that the stream is ready.
+                                    if request {
+                                        dispatcher.push(P2pNetworkKadRequestAction::StreamReady {
+                                            peer_id,
+                                            addr,
+                                            stream_id,
+                                        });
+                                    }
+                                }
+                            }
+                            StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
+                                dispatcher.push(P2pNetworkRpcAction::Init {
+                                    addr,
+                                    peer_id,
+                                    stream_id,
+                                    incoming,
+                                });
+                            }
+                        }
+                    }
+                    None => {
+                        match &select_kind {
+                            SelectKind::Authentication => {
+                                // TODO: close the connection
+                            }
+                            SelectKind::MultiplexingNoPeerId => {
+                                // WARNING: must not happen
+                            }
+                            SelectKind::Multiplexing(_) => {
+                                // TODO: close the connection
+                            }
+                            SelectKind::Stream(peer_id, stream_id) => {
+                                if let Some(discovery_state) =
+                                    p2p_state.network.scheduler.discovery_state()
+                                {
+                                    if let Some(P2pNetworkKadRequestState {
+                                        status: P2pNetworkKadRequestStatus::WaitingForKadStream(id),
+                                        ..
+                                    }) = discovery_state.request(peer_id)
+                                    {
+                                        if id == stream_id {
+                                            dispatcher.push(P2pNetworkKadRequestAction::Error {
+                                                peer_id: *peer_id,
+                                                error: "stream protocol is not negotiated".into(),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            }
+            P2pNetworkSchedulerAction::SelectError { addr, kind, error } => {
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::SelectDone {
+
+                match kind {
+                    SelectKind::Stream(peer_id, stream_id)
+                        if keep_connection_with_unknown_stream() =>
+                    {
+                        warn!(meta.time(); summary="select error for stream", addr = display(addr), peer_id = display(peer_id));
+                        // just close the stream
+                        dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
+                            addr: *addr,
+                            stream_id: *stream_id,
+                            data: Data::default(),
+                            flags: YamuxFlags::RST,
+                        });
+                        dispatcher.push(P2pNetworkSchedulerAction::PruneStream {
+                            peer_id: *peer_id,
+                            stream_id: *stream_id,
+                        });
+                    }
+                    _ => {
+                        dispatcher.push(P2pNetworkSchedulerAction::Error {
+                            addr: *addr,
+                            error: P2pNetworkConnectionError::SelectError,
+                        });
+                    }
+                }
+
+                dispatcher.push(P2pNetworkSchedulerEffectfulAction::SelectError {
                     addr: *addr,
                     kind: *kind,
-                    protocol: *protocol,
-                    incoming: *incoming,
-                    expected_peer_id: *expected_peer_id,
+                    error: error.to_owned(),
                 });
+
                 Ok(())
             }
             P2pNetworkSchedulerAction::YamuxDidInit {
@@ -389,4 +598,14 @@ impl P2pNetworkSchedulerState {
             }
         }
     }
+}
+
+fn keep_connection_with_unknown_stream() -> bool {
+    static VAL: OnceLock<bool> = OnceLock::new();
+    *VAL.get_or_init(|| {
+        std::env::var("KEEP_CONNECTION_WITH_UNKNOWN_STREAM")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(false)
+    })
 }

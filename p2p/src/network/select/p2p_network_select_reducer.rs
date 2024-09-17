@@ -10,8 +10,7 @@ use crate::{
     network::identify::P2pNetworkIdentifyStreamAction,
     ConnectionAddr, Data, P2pNetworkKademliaStreamAction, P2pNetworkNoiseAction,
     P2pNetworkPnetAction, P2pNetworkPubsubAction, P2pNetworkRpcAction, P2pNetworkSchedulerAction,
-    P2pNetworkSchedulerEffectfulAction, P2pNetworkSchedulerState, P2pNetworkYamuxAction, P2pState,
-    YamuxFlags,
+    P2pNetworkSchedulerState, P2pNetworkYamuxAction, P2pState, YamuxFlags,
 };
 
 use self::{p2p_network_select_state::P2pNetworkSelectStateInner, token::ParseTokenError};
@@ -106,7 +105,7 @@ impl P2pNetworkSelectState {
                     .ok_or_else(|| format!("Select state not found for {action:?}"))?;
 
                 if let P2pNetworkSelectStateInner::Error(error) = &select_state.inner {
-                    dispatcher.push(P2pNetworkSchedulerEffectfulAction::SelectError {
+                    dispatcher.push(P2pNetworkSchedulerAction::SelectError {
                         addr: *addr,
                         kind: select_kind,
                         error: error.to_owned(),
@@ -154,7 +153,7 @@ impl P2pNetworkSelectState {
                     .ok_or_else(|| format!("Select state not found for {action:?}"))?;
 
                 if let P2pNetworkSelectStateInner::Error(error) = &select_state.inner {
-                    dispatcher.push(P2pNetworkSchedulerEffectfulAction::SelectError {
+                    dispatcher.push(P2pNetworkSchedulerAction::SelectError {
                         addr: *addr,
                         kind: *kind,
                         error: error.to_owned(),
@@ -247,7 +246,7 @@ impl P2pNetworkSelectState {
                 openmina_core::warn!(meta.time(); "timeout");
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::SelectError {
+                dispatcher.push(P2pNetworkSchedulerAction::SelectError {
                     addr: *addr,
                     kind: *kind,
                     error,
