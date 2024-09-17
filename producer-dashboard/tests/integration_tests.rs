@@ -48,7 +48,8 @@ async fn test_comapre_to_explorer() {
         .collect::<BTreeSet<_>>();
 
     let dash_data: Vec<SlotData> = reqwest::get(
-        "https://staging-devnet-openmina-bp-0-dashboard.minaprotocol.network/epoch/10",
+        "http://65.109.105.40:3000/epoch/10",
+        // "https://staging-devnet-openmina-bp-0-dashboard.minaprotocol.network/epoch/10",
     )
     .await
     .unwrap()

@@ -40,10 +40,16 @@ impl ArchiveWatchdog {
 
             let current_slot = node_status.current_slot();
 
+            // Check if we have the current slot and a slot before evaluated (doing the slots in batches,
+            // not sequentially, so the older slot could be missing but the current slot is already evaluated)
             if self
                 .db
                 .has_evaluated_slot(current_slot.global_slot().to_u32())
-                .unwrap()
+                .unwrap_or_default()
+                && self
+                    .db
+                    .has_evaluated_slot(current_slot.global_slot().to_u32() - 1)
+                    .unwrap_or_default()
             {
                 debug!(
                     "Setting current slot to {}",
