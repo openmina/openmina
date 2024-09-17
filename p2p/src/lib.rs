@@ -115,5 +115,6 @@ pub trait P2pActionTrait<State>:
     + From<P2pNetworkRpcAction>
     + From<P2pChannelsRpcAction>
     + From<P2pDisconnectionAction>
+    + From<P2pNetworkSchedulerEffectfulAction>
 {
 }

@@ -9,7 +9,6 @@ impl P2pNetworkAction {
         Store::Service: P2pMioService + P2pCryptoService + P2pNetworkService,
     {
         match self {
-            P2pNetworkAction::Scheduler(v) => v.effects(meta, store),
             P2pNetworkAction::Pnet(v) => v.effects(meta, store),
             P2pNetworkAction::Identify(v) => match v.effects(meta, store) {
                 Ok(_) => {}
@@ -20,9 +19,11 @@ impl P2pNetworkAction {
             | P2pNetworkAction::Yamux(_)
             | P2pNetworkAction::Kad(_)
             | P2pNetworkAction::Pubsub(_)
-            | P2pNetworkAction::Rpc(_) => {
+            | P2pNetworkAction::Rpc(_)
+            | P2pNetworkAction::Scheduler(_) => {
                 // handled by reducer
             }
+            P2pNetworkAction::SchedulerEffectful(v) => v.effects(meta, store),
             P2pNetworkAction::PubsubEffectful(v) => v.effects(meta, store),
         }
     }

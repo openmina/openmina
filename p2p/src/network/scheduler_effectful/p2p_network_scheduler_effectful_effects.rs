@@ -4,15 +4,9 @@ use openmina_core::{error, warn};
 use redux::ActionMeta;
 
 use crate::{
-    connection::{
-        incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
-        P2pConnectionState,
-    },
-    disconnection::P2pDisconnectionAction,
-    identify::P2pIdentifyAction,
+    connection::{outgoing::P2pConnectionOutgoingAction, P2pConnectionState},
     network::identify::P2pNetworkIdentifyStreamAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
-    token::{RpcAlgorithm, StreamKind},
     MioCmd, P2pCryptoService, P2pMioService, P2pPeerStatus,
 };
 
@@ -28,29 +22,21 @@ fn keep_connection_with_unknown_stream() -> bool {
     })
 }
 
-impl P2pNetworkSchedulerAction {
+impl P2pNetworkSchedulerEffectfulAction {
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService + P2pCryptoService,
     {
         match self {
-            P2pNetworkSchedulerAction::InterfaceDetected { ip, .. } => {
+            P2pNetworkSchedulerEffectfulAction::InterfaceDetected { ip, .. } => {
                 if let Some(port) = store.state().config.libp2p_port {
                     store
                         .service()
                         .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(ip, port)));
                 }
             }
-            P2pNetworkSchedulerAction::InterfaceExpired { .. } => {}
-            P2pNetworkSchedulerAction::ListenerReady { listener: _ } => {}
-            P2pNetworkSchedulerAction::ListenerError {
-                listener: _,
-                error: _,
-            } => {
-                // TODO: handle this error?
-            }
-            P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener, .. } => {
+            P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener, .. } => {
                 let state = store.state();
                 if state.network.scheduler.connections.len()
                     >= state.config.limits.max_connections()
@@ -60,7 +46,7 @@ impl P2pNetworkSchedulerAction {
                     store.service().send_mio_cmd(MioCmd::Accept(listener));
                 }
             }
-            P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => {
+            P2pNetworkSchedulerEffectfulAction::IncomingDidAccept { addr, .. } => {
                 let Some(addr) = addr else {
                     return;
                 };
@@ -72,10 +58,11 @@ impl P2pNetworkSchedulerAction {
                     incoming: true,
                 });
             }
-            P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
+            P2pNetworkSchedulerEffectfulAction::OutgoingConnect { addr } => {
                 store.service().send_mio_cmd(MioCmd::Connect(addr));
             }
-            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => match result {
+            P2pNetworkSchedulerEffectfulAction::OutgoingDidConnect { addr, result } => match result
+            {
                 Ok(_) => {
                     let nonce = store.service().generate_random_nonce();
                     store.dispatch(P2pNetworkPnetAction::SetupNonce {
@@ -101,7 +88,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             },
-            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => {
+            P2pNetworkSchedulerEffectfulAction::IncomingDataIsReady { addr } => {
                 let Some(state) = store.state().network.scheduler.connections.get(&addr) else {
                     return;
                 };
@@ -113,21 +100,7 @@ impl P2pNetworkSchedulerAction {
                         .send_mio_cmd(MioCmd::Recv(addr, vec![0; limit].into_boxed_slice()));
                 }
             }
-            P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr } => match result {
-                Ok(data) => {
-                    store.dispatch(P2pNetworkPnetAction::IncomingData {
-                        addr,
-                        data: data.clone(),
-                    });
-                }
-                Err(e) => {
-                    store.dispatch(P2pNetworkSchedulerAction::Error {
-                        addr,
-                        error: P2pNetworkConnectionError::MioError(e),
-                    });
-                }
-            },
-            P2pNetworkSchedulerAction::SelectDone {
+            P2pNetworkSchedulerEffectfulAction::SelectDone {
                 addr,
                 protocol,
                 kind: select_kind,
@@ -264,7 +237,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            P2pNetworkSchedulerAction::SelectError { addr, kind, .. } => {
+            P2pNetworkSchedulerEffectfulAction::SelectError { addr, kind, .. } => {
                 match kind {
                     SelectKind::Stream(peer_id, stream_id)
                         if keep_connection_with_unknown_stream() =>
@@ -297,46 +270,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            P2pNetworkSchedulerAction::YamuxDidInit { peer_id, addr, .. } => {
-                if let Some(cn) = store.state().network.scheduler.connections.get(&addr) {
-                    let incoming = cn.incoming;
-                    if incoming {
-                        store.dispatch(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
-                    } else {
-                        store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
-                    }
-
-                    // for each negotiated yamux conenction open a new outgoing RPC stream
-                    // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
-                    // Also rpc streams are short-living -- they only persist for a single request-response (?)
-                    let stream_id = YamuxStreamKind::Rpc.stream_id(incoming);
-                    store.dispatch(P2pNetworkYamuxAction::OpenStream {
-                        addr,
-                        stream_id,
-                        stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
-                    });
-                    store.dispatch(P2pNetworkYamuxAction::OpenStream {
-                        addr,
-                        stream_id: stream_id + 2,
-                        stream_kind: StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
-                    });
-
-                    // TODO: open RPC and Kad connections only after identify reports support for it?
-                    store.dispatch(P2pIdentifyAction::NewRequest { peer_id, addr });
-
-                    // Kademlia: if the connection is initiated by Kademlia request, notify that it is ready.
-                    if store
-                        .state()
-                        .network
-                        .scheduler
-                        .discovery_state()
-                        .map_or(false, |state| state.request(&peer_id).is_some())
-                    {
-                        store.dispatch(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
-                    }
-                }
-            }
-            P2pNetworkSchedulerAction::Disconnect { addr, .. } => {
+            P2pNetworkSchedulerEffectfulAction::Disconnect { addr, .. } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
                         store.service().send_mio_cmd(MioCmd::Disconnect(addr));
@@ -344,7 +278,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            P2pNetworkSchedulerAction::Error { addr, .. } => {
+            P2pNetworkSchedulerEffectfulAction::Error { addr, .. } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
                         store.service().send_mio_cmd(MioCmd::Disconnect(addr));
@@ -352,66 +286,6 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            P2pNetworkSchedulerAction::Disconnected { addr, reason } => {
-                if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
-                    let incoming = conn_state.incoming;
-                    let peer_with_state = store.state().peer_with_connection(addr);
-
-                    store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
-
-                    if reason.is_disconnected() {
-                        // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
-                        return;
-                    }
-
-                    match peer_with_state {
-                        Some((peer_id, peer_state)) => {
-                            // TODO: connection state type should tell if it is finalized
-                            match &peer_state.status {
-                                crate::P2pPeerStatus::Connecting(
-                                    crate::connection::P2pConnectionState::Incoming(_),
-                                ) => {
-                                    store.dispatch(P2pConnectionIncomingAction::FinalizeError {
-                                        peer_id,
-                                        error: reason.to_string(),
-                                    });
-                                }
-                                crate::P2pPeerStatus::Connecting(
-                                    crate::connection::P2pConnectionState::Outgoing(_),
-                                ) => {
-                                    store.dispatch(P2pConnectionOutgoingAction::FinalizeError {
-                                        peer_id,
-                                        error: reason.to_string(),
-                                    });
-                                }
-                                crate::P2pPeerStatus::Disconnected { .. } => {
-                                    // sanity check, should be incoming connection
-                                    if !incoming {
-                                        error!(meta.time(); "disconnected peer connection for address {addr}");
-                                    } else {
-                                        // TODO: introduce action for incoming connection finalization without peer_id
-                                    }
-                                }
-                                crate::P2pPeerStatus::Ready(_) => {
-                                    store.dispatch(P2pDisconnectionAction::Finish { peer_id });
-                                }
-                            }
-                            store.dispatch(P2pNetworkSchedulerAction::PruneStreams { peer_id });
-                        }
-                        None => {
-                            // sanity check, should be incoming connection
-                            if !incoming {
-                                // TODO: error!(meta.time(); "non-existing peer connection for address {addr}");
-                            } else {
-                                // TODO: introduce action for incoming connection finalization without peer_id
-                            }
-                        }
-                    }
-                }
-            }
-            P2pNetworkSchedulerAction::Prune { .. }
-            | P2pNetworkSchedulerAction::PruneStreams { .. }
-            | P2pNetworkSchedulerAction::PruneStream { .. } => {}
         }
     }
 }

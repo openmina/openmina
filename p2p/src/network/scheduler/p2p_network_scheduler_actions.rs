@@ -32,9 +32,6 @@ pub enum P2pNetworkSchedulerAction {
         listener: SocketAddr,
         error: String,
     },
-    IncomingConnectionIsReady {
-        listener: SocketAddr,
-    },
     #[action_event(fields(debug(addr), debug(result)))]
     IncomingDidAccept {
         addr: Option<ConnectionAddr>,
@@ -49,9 +46,6 @@ pub enum P2pNetworkSchedulerAction {
         addr: ConnectionAddr,
         result: Result<(), String>,
     },
-    IncomingDataIsReady {
-        addr: ConnectionAddr,
-    },
     IncomingDataDidReceive {
         addr: ConnectionAddr,
         result: Result<Data, String>,
@@ -62,11 +56,6 @@ pub enum P2pNetworkSchedulerAction {
         protocol: Option<token::Protocol>,
         incoming: bool,
         expected_peer_id: Option<PeerId>,
-    },
-    SelectError {
-        addr: ConnectionAddr,
-        kind: SelectKind,
-        error: String,
     },
     YamuxDidInit {
         addr: ConnectionAddr,
@@ -131,7 +120,6 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
             P2pNetworkSchedulerAction::InterfaceExpired { ip } => true,
             P2pNetworkSchedulerAction::ListenerReady { listener } => true,
             P2pNetworkSchedulerAction::ListenerError { listener, error } => true,
-            P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => true,
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => {
                 addr.as_ref().map_or(false, |addr| {
                     !state.network.scheduler.connections.contains_key(addr)
@@ -151,7 +139,6 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .connections
                 .get(addr)
                 .map_or(false, |conn_state| !conn_state.incoming),
-            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => conn(addr).is_some(),
             P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, result } => {
                 conn(addr).is_some()
             }
@@ -162,7 +149,6 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 incoming,
                 expected_peer_id,
             } => true,
-            P2pNetworkSchedulerAction::SelectError { addr, kind, error } => true,
             P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id, .. } => true,
             P2pNetworkSchedulerAction::Disconnect { addr, .. }
             | P2pNetworkSchedulerAction::Error { addr, .. } => state

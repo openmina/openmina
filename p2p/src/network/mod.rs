@@ -22,6 +22,9 @@ mod p2p_network_effects;
 pub mod scheduler;
 pub use self::scheduler::*;
 
+pub mod scheduler_effectful;
+pub use self::scheduler_effectful::*;
+
 pub mod pnet;
 pub use self::pnet::*;
 

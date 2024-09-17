@@ -25,7 +25,7 @@ use p2p::{
     peer::P2pPeerAction,
     MioEvent, P2pAction, P2pEvent, P2pNetworkKadBootstrapAction, P2pNetworkKadRequestAction,
     P2pNetworkKademliaAction, P2pNetworkKademliaStreamAction, P2pNetworkSchedulerAction,
-    P2pNetworkYamuxAction, P2pState, P2pStateTrait, PeerId,
+    P2pNetworkSchedulerEffectfulAction, P2pNetworkYamuxAction, P2pState, P2pStateTrait, PeerId,
 };
 use redux::{ActionMeta, EnablingCondition, SubStore};
 
@@ -186,7 +186,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
             ),
             MioEvent::IncomingConnectionIsReady { listener } => SubStore::dispatch(
                 store,
-                P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener },
+                P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener },
             ),
             MioEvent::IncomingConnectionDidAccept(addr, result) => SubStore::dispatch(
                 store,
@@ -198,7 +198,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
             ),
             MioEvent::IncomingDataIsReady(addr) => SubStore::dispatch(
                 store,
-                P2pNetworkSchedulerAction::IncomingDataIsReady { addr },
+                P2pNetworkSchedulerEffectfulAction::IncomingDataIsReady { addr },
             ),
             MioEvent::IncomingDataDidReceive(addr, result) => SubStore::dispatch(
                 store,
@@ -264,5 +264,6 @@ impl_from_p2p!(P2pChannelsSnarkAction);
 impl_from_p2p!(p2p::P2pNetworkRpcAction);
 impl_from_p2p!(P2pChannelsRpcAction);
 impl_from_p2p!(P2pDisconnectionAction);
+impl_from_p2p!(p2p::P2pNetworkSchedulerEffectfulAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

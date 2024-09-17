@@ -18,16 +18,16 @@ impl P2pNetworkState {
 
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Scheduler(a) => {
-                state.scheduler.reducer(meta.with_action(a));
-                Ok(())
-            }
             P2pNetworkAction::Pnet(a) => {
                 if let Some(cn) = state.scheduler.connections.get_mut(a.addr()) {
                     cn.pnet.reducer(meta.with_action(a))
                 }
                 Ok(())
             }
+            P2pNetworkAction::Scheduler(a) => P2pNetworkSchedulerState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
             P2pNetworkAction::Select(a) => P2pNetworkSelectState::reducer(
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(a),
@@ -54,15 +54,15 @@ impl P2pNetworkState {
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(a),
             ),
-            P2pNetworkAction::PubsubEffectful(_) => {
-                // Effectful action; no reducer
-                Ok(())
-            }
             P2pNetworkAction::Rpc(a) => P2pNetworkRpcState::reducer(
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(a),
                 limits,
             ),
+            P2pNetworkAction::PubsubEffectful(_) | P2pNetworkAction::SchedulerEffectful(_) => {
+                // Effectful action; no reducer
+                Ok(())
+            }
         }
     }
 
