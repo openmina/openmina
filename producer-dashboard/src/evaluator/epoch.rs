@@ -317,6 +317,13 @@ impl SlotData {
         }
     }
 
+    pub fn is_canonical(&self) -> bool {
+        matches!(
+            self.block_status,
+            SlotStatus::Canonical | SlotStatus::CanonicalPending
+        )
+    }
+
     pub fn add_block(&mut self, block: SlotBlockUpdate) {
         self.state_hash = Some(block.state_hash);
         self.height = Some(block.height);

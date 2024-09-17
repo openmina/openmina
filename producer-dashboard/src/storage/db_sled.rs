@@ -170,6 +170,16 @@ impl Database {
         self.epoch_data.contains_key(slot.to_be_bytes())
     }
 
+    pub fn has_canonical_block_on_slot(&self, slot: u32) -> Result<bool, sled::Error> {
+        if let Some(slot_data) =
+            self.retrieve::<SlotData, _>(&self.epoch_data, slot.to_be_bytes())?
+        {
+            Ok(slot_data.is_canonical())
+        } else {
+            Ok(false)
+        }
+    }
+
     pub fn store_block(&self, block: Block) -> Result<(), sled::Error> {
         self.store(&self.blocks, block.state_hash.as_bytes(), &block)?;
         self.store(

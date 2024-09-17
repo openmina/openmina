@@ -56,14 +56,19 @@ async fn test_comapre_to_explorer() {
     .await
     .unwrap();
 
-    let dash_blocks = dash_data.into_iter().filter_map(|data| {
-        if matches!(data.block_status(), SlotStatus::Canonical | SlotStatus::CanonicalPending) {
-            data.block()
-        } else {
-            None
-        }
-    })
-    .collect::<BTreeSet<_>>();
+    let dash_blocks = dash_data
+        .into_iter()
+        .filter_map(|data| {
+            if matches!(
+                data.block_status(),
+                SlotStatus::Canonical | SlotStatus::CanonicalPending
+            ) {
+                data.block()
+            } else {
+                None
+            }
+        })
+        .collect::<BTreeSet<_>>();
 
     for e_block in &explorer_blocks {
         if !dash_blocks.contains(e_block) {

@@ -157,29 +157,33 @@ impl ArchiveWatchdog {
                             self.db
                                 .update_slot_status(slot, SlotStatus::Canonical)
                                 .unwrap();
-                            info!("{} -> Canonical", block.state_hash);
+                            debug!("{} -> Canonical", block.state_hash);
                         } else if canonical_pending.contains(block) {
                             self.db
                                 .update_slot_status(slot, SlotStatus::CanonicalPending)
                                 .unwrap();
-                            info!("{} -> CanonicalPending", block.state_hash);
+                            debug!("{} -> CanonicalPending", block.state_hash);
                         } else if block.height >= (best_tip.height() - 290) as i64 {
                             self.db
                                 .update_slot_status(slot, SlotStatus::OrphanedPending)
                                 .unwrap();
-                            info!("{} -> OrphanedPending", block.state_hash);
+                            debug!("{} -> OrphanedPending", block.state_hash);
                         } else {
                             self.db
                                 .update_slot_status(slot, SlotStatus::Orphaned)
                                 .unwrap();
-                            info!("{} -> Orphaned", block.state_hash);
+                            debug!("{} -> Orphaned", block.state_hash);
                         }
                     } else if self.db.has_evaluated_slot(slot).unwrap_or_default() {
-                        info!("Saw produced block: {}", block.state_hash);
-                        self.db.store_block(block.clone()).unwrap();
-                        self.db
-                            .update_slot_block(slot, block.into(), true, false)
-                            .unwrap();
+                        if !self.db.has_canonical_block_on_slot(slot).unwrap_or_default() {
+                            info!("Saw produced block: {}", block.state_hash);
+                            self.db.store_block(block.clone()).unwrap();
+                            self.db
+                                .update_slot_block(slot, block.into(), true, false)
+                                .unwrap();
+                        } else {
+                            info!("Saw produced block: {}, but we already have a canonical block, ignoring", block.state_hash);
+                        }
                     }
                 });
 
