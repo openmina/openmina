@@ -18,6 +18,13 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=block" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;500;600&display=block" rel="stylesheet">
   <meta name="viewport" content="width=device-width, minimal-ui">
+  <script type="module">
+    import env from './assets/environments/env.js';
+
+    (function (window) {
+      window["env"] = window.env || env;
+    })(window);
+  </script>
 </head>
 
 <body class="f-base">

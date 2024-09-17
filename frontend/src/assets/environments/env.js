@@ -5,4 +5,5 @@
  */
 export default {
   production: true,
+  configs: [],
 };
