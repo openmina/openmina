@@ -1,6 +1,6 @@
 [package]
 name = "hash-tool"
-version = "0.8.13"
+version = "0.8.14"
 edition = "2021"
 
 [dependencies]
