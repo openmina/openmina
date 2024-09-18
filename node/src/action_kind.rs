@@ -45,10 +45,12 @@ use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
 use crate::p2p::network::noise::P2pNetworkNoiseAction;
 use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::pnet_effectful::P2pNetworkPnetEffectfulAction;
 use crate::p2p::network::pubsub::pubsub_effectful::P2pNetworkPubsubEffectfulAction;
 use crate::p2p::network::pubsub::P2pNetworkPubsubAction;
 use crate::p2p::network::rpc::P2pNetworkRpcAction;
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
+use crate::p2p::network::scheduler_effectful::P2pNetworkSchedulerEffectfulAction;
 use crate::p2p::network::select::P2pNetworkSelectAction;
 use crate::p2p::network::yamux::P2pNetworkYamuxAction;
 use crate::p2p::network::P2pNetworkAction;
@@ -306,6 +308,8 @@ pub enum ActionKind {
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
     P2pNetworkPnetTimeout,
+    P2pNetworkPnetEffectfulOutgoingData,
+    P2pNetworkPnetEffectfulSetupNonce,
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
     P2pNetworkPubsubGraft,
@@ -331,7 +335,6 @@ pub enum ActionKind {
     P2pNetworkSchedulerDisconnect,
     P2pNetworkSchedulerDisconnected,
     P2pNetworkSchedulerError,
-    P2pNetworkSchedulerIncomingConnectionIsReady,
     P2pNetworkSchedulerIncomingDataDidReceive,
     P2pNetworkSchedulerIncomingDataIsReady,
     P2pNetworkSchedulerIncomingDidAccept,
@@ -347,6 +350,16 @@ pub enum ActionKind {
     P2pNetworkSchedulerSelectDone,
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
+    P2pNetworkSchedulerEffectfulDisconnect,
+    P2pNetworkSchedulerEffectfulError,
+    P2pNetworkSchedulerEffectfulIncomingConnectionIsReady,
+    P2pNetworkSchedulerEffectfulIncomingDataIsReady,
+    P2pNetworkSchedulerEffectfulIncomingDidAccept,
+    P2pNetworkSchedulerEffectfulInterfaceDetected,
+    P2pNetworkSchedulerEffectfulNoiseSelectDone,
+    P2pNetworkSchedulerEffectfulOutgoingConnect,
+    P2pNetworkSchedulerEffectfulOutgoingDidConnect,
+    P2pNetworkSchedulerEffectfulSelectError,
     P2pNetworkSelectIncomingData,
     P2pNetworkSelectIncomingDataAuth,
     P2pNetworkSelectIncomingDataMux,
@@ -548,7 +561,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 454;
+    pub const COUNT: u16 = 465;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -946,7 +959,9 @@ impl ActionKindGet for P2pNetworkAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Scheduler(a) => a.kind(),
+            Self::SchedulerEffectful(a) => a.kind(),
             Self::Pnet(a) => a.kind(),
+            Self::PnetEffectful(a) => a.kind(),
             Self::Select(a) => a.kind(),
             Self::Noise(a) => a.kind(),
             Self::Yamux(a) => a.kind(),
@@ -1371,13 +1386,10 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::InterfaceExpired { .. } => ActionKind::P2pNetworkSchedulerInterfaceExpired,
             Self::ListenerReady { .. } => ActionKind::P2pNetworkSchedulerListenerReady,
             Self::ListenerError { .. } => ActionKind::P2pNetworkSchedulerListenerError,
-            Self::IncomingConnectionIsReady { .. } => {
-                ActionKind::P2pNetworkSchedulerIncomingConnectionIsReady
-            }
             Self::IncomingDidAccept { .. } => ActionKind::P2pNetworkSchedulerIncomingDidAccept,
+            Self::IncomingDataIsReady { .. } => ActionKind::P2pNetworkSchedulerIncomingDataIsReady,
             Self::OutgoingConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingConnect,
             Self::OutgoingDidConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingDidConnect,
-            Self::IncomingDataIsReady { .. } => ActionKind::P2pNetworkSchedulerIncomingDataIsReady,
             Self::IncomingDataDidReceive { .. } => {
                 ActionKind::P2pNetworkSchedulerIncomingDataDidReceive
             }
@@ -1394,6 +1406,33 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkSchedulerEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::InterfaceDetected { .. } => {
+                ActionKind::P2pNetworkSchedulerEffectfulInterfaceDetected
+            }
+            Self::IncomingConnectionIsReady { .. } => {
+                ActionKind::P2pNetworkSchedulerEffectfulIncomingConnectionIsReady
+            }
+            Self::IncomingDidAccept { .. } => {
+                ActionKind::P2pNetworkSchedulerEffectfulIncomingDidAccept
+            }
+            Self::OutgoingConnect { .. } => ActionKind::P2pNetworkSchedulerEffectfulOutgoingConnect,
+            Self::OutgoingDidConnect { .. } => {
+                ActionKind::P2pNetworkSchedulerEffectfulOutgoingDidConnect
+            }
+            Self::IncomingDataIsReady { .. } => {
+                ActionKind::P2pNetworkSchedulerEffectfulIncomingDataIsReady
+            }
+            Self::NoiseSelectDone { .. } => ActionKind::P2pNetworkSchedulerEffectfulNoiseSelectDone,
+            Self::SelectError { .. } => ActionKind::P2pNetworkSchedulerEffectfulSelectError,
+            Self::Disconnect { .. } => ActionKind::P2pNetworkSchedulerEffectfulDisconnect,
+            Self::Error { .. } => ActionKind::P2pNetworkSchedulerEffectfulError,
+        }
+    }
+}
+
 impl ActionKindGet for P2pNetworkPnetAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1401,6 +1440,15 @@ impl ActionKindGet for P2pNetworkPnetAction {
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPnetOutgoingData,
             Self::SetupNonce { .. } => ActionKind::P2pNetworkPnetSetupNonce,
             Self::Timeout { .. } => ActionKind::P2pNetworkPnetTimeout,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPnetEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkPnetEffectfulOutgoingData,
+            Self::SetupNonce { .. } => ActionKind::P2pNetworkPnetEffectfulSetupNonce,
         }
     }
 }

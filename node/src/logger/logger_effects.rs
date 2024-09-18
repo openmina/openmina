@@ -68,7 +68,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             P2pAction::Peer(action) => action.action_event(&context),
             P2pAction::Network(action) => match action {
                 P2pNetworkAction::Scheduler(action) => action.action_event(&context),
+                P2pNetworkAction::SchedulerEffectful(action) => action.action_event(&context),
                 P2pNetworkAction::Pnet(action) => action.action_event(&context),
+                P2pNetworkAction::PnetEffectful(action) => action.action_event(&context),
                 P2pNetworkAction::Select(action) => action.action_event(&context),
                 P2pNetworkAction::Noise(action) => action.action_event(&context),
                 P2pNetworkAction::Yamux(action) => action.action_event(&context),
