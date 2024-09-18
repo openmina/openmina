@@ -12,8 +12,9 @@ use openmina_core::{
 use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
-        rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
-        transaction::P2pChannelsTransactionAction,
+        best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
+        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+        streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
     },
     connection::outgoing::P2pConnectionOutgoingAction,
     disconnection::P2pDisconnectionAction,
@@ -266,5 +267,8 @@ impl_from_p2p!(P2pChannelsRpcAction);
 impl_from_p2p!(P2pDisconnectionAction);
 impl_from_p2p!(p2p::P2pNetworkSchedulerEffectfulAction);
 impl_from_p2p!(p2p::P2pNetworkPnetEffectfulAction);
+impl_from_p2p!(P2pChannelsBestTipAction);
+impl_from_p2p!(P2pChannelsSnarkJobCommitmentAction);
+impl_from_p2p!(P2pChannelsStreamingRpcAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

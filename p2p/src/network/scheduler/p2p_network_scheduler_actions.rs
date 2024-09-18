@@ -127,8 +127,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
             | P2pNetworkSchedulerAction::ListenerReady { .. }
             | P2pNetworkSchedulerAction::ListenerError { .. }
             | P2pNetworkSchedulerAction::SelectDone { .. }
-            | P2pNetworkSchedulerAction::SelectError { .. }
-            | P2pNetworkSchedulerAction::YamuxDidInit { .. } => true,
+            | P2pNetworkSchedulerAction::SelectError { .. } => true,
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => {
                 addr.as_ref().map_or(false, |addr| {
                     !state.network.scheduler.connections.contains_key(addr)
@@ -149,7 +148,8 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .get(addr)
                 .map_or(false, |conn_state| !conn_state.incoming),
             P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, .. }
-            | P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => {
+            | P2pNetworkSchedulerAction::IncomingDataIsReady { addr }
+            | P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {
                 state.network.scheduler.connections.contains_key(addr)
             }
             P2pNetworkSchedulerAction::Disconnect { addr, .. }

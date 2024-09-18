@@ -1,4 +1,4 @@
-use openmina_core::Substate;
+use openmina_core::{bug_condition, Substate};
 use salsa_simple::XSalsa20;
 
 use crate::{
@@ -68,6 +68,7 @@ impl P2pNetworkPnetState {
                     .pnet;
 
                 let Half::Done { to_send, .. } = &pnet_state.incoming else {
+                    // this should be only if incoming state didn't receive enough data
                     return Ok(());
                 };
 
@@ -93,6 +94,7 @@ impl P2pNetworkPnetState {
                     .pnet;
 
                 let Half::Done { to_send, .. } = &pnet_state.outgoing else {
+                    // this should be only if we haven't set enough data to change from `Buffering` to `Done`
                     return Ok(());
                 };
 
@@ -111,7 +113,21 @@ impl P2pNetworkPnetState {
             } => {
                 pnet_state.outgoing.reduce(&pnet_state.shared_secret, nonce);
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let scheduler_state: &P2pNetworkSchedulerState = state.substate()?;
+                let pnet_state = &scheduler_state
+                    .connection_state(addr)
+                    .ok_or_else(|| format!("Missing connection for action: {:?}", action))?
+                    .pnet;
+
+                if !matches!(&pnet_state.outgoing, Half::Done { .. }) {
+                    bug_condition!(
+                        "Invalid state for `P2pNetworkPnetAction::SetupNonce`, state: {:?}",
+                        pnet_state.outgoing
+                    );
+                    return Ok(());
+                };
+
                 dispatcher.push(P2pNetworkPnetEffectfulAction::SetupNonce {
                     addr: *addr,
                     nonce: nonce.clone(),

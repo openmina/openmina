@@ -4,11 +4,11 @@ pub mod connection;
 pub mod disconnection;
 pub mod discovery;
 pub mod identity;
-pub mod peer;
 use bootstrap::P2pNetworkKadBootstrapState;
 use channels::{
-    rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
-    transaction::P2pChannelsTransactionAction,
+    best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
+    snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+    streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
 };
 use connection::incoming::P2pConnectionIncomingAction;
 use disconnection::P2pDisconnectionAction;
@@ -26,6 +26,9 @@ pub mod identify;
 
 pub mod network;
 pub use self::network::*;
+
+pub mod peer;
+pub use peer::*;
 
 mod p2p_config;
 pub use p2p_config::*;
@@ -117,5 +120,8 @@ pub trait P2pActionTrait<State>:
     + From<P2pChannelsRpcAction>
     + From<P2pDisconnectionAction>
     + From<P2pNetworkSchedulerEffectfulAction>
+    + From<P2pChannelsBestTipAction>
+    + From<P2pChannelsSnarkJobCommitmentAction>
+    + From<P2pChannelsStreamingRpcAction>
 {
 }
