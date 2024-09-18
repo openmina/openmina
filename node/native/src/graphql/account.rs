@@ -1,30 +1,46 @@
 use juniper::GraphQLObject;
-use mina_p2p_messages::v2::{ReceiptChainHash, TokenIdKeyHash};
+use ledger::FpExt;
+use mina_p2p_messages::v2::{
+    MinaBaseVerificationKeyWireStableV1Base64, ReceiptChainHash, TokenIdKeyHash,
+};
 
 #[derive(GraphQLObject)]
 #[graphql(description = "A Mina account")]
 pub struct GraphQLAccount {
     pub public_key: String,
     pub token_id: String,
+    pub token: String,
     pub token_symbol: String,
     pub balance: GraphQLBalance,
-    pub nonce: i32,
+    pub nonce: String,
     pub receipt_chain_hash: String,
-    pub delegate: Option<String>,
+    // TODO(adonagy): this should be GraphQLAccount recursively
+    pub delegate_account: Option<GraphQLDelegateAccount>,
     pub voting_for: String,
     pub timing: GraphQLTiming,
     pub permissions: GraphQLPermissions,
+    // can we flatten?
     // pub zkapp: Option<GraphQLZkAppAccount>,
+    pub zkapp_state: Option<Vec<String>>,
+    pub verification_key: Option<GraphQLVerificationKey>,
+    pub action_state: Option<Vec<String>>,
+    pub proved_state: Option<bool>,
+    pub zkapp_uri: Option<String>,
+}
+
+#[derive(GraphQLObject)]
+pub struct GraphQLDelegateAccount {
+    pub public_key: String,
 }
 
 #[derive(GraphQLObject)]
 pub struct GraphQLTiming {
-    pub is_timed: bool,
-    pub initial_minimum_balance: String,
-    pub cliff_time: i32,
-    pub cliff_amount: String,
-    pub vesting_period: i32,
-    pub vesting_increment: String,
+    // pub is_timed: bool,
+    pub initial_minimum_balance: Option<String>,
+    pub cliff_time: Option<i32>,
+    pub cliff_amount: Option<String>,
+    pub vesting_period: Option<i32>,
+    pub vesting_increment: Option<String>,
 }
 
 #[derive(GraphQLObject)]
@@ -47,7 +63,7 @@ pub struct GraphQLPermissions {
 #[derive(GraphQLObject)]
 pub struct GraphQLSetVerificationKey {
     pub auth: String,
-    pub txn_version: i32,
+    pub txn_version: String,
 }
 
 #[derive(GraphQLObject)]
@@ -68,16 +84,18 @@ pub struct GraphQLBalance {
 
 #[derive(GraphQLObject)]
 pub struct GraphQLVerificationKey {
-    pub max_proofs_verified: String,
-    pub actual_wrap_domain_size: String,
-    pub wrap_index: String,
+    // pub max_proofs_verified: String,
+    // pub actual_wrap_domain_size: String,
+    // pub wrap_index: String,
+    pub verification_key: String,
+    pub hash: String,
 }
 
 impl From<ledger::SetVerificationKey<ledger::AuthRequired>> for GraphQLSetVerificationKey {
     fn from(value: ledger::SetVerificationKey<ledger::AuthRequired>) -> Self {
         Self {
-            auth: serde_json::to_string(&value.auth).unwrap(),
-            txn_version: value.txn_version.as_u32() as i32,
+            auth: value.auth.to_string(),
+            txn_version: value.txn_version.as_u32().to_string(),
         }
     }
 }
@@ -106,12 +124,11 @@ impl From<ledger::Timing> for GraphQLTiming {
     fn from(value: ledger::Timing) -> Self {
         match value {
             ledger::Timing::Untimed => Self {
-                is_timed: false,
-                initial_minimum_balance: "0".to_string(),
-                vesting_period: 1,
-                cliff_time: 0,
-                cliff_amount: "0".to_string(),
-                vesting_increment: "0".to_string(),
+                initial_minimum_balance: None,
+                vesting_period: None,
+                cliff_time: None,
+                cliff_amount: None,
+                vesting_increment: None,
             },
             ledger::Timing::Timed {
                 initial_minimum_balance,
@@ -120,12 +137,11 @@ impl From<ledger::Timing> for GraphQLTiming {
                 vesting_period,
                 vesting_increment,
             } => Self {
-                is_timed: true,
-                initial_minimum_balance: initial_minimum_balance.as_u64().to_string(),
-                cliff_time: cliff_time.as_u32() as i32,
-                cliff_amount: cliff_amount.as_u64().to_string(),
-                vesting_period: vesting_period.as_u32() as i32,
-                vesting_increment: vesting_increment.as_u64().to_string(),
+                initial_minimum_balance: Some(initial_minimum_balance.as_u64().to_string()),
+                cliff_time: Some(cliff_time.as_u32() as i32),
+                cliff_amount: Some(cliff_amount.as_u64().to_string()),
+                vesting_period: Some(vesting_period.as_u32() as i32),
+                vesting_increment: Some(vesting_increment.as_u64().to_string()),
             },
         }
     }
@@ -144,16 +160,50 @@ impl From<ledger::Account> for GraphQLAccount {
     fn from(value: ledger::Account) -> Self {
         Self {
             public_key: value.public_key.into_address(),
-            token_id: TokenIdKeyHash::from(value.token_id).to_string(),
+            token_id: TokenIdKeyHash::from(value.token_id.clone()).to_string(),
+            token: TokenIdKeyHash::from(value.token_id).to_string(),
             token_symbol: value.token_symbol.0,
             balance: GraphQLBalance::from(value.balance),
-            nonce: value.nonce.as_u32() as i32,
+            nonce: value.nonce.as_u32().to_string(),
             receipt_chain_hash: ReceiptChainHash::from(value.receipt_chain_hash).to_string(),
-            delegate: value.delegate.map(|d| d.into_address()),
+            delegate_account: value.delegate.map(|d| GraphQLDelegateAccount {
+                public_key: d.into_address(),
+            }),
             voting_for: value.voting_for.to_base58check(),
             timing: GraphQLTiming::from(value.timing),
             permissions: GraphQLPermissions::from(value.permissions),
-            // zkapp: value.zkapp.map(GraphQLZkAppAccount::from), // Commented out as in the original
+            // zkapp: value.zkapp.map(GraphQLZkAppAccount::from),
+            // TODO: keep as array?
+            zkapp_state: value.zkapp.clone().map(|zkapp| {
+                zkapp
+                    .app_state
+                    .into_iter()
+                    .map(|v| v.to_decimal())
+                    .collect::<Vec<_>>()
+            }),
+            verification_key: value.zkapp.clone().and_then(|zkapp| {
+                zkapp.verification_key.map(|vk| {
+                    let ser = serde_json::to_string_pretty(
+                        &MinaBaseVerificationKeyWireStableV1Base64::from(vk.clone()),
+                    )
+                    .unwrap()
+                    .trim_matches('"')
+                    .to_string();
+                    GraphQLVerificationKey {
+                        verification_key: ser,
+                        hash: vk.digest().to_decimal(),
+                    }
+                })
+            }),
+            action_state: value.zkapp.clone().map(|zkapp| {
+                zkapp
+                    .action_state
+                    .into_iter()
+                    .map(|v| v.to_decimal())
+                    .collect::<Vec<_>>()
+            }),
+            proved_state: value.zkapp.clone().map(|zkapp| zkapp.proved_state),
+            zkapp_uri: value.zkapp.map(|zkapp| zkapp.zkapp_uri.to_string()),
         }
     }
 }

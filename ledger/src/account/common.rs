@@ -32,8 +32,12 @@ impl VotingFor {
     }
 
     pub fn to_base58check(&self) -> String {
-        let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
-        state_hash.to_string()
+        // let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
+        // state_hash.to_string()
+        // TODO(adonagy): is this correct?
+        let receipt_chain_hash = ReceiptChainHash(self.0);
+        let receipt_chain_hash = mina_p2p_messages::v2::ReceiptChainHash::from(receipt_chain_hash);
+        receipt_chain_hash.to_string()
     }
 }
 
