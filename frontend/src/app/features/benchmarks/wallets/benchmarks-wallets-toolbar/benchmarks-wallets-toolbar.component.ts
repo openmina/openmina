@@ -14,6 +14,7 @@ import {
   selectBenchmarksActiveWallet,
   selectBenchmarksBlockSending,
   selectBenchmarksRandomWallet,
+  selectBenchmarksSendingAmount,
   selectBenchmarksSendingBatch,
   selectBenchmarksSendingFee,
   selectBenchmarksSentTransactionsStats,
@@ -21,11 +22,13 @@ import {
 } from '@benchmarks/wallets/benchmarks-wallets.state';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import {
+  BENCHMARKS_WALLETS_CHANGE_AMOUNT,
   BENCHMARKS_WALLETS_CHANGE_FEE,
   BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH,
   BENCHMARKS_WALLETS_SELECT_WALLET,
   BENCHMARKS_WALLETS_SEND_TXS,
   BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET,
+  BenchmarksWalletsChangeAmount,
   BenchmarksWalletsChangeFee,
   BenchmarksWalletsChangeTransactionBatch,
   BenchmarksWalletsSelectWallet,
@@ -40,6 +43,7 @@ import { BenchmarksWallet } from '@shared/types/benchmarks/wallets/benchmarks-wa
 
 interface TransactionForm {
   batch: FormControl<number>;
+  amount: FormControl<number>;
   fee: FormControl<number>;
 }
 
@@ -54,7 +58,6 @@ interface TransactionForm {
 export class BenchmarksWalletsToolbarComponent extends ManualDetection implements OnInit {
 
   formGroup: FormGroup<TransactionForm>;
-  batch: number;
   streamSending: boolean;
   successSentTransactions: number;
   failSentTransactions: number;
@@ -82,6 +85,7 @@ export class BenchmarksWalletsToolbarComponent extends ManualDetection implement
     this.listenToStressingSendStreaming();
     this.listenToBatchChange();
     this.listenToFeeChange();
+    this.listenToAmountChange();
   }
 
   private listenToWalletsChanges(): void {
@@ -129,6 +133,15 @@ export class BenchmarksWalletsToolbarComponent extends ManualDetection implement
       });
   }
 
+  private listenToAmountChange(): void {
+    this.store.select(selectBenchmarksSendingAmount)
+      .pipe(untilDestroyed(this))
+      .subscribe(amount => {
+        this.formGroup.get('amount').setValue(Math.abs(amount));
+        this.detect();
+      });
+  }
+
   private listenToStressingSendStreaming(): void {
     this.store.select(selectBenchmarksBlockSending)
       .pipe(untilDestroyed(this))
@@ -147,6 +160,7 @@ export class BenchmarksWalletsToolbarComponent extends ManualDetection implement
   private initForm(): void {
     this.formGroup = this.formBuilder.group<TransactionForm>({
       batch: new FormControl(0),
+      amount: new FormControl(0),
       fee: new FormControl(0),
     });
 
@@ -169,6 +183,16 @@ export class BenchmarksWalletsToolbarComponent extends ManualDetection implement
             payload,
           });
         }
+      });
+    this.formGroup.get('amount')
+      .valueChanges
+      .pipe(
+        distinctUntilChanged(),
+        filter(v => v !== null),
+        untilDestroyed(this),
+      )
+      .subscribe((value: number) => {
+        this.store.dispatch<BenchmarksWalletsChangeAmount>({ type: BENCHMARKS_WALLETS_CHANGE_AMOUNT, payload: value });
       });
     this.formGroup.get('fee')
       .valueChanges

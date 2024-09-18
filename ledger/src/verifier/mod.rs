@@ -32,8 +32,19 @@ pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Pallas>>> = Lazy::new(|| {
     Arc::new(get_verifier_index(VerifierKind::Transaction))
 });
 
-/// Returns the SRS on the other curve
-pub fn get_srs<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
+/// Returns the SRS on the other curve (immutable version for verifiers)
+pub fn get_srs<F: FieldWitness>() -> Arc<SRS<F::OtherCurve>> {
+    cache! {
+        Arc<SRS<F::OtherCurve>>,
+        {
+            let srs = SRS::<F::OtherCurve>::create(F::Scalar::SRS_DEPTH);
+            Arc::new(srs)
+        }
+    }
+}
+
+/// Returns the SRS on the other curve (Mutex-wrapped version for prover)
+pub fn get_srs_mut<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
     cache! {
         Arc<Mutex<SRS<F::OtherCurve>>>,
         {
@@ -46,7 +57,6 @@ pub fn get_srs<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_snark/transaction_snark.ml#L3492
 fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
     let srs = get_srs::<Fp>();
-    let srs = srs.lock().unwrap();
 
     if ts.iter().all(|(proof, msg)| {
         let LedgerProof(TransactionSnark { statement, .. }) = proof;
@@ -176,7 +186,6 @@ impl Verifier {
             true
         } else {
             let srs = get_srs::<Fp>();
-            let srs = srs.lock().unwrap();
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();

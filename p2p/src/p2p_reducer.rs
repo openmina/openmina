@@ -1,5 +1,3 @@
-use openmina_core::SubstateAccess;
-
 use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingAction};
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
@@ -7,18 +5,21 @@ use crate::disconnection::P2pDisconnectionAction;
 use crate::discovery::p2p_discovery_reducer;
 use crate::peer::p2p_peer_reducer;
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
-use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
+use crate::{
+    P2pAction, P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pPeerStatus, P2pState,
+};
+use openmina_core::{bug_condition, Substate};
 
 impl P2pState {
     pub fn reducer<State, Action>(
-        mut state_context: openmina_core::Substate<Action, State, Self>,
+        mut state_context: Substate<Action, State, Self>,
         action: P2pActionWithMetaRef<'_>,
     ) where
-        State: SubstateAccess<Self>,
-        Action: From<P2pAction>,
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
     {
         let Ok(state) = state_context.get_substate_mut() else {
-            // TODO: log or propagate
+            bug_condition!("no P2pState");
             return;
         };
         let (action, meta) = action.split();
@@ -133,8 +134,15 @@ impl P2pState {
             P2pAction::Network(_action) => {
                 #[cfg(feature = "p2p-libp2p")]
                 {
-                    let limits = &state.config.limits;
-                    state.network.reducer(meta.with_action(_action), limits);
+                    let limits = state.config.limits;
+                    let time = meta.time();
+                    if let Err(error) = P2pNetworkState::reducer(
+                        Substate::from_compatible_substate(state_context),
+                        meta.with_action(_action),
+                        &limits,
+                    ) {
+                        openmina_core::log::warn!(time; "error = {error}")
+                    }
                 }
             }
         }

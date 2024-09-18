@@ -1,10 +1,15 @@
+import { MinaNetwork } from '@shared/types/core/mina/mina.type';
+
 export interface MinaEnv {
   production: boolean;
   configs: MinaNode[];
   identifier?: string;
+  hideToolbar?: boolean;
+  hideNodeStats?: boolean;
   globalConfig?: {
     features?: FeaturesConfig;
     canAddNodes?: boolean;
+    minaExplorerNetwork?: MinaNetwork;
   };
 }
 
@@ -14,7 +19,7 @@ export interface MinaNode {
   memoryProfiler?: string;
   debugger?: string;
   features?: FeaturesConfig;
-  minaExplorerNetwork?: 'mainnet' | 'devnet';
+  minaExplorerNetwork?: MinaNetwork;
   isCustom?: boolean;
   isWebNode?: boolean;
 }

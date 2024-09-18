@@ -190,6 +190,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                     }
                 }
+                TransitionFrontierSyncAction::BlocksNextApplyError { .. } => {}
                 TransitionFrontierSyncAction::BlocksNextApplySuccess { ref hash } => {
                     if let Some(stats) = store.service.stats() {
                         if let Some(state) =
@@ -259,6 +260,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
         TransitionFrontierAction::Synced { .. } => {
             synced_effects(&meta, store);
         }
+        TransitionFrontierAction::SyncFailed { .. } => {
+            // TODO(SEC): disconnect/blacklist peers that caused this.
+        }
     }
 }
 
@@ -290,7 +294,7 @@ fn synced_effects<S: crate::Service>(
         });
     }
 
-    let best_tip_hash = best_tip.staged_ledger_hash().clone();
+    let best_tip_hash = best_tip.merkle_root_hash().clone();
     store.dispatch(ConsensusAction::Prune);
     store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
     store.dispatch(TransactionPoolAction::BestTipChanged {

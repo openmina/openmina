@@ -5991,7 +5991,6 @@ mod tests {
         dbg!(staged_ledger.ledger.nmasks_to_root());
 
         let srs = get_srs::<Fp>();
-        let srs = srs.lock().unwrap();
 
         for (index, block) in blocks.into_iter().enumerate() {
             validate_block(&block).unwrap();

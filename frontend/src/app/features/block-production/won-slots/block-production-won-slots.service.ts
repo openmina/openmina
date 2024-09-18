@@ -43,16 +43,16 @@ export class BlockProductionWonSlotsService {
               height: attempt.block?.height,
               hash: attempt.block?.hash,
               transactionsTotal: nanOrElse(attempt.block?.transactions.payments + attempt.block?.transactions.delegations + attempt.block?.transactions.zkapps, 0),
+              zkapps: nanOrElse(attempt.block?.transactions.zkapps, 0),
               payments: nanOrElse(attempt.block?.transactions.payments, 0),
               delegations: nanOrElse(attempt.block?.transactions.delegations, 0),
-              zkapps: nanOrElse(attempt.block?.transactions.zkapps, 0),
               completedWorksCount: nanOrElse(attempt.block?.completed_works_count, 0),
               snarkFees: attempt.block ? attempt.block.snark_fees / ONE_BILLION : undefined,
               coinbaseRewards: attempt.block ? attempt.block.coinbase / ONE_BILLION : undefined,
               txFeesRewards: attempt.block ? attempt.block.fees / ONE_BILLION : undefined,
 
               status: attempt.status,
-              discardReason: this.getDiscardReason(attempt),
+              discardReason: attempt.discard_reason,
               lastObservedConfirmations: attempt.last_observed_confirmations,
               orphanedBy: attempt.orphaned_by,
 
@@ -149,16 +149,6 @@ export class BlockProductionWonSlotsService {
       return `${diff} ago`;
     }
   }
-
-  private getDiscardReason(attempt: Attempt): BlockProductionWonSlotsDiscardReason {
-    let reason;
-    Object.keys(attempt).forEach((key) => {
-      if (key in BlockProductionWonSlotsDiscardReason) {
-        reason = key;
-      }
-    });
-    return reason;
-  }
 }
 
 export interface WonSlotResponse {
@@ -178,9 +168,7 @@ interface Attempt {
   active?: boolean;
   last_observed_confirmations?: number;
   orphaned_by?: string;
-  BestTipStakingLedgerDifferent?: null;
-  BestTipGlobalSlotHigher?: null;
-  BestTipSuperior?: null;
+  discard_reason?: BlockProductionWonSlotsDiscardReason;
 }
 
 interface WonSlot {

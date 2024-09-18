@@ -312,6 +312,7 @@ async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+#[ignore = "TODO: Add override for reducer"]
 async fn test_bad_node() -> anyhow::Result<()> {
     std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", "false");
 

@@ -8,8 +8,12 @@ use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer
 use time::OffsetDateTime;
 
 use crate::{
-    b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, number::Number,
-    string::ByteString, versioned::Versioned,
+    b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes},
+    b58version::USER_COMMAND_MEMO,
+    bigint::BigInt,
+    number::Number,
+    string::ByteString,
+    versioned::Versioned,
 };
 
 use super::*;
@@ -36,8 +40,39 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 ///
 /// Gid: `83`
 /// Location: [src/string.ml:44:6](https://github.com/MinaProtocol/mina/blob//bfd1009/src/string.ml#L44)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
+
+impl Serialize for MinaBaseSignedCommandMemoStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let base58check = b58::encode(self.0.as_ref(), USER_COMMAND_MEMO);
+            base58check.serialize(serializer)
+        } else {
+            self.0.serialize(serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MinaBaseSignedCommandMemoStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let base58check = String::deserialize(deserializer)?;
+            let decoded = b58::decode(&base58check, USER_COMMAND_MEMO)
+                .map_err(|err| serde::de::Error::custom(format!("Base58 decode error: {}", err)))?;
+            Ok(MinaBaseSignedCommandMemoStableV1(decoded[1..].into()))
+        } else {
+            let char_string = crate::string::CharString::deserialize(deserializer)?;
+            Ok(MinaBaseSignedCommandMemoStableV1(char_string))
+        }
+    }
+}
 
 //
 //  Location: [src/lib/parallel_scan/parallel_scan.ml:247:6](https://github.com/openmina/mina/blob/da4c511501876adff40f3e1281392fedd121d607/src/lib/parallel_scan/parallel_scan.ml#L247)
@@ -162,6 +197,249 @@ impl BinProtWrite for TransactionSnarkScanStateStableV2ScanStateTreesA {
                     curr_depth += 1;
                 }
             }
+        }
+    }
+}
+
+// TODO: many of these OfSexp/SexpOf implementations can be removed if rsexp-derive is forked and modified
+// to fix a big in how enums are handled, and to avoid intermediary wrapping types in the output
+
+impl rsexp::OfSexp for PicklesBaseProofsVerifiedStableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        match s.extract_enum("PicklesBaseProofsVerifiedStableV1")? {
+            (b"N0", _) => Ok(PicklesBaseProofsVerifiedStableV1::N0),
+            (b"N1", _) => Ok(PicklesBaseProofsVerifiedStableV1::N1),
+            (b"N2", _) => Ok(PicklesBaseProofsVerifiedStableV1::N2),
+            (ctor, _) => Err(rsexp::IntoSexpError::UnknownConstructorForEnum {
+                type_: "PicklesBaseProofsVerifiedStableV1",
+                constructor: String::from_utf8_lossy(ctor).to_string(),
+            }),
+        }
+    }
+}
+
+impl rsexp::OfSexp for LimbVectorConstantHex64StableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        let bytes = s.extract_atom("LimbVectorConstantHex64StableV1")?;
+        let hex_str = std::str::from_utf8(bytes).map_err(|_| {
+            rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected 16 bytes hex string, got {bytes:?}"),
+            }
+        })?;
+        if hex_str.len() != 16 {
+            return Err(rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected 16 bytes hex string, got {hex_str:?}"),
+            });
+        }
+        let n = u64::from_str_radix(hex_str, 16).map_err(|_| {
+            rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected 16 bytes hex string, got {hex_str:?}"),
+            }
+        })?;
+
+        Ok(Self(n.into()))
+    }
+}
+
+impl rsexp::SexpOf for LimbVectorConstantHex64StableV1 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        let value: u64 = self.0.as_u64();
+        let hex_str = format!("{:016x}", value);
+
+        rsexp::Sexp::Atom(format!("0x{}", hex_str).into_bytes())
+    }
+}
+
+impl rsexp::OfSexp for CompositionTypesBranchDataDomainLog2StableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> Result<Self, rsexp::IntoSexpError>
+    where
+        Self: Sized,
+    {
+        match s.extract_atom("CompositionTypesBranchDataDomainLog2StableV1")? {
+            [ch] => Ok(Self((*ch).into())),
+            bytes => Err(rsexp::IntoSexpError::StringConversionError {
+                err: format!("Expected single byte string, got {bytes:?}"),
+            }),
+        }
+    }
+}
+
+impl rsexp::SexpOf for CompositionTypesBranchDataDomainLog2StableV1 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        rsexp::Sexp::Atom(vec![self.0.as_u8()])
+    }
+}
+
+impl rsexp::OfSexp for CompositionTypesDigestConstantStableV1 {
+    fn of_sexp(s: &rsexp::Sexp) -> std::result::Result<Self, rsexp::IntoSexpError> {
+        Ok(Self(crate::pseq::PaddedSeq::<
+            LimbVectorConstantHex64StableV1,
+            4,
+        >::of_sexp(s)?))
+    }
+}
+
+impl rsexp::SexpOf for CompositionTypesDigestConstantStableV1 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        self.0.sexp_of()
+    }
+}
+
+impl rsexp::OfSexp for PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 {
+    fn of_sexp(s: &rsexp::Sexp) -> std::result::Result<Self, rsexp::IntoSexpError> {
+        Ok(Self(crate::pseq::PaddedSeq::<
+            PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
+            15,
+        >::of_sexp(s)?))
+    }
+}
+
+impl rsexp::SexpOf for PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        self.0.sexp_of()
+    }
+}
+
+impl rsexp::OfSexp for TransactionSnarkProofStableV2 {
+    fn of_sexp(s: &rsexp::Sexp) -> std::result::Result<Self, rsexp::IntoSexpError> {
+        Ok(Self(PicklesProofProofsVerified2ReprStableV2::of_sexp(s)?))
+    }
+}
+
+impl rsexp::SexpOf for TransactionSnarkProofStableV2 {
+    fn sexp_of(&self) -> rsexp::Sexp {
+        self.0.sexp_of()
+    }
+}
+
+impl serde::Serialize for TransactionSnarkProofStableV2 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::SexpOf;
+
+            let sexp = self.sexp_of();
+            let sexp_bytes = sexp.to_bytes();
+            let base64_data = URL_SAFE.encode(&sexp_bytes);
+
+            base64_data.serialize(serializer)
+        } else {
+            serializer.serialize_newtype_struct("TransactionSnarkProofStableV2", &self.0)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for TransactionSnarkProofStableV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::OfSexp;
+            let base64_data = String::deserialize(deserializer)?;
+            let sexp_data = URL_SAFE
+                .decode(&base64_data)
+                .map_err(serde::de::Error::custom)?;
+            let sexp = rsexp::from_slice(&sexp_data).map_err(|err| {
+                serde::de::Error::custom(format!("S-exp parsing failure: {err:?}"))
+            })?;
+            let proof = Self::of_sexp(&sexp).map_err(serde::de::Error::custom)?;
+            Ok(proof)
+        } else {
+            struct TransactionSnarkProofStableV2Visitor;
+
+            impl<'de> serde::de::Visitor<'de> for TransactionSnarkProofStableV2Visitor {
+                type Value = TransactionSnarkProofStableV2;
+
+                fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                    formatter.write_str("a valid TransactionSnarkProofStableV2")
+                }
+
+                fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+                where
+                    D: serde::de::Deserializer<'de>,
+                {
+                    let inner_value =
+                        PicklesProofProofsVerified2ReprStableV2::deserialize(deserializer)?;
+                    Ok(TransactionSnarkProofStableV2(inner_value))
+                }
+            }
+
+            deserializer.deserialize_newtype_struct(
+                "TransactionSnarkProofStableV2",
+                TransactionSnarkProofStableV2Visitor,
+            )
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PicklesProofProofsVerifiedMaxStableV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::OfSexp;
+            let base64_data = String::deserialize(deserializer)?;
+            let sexp_data = URL_SAFE
+                .decode(&base64_data)
+                .map_err(serde::de::Error::custom)?;
+            let sexp = rsexp::from_slice(&sexp_data).map_err(|err| {
+                serde::de::Error::custom(format!("S-exp parsing failure: {err:?}"))
+            })?;
+            let proof = Self::of_sexp(&sexp).map_err(serde::de::Error::custom)?;
+            Ok(proof)
+        } else {
+            #[derive(Deserialize)]
+            struct Inner {
+                statement: PicklesProofProofsVerified2ReprStableV2Statement,
+                prev_evals: PicklesProofProofsVerified2ReprStableV2PrevEvals,
+                proof: PicklesWrapWireProofStableV1,
+            }
+
+            let inner = Inner::deserialize(deserializer)?;
+            Ok(PicklesProofProofsVerifiedMaxStableV2 {
+                statement: inner.statement,
+                prev_evals: inner.prev_evals,
+                proof: inner.proof,
+            })
+        }
+    }
+}
+
+impl serde::Serialize for PicklesProofProofsVerifiedMaxStableV2 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            use rsexp::SexpOf as _;
+
+            let sexp = self.sexp_of();
+            let sexp_bytes = sexp.to_bytes();
+            let base64_data = URL_SAFE.encode(&sexp_bytes);
+
+            base64_data.serialize(serializer)
+        } else {
+            use serde::ser::SerializeStruct;
+            let mut state =
+                serializer.serialize_struct("PicklesProofProofsVerifiedMaxStableV2", 3)?;
+            state.serialize_field("statement", &self.statement)?;
+            state.serialize_field("prev_evals", &self.prev_evals)?;
+            state.serialize_field("proof", &self.proof)?;
+            state.end()
         }
     }
 }
@@ -629,19 +907,10 @@ impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            // TODO(devnet): base64 encode for json, add separate method for base58check
             // https://github.com/MinaProtocol/mina/blob/6de36cf8851de28b667e4c1041badf62507c235d/src/lib/consensus/vrf/consensus_vrf.ml#L172
-            //let mut output_bytes = Vec::new();
-            //let prefix = vec![0x15, 0x20];
-            //output_bytes.extend(prefix);
-            //output_bytes.extend(self.0.iter());
-            //let checksum = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
-            //output_bytes.extend(&checksum[..4]);
-            //bs58::encode(&output_bytes)
-            //    .into_string()
-            //    .serialize(serializer)
-            let result = base64::encode(&self.0 .0);
-            result.serialize(serializer)
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            let base64_data = URL_SAFE.encode(&self.0 .0);
+            serializer.serialize_str(&base64_data)
         } else {
             serializer.serialize_newtype_struct("ConsensusVrfOutputTruncatedStableV1", &self.0)
         }
@@ -654,10 +923,12 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
         D: serde::Deserializer<'de>,
     {
         if deserializer.is_human_readable() {
-            let base58 = String::deserialize(deserializer)?;
-            bs58::decode(base58)
-                .into_vec()
-                .map(|vec| ByteString::from(vec[2..vec.len() - 4].to_vec()))
+            // https://github.com/MinaProtocol/mina/blob/6de36cf8851de28b667e4c1041badf62507c235d/src/lib/consensus/vrf/consensus_vrf.ml#L172
+            use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+            let base64_data = String::deserialize(deserializer)?;
+            URL_SAFE
+                .decode(&base64_data)
+                .map(|vec| ByteString::from(vec))
                 .map_err(|e| serde::de::Error::custom(format!("Error deserializing vrf: {e}")))
         } else {
             Deserialize::deserialize(deserializer)
@@ -666,68 +937,61 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-mod serde_protocol_ver {
-    #[derive(serde::Serialize, serde::Deserialize)]
-    pub struct ProtocolVersionStableV2 {
-        pub transaction: crate::number::UInt64,
-        pub network: crate::number::UInt64,
-        pub patch: crate::number::UInt64,
-    }
-}
-
-impl<'de> Deserialize<'de> for ProtocolVersionStableV2 {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        if deserializer.is_human_readable() {
-            let s = String::deserialize(deserializer)?;
-
-            let err = || serde::de::Error::custom(format!("incorrect protocol version '{}'", s));
-
-            let parse_number =
-                |s: Option<&str>| s.and_then(|s| s.parse::<u64>().ok()).ok_or_else(err);
-
-            let mut versions = s.split('.');
-            let transaction = parse_number(versions.next())?.into();
-            let network = parse_number(versions.next())?.into();
-            let patch = parse_number(versions.next())?.into();
-
-            if versions.next().is_some() {
-                return Err(err()); // We expect the format "transaction.network.patch"
-            }
-
-            Ok(Self {
-                transaction,
-                network,
-                patch,
-            })
-        } else {
-            serde_protocol_ver::ProtocolVersionStableV2::deserialize(deserializer).map(|s| Self {
-                transaction: s.transaction,
-                network: s.network,
-                patch: s.patch,
-            })
-        }
-    }
-}
-
-impl Serialize for ProtocolVersionStableV2 {
+impl Serialize for ConsensusBodyReferenceStableV1 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: serde::ser::Serializer,
     {
         if serializer.is_human_readable() {
-            let s = format!("{}.{}.{}", *self.transaction, *self.network, *self.patch);
-            s.serialize(serializer)
+            let hex_string = hex::encode(&self.0);
+            serializer.serialize_str(&hex_string)
         } else {
-            let s = serde_protocol_ver::ProtocolVersionStableV2 {
-                transaction: self.transaction,
-                network: self.network,
-                patch: self.patch,
-            };
-            s.serialize(serializer)
+            self.0.serialize(serializer)
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for ConsensusBodyReferenceStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let hex_string = String::deserialize(deserializer)?;
+            let decoded_bytes = hex::decode(&hex_string).map_err(serde::de::Error::custom)?;
+            Ok(ConsensusBodyReferenceStableV1(
+                crate::string::ByteString::from(decoded_bytes),
+            ))
+        } else {
+            let inner_value = crate::string::ByteString::deserialize(deserializer)?;
+            Ok(ConsensusBodyReferenceStableV1(inner_value))
+        }
+    }
+}
+
+// Needs to handle #[serde(untagged)] which postcard cannot deserialize
+impl<'de> Deserialize<'de> for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let value = UnsignedExtendedUInt32StableV1::deserialize(deserializer)?;
+        Ok(MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+            value,
+        ))
+    }
+}
+
+// Needs to handle #[serde(untagged)] which postcard cannot deserialize
+impl<'de> Deserialize<'de> for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let value = UnsignedExtendedUInt32StableV1::deserialize(deserializer)?;
+        Ok(MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
+            value,
+        ))
     }
 }
 
@@ -834,6 +1098,69 @@ impl<'de> Deserialize<'de> for SgnStableV1 {
     }
 }
 
+const PRECISION: usize = 9;
+const PRECISION_EXP: u64 = 10u64.pow(PRECISION as u32);
+
+impl Serialize for CurrencyFeeStableV1 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        let amount = self.0 .0.as_u64();
+        let whole = amount / PRECISION_EXP;
+        let remainder = amount % PRECISION_EXP;
+
+        if remainder == 0 {
+            serializer.serialize_str(&whole.to_string())
+        } else {
+            let num_stripped_zeros = remainder
+                .to_string()
+                .chars()
+                .rev()
+                .take_while(|&c| c == '0')
+                .count();
+            let num = remainder / 10u64.pow(num_stripped_zeros as u32);
+            serializer.serialize_str(&format!(
+                "{}.{}{}",
+                whole,
+                "0".repeat(PRECISION - num_stripped_zeros),
+                num
+            ))
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CurrencyFeeStableV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        let s: String = Deserialize::deserialize(deserializer)?;
+        let parts: Vec<&str> = s.split('.').collect();
+        let result = match parts.as_slice() {
+            [whole] => format!("{}{}", whole, "0".repeat(PRECISION)),
+            [whole, decimal] => {
+                let decimal_length = decimal.len();
+                if decimal_length > PRECISION {
+                    format!("{}{}", whole, &decimal[0..PRECISION])
+                } else {
+                    format!(
+                        "{}{}{}",
+                        whole,
+                        decimal,
+                        "0".repeat(PRECISION - decimal_length)
+                    )
+                }
+            }
+            _ => return Err(serde::de::Error::custom("Invalid currency input")),
+        };
+        let fee_in_nanomina: u64 = result.parse().map_err(serde::de::Error::custom)?;
+        Ok(CurrencyFeeStableV1(
+            UnsignedExtendedUInt64Int64ForVersionTagsStableV1(fee_in_nanomina.into()),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests_sgn {
     use crate::v2::SgnStableV1;
@@ -867,7 +1194,7 @@ mod tests_sgn {
 /// Args: CurrencyFeeStableV1 , SgnStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct SignedAmount {
-    pub magnitude: CurrencyAmountStableV1,
+    pub magnitude: CurrencyFeeStableV1,
     pub sgn: SgnStableV1,
 }
 

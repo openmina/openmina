@@ -75,6 +75,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pNetworkAction::Rpc(action) => action.action_event(&context),
                 P2pNetworkAction::Kad(action) => action.action_event(&context),
                 P2pNetworkAction::Pubsub(action) => action.action_event(&context),
+                P2pNetworkAction::PubsubEffectful(action) => action.action_event(&context),
                 P2pNetworkAction::Identify(action) => action.action_event(&context),
             },
         },
@@ -102,6 +103,16 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     summary = "transition frontier synced",
                     block_hash = tip.hash().to_string(),
                     block_height = tip.height(),
+                );
+            }
+            TransitionFrontierAction::SyncFailed { best_tip, error } => {
+                openmina_core::action_error!(
+                    context,
+                    kind = action.kind().to_string(),
+                    summary = "transition frontier failed to sync",
+                    block_hash = best_tip.hash().to_string(),
+                    block_height = best_tip.height(),
+                    error = error.to_string(),
                 );
             }
             a => a.action_event(&context),

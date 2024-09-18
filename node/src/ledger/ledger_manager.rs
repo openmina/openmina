@@ -196,13 +196,13 @@ impl LedgerRequest {
                     }
                     LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(data) => {
                         let res = ledger_ctx.staged_ledger_aux_and_pending_coinbase(
-                            data.ledger_hash,
+                            &data.ledger_hash,
                             data.protocol_states,
                         );
                         LedgerReadResponse::GetStagedLedgerAuxAndPendingCoinbases(res)
                     }
                     LedgerReadRequest::ScanStateSummary(ledger_hash) => {
-                        let res = ledger_ctx.scan_state_summary(ledger_hash);
+                        let res = ledger_ctx.scan_state_summary(&ledger_hash);
                         LedgerReadResponse::ScanStateSummary(res)
                     }
                     LedgerReadRequest::GetAccounts(ledger_hash, account_ids) => {

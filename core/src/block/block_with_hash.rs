@@ -106,8 +106,8 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         next_epoch_ledger_hash(self.header())
     }
 
-    pub fn staged_ledger_hash(&self) -> &LedgerHash {
-        staged_ledger_hash(self.header())
+    pub fn merkle_root_hash(&self) -> &LedgerHash {
+        merkle_root_hash(self.header())
     }
 
     pub fn staged_ledger_hashes(&self) -> &MinaBaseStagedLedgerHashStableV1 {
@@ -221,8 +221,8 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         next_epoch_ledger_hash(self.header())
     }
 
-    pub fn staged_ledger_hash(&self) -> &LedgerHash {
-        staged_ledger_hash(self.header())
+    pub fn merkle_root_hash(&self) -> &LedgerHash {
+        merkle_root_hash(self.header())
     }
 
     pub fn staged_ledger_hashes(&self) -> &MinaBaseStagedLedgerHashStableV1 {
@@ -302,7 +302,7 @@ fn next_epoch_ledger_hash(header: &BlockHeader) -> &LedgerHash {
     &consensus_state(header).next_epoch_data.ledger.hash
 }
 
-fn staged_ledger_hash(header: &BlockHeader) -> &LedgerHash {
+fn merkle_root_hash(header: &BlockHeader) -> &LedgerHash {
     &staged_ledger_hashes(header).non_snark.ledger_hash
 }
 

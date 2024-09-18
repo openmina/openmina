@@ -37,6 +37,7 @@ use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::identify::P2pIdentifyAction;
 use crate::p2p::network::identify::stream::P2pNetworkIdentifyStreamAction;
+use crate::p2p::network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction;
 use crate::p2p::network::identify::P2pNetworkIdentifyAction;
 use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
 use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
@@ -44,6 +45,7 @@ use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
 use crate::p2p::network::noise::P2pNetworkNoiseAction;
 use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::pubsub::pubsub_effectful::P2pNetworkPubsubEffectfulAction;
 use crate::p2p::network::pubsub::P2pNetworkPubsubAction;
 use crate::p2p::network::rpc::P2pNetworkRpcAction;
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
@@ -263,6 +265,7 @@ pub enum ActionKind {
     P2pNetworkIdentifyStreamNew,
     P2pNetworkIdentifyStreamPrune,
     P2pNetworkIdentifyStreamRemoteClose,
+    P2pNetworkIdentifyStreamEffectfulSendIdentify,
     P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapRequestDone,
     P2pNetworkKadBootstrapRequestError,
@@ -315,6 +318,8 @@ pub enum ActionKind {
     P2pNetworkPubsubPrune,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
+    P2pNetworkPubsubEffectfulIncomingData,
+    P2pNetworkPubsubEffectfulSign,
     P2pNetworkRpcHeartbeatSend,
     P2pNetworkRpcIncomingData,
     P2pNetworkRpcIncomingMessage,
@@ -454,6 +459,7 @@ pub enum ActionKind {
     TransactionPoolVerifyError,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
+    TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
     TransitionFrontierGenesisLedgerLoadPending,
@@ -466,6 +472,7 @@ pub enum ActionKind {
     TransitionFrontierGenesisEffectfulProveInit,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
+    TransitionFrontierSyncBlocksNextApplyError,
     TransitionFrontierSyncBlocksNextApplyInit,
     TransitionFrontierSyncBlocksNextApplyPending,
     TransitionFrontierSyncBlocksNextApplySuccess,
@@ -541,7 +548,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 449;
+    pub const COUNT: u16 = 454;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -651,6 +658,7 @@ impl ActionKindGet for TransitionFrontierAction {
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
+            Self::SyncFailed { .. } => ActionKind::TransitionFrontierSyncFailed,
         }
     }
 }
@@ -945,6 +953,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Identify(a) => a.kind(),
             Self::Kad(a) => a.kind(),
             Self::Pubsub(a) => a.kind(),
+            Self::PubsubEffectful(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
     }
@@ -1096,6 +1105,9 @@ impl ActionKindGet for TransitionFrontierSyncAction {
             Self::BlocksNextApplyInit => ActionKind::TransitionFrontierSyncBlocksNextApplyInit,
             Self::BlocksNextApplyPending { .. } => {
                 ActionKind::TransitionFrontierSyncBlocksNextApplyPending
+            }
+            Self::BlocksNextApplyError { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksNextApplyError
             }
             Self::BlocksNextApplySuccess { .. } => {
                 ActionKind::TransitionFrontierSyncBlocksNextApplySuccess
@@ -1445,6 +1457,7 @@ impl ActionKindGet for P2pNetworkIdentifyAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Stream(a) => a.kind(),
+            Self::StreamEffectful(a) => a.kind(),
         }
     }
 }
@@ -1475,6 +1488,15 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::OutgoingMessage { .. } => ActionKind::P2pNetworkPubsubOutgoingMessage,
             Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPubsubEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Sign { .. } => ActionKind::P2pNetworkPubsubEffectfulSign,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubEffectfulIncomingData,
         }
     }
 }
@@ -1513,6 +1535,14 @@ impl ActionKindGet for P2pNetworkIdentifyStreamAction {
             Self::Close { .. } => ActionKind::P2pNetworkIdentifyStreamClose,
             Self::RemoteClose { .. } => ActionKind::P2pNetworkIdentifyStreamRemoteClose,
             Self::Prune { .. } => ActionKind::P2pNetworkIdentifyStreamPrune,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkIdentifyStreamEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::SendIdentify { .. } => ActionKind::P2pNetworkIdentifyStreamEffectfulSendIdentify,
         }
     }
 }

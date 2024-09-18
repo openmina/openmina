@@ -12,6 +12,7 @@ use std::{
 use libp2p_identity::Keypair;
 use mio::net::{TcpListener, TcpStream};
 
+use openmina_core::bug_condition;
 use thiserror::Error;
 
 use crate::{ConnectionAddr, MioCmd, MioEvent};
@@ -90,7 +91,7 @@ impl MioService {
 
     pub fn send_cmd(&mut self, cmd: MioCmd) {
         let MioService::Ready(service) = self else {
-            debug_assert!(false, "mio service is not initialized");
+            bug_condition!("mio service is not initialized");
             return;
         };
         service.cmd_sender.send(cmd).unwrap_or_default();

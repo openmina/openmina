@@ -14,6 +14,7 @@ enum BenchmarksWalletsActionTypes {
   BENCHMARKS_WALLETS_SEND_TX_SUCCESS = 'BENCHMARKS_WALLETS_SEND_TX_SUCCESS',
   BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET = 'BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET',
   BENCHMARKS_WALLETS_SELECT_WALLET = 'BENCHMARKS_WALLETS_SELECT_WALLET',
+  BENCHMARKS_WALLETS_CHANGE_AMOUNT = 'BENCHMARKS_WALLETS_CHANGE_AMOUNT',
   BENCHMARKS_WALLETS_CHANGE_FEE = 'BENCHMARKS_WALLETS_CHANGE_FEE',
   BENCHMARKS_WALLETS_GET_ALL_TXS = 'BENCHMARKS_WALLETS_GET_ALL_TXS',
   BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS = 'BENCHMARKS_GET_ALL_TXS_SUCCESS',
@@ -29,6 +30,7 @@ export const BENCHMARKS_WALLETS_SEND_TX_SYNCED = BenchmarksWalletsActionTypes.BE
 export const BENCHMARKS_WALLETS_SEND_TX_SUCCESS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SEND_TX_SUCCESS;
 export const BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET;
 export const BENCHMARKS_WALLETS_SELECT_WALLET = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SELECT_WALLET;
+export const BENCHMARKS_WALLETS_CHANGE_AMOUNT = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_CHANGE_AMOUNT;
 export const BENCHMARKS_WALLETS_CHANGE_FEE = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_CHANGE_FEE;
 export const BENCHMARKS_WALLETS_GET_ALL_TXS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_GET_ALL_TXS;
 export const BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS;
@@ -91,6 +93,12 @@ export class BenchmarksWalletsSelectWallet implements BenchmarksWalletsAction {
   constructor(public payload: BenchmarksWallet) {}
 }
 
+export class BenchmarksWalletsChangeAmount implements BenchmarksWalletsAction {
+  readonly type = BENCHMARKS_WALLETS_CHANGE_AMOUNT;
+
+  constructor(public payload: number) {}
+}
+
 export class BenchmarksWalletsChangeFee implements BenchmarksWalletsAction {
   readonly type = BENCHMARKS_WALLETS_CHANGE_FEE;
 
@@ -122,6 +130,7 @@ export type BenchmarksWalletsActions =
   | BenchmarksWalletsSendTxSuccess
   | BenchmarksWalletsToggleRandomWallet
   | BenchmarksWalletsSelectWallet
+  | BenchmarksWalletsChangeAmount
   | BenchmarksWalletsChangeFee
   | BenchmarksWalletsGetAllTxs
   | BenchmarksWalletsGetAllTxsSuccess

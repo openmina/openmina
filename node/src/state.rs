@@ -1,7 +1,9 @@
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::ConsensusConstants;
 use openmina_core::{constants::constraint_constants, error, ChainId};
-use p2p::{P2pConfig, P2pPeerState, P2pPeerStatusReady, PeerId};
+use p2p::bootstrap::P2pNetworkKadBootstrapState;
+use p2p::network::identify::P2pNetworkIdentifyState;
+use p2p::{P2pConfig, P2pNetworkSchedulerState, P2pPeerState, P2pPeerStatusReady, PeerId};
 use redux::{ActionMeta, EnablingCondition, Timestamp};
 use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyState;
@@ -92,22 +94,6 @@ impl openmina_core::SubstateAccess<P2pState> for State {
     }
 }
 
-impl openmina_core::SubstateAccess<p2p::P2pNetworkState> for State {
-    fn substate(&self) -> openmina_core::SubstateResult<&p2p::P2pNetworkState> {
-        self.p2p
-            .ready()
-            .ok_or_else(|| "Network state unavailable. P2P layer is not ready".to_owned())
-            .map(|p2p| &p2p.network)
-    }
-
-    fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut p2p::P2pNetworkState> {
-        self.p2p
-            .ready_mut()
-            .ok_or_else(|| "Network state unavailable. P2P layer is not ready".to_owned())
-            .map(|p2p| &mut p2p.network)
-    }
-}
-
 impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerState> for State {
     fn substate(&self) -> openmina_core::SubstateResult<&TransitionFrontierSyncLedgerState> {
         self.transition_frontier
@@ -177,6 +163,33 @@ impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerStagedState> for 
             .ok_or_else(|| "Staged ledger state unavailable".to_owned())
     }
 }
+
+macro_rules! impl_p2p_state_access {
+    ($state:ty, $substate_type:ty) => {
+        impl openmina_core::SubstateAccess<$substate_type> for $state {
+            fn substate(&self) -> openmina_core::SubstateResult<&$substate_type> {
+                let substate: &P2pState = self.substate()?;
+                substate.substate()
+            }
+
+            fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut $substate_type> {
+                let substate: &mut P2pState = self.substate_mut()?;
+                substate.substate_mut()
+            }
+        }
+    };
+}
+
+impl_p2p_state_access!(State, P2pNetworkIdentifyState);
+impl_p2p_state_access!(State, p2p::P2pNetworkState);
+impl_p2p_state_access!(State, P2pNetworkKadBootstrapState);
+impl_p2p_state_access!(State, p2p::P2pNetworkKadState);
+impl_p2p_state_access!(State, P2pNetworkSchedulerState);
+impl_p2p_state_access!(State, p2p::P2pLimits);
+impl_p2p_state_access!(State, p2p::P2pNetworkPubsubState);
+impl_p2p_state_access!(State, p2p::P2pConfig);
+
+impl p2p::P2pStateTrait for State {}
 
 pub type Substate<'a, S> = openmina_core::Substate<'a, crate::Action, State, S>;
 

@@ -114,7 +114,7 @@ where
             type Value = T;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("stringified number")
+                formatter.write_str("a stringified number or a literal integer")
             }
 
             fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
@@ -143,9 +143,28 @@ where
                     serde::de::Error::custom("failed to parse string as number".to_string())
                 })
             }
+
+            fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let s = v.to_string();
+                s.parse()
+                    .map_err(|_| serde::de::Error::custom("failed to parse integer as number"))
+            }
+
+            fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                let s = v.to_string();
+                s.parse().map_err(|_| {
+                    serde::de::Error::custom("failed to parse unsigned integer as number")
+                })
+            }
         }
         deserializer
-            .deserialize_string(V::<T>(Default::default()))
+            .deserialize_any(V::<T>(Default::default()))
             .map(Self)
     }
 }

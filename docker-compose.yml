@@ -11,5 +11,7 @@ services:
 
   frontend:
     image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}
+    environment:
+      OPENMINA_FRONTEND_ENVIRONMENT: compose
     ports:
       - "8070:80"

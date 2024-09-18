@@ -40,6 +40,6 @@ pub trait SnarkStore<GlobalState>:
 }
 impl<S, T: SubStore<S, SnarkState, SubAction = SnarkAction>> SnarkStore<S> for T {}
 
-pub fn get_srs() -> std::sync::Arc<std::sync::Mutex<poly_commitment::srs::SRS<Vesta>>> {
+pub fn get_srs() -> std::sync::Arc<poly_commitment::srs::SRS<Vesta>> {
     ledger::verifier::get_srs::<mina_hasher::Fp>()
 }

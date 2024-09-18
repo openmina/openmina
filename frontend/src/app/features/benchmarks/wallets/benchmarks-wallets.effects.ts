@@ -45,10 +45,10 @@ export class BenchmarksWalletsEffects extends MinaRustBaseEffect<BenchmarksWalle
       switchMap(({ action }) => this.benchmarksService.getAccounts().pipe(
         switchMap(payload => {
           const actions = [];
-          actions.push({ type: BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS, payload });
           if (action.payload?.initialRequest) {
             actions.push({ type: BENCHMARKS_WALLETS_GET_ALL_TXS });
           }
+          actions.push({ type: BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS, payload });
           return actions;
         }),
       )),

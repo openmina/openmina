@@ -41,7 +41,7 @@ use crate::{
         scan_state::transaction_snark::{Registers, SokDigest, SokMessage, Statement},
         transaction_logic::{local_state::LocalState, transaction_union_payload},
     },
-    verifier::get_srs,
+    verifier::get_srs_mut,
     Account, MyCow, ReceiptChainHash, SpongeParamsForField, TimingAsRecord, TokenId, TokenSymbol,
 };
 
@@ -3898,7 +3898,7 @@ pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
 
     // TODO: `proof-systems` needs to change how the SRS is used
     let srs: poly_commitment::srs::SRS<F::OtherCurve> = {
-        let srs = get_srs::<F>();
+        let srs = get_srs_mut::<F>();
         let mut srs = srs.lock().unwrap();
         srs.add_lagrange_basis(cs.domain.d1);
         srs.clone()

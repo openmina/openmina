@@ -80,7 +80,7 @@ impl YamuxStreamState {
 }
 
 bitflags::bitflags! {
-    #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
     pub struct YamuxFlags: u16 {
         const SYN = 0b0001;
         const ACK = 0b0010;
@@ -89,7 +89,7 @@ bitflags::bitflags! {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct YamuxPing {
     pub stream_id: StreamId,
     pub opaque: i32,

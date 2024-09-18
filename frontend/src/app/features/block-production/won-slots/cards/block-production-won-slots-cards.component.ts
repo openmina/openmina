@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
-import { lastItem, ONE_BILLION, ONE_MILLION, ONE_THOUSAND, toReadableDate } from '@openmina/shared';
+import { lastItem, ONE_BILLION, ONE_THOUSAND } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { filter } from 'rxjs';
 import {
@@ -35,8 +35,8 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
 
   private listenToEpoch(): void {
     this.select(BlockProductionWonSlotsSelectors.epoch, (epoch: BlockProductionWonSlotsEpoch) => {
-      const epochStartTime = this.addMinutesToTimestamp(epoch.currentTime / ONE_BILLION, -epoch.currentGlobalSlot * 3);
-      this.card1.startedAgo = getTimeDiff(epochStartTime * ONE_THOUSAND).diff;
+      const epochStartTime = this.addMinutesToTimestamp(Math.floor(epoch.currentTime / ONE_BILLION), -(epoch.currentGlobalSlot - epoch.start) * 3);
+      this.card1.startedAgo = getTimeDiff(Math.floor(epochStartTime * ONE_THOUSAND)).diff;
 
       const epochEndTime = this.addMinutesToTimestamp(epoch.currentTime / ONE_BILLION, (epoch.end - epoch.currentGlobalSlot) * 3);
       this.card5.endIn = getTimeDiff(epochEndTime * ONE_THOUSAND).diff;
@@ -49,7 +49,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
   private listenToSlots(): void {
     this.select(BlockProductionWonSlotsSelectors.slots, (slots: BlockProductionWonSlotsSlot[]) => {
       this.card1.epoch = slots[0].epoch;
-      const nextSlot = slots.find(s => !s.status);
+      const nextSlot = slots.find(s => s.status === BlockProductionWonSlotsStatus.Scheduled || !s.status);
       if (nextSlot) {
         this.card2.nextWonSlot = getTimeDiff(nextSlot.slotTime).diff;
         this.card2.slot = nextSlot.globalSlot;

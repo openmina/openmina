@@ -13,7 +13,7 @@ use crate::{
             create_oracle, dummy_ipa_wrap_sg, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2,
         },
     },
-    verifier::get_srs,
+    verifier::{get_srs, get_srs_mut},
     SpongeParamsForField,
 };
 use ark_ff::{BigInteger256, One, Zero};
@@ -2055,7 +2055,6 @@ fn wrap_compute_sg(challenges: &[[u64; 2]]) -> GroupAffine<Fp> {
 
     let comm = {
         let srs = get_srs::<Fq>();
-        let srs = srs.lock().unwrap();
         srs.commit_non_hiding(&p, None)
     };
     comm.unshifted[0]
@@ -2741,7 +2740,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         .try_into()
         .unwrap();
 
-    let srs = get_srs::<Fq>();
+    let srs = get_srs_mut::<Fq>();
     let mut srs = srs.lock().unwrap();
 
     let bulletproof_challenges = prevs

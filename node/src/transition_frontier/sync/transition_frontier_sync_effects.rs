@@ -7,12 +7,12 @@ use redux::ActionMeta;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
-use crate::{p2p_ready, Service, Store};
+use crate::{p2p_ready, Service, Store, TransitionFrontierAction};
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::ledger::{SyncLedgerTarget, TransitionFrontierSyncLedgerAction};
-use super::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
+use super::{SyncError, TransitionFrontierSyncAction, TransitionFrontierSyncState};
 
 impl TransitionFrontierSyncAction {
     pub fn effects<S>(&self, meta: &ActionMeta, store: &mut Store<S>)
@@ -265,6 +265,23 @@ impl TransitionFrontierSyncAction {
                 });
             }
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
+            TransitionFrontierSyncAction::BlocksNextApplyError { hash, error } => {
+                let Some((best_tip, failed_block)) = None.or_else(|| {
+                    Some((
+                        store.state().transition_frontier.sync.best_tip()?.clone(),
+                        store
+                            .state()
+                            .transition_frontier
+                            .sync
+                            .block_state(hash)?
+                            .block()?,
+                    ))
+                }) else {
+                    return;
+                };
+                let error = SyncError::BlockApplyFailed(failed_block.clone(), error.clone());
+                store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
+            }
             TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
                 if let Some(stats) = store.service.stats() {
                     stats.block_producer().block_apply_end(meta.time(), hash);
@@ -302,7 +319,7 @@ impl TransitionFrontierSyncAction {
                     .flat_map(|b| {
                         [
                             b.snarked_ledger_hash(),
-                            b.staged_ledger_hash(),
+                            b.merkle_root_hash(),
                             b.staking_epoch_ledger_hash(),
                             b.next_epoch_ledger_hash(),
                         ]

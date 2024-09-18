@@ -7,12 +7,16 @@ import { RustService } from '@core/services/rust.service';
 import {
   MempoolTransaction,
   MempoolTransactionKind,
-  SignedCommand,
+  SignedCommand, ZkappCommand,
 } from '@shared/types/mempool/mempool-transaction.type';
 import { getTimeFromMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
-import { ONE_BILLION } from '@openmina/shared';
+import { any, ONE_BILLION } from '@openmina/shared';
 
 export const WALLETS: { privateKey: string, publicKey: string }[] = [
+  {
+    privateKey: 'EKEQGWy4TjbVeqKjbe7TW81DKQM34min5FNmXpKArHKLyGVd3KSP',
+    publicKey: 'B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV',
+  },
   {
     privateKey: 'EKETKywEr7ktbzqj8D2aj4yYZVMyj33sHuWLQydbzt1M3sGnAbTh',
     publicKey: 'B62qnLjgW4LAnrxkcdLc7Snb49qx6aP5qsmPsp6ueZN4XPMC621cqGc',
@@ -4030,16 +4034,28 @@ export class BenchmarksWalletsService {
 
   getAccounts(): Observable<Pick<BenchmarksWallet, 'publicKey' | 'privateKey' | 'minaTokens' | 'nonce'>[]> {
     return this.rust.get<any[]>('/accounts').pipe(
-      map(wallets => wallets.map(wallet => ({
-        privateKey: WALLETS.find(w => w.publicKey === wallet.public_key)?.privateKey,
-        publicKey: wallet.public_key,
-        minaTokens: wallet.balance / ONE_BILLION,
-        nonce: wallet.nonce,
-      }))),
-      // TODO: This is a backend issue, must delete this map when we have all 1000 accounts in the backend
-      map(wall => {
+      map(wallets => wallets.map(wallet => {
+        return ({
+          privateKey: WALLETS.find(w => w.publicKey === wallet.public_key)?.privateKey,
+          publicKey: wallet.public_key,
+          minaTokens: wallet.balance / ONE_BILLION,
+          nonce: wallet.nonce,
+        });
+      })),
+      map(wallets => {
         return [
-          ...wall.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
+          ...wallets.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
+          // ...wallets
+          //   .filter(w => {
+          //     let foundW = WALLETS.find(wa => wa.publicKey === w.publicKey);
+          //     return foundW?.publicKey === 'B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV';
+          //   }),
+          //   .map(wallet => ({
+          //     privateKey: wallet.privateKey,
+          //     publicKey: wallet.publicKey,
+          //     minaTokens: 0,
+          //     nonce: 0,
+          //   })),
         ];
       }),
     );
@@ -4082,21 +4098,28 @@ export class BenchmarksWalletsService {
   }
 
   getAllIncludedTransactions(): Observable<MempoolTransaction[]> {
-    return this.rust.get<{ SignedCommand: SignedCommand }[]>('/best-chain-user-commands').pipe(
+    return this.rust.get<Array<{ SignedCommand: SignedCommand } | {
+      ZkappCommand: ZkappCommand
+    }>>('/best-chain-user-commands').pipe(
       map(data => this.mapTxPoolResponse(data)),
     );
   }
 
-  private mapTxPoolResponse(response: { SignedCommand: SignedCommand }[]): MempoolTransaction[] {
-    return response.map(tx => ({
-      kind: MempoolTransactionKind.PAYMENT,
-      sender: tx.SignedCommand.payload.common.fee_payer_pk,
-      fee: Number(tx.SignedCommand.payload.common.fee),
-      nonce: Number(tx.SignedCommand.payload.common.nonce),
-      memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
-      transactionData: tx.SignedCommand,
-      sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
-      sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
-    } as MempoolTransaction));
+  private mapTxPoolResponse(response: Array<{ SignedCommand: SignedCommand } | {
+    ZkappCommand: ZkappCommand
+  }>): MempoolTransaction[] {
+    return response
+      .filter(tx => !!any(tx).SignedCommand)
+      .map(tx => tx as { SignedCommand: SignedCommand })
+      .map((tx: { SignedCommand: SignedCommand }) => ({
+        kind: MempoolTransactionKind.PAYMENT,
+        sender: tx.SignedCommand.payload.common.fee_payer_pk,
+        fee: Number(tx.SignedCommand.payload.common.fee),
+        nonce: Number(tx.SignedCommand.payload.common.nonce),
+        memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
+        transactionData: tx.SignedCommand,
+        sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
+        sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
+      } as MempoolTransaction));
   }
 }

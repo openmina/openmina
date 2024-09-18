@@ -10,6 +10,7 @@ mod transition_frontier_sync_reducer;
 
 mod transition_frontier_sync_effects;
 
+use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -17,4 +18,10 @@ pub enum PeerBlockFetchError {
     Timeout,
     Disconnected,
     DataUnavailable,
+}
+
+#[derive(thiserror::Error, Serialize, Deserialize, Debug, Clone)]
+pub enum SyncError {
+    #[error("sync failed due to block({}, {}) application error: {1}", .0.height(), .0.hash())]
+    BlockApplyFailed(ArcBlockWithHash, String),
 }

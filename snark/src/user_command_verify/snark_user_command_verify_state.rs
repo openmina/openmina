@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use mina_p2p_messages::{list::List, v2};
@@ -13,12 +13,12 @@ use super::{SnarkUserCommandVerifyError, SnarkUserCommandVerifyId, SnarkUserComm
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkUserCommandVerifyState {
     pub verifier_index: Arc<VerifierIndex>,
-    pub verifier_srs: Arc<Mutex<VerifierSRS>>,
+    pub verifier_srs: Arc<VerifierSRS>,
     pub jobs: PendingRequests<SnarkUserCommandVerifyIdType, SnarkUserCommandVerifyStatus>,
 }
 
 impl SnarkUserCommandVerifyState {
-    pub fn new(verifier_index: Arc<VerifierIndex>, verifier_srs: Arc<Mutex<VerifierSRS>>) -> Self {
+    pub fn new(verifier_index: Arc<VerifierIndex>, verifier_srs: Arc<VerifierSRS>) -> Self {
         Self {
             verifier_index,
             verifier_srs,

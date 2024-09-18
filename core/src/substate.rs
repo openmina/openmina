@@ -64,7 +64,10 @@ where
     }
 
     /// Obtain an immutable reference to the state.
-    pub fn get_state(&self) -> &T {
+    ///
+    ///
+    /// WARNING: Should only be used in tests and for debugging
+    pub fn unsafe_get_state(&self) -> &T {
         self.state
     }
 

@@ -10,9 +10,11 @@ impl P2pNetworkIdentifyAction {
         Store::Service: P2pNetworkService,
     {
         match self {
-            crate::network::identify::P2pNetworkIdentifyAction::Stream(action) => {
-                action.effects(meta, store)
+            P2pNetworkIdentifyAction::Stream(_) => {
+                // handled by reducer
+                Ok(())
             }
+            P2pNetworkIdentifyAction::StreamEffectful(action) => action.effects(meta, store),
         }
     }
 }

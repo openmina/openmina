@@ -8,7 +8,10 @@ import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum'
 import { Store } from '@ngrx/store';
 import { Router } from '@angular/router';
 import { BaseEffect } from '@shared/base-classes/mina-rust-base.effect';
-import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
+import {
+  BLOCK_PRODUCTION_OVERVIEW_KEY,
+  BlockProductionOverviewActions,
+} from '@block-production/overview/block-production-overview.actions';
 import { BlockProductionOverviewService } from '@block-production/overview/block-production-overview.service';
 import {
   BlockProductionOverviewEpoch,
@@ -41,8 +44,19 @@ export class BlockProductionOverviewEffects extends BaseEffect {
     this.getActiveEpochDetails$ = createEffect(() => this.actions$.pipe(
       ofType(BlockProductionOverviewActions.getEpochDetails, BlockProductionOverviewActions.close),
       this.latestActionState(),
-      switchMap(({ action }) => action.type === BlockProductionOverviewActions.close.type ? EMPTY : this.bpOverviewService.getEpochDetails(action.epochNumber)),
-      tap(response => this.router.navigate([Routes.BLOCK_PRODUCTION, Routes.OVERVIEW, response.epochNumber], { queryParamsHandling: 'merge' })),
+      switchMap(({ action, state }) =>
+        action.type === BlockProductionOverviewActions.close.type
+          ? EMPTY
+          : this.bpOverviewService.getEpochDetails(action.epochNumber).pipe(
+            tap(response => {
+              let routes = [Routes.BLOCK_PRODUCTION, Routes.OVERVIEW, response.epochNumber];
+              if (state.blockProduction[BLOCK_PRODUCTION_OVERVIEW_KEY].activeSlotRoute) {
+                routes = [...routes, state.blockProduction[BLOCK_PRODUCTION_OVERVIEW_KEY].activeSlotRoute];
+              }
+              return this.router.navigate(routes, { queryParamsHandling: 'merge' });
+            }),
+          ),
+      ),
       switchMap((payload: BlockProductionOverviewEpochDetails) => [
         BlockProductionOverviewActions.getEpochDetailsSuccess({ details: payload }),
         BlockProductionOverviewActions.getEpochs({ epochNumber: payload.epochNumber }),

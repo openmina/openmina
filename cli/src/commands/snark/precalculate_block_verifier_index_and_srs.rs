@@ -23,7 +23,6 @@ impl PrecalculateBlockVerifierIndexAndSrs {
 
         let srs = {
             let srs = get_srs();
-            let srs = srs.lock().expect("Failed to lock SRS");
             srs_to_bytes(&srs)
         };
         let mut hasher = Sha256::new();

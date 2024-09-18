@@ -20,6 +20,7 @@ export class AppComponent extends ManualDetection implements OnInit {
 
   menu$: Observable<AppMenu> = this.store.select(AppSelectors.menu);
   subMenusLength: number = 0;
+  hideToolbar: boolean = CONFIG.hideToolbar;
 
   constructor(private store: Store<MinaState>,
               private breakpointObserver: BreakpointObserver) {
@@ -31,7 +32,9 @@ export class AppComponent extends ManualDetection implements OnInit {
   }
 
   ngOnInit(): void {
-    this.scheduleNodeUpdates();
+    if (!this.hideToolbar && !CONFIG.hideNodeStats) {
+      this.scheduleNodeUpdates();
+    }
     this.listenToWindowResizing();
   }
 

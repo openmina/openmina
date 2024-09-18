@@ -58,6 +58,12 @@ mod data {
     #[derive(Clone, Default)]
     pub struct Data(pub Box<[u8]>);
 
+    impl Data {
+        pub fn empty() -> Self {
+            Self(Box::new([0; 0]))
+        }
+    }
+
     impl<const N: usize> Serialize for DataSized<N> {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where

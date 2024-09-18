@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BlockProductionModule } from '@app/features/block-production/block-production.module';
-import { map, Observable } from 'rxjs';
+import { delay, forkJoin, map, Observable } from 'rxjs';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
@@ -84,9 +84,12 @@ export class BlockProductionOverviewService {
   }
 
   getSlots(epochNumber?: number): Observable<BlockProductionOverviewSlot[]> {
-    return this.rust.get<SlotResponse[]>(`/epoch/${epochNumber ?? 'latest'}`).pipe(
-      map((response: SlotResponse[]) => {
-        const activeSlotIndex = response.findIndex(slot => slot.is_current_slot);
+    return forkJoin([
+      this.rust.get<SlotResponse[]>(`/epoch/${epochNumber ?? 'latest'}`),
+      this.rust.get<CurrentSlotResponse>(`/node/current_slot`),
+    ]).pipe(
+      map(([response, currentSlot]: [SlotResponse[], CurrentSlotResponse]) => {
+        const activeSlotIndex = response.findIndex(slot => slot.global_slot === currentSlot.global_slot);
         return response.map((slot: SlotResponse, i: number) => ({
           slot: slot.slot,
           globalSlot: slot.global_slot,
@@ -97,7 +100,8 @@ export class BlockProductionOverviewService {
           orphaned: slot.block_status === BlockStatus.Orphaned || slot.block_status === BlockStatus.OrphanedPending,
           missed: slot.block_status === BlockStatus.Missed,
           futureRights: slot.block_status === BlockStatus.ToBeProduced,
-          active: slot.is_current_slot,
+          status: slot.block_status,
+          active: activeSlotIndex === i,
           hash: slot.state_hash,
         } as BlockProductionOverviewSlot));
       }),
@@ -216,4 +220,10 @@ export enum BlockStatus {
   CanonicalPending = 'CanonicalPending',
   Foreign = 'Foreign',
   Missed = 'Missed',
+}
+
+interface CurrentSlotResponse {
+  slot: number;
+  global_slot: number;
+  global_slot_since_genesis: number;
 }

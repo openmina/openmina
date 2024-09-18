@@ -43,7 +43,7 @@ pub enum LedgerReadRequest {
     GetChildAccountsAtAddr(v2::LedgerHash, LedgerAddress),
     GetStagedLedgerAuxAndPendingCoinbases(LedgerReadStagedLedgerAuxAndPendingCoinbases),
     // rpcs
-    ScanStateSummary(v2::LedgerHash),
+    ScanStateSummary(v2::MinaBaseStagedLedgerHashStableV1),
     AccountsForRpc(RpcId, v2::LedgerHash, Option<AccountPublicKey>),
 }
 
@@ -64,7 +64,7 @@ pub enum LedgerReadResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LedgerReadStagedLedgerAuxAndPendingCoinbases {
-    pub ledger_hash: v2::LedgerHash,
+    pub ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
     pub protocol_states: BTreeMap<v2::StateHash, v2::MinaStateProtocolStateValueStableV2>,
 }
 

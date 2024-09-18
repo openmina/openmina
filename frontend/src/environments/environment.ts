@@ -14,28 +14,26 @@ export const environment: Readonly<MinaEnv> = {
       'block-production': ['overview', 'won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
-      // 'block-production': ['won-slots'],
-      // 'nodes': ['overview', 'live', 'bootstrap'],
-      // 'mempool': [],
-      // 'state': ['actions'],
     },
     canAddNodes: false,
+    minaExplorerNetwork: 'devnet',
   },
   configs: [
     // {
-    //   name: 'feat/frontend-api-peers',
-    //   url: 'http://176.9.147.28:3000',
-    //   features: {
-    //     dashboard: [],
-    //     nodes: ['overview', 'live', 'bootstrap'],
-    //     state: ['actions'],
-    //     snarks: ['scan-state', /*'work-pool'*/],
-    //     resources: ['memory'],
-    //   },
-    // },
-    // {
     //   name: 'http://116.202.128.230:11010',
     //   url: 'http://116.202.128.230:11010',
+    // },
+    // {
+    //   name: 'Producer-0',
+    //   url: 'https://staging-devnet-openmina-bp-0-dashboard.minaprotocol.network',
+    // },
+    // {
+    //   name: 'Producer-1',
+    //   url: 'https://staging-devnet-openmina-bp-1-dashboard.minaprotocol.network',
+    // },
+    // {
+    //   name: 'Producer-2',
+    //   url: 'https://staging-devnet-openmina-bp-2-dashboard.minaprotocol.network',
     // },
     {
       name: 'staging-devnet-bp-0',
@@ -54,14 +52,29 @@ export const environment: Readonly<MinaEnv> = {
       url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
     },
     // {
+    //   name: 'Web Node 1',
+    //   isWebNode: true,
+    // },
+    // {
+    //   name: 'http://65.109.105.40:3000',
+    //   url: 'http://65.109.105.40:3000',
+    // },
+    // {
     //   name: 'Local rust node',
     //   url: 'http://127.0.0.1:3000',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
-    {
-      name: 'Web Node 1',
-      isWebNode: true,
-    },
+    // {
+    //   name: 'feat/frontend-api-peers',
+    //   url: 'http://176.9.147.28:3000',
+    //   features: {
+    //     dashboard: [],
+    //     nodes: ['overview', 'live', 'bootstrap'],
+    //     state: ['actions'],
+    //     snarks: ['scan-state', /*'work-pool'*/],
+    //     resources: ['memory'],
+    //   },
+    // },
     // {
     //   name: 'Docker 11010',
     //   url: 'http://localhost:11010',
@@ -143,3 +156,4 @@ export const environment: Readonly<MinaEnv> = {
     // },
   ],
 };
+

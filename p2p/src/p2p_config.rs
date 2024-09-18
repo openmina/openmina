@@ -245,7 +245,7 @@ macro_rules! impls {
 impls!(usize);
 impls!(std::time::Duration);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct P2pLimits {
     max_peers: Limit<usize>,
     max_streams: Limit<usize>,

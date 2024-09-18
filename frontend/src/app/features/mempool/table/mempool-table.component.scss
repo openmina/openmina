@@ -23,3 +23,18 @@
   background-color: $special-selected-alt-2-container;
   color: $special-selected-alt-2-primary;
 }
+
+.status {
+  padding: 3px 5px;
+  border-radius: 4px;
+
+  &.ZKApp {
+    background-color: $special-selected-alt-1-container;
+    color: $special-selected-alt-1-primary;
+  }
+
+  &.Payment {
+    background-color: $special-selected-alt-3-container;
+    color: $special-selected-alt-3-primary;
+  }
+}

@@ -30,7 +30,8 @@ use super::{
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerHash,
     MinaBaseAccountBinableArgStableV2, MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
-    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
+    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseHashBuilderStableV1,
+    MinaBasePendingCoinbaseHashVersionedStableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
     MinaBasePendingCoinbaseStateStackStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
     MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
     MinaBaseStateBodyHashStableV1, MinaBaseVerificationKeyWireStableV1,
@@ -40,7 +41,8 @@ use super::{
     MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
     MinaStateProtocolStateValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, StateHash, TokenFeeExcess,
+    NonZeroCurvePointUncompressedStableV1, PendingCoinbaseHash, SgnStableV1, SignedAmount,
+    StateHash, TokenFeeExcess,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -334,6 +336,15 @@ impl StateHash {
 impl LedgerHash {
     pub fn from_fp(fp: Fp) -> Self {
         MinaBaseLedgerHash0StableV1(fp.into()).into()
+    }
+}
+
+impl PendingCoinbaseHash {
+    pub fn from_fp(fp: Fp) -> Self {
+        MinaBasePendingCoinbaseHashVersionedStableV1(MinaBasePendingCoinbaseHashBuilderStableV1(
+            fp.into(),
+        ))
+        .into()
     }
 }
 

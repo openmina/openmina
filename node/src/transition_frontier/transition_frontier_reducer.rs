@@ -1,4 +1,4 @@
-use super::sync::TransitionFrontierSyncState;
+use super::sync::{SyncError, TransitionFrontierSyncState};
 use super::{
     TransitionFrontierAction, TransitionFrontierActionWithMetaRef, TransitionFrontierState,
 };
@@ -77,8 +77,23 @@ impl TransitionFrontierState {
                     state.needed_protocol_states.insert(hash, protocol_state);
                 }
 
+                state.blacklist.retain(|_, height| {
+                    // prune blocks from black list that can't end up
+                    // into transition frontier anymore due to consensus
+                    // reasons.
+                    let tip = new_chain.last().unwrap();
+                    *height + tip.constants().k.as_u32() > tip.height()
+                });
                 state.chain_diff = state.maybe_make_chain_diff(&new_chain);
                 state.best_chain = new_chain;
+                state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
+            }
+            TransitionFrontierAction::SyncFailed { error, .. } => {
+                match error {
+                    SyncError::BlockApplyFailed(block, _) => {
+                        state.blacklist.insert(block.hash().clone(), block.height());
+                    }
+                }
                 state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
             }
         }

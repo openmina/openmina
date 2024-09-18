@@ -12,42 +12,33 @@ import {
   NodesOverviewLedgerEpochStep,
   NodesOverviewLedgerStepState,
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
-import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { NodesOverviewResync } from '@shared/types/nodes/dashboard/nodes-overview-resync.type';
+import { NodeDetailsResponse } from '@app/app.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class NodesOverviewService {
 
-  constructor(private http: HttpClient) {
-  }
+  constructor(private http: HttpClient) {}
 
-  getNodes(nodes: MinaNode[]): Observable<NodesOverviewNode[]> {
-    return forkJoin(
-      nodes.map((node: MinaNode) => {
-        return this.getNodeTips({ url: node.url, name: node.name }, '?limit=1');
-      }),
-    ).pipe(
-      map((nodes: NodesOverviewNode[][]) => nodes.map(n => n[0])),
-    );
-  }
-
-  getNodeTips(nodeParam: {
-    url: string,
-    name: string
-  }, qp: string = '', onlyOne: boolean = false): Observable<NodesOverviewNode[]> {
-    return this.http.get<any[]>(nodeParam.url + '/stats/sync' + qp)
+  getNodeTips(nodeParam: { url: string, name: string }, qp: string = ''): Observable<NodesOverviewNode[]> {
+    return forkJoin([
+      this.http.get<any[]>(nodeParam.url + '/stats/sync' + qp),
+      this.http.get<NodeDetailsResponse>(nodeParam.url + '/status' + qp),
+    ])
       .pipe(
-        map((response: any[]) => this.mapNodeTipsResponse(response, onlyOne, nodeParam)),
-        catchError(err => this.mapNodeTipsErrorResponse(nodeParam)),
+        map((response: [any, NodeDetailsResponse]) => this.mapNodeTipsResponse(response, nodeParam)),
+        catchError(() => this.mapNodeTipsErrorResponse(nodeParam)),
       );
   }
 
-  public mapNodeTipsErrorResponse(nodeParam: { url: string; name: string }) {
+  public mapNodeTipsErrorResponse(nodeParam: { url: string; name: string }): Observable<NodesOverviewNode[]> {
     return of([{
       name: nodeParam.name,
       kind: NodesOverviewNodeKindType.OFFLINE,
+      snarks: 0,
+      transactions: 0,
       bestTipReceived: '-',
       bestTipReceivedTimestamp: 0,
       bestTip: '-',
@@ -64,34 +55,36 @@ export class NodesOverviewService {
     }]);
   }
 
-  public mapNodeTipsResponse(response: any[], onlyOne: boolean, nodeParam: { url: string; name: string }) {
-    if (response.length === 0) {
+  public mapNodeTipsResponse([syncTips, nodeDetails]: [any, NodeDetailsResponse | undefined], nodeParam: {
+    url: string;
+    name: string
+  }): NodesOverviewNode[] {
+    if (syncTips.length === 0) {
       throw new Error('Empty response');
     }
-    return response
-      .slice(0, onlyOne ? 1 : response.length)
+    return syncTips
       .map((node: any) => {
-        const blocks = node.blocks.map((block: any) => {
-          return {
-            globalSlot: block.global_slot,
-            height: block.height,
-            hash: block.hash,
-            predHash: block.pred_hash,
-            status: block.status,
-            fetchStart: block.fetch_start,
-            fetchEnd: block.fetch_end,
-            applyStart: block.apply_start,
-            applyEnd: block.apply_end,
-            fetchDuration: this.getDuration(block.fetch_start, block.fetch_end),
-            applyDuration: this.getDuration(block.apply_start, block.apply_end),
-          } as NodesOverviewBlock;
-        });
+        const blocks = node.blocks.map((block: any) => ({
+          globalSlot: block.global_slot,
+          height: block.height,
+          hash: block.hash,
+          predHash: block.pred_hash,
+          status: block.status,
+          fetchStart: block.fetch_start,
+          fetchEnd: block.fetch_end,
+          applyStart: block.apply_start,
+          applyEnd: block.apply_end,
+          fetchDuration: this.getDuration(block.fetch_start, block.fetch_end),
+          applyDuration: this.getDuration(block.apply_start, block.apply_end),
+        } as NodesOverviewBlock));
         if (blocks.length) {
           blocks[0].isBestTip = true;
         }
         return {
           name: nodeParam.name,
-          kind: hasValue(node.synced) ? NodesOverviewNodeKindType.SYNCED : node.kind,
+          kind: nodeDetails ? nodeDetails.transition_frontier.sync.phase : (hasValue(node.synced) ? NodesOverviewNodeKindType.SYNCED : node.kind),
+          snarks: nodeDetails?.snark_pool.snarks,
+          transactions: nodeDetails?.transaction_pool.transactions,
           bestTipReceived: toReadableDate(node.best_tip_received / ONE_MILLION),
           bestTipReceivedTimestamp: node.best_tip_received / ONE_MILLION,
           bestTip: node.blocks[0]?.hash,
@@ -107,6 +100,17 @@ export class NodesOverviewService {
           blocks,
         } as NodesOverviewNode;
       });
+  }
+
+  private getKind(node: any): NodesOverviewNodeKindType {
+    if (node.kind === 'Synced') {
+      return NodesOverviewNodeKindType.SYNCED;
+    } else {
+      if (!node.blocks[0]?.hash) {
+        return NodesOverviewNodeKindType.BOOTSTRAP;
+      }
+      return NodesOverviewNodeKindType.CATCHUP;
+    }
   }
 
   private getLedgers(ledgers: any): NodesOverviewLedger {

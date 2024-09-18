@@ -144,6 +144,7 @@ pub enum SyncBlockStatus {
     Fetching,
     Fetched,
     Applying,
+    ApplyFailed,
     Applied,
 }
 
@@ -417,6 +418,11 @@ impl SyncBlock {
                 self.global_slot.get_or_insert_with(|| block.global_slot());
                 self.status = SyncBlockStatus::Applying;
                 self.apply_start = Some(*time);
+            }
+            TransitionFrontierSyncBlockState::ApplyError { time, block, .. } => {
+                self.global_slot.get_or_insert_with(|| block.global_slot());
+                self.status = SyncBlockStatus::ApplyFailed;
+                self.apply_end = Some(*time);
             }
             TransitionFrontierSyncBlockState::ApplySuccess { time, block, .. } => {
                 self.global_slot.get_or_insert_with(|| block.global_slot());

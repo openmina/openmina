@@ -28,7 +28,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
         P2pServiceCtx {
             sec_key: sec_key.clone(),
             #[cfg(feature = "p2p-libp2p")]
-            mio: MioService::pending(sec_key.clone().into()),
+            mio: MioService::pending(sec_key.clone().try_into().expect("valid keypair")),
             webrtc: <Self as P2pServiceWebrtc>::init(sec_key, spawner),
         }
     }
@@ -174,7 +174,7 @@ impl P2pServiceCtx {
         Self {
             sec_key: sec_key.clone(),
             #[cfg(feature = "p2p-libp2p")]
-            mio: super::mio::MioService::mocked(sec_key.into()),
+            mio: super::mio::MioService::mocked(sec_key.try_into().expect("valid keypair")),
             webrtc: super::webrtc::P2pServiceCtx {
                 cmd_sender: mpsc::unbounded_channel().0,
                 peers: Default::default(),

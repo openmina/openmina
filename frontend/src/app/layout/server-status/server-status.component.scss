@@ -130,6 +130,10 @@
       border-top-left-radius: 0;
     }
 
+    &.hide-stats::before {
+      border-radius: 6px;
+    }
+
     .strong-text {
       color: $base-primary;
       max-width: 125px;

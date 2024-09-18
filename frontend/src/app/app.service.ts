@@ -27,9 +27,9 @@ export class AppService {
   }
 
   getActiveNodeDetails(): Observable<AppNodeDetails> {
-    return this.rust.get<NodeDetails>('/status')
+    return this.rust.get<NodeDetailsResponse>('/status')
       .pipe(
-        map((data: NodeDetails) => ({
+        map((data: NodeDetailsResponse) => ({
           status: this.getStatus(data),
           blockHeight: data.transition_frontier.best_tip.height,
           blockTime: data.transition_frontier.sync.time,
@@ -39,34 +39,34 @@ export class AppService {
           snarks: data.snark_pool.snarks,
           transactions: data.transaction_pool.transactions,
         } as AppNodeDetails)),
-        catchError((err) => {
-          return of({
-            status: AppNodeStatus.OFFLINE,
-            blockHeight: null,
-            blockTime: null,
-            peers: 0,
-            download: 0,
-            upload: 0,
-            transactions: 0,
-            snarks: 0,
-          } as AppNodeDetails);
-        }),
+        catchError(() => of({
+          status: AppNodeStatus.OFFLINE,
+          blockHeight: null,
+          blockTime: null,
+          peers: 0,
+          download: 0,
+          upload: 0,
+          transactions: 0,
+          snarks: 0,
+        } as AppNodeDetails)),
       );
   }
 
-  private getStatus(data: NodeDetails): AppNodeStatus {
-    if (data.transition_frontier.sync.status === 'Synced') {
-      return AppNodeStatus.SYNCED;
-    } else {
-      if (data.transition_frontier.best_tip === null) {
-        return AppNodeStatus.BOOTSTRAP;
-      }
+  private getStatus(data: NodeDetailsResponse): AppNodeStatus {
+    if (data.transition_frontier.sync.phase === 'Bootstrap') {
+      return AppNodeStatus.BOOTSTRAP;
+    }
+    if (data.transition_frontier.sync.phase === 'Catchup') {
       return AppNodeStatus.CATCHUP;
     }
+    if (data.transition_frontier.sync.phase === 'Synced') {
+      return AppNodeStatus.SYNCED;
+    }
+    return AppNodeStatus.PENDING;
   }
 }
 
-interface NodeDetails {
+export interface NodeDetailsResponse {
   transition_frontier: TransitionFrontier;
   transaction_pool: { transactions: number };
   peers: Peer[];
@@ -88,6 +88,7 @@ interface Sync {
   time: number;
   status: string;
   target: any;
+  phase: 'Bootstrap' | 'Catchup' | 'Synced';
 }
 
 interface Peer {

@@ -431,6 +431,7 @@ pub struct RpcNodeStatusTransitionFrontier {
 pub struct RpcNodeStatusTransitionFrontierSync {
     pub time: Option<redux::Timestamp>,
     pub status: String,
+    pub phase: String,
     pub target: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
 }
 
@@ -619,7 +620,7 @@ pub mod discovery {
                 libp2p: value.peer_id.try_into()?,
                 key: value.key.clone(),
                 dist: this_key - &value.key,
-                addrs: value.addrs.clone(),
+                addrs: value.addresses().clone(),
                 connection: value.connection,
             })
         }

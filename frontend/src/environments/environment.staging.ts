@@ -9,8 +9,11 @@ export const environment: Readonly<MinaEnv> = {
       'nodes': ['overview', 'live', 'bootstrap'],
       'mempool': [],
       'state': ['actions'],
+      'snarks': ['scan-state', 'work-pool'],
+      'benchmarks': ['wallets'],
     },
     canAddNodes: false,
+    minaExplorerNetwork: 'devnet',
   },
   configs: [
     {
