@@ -1,6 +1,7 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
 use openmina_core::block::AppliedBlock;
+use mina_p2p_messages::v2::TokenIdKeyHash;
 use openmina_core::snark::SnarkJobId;
 use openmina_core::ActionEvent;
 use openmina_node_account::AccountPublicKey;
@@ -144,7 +145,7 @@ pub enum RpcAction {
     #[action_event(level = info)]
     LedgerAccountsGetInit {
         rpc_id: RpcId,
-        public_key: Option<AccountPublicKey>,
+        account_query: AccountQuery,
     },
     #[action_event(level = info)]
     LedgerAccountsGetPending {
@@ -154,6 +155,7 @@ pub enum RpcAction {
     LedgerAccountsGetSuccess {
         rpc_id: RpcId,
         accounts: Vec<Account>,
+        account_query: AccountQuery,
     },
     #[action_event(level = info)]
     TransactionInjectInit {
@@ -187,6 +189,13 @@ pub enum RpcAction {
     Finish {
         rpc_id: RpcId,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AccountQuery {
+    SinglePublicKey(AccountPublicKey),
+    All,
+    PubKeyWithTokenId(AccountPublicKey, TokenIdKeyHash),
 }
 
 impl redux::EnablingCondition<crate::State> for RpcAction {

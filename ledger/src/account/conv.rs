@@ -11,8 +11,9 @@ use mina_p2p_messages::{
         self, MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
         MinaBaseAccountIdStableV2, MinaBaseAccountIndexStableV1, MinaBaseAccountTimingStableV2,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
-        MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
-        NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
+        MinaBaseReceiptChainHashStableV1, MinaBaseVerificationKeyWireStableV1,
+        MinaBaseVerificationKeyWireStableV1WrapIndex, NonZeroCurvePointUncompressedStableV1,
+        PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
     },
 };
 
@@ -639,6 +640,12 @@ impl TryFrom<MinaBaseAccountBinableArgStableV2> for Account {
 impl From<AccountIndex> for MinaBaseAccountIndexStableV1 {
     fn from(value: AccountIndex) -> Self {
         Self(value.as_u64().into())
+    }
+}
+
+impl From<ReceiptChainHash> for mina_p2p_messages::v2::ReceiptChainHash {
+    fn from(value: ReceiptChainHash) -> Self {
+        MinaBaseReceiptChainHashStableV1(value.0.into_repr().into()).into()
     }
 }
 

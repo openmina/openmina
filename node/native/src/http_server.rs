@@ -470,11 +470,11 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
 
         async move {
             rpc_sender_clone
-                .oneshot_request(RpcRequest::LedgerAccountsGet(None))
+                .oneshot_request(RpcRequest::LedgerAccountsGet(AccountQuery::All))
                 .await
                 .map_or_else(
                     dropped_channel_response,
-                    |reply: node::rpc::RpcLedgerAccountsResponse| {
+                    |reply: node::rpc::RpcLedgerSlimAccountsResponse| {
                         with_json_reply(&reply, StatusCode::OK)
                     },
                 )
