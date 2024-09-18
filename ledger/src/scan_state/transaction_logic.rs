@@ -1508,7 +1508,8 @@ pub mod zkapp_command {
                     ]
                     .choose(&mut rng)
                     .unwrap()
-                    .to_string(),
+                    .to_string()
+                    .into_bytes(),
                 )
             });
 
@@ -1517,7 +1518,8 @@ pub mod zkapp_command {
                     ["MINA", "TOKEN1", "TOKEN2", "TOKEN3", "TOKEN4", "TOKEN5"]
                         .choose(&mut rng)
                         .unwrap()
-                        .to_string(),
+                        .to_string()
+                        .into_bytes(),
                 )
             });
 

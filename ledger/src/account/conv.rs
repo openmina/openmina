@@ -341,7 +341,7 @@ impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2
                     action_state,
                     last_action_slot: (&zkapp.last_action_slot).into(),
                     proved_state: zkapp.proved_state,
-                    zkapp_uri: zkapp.zkapp_uri.as_bytes().into(),
+                    zkapp_uri: (&zkapp.zkapp_uri).into(),
                 }
             }),
         }
@@ -585,7 +585,7 @@ impl TryFrom<&MinaBaseAccountBinableArgStableV2> for Account {
             public_key: acc.public_key.inner().try_into()?,
             token_id: acc.token_id.inner().try_into()?,
             token_symbol: {
-                let s: String = (&acc.token_symbol).try_into().unwrap(); // TODO: Handle error
+                let s = acc.token_symbol.0.clone();
                 TokenSymbol::from(s)
             },
             balance: Balance::from_u64(acc.balance.0 .0 .0 .0),
@@ -620,7 +620,7 @@ impl TryFrom<&MinaBaseAccountBinableArgStableV2> for Account {
                         action_state: try_array_into_with(action_state, BigInt::to_field)?,
                         last_action_slot: Slot::from_u32(last_action_slot.as_u32()),
                         proved_state: *proved_state,
-                        zkapp_uri: zkapp_uri.try_into().unwrap(),
+                        zkapp_uri: zkapp_uri.into(),
                     }))
                 }
                 None => None,

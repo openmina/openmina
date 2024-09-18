@@ -1168,11 +1168,11 @@ impl TryFrom<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         Perm::Keep => SetOrKeep::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
-                        ZkAppUri::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        ZkAppUri::Set(s) => SetOrKeep::Set(s.into()),
                         ZkAppUri::Keep => SetOrKeep::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
-                        TokenSymbol::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        TokenSymbol::Set(s) => SetOrKeep::Set(s.into()),
                         TokenSymbol::Keep => SetOrKeep::Keep,
                     },
                     timing: match &value.body.update.timing {

@@ -115,7 +115,7 @@ pub struct Account {
     pub(super) balance: RawCurrency,
     delegate: Option<String>,
     token_id: Option<String>,
-    token_symbol: Option<String>,
+    token_symbol: Option<Vec<u8>>,
     #[serde(default, deserialize_with = "string_or_u32_option")]
     nonce: Option<u32>,
     receipt_chain_hash: Option<String>,
@@ -197,7 +197,7 @@ impl Account {
     pub fn token_symbol(&self) -> TokenSymbol {
         self.token_symbol
             .clone()
-            .map(TokenSymbol)
+            .map(TokenSymbol::from)
             .unwrap_or_default()
     }
 
@@ -385,7 +385,7 @@ pub struct Zkapp {
     action_state: Vec<String>,
     last_action_slot: RawSlot,
     proved_state: bool,
-    zkapp_uri: String,
+    zkapp_uri: Vec<u8>,
 }
 
 fn parse_fp(str: &str) -> Result<Fp, AccountConfigError> {
