@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-native"
-version = "0.8.3"
+version = "0.8.13"
 edition = "2021"
 license = "Apache-2.0"
 
