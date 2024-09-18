@@ -1,7 +1,10 @@
 use ark_ec::{
     short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve, SWModelParameters,
 };
-use ark_ff::{BigInteger256, FftField, Field, FpParameters, PrimeField, SquareRootField};
+use ark_ff::{
+    fields::arithmetic::InvalidBigInt, BigInteger256, FftField, Field, FpParameters, PrimeField,
+    SquareRootField,
+};
 use kimchi::curve::KimchiCurve;
 use mina_curves::pasta::{
     Fq, PallasParameters, ProjectivePallas, ProjectiveVesta, VestaParameters,
@@ -29,9 +32,8 @@ where
         + Send
         + Sync
         + Into<BigInteger256>
-        + From<BigInteger256>
+        + TryFrom<BigInteger256, Error = InvalidBigInt>
         + Into<mina_p2p_messages::bigint::BigInt>
-        + From<BigInteger256>
         + From<i64>
         + From<i32>
         + ToFieldElements<Self>
@@ -134,7 +136,7 @@ impl FromFpFq for Fq {
     fn from_fp(fp: Fp) -> Self {
         // `Fp` is smaller than `Fq`, so the conversion is fine
         let bigint: BigInteger256 = fp.into();
-        bigint.into()
+        bigint.try_into().unwrap()
     }
     fn from_fq(fq: Fq) -> Self {
         fq

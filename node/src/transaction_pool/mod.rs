@@ -136,7 +136,15 @@ impl TransactionPoolState {
 
         match action {
             TransactionPoolAction::StartVerify { commands, from_rpc } => {
-                let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
+                let Ok(commands) = commands
+                    .iter()
+                    .map(UserCommand::try_from)
+                    .collect::<Result<Vec<_>, _>>()
+                else {
+                    // ignore all commands if one is invalid
+                    return;
+                };
+
                 let account_ids = commands
                     .iter()
                     .flat_map(UserCommand::accounts_referenced)
@@ -167,7 +175,13 @@ impl TransactionPoolState {
                 };
 
                 // TODO: Convert those commands only once
-                let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
+                let Ok(commands) = commands
+                    .iter()
+                    .map(UserCommand::try_from)
+                    .collect::<Result<Vec<_>, _>>()
+                else {
+                    return;
+                };
                 let diff = diff::Diff { list: commands };
 
                 match substate.pool.verify(diff, accounts) {

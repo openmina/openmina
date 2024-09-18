@@ -1,4 +1,4 @@
-use openmina_core::block::BlockWithHash;
+use openmina_core::{block::BlockWithHash, error};
 
 use redux::ActionMeta;
 
@@ -12,7 +12,7 @@ use crate::{
 use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};
 
 impl P2pChannelsRpcAction {
-    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
@@ -58,10 +58,12 @@ impl P2pChannelsRpcAction {
                 peer_id, response, ..
             } => {
                 if let Some(P2pRpcResponse::BestTipWithProof(resp)) = response.as_deref() {
-                    store.dispatch(P2pPeerAction::BestTipUpdate {
-                        peer_id,
-                        best_tip: BlockWithHash::new(resp.best_tip.clone()),
-                    });
+                    let Ok(best_tip) = BlockWithHash::try_new(resp.best_tip.clone()) else {
+                        error!(meta.time(); "P2pChannelsRpcAction::ResponseReceived: Invalid bigint in block");
+                        return;
+                    };
+
+                    store.dispatch(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
                 }
             }
             P2pChannelsRpcAction::ResponseSend {

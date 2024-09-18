@@ -198,7 +198,7 @@ pub fn calc_epoch_seed(
     vrf_hash: mina_hasher::Fp,
 ) -> v2::EpochSeed {
     // TODO(adonagy): fix this unwrap
-    let old_seed = prev_epoch_seed.to_fp().unwrap();
+    let old_seed = prev_epoch_seed.to_field().unwrap();
     let new_seed = ledger::hash_with_kimchi("MinaEpochSeed", &[old_seed, vrf_hash]);
     v2::MinaBaseEpochSeedStableV1(new_seed.into()).into()
 }

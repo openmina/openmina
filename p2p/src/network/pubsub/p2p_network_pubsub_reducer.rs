@@ -166,7 +166,7 @@ impl P2pNetworkPubsubState {
 
                 broadcast(dispatcher, global_state)?;
                 if let Some((_, block)) = incoming_block {
-                    let best_tip = BlockWithHash::new(Arc::new(block));
+                    let best_tip = BlockWithHash::try_new(Arc::new(block))?;
                     dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
                 }
                 for (transaction, nonce) in incoming_transactions {

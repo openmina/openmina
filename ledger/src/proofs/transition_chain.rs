@@ -1,6 +1,6 @@
 use mina_hasher::Fp;
 
-use super::public_input::protocol_state;
+use crate::scan_state::protocol_state::hashes_abstract;
 
 /// https://github.com/MinaProtocol/mina/blob/aebd4e552b8b4bcd78d1e24523169e8778794857/src/lib/merkle_list_verifier/merkle_list_verifier.ml#L36
 fn verify_impl<'a, T>(
@@ -17,7 +17,7 @@ where
 
     for proof_elem in merkle_list_iter {
         let last = hashes.last().unwrap();
-        hashes.push(protocol_state::hashes_abstract(*last, *proof_elem));
+        hashes.push(hashes_abstract(*last, *proof_elem));
     }
 
     if hashes.last().unwrap() == &target_hash {

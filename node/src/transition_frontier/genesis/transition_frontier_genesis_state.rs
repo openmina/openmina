@@ -19,12 +19,14 @@ pub enum TransitionFrontierGenesisState {
         time: redux::Timestamp,
         negative_one: v2::MinaStateProtocolStateValueStableV2,
         genesis: v2::MinaStateProtocolStateValueStableV2,
+        genesis_hash: v2::StateHash,
         genesis_producer_stake_proof: v2::MinaBaseSparseLedgerBaseStableV2,
     },
     ProvePending {
         time: redux::Timestamp,
         negative_one: v2::MinaStateProtocolStateValueStableV2,
         genesis: v2::MinaStateProtocolStateValueStableV2,
+        genesis_hash: v2::StateHash,
         genesis_producer_stake_proof: v2::MinaBaseSparseLedgerBaseStableV2,
     },
     ProveSuccess {
@@ -35,15 +37,20 @@ pub enum TransitionFrontierGenesisState {
 
 impl TransitionFrontierGenesisState {
     pub fn block_with_dummy_proof(&self) -> Option<ArcBlockWithHash> {
-        let Self::Produced { genesis, .. } = self else {
+        let Self::Produced {
+            genesis,
+            genesis_hash,
+            ..
+        } = self
+        else {
             return None;
         };
-        Some(ArcBlockWithHash::new(
+        ArcBlockWithHash::try_new(
             v2::MinaBlockBlockStableV2 {
                 header: v2::MinaBlockHeaderStableV2 {
                     protocol_state: genesis.clone(),
                     protocol_state_proof: (*dummy_blockchain_proof()).clone(),
-                    delta_block_chain_proof: (genesis.hash(), std::iter::empty().collect()),
+                    delta_block_chain_proof: (genesis_hash.clone(), std::iter::empty().collect()),
                     current_protocol_version: PROTOCOL_VERSION.clone(),
                     proposed_protocol_version_opt: None,
                 },
@@ -52,12 +59,13 @@ impl TransitionFrontierGenesisState {
                 },
             }
             .into(),
-        ))
+        )
+        .ok()
     }
 
     pub fn prove_pending_block_hash(&self) -> Option<v2::StateHash> {
         match self {
-            Self::ProvePending { genesis, .. } => Some(genesis.hash()),
+            Self::ProvePending { genesis_hash, .. } => Some(genesis_hash.clone()),
             _ => None,
         }
     }

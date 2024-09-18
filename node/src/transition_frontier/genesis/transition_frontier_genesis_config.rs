@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::{account::AccountSecretKey, daemon_json::EpochData};
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::{
     proofs::caching::{ensure_path_exists, openmina_cache_path},
     scan_state::currency::Balance,
@@ -97,6 +98,8 @@ pub enum GenesisConfigError {
     Json(#[from] serde_json::Error),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Invalid bigint")]
+    InvalidBigInt(#[from] InvalidBigInt),
 }
 
 impl GenesisConfig {
@@ -156,7 +159,7 @@ impl GenesisConfig {
                 });
                 let delegator_table = whales.chain(fish);
                 let (mut mask, genesis_total_currency) =
-                    Self::build_ledger_from_balances_delegator_table(delegator_table, non_stakers);
+                    Self::build_ledger_from_balances_delegator_table(delegator_table, non_stakers)?;
                 let genesis_ledger_hash = ledger_hash(&mut mask);
                 let staking_epoch_total_currency = genesis_total_currency.clone();
                 let next_epoch_total_currency = genesis_total_currency.clone();
@@ -184,7 +187,7 @@ impl GenesisConfig {
                     (*bp_balance, delegators)
                 });
                 let (mut mask, genesis_total_currency) =
-                    Self::build_ledger_from_balances_delegator_table(table, &NonStakers::None);
+                    Self::build_ledger_from_balances_delegator_table(table, &NonStakers::None)?;
                 let genesis_ledger_hash = ledger_hash(&mut mask);
                 let staking_epoch_total_currency = genesis_total_currency.clone();
                 let next_epoch_total_currency = genesis_total_currency.clone();
@@ -208,19 +211,21 @@ impl GenesisConfig {
             }
             Self::Prebuilt(bytes) => {
                 let prebuilt = PrebuiltGenesisConfig::read(&mut bytes.as_ref())?;
-                prebuilt.load()
+                prebuilt.load()?
             }
             Self::AccountsBinProt { bytes, .. } => {
                 let mut bytes = bytes.as_ref();
                 let _expected_hash = Option::<v2::LedgerHash>::binprot_read(&mut bytes)?;
                 let hashes = Vec::<(u64, v2::LedgerHash)>::binprot_read(&mut bytes)?
                     .into_iter()
-                    .map(|(idx, hash)| (idx, hash.0.to_field()))
-                    .collect();
+                    .map(|(idx, hash)| Ok((idx, hash.0.to_field()?)))
+                    .collect::<Result<Vec<_>, InvalidBigInt>>()?;
                 let accounts = Vec::<ledger::Account>::binprot_read(&mut bytes)?;
 
-                let (mut mask, _total_currency) =
-                    Self::build_ledger_from_accounts_and_hashes(accounts, hashes);
+                let (mut mask, _total_currency) = Self::build_ledger_from_accounts_and_hashes(
+                    accounts.into_iter().map(Ok),
+                    hashes,
+                )?;
                 let _ledger_hash = ledger_hash(&mut mask);
 
                 todo!()
@@ -356,13 +361,13 @@ impl GenesisConfig {
                     accounts_with_hash
                         .accounts
                         .iter()
-                        .map(ledger::Account::from),
+                        .map(ledger::Account::try_from),
                     accounts_with_hash
                         .hashes
                         .into_iter()
-                        .map(|(n, h)| (n, h.to_field()))
-                        .collect::<Vec<_>>(),
-                );
+                        .map(|(n, h)| Ok((n, h.to_field()?)))
+                        .collect::<Result<Vec<_>, InvalidBigInt>>()?,
+                )?;
                 openmina_core::info!(
                     openmina_core::log::system_time();
                     kind = "ledger loaded",
@@ -372,7 +377,8 @@ impl GenesisConfig {
                 Ok((mask, total_currency, accounts_with_hash.ledger_hash))
             }
             None => {
-                let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                let (mut mask, total_currency) =
+                    Self::build_ledger_from_accounts(accounts.into_iter().map(Ok))?;
                 let hash = ledger_hash(&mut mask);
                 let ledger_accounts = LedgerAccountsWithHash {
                     accounts: mask.fold(Vec::new(), |mut acc, a| {
@@ -401,7 +407,7 @@ impl GenesisConfig {
     fn build_ledger_from_balances_delegator_table(
         block_producers: impl IntoIterator<Item = (u64, impl IntoIterator<Item = u64>)>,
         non_stakers: &NonStakers,
-    ) -> (ledger::Mask, v2::CurrencyAmountStableV1) {
+    ) -> Result<(ledger::Mask, v2::CurrencyAmountStableV1), InvalidBigInt> {
         let mut counter = 0;
         let mut total_balance = 0;
 
@@ -412,7 +418,7 @@ impl GenesisConfig {
             total_balance: &mut u64,
         ) -> ledger::Account {
             let sec_key = AccountSecretKey::deterministic(*counter);
-            let pub_key: mina_signer::CompressedPubKey = sec_key.public_key().into();
+            let pub_key: mina_signer::CompressedPubKey = sec_key.public_key().try_into().unwrap(); // unwrap: `sec_key` was generated
             let account_id = ledger::AccountId::new(pub_key.clone(), Default::default());
             let mut account =
                 ledger::Account::create_with(account_id, Balance::from_mina(balance).unwrap());
@@ -429,7 +435,7 @@ impl GenesisConfig {
         for (bp_balance, delegators) in block_producers {
             let bp_account = create_account(&mut counter, bp_balance, None, &mut total_balance);
             let bp_pub_key = bp_account.public_key.clone();
-            accounts.push(bp_account);
+            accounts.push(Ok(bp_account));
 
             for balance in delegators {
                 let delegator_account = create_account(
@@ -438,7 +444,7 @@ impl GenesisConfig {
                     Some(bp_pub_key.clone()),
                     &mut total_balance,
                 );
-                accounts.push(delegator_account);
+                accounts.push(Ok(delegator_account));
             }
         }
 
@@ -466,47 +472,48 @@ impl GenesisConfig {
             for _ in 0..non_staker_count {
                 let non_staker_account =
                     create_account(&mut counter, non_staker_balance, None, &mut total_balance);
-                accounts.push(non_staker_account);
+                accounts.push(Ok(non_staker_account));
             }
         }
 
         // Add genesis accounts
         for genesis_account in genesis_account_iter() {
-            accounts.push(genesis_account);
+            accounts.push(Ok(genesis_account));
         }
 
         Self::build_ledger_from_accounts(accounts)
     }
 
     fn build_ledger_from_accounts(
-        accounts: impl IntoIterator<Item = ledger::Account>,
-    ) -> (ledger::Mask, v2::CurrencyAmountStableV1) {
+        accounts: impl IntoIterator<Item = Result<ledger::Account, InvalidBigInt>>,
+    ) -> Result<(ledger::Mask, v2::CurrencyAmountStableV1), InvalidBigInt> {
         let db = ledger::Database::create(constraint_constants().ledger_depth as u8);
         let mask = ledger::Mask::new_root(db);
-        let (mask, total_currency) =
-            accounts
-                .into_iter()
-                .fold((mask, 0), |(mut mask, mut total_currency), account| {
-                    let account_id = account.id();
-                    total_currency += account.balance.as_u64();
-                    mask.get_or_create_account(account_id, account).unwrap();
-                    (mask, total_currency)
-                });
+        let (mask, total_currency) = accounts.into_iter().try_fold(
+            (mask, 0),
+            |(mut mask, mut total_currency), account| {
+                let account = account?;
+                let account_id = account.id();
+                total_currency += account.balance.as_u64();
+                mask.get_or_create_account(account_id, account).unwrap();
+                Ok((mask, total_currency))
+            },
+        )?;
 
-        (mask, v2::CurrencyAmountStableV1(total_currency.into()))
+        Ok((mask, v2::CurrencyAmountStableV1(total_currency.into())))
     }
 
     fn build_ledger_from_accounts_and_hashes(
-        accounts: impl IntoIterator<Item = ledger::Account>,
+        accounts: impl IntoIterator<Item = Result<ledger::Account, InvalidBigInt>>,
         hashes: Vec<(u64, Fp)>,
-    ) -> (ledger::Mask, v2::CurrencyAmountStableV1) {
-        let (mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+    ) -> Result<(ledger::Mask, v2::CurrencyAmountStableV1), InvalidBigInt> {
+        let (mask, total_currency) = Self::build_ledger_from_accounts(accounts)?;
 
         // Must happen after the accounts have been set to avoid
         // cache invalidations.
         mask.set_raw_inner_hashes(hashes);
 
-        (mask, total_currency)
+        Ok((mask, total_currency))
     }
 }
 
@@ -518,7 +525,7 @@ fn genesis_account_iter() -> impl Iterator<Item = ledger::Account> {
     std::iter::once({
         // add genesis producer as the first account.
         let pub_key = AccountSecretKey::genesis_producer().public_key();
-        let account_id = ledger::AccountId::new(pub_key.into(), Default::default());
+        let account_id = ledger::AccountId::new(pub_key.try_into().unwrap(), Default::default()); // unwrap: `producer` is hardcoded
         ledger::Account::create_with(account_id, Balance::from_u64(0))
     })
 }
@@ -527,7 +534,8 @@ fn create_genesis_producer_stake_proof(
     mask: &ledger::Mask,
 ) -> v2::MinaBaseSparseLedgerBaseStableV2 {
     let producer = AccountSecretKey::genesis_producer().public_key();
-    let producer_id = ledger::AccountId::new(producer.into(), ledger::TokenId::default());
+    let producer_id =
+        ledger::AccountId::new(producer.try_into().unwrap(), ledger::TokenId::default()); // unwrap: `producer` is hardcoded
     let sparse_ledger =
         ledger::sparse_ledger::SparseLedger::of_ledger_subset_exn(mask.clone(), &[producer_id]);
     (&sparse_ledger).into()
@@ -582,40 +590,40 @@ impl PrebuiltGenesisConfig {
         self.binprot_write(&mut writer)
     }
 
-    pub fn load(self) -> (Vec<ledger::Mask>, GenesisConfigLoaded) {
+    pub fn load(self) -> Result<(Vec<ledger::Mask>, GenesisConfigLoaded), GenesisConfigError> {
         let mut masks = Vec::new();
         let (mask, genesis_total_currency) = GenesisConfig::build_ledger_from_accounts_and_hashes(
-            self.accounts.into_iter().map(|acc| (&acc).into()),
+            self.accounts.into_iter().map(|acc| (&acc).try_into()),
             self.hashes
                 .into_iter()
-                .map(|(n, h)| (n, h.to_field()))
-                .collect::<Vec<_>>(),
-        );
+                .map(|(n, h)| Ok((n, h.to_field()?)))
+                .collect::<Result<Vec<_>, InvalidBigInt>>()?,
+        )?;
         masks.push(mask);
         let (staking_ledger_mask, staking_epoch_total_currency) =
             GenesisConfig::build_ledger_from_accounts_and_hashes(
                 self.staking_epoch_data
                     .accounts
                     .into_iter()
-                    .map(|acc| (&acc).into()),
+                    .map(|acc| (&acc).try_into()),
                 self.staking_epoch_data
                     .hashes
                     .into_iter()
-                    .map(|(n, h)| (n, h.to_field()))
-                    .collect::<Vec<_>>(),
-            );
+                    .map(|(n, h)| Ok((n, h.to_field()?)))
+                    .collect::<Result<Vec<_>, InvalidBigInt>>()?,
+            )?;
         let (_mask, next_epoch_total_currency) =
             GenesisConfig::build_ledger_from_accounts_and_hashes(
                 self.next_epoch_data
                     .accounts
                     .into_iter()
-                    .map(|acc| (&acc).into()),
+                    .map(|acc| (&acc).try_into()),
                 self.next_epoch_data
                     .hashes
                     .into_iter()
-                    .map(|(n, h)| (n, h.to_field()))
-                    .collect::<Vec<_>>(),
-            );
+                    .map(|(n, h)| Ok((n, h.to_field()?)))
+                    .collect::<Result<Vec<_>, InvalidBigInt>>()?,
+            )?;
 
         let load_result = GenesisConfigLoaded {
             constants: self.constants,
@@ -630,7 +638,7 @@ impl PrebuiltGenesisConfig {
             next_epoch_seed: self.next_epoch_data.seed,
         };
         masks.push(staking_ledger_mask);
-        (masks, load_result)
+        Ok((masks, load_result))
     }
 }
 
@@ -658,7 +666,7 @@ impl TryFrom<DaemonJson> for PrebuiltGenesisConfig {
             .collect::<Result<Vec<_>, _>>()?;
         let accounts = ledger_accounts.iter().map(Into::into).collect();
         let (mut mask, _total_currency) =
-            GenesisConfig::build_ledger_from_accounts(ledger_accounts);
+            GenesisConfig::build_ledger_from_accounts(ledger_accounts.into_iter().map(Ok))?;
         let ledger_hash = ledger_hash(&mut mask);
         let hashes = mask
             .get_raw_inner_hashes()
@@ -700,7 +708,7 @@ impl TryFrom<EpochData> for PrebuiltGenesisEpochData {
             .collect::<Result<Vec<_>, _>>()?;
         let accounts = ledger_accounts.iter().map(Into::into).collect();
         let (mut mask, _total_currency) =
-            GenesisConfig::build_ledger_from_accounts(ledger_accounts);
+            GenesisConfig::build_ledger_from_accounts(ledger_accounts.into_iter().map(Ok))?;
         let ledger_hash = ledger_hash(&mut mask);
 
         if ledger_hash != expected_ledger_hash {

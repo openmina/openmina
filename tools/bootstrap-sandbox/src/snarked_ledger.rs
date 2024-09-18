@@ -139,7 +139,7 @@ impl SnarkedLedger {
                 }
                 Ok(v2::MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts)) => {
                     for (o, account) in accounts.into_iter().enumerate() {
-                        let account = Account::from(&account);
+                        let account = Account::try_from(&account).unwrap();
                         self.inner
                             .set_at_index(
                                 AccountIndex((pos * 8 * (1 << Q)) as u64 + o as u64),

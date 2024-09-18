@@ -109,13 +109,13 @@ impl<'a> ClusterRunner<'a> {
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let step = ScenarioStep::AddNode {
-            config: testing_config.into(),
+            config: Box::new(testing_config.into()),
         };
         (self.add_step)(&step);
-        let ScenarioStep::AddNode {
-            config: NodeTestingConfig::Rust(config),
-        } = step
-        else {
+        let ScenarioStep::AddNode { config } = step else {
+            unreachable!()
+        };
+        let NodeTestingConfig::Rust(config) = *config else {
             unreachable!()
         };
 
@@ -124,13 +124,13 @@ impl<'a> ClusterRunner<'a> {
 
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
         let step = ScenarioStep::AddNode {
-            config: testing_config.into(),
+            config: Box::new(testing_config.into()),
         };
         (self.add_step)(&step);
-        let ScenarioStep::AddNode {
-            config: NodeTestingConfig::Ocaml(config),
-        } = step
-        else {
+        let ScenarioStep::AddNode { config } = step else {
+            unreachable!()
+        };
+        let NodeTestingConfig::Ocaml(config) = *config else {
             unreachable!()
         };
 

@@ -29,7 +29,7 @@ pub enum ScenarioStep {
     },
     /// Create a new node, start it and add it to the cluster.
     AddNode {
-        config: NodeTestingConfig,
+        config: Box<NodeTestingConfig>,
     },
     ConnectNodes {
         dialer: ClusterNodeId,

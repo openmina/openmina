@@ -5,6 +5,7 @@ use std::{
 };
 
 use super::ledger_manager::{LedgerManager, LedgerRequest};
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::{
     scan_state::{
         currency::Slot,
@@ -70,6 +71,10 @@ use super::{
 
 fn merkle_root(mask: &mut Mask) -> LedgerHash {
     MinaBaseLedgerHash0StableV1(mask.merkle_root().into()).into()
+}
+
+fn error_to_string(e: InvalidBigInt) -> String {
+    format!("{:?}", e)
 }
 
 /// Indexing `StagedLedger` both by their "merkle root hash" and their "staged ledger hash"
@@ -563,8 +568,9 @@ impl LedgerCtx {
         let mut mask = self.pending_sync_snarked_ledger_mask(&snarked_ledger_hash)?;
         let accounts: Vec<_> = accounts
             .into_iter()
-            .map(|account| Box::new((&account).into()))
-            .collect();
+            .map(|account| Ok(Box::new((&account).try_into()?)))
+            .collect::<Result<Vec<_>, InvalidBigInt>>()
+            .map_err(error_to_string)?;
 
         mask.set_all_accounts_rooted_at(parent.clone(), &accounts)
             .map_err(|_| "Failed when setting accounts".to_owned())?;
@@ -579,35 +585,41 @@ impl LedgerCtx {
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
         callback: F,
-    ) where
+    ) -> Result<(), InvalidBigInt>
+    where
         F: 'static + FnOnce(v2::LedgerHash, Result<StagedLedger, String>) + Send,
     {
         let snarked_ledger = self
             .sync
-            .snarked_ledger_mut(snarked_ledger_hash.clone())
+            .snarked_ledger_mut(snarked_ledger_hash.clone())?
             .copy();
 
         thread::Builder::new()
             .name("staged-ledger-reconstruct".into())
             .spawn(move || {
-                let (staged_ledger_hash, result) =
-                    staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
-                callback(staged_ledger_hash, result);
+                match staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts) {
+                    Ok((staged_ledger_hash, result)) => {
+                        callback(staged_ledger_hash, result);
+                    }
+                    Err(e) => callback(v2::LedgerHash::zero(), Err(format!("{:?}", e))),
+                }
             })
             .expect("Failed: staged ledger reconstruct thread");
+
+        Ok(())
     }
 
     pub fn staged_ledger_reconstruct_sync(
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) -> (v2::LedgerHash, Result<(), String>) {
+    ) -> Result<(v2::LedgerHash, Result<(), String>), InvalidBigInt> {
         let snarked_ledger = self
             .sync
-            .snarked_ledger_mut(snarked_ledger_hash.clone())
+            .snarked_ledger_mut(snarked_ledger_hash.clone())?
             .copy();
         let (staged_ledger_hash, result) =
-            staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
+            staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts)?;
         let result = match result {
             Err(err) => Err(err),
             Ok(staged_ledger) => {
@@ -616,7 +628,7 @@ impl LedgerCtx {
             }
         };
 
-        (staged_ledger_hash, result)
+        Ok((staged_ledger_hash, result))
     }
 
     pub fn block_apply(
@@ -642,13 +654,20 @@ impl LedgerCtx {
 
         let global_slot = block.global_slot_since_genesis();
         let prev_protocol_state = &pred_block.header().protocol_state;
-        let prev_state_view = protocol_state_view(prev_protocol_state);
+        let prev_state_view = protocol_state_view(prev_protocol_state).map_err(error_to_string)?;
 
         let consensus_state = &block.header().protocol_state.body.consensus_state;
-        let coinbase_receiver: CompressedPubKey = (&consensus_state.coinbase_receiver).into();
+        let coinbase_receiver: CompressedPubKey = (&consensus_state.coinbase_receiver)
+            .try_into()
+            .map_err(error_to_string)?;
         let supercharge_coinbase = consensus_state.supercharge_coinbase;
 
-        let diff: Diff = (&block.block.body.staged_ledger_diff).into();
+        let diff: Diff = (&block.block.body.staged_ledger_diff)
+            .try_into()
+            .map_err(error_to_string)?;
+
+        let prev_protocol_state: ledger::proofs::block::ProtocolState =
+            prev_protocol_state.try_into()?;
 
         let result = staged_ledger
             .apply(
@@ -660,7 +679,7 @@ impl LedgerCtx {
                 (),
                 &Verifier,
                 &prev_state_view,
-                ledger::scan_state::protocol_state::hashes(prev_protocol_state),
+                prev_protocol_state.hashes(),
                 coinbase_receiver,
                 supercharge_coinbase,
             )
@@ -953,7 +972,8 @@ impl LedgerCtx {
         let pending_coinbase_witness =
             MinaBasePendingCoinbaseStableV2::from(staged_ledger.pending_coinbase_collection());
 
-        let protocol_state_view = protocol_state_view(&pred_block.header().protocol_state);
+        let protocol_state_view =
+            protocol_state_view(&pred_block.header().protocol_state).map_err(error_to_string)?;
 
         // TODO(binier): include `invalid_txns` in output.
         let (pre_diff, _invalid_txns) = staged_ledger
@@ -961,13 +981,16 @@ impl LedgerCtx {
                 constraint_constants(),
                 (&global_slot_since_genesis).into(),
                 Some(true),
-                (&coinbase_receiver).into(),
+                (&coinbase_receiver).try_into().map_err(error_to_string)?,
                 (),
                 &protocol_state_view,
                 transactions_by_fee,
                 |stmt| {
                     let job_id = SnarkJobId::from(stmt);
-                    completed_snarks.get(&job_id).map(Into::into)
+                    match completed_snarks.get(&job_id) {
+                        Some(snark) => snark.try_into().ok(),
+                        None => None,
+                    }
                 },
                 supercharge_coinbase,
             )
@@ -976,7 +999,12 @@ impl LedgerCtx {
         // TODO(binier): maybe here, check if block reward is above threshold.
         // https://github.com/minaprotocol/mina/blob/b3d418a8c0ae4370738886c2b26f0ec7bdb49303/src/lib/block_producer/block_producer.ml#L222
 
-        let pred_body_hash = pred_block.header().protocol_state.body.hash();
+        let pred_body_hash = pred_block
+            .header()
+            .protocol_state
+            .body
+            .try_hash()
+            .map_err(error_to_string)?;
         let diff = (&pre_diff).into();
 
         let res = staged_ledger
@@ -986,8 +1014,11 @@ impl LedgerCtx {
                 pre_diff,
                 (),
                 &protocol_state_view,
-                (pred_block.hash().0.to_field(), pred_body_hash.0.to_field()),
-                (&coinbase_receiver).into(),
+                (
+                    pred_block.hash().0.to_field().map_err(error_to_string)?,
+                    pred_body_hash.0.to_field().map_err(error_to_string)?,
+                ),
+                (&coinbase_receiver).try_into().map_err(error_to_string)?,
                 supercharge_coinbase,
             )
             .map_err(|err| format!("{err:?}"))?;
@@ -1007,11 +1038,13 @@ impl LedgerCtx {
                 pending_coinbases: pending_coinbase_witness,
                 is_new_stack: res.pending_coinbase_update.0,
             },
-            stake_proof_sparse_ledger: self.stake_proof_sparse_ledger(
-                pred_block.staking_epoch_ledger_hash(),
-                &producer,
-                &delegator,
-            ),
+            stake_proof_sparse_ledger: self
+                .stake_proof_sparse_ledger(
+                    pred_block.staking_epoch_ledger_hash(),
+                    &producer,
+                    &delegator,
+                )
+                .map_err(error_to_string)?,
         })
     }
 
@@ -1020,15 +1053,16 @@ impl LedgerCtx {
         staking_ledger: &LedgerHash,
         producer: &NonZeroCurvePoint,
         delegator: &NonZeroCurvePoint,
-    ) -> v2::MinaBaseSparseLedgerBaseStableV2 {
+    ) -> Result<v2::MinaBaseSparseLedgerBaseStableV2, InvalidBigInt> {
         let mask = self.snarked_ledgers.get(staking_ledger).unwrap();
-        let producer_id = ledger::AccountId::new(producer.into(), ledger::TokenId::default());
-        let delegator_id = ledger::AccountId::new(delegator.into(), ledger::TokenId::default());
+        let producer_id = ledger::AccountId::new(producer.try_into()?, ledger::TokenId::default());
+        let delegator_id =
+            ledger::AccountId::new(delegator.try_into()?, ledger::TokenId::default());
         let sparse_ledger = ledger::sparse_ledger::SparseLedger::of_ledger_subset_exn(
             mask.clone(),
             &[producer_id, delegator_id],
         );
-        (&sparse_ledger).into()
+        Ok((&sparse_ledger).into())
     }
 
     pub fn scan_state_summary(
@@ -1182,12 +1216,13 @@ impl LedgerSyncState {
 
     /// Returns a [Mask] instance for the snarked ledger with [hash]. If it doesn't
     /// exist a new instance is created.
-    fn snarked_ledger_mut(&mut self, hash: LedgerHash) -> &mut Mask {
-        self.snarked_ledgers.entry(hash.clone()).or_insert_with(|| {
+    fn snarked_ledger_mut(&mut self, hash: LedgerHash) -> Result<&mut Mask, InvalidBigInt> {
+        let hash_fp = hash.to_field()?;
+        Ok(self.snarked_ledgers.entry(hash.clone()).or_insert_with(|| {
             let mut ledger = Mask::create(LEDGER_DEPTH);
-            ledger.set_cached_hash_unchecked(&LedgerAddress::root(), hash.0.to_field());
+            ledger.set_cached_hash_unchecked(&LedgerAddress::root(), hash_fp);
             ledger
-        })
+        }))
     }
 
     fn staged_ledger_mut(
@@ -1202,7 +1237,7 @@ fn staged_ledger_reconstruct(
     snarked_ledger: Mask,
     snarked_ledger_hash: LedgerHash,
     parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-) -> (v2::LedgerHash, Result<StagedLedger, String>) {
+) -> Result<(v2::LedgerHash, Result<StagedLedger, String>), InvalidBigInt> {
     let staged_ledger_hash = parts
         .as_ref()
         .map(|p| p.staged_ledger_hash.clone())
@@ -1214,18 +1249,18 @@ fn staged_ledger_reconstruct(
         let states = parts
             .needed_blocks
             .iter()
-            .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
-            .collect::<BTreeMap<_, _>>();
+            .map(|state| Ok((state.try_hash()?.to_field()?, state.clone())))
+            .collect::<Result<BTreeMap<Fp, _>, _>>()?;
 
         StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             constraint_constants(),
             Verifier,
-            (&parts.scan_state).into(),
+            (&parts.scan_state).try_into()?,
             ledger,
             LocalState::empty(),
-            parts.staged_ledger_hash.0.to_field(),
-            (&parts.pending_coinbase).into(),
+            parts.staged_ledger_hash.to_field()?,
+            (&parts.pending_coinbase).try_into()?,
             |key| states.get(&key).cloned().unwrap(),
         )
     } else {
@@ -1247,7 +1282,7 @@ fn staged_ledger_reconstruct(
         }
     }
 
-    (staged_ledger_hash, result)
+    Ok((staged_ledger_hash, result))
 }
 
 pub trait LedgerService: redux::Service {
@@ -1416,7 +1451,11 @@ mod tests {
             (addr, expected_hash, left, right)
         })
         .for_each(|(address, expected_hash, left, right)| {
-            let hash = hash_node_at_depth(address.length(), left.0.to_field(), right.0.to_field());
+            let hash = hash_node_at_depth(
+                address.length(),
+                left.0.to_field().unwrap(),
+                right.0.to_field().unwrap(),
+            );
             let hash: LedgerHash = MinaBaseLedgerHash0StableV1(hash.into()).into();
             assert_eq!(hash.to_string(), expected_hash);
         });

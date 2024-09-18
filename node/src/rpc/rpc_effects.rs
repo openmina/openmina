@@ -721,8 +721,16 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
             // sort the commadns by nonce
 
+            let Ok(commands) = commands
+                .into_iter()
+                .map(|c| c.try_into())
+                .collect::<Result<_, _>>()
+            else {
+                return;
+            };
+
             store.dispatch(TransactionPoolAction::StartVerify {
-                commands: commands.into_iter().map(|c| c.into()).collect(),
+                commands,
                 from_rpc: Some(rpc_id),
             });
         }

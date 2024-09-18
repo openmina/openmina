@@ -3,13 +3,11 @@ use std::{collections::BTreeMap, fs::File, path::Path};
 use binprot::BinProtRead;
 use ledger::{
     mask::Mask,
-    scan_state::{
-        self,
-        transaction_logic::{local_state::LocalState, protocol_state},
-    },
+    scan_state::transaction_logic::{local_state::LocalState, protocol_state},
     staged_ledger::{diff::Diff, staged_ledger::StagedLedger},
     verifier::Verifier,
 };
+use mina_curves::pasta::Fp;
 use mina_p2p_messages::{
     rpc::{GetBestTipV2, GetStagedLedgerAuxAndPendingCoinbasesAtHashV2Response},
     rpc_kernel::RpcMethod,
@@ -31,7 +29,7 @@ pub async fn again(path_main: &Path, height: u32) {
 
     let head = best_tip.data;
     let last_protocol_state = best_tip.proof.1.header.protocol_state;
-    let last_protocol_state_hash = last_protocol_state.hash();
+    let last_protocol_state_hash = last_protocol_state.try_hash().unwrap();
 
     let snarked_ledger_hash = last_protocol_state
         .body
@@ -97,18 +95,18 @@ impl Storage {
 
         let states = states
             .into_iter()
-            .map(|state| (state.hash().to_fp().unwrap(), state))
+            .map(|state| (state.try_hash().unwrap().to_field::<Fp>().unwrap(), state))
             .collect::<BTreeMap<_, _>>();
 
         let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             constraint_constants(),
             Verifier,
-            (&scan_state).into(),
+            (&scan_state).try_into().unwrap(),
             snarked_ledger.clone(),
             LocalState::empty(),
-            expected_ledger_hash.clone().into(),
-            (&pending_coinbase).into(),
+            expected_ledger_hash.clone().try_into().unwrap(),
+            (&pending_coinbase).try_into().unwrap(),
             |key| states.get(&key).cloned().unwrap(),
         )
         .unwrap();
@@ -139,7 +137,7 @@ impl Storage {
             .as_u32();
         let previous_state_hash = block.header.protocol_state.previous_state_hash.clone();
         let _previous_state_hash = v2::StateHash::from(v2::DataHashLibStateHashStableV1(
-            prev_protocol_state.hash().inner().0.clone(),
+            prev_protocol_state.try_hash().unwrap().inner().0.clone(),
         ));
         assert_eq!(previous_state_hash, _previous_state_hash);
         log::info!("will apply: {length} prev: {previous_state_hash}");
@@ -168,11 +166,12 @@ impl Storage {
             .slot_number
             .as_u32());
 
-        let prev_state_view = protocol_state::protocol_state_view(prev_protocol_state);
+        let prev_state_view = protocol_state::protocol_state_view(prev_protocol_state).unwrap();
 
         let protocol_state = &block.header.protocol_state;
         let consensus_state = &protocol_state.body.consensus_state;
-        let coinbase_receiver: CompressedPubKey = (&consensus_state.coinbase_receiver).into();
+        let coinbase_receiver: CompressedPubKey =
+            (&consensus_state.coinbase_receiver).try_into().unwrap();
         let _supercharge_coinbase = consensus_state.supercharge_coinbase;
 
         dbg!(&coinbase_receiver, _supercharge_coinbase);
@@ -180,7 +179,10 @@ impl Storage {
         // FIXME: Using `supercharge_coinbase` (from block) above does not work
         let supercharge_coinbase = false;
 
-        let diff: Diff = (&block.body.staged_ledger_diff).into();
+        let diff: Diff = (&block.body.staged_ledger_diff).try_into().unwrap();
+
+        let prev_protocol_state: ledger::proofs::block::ProtocolState =
+            prev_protocol_state.try_into().unwrap();
 
         let result = self
             .staged_ledger
@@ -192,7 +194,7 @@ impl Storage {
                 (),
                 &Verifier,
                 &prev_state_view,
-                scan_state::protocol_state::hashes(prev_protocol_state),
+                prev_protocol_state.hashes(),
                 coinbase_receiver,
                 supercharge_coinbase,
             )

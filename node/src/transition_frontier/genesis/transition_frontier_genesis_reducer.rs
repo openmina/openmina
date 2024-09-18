@@ -61,47 +61,55 @@ impl TransitionFrontierGenesisState {
                 let genesis_vrf = ::vrf::genesis_vrf(data.staking_epoch_seed.clone()).unwrap();
                 let genesis_vrf_hash = genesis_vrf.hash();
 
-                let (negative_one, genesis) = genesis_and_negative_one_protocol_states(
-                    data.constants.clone(),
-                    data.genesis_ledger_hash.clone(),
-                    data.genesis_total_currency.clone(),
-                    data.staking_epoch_ledger_hash.clone(),
-                    data.staking_epoch_total_currency.clone(),
-                    data.next_epoch_ledger_hash.clone(),
-                    data.next_epoch_total_currency.clone(),
-                    AccountSecretKey::genesis_producer().public_key().into(),
-                    empty_pending_coinbase_hash(),
-                    (&LocalState::dummy()).into(),
-                    empty_block_body_hash(),
-                    genesis_vrf.into(),
-                    data.staking_epoch_seed.clone(),
-                    data.next_epoch_seed.clone(),
-                    calc_epoch_seed(&data.next_epoch_seed, genesis_vrf_hash), //data.next_epoch_seed.clone(),
-                );
+                let Ok((negative_one, genesis, genesis_hash)) =
+                    genesis_and_negative_one_protocol_states(
+                        data.constants.clone(),
+                        data.genesis_ledger_hash.clone(),
+                        data.genesis_total_currency.clone(),
+                        data.staking_epoch_ledger_hash.clone(),
+                        data.staking_epoch_total_currency.clone(),
+                        data.next_epoch_ledger_hash.clone(),
+                        data.next_epoch_total_currency.clone(),
+                        AccountSecretKey::genesis_producer().public_key().into(),
+                        empty_pending_coinbase_hash(),
+                        (&LocalState::dummy()).into(),
+                        empty_block_body_hash(),
+                        genesis_vrf.into(),
+                        data.staking_epoch_seed.clone(),
+                        data.next_epoch_seed.clone(),
+                        calc_epoch_seed(&data.next_epoch_seed, genesis_vrf_hash), //data.next_epoch_seed.clone(),
+                    )
+                else {
+                    error!(meta.time(); "invalid negative protocol state");
+                    return;
+                };
 
                 *state = Self::Produced {
                     time: meta.time(),
                     negative_one,
                     genesis,
+                    genesis_hash,
                     genesis_producer_stake_proof: data.genesis_producer_stake_proof.clone(),
                 };
 
                 // Dispatch
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if global_state.p2p.ready().is_none() {
-                    let TransitionFrontierGenesisState::Produced { genesis, .. } =
-                        &global_state.transition_frontier.genesis
+                    let TransitionFrontierGenesisState::Produced {
+                        genesis,
+                        genesis_hash,
+                        ..
+                    } = &global_state.transition_frontier.genesis
                     else {
                         error!(meta.time(); "incorrect state: {:?}", global_state.transition_frontier.genesis);
                         return;
                     };
                     use openmina_core::{constants, ChainId};
-                    let genesis_state_hash = genesis.hash();
                     let constraint_system_digests =
                         openmina_core::NetworkConfig::global().constraint_system_digests;
                     let chain_id = ChainId::compute(
                         constraint_system_digests,
-                        &genesis_state_hash,
+                        genesis_hash,
                         &genesis.body.constants,
                         constants::PROTOCOL_TRANSACTION_VERSION,
                         constants::PROTOCOL_NETWORK_VERSION,
@@ -115,6 +123,7 @@ impl TransitionFrontierGenesisState {
                 let TransitionFrontierGenesisState::Produced {
                     negative_one,
                     genesis,
+                    genesis_hash,
                     genesis_producer_stake_proof,
                     ..
                 } = state
@@ -122,7 +131,7 @@ impl TransitionFrontierGenesisState {
                     return;
                 };
 
-                let block_hash = genesis.hash();
+                let genesis_hash = genesis_hash.clone();
                 let producer_pk = genesis.body.consensus_state.block_creator.clone();
                 let delegator_pk = genesis.body.consensus_state.block_stake_winner.clone();
 
@@ -166,7 +175,7 @@ impl TransitionFrontierGenesisState {
 
                 dispatcher.push(TransitionFrontierGenesisAction::ProvePending);
                 dispatcher.push(TransitionFrontierGenesisEffectfulAction::ProveInit {
-                    block_hash,
+                    block_hash: genesis_hash,
                     input: input.into(),
                 });
             }
@@ -174,6 +183,7 @@ impl TransitionFrontierGenesisState {
                 let Self::Produced {
                     negative_one,
                     genesis,
+                    genesis_hash,
                     genesis_producer_stake_proof,
                     ..
                 } = state
@@ -185,34 +195,44 @@ impl TransitionFrontierGenesisState {
                     time: meta.time(),
                     negative_one: negative_one.clone(),
                     genesis: genesis.clone(),
+                    genesis_hash: genesis_hash.clone(),
                     genesis_producer_stake_proof: genesis_producer_stake_proof.clone(),
                 };
             }
             TransitionFrontierGenesisAction::ProveSuccess { proof } => {
-                let Self::ProvePending { genesis, .. } = state else {
+                let Self::ProvePending {
+                    genesis,
+                    genesis_hash,
+                    ..
+                } = state
+                else {
+                    return;
+                };
+
+                let block = v2::MinaBlockBlockStableV2 {
+                    header: v2::MinaBlockHeaderStableV2 {
+                        protocol_state: genesis.clone(),
+                        protocol_state_proof: (**proof).clone(),
+                        delta_block_chain_proof: (
+                            genesis_hash.clone(),
+                            std::iter::empty().collect(),
+                        ),
+                        current_protocol_version: PROTOCOL_VERSION.clone(),
+                        proposed_protocol_version_opt: None,
+                    },
+                    body: v2::StagedLedgerDiffBodyStableV1 {
+                        staged_ledger_diff: empty_block_body(),
+                    },
+                };
+
+                let Ok(genesis) = BlockWithHash::try_new(block.into()) else {
+                    error!(meta.time(); "invalid `genesis` block");
                     return;
                 };
 
                 *state = Self::ProveSuccess {
                     time: meta.time(),
-                    genesis: BlockWithHash::new(
-                        v2::MinaBlockBlockStableV2 {
-                            header: v2::MinaBlockHeaderStableV2 {
-                                protocol_state: genesis.clone(),
-                                protocol_state_proof: (**proof).clone(),
-                                delta_block_chain_proof: (
-                                    genesis.hash(),
-                                    std::iter::empty().collect(),
-                                ),
-                                current_protocol_version: PROTOCOL_VERSION.clone(),
-                                proposed_protocol_version_opt: None,
-                            },
-                            body: v2::StagedLedgerDiffBodyStableV1 {
-                                staged_ledger_diff: empty_block_body(),
-                            },
-                        }
-                        .into(),
-                    ),
+                    genesis,
                 };
             }
         }

@@ -18,9 +18,7 @@ pub mod string;
 pub mod utils;
 #[macro_use]
 pub mod versioned;
-#[cfg(feature = "hashing")]
 pub mod hash;
-#[cfg(feature = "hashing")]
 mod hash_input;
 pub mod pseq;
 #[allow(clippy::all)]
