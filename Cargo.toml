@@ -37,13 +37,13 @@ resolver = "2"
 [workspace.dependencies]
 mina-p2p-messages = { path = "mina-p2p-messages" }
 ledger = { path = "ledger", package = "mina-tree" }
-mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "7755e09" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "7755e09" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "7755e09" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "7755e09" }
-kimchi = { git = "https://github.com/openmina/proof-systems", rev = "7755e09" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "7755e09"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "7755e09"}
+mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "484ebe9" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "484ebe9" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "484ebe9" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "484ebe9" }
+kimchi = { git = "https://github.com/openmina/proof-systems", rev = "484ebe9" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "484ebe9"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "484ebe9"}
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
 openmina-node-account = { path = "node/account" }

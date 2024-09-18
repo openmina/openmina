@@ -2390,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2550,6 +2550,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hex_fmt"
@@ -2826,6 +2829,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "internal-tracing"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2973,7 +2981,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2983,6 +2991,7 @@ dependencies = [
  "disjoint-set",
  "groupmap",
  "hex",
+ "internal-tracing",
  "itertools 0.10.5",
  "mina-curves",
  "mina-poseidon",
@@ -3630,7 +3639,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3639,7 +3648,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3689,7 +3698,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3706,7 +3715,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4320,7 +4329,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5112,7 +5121,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5128,6 +5137,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rayon",
+ "rmp-serde",
  "serde",
  "serde_with 1.14.0",
  "thiserror",
@@ -7400,7 +7410,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
+source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
 dependencies = [
  "ark-ff",
  "hex",
