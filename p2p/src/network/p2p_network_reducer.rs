@@ -6,7 +6,7 @@ use super::*;
 
 impl P2pNetworkState {
     pub fn reducer<State, Action>(
-        mut state_context: Substate<Action, State, Self>,
+        state_context: Substate<Action, State, Self>,
         action: redux::ActionWithMeta<&P2pNetworkAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
@@ -14,16 +14,12 @@ impl P2pNetworkState {
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
-        let state = state_context.get_substate_mut()?;
-
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Pnet(a) => {
-                if let Some(cn) = state.scheduler.connections.get_mut(a.addr()) {
-                    cn.pnet.reducer(meta.with_action(a))
-                }
-                Ok(())
-            }
+            P2pNetworkAction::Pnet(a) => P2pNetworkPnetState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
             P2pNetworkAction::Scheduler(a) => P2pNetworkSchedulerState::reducer(
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(a),
@@ -59,7 +55,9 @@ impl P2pNetworkState {
                 meta.with_action(a),
                 limits,
             ),
-            P2pNetworkAction::PubsubEffectful(_) | P2pNetworkAction::SchedulerEffectful(_) => {
+            P2pNetworkAction::PubsubEffectful(_)
+            | P2pNetworkAction::SchedulerEffectful(_)
+            | P2pNetworkAction::PnetEffectful(_) => {
                 // Effectful action; no reducer
                 Ok(())
             }

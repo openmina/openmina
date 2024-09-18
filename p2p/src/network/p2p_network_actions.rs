@@ -2,8 +2,8 @@ use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    identify::*, kad::*, noise::*, pnet::*, pubsub::*, rpc::*, scheduler::*, select::*, yamux::*,
-    P2pNetworkSchedulerEffectfulAction,
+    identify::*, kad::*, noise::*, pnet::*, pnet_effectful::*, pubsub::*, rpc::*, scheduler::*,
+    select::*, yamux::*, P2pNetworkSchedulerEffectfulAction,
 };
 
 use crate::P2pState;
@@ -13,6 +13,7 @@ pub enum P2pNetworkAction {
     Scheduler(P2pNetworkSchedulerAction),
     SchedulerEffectful(P2pNetworkSchedulerEffectfulAction),
     Pnet(P2pNetworkPnetAction),
+    PnetEffectful(P2pNetworkPnetEffectfulAction),
     Select(P2pNetworkSelectAction),
     Noise(P2pNetworkNoiseAction),
     Yamux(P2pNetworkYamuxAction),
@@ -29,6 +30,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
             Self::Scheduler(v) => v.is_enabled(state, time),
             Self::SchedulerEffectful(v) => v.is_enabled(state, time),
             Self::Pnet(v) => v.is_enabled(state, time),
+            Self::PnetEffectful(v) => v.is_enabled(state, time),
             Self::Select(v) => v.is_enabled(state, time),
             Self::Noise(v) => v.is_enabled(state, time),
             Self::Yamux(v) => v.is_enabled(state, time),

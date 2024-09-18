@@ -106,6 +106,7 @@ pub trait P2pActionTrait<State>:
     + From<P2pNetworkIdentifyStreamEffectfulAction>
     + From<P2pNetworkSelectAction>
     + From<P2pNetworkPnetAction>
+    + From<P2pNetworkPnetEffectfulAction>
     + From<P2pNetworkNoiseAction>
     + From<P2pConnectionIncomingAction>
     + From<P2pNetworkPubsubAction>

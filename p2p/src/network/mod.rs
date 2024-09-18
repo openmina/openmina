@@ -28,6 +28,9 @@ pub use self::scheduler_effectful::*;
 pub mod pnet;
 pub use self::pnet::*;
 
+pub mod pnet_effectful;
+pub use self::pnet_effectful::*;
+
 pub mod select;
 pub use self::select::*;
 

@@ -265,5 +265,6 @@ impl_from_p2p!(p2p::P2pNetworkRpcAction);
 impl_from_p2p!(P2pChannelsRpcAction);
 impl_from_p2p!(P2pDisconnectionAction);
 impl_from_p2p!(p2p::P2pNetworkSchedulerEffectfulAction);
+impl_from_p2p!(p2p::P2pNetworkPnetEffectfulAction);
 
 impl p2p::P2pActionTrait<State> for Action {}
