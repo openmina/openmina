@@ -54,7 +54,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::StatusGet { rpc_id } => {
             let state = store.state.get();
-
+            let chain_id = state.p2p.ready().map(|p2p| p2p.chain_id.to_hex());
             let block_summary =
                 |b: &ArcBlockWithHash| RpcNodeStatusTransitionFrontierBlockSummary {
                     hash: b.hash().clone(),
@@ -62,6 +62,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     global_slot: b.global_slot(),
                 };
             let status = RpcNodeStatus {
+                chain_id,
                 transition_frontier: RpcNodeStatusTransitionFrontier {
                     best_tip: state.transition_frontier.best_tip().map(block_summary),
                     sync: RpcNodeStatusTransitionFrontierSync {
@@ -720,8 +721,16 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
             // sort the commadns by nonce
 
+            let Ok(commands) = commands
+                .into_iter()
+                .map(|c| c.try_into())
+                .collect::<Result<_, _>>()
+            else {
+                return;
+            };
+
             store.dispatch(TransactionPoolAction::StartVerify {
-                commands: commands.into_iter().map(|c| c.into()).collect(),
+                commands,
                 from_rpc: Some(rpc_id),
             });
         }

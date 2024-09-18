@@ -20,9 +20,8 @@
 /// Stack operations are done for transaction snarks and tree operations are done for the blockchain snark*)
 use std::{collections::HashMap, fmt::Write, marker::PhantomData};
 
-use ark_ff::Zero;
+use ark_ff::{fields::arithmetic::InvalidBigInt, Zero};
 use mina_hasher::Fp;
-use mina_p2p_messages::v2;
 use mina_signer::CompressedPubKey;
 use openmina_core::constants::constraint_constants;
 use sha2::{Digest, Sha256};
@@ -195,7 +194,6 @@ impl ToInputs for StateStack {
     /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_base/pending_coinbase.ml#L271
     fn to_inputs(&self, inputs: &mut Inputs) {
         let Self { init, curr } = self;
-
         inputs.append(init);
         inputs.append(curr);
     }
@@ -288,7 +286,7 @@ impl StateStack {
 pub mod update {
     use crate::scan_state::currency::{Amount, Magnitude};
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub enum Action {
         None,
         One,
@@ -303,7 +301,7 @@ pub mod update {
         Two((super::Stack, super::Stack)),
     }
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct Update {
         pub action: Action,
         pub coinbase_amount: Amount,
@@ -329,7 +327,6 @@ impl ToInputs for Stack {
     /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_base/pending_coinbase.ml#L591
     fn to_inputs(&self, inputs: &mut Inputs) {
         let Self { data, state } = self;
-
         inputs.append(data);
         inputs.append(state);
     }
@@ -672,7 +669,7 @@ impl PendingCoinbase {
         proof_emitted: Boolean,
         pending_coinbase_witness: &mut PendingCoinbaseWitness,
         w: &mut Witness<Fp>,
-    ) -> (Fp, Stack) {
+    ) -> Result<(Fp, Stack), InvalidBigInt> {
         let addr = w.exists(pending_coinbase_witness.find_index_of_oldest_stack());
         let (prev, prev_path) = w.exists(pending_coinbase_witness.get_coinbase_stack(addr.clone()));
 
@@ -688,25 +685,25 @@ impl PendingCoinbase {
         // Note: in OCaml hashing of `next` is made before `set_oldest_coinbase_stack`
         let new_root = checked_verify_merkle_path(&next, &prev_path, w);
 
-        (new_root, prev)
+        Ok((new_root, prev))
     }
 
     pub fn add_coinbase_checked(
-        update: &v2::MinaBasePendingCoinbaseUpdateStableV1,
+        update: &update::Update,
         coinbase_receiver: &CompressedPubKey,
         supercharge_coinbase: Boolean,
         state_body_hash: Fp,
         global_slot: &CheckedSlot<Fp>,
         pending_coinbase_witness: &mut PendingCoinbaseWitness,
         w: &mut Witness<Fp>,
-    ) -> Fp {
+    ) -> Result<Fp, InvalidBigInt> {
         let no_update = |[b0, b1]: &[Boolean; 2], w: &mut Witness<Fp>| b0.neg().and(&b1.neg(), w);
         let update_two_stacks_coinbase_in_first =
             |[b0, b1]: &[Boolean; 2], w: &mut Witness<Fp>| b0.neg().and(b1, w);
         let update_two_stacks_coinbase_in_second =
             |[b0, b1]: &[Boolean; 2], w: &mut Witness<Fp>| b0.and(b1, w);
 
-        let v2::MinaBasePendingCoinbaseUpdateStableV1 {
+        let update::Update {
             action,
             coinbase_amount: amount,
         } = update;
@@ -715,12 +712,12 @@ impl PendingCoinbase {
         let (addr1, addr2) = w.exists(pending_coinbase_witness.find_index_of_newest_stacks());
 
         let action = {
-            use v2::MinaBasePendingCoinbaseUpdateActionStableV1::*;
+            use update::Action::*;
             match action {
-                UpdateNone => [Boolean::False, Boolean::False],
-                UpdateOne => [Boolean::True, Boolean::False],
-                UpdateTwoCoinbaseInFirst => [Boolean::False, Boolean::True],
-                UpdateTwoCoinbaseInSecond => [Boolean::True, Boolean::True],
+                None => [Boolean::False, Boolean::False],
+                One => [Boolean::True, Boolean::False],
+                TwoCoinbaseInFirst => [Boolean::False, Boolean::True],
+                TwoCoinbaseInSecond => [Boolean::True, Boolean::True],
             }
         };
 
@@ -867,7 +864,7 @@ impl PendingCoinbase {
             (new_root, stack, next)
         };
 
-        root
+        Ok(root)
     }
 }
 
@@ -880,7 +877,7 @@ pub fn checked_verify_merkle_path(
     let account_hash = account.hash_var(w);
     let mut param = String::with_capacity(16);
 
-    merkle_path
+    let hash = merkle_path
         .iter()
         .enumerate()
         .fold(account_hash, |accum, (depth, path)| {
@@ -894,7 +891,9 @@ pub fn checked_verify_merkle_path(
 
             w.exists(hashes);
             checked_hash(param.as_str(), &hashes, w)
-        })
+        });
+
+    hash
 }
 
 pub struct PendingCoinbaseWitness {

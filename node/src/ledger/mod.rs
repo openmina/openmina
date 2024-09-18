@@ -2,6 +2,7 @@ pub mod read;
 pub mod write;
 
 mod ledger_config;
+use ark_ff::fields::arithmetic::InvalidBigInt;
 pub use ledger_config::*;
 
 mod ledger_event;
@@ -55,17 +56,17 @@ pub fn ledger_empty_hash_at_depth(depth: usize) -> v2::LedgerHash {
 pub fn complete_height_tree_with_empties(
     content_hash: &v2::LedgerHash,
     subtree_height: usize,
-) -> v2::LedgerHash {
+) -> Result<v2::LedgerHash, InvalidBigInt> {
     assert!(LEDGER_DEPTH >= subtree_height);
-    let content_hash = content_hash.0.to_field();
+    let content_hash = content_hash.0.to_field()?;
 
     let computed_hash = (subtree_height..LEDGER_DEPTH).fold(content_hash, |prev_hash, height| {
         let depth = LEDGER_DEPTH - height;
-        let empty_right = ledger_empty_hash_at_depth(depth).0.to_field();
+        let empty_right = ledger_empty_hash_at_depth(depth).0.to_field().unwrap(); // We know empties are valid
         ledger::V2::hash_node(height, prev_hash, empty_right)
     });
 
-    v2::LedgerHash::from_fp(computed_hash)
+    Ok(v2::LedgerHash::from_fp(computed_hash))
 }
 
 /// Returns the minimum tree height required for storing `num_accounts` accounts.
@@ -87,17 +88,17 @@ pub fn tree_height_for_num_accounts(num_accounts: u64) -> usize {
 pub fn complete_num_accounts_tree_with_empties(
     contents_hash: &v2::LedgerHash,
     num_accounts: u64,
-) -> v2::LedgerHash {
+) -> Result<v2::LedgerHash, InvalidBigInt> {
     // Note, we assume there is always at least one account
     if num_accounts == 0 {
-        return ledger_empty_hash_at_depth(0);
+        return Ok(ledger_empty_hash_at_depth(0));
     }
 
     let subtree_height = tree_height_for_num_accounts(num_accounts);
 
     // This would not be a valid number of accounts because it doesn't fit the tree
     if subtree_height > LEDGER_DEPTH {
-        ledger_empty_hash_at_depth(0)
+        Ok(ledger_empty_hash_at_depth(0))
     } else {
         complete_height_tree_with_empties(contents_hash, subtree_height)
     }
@@ -126,7 +127,8 @@ mod tests {
             .parse()
             .unwrap();
 
-        let actual_hash = complete_height_tree_with_empties(&contents_hash, subtree_height);
+        let actual_hash =
+            complete_height_tree_with_empties(&contents_hash, subtree_height).unwrap();
 
         assert_eq!(expected_hash, actual_hash);
     }
@@ -141,7 +143,8 @@ mod tests {
             .parse()
             .unwrap();
 
-        let actual_hash = complete_num_accounts_tree_with_empties(&contents_hash, subtree_height);
+        let actual_hash =
+            complete_num_accounts_tree_with_empties(&contents_hash, subtree_height).unwrap();
 
         assert_eq!(expected_hash, actual_hash);
     }

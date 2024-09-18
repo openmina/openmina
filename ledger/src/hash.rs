@@ -59,7 +59,7 @@ impl Item {
             Item::U48(v) => {
                 let mut bytes = <[u8; 32]>::default();
                 bytes[..6].copy_from_slice(&v[..]);
-                BigInteger256::read(&bytes[..]).unwrap()
+                BigInteger256::read(&bytes[..]).unwrap() // Never fail with only 6 bytes
             }
             Item::U64(v) => (*v).into(),
         }
@@ -168,14 +168,14 @@ impl Inputs {
                     current.0[3] | item.0[3],
                 ]);
             } else {
-                self.fields.push(current.into());
+                self.fields.push(current.try_into().unwrap()); // Never fail
                 current = item;
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            self.fields.push(current.into());
+            self.fields.push(current.try_into().unwrap()); // Never fail
         }
 
         self.fields

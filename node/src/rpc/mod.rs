@@ -2,6 +2,7 @@ mod rpc_state;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
 use ledger::scan_state::transaction_logic::{self, signed_command, Memo};
@@ -91,30 +92,32 @@ pub struct RpcInjectPayment {
     signature_scalar: BigInt,
 }
 // MinaBaseUserCommandStableV2
-impl From<RpcInjectPayment> for MinaBaseUserCommandStableV2 {
-    fn from(value: RpcInjectPayment) -> Self {
+impl TryFrom<RpcInjectPayment> for MinaBaseUserCommandStableV2 {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: RpcInjectPayment) -> Result<Self, Self::Error> {
         let signature = mina_signer::Signature {
-            rx: value.signature_field.into(),
-            s: value.signature_scalar.into(),
+            rx: value.signature_field.try_into()?,
+            s: value.signature_scalar.try_into()?,
         };
         println!("Signature: {signature}");
         let sc = signed_command::SignedCommand {
             payload: SignedCommandPayload::create(
                 Fee::from_u64(value.fee),
-                value.from.clone().into(),
+                value.from.clone().try_into().map_err(|_| InvalidBigInt)?,
                 Nonce::from_u32(value.nonce),
                 Some(Slot::from_u32(value.valid_until)),
                 Memo::from_str(&value.memo).unwrap(),
                 signed_command::Body::Payment(signed_command::PaymentPayload {
-                    receiver_pk: value.to.into(),
+                    receiver_pk: value.to.try_into().map_err(|_| InvalidBigInt)?,
                     amount: Amount::from_u64(value.amount),
                 }),
             ),
-            signer: value.from.into(),
+            signer: value.from.try_into().map_err(|_| InvalidBigInt)?,
             signature,
         };
 
-        MinaBaseUserCommandStableV2::SignedCommand(sc.into())
+        Ok(MinaBaseUserCommandStableV2::SignedCommand(sc.into()))
     }
 }
 
@@ -415,6 +418,7 @@ impl From<Account> for AccountSlim {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatus {
+    pub chain_id: Option<String>,
     pub transition_frontier: RpcNodeStatusTransitionFrontier,
     pub peers: Vec<RpcPeerInfo>,
     pub snark_pool: RpcNodeStatusSnarkPool,

@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ark_ff::Zero;
+use ark_ff::{fields::arithmetic::InvalidBigInt, Zero};
 use mina_hasher::Fp;
 use openmina_core::constants::constraint_constants;
 
@@ -388,8 +388,12 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
     }
 }
 
-impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLedger {
-    fn from(value: &mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2) -> Self {
+impl TryFrom<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLedger {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2,
+    ) -> Result<Self, Self::Error> {
         use mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2Tree;
         use mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2Tree::{Account, Hash, Node};
 
@@ -398,22 +402,23 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
             addr: Address,
             node: &MinaBaseSparseLedgerBaseStableV2Tree,
             values: &mut BTreeMap<AccountIndex, crate::Account>,
-        ) {
+        ) -> Result<(), InvalidBigInt> {
             match node {
                 Account(account) => {
-                    let account: crate::Account = (&**account).into();
+                    let account: crate::Account = (&**account).try_into()?;
                     matrix.set(&addr, account.hash());
                     values.insert(addr.to_index(), account);
                 }
                 Hash(hash) => {
-                    matrix.set(&addr, hash.to_field());
+                    matrix.set(&addr, hash.to_field()?);
                 }
                 Node(hash, left, right) => {
-                    matrix.set(&addr, hash.to_field());
-                    build_matrix(matrix, addr.child_left(), left, values);
-                    build_matrix(matrix, addr.child_right(), right, values);
+                    matrix.set(&addr, hash.to_field()?);
+                    build_matrix(matrix, addr.child_left(), left, values)?;
+                    build_matrix(matrix, addr.child_right(), right, values)?;
                 }
             }
+            Ok(())
         }
 
         let depth = value.depth.as_u64() as usize;
@@ -423,7 +428,7 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
         let mut values = BTreeMap::new();
 
         for (account_id, account_index) in value.indexes.iter() {
-            let account_id: AccountId = account_id.into();
+            let account_id: AccountId = account_id.try_into()?;
             let account_index = AccountIndex::from(account_index.as_u64() as usize);
 
             let addr = Address::from_index(account_index, depth);
@@ -437,9 +442,9 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
             Address::root(),
             &value.tree,
             &mut values,
-        );
+        )?;
 
-        Self {
+        Ok(Self {
             inner: Arc::new(Mutex::new(SparseLedgerImpl {
                 values,
                 indexes,
@@ -447,6 +452,6 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
                 depth,
                 indexes_list,
             })),
-        }
+        })
     }
 }

@@ -67,7 +67,7 @@ export class SubmenuTabsComponent extends StoreDispatcher implements OnInit {
   }
 
   private getSubMenusMap(features: string[]): SubMenu[] {
-    return features.map((feature: string) => ({
+    return features?.map((feature: string) => ({
       name: feature.split('-').join(' '),
       route: feature,
     }));

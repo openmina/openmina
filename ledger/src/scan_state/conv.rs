@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot,
@@ -308,14 +309,16 @@ impl From<&Signed<Fee>> for SignedAmount {
     }
 }
 
-impl From<&MinaBaseFeeExcessStableV1> for FeeExcess {
-    fn from(value: &MinaBaseFeeExcessStableV1) -> Self {
-        Self {
-            fee_token_l: (&*value.0.token).into(),
+impl TryFrom<&MinaBaseFeeExcessStableV1> for FeeExcess {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseFeeExcessStableV1) -> Result<Self, Self::Error> {
+        Ok(Self {
+            fee_token_l: (&*value.0.token).try_into()?,
             fee_excess_l: (&value.0.amount).into(),
-            fee_token_r: (&*value.1.token).into(),
+            fee_token_r: (&*value.1.token).try_into()?,
             fee_excess_r: (&value.1.amount).into(),
-        }
+        })
     }
 }
 
@@ -334,15 +337,19 @@ impl From<&FeeExcess> for MinaBaseFeeExcessStableV1 {
     }
 }
 
-impl From<&MinaBasePendingCoinbaseStackVersionedStableV1> for pending_coinbase::Stack {
-    fn from(value: &MinaBasePendingCoinbaseStackVersionedStableV1) -> Self {
-        Self {
-            data: pending_coinbase::CoinbaseStack(value.data.0.to_field()),
+impl TryFrom<&MinaBasePendingCoinbaseStackVersionedStableV1> for pending_coinbase::Stack {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &MinaBasePendingCoinbaseStackVersionedStableV1,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            data: pending_coinbase::CoinbaseStack(value.data.0.to_field()?),
             state: pending_coinbase::StateStack {
-                init: value.state.init.0.to_field(),
-                curr: value.state.curr.0.to_field(),
+                init: value.state.init.0.to_field()?,
+                curr: value.state.curr.0.to_field()?,
             },
-        }
+        })
     }
 }
 
@@ -508,23 +515,27 @@ impl From<&TransactionFailure> for MinaBaseTransactionStatusFailureStableV2 {
     }
 }
 
-impl From<&MinaStateBlockchainStateValueStableV2LedgerProofStatementSource> for Registers {
-    fn from(value: &MinaStateBlockchainStateValueStableV2LedgerProofStatementSource) -> Self {
-        Self {
-            first_pass_ledger: value.first_pass_ledger.to_field(),
-            second_pass_ledger: value.second_pass_ledger.to_field(),
-            pending_coinbase_stack: (&value.pending_coinbase_stack).into(),
+impl TryFrom<&MinaStateBlockchainStateValueStableV2LedgerProofStatementSource> for Registers {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            first_pass_ledger: value.first_pass_ledger.to_field()?,
+            second_pass_ledger: value.second_pass_ledger.to_field()?,
+            pending_coinbase_stack: (&value.pending_coinbase_stack).try_into()?,
             local_state: LocalState {
-                stack_frame: value.local_state.stack_frame.0.to_field(),
-                call_stack: value.local_state.call_stack.0.to_field(),
-                transaction_commitment: value.local_state.transaction_commitment.to_field(),
+                stack_frame: value.local_state.stack_frame.0.to_field()?,
+                call_stack: value.local_state.call_stack.0.to_field()?,
+                transaction_commitment: value.local_state.transaction_commitment.to_field()?,
                 full_transaction_commitment: value
                     .local_state
                     .full_transaction_commitment
-                    .to_field(),
+                    .to_field()?,
                 excess: (&value.local_state.excess).into(),
                 supply_increase: (&value.local_state.supply_increase).into(),
-                ledger: value.local_state.ledger.0.to_field(),
+                ledger: value.local_state.ledger.0.to_field()?,
                 success: value.local_state.success,
                 account_update_index: Index(value.local_state.account_update_index.0.as_u32()),
                 failure_status_tbl: value
@@ -536,7 +547,7 @@ impl From<&MinaStateBlockchainStateValueStableV2LedgerProofStatementSource> for 
                     .collect(),
                 will_succeed: value.local_state.will_succeed,
             },
-        }
+        })
     }
 }
 
@@ -562,45 +573,53 @@ impl From<&Signed<Amount>> for MinaStateBlockchainStateValueStableV2SignedAmount
     }
 }
 
-impl From<&MinaStateBlockchainStateValueStableV2LedgerProofStatement> for Statement<()> {
-    fn from(value: &MinaStateBlockchainStateValueStableV2LedgerProofStatement) -> Self {
-        Self {
-            source: (&value.source).into(),
-            target: (&value.target).into(),
-            connecting_ledger_left: value.connecting_ledger_left.to_field(),
-            connecting_ledger_right: value.connecting_ledger_right.to_field(),
+impl TryFrom<&MinaStateBlockchainStateValueStableV2LedgerProofStatement> for Statement<()> {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            source: (&value.source).try_into()?,
+            target: (&value.target).try_into()?,
+            connecting_ledger_left: value.connecting_ledger_left.to_field()?,
+            connecting_ledger_right: value.connecting_ledger_right.to_field()?,
             supply_increase: (&value.supply_increase).into(),
-            fee_excess: (&value.fee_excess).into(),
+            fee_excess: (&value.fee_excess).try_into()?,
             sok_digest: (),
-        }
+        })
     }
 }
 
-impl From<&MinaStateSnarkedLedgerStateWithSokStableV2> for Statement<SokDigest> {
-    fn from(value: &MinaStateSnarkedLedgerStateWithSokStableV2) -> Self {
-        Self {
-            source: (&value.source).into(),
-            target: (&value.target).into(),
-            connecting_ledger_left: value.connecting_ledger_left.to_field(),
-            connecting_ledger_right: value.connecting_ledger_right.to_field(),
+impl TryFrom<&MinaStateSnarkedLedgerStateWithSokStableV2> for Statement<SokDigest> {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaStateSnarkedLedgerStateWithSokStableV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            source: (&value.source).try_into()?,
+            target: (&value.target).try_into()?,
+            connecting_ledger_left: value.connecting_ledger_left.to_field()?,
+            connecting_ledger_right: value.connecting_ledger_right.to_field()?,
             supply_increase: (&value.supply_increase).into(),
-            fee_excess: (&value.fee_excess).into(),
+            fee_excess: (&value.fee_excess).try_into()?,
             sok_digest: SokDigest(value.sok_digest.to_vec()),
-        }
+        })
     }
 }
 
-impl From<&MinaStateSnarkedLedgerStateWithSokStableV2> for Statement<()> {
-    fn from(value: &MinaStateSnarkedLedgerStateWithSokStableV2) -> Self {
-        Self {
-            source: (&value.source).into(),
-            target: (&value.target).into(),
-            connecting_ledger_left: value.connecting_ledger_left.to_field(),
-            connecting_ledger_right: value.connecting_ledger_right.to_field(),
+impl TryFrom<&MinaStateSnarkedLedgerStateWithSokStableV2> for Statement<()> {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaStateSnarkedLedgerStateWithSokStableV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            source: (&value.source).try_into()?,
+            target: (&value.target).try_into()?,
+            connecting_ledger_left: value.connecting_ledger_left.to_field()?,
+            connecting_ledger_right: value.connecting_ledger_right.to_field()?,
             supply_increase: (&value.supply_increase).into(),
-            fee_excess: (&value.fee_excess).into(),
+            fee_excess: (&value.fee_excess).try_into()?,
             sok_digest: (),
-        }
+        })
     }
 }
 
@@ -655,11 +674,13 @@ impl From<&TransactionStatus> for MinaBaseTransactionStatusStableV2 {
     }
 }
 
-impl From<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
-    fn from(value: &MinaBaseAccountUpdateFeePayerStableV1) -> Self {
-        Self {
+impl TryFrom<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseAccountUpdateFeePayerStableV1) -> Result<Self, Self::Error> {
+        Ok(Self {
             body: FeePayerBody {
-                public_key: value.body.public_key.clone().into_inner().into(),
+                public_key: value.body.public_key.clone().into_inner().try_into()?,
                 fee: Fee::from_u64(value.body.fee.as_u64()),
                 valid_until: value
                     .body
@@ -669,10 +690,10 @@ impl From<&MinaBaseAccountUpdateFeePayerStableV1> for FeePayer {
                 nonce: Nonce::from_u32(value.body.nonce.as_u32()),
             },
             authorization: Signature {
-                rx: value.authorization.0.to_field(),
-                s: value.authorization.1.to_field(),
+                rx: value.authorization.0.to_field()?,
+                s: value.authorization.1.to_field()?,
             },
-        }
+        })
     }
 }
 
@@ -750,52 +771,66 @@ impl From<&zkapp_command::Numeric<Length>>
     }
 }
 
-impl<F: FieldWitness> From<&ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>
+impl<F: FieldWitness> TryFrom<&ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>
     for protocol_state::EpochData<F>
 {
-    fn from(value: &ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1) -> Self {
-        Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
             ledger: protocol_state::EpochLedger {
-                hash: value.ledger.hash.0.to_field(),
+                hash: value.ledger.hash.0.to_field()?,
                 total_currency: value.ledger.total_currency.clone().into(),
             },
-            seed: value.seed.0.to_field(),
-            start_checkpoint: value.start_checkpoint.0.to_field(),
-            lock_checkpoint: value.lock_checkpoint.0.to_field(),
+            seed: value.seed.0.to_field()?,
+            start_checkpoint: value.start_checkpoint.0.to_field()?,
+            lock_checkpoint: value.lock_checkpoint.0.to_field()?,
             epoch_length: (&value.epoch_length).into(),
-        }
+        })
     }
 }
 
-impl<F: FieldWitness> From<&ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>
+impl<F: FieldWitness> TryFrom<&ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>
     for protocol_state::EpochData<F>
 {
-    fn from(value: &ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
-        Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
             ledger: protocol_state::EpochLedger {
-                hash: value.ledger.hash.0.to_field(),
+                hash: value.ledger.hash.0.to_field()?,
                 total_currency: value.ledger.total_currency.clone().into(),
             },
-            seed: value.seed.0.to_field(),
-            start_checkpoint: value.start_checkpoint.0.to_field(),
-            lock_checkpoint: value.lock_checkpoint.0.to_field(),
+            seed: value.seed.0.to_field()?,
+            start_checkpoint: value.start_checkpoint.0.to_field()?,
+            lock_checkpoint: value.lock_checkpoint.0.to_field()?,
             epoch_length: (&value.epoch_length).into(),
-        }
+        })
     }
 }
 
-impl From<&MinaBaseZkappPreconditionProtocolStateEpochDataStableV1> for zkapp_command::EpochData {
-    fn from(value: &MinaBaseZkappPreconditionProtocolStateEpochDataStableV1) -> Self {
+impl TryFrom<&MinaBaseZkappPreconditionProtocolStateEpochDataStableV1>
+    for zkapp_command::EpochData
+{
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
+    ) -> Result<Self, Self::Error> {
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed as Seed;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint as Start;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Hash;
         use zkapp_command::{ClosedInterval, OrIgnore};
 
-        Self {
+        Ok(Self {
             ledger: zkapp_command::EpochLedger {
                 hash: match &value.ledger.hash {
-                    Hash::Check(hash) => OrIgnore::Check(hash.to_field()),
+                    Hash::Check(hash) => OrIgnore::Check(hash.to_field()?),
                     Hash::Ignore => OrIgnore::Ignore,
                 },
                 total_currency: match &value.ledger.total_currency {
@@ -807,19 +842,19 @@ impl From<&MinaBaseZkappPreconditionProtocolStateEpochDataStableV1> for zkapp_co
                 },
             },
             seed: match &value.seed {
-                Seed::Check(seed) => OrIgnore::Check(seed.to_field()),
+                Seed::Check(seed) => OrIgnore::Check(seed.to_field()?),
                 Seed::Ignore => OrIgnore::Ignore,
             },
             start_checkpoint: match &value.start_checkpoint {
-                Start::Check(start) => OrIgnore::Check(start.to_field()),
+                Start::Check(start) => OrIgnore::Check(start.to_field()?),
                 Start::Ignore => OrIgnore::Ignore,
             },
             lock_checkpoint: match &value.lock_checkpoint {
-                Start::Check(start) => OrIgnore::Check(start.to_field()),
+                Start::Check(start) => OrIgnore::Check(start.to_field()?),
                 Start::Ignore => OrIgnore::Ignore,
             },
             epoch_length: (&value.epoch_length).into(),
-        }
+        })
     }
 }
 
@@ -877,18 +912,20 @@ impl From<&zkapp_command::EpochData> for MinaBaseZkappPreconditionProtocolStateE
     }
 }
 
-impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Preconditions {
-    fn from(value: &MinaBaseAccountUpdatePreconditionsStableV1) -> Self {
+impl TryFrom<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Preconditions {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseAccountUpdatePreconditionsStableV1) -> Result<Self, Self::Error> {
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot as MSlot;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
         use zkapp_command::AccountPreconditions;
         use zkapp_command::{ClosedInterval, Numeric, OrIgnore};
 
-        Self {
+        Ok(Self {
             network: zkapp_command::ZkAppPreconditions {
                 snarked_ledger_hash: match &value.network.snarked_ledger_hash {
-                    Ledger::Check(hash) => OrIgnore::Check(hash.to_field()),
+                    Ledger::Check(hash) => OrIgnore::Check(hash.to_field()?),
                     Ledger::Ignore => OrIgnore::Ignore,
                 },
                 blockchain_length: (&value.network.blockchain_length).into(),
@@ -907,8 +944,8 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                     }),
                     MSlot::Ignore => OrIgnore::Ignore,
                 },
-                staking_epoch_data: (&value.network.staking_epoch_data).into(),
-                next_epoch_data: (&value.network.next_epoch_data).into(),
+                staking_epoch_data: (&value.network.staking_epoch_data).try_into()?,
+                next_epoch_data: (&value.network.next_epoch_data).try_into()?,
             },
             account: {
                 let account = &value.account.0;
@@ -935,21 +972,21 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                         MNonce::Ignore => OrIgnore::Ignore,
                     },
                     receipt_chain_hash: match &account.receipt_chain_hash {
-                        Receipt::Check(hash) => OrIgnore::Check(hash.to_field()),
+                        Receipt::Check(hash) => OrIgnore::Check(hash.to_field()?),
                         Receipt::Ignore => OrIgnore::Ignore,
                     },
                     delegate: match &account.delegate {
                         Delegate::Check(delegate) => {
-                            OrIgnore::Check(delegate.clone().into_inner().into())
+                            OrIgnore::Check(delegate.clone().into_inner().try_into()?)
                         }
                         Delegate::Ignore => OrIgnore::Ignore,
                     },
-                    state: array_into_with(&account.state, |s| match s {
-                        State::Check(s) => OrIgnore::Check(s.to_field()),
-                        State::Ignore => OrIgnore::Ignore,
-                    }),
+                    state: crate::try_array_into_with(&account.state, |s| match s {
+                        State::Check(s) => Ok(OrIgnore::Check(s.to_field()?)),
+                        State::Ignore => Ok(OrIgnore::Ignore),
+                    })?,
                     action_state: match &account.action_state {
-                        State::Check(s) => OrIgnore::Check(s.to_field()),
+                        State::Check(s) => OrIgnore::Check(s.to_field()?),
                         State::Ignore => OrIgnore::Ignore,
                     },
                     proved_state: match account.proved_state {
@@ -969,7 +1006,7 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                 }),
                 MSlot::Ignore => OrIgnore::Ignore,
             },
-        }
+        })
     }
 }
 
@@ -1096,8 +1133,10 @@ fn of_vk(data: VerificationKey) -> WithHash<VerificationKey> {
     WithHash { data, hash }
 }
 
-impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
-    fn from(value: &MinaBaseAccountUpdateTStableV1) -> Self {
+impl TryFrom<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseAccountUpdateTStableV1) -> Result<Self, Self::Error> {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Delegate as Delegate;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Permissions as Perm;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Timing as Timing;
@@ -1107,21 +1146,21 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as ZkAppUri;
         use MinaBaseAccountUpdateUpdateStableV1AppStateA as AppState;
 
-        Self {
+        Ok(Self {
             body: zkapp_command::Body {
-                public_key: value.body.public_key.clone().into_inner().into(),
-                token_id: value.body.token_id.clone().into_inner().into(),
+                public_key: value.body.public_key.clone().into_inner().try_into()?,
+                token_id: value.body.token_id.clone().into_inner().try_into()?,
                 update: zkapp_command::Update {
-                    app_state: value.body.update.app_state.each_ref().map(|s| match s {
-                        AppState::Set(bigint) => SetOrKeep::Set(bigint.to_field()),
-                        AppState::Keep => SetOrKeep::Keep,
-                    }),
+                    app_state: crate::try_array_into_with(&value.body.update.app_state, |s| match s {
+                            AppState::Set(bigint) => Ok(SetOrKeep::Set(bigint.to_field()?)),
+                            AppState::Keep => Ok(SetOrKeep::Keep),
+                    })?,
                     delegate: match &value.body.update.delegate {
-                        Delegate::Set(v) => SetOrKeep::Set(v.into()),
+                        Delegate::Set(v) => SetOrKeep::Set(v.try_into()?),
                         Delegate::Keep => SetOrKeep::Keep,
                     },
                     verification_key: match &value.body.update.verification_key {
-                        VK::Set(vk) => SetOrKeep::Set(of_vk((&**vk).into())),
+                        VK::Set(vk) => SetOrKeep::Set(of_vk((&**vk).try_into()?)),
                         VK::Keep => SetOrKeep::Keep,
                     },
                     permissions: match &value.body.update.permissions {
@@ -1129,11 +1168,11 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         Perm::Keep => SetOrKeep::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
-                        ZkAppUri::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        ZkAppUri::Set(s) => SetOrKeep::Set(s.into()),
                         ZkAppUri::Keep => SetOrKeep::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
-                        TokenSymbol::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        TokenSymbol::Set(s) => SetOrKeep::Set(s.into()),
                         TokenSymbol::Keep => SetOrKeep::Keep,
                     },
                     timing: match &value.body.update.timing {
@@ -1141,7 +1180,7 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         Timing::Keep => SetOrKeep::Keep,
                     },
                     voting_for: match &value.body.update.voting_for {
-                        Voting::Set(bigint) => SetOrKeep::Set(VotingFor(bigint.to_field())),
+                        Voting::Set(bigint) => SetOrKeep::Set(VotingFor(bigint.to_field()?)),
                         Voting::Keep => SetOrKeep::Keep,
                     },
                 },
@@ -1156,8 +1195,8 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         .events
                         .0
                         .iter()
-                        .map(|e| zkapp_command::Event(e.iter().map(|e| e.to_field()).collect()))
-                        .collect(),
+                        .map(|e| Ok(zkapp_command::Event(e.iter().map(|e| e.to_field()).collect::<Result<Vec<Fp>, _>>()?)))
+                        .collect::<Result<_, _>>()?,
                 ),
                 actions: zkapp_command::Actions(
                     value
@@ -1165,16 +1204,16 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         .actions
                         .0
                         .iter()
-                        .map(|e| zkapp_command::Event(e.iter().map(|e| e.to_field()).collect()))
-                        .collect(),
+                        .map(|e| Ok(zkapp_command::Event(e.iter().map(|e| e.to_field()).collect::<Result<Vec<Fp>, _>>()?)))
+                        .collect::<Result<_, _>>()?,
                 ),
-                call_data: value.body.call_data.to_field(),
-                preconditions: (&value.body.preconditions).into(),
+                call_data: value.body.call_data.to_field()?,
+                preconditions: (&value.body.preconditions).try_into()?,
                 use_full_commitment: value.body.use_full_commitment,
                 authorization_kind: match &value.body.authorization_kind {
                     mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven => AuthorizationKind::NoneGiven,
                     mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Signature => AuthorizationKind::Signature,
-                    mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(hash) => AuthorizationKind::Proof(hash.to_field()),
+                    mina_p2p_messages::v2::MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(hash) => AuthorizationKind::Proof(hash.to_field()?),
                 },
                 implicit_account_creation_fee: value.body.implicit_account_creation_fee,
                 may_use_token: match value.body.may_use_token {
@@ -1186,55 +1225,67 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
             authorization: match &value.authorization {
                 mina_p2p_messages::v2::MinaBaseControlStableV2::Proof(proof) => zkapp_command::Control::Proof((**proof).clone().into()),
                 mina_p2p_messages::v2::MinaBaseControlStableV2::Signature(signature) => zkapp_command::Control::Signature(Signature{
-                    rx: signature.0.to_field(),
-                    s: signature.1.to_field()
+                    rx: signature.0.to_field()?,
+                    s: signature.1.to_field()?
             }),
                 mina_p2p_messages::v2::MinaBaseControlStableV2::NoneGiven => zkapp_command::Control::NoneGiven,
             },
-        }
+        })
     }
 }
 
 /// Notes: childs
-impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>>
+impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>>
     for CallForest<AccountUpdate>
 {
-    fn from(value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
+    ) -> Result<Self, Self::Error> {
         use ark_ff::Zero;
 
-        Self(
+        Ok(Self(
             value
                 .iter()
-                .map(|update| WithStackHash {
-                    elt: zkapp_command::Tree {
-                        account_update: (&update.elt.account_update).into(),
-                        account_update_digest: Fp::zero(), // replaced later
-                        calls: (&update.elt.calls).into(),
-                    },
-                    stack_hash: Fp::zero(), // replaced later
+                .map(|update| {
+                    Ok(WithStackHash {
+                        elt: zkapp_command::Tree {
+                            account_update: (&update.elt.account_update).try_into()?,
+                            account_update_digest: Fp::zero(), // replaced later
+                            calls: (&update.elt.calls).try_into()?,
+                        },
+                        stack_hash: Fp::zero(), // replaced later
+                    })
                 })
-                .collect(),
-        )
+                .collect::<Result<_, _>>()?,
+        ))
     }
 }
 /// Notes: root
-impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
+impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
     for CallForest<AccountUpdate>
 {
-    fn from(value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
+    ) -> Result<Self, Self::Error> {
         use ark_ff::Zero;
 
         let values = value
             .iter()
-            .map(|update| WithStackHash {
-                elt: zkapp_command::Tree {
-                    account_update: (&update.elt.account_update).into(),
-                    account_update_digest: Fp::zero(), // replaced later in `of_wire`
-                    calls: (&update.elt.calls).into(),
-                },
-                stack_hash: Fp::zero(), // replaced later in `of_wire`
+            .map(|update| {
+                Ok(WithStackHash {
+                    elt: zkapp_command::Tree {
+                        account_update: (&update.elt.account_update).try_into()?,
+                        account_update_digest: Fp::zero(), // replaced later in `of_wire`
+                        calls: (&update.elt.calls).try_into()?,
+                    },
+                    stack_hash: Fp::zero(), // replaced later in `of_wire`
+                })
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?;
 
         // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1113-L1115
 
@@ -1242,19 +1293,23 @@ impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
         call_forest.of_wire(&[]);
         // call_forest.of_wire(value);
 
-        call_forest
+        Ok(call_forest)
     }
 }
 
-impl From<&v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>
+impl TryFrom<&v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>
     for WithHash<VerificationKey>
 {
-    fn from(value: &v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA,
+    ) -> Result<Self, Self::Error> {
         let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA { data, hash } = value;
-        Self {
-            data: data.into(),
-            hash: hash.into(),
-        }
+        Ok(Self {
+            data: data.try_into()?,
+            hash: hash.try_into()?,
+        })
     }
 }
 
@@ -1271,13 +1326,15 @@ impl From<&WithHash<VerificationKey>>
 }
 
 /// Notes: childs for verifiable
-impl From<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>>
+impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>>
     for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
 {
-    fn from(
+    type Error = InvalidBigInt;
+
+    fn try_from(
         value: &List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>,
-    ) -> Self {
-        Self(
+    ) -> Result<Self, Self::Error> {
+        Ok(Self(
             value
                 .iter()
                 .map(|update| {
@@ -1290,24 +1347,32 @@ impl From<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA
                         account_update_digest,
                         calls,
                     } = &**elt;
-                    WithStackHash {
+                    let vk_opt = match vk_opt.as_ref() {
+                        Some(vk) => Some(vk.try_into()?),
+                        None => None,
+                    };
+                    Ok(WithStackHash {
                         elt: zkapp_command::Tree {
-                            account_update: (account.into(), vk_opt.as_ref().map(Into::into)),
-                            account_update_digest: account_update_digest.to_field(),
-                            calls: calls.into(),
+                            account_update: (account.try_into()?, vk_opt),
+                            account_update_digest: account_update_digest.to_field()?,
+                            calls: calls.try_into()?,
                         },
-                        stack_hash: stack_hash.to_field(),
-                    }
+                        stack_hash: stack_hash.to_field()?,
+                    })
                 })
-                .collect(),
-        )
+                .collect::<Result<Vec<_>, _>>()?,
+        ))
     }
 }
 /// Notes: root for verifiable
-impl From<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
+impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
     for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
 {
-    fn from(value: &List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>,
+    ) -> Result<Self, Self::Error> {
         let values = value
             .iter()
             .map(|update| {
@@ -1318,21 +1383,25 @@ impl From<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
                     account_update_digest,
                     calls,
                 } = elt;
-                WithStackHash {
+                let vk_opt = match vk_opt.as_ref() {
+                    Some(vk) => Some(vk.try_into()?),
+                    None => None,
+                };
+                Ok(WithStackHash {
                     elt: zkapp_command::Tree {
-                        account_update: (account.into(), vk_opt.as_ref().map(Into::into)),
-                        account_update_digest: account_update_digest.to_field(),
-                        calls: calls.into(),
+                        account_update: (account.try_into()?, vk_opt),
+                        account_update_digest: account_update_digest.to_field()?,
+                        calls: calls.try_into()?,
                     },
-                    stack_hash: stack_hash.to_field(),
-                }
+                    stack_hash: stack_hash.to_field()?,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
         // There is no need to call `of_wire`, because hashes are in our serialized types (verifiables types only)
         // call_forest.of_wire(&[]);
 
-        CallForest(values)
+        Ok(CallForest(values))
     }
 }
 
@@ -1562,13 +1631,15 @@ impl From<&CallForest<AccountUpdate>>
     }
 }
 
-impl From<&MinaBaseFeeTransferSingleStableV2> for SingleFeeTransfer {
-    fn from(value: &MinaBaseFeeTransferSingleStableV2) -> Self {
-        Self {
-            receiver_pk: (&value.receiver_pk).into(),
+impl TryFrom<&MinaBaseFeeTransferSingleStableV2> for SingleFeeTransfer {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseFeeTransferSingleStableV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            receiver_pk: (&value.receiver_pk).try_into()?,
             fee: Fee::from_u64(value.fee.as_u64()),
-            fee_token: (&*value.fee_token).into(),
-        }
+            fee_token: (&*value.fee_token).try_into()?,
+        })
     }
 }
 
@@ -1582,13 +1653,17 @@ impl From<&SingleFeeTransfer> for MinaBaseFeeTransferSingleStableV2 {
     }
 }
 
-impl From<&MinaBaseFeeTransferStableV2> for FeeTransfer {
-    fn from(value: &MinaBaseFeeTransferStableV2) -> Self {
+impl TryFrom<&MinaBaseFeeTransferStableV2> for FeeTransfer {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseFeeTransferStableV2) -> Result<Self, Self::Error> {
         use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
 
         match value {
-            MinaBaseFeeTransferStableV2::One(ft) => FeeTransfer(One(ft.into())),
-            MinaBaseFeeTransferStableV2::Two((a, b)) => FeeTransfer(Two((a.into(), b.into()))),
+            MinaBaseFeeTransferStableV2::One(ft) => Ok(FeeTransfer(One(ft.try_into()?))),
+            MinaBaseFeeTransferStableV2::Two((a, b)) => {
+                Ok(FeeTransfer(Two((a.try_into()?, b.try_into()?))))
+            }
         }
     }
 }
@@ -1616,19 +1691,23 @@ impl From<&Memo> for MinaBaseSignedCommandMemoStableV1 {
     }
 }
 
-impl From<MinaBaseSignedCommandStableV2> for SignedCommand {
-    fn from(value: MinaBaseSignedCommandStableV2) -> Self {
-        (&value).into()
+impl TryFrom<MinaBaseSignedCommandStableV2> for SignedCommand {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: MinaBaseSignedCommandStableV2) -> Result<Self, Self::Error> {
+        (&value).try_into()
     }
 }
 
-impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
-    fn from(cmd: &MinaBaseSignedCommandStableV2) -> Self {
-        Self {
+impl TryFrom<&MinaBaseSignedCommandStableV2> for SignedCommand {
+    type Error = InvalidBigInt;
+
+    fn try_from(cmd: &MinaBaseSignedCommandStableV2) -> Result<Self, Self::Error> {
+        Ok(Self {
             payload: transaction_logic::signed_command::SignedCommandPayload {
                 common: transaction_logic::signed_command::Common {
                     fee: (&cmd.payload.common.fee).into(),
-                    fee_payer_pk: (&cmd.payload.common.fee_payer_pk).into(),
+                    fee_payer_pk: (&cmd.payload.common.fee_payer_pk).try_into()?,
                     nonce: (&cmd.payload.common.nonce).into(),
                     valid_until: (&cmd.payload.common.valid_until).into(),
                     memo: (&cmd.payload.common.memo).into(),
@@ -1636,7 +1715,7 @@ impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
                 body: match &cmd.payload.body {
                     MinaBaseSignedCommandPayloadBodyStableV2::Payment(payload) => {
                         transaction_logic::signed_command::Body::Payment(PaymentPayload {
-                            receiver_pk: (&payload.receiver_pk).into(),
+                            receiver_pk: (&payload.receiver_pk).try_into()?,
                             amount: payload.amount.clone().into(),
                         })
                     }
@@ -1644,14 +1723,14 @@ impl From<&MinaBaseSignedCommandStableV2> for SignedCommand {
                         MinaBaseStakeDelegationStableV2::SetDelegate { new_delegate },
                     ) => transaction_logic::signed_command::Body::StakeDelegation(
                         StakeDelegationPayload::SetDelegate {
-                            new_delegate: new_delegate.into(),
+                            new_delegate: new_delegate.try_into()?,
                         },
                     ),
                 },
             },
-            signer: (&cmd.signer).into(),
-            signature: (&*cmd.signature).into(),
-        }
+            signer: (&cmd.signer).try_into()?,
+            signature: (&*cmd.signature).try_into()?,
+        })
     }
 }
 
@@ -1698,29 +1777,33 @@ impl From<&SignedCommand> for MinaBaseSignedCommandStableV2 {
     }
 }
 
-impl From<&MinaBaseZkappCommandTStableV1WireStableV1> for zkapp_command::ZkAppCommand {
-    fn from(cmd: &MinaBaseZkappCommandTStableV1WireStableV1) -> Self {
-        Self {
-            fee_payer: (&cmd.fee_payer).into(),
-            account_updates: (&cmd.account_updates).into(),
+impl TryFrom<&MinaBaseZkappCommandTStableV1WireStableV1> for zkapp_command::ZkAppCommand {
+    type Error = InvalidBigInt;
+
+    fn try_from(cmd: &MinaBaseZkappCommandTStableV1WireStableV1) -> Result<Self, Self::Error> {
+        Ok(Self {
+            fee_payer: (&cmd.fee_payer).try_into()?,
+            account_updates: (&cmd.account_updates).try_into()?,
             memo: (&cmd.memo).into(),
-        }
+        })
     }
 }
 
-impl From<v2::MinaBaseZkappCommandVerifiableStableV1> for verifiable::ZkAppCommand {
-    fn from(value: v2::MinaBaseZkappCommandVerifiableStableV1) -> Self {
+impl TryFrom<v2::MinaBaseZkappCommandVerifiableStableV1> for verifiable::ZkAppCommand {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: v2::MinaBaseZkappCommandVerifiableStableV1) -> Result<Self, Self::Error> {
         let v2::MinaBaseZkappCommandVerifiableStableV1 {
             fee_payer,
             account_updates,
             memo,
         } = &value;
 
-        verifiable::ZkAppCommand {
-            fee_payer: fee_payer.into(),
-            account_updates: account_updates.into(),
+        Ok(verifiable::ZkAppCommand {
+            fee_payer: fee_payer.try_into()?,
+            account_updates: account_updates.try_into()?,
             memo: memo.into(),
-        }
+        })
     }
 }
 
@@ -1750,8 +1833,12 @@ impl From<&zkapp_command::ZkAppCommand> for MinaBaseZkappCommandTStableV1WireSta
     }
 }
 
-impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
-    fn from(value: &TransactionSnarkScanStateTransactionWithWitnessStableV2) -> Self {
+impl TryFrom<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &TransactionSnarkScanStateTransactionWithWitnessStableV2,
+    ) -> Result<Self, Self::Error> {
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedVaryingStableV2::*;
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::*;
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2::*;
@@ -1760,9 +1847,9 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
         use crate::scan_state::scan_state::transaction_snark::InitStack;
         use transaction_applied::signed_command_applied;
 
-        Self {
+        Ok(Self {
             transaction_with_info: TransactionApplied {
-                previous_hash: value.transaction_with_info.previous_hash.to_field(),
+                previous_hash: value.transaction_with_info.previous_hash.to_field()?,
                 varying: match &value.transaction_with_info.varying {
                     Command(cmd) => match cmd {
                         SignedCommand(cmd) => transaction_applied::Varying::Command(
@@ -1770,7 +1857,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                 transaction_applied::SignedCommandApplied {
                                     common: transaction_applied::signed_command_applied::Common {
                                         user_command: WithStatus {
-                                            data: (&cmd.common.user_command.data).into(),
+                                            data: (&cmd.common.user_command.data).try_into()?,
                                             status: (&cmd.common.user_command.status).into(),
                                         },
                                     },
@@ -1780,15 +1867,16 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                                 new_accounts: new_accounts
                                                     .iter()
                                                     .cloned()
-                                                    .map(Into::into)
-                                                    .collect(),
+                                                    .map(TryInto::try_into)
+                                                    .collect::<Result<_, _>>()?,
                                             }
                                         }
                                         StakeDelegation { previous_delegate } => {
                                             signed_command_applied::Body::StakeDelegation {
-                                                previous_delegate: previous_delegate
-                                                    .as_ref()
-                                                    .map(|d| d.into()),
+                                                previous_delegate: match previous_delegate.as_ref() {
+                                                    Some(prev) => Some(prev.try_into()?),
+                                                    None => None,
+                                                }
                                             }
                                         }
                                         Failed => signed_command_applied::Body::Failed,
@@ -1803,18 +1891,21 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                                         .accounts
                                         .iter()
                                         .map(|(id, account_opt)| {
-                                            let id: AccountId = id.into();
-                                            let account: Option<Account> = account_opt.as_ref().map(Into::into);
+                                            let id: AccountId = id.try_into()?;
+                                            let account: Option<Account> = match account_opt.as_ref() {
+                                                Some(account) => Some(account.try_into()?),
+                                                None => None,
+                                            };
                                             let account = account.map(Box::new);
 
-                                            (id, account)
+                                            Ok((id, account))
                                         })
-                                        .collect(),
+                                        .collect::<Result<_, _>>()?,
                                     command: WithStatus {
-                                        data: (&cmd.command.data).into(),
+                                        data: (&cmd.command.data).try_into()?,
                                         status: (&cmd.command.status).into(),
                                     },
-                                    new_accounts: cmd.new_accounts.iter().map(Into::into).collect(),
+                                    new_accounts: cmd.new_accounts.iter().map(TryInto::try_into).collect::<Result<_, _>>()?,
                                 },
                             )),
                         ),
@@ -1822,51 +1913,52 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
                     FeeTransfer(ft) => transaction_applied::Varying::FeeTransfer(
                         transaction_applied::FeeTransferApplied {
                             fee_transfer: WithStatus {
-                                data: (&ft.fee_transfer.data).into(),
+                                data: (&ft.fee_transfer.data).try_into()?,
                                 status: (&ft.fee_transfer.status).into(),
                             },
-                            new_accounts: ft.new_accounts.iter().map(Into::into).collect(),
+                            new_accounts: ft.new_accounts.iter().map(TryInto::try_into).collect::<Result<_, _>>()?,
                             burned_tokens: ft.burned_tokens.clone().into(),
                         },
                     ),
                     Coinbase(cb) => transaction_applied::Varying::Coinbase(transaction_applied::CoinbaseApplied {
                         coinbase: WithStatus {
                             data: crate::scan_state::transaction_logic::Coinbase {
-                                receiver: (&cb.coinbase.data.receiver).into(),
+                                receiver: (&cb.coinbase.data.receiver).try_into()?,
                                 amount: cb.coinbase.data.amount.clone().into(),
-                                fee_transfer: cb.coinbase.data.fee_transfer.as_ref().map(|ft| {
-                                    crate::scan_state::transaction_logic::CoinbaseFeeTransfer {
-                                        receiver_pk: (&ft.receiver_pk).into(),
+                                fee_transfer: match cb.coinbase.data.fee_transfer.as_ref() {
+                                    Some(ft) => Some(crate::scan_state::transaction_logic::CoinbaseFeeTransfer {
+                                        receiver_pk: (&ft.receiver_pk).try_into()?,
                                         fee: Fee::from_u64(ft.fee.as_u64()),
-                                    }
-                                }),
+                                    }),
+                                    None => None,
+                                }
                             },
                             status: (&cb.coinbase.status).into(),
                         },
-                        new_accounts: cb.new_accounts.iter().map(Into::into).collect(),
+                        new_accounts: cb.new_accounts.iter().map(TryInto::try_into).collect::<Result<_, _>>()?,
                         burned_tokens: cb.burned_tokens.clone().into(),
                     }),
                 },
             },
             state_hash: {
                 let (state, body) = &value.state_hash;
-                (state.to_field(), body.to_field())
+                (state.to_field()?, body.to_field()?)
             },
-            statement: (&*value.statement).into(),
+            statement: (&*value.statement).try_into()?,
             init_stack: match &value.init_stack {
                 Base(base) => InitStack::Base(pending_coinbase::Stack {
-                    data: pending_coinbase::CoinbaseStack(base.data.to_field()),
+                    data: pending_coinbase::CoinbaseStack(base.data.to_field()?),
                     state: pending_coinbase::StateStack {
-                        init: base.state.init.to_field(),
-                        curr: base.state.curr.to_field(),
+                        init: base.state.init.to_field()?,
+                        curr: base.state.curr.to_field()?,
                     },
                 }),
                 Merge => InitStack::Merge,
             },
-            first_pass_ledger_witness: (&value.first_pass_ledger_witness).into(),
-            second_pass_ledger_witness: (&value.second_pass_ledger_witness).into(),
+            first_pass_ledger_witness: (&value.first_pass_ledger_witness).try_into()?,
+            second_pass_ledger_witness: (&value.second_pass_ledger_witness).try_into()?,
             block_global_slot: Slot::from_u32(value.block_global_slot.as_u32()),
-        }
+        })
     }
 }
 
@@ -1964,16 +2056,21 @@ impl From<&transaction_logic::Coinbase> for MinaBaseCoinbaseStableV1 {
     }
 }
 
-impl From<&MinaBaseCoinbaseStableV1> for transaction_logic::Coinbase {
-    fn from(value: &MinaBaseCoinbaseStableV1) -> Self {
-        Self {
-            receiver: (&value.receiver).into(),
+impl TryFrom<&MinaBaseCoinbaseStableV1> for transaction_logic::Coinbase {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseCoinbaseStableV1) -> Result<Self, Self::Error> {
+        Ok(Self {
+            receiver: (&value.receiver).try_into()?,
             amount: value.amount.clone().into(),
-            fee_transfer: value.fee_transfer.as_ref().map(|ft| CoinbaseFeeTransfer {
-                receiver_pk: (&ft.receiver_pk).into(),
-                fee: (&ft.fee).into(),
-            }),
-        }
+            fee_transfer: match value.fee_transfer.as_ref() {
+                Some(ft) => Some(CoinbaseFeeTransfer {
+                    receiver_pk: (&ft.receiver_pk).try_into()?,
+                    fee: (&ft.fee).into(),
+                }),
+                None => None,
+            },
+        })
     }
 }
 
@@ -2113,12 +2210,14 @@ impl binprot::BinProtWrite for TransactionWithWitness {
     }
 }
 
-impl From<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
-    fn from(value: &TransactionSnarkStableV2) -> Self {
-        Self {
-            statement: (&value.statement).into(),
+impl TryFrom<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &TransactionSnarkStableV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            statement: (&value.statement).try_into()?,
             proof: Arc::new(value.proof.clone()),
-        }
+        })
     }
 }
 
@@ -2131,9 +2230,11 @@ impl From<&TransactionSnark<SokDigest>> for TransactionSnarkStableV2 {
     }
 }
 
-impl From<&LedgerProofProdStableV2> for LedgerProof {
-    fn from(value: &LedgerProofProdStableV2) -> Self {
-        Self((&value.0).into())
+impl TryFrom<&LedgerProofProdStableV2> for LedgerProof {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &LedgerProofProdStableV2) -> Result<Self, Self::Error> {
+        Ok(Self((&value.0).try_into()?))
     }
 }
 
@@ -2150,12 +2251,14 @@ impl From<&LedgerProof> for LedgerProofProdStableV2 {
 //     }
 // }
 
-impl From<&MinaBaseSokMessageStableV1> for SokMessage {
-    fn from(value: &MinaBaseSokMessageStableV1) -> Self {
-        Self {
+impl TryFrom<&MinaBaseSokMessageStableV1> for SokMessage {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseSokMessageStableV1) -> Result<Self, Self::Error> {
+        Ok(Self {
             fee: (&value.fee).into(),
-            prover: (&value.prover).into(),
-        }
+            prover: (&value.prover).try_into()?,
+        })
     }
 }
 
@@ -2176,14 +2279,20 @@ impl From<&LedgerProofWithSokMessage>
     }
 }
 
-impl From<&TransactionSnarkScanStateLedgerProofWithSokMessageStableV2>
+impl TryFrom<&TransactionSnarkScanStateLedgerProofWithSokMessageStableV2>
     for LedgerProofWithSokMessage
 {
-    fn from(value: &TransactionSnarkScanStateLedgerProofWithSokMessageStableV2) -> Self {
-        Self {
-            proof: (&value.0).into(),
-            sok_message: (&value.1).into(),
-        }
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
+    ) -> Result<Self, Self::Error> {
+        let TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(proof, msg) = value;
+
+        Ok(Self {
+            proof: proof.try_into()?,
+            sok_message: msg.try_into()?,
+        })
     }
 }
 
@@ -2194,24 +2303,28 @@ impl binprot::BinProtWrite for LedgerProofWithSokMessage {
     }
 }
 
-impl From<MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
-    fn from(value: MinaBaseUserCommandStableV2) -> Self {
-        (&value).into()
+impl TryFrom<MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: MinaBaseUserCommandStableV2) -> Result<Self, Self::Error> {
+        (&value).try_into()
     }
 }
 
-impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
-    fn from(value: &MinaBaseUserCommandStableV2) -> Self {
-        match value {
+impl TryFrom<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserCommand {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseUserCommandStableV2) -> Result<Self, Self::Error> {
+        Ok(match value {
             MinaBaseUserCommandStableV2::ZkappCommand(cmd) => {
                 Self::ZkAppCommand(Box::new(zkapp_command::valid::ZkAppCommand {
-                    zkapp_command: cmd.into(),
+                    zkapp_command: cmd.try_into()?,
                 }))
             }
             MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
-                Self::SignedCommand(Box::new(cmd.into()))
+                Self::SignedCommand(Box::new(cmd.try_into()?))
             }
-        }
+        })
     }
 }
 
@@ -2263,14 +2376,18 @@ impl From<&ParallelScanJobStatusStableV1> for JobStatus {
     }
 }
 
-impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
+impl TryFrom<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
     for super::parallel_scan::merge::Job<Arc<LedgerProofWithSokMessage>>
 {
-    fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1) -> Self {
-        match value {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
+    ) -> Result<Self, Self::Error> {
+        Ok(match value {
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Empty => Self::Empty,
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Part(proof) => {
-                Self::Part(Arc::new((&**proof).into()))
+                Self::Part(Arc::new((&**proof).try_into()?))
             }
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Full(record) => {
                 let TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full {
@@ -2281,21 +2398,25 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
                 } = &**record;
 
                 Self::Full(super::parallel_scan::merge::Record {
-                    left: Arc::new(left.into()),
-                    right: Arc::new(right.into()),
+                    left: Arc::new(left.try_into()?),
+                    right: Arc::new(right.try_into()?),
                     seq_no: seq_no.into(),
                     state: status.into(),
                 })
             }
-        }
+        })
     }
 }
 
-impl From<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
+impl TryFrom<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
     for super::parallel_scan::base::Job<Arc<TransactionWithWitness>>
 {
-    fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesABaseT1) -> Self {
-        match value {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    ) -> Result<Self, Self::Error> {
+        Ok(match value {
             TransactionSnarkScanStateStableV2ScanStateTreesABaseT1::Empty => Self::Empty,
             TransactionSnarkScanStateStableV2ScanStateTreesABaseT1::Full(record) => {
                 let TransactionSnarkScanStateStableV2ScanStateTreesABaseT1Full {
@@ -2305,23 +2426,25 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
                 } = &**record;
 
                 Self::Full(super::parallel_scan::base::Record {
-                    job: Arc::new(job.into()),
+                    job: Arc::new(job.try_into()?),
                     seq_no: seq_no.into(),
                     state: status.into(),
                 })
             }
-        }
+        })
     }
 }
 
-impl From<&TransactionSnarkScanStateStableV2> for ScanState {
-    fn from(value: &TransactionSnarkScanStateStableV2) -> Self {
+impl TryFrom<&TransactionSnarkScanStateStableV2> for ScanState {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &TransactionSnarkScanStateStableV2) -> Result<Self, Self::Error> {
         let TransactionSnarkScanStateStableV2 {
             scan_state,
             previous_incomplete_zkapp_updates,
         } = value;
 
-        Self {
+        Ok(Self {
             scan_state: {
                 let TransactionSnarkScanStateStableV2ScanState {
                     trees,
@@ -2354,17 +2477,19 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                                     sub_tree,
                                 } = current
                                 {
-                                    rust_tree.values.extend(value.iter().map(|(weights, job)| {
+                                    for (weights, job) in value.iter() {
                                         let weight: (Weight, Weight) = from_two_weights(weights);
                                         let job: super::parallel_scan::merge::Job<
                                             Arc<LedgerProofWithSokMessage>,
-                                        > = job.into();
+                                        > = job.try_into()?;
 
                                         let merge =
                                             super::parallel_scan::merge::Merge { weight, job };
 
-                                        super::parallel_scan::Value::Node(merge)
-                                    }));
+                                        rust_tree
+                                            .values
+                                            .push(super::parallel_scan::Value::Node(merge));
+                                    }
 
                                     current = sub_tree;
                                 }
@@ -2374,27 +2499,32 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                                     panic!("Invalid tree")
                                 };
 
-                                rust_tree.values.extend(leaves.iter().map(|(weight, job)| {
+                                for (weight, job) in leaves {
                                     let weight: Weight = weight.into();
                                     let job: super::parallel_scan::base::Job<
                                         Arc<TransactionWithWitness>,
-                                    > = job.into();
+                                    > = job.try_into()?;
 
                                     let base = super::parallel_scan::base::Base { weight, job };
 
-                                    super::parallel_scan::Value::Leaf(base)
-                                }));
+                                    rust_tree
+                                        .values
+                                        .push(super::parallel_scan::Value::Leaf(base))
+                                }
 
-                                rust_tree
+                                Ok(rust_tree)
                             })
-                            .collect()
+                            .collect::<Result<_, _>>()?
                     },
-                    acc: acc.as_ref().map(|(proof, txns)| {
-                        (
-                            Arc::new(proof.into()),
-                            txns.iter().map(|t| Arc::new(t.into())).collect(),
-                        )
-                    }),
+                    acc: match acc.as_ref() {
+                        Some((proof, txns)) => Some((
+                            Arc::new(proof.try_into()?),
+                            txns.iter()
+                                .map(|t| Ok(Arc::new(t.try_into()?)))
+                                .collect::<Result<_, _>>()?,
+                        )),
+                        None => None,
+                    },
                     curr_job_seq_no: { SequenceNumber::new(curr_job_seq_no.as_u64()) },
                     max_base_jobs: max_base_jobs.as_u64(),
                     delay: delay.as_u64(),
@@ -2413,14 +2543,14 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                     txns.iter()
                         .map(
                             |t: &TransactionSnarkScanStateTransactionWithWitnessStableV2| {
-                                Arc::new(t.into())
+                                Ok(Arc::new(t.try_into()?))
                             },
                         )
-                        .collect(),
+                        .collect::<Result<_, _>>()?,
                     continue_next,
                 )
             },
-        }
+        })
     }
 }
 
@@ -2624,15 +2754,17 @@ impl From<&pending_coinbase::StackId> for MinaBasePendingCoinbaseStackIdStableV1
     }
 }
 
-impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
-    fn from(value: &MinaBasePendingCoinbaseStableV2) -> Self {
+impl TryFrom<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBasePendingCoinbaseStableV2) -> Result<Self, Self::Error> {
         let MinaBasePendingCoinbaseStableV2 {
             tree,
             pos_list,
             new_pos,
         } = value;
 
-        Self {
+        Ok(Self {
             tree: {
                 // NOTE: Same implementation than with `SparseLedger`
 
@@ -2643,22 +2775,23 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
                     addr: Address,
                     node: &MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree,
                     values: &mut Vec<Stack>,
-                ) {
+                ) -> Result<(), InvalidBigInt> {
                     match node {
                         Account(stack) => {
-                            let stack: Stack = stack.into();
+                            let stack: Stack = stack.try_into()?;
                             matrix.set(&addr, <StackHasher as pending_coinbase::merkle_tree::TreeHasher::<Stack>>::hash_value(&stack));
                             values.push(stack);
                         }
                         Hash(hash) => {
-                            matrix.set(&addr, hash.to_field());
+                            matrix.set(&addr, hash.to_field()?);
                         }
                         Node(hash, left, right) => {
-                            matrix.set(&addr, hash.to_field());
-                            build_matrix(matrix, addr.child_left(), left, values);
-                            build_matrix(matrix, addr.child_right(), right, values);
+                            matrix.set(&addr, hash.to_field()?);
+                            build_matrix(matrix, addr.child_left(), left, values)?;
+                            build_matrix(matrix, addr.child_right(), right, values)?;
                         }
                     }
+                    Ok(())
                 }
 
                 let MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 {
@@ -2683,7 +2816,7 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
                     // index_list.push_back(stack_id);
                 }
 
-                build_matrix(&mut hashes_matrix, Address::root(), tree, &mut values);
+                build_matrix(&mut hashes_matrix, Address::root(), tree, &mut values)?;
 
                 pending_coinbase::merkle_tree::MiniMerkleTree {
                     values,
@@ -2695,7 +2828,7 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
             },
             pos_list: pos_list.iter().rev().map(Into::into).collect(),
             new_pos: new_pos.into(),
-        }
+        })
     }
 }
 
@@ -2704,6 +2837,15 @@ impl From<&super::pending_coinbase::update::Update> for MinaBasePendingCoinbaseU
         Self {
             action: (&value.action).into(),
             coinbase_amount: (&value.coinbase_amount).into(),
+        }
+    }
+}
+
+impl From<&MinaBasePendingCoinbaseUpdateStableV1> for super::pending_coinbase::update::Update {
+    fn from(value: &MinaBasePendingCoinbaseUpdateStableV1) -> Self {
+        Self {
+            action: (&value.action).into(),
+            coinbase_amount: value.coinbase_amount.clone().into(),
         }
     }
 }
@@ -2718,6 +2860,20 @@ impl From<&super::pending_coinbase::update::Action>
             Action::One => Self::UpdateOne,
             Action::TwoCoinbaseInFirst => Self::UpdateTwoCoinbaseInFirst,
             Action::TwoCoinbaseInSecond => Self::UpdateTwoCoinbaseInSecond,
+        }
+    }
+}
+
+impl From<&MinaBasePendingCoinbaseUpdateActionStableV1>
+    for super::pending_coinbase::update::Action
+{
+    fn from(value: &MinaBasePendingCoinbaseUpdateActionStableV1) -> Self {
+        use MinaBasePendingCoinbaseUpdateActionStableV1::*;
+        match value {
+            UpdateNone => Self::None,
+            UpdateOne => Self::One,
+            UpdateTwoCoinbaseInFirst => Self::TwoCoinbaseInFirst,
+            UpdateTwoCoinbaseInSecond => Self::TwoCoinbaseInSecond,
         }
     }
 }
@@ -2860,68 +3016,81 @@ impl<F: FieldWitness> From<&StagedLedgerHash<F>> for MinaBaseStagedLedgerHashSta
     }
 }
 
-impl From<&MinaBaseStagedLedgerHashNonSnarkStableV1> for NonStark {
-    fn from(value: &MinaBaseStagedLedgerHashNonSnarkStableV1) -> Self {
+impl TryFrom<&MinaBaseStagedLedgerHashNonSnarkStableV1> for NonStark {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseStagedLedgerHashNonSnarkStableV1) -> Result<Self, Self::Error> {
         let MinaBaseStagedLedgerHashNonSnarkStableV1 {
             ledger_hash,
             aux_hash,
             pending_coinbase_aux,
         } = value;
 
-        Self {
-            ledger_hash: ledger_hash.inner().to_field(),
-            aux_hash: AuxHash(aux_hash.as_slice().try_into().unwrap()),
+        Ok(Self {
+            ledger_hash: ledger_hash.inner().to_field()?,
+            aux_hash: AuxHash(aux_hash.as_slice().try_into().map_err(|_| InvalidBigInt)?), // TODO: Don't use `InvalidBigInt` here
             pending_coinbase_aux: PendingCoinbaseAux(
-                pending_coinbase_aux.as_slice().try_into().unwrap(),
+                pending_coinbase_aux
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| InvalidBigInt)?, // TODO: Don't use `InvalidBigInt` here
             ),
-        }
+        })
     }
 }
 
-impl<F: FieldWitness> From<&MinaBaseStagedLedgerHashStableV1> for StagedLedgerHash<F> {
-    fn from(value: &MinaBaseStagedLedgerHashStableV1) -> Self {
+impl<F: FieldWitness> TryFrom<&MinaBaseStagedLedgerHashStableV1> for StagedLedgerHash<F> {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseStagedLedgerHashStableV1) -> Result<Self, Self::Error> {
         let MinaBaseStagedLedgerHashStableV1 {
             non_snark,
             pending_coinbase_hash,
         } = value;
 
-        Self {
-            non_snark: non_snark.into(),
-            pending_coinbase_hash: pending_coinbase_hash.inner().to_field(),
-        }
+        Ok(Self {
+            non_snark: non_snark.try_into()?,
+            pending_coinbase_hash: pending_coinbase_hash.inner().to_field()?,
+        })
     }
 }
 
-impl From<&MinaTransactionTransactionStableV2> for Transaction {
-    fn from(value: &MinaTransactionTransactionStableV2) -> Self {
-        match value {
+impl TryFrom<&MinaTransactionTransactionStableV2> for Transaction {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaTransactionTransactionStableV2) -> Result<Self, Self::Error> {
+        Ok(match value {
             MinaTransactionTransactionStableV2::Command(cmd) => Self::Command(match &**cmd {
                 MinaBaseUserCommandStableV2::SignedCommand(cmd) => {
-                    UserCommand::SignedCommand(Box::new(cmd.into()))
+                    UserCommand::SignedCommand(Box::new(cmd.try_into()?))
                 }
                 MinaBaseUserCommandStableV2::ZkappCommand(cmd) => {
-                    UserCommand::ZkAppCommand(Box::new(cmd.into()))
+                    UserCommand::ZkAppCommand(Box::new(cmd.try_into()?))
                 }
             }),
-            MinaTransactionTransactionStableV2::FeeTransfer(ft) => Self::FeeTransfer(ft.into()),
-            MinaTransactionTransactionStableV2::Coinbase(cb) => Self::Coinbase(cb.into()),
-        }
+            MinaTransactionTransactionStableV2::FeeTransfer(ft) => {
+                Self::FeeTransfer(ft.try_into()?)
+            }
+            MinaTransactionTransactionStableV2::Coinbase(cb) => Self::Coinbase(cb.try_into()?),
+        })
     }
 }
 
-impl From<&TransactionSnarkWorkTStableV2> for super::scan_state::transaction_snark::work::Work {
-    fn from(value: &TransactionSnarkWorkTStableV2) -> Self {
+impl TryFrom<&TransactionSnarkWorkTStableV2> for super::scan_state::transaction_snark::work::Work {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &TransactionSnarkWorkTStableV2) -> Result<Self, Self::Error> {
         let TransactionSnarkWorkTStableV2 {
             fee,
             proofs,
             prover,
         } = value;
 
-        Self {
+        Ok(Self {
             fee: fee.into(),
-            proofs: proofs.into(),
-            prover: prover.into(),
-        }
+            proofs: proofs.try_into()?,
+            prover: prover.try_into()?,
+        })
     }
 }
 
@@ -2941,17 +3110,19 @@ impl From<&super::scan_state::transaction_snark::work::Work> for TransactionSnar
     }
 }
 
-impl From<&TransactionSnarkWorkTStableV2Proofs>
+impl TryFrom<&TransactionSnarkWorkTStableV2Proofs>
     for super::scan_state::transaction_snark::OneOrTwo<LedgerProof>
 {
-    fn from(value: &TransactionSnarkWorkTStableV2Proofs) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &TransactionSnarkWorkTStableV2Proofs) -> Result<Self, Self::Error> {
         use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
         use TransactionSnarkWorkTStableV2Proofs as B;
 
-        match value {
-            B::One(proof) => One(proof.into()),
-            B::Two((p1, p2)) => Two((p1.into(), p2.into())),
-        }
+        Ok(match value {
+            B::One(proof) => One(proof.try_into()?),
+            B::Two((p1, p2)) => Two((p1.try_into()?, p2.try_into()?)),
+        })
     }
 }
 
@@ -2969,14 +3140,20 @@ impl From<&super::scan_state::transaction_snark::OneOrTwo<LedgerProof>>
     }
 }
 
-impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B> for WithStatus<UserCommand> {
-    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B) -> Self {
+impl TryFrom<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>
+    for WithStatus<UserCommand>
+{
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
+    ) -> Result<Self, Self::Error> {
         let StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B { data, status } = value;
 
-        Self {
-            data: data.into(),
+        Ok(Self {
+            data: data.try_into()?,
             status: status.into(),
-        }
+        })
     }
 }
 
@@ -3004,15 +3181,17 @@ impl From<&WithStatus<transaction_logic::valid::UserCommand>>
     }
 }
 
-impl From<&StagedLedgerDiffDiffFtStableV1> for transaction_logic::CoinbaseFeeTransfer {
-    fn from(value: &StagedLedgerDiffDiffFtStableV1) -> Self {
+impl TryFrom<&StagedLedgerDiffDiffFtStableV1> for transaction_logic::CoinbaseFeeTransfer {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &StagedLedgerDiffDiffFtStableV1) -> Result<Self, Self::Error> {
         let StagedLedgerDiffDiffFtStableV1(value) = value;
         let MinaBaseCoinbaseFeeTransferStableV1 { receiver_pk, fee } = value;
 
-        Self {
-            receiver_pk: receiver_pk.into(),
+        Ok(Self {
+            receiver_pk: receiver_pk.try_into()?,
             fee: fee.into(),
-        }
+        })
     }
 }
 
@@ -3027,20 +3206,32 @@ impl From<&transaction_logic::CoinbaseFeeTransfer> for StagedLedgerDiffDiffFtSta
     }
 }
 
-impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase>
+impl TryFrom<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase>
     for crate::staged_ledger::diff::AtMostTwo<transaction_logic::CoinbaseFeeTransfer>
 {
-    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
+    ) -> Result<Self, Self::Error> {
         use crate::staged_ledger::diff::AtMostTwo::*;
         use StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase as B;
 
-        match value {
+        let conv = |v: &Option<StagedLedgerDiffDiffFtStableV1>| -> Result<Option<transaction_logic::CoinbaseFeeTransfer>, _> {
+            match v.as_ref() {
+                Some(v) => Ok(Some(v.try_into()?)),
+                None => Ok(None),
+            }
+        };
+
+        Ok(match value {
             B::Zero => Zero,
-            B::One(one) => One(one.as_ref().map(Into::into)),
-            B::Two(twos) => Two(twos
-                .as_ref()
-                .map(|(one, two)| (one.into(), two.as_ref().map(Into::into)))),
-        }
+            B::One(one) => One(conv(one)?),
+            B::Two(twos) => Two(match twos {
+                Some((one, two)) => Some((one.try_into()?, conv(two)?)),
+                None => None,
+            }),
+        })
     }
 }
 
@@ -3063,10 +3254,14 @@ impl From<&crate::staged_ledger::diff::AtMostTwo<transaction_logic::CoinbaseFeeT
     }
 }
 
-impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2>
+impl TryFrom<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2>
     for crate::staged_ledger::diff::PreDiffWithAtMostTwoCoinbase
 {
-    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2,
+    ) -> Result<Self, Self::Error> {
         let StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2 {
             completed_works,
             commands,
@@ -3074,12 +3269,18 @@ impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2>
             internal_command_statuses,
         } = value;
 
-        Self {
-            completed_works: completed_works.iter().map(Into::into).collect(),
-            commands: commands.iter().map(Into::into).collect(),
-            coinbase: coinbase.into(),
+        Ok(Self {
+            completed_works: completed_works
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<_, _>>()?,
+            commands: commands
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<_, _>>()?,
+            coinbase: coinbase.try_into()?,
             internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
-        }
+        })
     }
 }
 
@@ -3133,17 +3334,24 @@ impl
     }
 }
 
-impl From<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase>
+impl TryFrom<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase>
     for crate::staged_ledger::diff::AtMostOne<transaction_logic::CoinbaseFeeTransfer>
 {
-    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
+    ) -> Result<Self, Self::Error> {
         use crate::staged_ledger::diff::AtMostOne::*;
         use StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase as B;
 
-        match value {
+        Ok(match value {
             B::Zero => Zero,
-            B::One(one) => One(one.as_ref().map(Into::into)),
-        }
+            B::One(one) => One(match one.as_ref() {
+                Some(one) => Some(one.try_into()?),
+                None => None,
+            }),
+        })
     }
 }
 
@@ -3163,10 +3371,14 @@ impl From<&crate::staged_ledger::diff::AtMostOne<transaction_logic::CoinbaseFeeT
     }
 }
 
-impl From<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2>
+impl TryFrom<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2>
     for crate::staged_ledger::diff::PreDiffWithAtMostOneCoinbase
 {
-    fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2) -> Self {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2,
+    ) -> Result<Self, Self::Error> {
         let StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2 {
             completed_works,
             commands,
@@ -3174,12 +3386,18 @@ impl From<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2>
             internal_command_statuses,
         } = value;
 
-        Self {
-            completed_works: completed_works.iter().map(Into::into).collect(),
-            commands: commands.iter().map(Into::into).collect(),
-            coinbase: coinbase.into(),
+        Ok(Self {
+            completed_works: completed_works
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<_, _>>()?,
+            commands: commands
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<_, _>>()?,
+            coinbase: coinbase.try_into()?,
             internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
-        }
+        })
     }
 }
 
@@ -3233,14 +3451,22 @@ impl
     }
 }
 
-impl From<&StagedLedgerDiffDiffStableV2> for crate::staged_ledger::diff::Diff {
-    fn from(value: &StagedLedgerDiffDiffStableV2) -> Self {
+impl TryFrom<&StagedLedgerDiffDiffStableV2> for crate::staged_ledger::diff::Diff {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &StagedLedgerDiffDiffStableV2) -> Result<Self, Self::Error> {
         let StagedLedgerDiffDiffStableV2 { diff } = value;
         let StagedLedgerDiffDiffDiffStableV2(first, second) = diff;
 
-        Self {
-            diff: (first.into(), second.as_ref().map(Into::into)),
-        }
+        Ok(Self {
+            diff: (
+                first.try_into()?,
+                match second.as_ref() {
+                    Some(second) => Some(second.try_into()?),
+                    None => None,
+                },
+            ),
+        })
     }
 }
 
@@ -3311,8 +3537,10 @@ impl From<&ZkappStatement> for v2::MinaBaseZkappStatementStableV2 {
     }
 }
 
-impl From<&v2::MinaBaseZkappStatementStableV2> for ZkappStatement {
-    fn from(value: &v2::MinaBaseZkappStatementStableV2) -> Self {
+impl TryFrom<&v2::MinaBaseZkappStatementStableV2> for ZkappStatement {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &v2::MinaBaseZkappStatementStableV2) -> Result<Self, Self::Error> {
         use transaction_logic::zkapp_statement::TransactionCommitment;
 
         let v2::MinaBaseZkappStatementStableV2 {
@@ -3320,9 +3548,9 @@ impl From<&v2::MinaBaseZkappStatementStableV2> for ZkappStatement {
             calls,
         } = value;
 
-        ZkappStatement {
-            account_update: TransactionCommitment(account_update.to_field()),
-            calls: TransactionCommitment(calls.to_field()),
-        }
+        Ok(ZkappStatement {
+            account_update: TransactionCommitment(account_update.to_field()?),
+            calls: TransactionCommitment(calls.to_field()?),
+        })
     }
 }

@@ -528,7 +528,7 @@ impl CoinbaseStackData {
     pub fn empty() -> Self {
         // In OCaml: https://github.com/MinaProtocol/mina/blob/68b49fdaafabed0f2cd400c4c69f91e81db681e7/src/lib/mina_base/pending_coinbase.ml#L186
         // let empty = Random_oracle.salt "CoinbaseStack" |> Random_oracle.digest
-        let empty = hash_noinputs("CoinbaseStack");
+        let empty = super::hashing::hash_noinputs("CoinbaseStack");
         MinaBasePendingCoinbaseCoinbaseStackStableV1(empty.into()).into()
     }
 }
@@ -564,6 +564,18 @@ impl MinaBaseStagedLedgerHashNonSnarkStableV1 {
             aux_hash: StagedLedgerHashAuxHash::zero(),
             pending_coinbase_aux: StagedLedgerHashPendingCoinbaseAux::zero(),
         }
+    }
+}
+
+impl From<mina_hasher::Fp> for LedgerHash {
+    fn from(value: mina_hasher::Fp) -> Self {
+        MinaBaseLedgerHash0StableV1(value.into()).into()
+    }
+}
+
+impl From<&mina_hasher::Fp> for LedgerHash {
+    fn from(value: &mina_hasher::Fp) -> Self {
+        MinaBaseLedgerHash0StableV1(value.into()).into()
     }
 }
 
@@ -1113,19 +1125,9 @@ impl Serialize for CurrencyFeeStableV1 {
         if remainder == 0 {
             serializer.serialize_str(&whole.to_string())
         } else {
-            let num_stripped_zeros = remainder
-                .to_string()
-                .chars()
-                .rev()
-                .take_while(|&c| c == '0')
-                .count();
-            let num = remainder / 10u64.pow(num_stripped_zeros as u32);
-            serializer.serialize_str(&format!(
-                "{}.{}{}",
-                whole,
-                "0".repeat(PRECISION - num_stripped_zeros),
-                num
-            ))
+            let tmp = format!("{:0width$}", remainder, width = PRECISION);
+            let fractional_str = tmp.trim_end_matches('0');
+            serializer.serialize_str(&format!("{}.{}", whole, fractional_str))
         }
     }
 }
@@ -1158,6 +1160,127 @@ impl<'de> Deserialize<'de> for CurrencyFeeStableV1 {
         Ok(CurrencyFeeStableV1(
             UnsignedExtendedUInt64Int64ForVersionTagsStableV1(fee_in_nanomina.into()),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests_currency_fee_serialization {
+    use super::*;
+    use serde_json;
+
+    #[test]
+    fn test_correct_serialization() {
+        let amount = 1_000_000u64;
+        let currency = CurrencyFeeStableV1(amount.into());
+
+        let serialized = serde_json::to_string(&currency).unwrap();
+        assert_eq!(serialized, "\"0.001\"", "Serialization output is incorrect");
+    }
+
+    #[test]
+    fn test_zero_remainder() {
+        let amount = 1_000_000_000u64;
+        let currency = CurrencyFeeStableV1(amount.into());
+
+        let serialized = serde_json::to_string(&currency).unwrap();
+        assert_eq!(
+            serialized, "\"1\"",
+            "Serialization output is incorrect for whole numbers"
+        );
+    }
+
+    #[test]
+    fn test_fractional_serialization() {
+        let amount = 1_234_567_890u64;
+        let currency = CurrencyFeeStableV1(amount.into());
+
+        let serialized = serde_json::to_string(&currency).unwrap();
+        assert_eq!(
+            serialized, "\"1.23456789\"",
+            "Serialization output is incorrect for fractional numbers"
+        );
+    }
+
+    #[test]
+    fn test_trailing_zeros() {
+        let amount = 1_230_000_000u64;
+        let currency = CurrencyFeeStableV1(amount.into());
+
+        let serialized = serde_json::to_string(&currency).unwrap();
+        assert_eq!(
+            serialized, "\"1.23\"",
+            "Serialization output is incorrect when fractional part has trailing zeros"
+        );
+    }
+
+    #[test]
+    fn test_deserialization_correct_serialization() {
+        let serialized = "\"0.001\"";
+        let currency: CurrencyFeeStableV1 = serde_json::from_str(serialized).unwrap();
+        let expected_amount = 1_000_000u64;
+        assert_eq!(
+            currency,
+            CurrencyFeeStableV1(expected_amount.into()),
+            "Deserialization output is incorrect"
+        );
+    }
+
+    #[test]
+    fn test_deserialization_zero_remainder() {
+        let serialized = "\"1\"";
+        let currency: CurrencyFeeStableV1 = serde_json::from_str(serialized).unwrap();
+        let expected_amount = 1_000_000_000u64;
+        assert_eq!(
+            currency,
+            CurrencyFeeStableV1(expected_amount.into()),
+            "Deserialization output is incorrect for whole numbers"
+        );
+    }
+
+    #[test]
+    fn test_deserialization_fractional() {
+        let serialized = "\"1.23456789\"";
+        let currency: CurrencyFeeStableV1 = serde_json::from_str(serialized).unwrap();
+        let expected_amount = 1_234_567_890u64;
+        assert_eq!(
+            currency,
+            CurrencyFeeStableV1(expected_amount.into()),
+            "Deserialization output is incorrect for fractional numbers"
+        );
+    }
+
+    #[test]
+    fn test_deserialization_trailing_zeros() {
+        let serialized = "\"1.23\"";
+        let currency: CurrencyFeeStableV1 = serde_json::from_str(serialized).unwrap();
+        let expected_amount = 1_230_000_000u64;
+        assert_eq!(
+            currency,
+            CurrencyFeeStableV1(expected_amount.into()),
+            "Deserialization output is incorrect when fractional part has trailing zeros"
+        );
+    }
+
+    #[test]
+    fn test_deserialization_truncates_extra_decimals() {
+        let serialized = "\"0.1234567890123\""; // 13 decimal places
+        let currency: CurrencyFeeStableV1 = serde_json::from_str(serialized).unwrap();
+        let expected_amount = 123_456_789u64; // Only the first 9 decimal places are considered
+        assert_eq!(
+            currency,
+            CurrencyFeeStableV1(expected_amount.into()),
+            "Deserialization did not correctly truncate extra decimal places"
+        );
+    }
+
+    #[test]
+    fn test_deserialization_invalid_number() {
+        let serialized = "\"abc\"";
+        let result: Result<CurrencyFeeStableV1, _> = serde_json::from_str(serialized);
+        assert!(
+            result.is_err(),
+            "Deserialization should fail for invalid number strings"
+        );
     }
 }
 

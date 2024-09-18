@@ -1,3 +1,4 @@
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use kimchi::proof::{PointEvaluations, ProofEvaluations};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -5,7 +6,7 @@ use mina_p2p_messages::v2;
 
 use crate::proofs::{
     field::FieldWitness, public_input::plonk_checks::derive_plonk, step::FeatureFlags,
-    verification::make_scalars_env, BACKEND_TICK_ROUNDS_N,
+    util::two_u64_to_field, verification::make_scalars_env, BACKEND_TICK_ROUNDS_N,
 };
 
 use super::{
@@ -16,7 +17,7 @@ use super::{
     },
     to_field_elements::ToFieldElements,
     transaction::Check,
-    util::u64_to_field,
+    util::four_u64_to_field,
     verification::prev_evals_from_p2p,
     witness::Witness,
     BACKEND_TOCK_ROUNDS_N,
@@ -145,8 +146,14 @@ impl AllEvals<Fq> {
     }
 }
 
-impl<F: FieldWitness> From<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals> for AllEvals<F> {
-    fn from(value: &v2::PicklesProofProofsVerified2ReprStableV2PrevEvals) -> Self {
+impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals>
+    for AllEvals<F>
+{
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &v2::PicklesProofProofsVerified2ReprStableV2PrevEvals,
+    ) -> Result<Self, Self::Error> {
         let v2::PicklesProofProofsVerified2ReprStableV2PrevEvals {
             evals:
                 v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
@@ -156,24 +163,24 @@ impl<F: FieldWitness> From<&v2::PicklesProofProofsVerified2ReprStableV2PrevEvals
             ft_eval1,
         } = value;
 
-        Self {
-            ft_eval1: ft_eval1.to_field(),
+        Ok(Self {
+            ft_eval1: ft_eval1.to_field()?,
             evals: EvalsWithPublicInput {
-                evals: prev_evals_from_p2p(evals).map(&|PointEvaluations { zeta, zeta_omega }| {
+                evals: prev_evals_from_p2p(evals)?.map(&|PointEvaluations { zeta, zeta_omega }| {
                     assert_eq!(zeta.len(), 1);
                     assert_eq!(zeta_omega.len(), 1);
                     [zeta[0], zeta_omega[0]]
                 }),
-                public_input: (p0.to_field(), p1.to_field()),
+                public_input: (p0.to_field()?, p1.to_field()?),
             },
-        }
+        })
     }
 }
 
 /// Equivalent of `to_kimchi` in OCaml
 pub fn evals_from_p2p<F: FieldWitness>(
     e: &v2::PicklesWrapWireProofEvaluationsStableV1,
-) -> ProofEvaluations<[F; 2]> {
+) -> Result<ProofEvaluations<[F; 2]>, InvalidBigInt> {
     let v2::PicklesWrapWireProofEvaluationsStableV1 {
         w,
         coefficients,
@@ -189,22 +196,22 @@ pub fn evals_from_p2p<F: FieldWitness>(
 
     use mina_p2p_messages::bigint::BigInt;
 
-    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> [F; 2] {
-        [zeta.to_field(), zeta_omega.to_field()]
+    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<[F; 2], _> {
+        Ok([zeta.to_field()?, zeta_omega.to_field()?])
     };
 
     use std::array;
-    ProofEvaluations {
-        w: w.each_ref().map(of),
-        z: of(z),
-        s: s.each_ref().map(of),
-        coefficients: coefficients.each_ref().map(of),
-        generic_selector: of(generic_selector),
-        poseidon_selector: of(poseidon_selector),
-        complete_add_selector: of(complete_add_selector),
-        mul_selector: of(mul_selector),
-        emul_selector: of(emul_selector),
-        endomul_scalar_selector: of(endomul_scalar_selector),
+    Ok(ProofEvaluations {
+        w: crate::try_array_into_with(w, of)?,
+        z: of(z)?,
+        s: crate::try_array_into_with(s, of)?,
+        coefficients: crate::try_array_into_with(coefficients, of)?,
+        generic_selector: of(generic_selector)?,
+        poseidon_selector: of(poseidon_selector)?,
+        complete_add_selector: of(complete_add_selector)?,
+        mul_selector: of(mul_selector)?,
+        emul_selector: of(emul_selector)?,
+        endomul_scalar_selector: of(endomul_scalar_selector)?,
         range_check0_selector: None,
         range_check1_selector: None,
         foreign_field_add_selector: None,
@@ -220,7 +227,7 @@ pub fn evals_from_p2p<F: FieldWitness>(
         lookup_gate_lookup_selector: None,
         range_check_lookup_selector: None,
         foreign_field_mul_lookup_selector: None,
-    }
+    })
 }
 
 fn dummy_evals() -> ProofEvaluations<[Fq; 2]> {
@@ -303,8 +310,8 @@ impl Unfinalized {
 
         let zeta: Fq = ScalarChallenge::limbs_to_field(&zeta_bytes);
         let alpha: Fq = ScalarChallenge::limbs_to_field(&alpha_bytes);
-        let beta: Fq = u64_to_field(&beta_bytes);
-        let gamma: Fq = u64_to_field(&gamma_bytes);
+        let beta: Fq = two_u64_to_field(&beta_bytes);
+        let gamma: Fq = two_u64_to_field(&gamma_bytes);
 
         let chals = PlonkMinimal {
             alpha,
@@ -393,23 +400,28 @@ impl<F: FieldWitness> ToFieldElements<F> for Unfinalized {
 
         // Digest
         {
-            fields.push(u64_to_field(sponge_digest_before_evaluations));
+            // Never fail, `sponge_digest_before_evaluations` was previously a `Fp`
+            fields.push(four_u64_to_field(sponge_digest_before_evaluations).unwrap());
         }
 
         // Challenge
         {
-            fields.push(u64_to_field(beta));
-            fields.push(u64_to_field(gamma));
+            fields.push(two_u64_to_field(beta));
+            fields.push(two_u64_to_field(gamma));
         }
 
         // Scalar challenge
         {
-            fields.push(u64_to_field(alpha));
-            fields.push(u64_to_field(zeta));
-            fields.push(u64_to_field(xi));
+            fields.push(two_u64_to_field(alpha));
+            fields.push(two_u64_to_field(zeta));
+            fields.push(two_u64_to_field(xi));
         }
 
-        fields.extend(bulletproof_challenges.iter().map(u64_to_field::<F, 2>));
+        fields.extend(
+            bulletproof_challenges
+                .iter()
+                .map(|c| two_u64_to_field::<F>(c)),
+        );
 
         // Bool
         {

@@ -12,8 +12,9 @@ use openmina_core::{
 use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
-        rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
-        transaction::P2pChannelsTransactionAction,
+        best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
+        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+        streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
     },
     connection::outgoing::P2pConnectionOutgoingAction,
     disconnection::P2pDisconnectionAction,
@@ -25,7 +26,7 @@ use p2p::{
     peer::P2pPeerAction,
     MioEvent, P2pAction, P2pEvent, P2pNetworkKadBootstrapAction, P2pNetworkKadRequestAction,
     P2pNetworkKademliaAction, P2pNetworkKademliaStreamAction, P2pNetworkSchedulerAction,
-    P2pNetworkYamuxAction, P2pState, P2pStateTrait, PeerId,
+    P2pNetworkSchedulerEffectfulAction, P2pNetworkYamuxAction, P2pState, P2pStateTrait, PeerId,
 };
 use redux::{ActionMeta, EnablingCondition, SubStore};
 
@@ -186,7 +187,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
             ),
             MioEvent::IncomingConnectionIsReady { listener } => SubStore::dispatch(
                 store,
-                P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener },
+                P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener },
             ),
             MioEvent::IncomingConnectionDidAccept(addr, result) => SubStore::dispatch(
                 store,
@@ -264,5 +265,10 @@ impl_from_p2p!(P2pChannelsSnarkAction);
 impl_from_p2p!(p2p::P2pNetworkRpcAction);
 impl_from_p2p!(P2pChannelsRpcAction);
 impl_from_p2p!(P2pDisconnectionAction);
+impl_from_p2p!(p2p::P2pNetworkSchedulerEffectfulAction);
+impl_from_p2p!(p2p::P2pNetworkPnetEffectfulAction);
+impl_from_p2p!(P2pChannelsBestTipAction);
+impl_from_p2p!(P2pChannelsSnarkJobCommitmentAction);
+impl_from_p2p!(P2pChannelsStreamingRpcAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

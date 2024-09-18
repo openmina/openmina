@@ -1604,11 +1604,13 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                                         SetOrKeep::Set(WithHash { data, hash });
                                 }
                                 NotPermitedOf::ZkappUri => {
-                                    update.zkapp_uri =
-                                        SetOrKeep::Set("https://o1labs.org".to_string().into());
+                                    update.zkapp_uri = SetOrKeep::Set(
+                                        "https://o1labs.org".to_string().into_bytes().into(),
+                                    );
                                 }
                                 NotPermitedOf::TokenSymbol => {
-                                    update.token_symbol = SetOrKeep::Set("CODA".to_string().into());
+                                    update.token_symbol =
+                                        SetOrKeep::Set("CODA".to_string().into_bytes().into());
                                 }
                                 NotPermitedOf::VotingFor => {
                                     update.voting_for =

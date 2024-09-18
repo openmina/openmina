@@ -32,13 +32,13 @@ pub enum P2pNetworkSchedulerAction {
         listener: SocketAddr,
         error: String,
     },
-    IncomingConnectionIsReady {
-        listener: SocketAddr,
-    },
     #[action_event(fields(debug(addr), debug(result)))]
     IncomingDidAccept {
         addr: Option<ConnectionAddr>,
         result: Result<(), String>,
+    },
+    IncomingDataIsReady {
+        addr: ConnectionAddr,
     },
     /// Initialize outgoing connection.
     OutgoingConnect {
@@ -48,9 +48,6 @@ pub enum P2pNetworkSchedulerAction {
     OutgoingDidConnect {
         addr: ConnectionAddr,
         result: Result<(), String>,
-    },
-    IncomingDataIsReady {
-        addr: ConnectionAddr,
     },
     IncomingDataDidReceive {
         addr: ConnectionAddr,
@@ -124,15 +121,14 @@ impl From<P2pNetworkSchedulerAction> for crate::P2pAction {
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
-        let conn = |addr| state.network.scheduler.connections.get(addr);
-        #[allow(unused_variables)]
         match self {
-            P2pNetworkSchedulerAction::InterfaceDetected { ip } => true,
-            P2pNetworkSchedulerAction::InterfaceExpired { ip } => true,
-            P2pNetworkSchedulerAction::ListenerReady { listener } => true,
-            P2pNetworkSchedulerAction::ListenerError { listener, error } => true,
-            P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => true,
-            P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => {
+            P2pNetworkSchedulerAction::InterfaceDetected { .. }
+            | P2pNetworkSchedulerAction::InterfaceExpired { .. }
+            | P2pNetworkSchedulerAction::ListenerReady { .. }
+            | P2pNetworkSchedulerAction::ListenerError { .. }
+            | P2pNetworkSchedulerAction::SelectDone { .. }
+            | P2pNetworkSchedulerAction::SelectError { .. } => true,
+            P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => {
                 addr.as_ref().map_or(false, |addr| {
                     !state.network.scheduler.connections.contains_key(addr)
                 })
@@ -145,25 +141,17 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                     sock_addr: *addr,
                     incoming: false,
                 }),
-            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => state
+            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, .. } => state
                 .network
                 .scheduler
                 .connections
                 .get(addr)
                 .map_or(false, |conn_state| !conn_state.incoming),
-            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => conn(addr).is_some(),
-            P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, result } => {
-                conn(addr).is_some()
+            P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, .. }
+            | P2pNetworkSchedulerAction::IncomingDataIsReady { addr }
+            | P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {
+                state.network.scheduler.connections.contains_key(addr)
             }
-            P2pNetworkSchedulerAction::SelectDone {
-                addr,
-                kind,
-                protocol,
-                incoming,
-                expected_peer_id,
-            } => true,
-            P2pNetworkSchedulerAction::SelectError { addr, kind, error } => true,
-            P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id, .. } => true,
             P2pNetworkSchedulerAction::Disconnect { addr, .. }
             | P2pNetworkSchedulerAction::Error { addr, .. } => state
                 .network

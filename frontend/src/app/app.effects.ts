@@ -12,6 +12,9 @@ import { getFirstFeature, isFeatureEnabled } from '@shared/constants/config';
 import { RustService } from '@core/services/rust.service';
 import { BaseEffect } from '@shared/base-classes/mina-rust-base.effect';
 import { WebNodeService } from '@core/services/web-node.service';
+import { catchErrorAndRepeat2 } from '@shared/constants/store-functions';
+import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
+import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
 
 const INIT_EFFECTS = '@ngrx/effects/init';
 
@@ -82,6 +85,18 @@ export class AppEffects extends BaseEffect {
       switchMap(() => this.appService.getActiveNodeDetails()),
       tap(() => this.requestInProgress = false),
       map(details => AppActions.getNodeDetailsSuccess({ details })),
+      catchErrorAndRepeat2(MinaErrorType.GENERIC, AppActions.getNodeDetailsSuccess({
+        details: {
+          status: AppNodeStatus.OFFLINE,
+          blockHeight: null,
+          blockTime: null,
+          peers: 0,
+          download: 0,
+          upload: 0,
+          transactions: 0,
+          snarks: 0,
+        },
+      })),
     ));
   }
 }

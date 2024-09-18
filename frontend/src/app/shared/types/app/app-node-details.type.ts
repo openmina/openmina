@@ -9,6 +9,8 @@ export interface AppNodeDetails {
 
   transactions: number;
   snarks: number;
+
+  chainId?: string;
 }
 
 export enum AppNodeStatus {

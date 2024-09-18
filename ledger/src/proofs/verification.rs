@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_serialize::Write;
 use poly_commitment::srs::SRS;
@@ -22,12 +23,13 @@ use crate::{
 };
 
 use super::{
+    block::ProtocolState,
     field::FieldWitness,
     public_input::plonk_checks::make_shifts,
     step::{step_verifier::PlonkDomain, ExpandDeferredParams},
     to_field_elements::ToFieldElements,
     transaction::{InnerCurve, PlonkVerificationKeyEvals},
-    util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
+    util::{extract_bulletproof, extract_polynomial_commitment, two_u64_to_field},
     wrap::expand_feature_flags,
 };
 use kimchi::{
@@ -141,7 +143,7 @@ fn validate_feature_flags(
 
 pub fn prev_evals_from_p2p<F: FieldWitness>(
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-) -> ProofEvaluations<PointEvaluations<Vec<F>>> {
+) -> Result<ProofEvaluations<PointEvaluations<Vec<F>>>, InvalidBigInt> {
     let PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
         w,
         coefficients,
@@ -173,43 +175,54 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
     fn of<'a, F: FieldWitness, I: IntoIterator<Item = &'a BigInt>>(
         zeta: I,
         zeta_omega: I,
-    ) -> PointEvaluations<Vec<F>> {
-        PointEvaluations {
-            zeta: zeta.into_iter().map(BigInt::to_field).collect(),
-            zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
-        }
+    ) -> Result<PointEvaluations<Vec<F>>, InvalidBigInt> {
+        Ok(PointEvaluations {
+            zeta: zeta
+                .into_iter()
+                .map(BigInt::to_field)
+                .collect::<Result<_, _>>()?,
+            zeta_omega: zeta_omega
+                .into_iter()
+                .map(BigInt::to_field)
+                .collect::<Result<_, _>>()?,
+        })
     }
 
-    let of = |(zeta, zeta_omega): &(_, _)| -> PointEvaluations<Vec<F>> { of(zeta, zeta_omega) };
-    let of_opt = |v: &Option<(_, _)>| v.as_ref().map(of);
+    let of = |(zeta, zeta_omega): &(_, _)| -> Result<PointEvaluations<Vec<F>>, _> {
+        of(zeta, zeta_omega)
+    };
+    let of_opt = |v: &Option<(_, _)>| match v.as_ref() {
+        Some(v) => Ok(Some(of(v)?)),
+        None => Ok(None),
+    };
 
-    ProofEvaluations {
-        w: w.each_ref().map(of),
-        z: of(z),
-        s: s.each_ref().map(of),
-        coefficients: coefficients.each_ref().map(of),
-        generic_selector: of(generic_selector),
-        poseidon_selector: of(poseidon_selector),
-        complete_add_selector: of(complete_add_selector),
-        mul_selector: of(mul_selector),
-        emul_selector: of(emul_selector),
-        endomul_scalar_selector: of(endomul_scalar_selector),
-        range_check0_selector: of_opt(range_check0_selector),
-        range_check1_selector: of_opt(range_check1_selector),
-        foreign_field_add_selector: of_opt(foreign_field_add_selector),
-        foreign_field_mul_selector: of_opt(foreign_field_mul_selector),
-        xor_selector: of_opt(xor_selector),
-        rot_selector: of_opt(rot_selector),
-        lookup_aggregation: of_opt(lookup_aggregation),
-        lookup_table: of_opt(lookup_table),
-        lookup_sorted: lookup_sorted.each_ref().map(of_opt),
-        runtime_lookup_table: of_opt(runtime_lookup_table),
-        runtime_lookup_table_selector: of_opt(runtime_lookup_table_selector),
-        xor_lookup_selector: of_opt(xor_lookup_selector),
-        lookup_gate_lookup_selector: of_opt(lookup_gate_lookup_selector),
-        range_check_lookup_selector: of_opt(range_check_lookup_selector),
-        foreign_field_mul_lookup_selector: of_opt(foreign_field_mul_lookup_selector),
-    }
+    Ok(ProofEvaluations {
+        w: crate::try_array_into_with(w, of)?,
+        z: of(z)?,
+        s: crate::try_array_into_with(s, of)?,
+        coefficients: crate::try_array_into_with(coefficients, of)?,
+        generic_selector: of(generic_selector)?,
+        poseidon_selector: of(poseidon_selector)?,
+        complete_add_selector: of(complete_add_selector)?,
+        mul_selector: of(mul_selector)?,
+        emul_selector: of(emul_selector)?,
+        endomul_scalar_selector: of(endomul_scalar_selector)?,
+        range_check0_selector: of_opt(range_check0_selector)?,
+        range_check1_selector: of_opt(range_check1_selector)?,
+        foreign_field_add_selector: of_opt(foreign_field_add_selector)?,
+        foreign_field_mul_selector: of_opt(foreign_field_mul_selector)?,
+        xor_selector: of_opt(xor_selector)?,
+        rot_selector: of_opt(rot_selector)?,
+        lookup_aggregation: of_opt(lookup_aggregation)?,
+        lookup_table: of_opt(lookup_table)?,
+        lookup_sorted: crate::try_array_into_with(lookup_sorted, of_opt)?,
+        runtime_lookup_table: of_opt(runtime_lookup_table)?,
+        runtime_lookup_table_selector: of_opt(runtime_lookup_table_selector)?,
+        xor_lookup_selector: of_opt(xor_lookup_selector)?,
+        lookup_gate_lookup_selector: of_opt(lookup_gate_lookup_selector)?,
+        range_check_lookup_selector: of_opt(range_check_lookup_selector)?,
+        foreign_field_mul_lookup_selector: of_opt(foreign_field_mul_lookup_selector)?,
+    })
 }
 
 pub fn prev_evals_to_p2p(
@@ -374,7 +387,7 @@ fn get_message_for_next_step_proof<'a, AppState>(
     messages_for_next_step_proof: &PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
     commitments: &'a PlonkVerificationKeyEvals<Fp>,
     app_state: &'a AppState,
-) -> MessagesForNextStepProof<'a, AppState>
+) -> Result<MessagesForNextStepProof<'a, AppState>, InvalidBigInt>
 where
     AppState: ToFieldElements<Fp>,
 {
@@ -385,16 +398,16 @@ where
     } = messages_for_next_step_proof;
 
     let challenge_polynomial_commitments: Vec<InnerCurve<Fp>> =
-        extract_polynomial_commitment(challenge_polynomial_commitments);
+        extract_polynomial_commitment(challenge_polynomial_commitments)?;
     let old_bulletproof_challenges: Vec<[Fp; 16]> = extract_bulletproof(old_bulletproof_challenges);
     let dlog_plonk_index = commitments;
 
-    MessagesForNextStepProof {
+    Ok(MessagesForNextStepProof {
         app_state,
         dlog_plonk_index,
         challenge_polynomial_commitments,
         old_bulletproof_challenges,
-    }
+    })
 }
 
 fn get_message_for_next_wrap_proof(
@@ -402,19 +415,19 @@ fn get_message_for_next_wrap_proof(
         challenge_polynomial_commitment,
         old_bulletproof_challenges,
     }: &PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
-) -> MessagesForNextWrapProof {
+) -> Result<MessagesForNextWrapProof, InvalidBigInt> {
     let challenge_polynomial_commitments: Vec<InnerCurve<Fq>> =
-        extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()]);
+        extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()])?;
 
     let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(&[
         old_bulletproof_challenges[0].0.clone(),
         old_bulletproof_challenges[1].0.clone(),
     ]);
 
-    MessagesForNextWrapProof {
+    Ok(MessagesForNextWrapProof {
         challenge_polynomial_commitment: challenge_polynomial_commitments[0].clone(),
         old_bulletproof_challenges,
-    }
+    })
 }
 
 fn get_prepared_statement<AppState>(
@@ -581,7 +594,9 @@ fn run_checks(
     errors.is_empty()
 }
 
-fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> DeferredValues<Fp> {
+fn compute_deferred_values(
+    proof: &PicklesProofProofsVerified2ReprStableV2,
+) -> Result<DeferredValues<Fp>, InvalidBigInt> {
     let bulletproof_challenges: Vec<Fp> = proof
         .statement
         .proof_state
@@ -591,7 +606,7 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
         .map(|chal| {
             let prechallenge = &chal.prechallenge.inner;
             let prechallenge: [u64; 2] = prechallenge.each_ref().map(|v| v.as_u64());
-            u64_to_field(&prechallenge)
+            two_u64_to_field(&prechallenge)
         })
         .collect();
 
@@ -603,23 +618,23 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
             .iter()
             .map(|v| {
                 v.0.clone()
-                    .map(|v| u64_to_field(&v.prechallenge.inner.0.map(|v| v.as_u64())))
+                    .map(|v| two_u64_to_field(&v.prechallenge.inner.0.map(|v| v.as_u64())))
             })
             .collect();
-        let proof_state: StatementProofState = (&proof.statement.proof_state).into();
-        let evals: AllEvals<Fp> = (&proof.prev_evals).into();
+        let proof_state: StatementProofState = (&proof.statement.proof_state).try_into()?;
+        let evals: AllEvals<Fp> = (&proof.prev_evals).try_into()?;
 
         expand_deferred(ExpandDeferredParams {
             evals: &evals,
             old_bulletproof_challenges: &old_bulletproof_challenges,
             proof_state: &proof_state,
-        })
+        })?
     };
 
-    DeferredValues {
+    Ok(DeferredValues {
         bulletproof_challenges,
         ..deferred_values
-    }
+    })
 }
 
 /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
@@ -646,8 +661,15 @@ pub fn verify_block(
         data: (),
     };
 
-    let accum_check = accumulator_check::accumulator_check(srs, protocol_state_proof);
-    let verified = verify_impl(&MinaHash::hash(protocol_state), protocol_state_proof, &vk);
+    let Ok(protocol_state) = ProtocolState::try_from(protocol_state) else {
+        return false; // invalid bigint
+    };
+    let protocol_state_hash = MinaHash::hash(&protocol_state);
+
+    let accum_check =
+        accumulator_check::accumulator_check(srs, protocol_state_proof).unwrap_or(false);
+    let verified = verify_impl(&protocol_state_hash, protocol_state_proof, &vk).unwrap_or(false);
+
     accum_check && verified
 }
 
@@ -663,8 +685,9 @@ pub fn verify_transaction<'a>(
     };
 
     proofs.into_iter().all(|(statement, transaction_proof)| {
-        let accum_check = accumulator_check::accumulator_check(srs, transaction_proof);
-        let verified = verify_impl(statement, transaction_proof, &vk);
+        let accum_check =
+            accumulator_check::accumulator_check(srs, transaction_proof).unwrap_or(false);
+        let verified = verify_impl(statement, transaction_proof, &vk).unwrap_or(false);
         accum_check && verified
     })
 }
@@ -684,8 +707,8 @@ pub fn verify_zkapp(
         data: (),
     };
 
-    let accum_check = accumulator_check::accumulator_check(srs, sideloaded_proof);
-    let verified = verify_impl(&zkapp_statement, sideloaded_proof, &vk);
+    let accum_check = accumulator_check::accumulator_check(srs, sideloaded_proof).unwrap_or(false);
+    let verified = verify_impl(&zkapp_statement, sideloaded_proof, &vk).unwrap_or(false);
 
     let ok = accum_check && verified;
 
@@ -705,21 +728,21 @@ fn verify_impl<AppState>(
     app_state: &AppState,
     proof: &PicklesProofProofsVerified2ReprStableV2,
     vk: &VK,
-) -> bool
+) -> Result<bool, InvalidBigInt>
 where
     AppState: ToFieldElements<Fp>,
 {
-    let deferred_values = compute_deferred_values(proof);
+    let deferred_values = compute_deferred_values(proof)?;
     let checks = run_checks(proof, vk.index);
 
     let message_for_next_step_proof = get_message_for_next_step_proof(
         &proof.statement.messages_for_next_step_proof,
         &vk.commitments,
         app_state,
-    );
+    )?;
 
     let message_for_next_wrap_proof =
-        get_message_for_next_wrap_proof(&proof.statement.proof_state.messages_for_next_wrap_proof);
+        get_message_for_next_wrap_proof(&proof.statement.proof_state.messages_for_next_wrap_proof)?;
 
     let prepared_statement = get_prepared_statement(
         &message_for_next_step_proof,
@@ -729,8 +752,8 @@ where
     );
 
     let npublic_input = vk.index.public;
-    let public_inputs = prepared_statement.to_public_input(npublic_input);
-    let proof = make_padded_proof_from_p2p(proof);
+    let public_inputs = prepared_statement.to_public_input(npublic_input)?;
+    let proof = make_padded_proof_from_p2p(proof)?;
 
     let result = verify_with(vk.index, &proof, &public_inputs);
 
@@ -738,7 +761,7 @@ where
         eprintln!("verify error={:?}", e);
     };
 
-    result.is_ok() && checks
+    Ok(result.is_ok() && checks)
 }
 
 /// Dump data when it fails, to reproduce and compare in OCaml

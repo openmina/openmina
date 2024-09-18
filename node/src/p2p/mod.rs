@@ -112,5 +112,7 @@ impl_into_global_action!(p2p::P2pNetworkSelectAction);
 impl_into_global_action!(p2p::P2pNetworkPnetAction);
 impl_into_global_action!(p2p::P2pNetworkNoiseAction);
 impl_into_global_action!(p2p::P2pNetworkRpcAction);
+impl_into_global_action!(p2p::P2pNetworkSchedulerEffectfulAction);
+impl_into_global_action!(p2p::P2pNetworkPnetEffectfulAction);
 
 impl p2p::P2pActionTrait<crate::State> for crate::Action {}

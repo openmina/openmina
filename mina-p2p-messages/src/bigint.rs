@@ -1,4 +1,4 @@
-use ark_ff::BigInteger256;
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256};
 use rsexp::{OfSexp, SexpOf};
 use serde::{Deserialize, Serialize};
 
@@ -14,31 +14,22 @@ impl std::fmt::Debug for BigInt {
 }
 
 impl BigInt {
-    #[cfg(feature = "hashing")]
     pub fn zero() -> Self {
         mina_curves::pasta::Fp::from(0u64).into()
     }
 
-    #[cfg(feature = "hashing")]
     pub fn one() -> Self {
         mina_curves::pasta::Fp::from(1u64).into()
     }
 
-    #[cfg(feature = "hashing")]
-    pub fn to_fp(&self) -> Result<mina_hasher::Fp, o1_utils::field_helpers::FieldHelpersError> {
-        Ok(mina_hasher::Fp::from(self.0)) // TODO: Handle error
-    }
-
-    #[cfg(feature = "hashing")]
-    pub fn to_field<F>(&self) -> F
+    pub fn to_field<F>(&self) -> Result<F, InvalidBigInt>
     where
-        F: ark_ff::Field + From<BigInteger256>,
+        F: ark_ff::Field + TryFrom<BigInteger256, Error = InvalidBigInt>,
     {
         let Self(biginteger) = self;
-        F::from(*biginteger) // TODO: Handle error
+        F::try_from(*biginteger)
     }
 
-    #[cfg(feature = "hashing")]
     pub fn to_bytes(&self) -> [u8; 32] {
         use ark_ff::ToBytes;
         let mut bytes = std::io::Cursor::new([0u8; 32]);
@@ -46,7 +37,6 @@ impl BigInt {
         bytes.into_inner()
     }
 
-    #[cfg(feature = "hashing")]
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
         use ark_ff::FromBytes;
         Self(BigInteger256::read(&bytes[..]).unwrap()) // Never fail, we read from 32 bytes
@@ -60,7 +50,6 @@ impl AsRef<BigInteger256> for BigInt {
     }
 }
 
-#[cfg(feature = "hashing")]
 impl From<mina_curves::pasta::Fp> for BigInt {
     fn from(field: mina_curves::pasta::Fp) -> Self {
         use ark_ff::PrimeField;
@@ -68,7 +57,6 @@ impl From<mina_curves::pasta::Fp> for BigInt {
     }
 }
 
-#[cfg(feature = "hashing")]
 impl From<mina_curves::pasta::Fq> for BigInt {
     fn from(field: mina_curves::pasta::Fq) -> Self {
         use ark_ff::PrimeField;
@@ -76,7 +64,6 @@ impl From<mina_curves::pasta::Fq> for BigInt {
     }
 }
 
-#[cfg(feature = "hashing")]
 impl From<&mina_curves::pasta::Fp> for BigInt {
     fn from(field: &mina_curves::pasta::Fp) -> Self {
         use ark_ff::PrimeField;
@@ -84,7 +71,6 @@ impl From<&mina_curves::pasta::Fp> for BigInt {
     }
 }
 
-#[cfg(feature = "hashing")]
 impl From<&mina_curves::pasta::Fq> for BigInt {
     fn from(field: &mina_curves::pasta::Fq) -> Self {
         use ark_ff::PrimeField;
@@ -92,30 +78,30 @@ impl From<&mina_curves::pasta::Fq> for BigInt {
     }
 }
 
-#[cfg(feature = "hashing")]
-impl From<BigInt> for mina_curves::pasta::Fp {
-    fn from(bigint: BigInt) -> Self {
+impl TryFrom<BigInt> for mina_curves::pasta::Fp {
+    type Error = <mina_curves::pasta::Fp as TryFrom<BigInteger256>>::Error;
+    fn try_from(bigint: BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
 }
 
-#[cfg(feature = "hashing")]
-impl From<BigInt> for mina_curves::pasta::Fq {
-    fn from(bigint: BigInt) -> Self {
+impl TryFrom<BigInt> for mina_curves::pasta::Fq {
+    type Error = <mina_curves::pasta::Fq as TryFrom<BigInteger256>>::Error;
+    fn try_from(bigint: BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
 }
 
-#[cfg(feature = "hashing")]
-impl From<&BigInt> for mina_curves::pasta::Fp {
-    fn from(bigint: &BigInt) -> Self {
+impl TryFrom<&BigInt> for mina_curves::pasta::Fp {
+    type Error = <mina_curves::pasta::Fp as TryFrom<BigInteger256>>::Error;
+    fn try_from(bigint: &BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
 }
 
-#[cfg(feature = "hashing")]
-impl From<&BigInt> for mina_curves::pasta::Fq {
-    fn from(bigint: &BigInt) -> Self {
+impl TryFrom<&BigInt> for mina_curves::pasta::Fq {
+    type Error = <mina_curves::pasta::Fq as TryFrom<BigInteger256>>::Error;
+    fn try_from(bigint: &BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
 }
@@ -285,13 +271,12 @@ impl<'de> Deserialize<'de> for BigInt {
     }
 }
 
-#[cfg(feature = "hashing")]
 impl mina_hasher::Hashable for BigInt {
     type D = ();
 
     fn to_roinput(&self) -> mina_hasher::ROInput {
         mina_hasher::ROInput::new()
-            .append_field(self.to_fp().expect("Failed to convert Hash into Fp"))
+            .append_field(self.to_field().expect("Failed to convert Hash into Fp"))
     }
 
     fn domain_string(_: Self::D) -> Option<String> {
@@ -420,9 +405,9 @@ mod tests {
         println!("rx: {:?}", deser_rx);
         println!("s: {:?}", deser_s);
 
-        let _ = deser_rx.to_fp().unwrap();
+        let _ = deser_rx.to_field::<mina_hasher::Fp>().unwrap();
         println!("rx OK");
-        let _ = deser_s.to_fp().unwrap();
+        let _ = deser_s.to_field::<mina_hasher::Fp>().unwrap();
         println!("s OK");
     }
 

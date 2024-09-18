@@ -70,8 +70,16 @@ impl TokenId {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/account.ml#L93
-#[derive(Clone, Debug, PartialEq, Eq, derive_more::Deref, derive_more::From)]
-pub struct TokenSymbol(pub String);
+#[derive(Clone, PartialEq, Eq, derive_more::From)]
+pub struct TokenSymbol(pub Vec<u8>);
+
+impl std::fmt::Debug for TokenSymbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf8_lossy(self.as_bytes());
+        let s: &str = &s;
+        f.debug_tuple("TokenSymbol").field(&s).finish()
+    }
+}
 
 impl TokenSymbol {
     pub fn gen() -> Self {
@@ -81,15 +89,27 @@ impl TokenSymbol {
         let mut sym = sym.to_string();
         sym.truncate(6);
 
-        Self(sym)
+        Self(sym.into_bytes())
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
     }
 
     pub fn to_bytes(&self, bytes: &mut [u8]) {
-        if self.is_empty() {
+        if self.0.is_empty() {
             return;
         }
-        let len = self.len();
-        let s = self.as_bytes();
+        let len = self.0.len();
+        let s: &[u8] = self.as_bytes();
         bytes[..len].copy_from_slice(&s[..len.min(6)]);
     }
 
@@ -100,7 +120,7 @@ impl TokenSymbol {
         self.to_bytes(&mut s);
 
         let bigint = BigInteger256::read(&s[..]).unwrap();
-        F::from(bigint)
+        F::try_from(bigint).unwrap() // Never fail, `self` contain 6 bytes at most
     }
 }
 
@@ -109,21 +129,19 @@ impl Default for TokenSymbol {
     fn default() -> Self {
         // empty string
         // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account.ml#L133
-        Self(String::new())
+        Self(Vec::new())
     }
 }
 
-impl TryFrom<&mina_p2p_messages::string::TokenSymbol> for TokenSymbol {
-    type Error = std::string::FromUtf8Error;
-
-    fn try_from(value: &mina_p2p_messages::string::TokenSymbol) -> Result<Self, Self::Error> {
-        Ok(Self(value.clone().try_into()?))
+impl From<&mina_p2p_messages::string::TokenSymbol> for TokenSymbol {
+    fn from(value: &mina_p2p_messages::string::TokenSymbol) -> Self {
+        Self(value.as_ref().to_vec())
     }
 }
 
 impl From<&TokenSymbol> for mina_p2p_messages::string::TokenSymbol {
     fn from(value: &TokenSymbol) -> Self {
-        value.0.as_bytes().into()
+        value.0.as_slice().into()
     }
 }
 
@@ -555,13 +573,21 @@ impl VerificationKey {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, derive_more::From)]
-pub struct ZkAppUri(String);
+#[derive(Clone, PartialEq, Eq, derive_more::From)]
+pub struct ZkAppUri(Vec<u8>);
+
+impl std::fmt::Debug for ZkAppUri {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = String::from_utf8_lossy(&self.0);
+        let s: &str = &s;
+        f.debug_tuple("ZkAppUri").field(&s).finish()
+    }
+}
 
 impl ZkAppUri {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        Self(String::new())
+        Self(Vec::new())
     }
 
     pub fn gen() -> Self {
@@ -570,7 +596,7 @@ impl ZkAppUri {
         let zkapp_uri: u64 = rng.gen();
         let zkapp_uri = zkapp_uri.to_string();
 
-        Self(zkapp_uri)
+        Self(zkapp_uri.into_bytes())
     }
 
     fn opt_to_field(opt: Option<&ZkAppUri>) -> Fp {
@@ -578,7 +604,7 @@ impl ZkAppUri {
 
         match opt {
             Some(zkapp_uri) => {
-                for c in zkapp_uri.0.as_bytes() {
+                for c in zkapp_uri.0.as_slice() {
                     for j in 0..8 {
                         inputs.append_bool((c & (1 << j)) != 0);
                     }
@@ -611,30 +637,22 @@ impl ToInputs for Option<&ZkAppUri> {
 }
 
 impl std::ops::Deref for ZkAppUri {
-    type Target = String;
+    type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl TryFrom<&mina_p2p_messages::string::ZkAppUri> for ZkAppUri {
-    type Error = std::string::FromUtf8Error;
-
-    fn try_from(value: &mina_p2p_messages::string::ZkAppUri) -> Result<Self, Self::Error> {
-        Ok(Self(value.clone().try_into()?))
+impl From<&mina_p2p_messages::string::ZkAppUri> for ZkAppUri {
+    fn from(value: &mina_p2p_messages::string::ZkAppUri) -> Self {
+        Self(value.as_ref().to_vec())
     }
 }
 
 impl From<&ZkAppUri> for mina_p2p_messages::string::ZkAppUri {
     fn from(value: &ZkAppUri) -> Self {
-        Self::from(value.0.as_bytes())
-    }
-}
-
-impl From<&str> for ZkAppUri {
-    fn from(value: &str) -> Self {
-        Self(value.to_string())
+        Self::from(value.0.clone())
     }
 }
 
@@ -873,7 +891,7 @@ impl From<AccountIdOrderable> for AccountId {
 
 #[derive(Clone, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 #[serde(into = "v2::MinaBaseAccountIdStableV2")]
-#[serde(from = "v2::MinaBaseAccountIdStableV2")]
+#[serde(try_from = "v2::MinaBaseAccountIdStableV2")]
 pub struct AccountId {
     pub public_key: CompressedPubKey,
     pub token_id: TokenId,
@@ -1112,7 +1130,7 @@ pub struct PermsConst {
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(into = "v2::MinaBaseAccountBinableArgStableV2")]
-#[serde(from = "v2::MinaBaseAccountBinableArgStableV2")]
+#[serde(try_from = "v2::MinaBaseAccountBinableArgStableV2")]
 pub struct Account {
     pub public_key: CompressedPubKey, // Public_key.Compressed.t
     pub token_id: TokenId,            // Token_id.t
@@ -1419,7 +1437,7 @@ impl Account {
         Self {
             public_key: gen_compressed(),
             token_id: TokenId(Fp::rand(rng)),
-            token_symbol: TokenSymbol(symbol),
+            token_symbol: TokenSymbol(symbol.into_bytes()),
             balance: rng.gen(),
             nonce: rng.gen(),
             receipt_chain_hash: ReceiptChainHash(Fp::rand(rng)),
@@ -1486,7 +1504,7 @@ impl Account {
                         ],
                         last_action_slot: rng.gen(),
                         proved_state: rng.gen(),
-                        zkapp_uri: ZkAppUri(zkapp_uri),
+                        zkapp_uri: ZkAppUri(zkapp_uri.into_bytes()),
                     }
                     .into(),
                 )
@@ -1650,7 +1668,7 @@ mod tests {
             )
             .unwrap(),
             token_id: TokenId::default(),
-            token_symbol: TokenSymbol::from("seb".to_string()),
+            token_symbol: TokenSymbol::from("seb".to_string().into_bytes()),
             balance: Balance::from_u64(10101),
             nonce: Nonce::from_u32(62772),
             receipt_chain_hash: ReceiptChainHash::empty(),

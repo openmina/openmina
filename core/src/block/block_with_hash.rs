@@ -1,3 +1,4 @@
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2, LedgerHash,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashStableV1,
@@ -31,11 +32,11 @@ pub struct BlockHeaderWithHash<T: AsRef<BlockHeader>> {
 }
 
 impl<T: AsRef<Block>> BlockWithHash<T> {
-    pub fn new(block: T) -> Self {
-        Self {
-            hash: block.as_ref().hash(),
+    pub fn try_new(block: T) -> Result<Self, InvalidBigInt> {
+        Ok(Self {
+            hash: block.as_ref().try_hash()?,
             block,
-        }
+        })
     }
 
     pub fn hash(&self) -> &BlockHash {
@@ -150,13 +151,6 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
 }
 
 impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
-    pub fn new(header: T) -> Self {
-        Self {
-            hash: header.as_ref().hash(),
-            header,
-        }
-    }
-
     pub fn hash(&self) -> &BlockHash {
         &self.hash
     }

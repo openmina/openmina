@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2;
 use node::{
@@ -63,25 +64,29 @@ impl node::service::SnarkWorkVerifyService for NodeService {
         }
         let tx = self.event_sender().clone();
         rayon::spawn_fifo(move || {
-            let result = {
-                let conv = |proof: &v2::LedgerProofProdStableV2| {
-                    (
-                        Statement::<SokDigest>::from(&proof.0.statement),
+            let result = (|| {
+                let conv = |proof: &v2::LedgerProofProdStableV2| -> Result<_, InvalidBigInt> {
+                    Ok((
+                        Statement::<SokDigest>::try_from(&proof.0.statement)?,
                         proof.proof.clone(),
-                    )
+                    ))
                 };
-                let works = work
+                let Ok(works) = work
                     .into_iter()
                     .flat_map(|work| match &*work.proofs {
-                        v2::TransactionSnarkWorkTStableV2Proofs::One(v) => [Some(conv(v)), None],
+                        v2::TransactionSnarkWorkTStableV2Proofs::One(v) => {
+                            [conv(v).map(Some), Ok(None)]
+                        }
                         v2::TransactionSnarkWorkTStableV2Proofs::Two((v1, v2)) => {
-                            [Some(conv(v1)), Some(conv(v2))]
+                            [conv(v1).map(Some), conv(v2).map(Some)]
                         }
                     })
-                    .flatten()
-                    .collect::<Vec<_>>();
+                    .collect::<Result<Vec<_>, _>>()
+                else {
+                    return Err(SnarkWorkVerifyError::VerificationFailed);
+                };
                 if !ledger::proofs::verification::verify_transaction(
-                    works.iter().map(|(v1, v2)| (v1, v2)),
+                    works.iter().flatten().map(|(v1, v2)| (v1, v2)),
                     &verifier_index,
                     &verifier_srs,
                 ) {
@@ -89,7 +94,7 @@ impl node::service::SnarkWorkVerifyService for NodeService {
                 } else {
                     Ok(())
                 }
-            };
+            })();
 
             let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
         });
