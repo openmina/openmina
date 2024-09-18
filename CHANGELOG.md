@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.13] - 2024-09-18
+
+### Fixed
+
+- Many stability and security improvements.
+- Make the JSON encodings of many kinds of values closer to what the Mina node produces to increase compatibility.
+
+### Changed
+
+- Combined all frontend docker images into a single one configurable at runtime.
+- Many internal state machine refactorings.
+
 ## [0.8.3] - 2024-09-09
 
 ### Fixed
@@ -235,7 +247,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.8.3...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.8.13...develop
+[0.8.13]: https://github.com/openmina/openmina/releases/tag/v0.8.3...v0.8.13
 [0.8.3]: https://github.com/openmina/openmina/releases/tag/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/openmina/openmina/releases/tag/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/openmina/openmina/releases/tag/v0.8.0...v0.8.1
