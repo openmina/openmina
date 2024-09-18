@@ -2,6 +2,7 @@ import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 
 export const environment: Readonly<MinaEnv> = {
   production: false,
+  identifier: 'Docker image',
   globalConfig: {
     features: {
       dashboard: [],
@@ -14,8 +15,9 @@ export const environment: Readonly<MinaEnv> = {
       'block-production': ['overview', 'won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
+      zk: ['test'],
     },
-    canAddNodes: false,
+    canAddNodes: true,
     minaExplorerNetwork: 'devnet',
   },
   configs: [

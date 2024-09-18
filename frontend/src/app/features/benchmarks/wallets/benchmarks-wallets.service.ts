@@ -7,10 +7,12 @@ import { RustService } from '@core/services/rust.service';
 import {
   MempoolTransaction,
   MempoolTransactionKind,
-  SignedCommand, ZkappCommand,
+  SignedCommand,
+  ZkappCommand,
 } from '@shared/types/mempool/mempool-transaction.type';
-import { getTimeFromMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
-import { any, ONE_BILLION } from '@openmina/shared';
+import { decodeMemo, getTimeFromMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
+import { ONE_BILLION } from '@openmina/shared';
+import { MempoolTransactionResponseKind } from '@app/features/mempool/mempool.service';
 
 export const WALLETS: { privateKey: string, publicKey: string }[] = [
   {
@@ -4098,28 +4100,40 @@ export class BenchmarksWalletsService {
   }
 
   getAllIncludedTransactions(): Observable<MempoolTransaction[]> {
-    return this.rust.get<Array<{ SignedCommand: SignedCommand } | {
-      ZkappCommand: ZkappCommand
-    }>>('/best-chain-user-commands').pipe(
+    return this.rust.get<Array<[MempoolTransactionResponseKind, SignedCommand | ZkappCommand]>>('/best-chain-user-commands').pipe(
       map(data => this.mapTxPoolResponse(data)),
     );
   }
 
-  private mapTxPoolResponse(response: Array<{ SignedCommand: SignedCommand } | {
-    ZkappCommand: ZkappCommand
-  }>): MempoolTransaction[] {
+  private mapTxPoolResponse(response: Array<[MempoolTransactionResponseKind, SignedCommand | ZkappCommand]>): MempoolTransaction[] {
+    // return response
+    //   .filter(tx => !!any(tx).SignedCommand)
+    //   .map(tx => tx as { SignedCommand: SignedCommand })
+    //   .map((tx: { SignedCommand: SignedCommand }) => ({
+    //     kind: MempoolTransactionKind.PAYMENT,
+    //     sender: tx.SignedCommand.payload.common.fee_payer_pk,
+    //     fee: Number(tx.SignedCommand.payload.common.fee),
+    //     nonce: Number(tx.SignedCommand.payload.common.nonce),
+    //     memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
+    //     transactionData: tx.SignedCommand,
+    //     sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
+    //     sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
+    //   } as MempoolTransaction));
     return response
-      .filter(tx => !!any(tx).SignedCommand)
-      .map(tx => tx as { SignedCommand: SignedCommand })
-      .map((tx: { SignedCommand: SignedCommand }) => ({
-        kind: MempoolTransactionKind.PAYMENT,
-        sender: tx.SignedCommand.payload.common.fee_payer_pk,
-        fee: Number(tx.SignedCommand.payload.common.fee),
-        nonce: Number(tx.SignedCommand.payload.common.nonce),
-        memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
-        transactionData: tx.SignedCommand,
-        sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
-        sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
-      } as MempoolTransaction));
+      .filter(tx => tx[0] === MempoolTransactionResponseKind.SignedCommand)
+      .map(tx => tx[1] as SignedCommand)
+      .map((tx: SignedCommand) => {
+        const memo = decodeMemo(tx.payload.common.memo);
+        return {
+          kind: MempoolTransactionKind.PAYMENT,
+          sender: tx.payload.common.fee_payer_pk,
+          fee: Number(tx.payload.common.fee),
+          nonce: Number(tx.payload.common.nonce),
+          memo: removeUnicodeEscapes(memo),
+          transactionData: tx,
+          sentFromStressingTool: memo.includes('S.T.'),
+          sentByMyBrowser: memo.includes(localStorage.getItem('browserId')),
+        } as MempoolTransaction;
+      });
   }
 }
