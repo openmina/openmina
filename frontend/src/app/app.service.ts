@@ -38,16 +38,7 @@ export class AppService {
           upload: 0,
           snarks: data.snark_pool.snarks,
           transactions: data.transaction_pool.transactions,
-        } as AppNodeDetails)),
-        catchError(() => of({
-          status: AppNodeStatus.OFFLINE,
-          blockHeight: null,
-          blockTime: null,
-          peers: 0,
-          download: 0,
-          upload: 0,
-          transactions: 0,
-          snarks: 0,
+          chainId: data.chain_id,
         } as AppNodeDetails)),
       );
   }
@@ -71,6 +62,7 @@ export interface NodeDetailsResponse {
   transaction_pool: { transactions: number };
   peers: Peer[];
   snark_pool: SnarkPool;
+  chain_id: string | undefined;
 }
 
 interface TransitionFrontier {

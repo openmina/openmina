@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { AppSelectors } from '@app/app.state';
 import { filter, take } from 'rxjs';
-import { isMobile, MAX_WIDTH_700, ONE_MILLION } from '@openmina/shared';
+import { isDesktop, isMobile, MAX_WIDTH_700, ONE_MILLION } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { ComponentPortal, TemplatePortal } from '@angular/cdk/portal';
@@ -109,7 +109,7 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
     }
     this.tooltipOverlayRef = this.overlay.create({
       hasBackdrop: false,
-      width: 188,
+      width: isDesktop() ? 188 : 205,
       positionStrategy: this.overlay.position()
         .flexibleConnectedTo(anchor)
         .withPositions([{

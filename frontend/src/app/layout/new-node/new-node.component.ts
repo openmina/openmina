@@ -96,6 +96,7 @@ export class NewNodeComponent extends StoreDispatcher implements OnInit {
       checked: true,
       subFeatures: [
         { name: 'scan state', checked: true },
+        { name: 'work pool', checked: true },
       ],
     },
     {

@@ -35,6 +35,7 @@ export type FeaturesConfig = Partial<{
   'block-production': string[];
   'mempool': string[];
   'benchmarks': string[];
+  'zk': string[];
 }>;
 
 export type FeatureType = keyof FeaturesConfig;

@@ -5,6 +5,7 @@ import { AppComponent } from './app.component';
 import { AppRouting } from './app.routing';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import {
+  CopyComponent,
   GlobalErrorHandlerService,
   HorizontalMenuComponent,
   NgrxRouterStoreModule,
@@ -79,6 +80,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     OpenminaEagerSharedModule,
     HorizontalMenuComponent,
     ReactiveFormsModule,
+    CopyComponent,
   ],
   providers: [
     THEME_PROVIDER,

@@ -4,14 +4,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(addr), debug(data), incoming), level = trace)]
-pub enum P2pNetworkPnetAction {
-    IncomingData {
-        addr: ConnectionAddr,
-        data: Data,
-    },
+pub enum P2pNetworkPnetEffectfulAction {
     OutgoingData {
         addr: ConnectionAddr,
-        data: Data,
+        data: Vec<u8>,
     },
     #[action_event(level = debug)]
     SetupNonce {
@@ -19,34 +15,25 @@ pub enum P2pNetworkPnetAction {
         nonce: Data,
         incoming: bool,
     },
-    Timeout {
-        addr: ConnectionAddr,
-    },
 }
 
-impl P2pNetworkPnetAction {
+impl P2pNetworkPnetEffectfulAction {
     pub fn addr(&self) -> &ConnectionAddr {
         match self {
-            Self::IncomingData { addr, .. } => addr,
             Self::OutgoingData { addr, .. } => addr,
             Self::SetupNonce { addr, .. } => addr,
-            Self::Timeout { addr } => addr,
         }
     }
 }
 
-impl From<P2pNetworkPnetAction> for crate::P2pAction {
-    fn from(a: P2pNetworkPnetAction) -> Self {
+impl From<P2pNetworkPnetEffectfulAction> for crate::P2pAction {
+    fn from(a: P2pNetworkPnetEffectfulAction) -> Self {
         Self::Network(a.into())
     }
 }
 
-impl redux::EnablingCondition<P2pState> for P2pNetworkPnetAction {
-    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
-        state
-            .network
-            .scheduler
-            .connection_state(self.addr())
-            .is_some()
+impl redux::EnablingCondition<P2pState> for P2pNetworkPnetEffectfulAction {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
+        true
     }
 }

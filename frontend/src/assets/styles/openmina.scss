@@ -1259,18 +1259,26 @@ span.mina-icon {
   -webkit-font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
   font-variation-settings: 'FILL' 0, 'wght' 200;
-}
 
-.icon-100 {
-  font-variation-settings: 'FILL' 0, 'wght' 100;
-}
+  &.icon-100 {
+    font-variation-settings: 'FILL' 0, 'wght' 100;
+  }
 
-.icon-200 {
-  font-variation-settings: 'FILL' 0, 'wght' 200;
-}
+  &.icon-200 {
+    font-variation-settings: 'FILL' 0, 'wght' 200;
+  }
 
-.icon-300 {
-  font-variation-settings: 'FILL' 0, 'wght' 300;
+  &.icon-300 {
+    font-variation-settings: 'FILL' 0, 'wght' 300;
+  }
+
+  &.icon-400 {
+    font-variation-settings: 'FILL' 0, 'wght' 400;
+  }
+
+  &.icon-500 {
+    font-variation-settings: 'FILL' 0, 'wght' 500;
+  }
 }
 
 

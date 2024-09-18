@@ -6,6 +6,3 @@ pub use self::p2p_network_pnet_state::P2pNetworkPnetState;
 
 #[cfg(feature = "p2p-libp2p")]
 mod p2p_network_pnet_reducer;
-
-#[cfg(feature = "p2p-libp2p")]
-mod p2p_network_pnet_effects;

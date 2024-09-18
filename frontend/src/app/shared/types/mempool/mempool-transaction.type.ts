@@ -26,26 +26,18 @@ export interface SignedCommand {
 
 interface Payload {
   common: Common;
-  body: Body;
+  body: [string, Body];
 }
 
 interface Common {
   fee: string;
   fee_payer_pk: string;
   nonce: string;
-  valid_until: ValidUntil;
+  valid_until: string;
   memo: string;
 }
 
-interface ValidUntil {
-  SinceGenesis: string;
-}
-
 interface Body {
-  Payment: Payment;
-}
-
-interface Payment {
   receiver_pk: string;
   amount: string;
 }
@@ -54,6 +46,9 @@ export interface ZkappCommand {
   fee_payer: FeePayer;
   account_updates: AccountUpdate[];
   memo: string;
+  payload: Payload;
+  signer: string;
+  signature: string;
 }
 
 interface FeePayer {
@@ -81,7 +76,7 @@ interface Elt {
 
 interface AccountUpdate2 {
   body: Body3;
-  authorization: Authorization;
+  authorization: string[];
 }
 
 interface Body3 {
@@ -96,19 +91,19 @@ interface Body3 {
   preconditions: Preconditions;
   use_full_commitment: boolean;
   implicit_account_creation_fee: boolean;
-  may_use_token: string;
-  authorization_kind: string;
+  may_use_token: string[];
+  authorization_kind: string[];
 }
 
 interface Update {
-  app_state: string[];
-  delegate: string;
-  verification_key: any;
-  permissions: string;
-  zkapp_uri: string;
+  app_state: string[][];
+  delegate: string[];
+  verification_key: string[];
+  permissions: string[];
+  zkapp_uri: string[];
   token_symbol: string;
-  timing: string;
-  voting_for: string;
+  timing: string[];
+  voting_for: string[];
 }
 
 interface BalanceChange {
@@ -119,58 +114,54 @@ interface BalanceChange {
 interface Preconditions {
   network: Network;
   account: Account;
-  valid_while: string;
+  valid_while: string[];
 }
 
 interface Network {
-  snarked_ledger_hash: string;
-  blockchain_length: string;
-  min_window_density: string;
-  total_currency: string;
-  global_slot_since_genesis: string;
+  snarked_ledger_hash: string[];
+  blockchain_length: string[];
+  min_window_density: string[];
+  total_currency: string[];
+  global_slot_since_genesis: string[];
   staking_epoch_data: StakingEpochData;
   next_epoch_data: NextEpochData;
 }
 
 interface StakingEpochData {
   ledger: Ledger;
-  seed: string;
-  start_checkpoint: string;
-  lock_checkpoint: string;
-  epoch_length: string;
+  seed: string[];
+  start_checkpoint: string[];
+  lock_checkpoint: string[];
+  epoch_length: string[];
 }
 
 interface Ledger {
-  hash: string;
-  total_currency: string;
+  hash: string[];
+  total_currency: string[];
 }
 
 interface NextEpochData {
   ledger: Ledger2;
-  seed: string;
-  start_checkpoint: string;
-  lock_checkpoint: string;
-  epoch_length: string;
+  seed: string[];
+  start_checkpoint: string[];
+  lock_checkpoint: string[];
+  epoch_length: string[];
 }
 
 interface Ledger2 {
-  hash: string;
-  total_currency: string;
+  hash: string[];
+  total_currency: string[];
 }
 
 interface Account {
-  balance: string;
-  nonce: any;
-  receipt_chain_hash: string;
-  delegate: string;
-  state: string[];
-  action_state: string;
-  proved_state: string;
-  is_new: string;
-}
-
-interface Authorization {
-  Signature: string;
+  balance: string[];
+  nonce: string[];
+  receipt_chain_hash: string[];
+  delegate: string[];
+  state: string[][];
+  action_state: string[];
+  proved_state: string[];
+  is_new: string[];
 }
 
 interface Call {
@@ -186,7 +177,7 @@ interface Elt2 {
 
 interface AccountUpdate3 {
   body: Body4;
-  authorization: string;
+  authorization: string[];
 }
 
 interface Body4 {
@@ -202,18 +193,18 @@ interface Body4 {
   use_full_commitment: boolean;
   implicit_account_creation_fee: boolean;
   may_use_token: string;
-  authorization_kind: string;
+  authorization_kind: string[];
 }
 
 interface Update2 {
-  app_state: string[];
-  delegate: string;
-  verification_key: string;
-  permissions: string;
-  zkapp_uri: string;
+  app_state: string[][];
+  delegate: string[];
+  verification_key: string[];
+  permissions: string[];
+  zkapp_uri: string[];
   token_symbol: string;
-  timing: string;
-  voting_for: string;
+  timing: string[];
+  voting_for: string[];
 }
 
 interface BalanceChange2 {
@@ -224,52 +215,52 @@ interface BalanceChange2 {
 interface Preconditions2 {
   network: Network2;
   account: Account2;
-  valid_while: string;
+  valid_while: string[];
 }
 
 interface Network2 {
-  snarked_ledger_hash: string;
-  blockchain_length: string;
-  min_window_density: string;
-  total_currency: string;
-  global_slot_since_genesis: string;
+  snarked_ledger_hash: string[];
+  blockchain_length: string[];
+  min_window_density: string[];
+  total_currency: string[];
+  global_slot_since_genesis: string[];
   staking_epoch_data: StakingEpochData2;
   next_epoch_data: NextEpochData2;
 }
 
 interface StakingEpochData2 {
   ledger: Ledger3;
-  seed: string;
-  start_checkpoint: string;
-  lock_checkpoint: string;
-  epoch_length: string;
+  seed: string[];
+  start_checkpoint: string[];
+  lock_checkpoint: string[];
+  epoch_length: string[];
 }
 
 interface Ledger3 {
-  hash: string;
-  total_currency: string;
+  hash: string[];
+  total_currency: string[];
 }
 
 interface NextEpochData2 {
   ledger: Ledger4;
-  seed: string;
-  start_checkpoint: string;
-  lock_checkpoint: string;
-  epoch_length: string;
+  seed: string[];
+  start_checkpoint: string[];
+  lock_checkpoint: string[];
+  epoch_length: string[];
 }
 
 interface Ledger4 {
-  hash: string;
-  total_currency: string;
+  hash: string[];
+  total_currency: string[];
 }
 
 interface Account2 {
-  balance: string;
-  nonce: string;
-  receipt_chain_hash: string;
-  delegate: string;
-  state: string[];
-  action_state: string;
-  proved_state: string;
-  is_new: string;
+  balance: string[];
+  nonce: string[];
+  receipt_chain_hash: string[];
+  delegate: string[];
+  state: string[][];
+  action_state: string[];
+  proved_state: string[];
+  is_new: string[];
 }

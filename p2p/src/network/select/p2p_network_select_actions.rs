@@ -183,7 +183,17 @@ impl From<P2pNetworkSelectAction> for crate::P2pAction {
     }
 }
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
+        if state
+            .network
+            .scheduler
+            .connection_state(self.addr())
+            .and_then(|conn| conn.select_state(&self.select_kind()))
+            .is_none()
+        {
+            return false;
+        }
+
         match self {
             Self::Init { .. } => true,
             Self::IncomingDataAuth { .. } => true,
