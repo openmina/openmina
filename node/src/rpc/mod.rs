@@ -415,6 +415,7 @@ impl From<Account> for AccountSlim {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatus {
+    pub chain_id: Option<String>,
     pub transition_frontier: RpcNodeStatusTransitionFrontier,
     pub peers: Vec<RpcPeerInfo>,
     pub snark_pool: RpcNodeStatusSnarkPool,
