@@ -492,6 +492,11 @@ base58check_of_binprot!(
     RECEIPT_CHAIN_HASH
 );
 base58check_of_binprot!(
+    ReceiptChainHash,
+    MinaBaseReceiptChainHashStableV1,
+    RECEIPT_CHAIN_HASH
+);
+base58check_of_binprot!(
     TokenIdKeyHash,
     MinaBaseAccountIdDigestStableV1,
     TOKEN_ID_KEY

@@ -73,7 +73,7 @@ pub enum RpcRequest {
     DiscoveryRoutingTable,
     DiscoveryBoostrapStats,
     TransactionPoolGet,
-    LedgerAccountsGet(Option<AccountPublicKey>),
+    LedgerAccountsGet(AccountQuery),
     TransactionInject(Vec<RpcInjectPayment>),
     TransitionFrontierUserCommandsGet,
 }
@@ -328,7 +328,8 @@ pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
-pub type RpcLedgerAccountsResponse = Vec<AccountSlim>;
+pub type RpcLedgerSlimAccountsResponse = Vec<AccountSlim>;
+pub type RpcLedgerAccountsResponse = Vec<Account>;
 pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
 
 // TODO(adonagy): rework this to handle all the possible user commands (enum..)

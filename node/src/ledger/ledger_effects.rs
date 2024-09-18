@@ -255,7 +255,7 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
     for (rpc_id, req) in ledger_account_rpc {
         store.dispatch(RpcAction::LedgerAccountsGetInit {
             rpc_id,
-            public_key: req,
+            account_query: req,
         });
         if !store.state().ledger.read.is_total_cost_under_limit() {
             return;
@@ -484,9 +484,13 @@ fn propagate_read_response<S: redux::Service>(
             }
         }
         (_, LedgerReadResponse::ScanStateSummary(..)) => unreachable!(),
-        (_req, LedgerReadResponse::GetAccounts(_)) => todo!(),
-        (_, LedgerReadResponse::AccountsForRpc(rpc_id, accounts)) => {
-            store.dispatch(RpcAction::LedgerAccountsGetSuccess { rpc_id, accounts });
+        (_req, LedgerReadResponse::GetAccounts(..)) => todo!(),
+        (_, LedgerReadResponse::AccountsForRpc(rpc_id, accounts, account_query)) => {
+            store.dispatch(RpcAction::LedgerAccountsGetSuccess {
+                rpc_id,
+                accounts,
+                account_query,
+            });
         }
     }
 }

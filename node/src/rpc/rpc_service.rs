@@ -7,11 +7,11 @@ use crate::State;
 use super::{
     RpcActionStatsGetResponse, RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcId, RpcLedgerAccountsResponse,
-    RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
-    RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-    RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
-    RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
+    RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcStatusGetResponse,
+    RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
 
@@ -149,6 +149,11 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcTransactionPoolResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_ledger_slim_accounts(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcLedgerSlimAccountsResponse,
     ) -> Result<(), RespondError>;
     fn respond_ledger_accounts(
         &mut self,
