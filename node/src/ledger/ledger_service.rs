@@ -1151,7 +1151,7 @@ impl LedgerCtx {
                         .as_ref()
                         .map_or_else(|| job_id.clone(), |(id, _)| id.clone());
 
-                    res.push(if is_done {
+                    if is_done {
                         let is_left =
                             bundle.map_or_else(|| true, |(_, is_sibling_left)| !is_sibling_left);
                         let parent = job.parent().ok_or_else(|| format!("job(depth: {}, index: {}) has no parent", job.depth(), job.index()))?;
@@ -1168,12 +1168,17 @@ impl LedgerCtx {
                                             (&job.right.sok_message).into()
                                         }
                                     }
-                                    state => {
-                                        return Err(format!("parent of a `Done` job can't be in this state: {:?}", state));
+                                    _state => {
+                                        // Parent of a `Done` job can't be in this state.
+                                        // But we are bug-compatible with the OCaml node here, in which sometimes for
+                                        // some reason there is an empty row in the scan state trees, so Empty
+                                        // is used instead.
+                                        res.push(RpcScanStateSummaryScanStateJob::Empty);
+                                        continue;
                                     }
                                 }
                         };
-                        RpcScanStateSummaryScanStateJob::Done {
+                        res.push(RpcScanStateSummaryScanStateJob::Done {
                             job_id,
                             bundle_job_id,
                             job: Box::new(job_kind),
@@ -1182,15 +1187,15 @@ impl LedgerCtx {
                                 snarker: sok_message.prover,
                                 fee: sok_message.fee,
                             }),
-                        }
+                        });
                     } else {
-                        RpcScanStateSummaryScanStateJob::Todo {
+                        res.push(RpcScanStateSummaryScanStateJob::Todo {
                             job_id,
                             bundle_job_id,
                             job: job_kind,
                             seq_no,
-                        }
-                    })
+                        });
+                    }
                 }
                 Ok(res)
             })
