@@ -492,6 +492,11 @@ base58check_of_binprot!(
     RECEIPT_CHAIN_HASH
 );
 base58check_of_binprot!(
+    ReceiptChainHash,
+    versioned MinaBaseReceiptChainHashStableV1,
+    RECEIPT_CHAIN_HASH
+);
+base58check_of_binprot!(
     TokenIdKeyHash,
     MinaBaseAccountIdDigestStableV1,
     TOKEN_ID_KEY
@@ -946,6 +951,53 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
             Deserialize::deserialize(deserializer)
         }
         .map(Self)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MinaBaseVerificationKeyWireStableV1Base64(pub MinaBaseVerificationKeyWireStableV1);
+
+impl Serialize for MinaBaseVerificationKeyWireStableV1Base64 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let mut buffer: Vec<u8> = Vec::new();
+            self.0
+                .binprot_write(&mut buffer)
+                .map_err(serde::ser::Error::custom)?;
+            use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+            let base64_data = STANDARD.encode(buffer);
+            serializer.serialize_str(&base64_data)
+        } else {
+            self.serialize(serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MinaBaseVerificationKeyWireStableV1Base64 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let deserialised = if deserializer.is_human_readable() {
+            use base64::{engine::general_purpose::STANDARD, Engine as _};
+            let base64_data = String::deserialize(deserializer)?;
+            STANDARD.decode(&base64_data).map_err(|e| {
+                serde::de::Error::custom(format!("Error deserializing Verification Key: {e}"))
+            })?
+        } else {
+            Deserialize::deserialize(deserializer)?
+        };
+
+        let res = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut deserialised.as_slice())
+            .map_err(|e| {
+            serde::de::Error::custom(format!("Error deserializing Verification Key: {e}"))
+        })?;
+
+        Ok(Self(res))
     }
 }
 

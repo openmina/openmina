@@ -1,10 +1,18 @@
+use std::str::FromStr;
+
 use juniper::{EmptyMutation, EmptySubscription, GraphQLEnum, RootNode};
+use ledger::Account;
+use mina_p2p_messages::v2::TokenIdKeyHash;
 use node::{
-    rpc::{RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
+    account::AccountPublicKey,
+    ledger::read::LedgerReadRequest,
+    rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
     stats::sync::SyncKind,
 };
 use openmina_node_common::rpc::RpcSender;
 use warp::{Filter, Rejection, Reply};
+
+pub mod account;
 
 struct Context(RpcSender);
 
@@ -84,6 +92,26 @@ struct Query;
 
 #[juniper::graphql_object(context = Context)]
 impl Query {
+    async fn account(
+        public_key: String,
+        token_id: String,
+        context: &Context,
+    ) -> account::GraphQLAccount {
+        // TODO(adonagy): error handling
+        let token_id = TokenIdKeyHash::from_str(&token_id).unwrap();
+        let public_key = AccountPublicKey::from_str(&public_key).unwrap();
+        let accounts: Vec<Account> = context
+            .0
+            .oneshot_request(RpcRequest::LedgerAccountsGet(
+                AccountQuery::PubKeyWithTokenId(public_key, token_id),
+            ))
+            .await
+            .unwrap();
+
+        // Error handling
+        accounts.first().cloned().unwrap().into()
+    }
+
     async fn sync_status(context: &Context) -> SyncStatus {
         let state: RpcSyncStatsGetResponse = context
             .0
@@ -145,9 +173,44 @@ pub fn routes(
         EmptySubscription::<Context>::new(),
     );
     let graphql_filter = juniper_warp::make_graphql_filter(schema, state.boxed());
+    let graphiql_filter = juniper_warp::graphiql_filter("/graphql", None);
+    let playground_filter = juniper_warp::playground_filter("/graphql", None);
 
-    warp::get()
-        .and(warp::path("graphiql"))
-        .and(juniper_warp::graphiql_filter("/graphql", None))
-        .or(warp::path("graphql").and(graphql_filter))
+    (warp::post().and(warp::path("graphql")).and(graphql_filter))
+        .or(warp::get()
+            .and(warp::path("playground"))
+            .and(playground_filter))
+        .or(warp::get().and(warp::path("graphiql")).and(graphiql_filter))
+
+    // warp::get()
+    //     .and(warp::path("graphiql"))
+    //     .and(juniper_warp::graphiql_filter("/graphql", None))
+    //     .or(warp::path("graphql").and(graphql_filter))
 }
+
+// let routes = (warp::post()
+//         .and(warp::path("graphql"))
+//         .and(juniper_warp::make_graphql_filter(
+//             schema.clone(),
+//             warp::any().map(|| Context),
+//         )))
+//     .or(
+//         warp::path("subscriptions").and(juniper_warp::subscriptions::make_ws_filter(
+//             schema,
+//             ConnectionConfig::new(Context),
+//         )),
+//     )
+//     .or(warp::get()
+//         .and(warp::path("playground"))
+//         .and(juniper_warp::playground_filter(
+//             "/graphql",
+//             Some("/subscriptions"),
+//         )))
+//     .or(warp::get()
+//         .and(warp::path("graphiql"))
+//         .and(juniper_warp::graphiql_filter(
+//             "/graphql",
+//             Some("/subscriptions"),
+//         )))
+//     .or(homepage)
+//     .with(log);

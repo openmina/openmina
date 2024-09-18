@@ -7,9 +7,10 @@ pub mod stats;
 use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
-    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest,
-    RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
-    RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
+    RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
+    RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse,
+    RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -286,6 +287,7 @@ impl node::rpc::RpcService for NodeService {
         RpcDiscoveryBoostrapStatsResponse
     );
     rpc_service_impl!(respond_transaction_pool, RpcTransactionPoolResponse);
+    rpc_service_impl!(respond_ledger_slim_accounts, RpcLedgerSlimAccountsResponse);
     rpc_service_impl!(respond_ledger_accounts, RpcLedgerAccountsResponse);
     rpc_service_impl!(respond_transaction_inject, RpcTransactionInjectResponse);
     rpc_service_impl!(

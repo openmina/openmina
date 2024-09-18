@@ -5,7 +5,7 @@ use openmina_core::block::AppliedBlock;
 use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 
-use super::{RpcId, RpcRequest};
+use super::{AccountQuery, RpcId, RpcRequest};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcRequestState {
@@ -85,7 +85,7 @@ impl RpcState {
 
     pub fn accounts_request_rpc_ids(
         &self,
-    ) -> impl Iterator<Item = (RpcId, Option<AccountPublicKey>, &RpcRequestStatus)> + '_ {
+    ) -> impl Iterator<Item = (RpcId, AccountQuery, &RpcRequestStatus)> + '_ {
         self.requests.iter().filter_map(|(id, req)| {
             if let RpcRequest::LedgerAccountsGet(account) = &req.req {
                 Some((*id, account.clone(), &req.status))

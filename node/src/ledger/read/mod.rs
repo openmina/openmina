@@ -18,7 +18,7 @@ use crate::account::AccountPublicKey;
 use crate::block_producer::vrf_evaluator::DelegatorTable;
 use crate::ledger::LedgerAddress;
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
-use crate::rpc::RpcScanStateSummaryScanStateJob;
+use crate::rpc::{AccountQuery, RpcScanStateSummaryScanStateJob};
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum LedgerReadKind {
@@ -38,13 +38,13 @@ pub enum LedgerReadRequest {
     DelegatorTable(v2::LedgerHash, AccountPublicKey),
     // p2p rpcs
     GetNumAccounts(v2::LedgerHash),
-    GetAccounts(v2::LedgerHash, Vec<AccountId>),
+    GetAccounts(v2::LedgerHash, Vec<AccountId>, Option<RpcId>),
     GetChildHashesAtAddr(v2::LedgerHash, LedgerAddress),
     GetChildAccountsAtAddr(v2::LedgerHash, LedgerAddress),
     GetStagedLedgerAuxAndPendingCoinbases(LedgerReadStagedLedgerAuxAndPendingCoinbases),
     // rpcs
     ScanStateSummary(v2::MinaBaseStagedLedgerHashStableV1),
-    AccountsForRpc(RpcId, v2::LedgerHash, Option<AccountPublicKey>),
+    AccountsForRpc(RpcId, v2::LedgerHash, AccountQuery),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -53,13 +53,13 @@ pub enum LedgerReadResponse {
     DelegatorTable(Option<DelegatorTable>),
     // p2p rpcs
     GetNumAccounts(Option<(u64, v2::LedgerHash)>),
-    GetAccounts(Vec<Account>),
+    GetAccounts(Vec<Account>, Option<RpcId>),
     GetChildHashesAtAddr(Option<(v2::LedgerHash, v2::LedgerHash)>),
     GetChildAccountsAtAddr(Option<Vec<v2::MinaBaseAccountBinableArgStableV2>>),
     GetStagedLedgerAuxAndPendingCoinbases(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
     // rpcs
     ScanStateSummary(Result<Vec<Vec<RpcScanStateSummaryScanStateJob>>, String>),
-    AccountsForRpc(RpcId, Vec<Account>),
+    AccountsForRpc(RpcId, Vec<Account>, AccountQuery),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

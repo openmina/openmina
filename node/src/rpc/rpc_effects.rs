@@ -672,38 +672,56 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             )
         }
-        RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
+        RpcAction::LedgerAccountsGetInit {
+            rpc_id,
+            account_query,
+        } => {
             let ledger_hash = if let Some(best_tip) = store.state().transition_frontier.best_tip() {
                 best_tip.merkle_root_hash()
             } else {
                 return;
             };
             if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash.clone(), public_key),
+                request: LedgerReadRequest::AccountsForRpc(
+                    rpc_id,
+                    ledger_hash.clone(),
+                    account_query,
+                ),
             }) {
                 store.dispatch(RpcAction::LedgerAccountsGetPending { rpc_id });
             }
         }
         RpcAction::LedgerAccountsGetPending { .. } => {}
-        RpcAction::LedgerAccountsGetSuccess { rpc_id, accounts } => {
+        RpcAction::LedgerAccountsGetSuccess {
+            rpc_id,
+            accounts,
+            account_query,
+        } => {
             // TODO(adonagy): maybe something more effective?
-            let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
-                .into_iter()
-                .map(|acc| (acc.public_key.clone(), acc))
-                .collect();
-            let nonces_and_amount = store
-                .state()
-                .transaction_pool
-                .get_pending_amount_and_nonce();
+            match account_query {
+                super::AccountQuery::SinglePublicKey(pk) => todo!(),
+                // all the accounts for the FE in Slim form
+                super::AccountQuery::All => {
+                    let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
+                        .into_iter()
+                        .map(|acc| (acc.public_key.clone(), acc))
+                        .collect();
+                    let nonces_and_amount = store
+                        .state()
+                        .transaction_pool
+                        .get_pending_amount_and_nonce();
 
-            nonces_and_amount
-                .iter()
-                .for_each(|(account_id, (nonce, amount))| {
-                    if let Some(account) = accounts.get_mut(&account_id.public_key) {
-                        if let Some(nonce) = nonce {
-                            if nonce >= &account.nonce {
-                                // increment the last nonce in the pool
-                                account.nonce = nonce.incr();
+                    nonces_and_amount
+                        .iter()
+                        .for_each(|(account_id, (nonce, amount))| {
+                            if let Some(account) = accounts.get_mut(&account_id.public_key) {
+                                if let Some(nonce) = nonce {
+                                    if nonce >= &account.nonce {
+                                        // increment the last nonce in the pool
+                                        account.nonce = nonce.incr();
+                                    }
+                                }
+                                account.balance = account.balance.sub_amount(*amount).unwrap();
                             }
                         }
                         account.balance = account
@@ -713,15 +731,26 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     }
                 });
 
-            let accounts = accounts
-                .into_values()
-                .map(|v| v.into())
-                .collect::<Vec<AccountSlim>>();
+                    let accounts = accounts
+                        .into_values()
+                        .map(|v| v.into())
+                        .collect::<Vec<AccountSlim>>();
 
-            respond_or_log!(
-                store.service().respond_ledger_accounts(rpc_id, accounts),
-                meta.time()
-            )
+                    respond_or_log!(
+                        store
+                            .service()
+                            .respond_ledger_slim_accounts(rpc_id, accounts),
+                        meta.time()
+                    )
+                }
+                // for the graphql endpoint
+                super::AccountQuery::PubKeyWithTokenId(..) => {
+                    respond_or_log!(
+                        store.service().respond_ledger_accounts(rpc_id, accounts),
+                        meta.time()
+                    )
+                }
+            }
         }
         RpcAction::TransactionInjectInit { rpc_id, commands } => {
             store.dispatch(RpcAction::TransactionInjectPending { rpc_id });

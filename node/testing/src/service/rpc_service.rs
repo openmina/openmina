@@ -82,6 +82,10 @@ impl RpcService for super::NodeTestingService {
         node::rpc::RpcTransactionPoolResponse
     );
     to_real!(
+        respond_ledger_slim_accounts,
+        node::rpc::RpcLedgerSlimAccountsResponse
+    );
+    to_real!(
         respond_ledger_accounts,
         node::rpc::RpcLedgerAccountsResponse
     );
