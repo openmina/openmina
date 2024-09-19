@@ -5,7 +5,7 @@ pub mod state;
 pub mod stats;
 
 use node::rpc::{
-    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
+    RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
     RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
     RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse,
@@ -294,6 +294,7 @@ impl node::rpc::RpcService for NodeService {
         respond_transition_frontier_commands,
         RpcTransitionFrontierUserCommandsResponse
     );
+    rpc_service_impl!(respond_best_chain, RpcBestChainResponse);
 }
 
 #[cfg(test)]

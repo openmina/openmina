@@ -357,6 +357,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::TransitionFrontierUserCommandsGet => {
                     store.dispatch(RpcAction::TransitionFrontierUserCommandsGet { rpc_id });
                 }
+                RpcRequest::BestChain(max_length) => {
+                    store.dispatch(RpcAction::BestChain { rpc_id, max_length });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

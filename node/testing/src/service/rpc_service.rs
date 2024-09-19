@@ -97,4 +97,5 @@ impl RpcService for super::NodeTestingService {
         respond_transition_frontier_commands,
         node::rpc::RpcTransitionFrontierUserCommandsResponse,
     );
+    to_real!(respond_best_chain, node::rpc::RpcBestChainResponse,);
 }

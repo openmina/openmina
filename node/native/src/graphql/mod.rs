@@ -9,10 +9,12 @@ use node::{
     rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
     stats::sync::SyncKind,
 };
+use openmina_core::block::ArcBlockWithHash;
 use openmina_node_common::rpc::RpcSender;
 use warp::{Filter, Rejection, Reply};
 
 pub mod account;
+pub mod best_chain;
 
 struct Context(RpcSender);
 
@@ -94,11 +96,11 @@ struct Query;
 impl Query {
     async fn account(
         public_key: String,
-        token_id: String,
+        token: String,
         context: &Context,
     ) -> account::GraphQLAccount {
         // TODO(adonagy): error handling
-        let token_id = TokenIdKeyHash::from_str(&token_id).unwrap();
+        let token_id = TokenIdKeyHash::from_str(&token).unwrap();
         let public_key = AccountPublicKey::from_str(&public_key).unwrap();
         let accounts: Vec<Account> = context
             .0
@@ -132,35 +134,47 @@ impl Query {
             SyncStatus::LISTENING
         }
     }
-
-    async fn best_chain(max_length: i32, context: &Context) -> Vec<BestChain> {
-        let state: RpcSyncStatsGetResponse = context
+    async fn best_chain(
+        max_length: i32,
+        context: &Context,
+    ) -> Vec<best_chain::GraphQLBestChainBlock> {
+        let best_chain: Vec<ArcBlockWithHash> = context
             .0
-            .oneshot_request(RpcRequest::SyncStatsGet(SyncStatsQuery {
-                limit: Some(max_length as _),
-            }))
+            .oneshot_request(RpcRequest::BestChain(max_length as u32))
             .await
             .unwrap();
-        state
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|x| {
-                let head = x.blocks.first()?;
-                let snarked_ledger_hash = x.ledgers.root?.snarked.hash?;
-                Some(BestChain {
-                    state_hash: head.hash.to_string(),
-                    protocol_state: ProtocolState {
-                        consensus_state: ConsensusState {
-                            block_height: head.height as _,
-                        },
-                        blockchain_state: BlockchainState {
-                            snarked_ledger_hash: snarked_ledger_hash.to_string(),
-                        },
-                    },
-                })
-            })
-            .collect()
+
+        best_chain.into_iter().map(|v| v.into()).collect()
     }
+
+    // async fn best_chain(max_length: i32, context: &Context) -> Vec<BestChain> {
+    //     let state: RpcSyncStatsGetResponse = context
+    //         .0
+    //         .oneshot_request(RpcRequest::SyncStatsGet(SyncStatsQuery {
+    //             limit: Some(max_length as _),
+    //         }))
+    //         .await
+    //         .unwrap();
+    //     state
+    //         .unwrap_or_default()
+    //         .into_iter()
+    //         .filter_map(|x| {
+    //             let head = x.blocks.first()?;
+    //             let snarked_ledger_hash = x.ledgers.root?.snarked.hash?;
+    //             Some(BestChain {
+    //                 state_hash: head.hash.to_string(),
+    //                 protocol_state: ProtocolState {
+    //                     consensus_state: ConsensusState {
+    //                         block_height: head.height as _,
+    //                     },
+    //                     blockchain_state: BlockchainState {
+    //                         snarked_ledger_hash: snarked_ledger_hash.to_string(),
+    //                     },
+    //                 },
+    //             })
+    //         })
+    //         .collect()
+    // }
 }
 
 pub fn routes(

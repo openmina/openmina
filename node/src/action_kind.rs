@@ -415,6 +415,7 @@ pub enum ActionKind {
     P2pPeerReady,
     P2pPeerRemove,
     RpcActionStatsGet,
+    RpcBestChain,
     RpcBlockProducerStatsGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
@@ -886,6 +887,7 @@ impl ActionKindGet for RpcAction {
             Self::TransitionFrontierUserCommandsGet { .. } => {
                 ActionKind::RpcTransitionFrontierUserCommandsGet
             }
+            Self::BestChain { .. } => ActionKind::RpcBestChain,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
