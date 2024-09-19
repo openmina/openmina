@@ -310,6 +310,7 @@ impl P2pNetworkSchedulerState {
                     addr: *addr,
                     reason: reason.clone(),
                 });
+
                 Ok(())
             }
             P2pNetworkSchedulerAction::Error { addr, error } => {
@@ -352,7 +353,6 @@ impl P2pNetworkSchedulerState {
                 let state: &P2pState = state.substate()?;
 
                 let peer_with_state = state.peer_with_connection(*addr);
-                dispatcher.push(P2pNetworkSchedulerAction::Prune { addr: *addr });
 
                 if reason.is_disconnected() {
                     // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
@@ -379,6 +379,7 @@ impl P2pNetworkSchedulerState {
                                     error: reason.to_string(),
                                 });
                             }
+                            P2pPeerStatus::Disconnecting { .. } => {}
                             P2pPeerStatus::Disconnected { .. } => {
                                 // sanity check, should be incoming connection
                                 if !incoming {
@@ -405,13 +406,15 @@ impl P2pNetworkSchedulerState {
                 Ok(())
             }
             P2pNetworkSchedulerAction::Prune { addr } => {
-                let _ = scheduler_state.connections.remove(addr);
+                if let Some(old) = scheduler_state.connections.remove(addr) {
+                    if let Some(peer_id) = old.peer_id() {
+                        scheduler_state.prune_peer_state(peer_id);
+                    }
+                }
                 Ok(())
             }
-            P2pNetworkSchedulerAction::PruneStreams { peer_id } => {
-                scheduler_state.prune_peer_state(peer_id);
-                Ok(())
-            }
+            // TODO: remove the action
+            P2pNetworkSchedulerAction::PruneStreams { .. } => Ok(()),
             P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id } => {
                 let Some((_, conn_state)) = scheduler_state
                     .connections

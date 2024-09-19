@@ -233,6 +233,9 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
                     )
                 }
             }
+            MioEvent::ConnectionDidCloseOnDemand(addr) => {
+                SubStore::dispatch(store, P2pNetworkSchedulerAction::Prune { addr })
+            }
         },
         _ => false,
     }

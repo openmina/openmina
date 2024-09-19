@@ -121,7 +121,13 @@ impl P2pNetworkKadRequestState {
                     Some(P2pPeerState { status, .. }) if status.as_ready().is_none() => {
                         on_connection_in_progress(dispatcher)
                     }
-                    _ => on_connection_established(dispatcher),
+                    Some(P2pPeerState { status, .. }) if status.as_ready().is_some() => {
+                        on_connection_established(dispatcher)
+                    }
+                    _ => {
+                        bug_condition!("state must be either ready or not ready, peer {peer_id}");
+                        Ok(())
+                    }
                 }
             }
             P2pNetworkKadRequestAction::PeerIsConnecting { .. } => {
