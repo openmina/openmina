@@ -739,8 +739,8 @@ pub mod step_verifier {
             let zetaw_n = pow2pow(zetaw);
 
             evals.evals.map_ref(&|[x0, x1]| {
-                let a = actual_evaluation(&x0, zeta_n);
-                let b = actual_evaluation(&x1, zetaw_n);
+                let a = actual_evaluation(x0, zeta_n);
+                let b = actual_evaluation(x1, zetaw_n);
                 [a, b]
             })
         };
@@ -2028,8 +2028,8 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
     )?]);
     sponge.absorb_fq(&[challenges_digest]);
     sponge.absorb_fq(&[evals.ft_eval1]);
-    sponge.absorb_fq(&x1);
-    sponge.absorb_fq(&x2);
+    sponge.absorb_fq(x1);
+    sponge.absorb_fq(x2);
     xs.iter().for_each(|(x1, x2)| {
         sponge.absorb_fq(x1);
         sponge.absorb_fq(x2);

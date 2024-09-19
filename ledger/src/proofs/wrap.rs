@@ -121,7 +121,7 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
             .map(|f| f(pt))
             .chain(f(public))
             .chain([ft])
-            .chain(a.iter().flat_map(|a| f(*a)))
+            .chain(a.iter().flat_map(|a| f(a)))
             .rev()
             .reduce(|acc, fx| fx + (xi * acc))
             .unwrap()
@@ -422,7 +422,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let combined_inner_product =
         combined_inner_product(CombinedInnerProductParams::<_, { Fp::NROUNDS }, 2> {
             env: &tick_env,
-            evals: &evals,
+            evals,
             combined_evals: &combined_evals,
             minimal: &tick_plonk_minimal,
             r: scalar_to_field(to_bytes(r.0)),
@@ -1707,8 +1707,8 @@ pub mod wrap_verifier {
             let zetaw_n = pow2pow(zetaw);
 
             evals.evals.map_ref(&|[x0, x1]| {
-                let a = actual_evaluation(&x0, zeta_n);
-                let b = actual_evaluation(&x1, zetaw_n);
+                let a = actual_evaluation(x0, zeta_n);
+                let b = actual_evaluation(x1, zetaw_n);
                 [a, b]
             })
         };
@@ -1757,7 +1757,7 @@ pub mod wrap_verifier {
                         .copied()
                         .chain(x_hat.iter().copied())
                         .chain([ft_eval])
-                        .chain(a.iter().flat_map(|a| f(*a)))
+                        .chain(a.iter().flat_map(|a| f(a)))
                         .rev()
                         .reduce(|acc, fx| fx + field::mul(xi, acc, w))
                         // OCaml panics too

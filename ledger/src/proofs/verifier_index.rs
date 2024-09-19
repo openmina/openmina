@@ -86,8 +86,8 @@ fn write_index(path: &Path, index: &VerifierIndex<Fq>, digest: &[u8]) -> anyhow:
 }
 
 #[cfg(target_family = "wasm")]
-fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Pallas> {
-    let verifier_index: VerifierIndex<GroupAffine<Fp>> = serde_json::from_str(data).unwrap();
+fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Fq> {
+    let verifier_index: VerifierIndex<Fq> = serde_json::from_str(data).unwrap();
     make_verifier_index(verifier_index)
 }
 

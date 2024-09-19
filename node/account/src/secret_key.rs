@@ -51,7 +51,7 @@ impl AccountSecretKey {
     }
 
     pub fn rand_with(mut rng: impl Rng + CryptoRng) -> Self {
-        Self(Keypair::rand(&mut rng))
+        Self(Keypair::rand(&mut rng).unwrap())
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, KeypairError> {

@@ -90,7 +90,7 @@ fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
             (statement, &**proof)
         });
 
-        if !crate::proofs::verification::verify_transaction(proofs, verifier_index, &*srs) {
+        if !crate::proofs::verification::verify_transaction(proofs, verifier_index, &srs) {
             return Err("Transaction_snark.verify: verification failed".into());
         }
         Ok(())
@@ -191,7 +191,7 @@ impl Verifier {
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
-                verification::verify_zkapp(vk, zkapp_statement, &proof, &*srs)
+                verification::verify_zkapp(vk, zkapp_statement, &proof, &srs)
             })
         };
 
