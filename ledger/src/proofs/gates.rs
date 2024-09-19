@@ -77,12 +77,73 @@ fn decode_gates_file<F: FieldWitness>(
 }
 
 #[cfg(not(target_family = "wasm"))]
+fn read_or_fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+    use std::path::PathBuf;
+
+    fn try_base_dir<P: Into<PathBuf>>(base_dir: P, filename: &impl AsRef<Path>) -> Option<PathBuf> {
+        let mut path = base_dir.into();
+        path.push(filename);
+        path.exists().then_some(path)
+    }
+
+    fn to_io_err(err: impl std::fmt::Display) -> std::io::Error {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!(
+                "failed to find circuit-blobs locally and to fetch the from github! error: {err}"
+            ),
+        )
+    }
+
+    let home_base_dir = None.or_else(|| {
+        let mut path = std::path::PathBuf::from(std::env::var("HOME").ok()?);
+        path.push(".openmina/circuit-blobs");
+        Some(path)
+    });
+    let found = None
+        .or_else(|| {
+            try_base_dir(
+                std::env::var("OPENMINA_CIRCUIT_BLOBS_BASE_DIR").ok()?,
+                filename,
+            )
+        })
+        .or_else(|| try_base_dir(env!("CARGO_MANIFEST_DIR").to_string(), filename))
+        .or_else(|| try_base_dir(home_base_dir.clone()?, filename))
+        .or_else(|| try_base_dir("/usr/local/lib/openmina/circuit-blobs", filename));
+
+    if let Some(path) = found {
+        return std::fs::read(path);
+    }
+
+    let filename_str = filename.as_ref().to_str().unwrap();
+    eprintln!(
+        "circuit-blobs '{}' not found locally, so fetching it...",
+        filename_str
+    );
+    let base_dir = home_base_dir.expect("$HOME env not set!");
+    let releases_path = "https://github.com/openmina/circuit-blobs/releases/download";
+
+    let bytes = reqwest::blocking::get(format!("{releases_path}/{filename_str}",))
+        .map_err(to_io_err)?
+        .bytes()
+        .map_err(to_io_err)?
+        .to_vec();
+
+    // cache it to home dir.
+    let cache_path = base_dir.join(filename);
+    eprintln!("caching circuit-blobs to {}", cache_path.to_str().unwrap());
+    let _ = std::fs::create_dir_all(&cache_path);
+    let _ = std::fs::write(cache_path, &bytes);
+
+    Ok(bytes)
+}
+
+#[cfg(not(target_family = "wasm"))]
 fn read_gates_file<F: FieldWitness>(
-    filepath: &impl AsRef<Path>,
+    filename: &impl AsRef<Path>,
 ) -> std::io::Result<Vec<CircuitGate<F>>> {
-    let file = std::fs::File::open(filepath)?;
-    let reader = std::io::BufReader::new(file);
-    decode_gates_file(reader)
+    let bytes = read_or_fetch(filename)?;
+    decode_gates_file(bytes.as_slice())
 }
 
 #[cfg(target_family = "wasm")]
@@ -141,15 +202,7 @@ fn make_gates<F: FieldWitness>(
     Vec<CircuitGate<F>>,
 ) {
     let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
-    let base_dir = std::env::var("OPENMINA_CIRCUIT_BLOBS_BASE_DIR")
-        .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string());
-    let base_dir = Path::new(&base_dir);
-    let base_dir = if base_dir.exists() {
-        base_dir
-    } else {
-        Path::new("/usr/local/lib/openmina/circuit-blobs")
-    };
-    let base_dir = base_dir.join(circuits_config.directory_name);
+    let base_dir = Path::new(&circuits_config.directory_name);
 
     let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
     let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
@@ -526,15 +579,10 @@ fn read_constraints_data<F: FieldWitness>(
     rows_rev_path: &Path,
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
     // ((Fp.t * V.t) list * Fp.t option)
-    let Ok(internal_vars) = std::fs::read(internal_vars_path)
-    // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars.bin"))
-    else {
-        return None;
-    };
+    let internal_vars = read_or_fetch(&internal_vars_path).ok()?;
 
     // V.t option array list
-    let rows_rev = std::fs::read(rows_rev_path).unwrap();
-    // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin")).unwrap();
+    let rows_rev = read_or_fetch(&rows_rev_path).ok()?;
 
     decode_constraints_data(internal_vars.as_slice(), rows_rev.as_slice())
 }

@@ -3775,6 +3775,7 @@ dependencies = [
  "rand_seeder",
  "rayon",
  "redux",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_with 3.7.0",
