@@ -316,7 +316,7 @@ impl TransitionFrontierSyncAction {
                 };
                 let ledgers_to_keep = chain
                     .iter()
-                    .flat_map(|b| {
+                    .flat_map(|(b)| {
                         [
                             b.snarked_ledger_hash(),
                             b.merkle_root_hash(),

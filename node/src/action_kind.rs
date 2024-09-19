@@ -367,6 +367,7 @@ pub enum ActionKind {
     P2pPeerDiscovered,
     P2pPeerReady,
     RpcActionStatsGet,
+    RpcBestChain,
     RpcBlockProducerStatsGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
@@ -548,7 +549,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 454;
+    pub const COUNT: u16 = 455;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -836,6 +837,7 @@ impl ActionKindGet for RpcAction {
             Self::TransitionFrontierUserCommandsGet { .. } => {
                 ActionKind::RpcTransitionFrontierUserCommandsGet
             }
+            Self::BestChain { .. } => ActionKind::RpcBestChain,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

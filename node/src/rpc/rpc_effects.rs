@@ -652,7 +652,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .p2p
                 .ready()
                 .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                .and_then(|discovery_state| discovery_state.bootstrap_stats().cloned());
+                .and_then(|discovery_state: &p2p::P2pNetworkKadState| {
+                    discovery_state.bootstrap_stats().cloned()
+                });
             respond_or_log!(
                 store
                     .service()
@@ -800,6 +802,23 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 store
                     .service()
                     .respond_transition_frontier_commands(rpc_id, commands),
+                meta.time()
+            )
+        }
+        RpcAction::BestChain { rpc_id, max_length } => {
+            let best_chain = store
+                .state()
+                .transition_frontier
+                .best_chain
+                .iter()
+                .rev()
+                .take(max_length as usize)
+                .cloned()
+                .rev()
+                .collect();
+
+            respond_or_log!(
+                store.service().respond_best_chain(rpc_id, best_chain),
                 meta.time()
             )
         }
