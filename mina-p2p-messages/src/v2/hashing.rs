@@ -29,12 +29,13 @@ use super::{
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerHash,
     MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1, MinaBaseLedgerHash0StableV1,
-    MinaBasePendingCoinbaseHashBuilderStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
+    MinaBasePendingCoinbaseHashBuilderStableV1, MinaBasePendingCoinbaseHashVersionedStableV1, MinaBaseControlStableV2,
     MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
     MinaBaseStagedLedgerHashStableV1, MinaBaseStateBodyHashStableV1,
-    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
-    MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    MinaBaseVerificationKeyWireStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
+    MinaNumbersGlobalSlotSinceHardForkMStableV1, MinaNumbersGlobalSlotSpanStableV1,
+    MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
     MinaStateProtocolStateValueStableV2,
@@ -184,12 +185,46 @@ impl generated::MinaBaseSignedCommandStableV2 {
     }
 }
 
+// TODO(adonagy): reduce duplication
 impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
+    fn binprot_write_with_default(&self) -> io::Result<Vec<u8>> {
+        let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
+        let default_proof = super::dummy_transaction_proof();
+
+        let mut encoded = vec![];
+
+        let mut modified = self.clone();
+
+        modified.fee_payer.authorization = default_signature.clone().into();
+
+        modified.account_updates.iter_mut().for_each(|u| {
+            u.elt.account_update.authorization = match u.elt.account_update.authorization {
+                MinaBaseControlStableV2::Proof(_) => {
+                    MinaBaseControlStableV2::Proof(Box::new(default_proof.0.clone().into()))
+                }
+                MinaBaseControlStableV2::Signature(_) => {
+                    MinaBaseControlStableV2::Signature(default_signature.clone().into())
+                }
+                MinaBaseControlStableV2::NoneGiven => MinaBaseControlStableV2::NoneGiven,
+            };
+        });
+
+        modified.binprot_write(&mut encoded)?;
+        Ok(encoded)
+    }
     pub fn hash(&self) -> io::Result<TransactionHash> {
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "zkapp tx hashing is not yet supported",
-        ))
+        use blake2::{
+            digest::{Update, VariableOutput},
+            Blake2bVar,
+        };
+        let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
+
+        hasher.update(&self.binprot_write_with_default()?);
+        let mut hash = vec![0; 33];
+        hash[..1].copy_from_slice(&[32]);
+        hash[1..].copy_from_slice(&hasher.finalize_boxed());
+
+        Ok(TransactionHash(hash))
     }
 }
 

@@ -5,14 +5,14 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
-    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcId, RpcLedgerAccountsResponse,
-    RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
-    RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse,
-    RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcStatusGetResponse,
-    RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
-    RpcTransitionFrontierUserCommandsResponse,
+    RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
+    RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
+    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
+    RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
+    RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
+    RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -169,5 +169,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcTransitionFrontierUserCommandsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_best_chain(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcBestChainResponse,
     ) -> Result<(), RespondError>;
 }

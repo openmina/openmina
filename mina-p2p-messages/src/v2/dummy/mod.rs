@@ -1,8 +1,9 @@
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::{MinaBaseProofStableV2, TransactionSnarkProofStableV2};
+use binprot::BinProtRead;
 
-// NOTE: moved to mina_p2p_messages crate
+use super::{MinaBaseProofStableV2, TransactionSnarkProofStableV2};
+
 /// Value of `Proof.transaction_dummy` when we run `dune runtest src/lib/staged_ledger -f`
 /// The file was generated this way:
 ///
@@ -19,10 +20,28 @@ use mina_p2p_messages::v2::{MinaBaseProofStableV2, TransactionSnarkProofStableV2
 /// Core.Printf.eprintf !"dummy proof= %{sexp: Proof.t}\n%!" dummy;
 /// Core.Printf.eprintf !"dummy proof= %s\n%!" s;
 pub fn dummy_transaction_proof() -> Arc<TransactionSnarkProofStableV2> {
-    mina_p2p_messages::v2::dummy_transaction_proof()
+    lazy_static::lazy_static! {
+        static ref DUMMY_PROOF: Arc<TransactionSnarkProofStableV2> = {
+            let bytes = include_bytes!("dummy_transaction_proof.bin");
+            TransactionSnarkProofStableV2::binprot_read(&mut bytes.as_slice())
+                .unwrap()
+                .into()
+        };
+    }
+
+    DUMMY_PROOF.clone()
 }
 
 /// Value of `Proof.blockchain_dummy`
 pub fn dummy_blockchain_proof() -> Arc<MinaBaseProofStableV2> {
-    mina_p2p_messages::v2::dummy_blockchain_proof()
+    lazy_static::lazy_static! {
+        static ref DUMMY_PROOF: Arc<MinaBaseProofStableV2> = {
+            let bytes = include_bytes!("dummy_blockchain_proof.bin");
+            MinaBaseProofStableV2::binprot_read(&mut bytes.as_slice())
+                .unwrap()
+                .into()
+        };
+    }
+
+    DUMMY_PROOF.clone()
 }

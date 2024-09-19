@@ -14,6 +14,7 @@ use mina_p2p_messages::v2::{
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
+use openmina_core::block::ArcBlockWithHash;
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
@@ -77,7 +78,10 @@ pub enum RpcRequest {
     LedgerAccountsGet(AccountQuery),
     TransactionInject(Vec<RpcInjectPayment>),
     TransitionFrontierUserCommandsGet,
+    BestChain(MaxLength),
 }
+
+pub type MaxLength = u32;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcInjectPayment {
@@ -334,6 +338,7 @@ pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
 pub type RpcLedgerSlimAccountsResponse = Vec<AccountSlim>;
 pub type RpcLedgerAccountsResponse = Vec<Account>;
 pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
+pub type RpcBestChainResponse = Vec<ArcBlockWithHash>;
 
 // TODO(adonagy): rework this to handle all the possible user commands (enum..)
 #[derive(Serialize, Deserialize, Debug, Clone)]
