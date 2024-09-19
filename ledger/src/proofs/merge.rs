@@ -96,7 +96,7 @@ fn merge_main(
 }
 
 pub fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
-    PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
+    PlonkVerificationKeyEvals::from(&**wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
 impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags> for crate::proofs::step::FeatureFlags::<bool> {
@@ -261,7 +261,7 @@ pub(super) fn generate_merge_proof(
 
     let dlog_plonk_index = dlog_plonk_index(wrap_prover);
     let dlog_plonk_index_cvar = dlog_plonk_index.to_cvar(CircuitVar::Var);
-    let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
+    let verifier_index = &**wrap_prover.index.verifier_index.as_ref().unwrap();
 
     let tx_data = make_step_transaction_data(&dlog_plonk_index_cvar);
     let for_step_datas = [&tx_data, &tx_data];
