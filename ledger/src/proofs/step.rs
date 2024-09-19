@@ -10,7 +10,8 @@ use crate::{
         unfinalized::dummy_ipa_step_challenges_computed,
         verifier_index::wrap_domains,
         wrap::{
-            create_oracle_with_public_input, dummy_ipa_wrap_sg, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2
+            create_oracle_with_public_input, dummy_ipa_wrap_sg, wrap_verifier, Domain,
+            COMMON_MAX_DEGREE_WRAP_LOG2,
         },
     },
     verifier::{get_srs, get_srs_mut},
@@ -48,7 +49,10 @@ use super::{
     public_input::{messages::MessagesForNextWrapProof, plonk_checks::PlonkMinimal},
     to_field_elements::{ToFieldElements, ToFieldElementsDebug},
     transaction::{
-        create_proof, make_group, messages_for_next_wrap_proof_padding, scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals, CreateProofParams, InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals, ProofError, ProofWithPublic, Prover, ReducedMessagesForNextStepProof, StepStatement
+        create_proof, make_group, messages_for_next_wrap_proof_padding,
+        scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals,
+        CreateProofParams, InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals,
+        ProofError, ProofWithPublic, Prover, ReducedMessagesForNextStepProof, StepStatement,
     },
     unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
     util::{extract_bulletproof, two_u64_to_field},
@@ -769,11 +773,15 @@ pub mod step_verifier {
                     Opt::No => None,
                     Opt::Some([a, b]) => Some([
                         a.into_iter().map(Opt::Some).collect::<Vec<_>>(),
-                        b.into_iter().map(Opt::Some).collect::<Vec<_>>()
+                        b.into_iter().map(Opt::Some).collect::<Vec<_>>(),
                     ]),
                     Opt::Maybe(boolean, [a, b]) => Some([
-                        a.into_iter().map(|a| Opt::Maybe(boolean, a)).collect::<Vec<_>>(),
-                        b.into_iter().map(|a| Opt::Maybe(boolean, a)).collect::<Vec<_>>(),
+                        a.into_iter()
+                            .map(|a| Opt::Maybe(boolean, a))
+                            .collect::<Vec<_>>(),
+                        b.into_iter()
+                            .map(|a| Opt::Maybe(boolean, a))
+                            .collect::<Vec<_>>(),
                     ]),
                 })
                 .collect::<Vec<_>>();
@@ -2034,9 +2042,13 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
 
     let public_input = &evals.evals.public_input;
 
-    let es = evals.evals.evals.map_ref(&|[a, b]: &[_; 2]| {
-        PointEvaluations { zeta: a.clone(), zeta_omega: b.clone() }
-    });
+    let es = evals
+        .evals
+        .evals
+        .map_ref(&|[a, b]: &[_; 2]| PointEvaluations {
+            zeta: a.clone(),
+            zeta_omega: b.clone(),
+        });
     let tick_combined_evals = evals_of_split_evals(zeta, zetaw, &es, super::BACKEND_TICK_ROUNDS_N);
     let public = PointEvaluations {
         zeta: public_input.0.clone(),
@@ -2329,9 +2341,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
     let w = dlog_vk.domain.group_gen;
 
     let zeta = to_field(plonk0.zeta_bytes);
-    let zetaw = {
-        zeta * w
-    };
+    let zetaw = { zeta * w };
 
     let (new_bulletproof_challenges, b) = {
         let chals = oracle
@@ -2434,7 +2444,10 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
 
     let public = {
         let PointEvaluations { zeta, zeta_omega } = &x_hat;
-        PointEvaluations { zeta: vec![*zeta], zeta_omega: vec![*zeta_omega] }
+        PointEvaluations {
+            zeta: vec![*zeta],
+            zeta_omega: vec![*zeta_omega],
+        }
     };
 
     let combined_inner_product = combined_inner_product(CombinedInnerProductParams {

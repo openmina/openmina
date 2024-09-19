@@ -134,9 +134,7 @@ impl AllEvals<Fq> {
         Self {
             ft_eval1: ro::tock(89),
             evals: EvalsWithPublicInput {
-                evals: dummy_evals().map(&|[a, b]| {
-                    [vec![a], vec![b]]
-                }),
+                evals: dummy_evals().map(&|[a, b]| [vec![a], vec![b]]),
                 public_input: (vec![ro::tock(88)], vec![ro::tock(87)]),
             },
         }
@@ -168,9 +166,8 @@ impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEv
         Ok(Self {
             ft_eval1: ft_eval1.to_field()?,
             evals: EvalsWithPublicInput {
-                evals: prev_evals_from_p2p::<F>(evals)?.map(&|PointEvaluations { zeta, zeta_omega }| {
-                    [zeta, zeta_omega]
-                }),
+                evals: prev_evals_from_p2p::<F>(evals)?
+                    .map(&|PointEvaluations { zeta, zeta_omega }| [zeta, zeta_omega]),
                 public_input: (vec![p0.to_field()?], vec![p1.to_field()?]),
             },
         })

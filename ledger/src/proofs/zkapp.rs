@@ -1408,29 +1408,31 @@ where
 impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
     fn from(value: &WrapProof) -> Self {
         let WrapProof {
-            proof: ProofWithPublic {
-                proof: kimchi::proof::ProverProof {
-                    commitments:
-                    kimchi::proof::ProverCommitments {
-                        w_comm,
-                        z_comm,
-                        t_comm,
-                        lookup,
-                    },
+            proof:
+                ProofWithPublic {
                     proof:
-                    poly_commitment::evaluation_proof::OpeningProof {
-                        lr,
-                        delta,
-                        z1,
-                        z2,
-                        sg,
-                    },
-                    evals,
-                    ft_eval1,
-                    prev_challenges: _,
+                        kimchi::proof::ProverProof {
+                            commitments:
+                                kimchi::proof::ProverCommitments {
+                                    w_comm,
+                                    z_comm,
+                                    t_comm,
+                                    lookup,
+                                },
+                            proof:
+                                poly_commitment::evaluation_proof::OpeningProof {
+                                    lr,
+                                    delta,
+                                    z1,
+                                    z2,
+                                    sg,
+                                },
+                            evals,
+                            ft_eval1,
+                            prev_challenges: _,
+                        },
+                    public_input: _,
                 },
-                public_input: _,
-            },
             statement:
                 WrapStatement {
                     proof_state,

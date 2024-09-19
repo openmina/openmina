@@ -4037,7 +4037,10 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
 
     eprintln!("proof_elapsed={:?}", now.elapsed());
 
-    Ok(ProofWithPublic { proof, public_input })
+    Ok(ProofWithPublic {
+        proof,
+        public_input,
+    })
 }
 
 #[derive(Clone)]

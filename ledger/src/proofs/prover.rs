@@ -51,7 +51,12 @@ pub fn make_padded_proof_from_p2p(
         crate::try_array_into_with(&proof.commitments.w_comm, make_poly)?;
     let z_comm: PolyComm<Pallas> = make_poly(&proof.commitments.z_comm)?;
     let t_comm: PolyComm<Pallas> = {
-        let elems = proof.commitments.t_comm.iter().map(of_coord).collect::<Result<_, _>>()?;
+        let elems = proof
+            .commitments
+            .t_comm
+            .iter()
+            .map(of_coord)
+            .collect::<Result<_, _>>()?;
         PolyComm { elems }
     };
 

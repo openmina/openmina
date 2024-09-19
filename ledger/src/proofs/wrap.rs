@@ -26,7 +26,8 @@ use crate::{
         },
         step::OptFlag,
         transaction::{
-            create_proof, endos, make_group, CreateProofParams, InnerCurve, StepStatementWithHash, ProofWithPublic
+            create_proof, endos, make_group, CreateProofParams, InnerCurve, ProofWithPublic,
+            StepStatementWithHash,
         },
         unfinalized::{dummy_ipa_wrap_challenges, Unfinalized},
         util::{challenge_polynomial, proof_evaluation_to_list},
@@ -109,7 +110,8 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
     }
 
     let combine = |which_eval: WhichEval, ft: F, pt: F| {
-        let f = |PointEvaluations { zeta, zeta_omega }: &PointEvaluations<Vec<F>> | match which_eval {
+        let f = |PointEvaluations { zeta, zeta_omega }: &PointEvaluations<Vec<F>>| match which_eval
+        {
             WhichEval::First => zeta.clone(),
             WhichEval::Second => zeta_omega.clone(),
         };
@@ -203,7 +205,8 @@ pub fn create_oracle_with_public_input<F: FieldWitness>(
     let log_size_of_group = verifier_index.domain.log_size_of_group;
     let lgr_comm = make_lagrange::<F>(&mut srs, log_size_of_group);
 
-    let lgr_comm: Vec<PolyComm<F::OtherCurve>> = lgr_comm.into_iter().take(public_input.len()).collect();
+    let lgr_comm: Vec<PolyComm<F::OtherCurve>> =
+        lgr_comm.into_iter().take(public_input.len()).collect();
     let lgr_comm_refs: Vec<_> = lgr_comm.iter().collect();
 
     let p_comm = PolyComm::<F::OtherCurve>::multi_scalar_mul(
@@ -330,9 +333,11 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
             x.clone()
             // let PointEvaluations { zeta, zeta_omega } = x;
             // [zeta.clone(), zeta_omega.clone()]
-        },
-        None => PointEvaluations { zeta: vec![oracle.p_eval.0], zeta_omega: vec![oracle.p_eval.1] }
-        // None => [vec![oracle.p_eval.0], vec![oracle.p_eval.1]]
+        }
+        None => PointEvaluations {
+            zeta: vec![oracle.p_eval.0],
+            zeta_omega: vec![oracle.p_eval.1],
+        }, // None => [vec![oracle.p_eval.0], vec![oracle.p_eval.1]]
     };
 
     let alpha = oracle.alpha();
@@ -378,8 +383,12 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
         alpha: scalar_to_field(plonk0.alpha_bytes),
         ..plonk0.clone()
     };
-    let tick_combined_evals =
-        evals_of_split_evals(zeta, zetaw, &proof_with_public.proof.evals, BACKEND_TICK_ROUNDS_N);
+    let tick_combined_evals = evals_of_split_evals(
+        zeta,
+        zetaw,
+        &proof_with_public.proof.evals,
+        BACKEND_TICK_ROUNDS_N,
+    );
 
     let domain_log2: u8 = log_size_of_group.try_into().unwrap();
     let tick_env = make_scalars_env(
@@ -683,7 +692,9 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
     let to_fqs = |v: &[[u64; 2]]| v.iter().copied().map(to_fq).collect::<Vec<_>>();
 
     let messages_for_next_wrap_proof = MessagesForNextWrapProof {
-        challenge_polynomial_commitment: { InnerCurve::of_affine(proof_with_public.proof.proof.sg) },
+        challenge_polynomial_commitment: {
+            InnerCurve::of_affine(proof_with_public.proof.proof.sg)
+        },
         old_bulletproof_challenges: step_statement
             .proof_state
             .unfinalized_proofs
@@ -1261,7 +1272,8 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
             (omega_to_intermediate_powers, next_term)
         };
         let omega_to_zk = field::mul(omega_to_zk_plus_1, omega_to_minus_1, w);
-        let omega_to_zk_minus_1 = LazyValue::make(move |w: &mut Witness<F>| field::mul(omega_to_zk, omega_to_minus_1, w));
+        let omega_to_zk_minus_1 =
+            LazyValue::make(move |w: &mut Witness<F>| field::mul(omega_to_zk, omega_to_minus_1, w));
         (
             omega_to_zk_minus_1,
             omega_to_zk,
@@ -1288,7 +1300,7 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
                 // init
                 field::mul(zk_polynomial, zeta - omega_to_zk_minus_1, w),
                 // f
-                |acc, omega_pow| field::mul(acc, minimal.zeta - omega_pow, w)
+                |acc, omega_pow| field::mul(acc, minimal.zeta - omega_pow, w),
             )
         }
         _ => F::one(),
@@ -1317,7 +1329,7 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
                         (false, -1) => omega_to_minus_1,
                         (false, -2) => omega_to_zk_plus_1,
                         (false, -3) | (true, 0) => omega_to_zk,
-                        (true,  -1) => *omega_to_zk_minus_1_clone.get(w),
+                        (true, -1) => *omega_to_zk_minus_1_clone.get(w),
                         _ => todo!(),
                     };
                     let zeta_to_n_minus_1 = *zeta_to_n_minus_1_lazy.get(w);
@@ -1717,8 +1729,9 @@ pub mod wrap_verifier {
             let p_eval0 = &evals.public_input.0;
             let ft_eval0 =
                 ft_eval0_checked(&env, &combined_evals, &plonk_mininal, None, p_eval0, w);
-            let es = evals.evals.map_ref(&|[a, b]| {
-                PointEvaluations { zeta: a.clone(), zeta_omega: b.clone() }
+            let es = evals.evals.map_ref(&|[a, b]| PointEvaluations {
+                zeta: a.clone(),
+                zeta_omega: b.clone(),
             });
             let a = proof_evaluation_to_list(&es);
 
@@ -1733,9 +1746,11 @@ pub mod wrap_verifier {
                                ft_eval: Fq,
                                x_hat: &[Fq],
                                w: &mut Witness<Fq>| {
-                    let f = |PointEvaluations { zeta, zeta_omega }: &PointEvaluations<Vec<Fq>> | match which_eval {
-                        WhichEval::First => zeta.clone(),
-                        WhichEval::Second => zeta_omega.clone(),
+                    let f = |PointEvaluations { zeta, zeta_omega }: &PointEvaluations<Vec<Fq>>| {
+                        match which_eval {
+                            WhichEval::First => zeta.clone(),
+                            WhichEval::Second => zeta_omega.clone(),
+                        }
                     };
                     sg_evals
                         .iter()

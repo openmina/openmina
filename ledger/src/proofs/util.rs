@@ -136,8 +136,10 @@ pub fn challenge_polynomial_checked<F: FieldWitness>(
 
 /// Note: Outdated URL
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
-pub fn proof_evaluation_to_list<'a, F: FieldWitness>(e: &'a ProofEvaluations<PointEvaluations<Vec<F>>>) -> Vec<&'a PointEvaluations<Vec<F>>> {
-    let ProofEvaluations::<PointEvaluations::<Vec<F>>> {
+pub fn proof_evaluation_to_list<'a, F: FieldWitness>(
+    e: &'a ProofEvaluations<PointEvaluations<Vec<F>>>,
+) -> Vec<&'a PointEvaluations<Vec<F>>> {
+    let ProofEvaluations::<PointEvaluations<Vec<F>>> {
         public: _,
         w,
         z,

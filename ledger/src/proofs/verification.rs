@@ -34,9 +34,7 @@ use super::{
     ProverProof, VerifierIndex,
 };
 use kimchi::{
-    circuits::{
-        expr::RowOffset, wires::PERMUTS
-    },
+    circuits::{expr::RowOffset, wires::PERMUTS},
     error::VerifyError,
     mina_curves::pasta::Pallas,
     proof::{PointEvaluations, ProofEvaluations},
@@ -262,11 +260,12 @@ pub fn prev_evals_to_p2p(
 
     use mina_p2p_messages::pseq::PaddedSeq;
 
-    let of =
-        |[zeta, zeta_omega]: &[Vec<Fp>; 2]| (
+    let of = |[zeta, zeta_omega]: &[Vec<Fp>; 2]| {
+        (
             zeta.iter().map(Into::into).collect(),
             zeta_omega.iter().map(Into::into).collect(),
-        );
+        )
+    };
 
     let of_opt = |v: &Option<[Vec<Fp>; 2]>| v.as_ref().map(of);
 
@@ -377,14 +376,13 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
             // init
             zk_polynomial * (minimal.zeta - omega_to_zk_minus_1()),
             // f
-            |acc, omega_pow| acc * (minimal.zeta - omega_pow)
+            |acc, omega_pow| acc * (minimal.zeta - omega_pow),
         ),
     };
 
     let zeta_clone = minimal.zeta;
-    let zeta_to_srs_length = LazyValue::make(move |_| {
-        (0..srs_length_log2).fold(zeta_clone, |acc, _| acc * acc)
-    });
+    let zeta_to_srs_length =
+        LazyValue::make(move |_| (0..srs_length_log2).fold(zeta_clone, |acc, _| acc * acc));
 
     let feature_flags = minimal
         .joint_combiner
@@ -406,7 +404,7 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
                         (false, -1) => omega_to_minus_1,
                         (false, -2) => omega_to_zk_plus_1,
                         (false, -3) | (true, 0) => omega_to_zk,
-                        (true,  -1) => omega_to_zk_minus_1_clone,
+                        (true, -1) => omega_to_zk_minus_1_clone,
                         _ => todo!(),
                     };
                     crate::proofs::field::field::div_by_inv(zeta_to_n_minus_1, zeta - w_to_i, w)

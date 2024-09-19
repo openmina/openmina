@@ -6,14 +6,17 @@ use kimchi::{circuits::expr::RowOffset, curve::KimchiCurve, proof::ProofEvaluati
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
-use crate::{proofs::{
-    field::{field, Boolean, FieldWitness},
-    public_input::plonk_checks::scalars::MinimalForScalar,
-    step::step_verifier::PlonkDomain,
-    to_field_elements::ToFieldElements,
-    witness::Witness,
-    wrap::{wrap_verifier::PlonkWithField, AllFeatureFlags},
-}, scan_state::transaction_logic::local_state::LazyValue};
+use crate::{
+    proofs::{
+        field::{field, Boolean, FieldWitness},
+        public_input::plonk_checks::scalars::MinimalForScalar,
+        step::step_verifier::PlonkDomain,
+        to_field_elements::ToFieldElements,
+        witness::Witness,
+        wrap::{wrap_verifier::PlonkWithField, AllFeatureFlags},
+    },
+    scan_state::transaction_logic::local_state::LazyValue,
+};
 
 #[derive(Clone, Debug)]
 pub struct PlonkMinimal<F: FieldWitness, const NLIMB: usize = 2> {
@@ -386,15 +389,17 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
     let zeta1m1 = env.zeta_to_n_minus_1;
 
     let mut unused_w = Witness::empty();
-    let p_eval0 = p_eval0.iter().copied().rfold(None, |acc, p_eval0| {
-        match acc {
+    let p_eval0 = p_eval0
+        .iter()
+        .copied()
+        .rfold(None, |acc, p_eval0| match acc {
             None => Some(p_eval0),
             Some(acc) => {
                 let zeta1 = *env.zeta_to_srs_length.get(&mut unused_w);
                 Some(p_eval0 + (zeta1 * acc))
-            },
-        }
-    }).unwrap(); // Never fail, `p_eval0` is non-empty
+            }
+        })
+        .unwrap(); // Never fail, `p_eval0` is non-empty
 
     let w0: Vec<_> = evals.w.iter().map(|w| w[0]).collect();
 
@@ -418,9 +423,10 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
                 acc * (minimal.gamma + (minimal.beta * minimal.zeta * s) + w0[i])
             });
 
-    let nominator = (zeta1m1 * alpha_pow(PERM_ALPHA0 + 1) * (minimal.zeta - env.omega_to_minus_zk_rows)
-        + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - F::one())))
-        * (F::one() - evals.z[0]);
+    let nominator =
+        (zeta1m1 * alpha_pow(PERM_ALPHA0 + 1) * (minimal.zeta - env.omega_to_minus_zk_rows)
+            + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - F::one())))
+            * (F::one() - evals.z[0]);
 
     let denominator = (minimal.zeta - env.omega_to_minus_zk_rows) * (minimal.zeta - F::one());
     let ft_eval0 = ft_eval0 + (nominator / denominator);
@@ -661,7 +667,9 @@ mod scalars {
                 let x = eval(x, ctx);
                 x - y
             }
-            VanishesOnZeroKnowledgeAndPreviousRows => ctx.env.vanishes_on_zero_knowledge_and_previous_rows,
+            VanishesOnZeroKnowledgeAndPreviousRows => {
+                ctx.env.vanishes_on_zero_knowledge_and_previous_rows
+            }
             UnnormalizedLagrangeBasis(i) => {
                 let unnormalized_lagrange_basis =
                     ctx.env.unnormalized_lagrange_basis.as_ref().unwrap();
@@ -874,15 +882,17 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
     let alpha_pow = |i: usize| powers_of_alpha[i];
 
     let zeta1m1 = env.zeta_to_n_minus_1;
-    let p_eval0 = p_eval0.iter().copied().rfold(None, |acc, p_eval0| {
-        match acc {
+    let p_eval0 = p_eval0
+        .iter()
+        .copied()
+        .rfold(None, |acc, p_eval0| match acc {
             None => Some(p_eval0),
             Some(acc) => {
                 let zeta1 = *env.zeta_to_srs_length.get(w);
                 Some(p_eval0 + field::mul(zeta1, acc, w))
-            },
-        }
-    }).unwrap(); // Never fail, `p_eval0` is non-empty
+            }
+        })
+        .unwrap(); // Never fail, `p_eval0` is non-empty
     let w0: Vec<_> = evals.w.iter().map(|w| w[0]).collect();
 
     let ft_eval0 = {
