@@ -2390,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2973,7 +2973,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3630,7 +3630,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3639,7 +3639,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3689,7 +3689,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3706,7 +3706,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4320,7 +4320,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5112,7 +5112,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -7400,7 +7400,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=7755e09#7755e09f064f2cce4c699ef09de7a2a1a6e92077"
 dependencies = [
  "ark-ff",
  "hex",

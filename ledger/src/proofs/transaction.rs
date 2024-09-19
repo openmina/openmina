@@ -4064,7 +4064,7 @@ pub(super) fn generate_tx_proof(
     let statement_with_sok = statement.with_digest(sok_digest);
 
     let dlog_plonk_index =
-        PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap());
+        PlonkVerificationKeyEvals::from(&**tx_wrap_prover.index.verifier_index.as_ref().unwrap());
 
     let statement_with_sok = Rc::new(w.exists(statement_with_sok));
     transaction_snark::main(&statement_with_sok, tx_witness, w)?;
