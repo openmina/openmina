@@ -3,7 +3,8 @@ use std::{collections::HashMap, path::Path, sync::Arc};
 use kimchi::circuits::gate::CircuitGate;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
-use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
+use openmina_core::network::CircuitsConfig;
 
 use super::{
     constants::{
@@ -33,6 +34,7 @@ pub fn devnet_circuit_directory() -> &'static str {
 //     openmina_core::NetworkConfig::global().circuits_config.directory_name
 // }
 
+#[derive(Clone)]
 struct Gates {
     step_tx_gates: Vec<CircuitGate<Fp>>,
     wrap_tx_gates: Vec<CircuitGate<Fq>>,
@@ -60,226 +62,468 @@ struct Gates {
     step_proved_rows_rev: Vec<Vec<Option<V>>>,
 }
 
-fn read_gates() -> Gates {
-    fn read_gates_file<F: FieldWitness>(
-        filepath: &impl AsRef<Path>,
-    ) -> std::io::Result<Vec<CircuitGate<F>>> {
-        use serde_with::serde_as;
+fn decode_gates_file<F: FieldWitness>(
+    reader: impl std::io::Read,
+) -> std::io::Result<Vec<CircuitGate<F>>> {
+    #[serde_with::serde_as]
+    #[derive(serde::Deserialize)]
+    struct GatesFile<F: ark_ff::PrimeField> {
+        public_input_size: usize,
+        #[serde_as(as = "Vec<_>")]
+        gates: Vec<CircuitGate<F>>,
+    }
+    let data: GatesFile<F> = serde_json::from_reader(reader)?;
+    Ok(data.gates)
+}
 
-        #[serde_as]
-        #[derive(serde::Deserialize)]
-        struct GatesFile<F: ark_ff::PrimeField> {
-            public_input_size: usize,
-            #[serde_as(as = "Vec<_>")]
-            gates: Vec<CircuitGate<F>>,
+#[cfg(not(target_family = "wasm"))]
+fn read_or_fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+    use std::path::PathBuf;
+
+    fn try_base_dir<P: Into<PathBuf>>(base_dir: P, filename: &impl AsRef<Path>) -> Option<PathBuf> {
+        let mut path = base_dir.into();
+        path.push(filename);
+        path.exists().then_some(path)
+    }
+
+    fn to_io_err(err: impl std::fmt::Display) -> std::io::Error {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!(
+                "failed to find circuit-blobs locally and to fetch the from github! error: {err}"
+            ),
+        )
+    }
+
+    let home_base_dir = None.or_else(|| {
+        let mut path = std::path::PathBuf::from(std::env::var("HOME").ok()?);
+        path.push(".openmina/circuit-blobs");
+        Some(path)
+    });
+    let found = None
+        .or_else(|| {
+            try_base_dir(
+                std::env::var("OPENMINA_CIRCUIT_BLOBS_BASE_DIR").ok()?,
+                filename,
+            )
+        })
+        .or_else(|| try_base_dir(env!("CARGO_MANIFEST_DIR").to_string(), filename))
+        .or_else(|| try_base_dir(home_base_dir.clone()?, filename))
+        .or_else(|| try_base_dir("/usr/local/lib/openmina/circuit-blobs", filename));
+
+    if let Some(path) = found {
+        return std::fs::read(path);
+    }
+
+    let filename_str = filename.as_ref().to_str().unwrap();
+    eprintln!(
+        "circuit-blobs '{}' not found locally, so fetching it...",
+        filename_str
+    );
+    let base_dir = home_base_dir.expect("$HOME env not set!");
+    let releases_path = "https://github.com/openmina/circuit-blobs/releases/download";
+
+    let bytes = reqwest::blocking::get(format!("{releases_path}/{filename_str}",))
+        .map_err(to_io_err)?
+        .bytes()
+        .map_err(to_io_err)?
+        .to_vec();
+
+    // cache it to home dir.
+    let cache_path = base_dir.join(filename);
+    eprintln!("caching circuit-blobs to {}", cache_path.to_str().unwrap());
+    let _ = std::fs::create_dir_all(&cache_path);
+    let _ = std::fs::write(cache_path, &bytes);
+
+    Ok(bytes)
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn read_gates_file<F: FieldWitness>(
+    filename: &impl AsRef<Path>,
+) -> std::io::Result<Vec<CircuitGate<F>>> {
+    let bytes = read_or_fetch(filename)?;
+    decode_gates_file(bytes.as_slice())
+}
+
+#[cfg(target_family = "wasm")]
+mod http {
+    use openmina_core::thread;
+    use wasm_bindgen::prelude::*;
+
+    fn to_io_err(err: JsValue) -> std::io::Error {
+        std::io::Error::new(std::io::ErrorKind::Other, format!("{err:?}"))
+    }
+
+    async fn _get_bytes(url: String) -> std::io::Result<Vec<u8>> {
+        use wasm_bindgen_futures::JsFuture;
+        use web_sys::Response;
+
+        // let window = js_sys::global().dyn_into::<web_sys::WorkerGlobalScope>().unwrap();
+        let window = web_sys::window().unwrap();
+
+        let resp_value = JsFuture::from(window.fetch_with_str(&url))
+            .await
+            .map_err(to_io_err)?;
+
+        assert!(resp_value.is_instance_of::<Response>());
+        let resp: Response = resp_value.dyn_into().unwrap();
+        let js = JsFuture::from(resp.array_buffer().map_err(to_io_err)?)
+            .await
+            .map_err(to_io_err)?;
+        Ok(js_sys::Uint8Array::new(&js).to_vec())
+    }
+
+    pub async fn get_bytes(url: &str) -> std::io::Result<Vec<u8>> {
+        let url = url.to_owned();
+        if thread::is_web_worker_thread() {
+            thread::run_async_fn_in_main_thread(move || _get_bytes(url)).await.expect("failed to run task in the main thread! Maybe main thread crashed or not initialized?")
+        } else {
+            _get_bytes(url).await
+        }
+    }
+}
+
+#[cfg(target_family = "wasm")]
+async fn read_gates_file<F: FieldWitness>(
+    filepath: impl AsRef<Path>,
+) -> std::io::Result<Vec<CircuitGate<F>>> {
+    let url = filepath.as_ref().to_str().unwrap();
+    let resp = http::get_bytes(url).await?;
+    decode_gates_file(&mut resp.as_slice())
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn make_gates<F: FieldWitness>(
+    filename: &str,
+) -> (
+    HashMap<usize, (Vec<(F, V)>, Option<F>)>,
+    Vec<Vec<Option<V>>>,
+    Vec<CircuitGate<F>>,
+) {
+    let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
+    let base_dir = Path::new(&circuits_config.directory_name);
+
+    let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
+    let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
+    let gates_path = base_dir.join(format!("{}_gates.json", filename));
+
+    let gates: Vec<CircuitGate<F>> = read_gates_file(&gates_path).unwrap();
+    let (internal_vars_path, rows_rev_path) =
+        read_constraints_data::<F>(&internal_vars_path, &rows_rev_path).unwrap();
+
+    (internal_vars_path, rows_rev_path, gates)
+}
+
+#[cfg(target_family = "wasm")]
+async fn make_gates<F: FieldWitness>(
+    filename: &str,
+) -> (
+    HashMap<usize, (Vec<(F, V)>, Option<F>)>,
+    Vec<Vec<Option<V>>>,
+    Vec<CircuitGate<F>>,
+) {
+    let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
+    let base_dir = Path::new("/circuit-blobs");
+    let base_dir = base_dir.join(circuits_config.directory_name);
+
+    let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
+    let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
+    let gates_path = base_dir.join(format!("{}_gates.json", filename));
+
+    let gates: Vec<CircuitGate<F>> = read_gates_file(&gates_path).await.unwrap();
+    let (internal_vars_path, rows_rev_path) =
+        read_constraints_data::<F>(&internal_vars_path, &rows_rev_path)
+            .await
+            .unwrap();
+
+    (internal_vars_path, rows_rev_path, gates)
+}
+
+macro_rules! get_or_make {
+    ($constant: ident, $type: ty, $filename: expr) => {{
+        if let Some(prover) = $constant.get() {
+            return prover.clone();
         }
 
-        let file = std::fs::File::open(filepath)?;
-        let reader = std::io::BufReader::new(file);
-        let data: GatesFile<F> = serde_json::from_reader(reader)?;
-        Ok(data.gates)
-    }
-
-    fn make<F: FieldWitness>(
-        filename: &str,
-    ) -> (
-        HashMap<usize, (Vec<(F, V)>, Option<F>)>,
-        Vec<Vec<Option<V>>>,
-        Vec<CircuitGate<F>>,
-    ) {
-        let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
-        let base_dir = std::env::var("OPENMINA_CIRCUIT_BLOBS_BASE_DIR")
-            .unwrap_or_else(|_| env!("CARGO_MANIFEST_DIR").to_string());
-        let base_dir = Path::new(&base_dir);
-        let base_dir = if base_dir.exists() {
-            base_dir
-        } else {
-            Path::new("/usr/local/lib/openmina/circuit-blobs")
+        let (internal_vars, rows_rev, gates) = {
+            #[cfg(not(target_family = "wasm"))]
+            let res = make_gates($filename);
+            #[cfg(target_family = "wasm")]
+            let res = make_gates($filename).await;
+            res
         };
-        let base_dir = base_dir.join(circuits_config.directory_name);
 
-        let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
-        let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
-        let gates_path = base_dir.join(format!("{}_gates.json", filename));
+        let index = make_prover_index::<$type, _>(gates);
+        let prover = Prover {
+            internal_vars,
+            rows_rev,
+            index,
+        };
 
-        let gates: Vec<CircuitGate<F>> = read_gates_file(&gates_path).unwrap();
-        let (internal_vars_path, rows_rev_path) =
-            read_constraints_data::<F>(&internal_vars_path, &rows_rev_path).unwrap();
+        $constant.get_or_init(|| prover.into()).clone()
+    }};
+}
 
-        (internal_vars_path, rows_rev_path, gates)
+static TX_STEP_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static TX_WRAP_PROVER: OnceCell<Arc<Prover<Fq>>> = OnceCell::new();
+static MERGE_STEP_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static BLOCK_STEP_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static BLOCK_WRAP_PROVER: OnceCell<Arc<Prover<Fq>>> = OnceCell::new();
+static ZKAPP_STEP_OPT_SIGNED_OPT_SIGNED_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static ZKAPP_STEP_OPT_SIGNED_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+static ZKAPP_STEP_PROOF_PROVER: OnceCell<Arc<Prover<Fp>>> = OnceCell::new();
+
+fn default_circuits_config() -> &'static CircuitsConfig {
+    openmina_core::NetworkConfig::global().circuits_config
+}
+
+#[cfg(not(target_family = "wasm"))]
+mod prover_makers {
+    use super::*;
+
+    fn get_or_make_tx_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            TX_STEP_PROVER,
+            StepTransactionProof,
+            config.step_transaction_gates
+        )
+    }
+    fn get_or_make_tx_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            TX_WRAP_PROVER,
+            WrapTransactionProof,
+            config.wrap_transaction_gates
+        )
+    }
+    fn get_or_make_merge_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(MERGE_STEP_PROVER, StepMergeProof, config.step_merge_gates)
+    }
+    fn get_or_make_block_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            BLOCK_STEP_PROVER,
+            StepBlockProof,
+            config.step_blockchain_gates
+        )
+    }
+    fn get_or_make_block_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            BLOCK_WRAP_PROVER,
+            WrapBlockProof,
+            config.wrap_blockchain_gates
+        )
+    }
+    fn get_or_make_zkapp_step_opt_signed_opt_signed_prover(
+        config: &CircuitsConfig,
+    ) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_OPT_SIGNED_PROVER,
+            StepZkappOptSignedOptSignedProof,
+            config.step_transaction_opt_signed_opt_signed_gates
+        )
+    }
+    fn get_or_make_zkapp_step_opt_signed_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_PROVER,
+            StepZkappOptSignedProof,
+            config.step_transaction_opt_signed_gates
+        )
+    }
+    fn get_or_make_zkapp_step_proof_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_PROOF_PROVER,
+            StepZkappProvedProof,
+            config.step_transaction_proved_gates
+        )
     }
 
-    let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
+    impl BlockProver {
+        pub fn make() -> Self {
+            let config = default_circuits_config();
+            let block_step_prover = get_or_make_block_step_prover(config);
+            let block_wrap_prover = get_or_make_block_wrap_prover(config);
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config);
 
-    let (step_tx_internal_vars, step_tx_rows_rev, step_tx_gates) =
-        { make(circuits_config.step_transaction_gates) };
-    let (wrap_tx_internal_vars, wrap_tx_rows_rev, wrap_tx_gates) =
-        { make(circuits_config.wrap_transaction_gates) };
-    let (step_merge_internal_vars, step_merge_rows_rev, step_merge_gates) =
-        { make(circuits_config.step_merge_gates) };
-    let (step_block_internal_vars, step_block_rows_rev, step_block_gates) =
-        { make(circuits_config.step_blockchain_gates) };
-    let (wrap_block_internal_vars, wrap_block_rows_rev, wrap_block_gates) =
-        { make(circuits_config.wrap_blockchain_gates) };
-    let (
-        step_opt_signed_opt_signed_internal_vars,
-        step_opt_signed_opt_signed_rows_rev,
-        step_opt_signed_opt_signed_gates,
-    ) = { make(circuits_config.step_transaction_opt_signed_opt_signed_gates) };
-    let (step_opt_signed_internal_vars, step_opt_signed_rows_rev, step_opt_signed_gates) =
-        { make(circuits_config.step_transaction_opt_signed_gates) };
-    let (step_proved_internal_vars, step_proved_rows_rev, step_proved_gates) =
-        { make(circuits_config.step_transaction_proved_gates) };
-
-    Gates {
-        step_tx_gates,
-        wrap_tx_gates,
-        step_merge_gates,
-        step_block_gates,
-        step_tx_internal_vars,
-        step_tx_rows_rev,
-        wrap_tx_internal_vars,
-        wrap_tx_rows_rev,
-        step_merge_internal_vars,
-        step_merge_rows_rev,
-        step_block_internal_vars,
-        step_block_rows_rev,
-        wrap_block_gates,
-        wrap_block_internal_vars,
-        wrap_block_rows_rev,
-        step_opt_signed_opt_signed_gates,
-        step_opt_signed_opt_signed_internal_vars,
-        step_opt_signed_opt_signed_rows_rev,
-        step_opt_signed_gates,
-        step_opt_signed_internal_vars,
-        step_opt_signed_rows_rev,
-        step_proved_gates,
-        step_proved_internal_vars,
-        step_proved_rows_rev,
+            Self {
+                block_step_prover,
+                block_wrap_prover,
+                tx_wrap_prover,
+            }
+        }
     }
-}
 
-static PROVERS: Lazy<Arc<Provers>> = Lazy::new(|| Arc::new(make_provers()));
+    impl TransactionProver {
+        pub fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_step_prover = get_or_make_tx_step_prover(config);
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config);
+            let merge_step_prover = get_or_make_merge_step_prover(config);
 
-pub struct Provers {
-    pub tx_step_prover: Prover<Fp>,
-    pub tx_wrap_prover: Prover<Fq>,
-    pub merge_step_prover: Prover<Fp>,
-    pub block_step_prover: Prover<Fp>,
-    pub block_wrap_prover: Prover<Fq>,
-    pub zkapp_step_opt_signed_opt_signed_prover: Prover<Fp>,
-    pub zkapp_step_opt_signed_prover: Prover<Fp>,
-    pub zkapp_step_proof_prover: Prover<Fp>,
-}
+            Self {
+                tx_step_prover,
+                tx_wrap_prover,
+                merge_step_prover,
+            }
+        }
+    }
 
-pub fn get_provers() -> Arc<Provers> {
-    Arc::clone(&*PROVERS)
-}
+    impl ZkappProver {
+        pub fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config);
+            let merge_step_prover = get_or_make_merge_step_prover(config);
+            let step_opt_signed_opt_signed_prover =
+                get_or_make_zkapp_step_opt_signed_opt_signed_prover(config);
+            let step_opt_signed_prover = get_or_make_zkapp_step_opt_signed_prover(config);
+            let step_proof_prover = get_or_make_zkapp_step_proof_prover(config);
 
-/// Slow, use `get_provers` instead
-fn make_provers() -> Provers {
-    let Gates {
-        step_tx_gates,
-        wrap_tx_gates,
-        step_merge_gates,
-        step_block_gates,
-        step_tx_internal_vars,
-        step_tx_rows_rev,
-        wrap_tx_internal_vars,
-        wrap_tx_rows_rev,
-        step_merge_internal_vars,
-        step_merge_rows_rev,
-        step_block_internal_vars,
-        step_block_rows_rev,
-        wrap_block_gates,
-        wrap_block_internal_vars,
-        wrap_block_rows_rev,
-        step_opt_signed_opt_signed_gates,
-        step_opt_signed_opt_signed_internal_vars,
-        step_opt_signed_opt_signed_rows_rev,
-        step_opt_signed_gates,
-        step_opt_signed_internal_vars,
-        step_opt_signed_rows_rev,
-        step_proved_gates,
-        step_proved_internal_vars,
-        step_proved_rows_rev,
-    } = read_gates();
-
-    let tx_prover_index = make_prover_index::<StepTransactionProof, _>(step_tx_gates);
-    let merge_prover_index = make_prover_index::<StepMergeProof, _>(step_merge_gates);
-    let wrap_prover_index = make_prover_index::<WrapTransactionProof, _>(wrap_tx_gates);
-    let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(wrap_block_gates);
-    let block_prover_index = make_prover_index::<StepBlockProof, _>(step_block_gates);
-    let zkapp_step_opt_signed_opt_signed_prover_index =
-        make_prover_index::<StepZkappOptSignedOptSignedProof, _>(step_opt_signed_opt_signed_gates);
-    let zkapp_step_opt_signed_prover_index =
-        make_prover_index::<StepZkappOptSignedProof, _>(step_opt_signed_gates);
-    let zkapp_step_proof_prover_index =
-        make_prover_index::<StepZkappProvedProof, _>(step_proved_gates);
-
-    let tx_step_prover = Prover {
-        internal_vars: step_tx_internal_vars,
-        rows_rev: step_tx_rows_rev,
-        index: tx_prover_index,
-    };
-
-    let merge_step_prover = Prover {
-        internal_vars: step_merge_internal_vars,
-        rows_rev: step_merge_rows_rev,
-        index: merge_prover_index,
-    };
-
-    let tx_wrap_prover = Prover {
-        internal_vars: wrap_tx_internal_vars,
-        rows_rev: wrap_tx_rows_rev,
-        index: wrap_prover_index,
-    };
-
-    let block_step_prover = Prover {
-        internal_vars: step_block_internal_vars,
-        rows_rev: step_block_rows_rev,
-        index: block_prover_index,
-    };
-
-    let block_wrap_prover = Prover {
-        internal_vars: wrap_block_internal_vars,
-        rows_rev: wrap_block_rows_rev,
-        index: wrap_block_prover_index,
-    };
-
-    let zkapp_step_opt_signed_opt_signed_prover = Prover {
-        internal_vars: step_opt_signed_opt_signed_internal_vars,
-        rows_rev: step_opt_signed_opt_signed_rows_rev,
-        index: zkapp_step_opt_signed_opt_signed_prover_index,
-    };
-
-    let zkapp_step_opt_signed_prover = Prover {
-        internal_vars: step_opt_signed_internal_vars,
-        rows_rev: step_opt_signed_rows_rev,
-        index: zkapp_step_opt_signed_prover_index,
-    };
-
-    let zkapp_step_proof_prover = Prover {
-        internal_vars: step_proved_internal_vars,
-        rows_rev: step_proved_rows_rev,
-        index: zkapp_step_proof_prover_index,
-    };
-
-    Provers {
-        tx_step_prover,
-        tx_wrap_prover,
-        merge_step_prover,
-        block_step_prover,
-        block_wrap_prover,
-        zkapp_step_opt_signed_opt_signed_prover,
-        zkapp_step_opt_signed_prover,
-        zkapp_step_proof_prover,
+            Self {
+                tx_wrap_prover,
+                merge_step_prover,
+                step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover,
+                step_proof_prover,
+            }
+        }
     }
 }
 
-pub fn read_constraints_data<F: FieldWitness>(
-    internal_vars_path: &Path,
-    rows_rev_path: &Path,
+#[cfg(target_family = "wasm")]
+mod prover_makers {
+    use super::*;
+
+    async fn get_or_make_tx_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            TX_STEP_PROVER,
+            StepTransactionProof,
+            config.step_transaction_gates
+        )
+    }
+    async fn get_or_make_tx_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            TX_WRAP_PROVER,
+            WrapTransactionProof,
+            config.wrap_transaction_gates
+        )
+    }
+    async fn get_or_make_merge_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(MERGE_STEP_PROVER, StepMergeProof, config.step_merge_gates)
+    }
+    async fn get_or_make_block_step_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            BLOCK_STEP_PROVER,
+            StepBlockProof,
+            config.step_blockchain_gates
+        )
+    }
+    async fn get_or_make_block_wrap_prover(config: &CircuitsConfig) -> Arc<Prover<Fq>> {
+        get_or_make!(
+            BLOCK_WRAP_PROVER,
+            WrapBlockProof,
+            config.wrap_blockchain_gates
+        )
+    }
+    async fn get_or_make_zkapp_step_opt_signed_opt_signed_prover(
+        config: &CircuitsConfig,
+    ) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_OPT_SIGNED_PROVER,
+            StepZkappOptSignedOptSignedProof,
+            config.step_transaction_opt_signed_opt_signed_gates
+        )
+    }
+    async fn get_or_make_zkapp_step_opt_signed_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_OPT_SIGNED_PROVER,
+            StepZkappOptSignedProof,
+            config.step_transaction_opt_signed_gates
+        )
+    }
+    async fn get_or_make_zkapp_step_proof_prover(config: &CircuitsConfig) -> Arc<Prover<Fp>> {
+        get_or_make!(
+            ZKAPP_STEP_PROOF_PROVER,
+            StepZkappProvedProof,
+            config.step_transaction_proved_gates
+        )
+    }
+
+    impl BlockProver {
+        pub async fn make() -> Self {
+            let config = default_circuits_config();
+            let block_step_prover = get_or_make_block_step_prover(config).await;
+            let block_wrap_prover = get_or_make_block_wrap_prover(config).await;
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config).await;
+
+            Self {
+                block_step_prover,
+                block_wrap_prover,
+                tx_wrap_prover,
+            }
+        }
+    }
+
+    impl TransactionProver {
+        pub async fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_step_prover = get_or_make_tx_step_prover(config).await;
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config).await;
+            let merge_step_prover = get_or_make_merge_step_prover(config).await;
+
+            Self {
+                tx_step_prover,
+                tx_wrap_prover,
+                merge_step_prover,
+            }
+        }
+    }
+
+    impl ZkappProver {
+        pub async fn make() -> Self {
+            let config = default_circuits_config();
+            let tx_wrap_prover = get_or_make_tx_wrap_prover(config).await;
+            let merge_step_prover = get_or_make_merge_step_prover(config).await;
+            let step_opt_signed_opt_signed_prover =
+                get_or_make_zkapp_step_opt_signed_opt_signed_prover(config).await;
+            let step_opt_signed_prover = get_or_make_zkapp_step_opt_signed_prover(config).await;
+            let step_proof_prover = get_or_make_zkapp_step_proof_prover(config).await;
+
+            Self {
+                tx_wrap_prover,
+                merge_step_prover,
+                step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover,
+                step_proof_prover,
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct BlockProver {
+    pub block_step_prover: Arc<Prover<Fp>>,
+    pub block_wrap_prover: Arc<Prover<Fq>>,
+    pub tx_wrap_prover: Arc<Prover<Fq>>,
+}
+
+#[derive(Clone)]
+pub struct TransactionProver {
+    pub tx_step_prover: Arc<Prover<Fp>>,
+    pub tx_wrap_prover: Arc<Prover<Fq>>,
+    pub merge_step_prover: Arc<Prover<Fp>>,
+}
+
+#[derive(Clone)]
+pub struct ZkappProver {
+    pub tx_wrap_prover: Arc<Prover<Fq>>,
+    pub merge_step_prover: Arc<Prover<Fp>>,
+    pub step_opt_signed_opt_signed_prover: Arc<Prover<Fp>>,
+    pub step_opt_signed_prover: Arc<Prover<Fp>>,
+    pub step_proof_prover: Arc<Prover<Fp>>,
+}
+
+fn decode_constraints_data<F: FieldWitness>(
+    mut internal_vars: &[u8],
+    mut rows_rev: &[u8],
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
     use mina_p2p_messages::bigint::BigInt;
 
@@ -302,19 +546,8 @@ pub fn read_constraints_data<F: FieldWitness>(
 
     type InternalVarsRaw = HashMap<u32, (Vec<(BigInt, VRaw)>, Option<BigInt>)>;
 
-    // ((Fp.t * V.t) list * Fp.t option)
-    let Ok(internal_vars) = std::fs::read(internal_vars_path)
-    // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("internal_vars.bin"))
-    else {
-        return None;
-    };
-    let internal_vars: InternalVarsRaw =
-        HashMap::binprot_read(&mut internal_vars.as_slice()).unwrap();
-
-    // V.t option array list
-    let rows_rev = std::fs::read(rows_rev_path).unwrap();
-    // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin")).unwrap();
-    let rows_rev: Vec<Vec<Option<VRaw>>> = Vec::binprot_read(&mut rows_rev.as_slice()).unwrap();
+    let internal_vars: InternalVarsRaw = HashMap::binprot_read(&mut internal_vars).unwrap();
+    let rows_rev: Vec<Vec<Option<VRaw>>> = Vec::binprot_read(&mut rows_rev).unwrap();
 
     let internal_vars: InternalVars<F> = internal_vars
         .into_iter()
@@ -338,4 +571,37 @@ pub fn read_constraints_data<F: FieldWitness>(
         .collect();
 
     Some((internal_vars, rows_rev))
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn read_constraints_data<F: FieldWitness>(
+    internal_vars_path: &Path,
+    rows_rev_path: &Path,
+) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
+    // ((Fp.t * V.t) list * Fp.t option)
+    let internal_vars = read_or_fetch(&internal_vars_path).ok()?;
+
+    // V.t option array list
+    let rows_rev = read_or_fetch(&rows_rev_path).ok()?;
+
+    decode_constraints_data(internal_vars.as_slice(), rows_rev.as_slice())
+}
+
+#[cfg(target_family = "wasm")]
+async fn read_constraints_data<F: FieldWitness>(
+    internal_vars_path: &Path,
+    rows_rev_path: &Path,
+) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
+    // ((Fp.t * V.t) list * Fp.t option)
+    let internal_vars = http::get_bytes(internal_vars_path.to_str().unwrap())
+        .await
+        .ok()?;
+
+    // V.t option array list
+    let rows_rev = http::get_bytes(rows_rev_path.to_str().unwrap())
+        .await
+        .ok()?;
+    // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin")).unwrap();
+
+    decode_constraints_data(internal_vars.as_ref(), rows_rev.as_ref())
 }

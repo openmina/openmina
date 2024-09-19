@@ -460,6 +460,10 @@ thread_local! {
 }
 
 impl BlockProducerService for NodeTestingService {
+    fn provers(&self) -> ledger::proofs::gates::BlockProver {
+        self.real.provers()
+    }
+
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
         fn dummy_proof_event(block_hash: StateHash) -> Event {
             let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
@@ -472,7 +476,12 @@ impl BlockProducerService for NodeTestingService {
                 let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
             }
             ProofKind::ConstraintsChecked => {
-                match openmina_node_native::block_producer::prove(input, keypair, true) {
+                match openmina_node_native::block_producer::prove(
+                    self.provers(),
+                    input,
+                    keypair,
+                    true,
+                ) {
                     Err(ProofError::ConstraintsOk) => {
                         let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
                     }
@@ -496,8 +505,13 @@ impl BlockProducerService for NodeTestingService {
                     {
                         Ok(proof.clone())
                     } else {
-                        openmina_node_native::block_producer::prove(input, keypair, false)
-                            .map_err(|err| format!("{err:?}"))
+                        openmina_node_native::block_producer::prove(
+                            self.provers(),
+                            input,
+                            keypair,
+                            false,
+                        )
+                        .map_err(|err| format!("{err:?}"))
                     }
                 });
                 if let Some(proof) = res.as_ref().ok().filter(|_| is_genesis) {

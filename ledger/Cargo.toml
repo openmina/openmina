@@ -73,12 +73,16 @@ fraction = { version = "=0.15.1", default-features = false, features = ["with-se
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Response"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 zstd = { version = "0.12", optional = true }
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values", optional = true }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
+reqwest = { version = "0.11.24", features = ["blocking"] }
 
 [dev-dependencies]
 rand_pcg = "0.3"

@@ -3753,6 +3753,7 @@ dependencies = [
  "getrandom 0.2.15",
  "hex",
  "itertools 0.10.5",
+ "js-sys",
  "kimchi",
  "lazy_static",
  "libc",
@@ -3774,6 +3775,7 @@ dependencies = [
  "rand_seeder",
  "rayon",
  "redux",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_with 3.7.0",
@@ -3782,6 +3784,7 @@ dependencies = [
  "tuple-map",
  "uuid 1.5.0",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
  "zstd",
@@ -4462,6 +4465,8 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm_thread",
 ]
 
