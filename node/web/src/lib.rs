@@ -1,6 +1,5 @@
 #![cfg(target_family = "wasm")]
 
-use openmina_node_common::rpc::RpcSender;
 pub use openmina_node_common::*;
 
 mod rayon;
@@ -9,11 +8,14 @@ pub use rayon::init_rayon;
 mod node;
 pub use node::{Node, NodeBuilder};
 
+use std::sync::Arc;
+
 use ::node::account::AccountSecretKey;
 use ::node::core::thread;
 use ::node::snark::{get_verifier_index, VerifierKind};
 use anyhow::Context;
 use ledger::proofs::gates::BlockProver;
+use openmina_node_common::rpc::RpcSender;
 use wasm_bindgen::prelude::*;
 
 use crate::node::P2pTaskRemoteSpawner;
@@ -54,17 +56,18 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
 ) -> openmina_node_common::Node<NodeService> {
-    let block_verifier_index = get_verifier_index(VerifierKind::Blockchain).into();
-    let work_verifier_index = get_verifier_index(VerifierKind::Transaction).into();
+    let block_verifier_index = Arc::new(get_verifier_index(VerifierKind::Blockchain));
+    let work_verifier_index = Arc::new(get_verifier_index(VerifierKind::Transaction));
 
     let genesis_config = ::node::config::DEVNET_CONFIG.clone();
     let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
     node_builder
-        .block_verifier_index(block_verifier_index)
-        .work_verifier_index(work_verifier_index);
+        .block_verifier_index(block_verifier_index.clone())
+        .work_verifier_index(work_verifier_index.clone());
 
     if let Some(bp_key) = block_producer {
-        let provers = BlockProver::make().await;
+        let provers =
+            BlockProver::make(Some(block_verifier_index), Some(work_verifier_index)).await;
         node_builder.block_producer(provers, bp_key);
     }
 

@@ -1,3 +1,4 @@
+use ledger::proofs::gates::BlockProver;
 use node::{
     account::AccountSecretKey, core::thread, p2p::identity::SecretKey as P2pSecretKey,
     service::Recorder,
@@ -43,8 +44,11 @@ impl NodeServiceBuilder {
         self
     }
 
-    pub fn block_producer_init(&mut self, keypair: AccountSecretKey) -> &mut Self {
-        let provers = ledger::proofs::gates::BlockProver::make();
+    pub fn block_producer_init(
+        &mut self,
+        provers: BlockProver,
+        keypair: AccountSecretKey,
+    ) -> &mut Self {
         self.common.block_producer_init(provers, keypair);
         self
     }

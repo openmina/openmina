@@ -6,6 +6,7 @@ use kimchi::{
     circuits::{gate::CircuitGate, wires::COLUMNS},
     proof::RecursionChallenge,
     prover_index::ProverIndex,
+    verifier_index::VerifierIndex,
 };
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -3914,6 +3915,7 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
 
 pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     gates: Vec<CircuitGate<F>>,
+    verifier_index: Option<Arc<VerifierIndex<F::OtherCurve>>>,
 ) -> ProverIndex<F::OtherCurve> {
     use kimchi::circuits::constraints::ConstraintSystem;
 
@@ -3937,6 +3939,7 @@ pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     };
 
     let mut index = ProverIndex::<F::OtherCurve>::create(cs, endo_q, Arc::new(srs));
+    index.verifier_index = verifier_index;
 
     // Compute and cache the verifier index digest
     index.compute_verifier_index_digest::<F::FqSponge>();
@@ -4371,8 +4374,8 @@ mod tests {
     #[allow(unused)]
     #[test]
     fn test_make_verifier_index() {
-        BlockProver::make();
-        TransactionProver::make();
+        BlockProver::make(None, None);
+        TransactionProver::make(None);
 
         // use crate::proofs::caching::verifier_index_to_bytes;
         // use crate::proofs::verifier_index::get_verifier_index;
@@ -4455,7 +4458,7 @@ mod tests {
             tx_step_prover,
             tx_wrap_prover,
             merge_step_prover: _,
-        } = TransactionProver::make();
+        } = TransactionProver::make(None);
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
         // witnesses.ocaml_aux = read_witnesses("tx_fps.txt").unwrap();
@@ -4581,7 +4584,7 @@ mod tests {
             tx_step_prover: _,
             tx_wrap_prover,
             merge_step_prover,
-        } = TransactionProver::make();
+        } = TransactionProver::make(None);
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
         // witnesses.ocaml_aux = read_witnesses("fps_merge.txt").unwrap();
@@ -4634,7 +4637,7 @@ mod tests {
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
             step_proof_prover,
-        } = ZkappProver::make();
+        } = ZkappProver::make(None);
 
         dbg!(step_opt_signed_opt_signed_prover.rows_rev.len());
         // dbg!(step_opt_signed_opt_signed_prover.rows_rev.iter().map(|v| v.len()).collect::<Vec<_>>());
@@ -4684,7 +4687,7 @@ mod tests {
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
             step_proof_prover,
-        } = ZkappProver::make();
+        } = ZkappProver::make(None);
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
@@ -4731,7 +4734,7 @@ mod tests {
             block_step_prover,
             block_wrap_prover,
             tx_wrap_prover,
-        } = BlockProver::make();
+        } = BlockProver::make(None, None);
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
         // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
@@ -4778,15 +4781,15 @@ mod tests {
             block_step_prover,
             block_wrap_prover,
             tx_wrap_prover: _,
-        } = BlockProver::make();
-        let TransactionProver { tx_step_prover, .. } = TransactionProver::make();
+        } = BlockProver::make(None, None);
+        let TransactionProver { tx_step_prover, .. } = TransactionProver::make(None);
         let ZkappProver {
             tx_wrap_prover,
             merge_step_prover,
             step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
             step_opt_signed_prover: zkapp_step_opt_signed_prover,
             step_proof_prover: zkapp_step_proof_prover,
-        } = ZkappProver::make();
+        } = ZkappProver::make(None);
 
         // TODO: Compare checksum with OCaml
         #[rustfmt::skip]
