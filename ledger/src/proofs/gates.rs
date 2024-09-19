@@ -132,7 +132,7 @@ fn read_or_fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
     // cache it to home dir.
     let cache_path = base_dir.join(filename);
     eprintln!("caching circuit-blobs to {}", cache_path.to_str().unwrap());
-    let _ = std::fs::create_dir_all(&cache_path);
+    let _ = std::fs::create_dir_all(cache_path.parent().unwrap());
     let _ = std::fs::write(cache_path, &bytes);
 
     Ok(bytes)
