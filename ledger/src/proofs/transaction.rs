@@ -4122,7 +4122,7 @@ pub(super) fn generate_tx_proof(
     wrap::wrap::<WrapTransactionProof>(
         WrapParams {
             app_state: statement_with_sok,
-            proof_with_public,
+            proof_with_public: &proof_with_public,
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
@@ -4495,7 +4495,7 @@ mod tests {
         )
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         let sum = sha256_sum(&proof_json);
         dbg!(sum);
     }
@@ -4624,7 +4624,7 @@ mod tests {
             &mut witnesses,
         )
         .unwrap();
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
 
         let sum = dbg!(sha256_sum(&proof_json));
         assert_eq!(
@@ -4674,7 +4674,7 @@ mod tests {
         })
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof.proof).unwrap();
         let sum = dbg!(sha256_sum(&proof_json));
 
         assert_eq!(
@@ -4722,7 +4722,7 @@ mod tests {
         })
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof.proof).unwrap();
         let sum = dbg!(sha256_sum(&proof_json));
 
         assert_eq!(
@@ -4773,7 +4773,7 @@ mod tests {
         )
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
 
         let sum = dbg!(sha256_sum(&proof_json));
         assert_eq!(
@@ -4837,7 +4837,7 @@ mod tests {
             })
             .unwrap();
 
-            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof.proof).unwrap();
             let sum = dbg!(sha256_sum(&proof_json));
 
             assert_eq!(sum, expected_sum);
@@ -4876,7 +4876,7 @@ mod tests {
                 &mut witnesses,
             )
             .unwrap();
-            let proof_json = serde_json::to_vec(&proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
 
             let _sum = sha256_sum(&proof_json);
             // assert_eq!(
@@ -4913,7 +4913,7 @@ mod tests {
             )
             .unwrap();
 
-            let proof_json = serde_json::to_vec(&proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
 
             let sum = dbg!(sha256_sum(&proof_json));
             assert_eq!(
@@ -4975,7 +4975,7 @@ mod tests {
             )
             .unwrap();
 
-            let proof_json = serde_json::to_vec(&proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
             let sum = dbg!(sha256_sum(&proof_json));
 
             if dbg!(&sum) != expected_sum {

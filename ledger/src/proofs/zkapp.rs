@@ -20,7 +20,7 @@ use crate::{
             extract_recursion_challenges, step, InductiveRule, OptFlag, PreviousProofStatement,
             StepParams, StepProof,
         },
-        transaction::ReducedMessagesForNextStepProof,
+        transaction::{ProofWithPublic, ReducedMessagesForNextStepProof},
         unfinalized::{AllEvals, EvalsWithPublicInput},
         verification::prev_evals_to_p2p,
         verifier_index::make_zkapp_verifier_index,
@@ -1392,7 +1392,7 @@ where
     let proof = wrap::wrap::<WrapConstants>(
         WrapParams {
             app_state: Rc::new(statement.clone()),
-            proof: &proof,
+            proof_with_public: &proof,
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
@@ -1408,27 +1408,29 @@ where
 impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
     fn from(value: &WrapProof) -> Self {
         let WrapProof {
-            proof:
-                kimchi::proof::ProverProof {
+            proof: ProofWithPublic {
+                proof: kimchi::proof::ProverProof {
                     commitments:
-                        kimchi::proof::ProverCommitments {
-                            w_comm,
-                            z_comm,
-                            t_comm,
-                            lookup,
-                        },
+                    kimchi::proof::ProverCommitments {
+                        w_comm,
+                        z_comm,
+                        t_comm,
+                        lookup,
+                    },
                     proof:
-                        poly_commitment::evaluation_proof::OpeningProof {
-                            lr,
-                            delta,
-                            z1,
-                            z2,
-                            sg,
-                        },
+                    poly_commitment::evaluation_proof::OpeningProof {
+                        lr,
+                        delta,
+                        z1,
+                        z2,
+                        sg,
+                    },
                     evals,
                     ft_eval1,
                     prev_challenges: _,
                 },
+                public_input: _,
+            },
             statement:
                 WrapStatement {
                     proof_state,
@@ -1577,7 +1579,12 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
 
                 v2::PicklesProofProofsVerified2ReprStableV2PrevEvals {
                     evals: v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
-                        public_input: (public_input.0.into(), public_input.1.into()),
+                        public_input: {
+                            let (a, b) = public_input;
+                            assert_eq!(a.len(), 1);
+                            assert_eq!(b.len(), 1);
+                            (a[0].into(), b[0].into())
+                        },
                         evals: prev_evals_to_p2p(evals),
                     },
                     ft_eval1: ft_eval1.into(),

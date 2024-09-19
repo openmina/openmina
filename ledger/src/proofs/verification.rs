@@ -35,7 +35,7 @@ use super::{
 };
 use kimchi::{
     circuits::{
-        expr::RowOffset, polynomials::permutation::eval_permutation_vanishing_polynomial, wires::PERMUTS
+        expr::RowOffset, wires::PERMUTS
     },
     error::VerifyError,
     mina_curves::pasta::Pallas,
@@ -229,7 +229,7 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
 }
 
 pub fn prev_evals_to_p2p(
-    evals: &ProofEvaluations<[Fp; 2]>,
+    evals: &ProofEvaluations<[Vec<Fp>; 2]>,
 ) -> PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
     let ProofEvaluations {
         public: _,
@@ -263,9 +263,12 @@ pub fn prev_evals_to_p2p(
     use mina_p2p_messages::pseq::PaddedSeq;
 
     let of =
-        |[zeta, zeta_omega]: &[Fp; 2]| (vec![zeta.into()].into(), vec![zeta_omega.into()].into());
+        |[zeta, zeta_omega]: &[Vec<Fp>; 2]| (
+            zeta.iter().map(Into::into).collect(),
+            zeta_omega.iter().map(Into::into).collect(),
+        );
 
-    let of_opt = |v: &Option<[Fp; 2]>| v.as_ref().map(of);
+    let of_opt = |v: &Option<[Vec<Fp>; 2]>| v.as_ref().map(of);
 
     PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
         w: PaddedSeq(w.each_ref().map(of)),

@@ -127,7 +127,7 @@ pub fn make_padded_proof_from_p2p(
 
     let make_poly = |poly: &(BigInt, BigInt)| {
         let point = of_coord(poly)?;
-        PolyComm { elems: vec![point] }
+        Ok(PolyComm { elems: vec![point] })
     };
 
     let mut challenge_polynomial_commitments = Cow::Borrowed(

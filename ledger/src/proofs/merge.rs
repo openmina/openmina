@@ -291,7 +291,7 @@ pub(super) fn generate_merge_proof(
     )?;
 
     if let Some(expected) = expected_step_proof {
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         assert_eq!(sha256_sum(&proof_json), expected);
     };
 
@@ -304,7 +304,7 @@ pub(super) fn generate_merge_proof(
     wrap::<WrapMergeProof>(
         WrapParams {
             app_state: statement_with_sok,
-            proof: &proof,
+            proof_with_public: &proof,
             step_statement: statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,

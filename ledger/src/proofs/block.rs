@@ -1911,7 +1911,7 @@ pub(super) fn generate_block_proof(
     )?;
 
     if let Some(expected) = expected_step_proof {
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         assert_eq!(sha256_sum(&proof_json), expected);
     };
 
@@ -1924,7 +1924,7 @@ pub(super) fn generate_block_proof(
     wrap::<WrapBlockProof>(
         WrapParams {
             app_state,
-            proof: &proof,
+            proof_with_public: &proof,
             step_statement: statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
