@@ -295,7 +295,9 @@ where
             P2pChannelsAction::Rpc(action) => action.effects(&meta, store),
             P2pChannelsAction::StreamingRpc(action) => action.effects(&meta, store),
         },
-        P2pAction::Peer(action) => action.effects(&meta, store),
+        P2pAction::Peer(_) => {
+            // handled by reducer
+        }
         P2pAction::Identify(_action) => {
             #[cfg(feature = "p2p-libp2p")]
             _action.effects(&meta, store);

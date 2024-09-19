@@ -3,7 +3,6 @@ use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutg
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
 use crate::discovery::p2p_discovery_reducer;
-use crate::peer::p2p_peer_reducer;
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{
     P2pAction, P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pPeerStatus, P2pState,
@@ -104,7 +103,13 @@ impl P2pState {
                 }
             },
             P2pAction::Peer(action) => {
-                p2p_peer_reducer(state, meta.with_action(action));
+                let time = meta.time();
+                if let Err(error) = P2pPeerState::reducer(
+                    Substate::from_compatible_substate(state_context),
+                    meta.with_action(action),
+                ) {
+                    openmina_core::warn!(time; "error = {error}")
+                }
             }
             P2pAction::Channels(action) => {
                 let Some(peer_id) = action.peer_id() else {
@@ -141,7 +146,7 @@ impl P2pState {
                         meta.with_action(_action),
                         &limits,
                     ) {
-                        openmina_core::log::warn!(time; "error = {error}")
+                        openmina_core::warn!(time; "error = {error}")
                     }
                 }
             }
