@@ -34,7 +34,6 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
-use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::identify::P2pIdentifyAction;
 use crate::p2p::network::identify::stream::P2pNetworkIdentifyStreamAction;
 use crate::p2p::network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction;
@@ -257,8 +256,6 @@ pub enum ActionKind {
     P2pConnectionOutgoingTimeout,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
-    P2pDiscoveryInit,
-    P2pDiscoverySuccess,
     P2pIdentifyNewRequest,
     P2pIdentifyUpdatePeerInformation,
     P2pInitializeInitialize,
@@ -561,7 +558,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 465;
+    pub const COUNT: u16 = 463;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -615,7 +612,6 @@ impl ActionKindGet for P2pAction {
             Self::Initialization(a) => a.kind(),
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
-            Self::Discovery(a) => a.kind(),
             Self::Identify(a) => a.kind(),
             Self::Channels(a) => a.kind(),
             Self::Peer(a) => a.kind(),
@@ -909,15 +905,6 @@ impl ActionKindGet for P2pDisconnectionAction {
         match self {
             Self::Init { .. } => ActionKind::P2pDisconnectionInit,
             Self::Finish { .. } => ActionKind::P2pDisconnectionFinish,
-        }
-    }
-}
-
-impl ActionKindGet for P2pDiscoveryAction {
-    fn kind(&self) -> ActionKind {
-        match self {
-            Self::Init { .. } => ActionKind::P2pDiscoveryInit,
-            Self::Success { .. } => ActionKind::P2pDiscoverySuccess,
         }
     }
 }

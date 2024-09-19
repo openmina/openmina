@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use super::channels::P2pChannelsAction;
 use super::connection::P2pConnectionAction;
 use super::disconnection::P2pDisconnectionAction;
-use super::discovery::P2pDiscoveryAction;
 use super::identify::P2pIdentifyAction;
 use super::network::P2pNetworkAction;
 use super::peer::P2pPeerAction;
@@ -19,7 +18,6 @@ pub enum P2pAction {
     Initialization(P2pInitializeAction),
     Connection(P2pConnectionAction),
     Disconnection(P2pDisconnectionAction),
-    Discovery(P2pDiscoveryAction),
     Identify(P2pIdentifyAction),
     Channels(P2pChannelsAction),
     Peer(P2pPeerAction),
@@ -47,7 +45,6 @@ impl redux::EnablingCondition<crate::P2pState> for P2pAction {
             P2pAction::Initialization(a) => a.is_enabled(state, time),
             P2pAction::Connection(a) => a.is_enabled(state, time),
             P2pAction::Disconnection(a) => a.is_enabled(state, time),
-            P2pAction::Discovery(a) => a.is_enabled(state, time),
             P2pAction::Channels(a) => a.is_enabled(state, time),
             P2pAction::Peer(a) => a.is_enabled(state, time),
             P2pAction::Identify(a) => a.is_enabled(state, time),

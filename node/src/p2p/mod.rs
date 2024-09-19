@@ -3,7 +3,6 @@ pub use ::p2p::*;
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
-pub mod discovery;
 pub mod network;
 pub mod peer;
 
@@ -82,8 +81,6 @@ impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingAction);
 
 impl_into_global_action!(disconnection::P2pDisconnectionAction);
-
-impl_into_global_action!(discovery::P2pDiscoveryAction);
 
 impl_into_global_action!(network::P2pNetworkSchedulerAction);
 impl_into_global_action!(network::kad::P2pNetworkKademliaAction);

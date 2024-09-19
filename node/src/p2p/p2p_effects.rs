@@ -34,7 +34,6 @@ use super::connection::incoming::P2pConnectionIncomingAction;
 use super::connection::outgoing::P2pConnectionOutgoingAction;
 use super::connection::{P2pConnectionAction, P2pConnectionResponse};
 use super::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use super::discovery::P2pDiscoveryAction;
 use super::peer::P2pPeerAction;
 use super::{P2pAction, P2pActionWithMeta};
 
@@ -201,7 +200,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 }
             }
         }
-        P2pAction::Discovery(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
@@ -474,12 +472,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     work: snark.clone(),
                                 });
                             }
-                            Some(P2pRpcResponse::InitialPeers(peers)) => {
-                                store.dispatch(P2pDiscoveryAction::Success {
-                                    peer_id,
-                                    peers: peers.iter().cloned().collect(),
-                                });
-                            }
+                            Some(P2pRpcResponse::InitialPeers(_)) => {}
                         }
                         store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
                         store.dispatch(

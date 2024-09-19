@@ -2,7 +2,6 @@
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
-pub mod discovery;
 pub mod identity;
 use bootstrap::P2pNetworkKadBootstrapState;
 use channels::{

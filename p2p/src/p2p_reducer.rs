@@ -2,7 +2,6 @@ use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncoming
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
-use crate::discovery::p2p_discovery_reducer;
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{
     P2pAction, P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pPeerStatus, P2pState,
@@ -120,9 +119,6 @@ impl P2pState {
                     return;
                 };
                 peer.channels.reducer(meta.with_action(action), is_libp2p);
-            }
-            P2pAction::Discovery(action) => {
-                p2p_discovery_reducer(state, meta.with_action(action));
             }
             P2pAction::Identify(_action) =>
             {
