@@ -1894,7 +1894,7 @@ pub(super) fn generate_block_proof(
     let StepProof {
         statement,
         prev_evals,
-        proof,
+        proof_with_public: proof,
     } = step::<StepBlockProof, BLOCK_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::clone(&app_state),

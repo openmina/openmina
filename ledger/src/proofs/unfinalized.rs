@@ -118,8 +118,8 @@ pub struct Unfinalized {
 
 #[derive(Clone, Debug)]
 pub struct EvalsWithPublicInput<F: FieldWitness> {
-    pub evals: ProofEvaluations<[F; 2]>,
-    pub public_input: (F, F),
+    pub evals: ProofEvaluations<[Vec<F>; 2]>,
+    pub public_input: (Vec<F>, Vec<F>),
 }
 
 #[derive(Clone, Debug)]
@@ -134,8 +134,10 @@ impl AllEvals<Fq> {
         Self {
             ft_eval1: ro::tock(89),
             evals: EvalsWithPublicInput {
-                evals: dummy_evals(),
-                public_input: (ro::tock(88), ro::tock(87)),
+                evals: dummy_evals().map(&|[a, b]| {
+                    [vec![a], vec![b]]
+                }),
+                public_input: (vec![ro::tock(88)], vec![ro::tock(87)]),
             },
         }
     }
@@ -166,12 +168,10 @@ impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEv
         Ok(Self {
             ft_eval1: ft_eval1.to_field()?,
             evals: EvalsWithPublicInput {
-                evals: prev_evals_from_p2p(evals)?.map(&|PointEvaluations { zeta, zeta_omega }| {
-                    assert_eq!(zeta.len(), 1);
-                    assert_eq!(zeta_omega.len(), 1);
-                    [zeta[0], zeta_omega[0]]
+                evals: prev_evals_from_p2p::<F>(evals)?.map(&|PointEvaluations { zeta, zeta_omega }| {
+                    [zeta, zeta_omega]
                 }),
-                public_input: (p0.to_field()?, p1.to_field()?),
+                public_input: (vec![p0.to_field()?], vec![p1.to_field()?]),
             },
         })
     }
@@ -180,7 +180,7 @@ impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEv
 /// Equivalent of `to_kimchi` in OCaml
 pub fn evals_from_p2p<F: FieldWitness>(
     e: &v2::PicklesWrapWireProofEvaluationsStableV1,
-) -> Result<ProofEvaluations<[F; 2]>, InvalidBigInt> {
+) -> Result<ProofEvaluations<[Vec<F>; 2]>, InvalidBigInt> {
     let v2::PicklesWrapWireProofEvaluationsStableV1 {
         w,
         coefficients,
@@ -196,8 +196,8 @@ pub fn evals_from_p2p<F: FieldWitness>(
 
     use mina_p2p_messages::bigint::BigInt;
 
-    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<[F; 2], _> {
-        Ok([zeta.to_field()?, zeta_omega.to_field()?])
+    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<[Vec<F>; 2], _> {
+        Ok([vec![zeta.to_field()?], vec![zeta_omega.to_field()?]])
     };
 
     use std::array;
@@ -227,6 +227,7 @@ pub fn evals_from_p2p<F: FieldWitness>(
         lookup_gate_lookup_selector: None,
         range_check_lookup_selector: None,
         foreign_field_mul_lookup_selector: None,
+        public: None,
     })
 }
 
@@ -247,6 +248,7 @@ fn dummy_evals() -> ProofEvaluations<[Fq; 2]> {
             let mut next = || [iter.next().unwrap(), iter.next().unwrap()];
 
             ProofEvaluations::<[Fq; 2]> {
+                public: None,
                 w: std::array::from_fn(|_| next()),
                 coefficients: std::array::from_fn(|_| next()),
                 z: next(),
@@ -331,7 +333,7 @@ impl Unfinalized {
 
         const DOMAIN_LOG2: u8 = 15;
         const SRS_LENGTH_LOG2: u64 = 15;
-        let env = make_scalars_env(&chals, DOMAIN_LOG2, SRS_LENGTH_LOG2);
+        let env = make_scalars_env(&chals, DOMAIN_LOG2, SRS_LENGTH_LOG2, 3);
         let plonk = derive_plonk(&env, &evals, &chals);
 
         Unfinalized {

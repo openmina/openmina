@@ -5,8 +5,6 @@ use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field, PrimeField
 use kimchi::{
     circuits::{gate::CircuitGate, wires::COLUMNS},
     proof::RecursionChallenge,
-    prover_index::ProverIndex,
-    verifier_index::VerifierIndex,
 };
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -45,7 +43,6 @@ use crate::{
     Account, MyCow, ReceiptChainHash, SpongeParamsForField, TimingAsRecord, TokenId, TokenSymbol,
 };
 
-use super::step::{InductiveRule, OptFlag, StepProof};
 use super::{
     constants::ProofConstants,
     field::GroupAffine,
@@ -58,6 +55,10 @@ use super::{
 use super::{
     field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
     step,
+};
+use super::{
+    step::{InductiveRule, OptFlag, StepProof},
+    ProverIndex,
 };
 
 pub trait Check<F: FieldWitness> {
@@ -3975,10 +3976,23 @@ pub(super) struct CreateProofParams<'a, F: FieldWitness> {
     pub(super) only_verify_constraints: bool,
 }
 
+/// https://github.com/o1-labs/proof-systems/blob/553795286d4561aa5d7e928ed1e3555e3a4a81be/kimchi/src/prover.rs#L1718
+///
+/// Note: OCaml keeps the `public_evals`, but we already have it in our `proof`
+pub struct ProofWithPublic<F: FieldWitness> {
+    pub proof: super::ProverProof<F::OtherCurve>,
+    pub public_input: Vec<F>,
+}
+impl<F: FieldWitness> ProofWithPublic<F> {
+    pub fn public_evals(&self) -> Option<&kimchi::proof::PointEvaluations<Vec<F>>> {
+        self.proof.evals.public.as_ref()
+    }
+}
+
 pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     params: CreateProofParams<F>,
     w: &Witness<F>,
-) -> Result<kimchi::proof::ProverProof<F::OtherCurve>, ProofError> {
+) -> Result<ProofWithPublic<F>, ProofError> {
     type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
 
     let CreateProofParams {
@@ -3989,6 +4003,9 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
 
     let computed_witness: [Vec<F>; COLUMNS] = compute_witness::<C, _>(prover, w);
     let prover_index: &ProverIndex<F::OtherCurve> = &prover.index;
+
+    // public input
+    let public_input = computed_witness[0][0..prover_index.cs.public].to_vec();
 
     if only_verify_constraints {
         let public = &computed_witness[0][0..prover_index.cs.public];
@@ -4020,7 +4037,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
 
     eprintln!("proof_elapsed={:?}", now.elapsed());
 
-    Ok(proof)
+    Ok(ProofWithPublic { proof, public_input })
 }
 
 #[derive(Clone)]
@@ -4075,7 +4092,7 @@ pub(super) fn generate_tx_proof(
     let StepProof {
         statement: step_statement,
         prev_evals,
-        proof,
+        proof_with_public,
     } = step::step::<StepTransactionProof, 0>(
         step::StepParams {
             app_state: Rc::clone(&statement_with_sok) as _,
@@ -4092,7 +4109,7 @@ pub(super) fn generate_tx_proof(
     )?;
 
     if let Some(expected) = expected_step_proof {
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof_with_public.proof).unwrap();
         assert_eq!(sha256_sum(&proof_json), expected);
     };
 
@@ -4105,7 +4122,7 @@ pub(super) fn generate_tx_proof(
     wrap::wrap::<WrapTransactionProof>(
         WrapParams {
             app_state: statement_with_sok,
-            proof: &proof,
+            proof_with_public,
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,

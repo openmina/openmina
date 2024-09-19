@@ -274,7 +274,7 @@ pub(super) fn generate_merge_proof(
     let StepProof {
         statement,
         prev_evals,
-        proof,
+        proof_with_public: proof,
     } = step::<StepMergeProof, MERGE_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::clone(&statement_with_sok) as _,

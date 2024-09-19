@@ -3098,7 +3098,10 @@ mod tests_ocaml {
         });
         let rng: Pcg64 = Seeder::from(&seed).make_rng();
 
-        Keypair::rand(&mut MyRng(rng)).public.into_compressed()
+        Keypair::rand(&mut MyRng(rng))
+            .unwrap()
+            .public
+            .into_compressed()
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2289
@@ -3116,7 +3119,7 @@ mod tests_ocaml {
     fn stmt_to_work_random_prover(stmt: &work::Statement) -> Option<work::Checked> {
         let mut rng = rand::thread_rng();
         // TODO: In OCaml it is "deterministic"
-        let prover = Keypair::rand(&mut rng).public.into_compressed();
+        let prover = Keypair::rand(&mut rng).unwrap().public.into_compressed();
 
         Some(work::Checked {
             fee: Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee),

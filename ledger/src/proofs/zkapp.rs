@@ -1327,7 +1327,7 @@ where
     let StepProof {
         statement: step_statement,
         prev_evals,
-        proof,
+        proof_with_public: proof,
     } = match spec {
         OptSignedOptSigned | OptSigned => step::<StepConstants, 0>(
             StepParams {
@@ -1585,9 +1585,9 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
             },
             proof: v2::PicklesWrapWireProofStableV1 {
                 commitments: v2::PicklesWrapWireProofCommitmentsStableV1 {
-                    w_comm: PaddedSeq(w_comm.each_ref().map(|w| to_tuple(&w.unshifted[0]))),
-                    z_comm: to_tuple(&z_comm.unshifted[0]),
-                    t_comm: PaddedSeq(array::from_fn(|i| to_tuple(&t_comm.unshifted[i]))),
+                    w_comm: PaddedSeq(w_comm.each_ref().map(|w| to_tuple(&w.elems[0]))),
+                    z_comm: to_tuple(&z_comm.elems[0]),
+                    t_comm: PaddedSeq(array::from_fn(|i| to_tuple(&t_comm.elems[i]))),
                 },
                 evaluations: {
                     let kimchi::proof::ProofEvaluations {

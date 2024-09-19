@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    proofs::{field::FieldWitness, verification, verifier_index::get_verifier_index},
+    proofs::{
+        field::FieldWitness, verification, verifier_index::get_verifier_index, VerifierIndex,
+    },
     scan_state::{
         scan_state::transaction_snark::{
             LedgerProof, LedgerProofWithSokMessage, SokMessage, TransactionSnark,
@@ -17,7 +19,7 @@ use self::common::CheckResult;
 #[derive(Debug, Clone)]
 pub struct Verifier;
 
-use kimchi::{mina_curves::pasta::Pallas, verifier_index::VerifierIndex};
+use kimchi::mina_curves::pasta::Pallas;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerifiedMaxStableV2,
@@ -88,7 +90,7 @@ fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
             (statement, &**proof)
         });
 
-        if !crate::proofs::verification::verify_transaction(proofs, verifier_index, &srs) {
+        if !crate::proofs::verification::verify_transaction(proofs, verifier_index, &*srs) {
             return Err("Transaction_snark.verify: verification failed".into());
         }
         Ok(())
@@ -189,7 +191,7 @@ impl Verifier {
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
-                verification::verify_zkapp(vk, zkapp_statement, &proof, &srs)
+                verification::verify_zkapp(vk, zkapp_statement, &proof, &*srs)
             })
         };
 

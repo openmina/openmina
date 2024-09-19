@@ -17,12 +17,12 @@ use kimchi::{
         constraints::FeatureFlags,
         expr::Linearization,
         lookup::lookups::{LookupFeatures, LookupPatterns},
-        polynomials::permutation::{zk_polynomial, zk_w3},
+        polynomials::permutation::{permutation_vanishing_polynomial, zk_w},
     },
     curve::KimchiCurve,
     linearization::expr_linearization,
     mina_curves::pasta::Pallas,
-    verifier_index::VerifierIndex,
+    // verifier_index::VerifierIndex,
 };
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -36,6 +36,7 @@ use crate::{
 use super::{
     caching::{verifier_index_from_bytes, verifier_index_to_bytes},
     transaction::InnerCurve,
+    VerifierIndex,
 };
 use super::{
     transaction::endos,
@@ -91,16 +92,14 @@ fn write_index(path: &Path, index: &VerifierIndex<Pallas>, digest: &[u8]) -> any
 
 #[cfg(target_family = "wasm")]
 fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Pallas> {
-    let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
-        serde_json::from_str(data).unwrap();
+    let verifier_index: VerifierIndex<GroupAffine<Fp>> = serde_json::from_str(data).unwrap();
     make_verifier_index(verifier_index)
 }
 
 #[cfg(not(target_family = "wasm"))]
 fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
     use super::caching::openmina_cache_path;
-    let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
-        serde_json::from_str(data).unwrap();
+    let verifier_index: VerifierIndex<GroupAffine<Fp>> = serde_json::from_str(data).unwrap();
     let mut hasher = Sha256::new();
     hasher.update(data);
     let src_index_digest = hasher.finalize();
@@ -167,9 +166,7 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
     }
 }
 
-fn make_verifier_index(
-    index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>>,
-) -> VerifierIndex<Pallas> {
+fn make_verifier_index(index: VerifierIndex<GroupAffine<Fp>>) -> VerifierIndex<Pallas> {
     let domain = index.domain;
     let max_poly_size: usize = index.max_poly_size;
     let (endo, _) = endos::<Fq>();
@@ -214,14 +211,15 @@ fn make_verifier_index(
     };
 
     // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L319
-    let zkpm = zk_polynomial(domain);
+    let permutation_vanishing_polynomial_m =
+        permutation_vanishing_polynomial(domain, index.zk_rows);
 
     // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L324
-    let w = zk_w3(domain);
+    let w = zk_w(domain, index.zk_rows);
 
     VerifierIndex {
-        srs: OnceCell::from(srs),
-        zkpm: OnceCell::from(zkpm),
+        srs,
+        permutation_vanishing_polynomial_m: OnceCell::from(permutation_vanishing_polynomial_m),
         w: OnceCell::from(w),
         endo,
         linearization,
@@ -265,16 +263,14 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> 
         Radix2EvaluationDomain::new(1 << log2_size as u64).unwrap();
 
     let srs = {
-        use mina_curves::pasta::Vesta;
         let degree = 1 << BACKEND_TOCK_ROUNDS_N;
-        let mut srs = SRS::<<Vesta as KimchiCurve>::OtherCurve>::create(degree);
+        let mut srs = SRS::<Pallas>::create(degree);
         srs.add_lagrange_basis(domain);
         srs
     };
 
     let make_poly = |poly: &InnerCurve<Fp>| poly_commitment::PolyComm {
-        unshifted: vec![poly.to_affine()],
-        shifted: None,
+        elems: vec![poly.to_affine()],
     };
 
     let feature_flags = FeatureFlags {
@@ -301,13 +297,16 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> 
 
     let shift = make_shifts(&domain);
 
+    // https://github.com/MinaProtocol/mina/blob/047375688f93546d4bdd58c75674394e3faae1f4/src/lib/pickles/side_loaded_verification_key.ml#L232
+    let zk_rows = 3;
+
     // Note: Verifier index is converted from OCaml here:
     // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_verifier_index.rs#L58
 
     VerifierIndex {
         domain,
         max_poly_size: 1 << BACKEND_TOCK_ROUNDS_N,
-        srs: once_cell::sync::OnceCell::with_value(Arc::new(srs)),
+        srs: Arc::new(srs),
         public,
         prev_challenges: 2,
         sigma_comm: vk.wrap_index.sigma.each_ref().map(make_poly),
@@ -325,11 +324,14 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> 
         xor_comm: None,
         rot_comm: None,
         shift: *shift.shifts(),
-        zkpm: { OnceCell::with_value(zk_polynomial(domain)) },
-        w: { OnceCell::with_value(zk_w3(domain)) },
+        permutation_vanishing_polynomial_m: OnceCell::with_value(permutation_vanishing_polynomial(
+            domain, zk_rows,
+        )),
+        w: { OnceCell::with_value(zk_w(domain, zk_rows)) },
         endo: endo_q,
         lookup_index: None,
         linearization,
         powers_of_alpha,
+        zk_rows,
     }
 }

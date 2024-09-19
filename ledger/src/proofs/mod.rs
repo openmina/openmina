@@ -1,3 +1,5 @@
+use poly_commitment::evaluation_proof::OpeningProof;
+
 pub mod accumulator_check;
 pub mod block;
 pub mod caching;
@@ -26,6 +28,10 @@ pub mod zkapp;
 
 pub const BACKEND_TICK_ROUNDS_N: usize = 16;
 pub const BACKEND_TOCK_ROUNDS_N: usize = 15;
+
+pub type VerifierIndex<Curve> = kimchi::verifier_index::VerifierIndex<Curve, OpeningProof<Curve>>;
+pub type ProverIndex<Curve> = kimchi::prover_index::ProverIndex<Curve, OpeningProof<Curve>>;
+pub type ProverProof<Curve> = kimchi::proof::ProverProof<Curve, OpeningProof<Curve>>;
 
 pub fn generate_tx_proof(
     params: transaction::TransactionParams,

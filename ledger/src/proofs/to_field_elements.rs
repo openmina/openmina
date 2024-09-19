@@ -309,9 +309,10 @@ impl<F: FieldWitness> ToFieldElements<F> for u32 {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[F; 2]> {
+impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[Vec<F>; 2]> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
+            public: _,
             w,
             z,
             s,
@@ -339,7 +340,7 @@ impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[F; 2]> {
             foreign_field_mul_lookup_selector,
         } = self;
 
-        let mut push = |[a, b]: &[F; 2]| {
+        let mut push = |[a, b]: &[Vec<F>; 2]| {
             a.to_field_elements(fields);
             b.to_field_elements(fields);
         };
@@ -881,11 +882,11 @@ impl ToFieldElements<Fp> for PerProofWitness {
         } = wrap_proof;
 
         for w in w_comm {
-            push_affines(&w.unshifted, fields);
+            push_affines(&w.elems, fields);
         }
 
-        push_affines(&z_comm.unshifted, fields);
-        push_affines(&t_comm.unshifted, fields);
+        push_affines(&z_comm.elems, fields);
+        push_affines(&t_comm.elems, fields);
 
         for (a, b) in lr {
             push_affine(*a, fields);
