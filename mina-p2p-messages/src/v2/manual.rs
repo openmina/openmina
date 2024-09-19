@@ -1467,3 +1467,25 @@ impl StagedLedgerDiffBodyStableV1 {
         self.completed_works_iter().map(|v| v.fee.as_u64()).sum()
     }
 }
+
+// PicklesProofProofsVerifiedMaxStableV2 PicklesProofProofsVerified2ReprStableV2
+
+impl From<PicklesProofProofsVerifiedMaxStableV2> for PicklesProofProofsVerified2ReprStableV2 {
+    fn from(value: PicklesProofProofsVerifiedMaxStableV2) -> Self {
+        Self {
+            statement: value.statement,
+            prev_evals: value.prev_evals,
+            proof: value.proof,
+        }
+    }
+}
+
+impl From<PicklesProofProofsVerified2ReprStableV2> for PicklesProofProofsVerifiedMaxStableV2 {
+    fn from(value: PicklesProofProofsVerified2ReprStableV2) -> Self {
+        Self {
+            statement: value.statement,
+            prev_evals: value.prev_evals,
+            proof: value.proof,
+        }
+    }
+}

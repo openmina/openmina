@@ -3,7 +3,7 @@ use ledger::FpExt;
 use mina_p2p_messages::v2::{
     MinaBaseVerificationKeyWireStableV1Base64, ReceiptChainHash, TokenIdKeyHash,
 };
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, transaction::Transaction};
 
 // pub struct GraphQLBestChain(pub Vec<GraphQLBestChainBlock>);
 
@@ -17,14 +17,26 @@ use openmina_core::block::ArcBlockWithHash;
 #[derive(GraphQLObject)]
 #[graphql(description = "A Mina block")]
 pub struct GraphQLBestChainBlock {
-    protocol_state: GraphQLProtocolState,
-    state_hash: String,
-    // transactions: GraphQLTransactions,
+    pub protocol_state: GraphQLProtocolState,
+    pub state_hash: String,
+    pub transactions: GraphQLTransactions,
 }
 
 #[derive(GraphQLObject)]
 pub struct GraphQLTransactions {
-    pub zkapp_commadns: String, // WIP(adonagy): continue
+    pub zkapp_commands: Vec<GraphQLZkappCommand>,
+}
+
+#[derive(GraphQLObject)]
+pub struct GraphQLZkappCommand {
+    pub hash: String,
+    pub failure_reason: Option<Vec<GraphQLFailureReason>>,
+}
+
+#[derive(GraphQLObject)]
+pub struct GraphQLFailureReason {
+    pub index: String,
+    pub failures: Vec<String>,
 }
 
 #[derive(GraphQLObject)]
@@ -75,6 +87,54 @@ pub struct GraphQLEpochData {
 pub struct GraphQLLedger {
     pub hash: String,
     pub total_currency: String,
+}
+
+impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTransactions {
+    fn from(value: mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2) -> Self {
+        use mina_p2p_messages::v2::{
+            MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
+        };
+
+        // TODO(adonagy): also check the second one (value.1)
+        let zkapp_commands = value
+            .0
+            .commands
+            .into_iter()
+            .filter_map(|cmd| {
+                if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = cmd.data {
+                    let failure_reason =
+                        if let MinaBaseTransactionStatusStableV2::Failed(failure_collection) =
+                            cmd.status
+                        {
+                            let res = failure_collection
+                                .0
+                                .into_iter()
+                                .skip(1)
+                                .enumerate()
+                                .map(|(index, failure_list)| {
+                                    let fl =
+                                        failure_list.into_iter().map(|v| v.to_string()).collect();
+                                    GraphQLFailureReason {
+                                        index: index.to_string(),
+                                        failures: fl,
+                                    }
+                                })
+                                .collect();
+                            Some(res)
+                        } else {
+                            None
+                        };
+                    Some(GraphQLZkappCommand {
+                        hash: zkapp.hash().unwrap().to_string(),
+                        failure_reason,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        Self { zkapp_commands }
+    }
 }
 
 impl From<mina_p2p_messages::v2::MinaBaseEpochLedgerValueStableV1> for GraphQLLedger {
@@ -209,6 +269,7 @@ impl From<ArcBlockWithHash> for GraphQLBestChainBlock {
         Self {
             protocol_state,
             state_hash: value.hash.to_string(),
+            transactions: value.body().diff().clone().into(),
         }
     }
 }
