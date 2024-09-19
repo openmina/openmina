@@ -12,8 +12,8 @@ use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
 
-impl<'a> From<&'a VerifierIndex<Pallas>> for PlonkVerificationKeyEvals<Fp> {
-    fn from(verifier_index: &'a VerifierIndex<Pallas>) -> Self {
+impl<'a> From<&'a VerifierIndex<Fq>> for PlonkVerificationKeyEvals<Fp> {
+    fn from(verifier_index: &'a VerifierIndex<Fq>) -> Self {
         let to_curve = |v: &PolyComm<Pallas>| InnerCurve::of_affine(v.elems[0]);
 
         Self {

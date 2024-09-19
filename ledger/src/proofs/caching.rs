@@ -295,9 +295,9 @@ where
     }
 }
 
-impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
-    fn from(v: &VerifierIndex<Pallas>) -> Self {
-        let VerifierIndex {
+impl From<&VerifierIndex<Fq>> for VerifierIndexCached {
+    fn from(v: &VerifierIndex<Fq>) -> Self {
+        let VerifierIndex::<Fq> {
             domain,
             max_poly_size,
             srs,
@@ -361,7 +361,7 @@ impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
     }
 }
 
-impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
+impl From<&VerifierIndexCached> for VerifierIndex<Fq> {
     fn from(v: &VerifierIndexCached) -> Self {
         let VerifierIndexCached {
             domain,
@@ -444,7 +444,7 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
 pub struct VerifierIndexToBytesError(#[from] postcard::Error);
 
 pub fn verifier_index_to_bytes(
-    verifier: &VerifierIndex<Pallas>,
+    verifier: &VerifierIndex<Fq>,
 ) -> Result<Vec<u8>, VerifierIndexToBytesError> {
     let verifier: VerifierIndexCached = verifier.into();
     Ok(postcard::to_stdvec(&verifier)?)
@@ -456,7 +456,7 @@ pub struct VerifierIndexFromBytesError(#[from] postcard::Error);
 
 pub fn verifier_index_from_bytes(
     bytes: &[u8],
-) -> Result<VerifierIndex<Pallas>, VerifierIndexFromBytesError> {
+) -> Result<VerifierIndex<Fq>, VerifierIndexFromBytesError> {
     let verifier: VerifierIndexCached = postcard::from_bytes(bytes)?;
     Ok((&verifier).into())
 }

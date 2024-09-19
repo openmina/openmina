@@ -19,19 +19,14 @@ use kimchi::{
         lookup::lookups::{LookupFeatures, LookupPatterns},
         polynomials::permutation::{permutation_vanishing_polynomial, zk_w},
     },
-    curve::KimchiCurve,
     linearization::expr_linearization,
     mina_curves::pasta::Pallas,
-    // verifier_index::VerifierIndex,
 };
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use poly_commitment::srs::SRS;
 
-use crate::{
-    proofs::{field::GroupAffine, BACKEND_TOCK_ROUNDS_N},
-    VerificationKey,
-};
+use crate::{proofs::BACKEND_TOCK_ROUNDS_N, VerificationKey};
 
 use super::{
     caching::{verifier_index_from_bytes, verifier_index_to_bytes},
@@ -48,7 +43,7 @@ pub enum VerifierKind {
     Transaction,
 }
 
-fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas>> {
+fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Fq>> {
     let mut buf = Vec::with_capacity(5700000);
     let mut file = File::open(path).context("opening cache file")?;
     let mut d = [0; 32];
@@ -73,7 +68,7 @@ fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas
     Ok(verifier_index_from_bytes(&buf)?)
 }
 
-fn write_index(path: &Path, index: &VerifierIndex<Pallas>, digest: &[u8]) -> anyhow::Result<()> {
+fn write_index(path: &Path, index: &VerifierIndex<Fq>, digest: &[u8]) -> anyhow::Result<()> {
     let bytes = verifier_index_to_bytes(index)?;
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
@@ -97,9 +92,9 @@ fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Pallas> {
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
+fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Fq> {
     use super::caching::openmina_cache_path;
-    let verifier_index: VerifierIndex<GroupAffine<Fp>> = serde_json::from_str(data).unwrap();
+    let verifier_index: VerifierIndex<Fq> = serde_json::from_str(data).unwrap();
     let mut hasher = Sha256::new();
     hasher.update(data);
     let src_index_digest = hasher.finalize();
@@ -127,10 +122,10 @@ fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
     }
 }
 
-pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
+pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Fq> {
     match kind {
         VerifierKind::Blockchain => {
-            cache_one!(VerifierIndex<Pallas>, {
+            cache_one!(VerifierIndex<Fq>, {
                 let network_name = openmina_core::NetworkConfig::global().name;
                 let (json_data, cache_filename) = match network_name {
                     "mainnet" => (
@@ -147,7 +142,7 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
             })
         }
         VerifierKind::Transaction => {
-            cache_one!(VerifierIndex<Pallas>, {
+            cache_one!(VerifierIndex<Fq>, {
                 let network_name = openmina_core::NetworkConfig::global().name;
                 let (json_data, cache_filename) = match network_name {
                     "mainnet" => (
@@ -166,7 +161,7 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
     }
 }
 
-fn make_verifier_index(index: VerifierIndex<GroupAffine<Fp>>) -> VerifierIndex<Pallas> {
+fn make_verifier_index(index: VerifierIndex<Fq>) -> VerifierIndex<Fq> {
     let domain = index.domain;
     let max_poly_size: usize = index.max_poly_size;
     let (endo, _) = endos::<Fq>();
@@ -217,7 +212,7 @@ fn make_verifier_index(index: VerifierIndex<GroupAffine<Fp>>) -> VerifierIndex<P
     // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L324
     let w = zk_w(domain, index.zk_rows);
 
-    VerifierIndex {
+    VerifierIndex::<Fq> {
         srs,
         permutation_vanishing_polynomial_m: OnceCell::from(permutation_vanishing_polynomial_m),
         w: OnceCell::from(w),
@@ -253,7 +248,7 @@ pub fn wrap_domains(proofs_verified: usize) -> Domains {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/side_loaded_verification_key.ml#L206
-pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> {
+pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Fq> {
     let d = wrap_domains(vk.actual_wrap_domain_size.to_int());
     let log2_size = d.h.log2_size();
 
@@ -303,7 +298,7 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> 
     // Note: Verifier index is converted from OCaml here:
     // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_verifier_index.rs#L58
 
-    VerifierIndex {
+    VerifierIndex::<Fq> {
         domain,
         max_poly_size: 1 << BACKEND_TOCK_ROUNDS_N,
         srs: Arc::new(srs),

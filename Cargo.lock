@@ -2390,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2831,7 +2831,7 @@ dependencies = [
 [[package]]
 name = "internal-tracing"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 
 [[package]]
 name = "io-lifetimes"
@@ -2981,7 +2981,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3639,7 +3639,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3648,7 +3648,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3698,7 +3698,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3715,7 +3715,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4329,7 +4329,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5121,7 +5121,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -7410,7 +7410,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=484ebe9#484ebe94bb75d5a50691fa88babc635e2a3ed37c"
+source = "git+https://github.com/openmina/proof-systems?rev=b6ad2d0#b6ad2d0f30575120ff742e9fa5852a8fe71d000e"
 dependencies = [
  "ark-ff",
  "hex",

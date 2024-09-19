@@ -1539,7 +1539,7 @@ pub mod step_verifier {
         pub public_input: Vec<Packed>,
         pub sg_old: &'a Vec<GroupAffine<Fp>>,
         pub advice: &'a Advice<Fp>,
-        pub proof: &'a ProverProof<GroupAffine<Fp>>,
+        pub proof: &'a ProverProof<Fq>,
         pub plonk: &'a Plonk<Fq>,
     }
 
@@ -1562,7 +1562,7 @@ pub mod step_verifier {
             plonk,
         } = params;
 
-        let ProverProof {
+        let ProverProof::<Fq> {
             commitments: messages,
             proof: openings_proof,
             ..
@@ -1696,7 +1696,7 @@ pub mod step_verifier {
         pub(super) is_base_case: CircuitVar<Boolean>,
         pub(super) sponge_after_index: Sponge<Fp>,
         pub(super) sg_old: &'a Vec<GroupAffine<Fp>>,
-        pub(super) proof: &'a ProverProof<GroupAffine<Fp>>,
+        pub(super) proof: &'a ProverProof<Fq>,
         pub(super) wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
         pub(super) statement: &'a PreparedStatement,
         pub(super) hack_feature_flags: OptFlag,
@@ -2115,7 +2115,7 @@ fn wrap_compute_sg(challenges: &[[u64; 2]]) -> GroupAffine<Fp> {
 }
 
 struct ExpandProofParams<'a> {
-    dlog_vk: &'a VerifierIndex<Pallas>,
+    dlog_vk: &'a VerifierIndex<Fq>,
     dlog_plonk_index: &'a CircuitPlonkVerificationKeyEvals<Fp>,
     app_state: &'a Rc<dyn ToFieldElementsDebug>,
     t: &'a v2::PicklesProofProofsVerified2ReprStableV2,
@@ -2517,7 +2517,7 @@ struct ExpandedProof {
 pub struct PerProofWitness {
     pub app_state: Option<Rc<dyn ToFieldElementsDebug>>,
     // app_state: AppState,
-    pub wrap_proof: ProverProof<GroupAffine<Fp>>,
+    pub wrap_proof: ProverProof<Fq>,
     pub proof_state: ProofState,
     pub prev_proof_evals: AllEvals<Fp>,
     pub prev_challenges: Vec<[Fp; 16]>,
@@ -2567,7 +2567,7 @@ impl Check<Fp> for PerProofWitness {
 
         assert!(app_state.is_none());
 
-        let ProverProof {
+        let ProverProof::<Fq> {
             commitments:
                 ProverCommitments {
                     w_comm,
@@ -2703,7 +2703,7 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
     pub rule: InductiveRule<'a, N_PREVIOUS>,
     pub for_step_datas: [&'a ForStep; N_PREVIOUS],
     pub indexes: [(
-        &'a VerifierIndex<GroupAffine<Fp>>,
+        &'a VerifierIndex<Fq>,
         &'a CircuitPlonkVerificationKeyEvals<Fp>,
     ); N_PREVIOUS],
     pub prev_challenge_polynomial_commitments: Vec<RecursionChallenge<GroupAffine<Fq>>>,

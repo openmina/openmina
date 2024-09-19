@@ -19,7 +19,7 @@ use self::common::CheckResult;
 #[derive(Debug, Clone)]
 pub struct Verifier;
 
-use kimchi::mina_curves::pasta::Pallas;
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerifiedMaxStableV2,
@@ -29,7 +29,7 @@ use once_cell::sync::Lazy;
 use poly_commitment::srs::SRS;
 
 // TODO: Move this into `Verifier` struct above
-pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Pallas>>> = Lazy::new(|| {
+pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Fq>>> = Lazy::new(|| {
     use crate::proofs::verifier_index::VerifierKind;
     Arc::new(get_verifier_index(VerifierKind::Transaction))
 });

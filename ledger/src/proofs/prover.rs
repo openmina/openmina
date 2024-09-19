@@ -37,7 +37,7 @@ pub fn make_padded_proof_from_p2p(
         prev_evals: _, // unused
         proof,
     }: &PicklesProofProofsVerified2ReprStableV2,
-) -> Result<ProverProof<Pallas>, InvalidBigInt> {
+) -> Result<ProverProof<Fq>, InvalidBigInt> {
     let of_coord =
         |(a, b): &(BigInt, BigInt)| Ok(Pallas::of_coordinates(a.to_field()?, b.to_field()?));
 
@@ -164,7 +164,7 @@ pub fn make_padded_proof_from_p2p(
         .map(|(chals, comm)| RecursionChallenge::new(chals.to_vec(), comm))
         .collect();
 
-    Ok(ProverProof {
+    Ok(ProverProof::<Fq> {
         commitments: ProverCommitments {
             w_comm,
             z_comm,

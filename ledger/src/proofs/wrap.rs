@@ -180,7 +180,7 @@ impl<F: FieldWitness> Oracles<F> {
 }
 
 pub fn create_oracle<F: FieldWitness>(
-    verifier_index: &VerifierIndex<F::OtherCurve>,
+    verifier_index: &VerifierIndex<F>,
     proof_with_public: &ProofWithPublic<F>,
 ) -> Oracles<F> {
     let ProofWithPublic {
@@ -192,8 +192,8 @@ pub fn create_oracle<F: FieldWitness>(
 }
 
 pub fn create_oracle_with_public_input<F: FieldWitness>(
-    verifier_index: &VerifierIndex<F::OtherCurve>,
-    proof: &super::ProverProof<F::OtherCurve>,
+    verifier_index: &VerifierIndex<F>,
+    proof: &ProverProof<F>,
     public_input: &[F],
 ) -> Oracles<F> {
     use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
@@ -309,7 +309,7 @@ struct DeferredValuesParams<'a> {
     public_input: &'a [Fp],
     proof_with_public: &'a ProofWithPublic<Fp>,
     actual_proofs_verified: usize,
-    prover_index: &'a ProverIndex<Vesta>,
+    prover_index: &'a ProverIndex<Fp>,
 }
 
 fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
@@ -591,7 +591,7 @@ pub struct WrapParams<'a> {
     pub step_statement: StepStatement,
     pub prev_evals: &'a [AllEvals<Fq>],
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
-    pub step_prover_index: &'a ProverIndex<Vesta>,
+    pub step_prover_index: &'a ProverIndex<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
 }
 
@@ -1476,7 +1476,7 @@ pub mod wrap_verifier {
     // TODO: Here we pick the verifier index directly from the prover index
     //       but OCaml does it differently
     pub fn choose_key(
-        prover_index: &ProverIndex<Vesta>,
+        prover_index: &ProverIndex<Fp>,
         w: &mut Witness<Fq>,
     ) -> PlonkVerificationKeyEvals<Fq> {
         let vk = prover_index.verifier_index.as_ref().unwrap();
@@ -2790,7 +2790,7 @@ struct WrapMainParams<'a> {
     messages_for_next_step_proof_hash: [u64; 4],
     prev_evals: &'a [AllEvals<Fq>],
     proof: &'a ProofWithPublic<Fp>,
-    step_prover_index: &'a ProverIndex<Vesta>,
+    step_prover_index: &'a ProverIndex<Fp>,
 }
 
 fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) -> Result<(), InvalidBigInt> {

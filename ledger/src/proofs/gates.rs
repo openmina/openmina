@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
 use kimchi::circuits::gate::CircuitGate;
-use kimchi::verifier_index::VerifierIndex;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use once_cell::sync::OnceCell;
@@ -14,6 +13,7 @@ use super::{
     },
     field::FieldWitness,
     transaction::{make_prover_index, InternalVars, Prover, V},
+    VerifierIndex,
 };
 
 use mina_p2p_messages::binprot::{
@@ -295,7 +295,7 @@ mod prover_makers {
     }
     fn get_or_make_tx_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
+        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             TX_WRAP_PROVER,
@@ -316,7 +316,7 @@ mod prover_makers {
     }
     fn get_or_make_block_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
+        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             BLOCK_WRAP_PROVER,
@@ -351,8 +351,8 @@ mod prover_makers {
 
     impl BlockProver {
         pub fn make(
-            block_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
-            tx_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
+            block_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+            tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
         ) -> Self {
             let config = default_circuits_config();
             let block_step_prover = get_or_make_block_step_prover(config);
@@ -368,9 +368,7 @@ mod prover_makers {
     }
 
     impl TransactionProver {
-        pub fn make(
-            tx_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
-        ) -> Self {
+        pub fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
             let config = default_circuits_config();
             let tx_step_prover = get_or_make_tx_step_prover(config);
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index);
@@ -385,9 +383,7 @@ mod prover_makers {
     }
 
     impl ZkappProver {
-        pub fn make(
-            tx_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
-        ) -> Self {
+        pub fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
             let config = default_circuits_config();
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index);
             let merge_step_prover = get_or_make_merge_step_prover(config);
@@ -420,7 +416,7 @@ mod prover_makers {
     }
     async fn get_or_make_tx_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
+        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             TX_WRAP_PROVER,
@@ -441,7 +437,7 @@ mod prover_makers {
     }
     async fn get_or_make_block_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
+        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             BLOCK_WRAP_PROVER,
@@ -476,8 +472,8 @@ mod prover_makers {
 
     impl BlockProver {
         pub async fn make(
-            block_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
-            tx_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
+            block_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+            tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
         ) -> Self {
             let config = default_circuits_config();
             let block_step_prover = get_or_make_block_step_prover(config).await;
@@ -494,9 +490,7 @@ mod prover_makers {
     }
 
     impl TransactionProver {
-        pub async fn make(
-            tx_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
-        ) -> Self {
+        pub async fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
             let config = default_circuits_config();
             let tx_step_prover = get_or_make_tx_step_prover(config).await;
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index).await;
@@ -511,9 +505,7 @@ mod prover_makers {
     }
 
     impl ZkappProver {
-        pub async fn make(
-            tx_verifier_index: Option<Arc<VerifierIndex<<Fq as FieldWitness>::OtherCurve>>>,
-        ) -> Self {
+        pub async fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
             let config = default_circuits_config();
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index).await;
             let merge_step_prover = get_or_make_merge_step_prover(config).await;

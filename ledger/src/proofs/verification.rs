@@ -496,8 +496,8 @@ where
 }
 
 fn verify_with(
-    verifier_index: &VerifierIndex<Pallas>,
-    proof: &ProverProof<Pallas>,
+    verifier_index: &VerifierIndex<Fq>,
+    proof: &ProverProof<Fq>,
     public_input: &[Fq],
 ) -> Result<(), VerifyError> {
     use kimchi::groupmap::GroupMap;
@@ -521,7 +521,7 @@ fn verify_with(
 
 fn run_checks(
     proof: &PicklesProofProofsVerified2ReprStableV2,
-    verifier_index: &VerifierIndex<Pallas>,
+    verifier_index: &VerifierIndex<Fq>,
 ) -> bool {
     let mut errors: Vec<String> = vec![];
     let mut checks = |condition: bool, s: &str| {
@@ -686,13 +686,13 @@ fn compute_deferred_values(
 /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
 pub struct VK<'a> {
     pub commitments: PlonkVerificationKeyEvals<Fp>,
-    pub index: &'a VerifierIndex<Pallas>,
+    pub index: &'a VerifierIndex<Fq>,
     pub data: (), // Unused in proof verification
 }
 
 pub fn verify_block(
     header: &MinaBlockHeaderStableV2,
-    verifier_index: &VerifierIndex<Pallas>,
+    verifier_index: &VerifierIndex<Fq>,
     srs: &SRS<Vesta>,
 ) -> bool {
     let MinaBlockHeaderStableV2 {
@@ -721,7 +721,7 @@ pub fn verify_block(
 
 pub fn verify_transaction<'a>(
     proofs: impl IntoIterator<Item = (&'a Statement<SokDigest>, &'a TransactionSnarkProofStableV2)>,
-    verifier_index: &VerifierIndex<Pallas>,
+    verifier_index: &VerifierIndex<Fq>,
     srs: &SRS<Vesta>,
 ) -> bool {
     let vk = VK {

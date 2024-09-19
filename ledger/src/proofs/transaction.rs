@@ -3916,8 +3916,8 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
 
 pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     gates: Vec<CircuitGate<F>>,
-    verifier_index: Option<Arc<VerifierIndex<F::OtherCurve>>>,
-) -> ProverIndex<F::OtherCurve> {
+    verifier_index: Option<Arc<super::VerifierIndex<F>>>,
+) -> ProverIndex<F> {
     use kimchi::circuits::constraints::ConstraintSystem;
 
     let public = C::PRIMARY_LEN;
@@ -3939,7 +3939,7 @@ pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
         srs.clone()
     };
 
-    let mut index = ProverIndex::<F::OtherCurve>::create(cs, endo_q, Arc::new(srs));
+    let mut index = ProverIndex::<F>::create(cs, endo_q, Arc::new(srs));
     index.verifier_index = verifier_index;
 
     // Compute and cache the verifier index digest
@@ -3980,7 +3980,7 @@ pub(super) struct CreateProofParams<'a, F: FieldWitness> {
 ///
 /// Note: OCaml keeps the `public_evals`, but we already have it in our `proof`
 pub struct ProofWithPublic<F: FieldWitness> {
-    pub proof: super::ProverProof<F::OtherCurve>,
+    pub proof: super::ProverProof<F>,
     pub public_input: Vec<F>,
 }
 impl<F: FieldWitness> ProofWithPublic<F> {
@@ -4002,7 +4002,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     } = params;
 
     let computed_witness: [Vec<F>; COLUMNS] = compute_witness::<C, _>(prover, w);
-    let prover_index: &ProverIndex<F::OtherCurve> = &prover.index;
+    let prover_index: &ProverIndex<F> = &prover.index;
 
     // public input
     let public_input = computed_witness[0][0..prover_index.cs.public].to_vec();
@@ -4049,7 +4049,7 @@ pub struct Prover<F: FieldWitness> {
     pub internal_vars: InternalVars<F>,
     /// Constants to each kind of proof
     pub rows_rev: Vec<Vec<Option<V>>>,
-    pub index: ProverIndex<F::OtherCurve>,
+    pub index: ProverIndex<F>,
 }
 
 pub struct TransactionParams<'a> {

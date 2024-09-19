@@ -1,3 +1,4 @@
+use field::FieldWitness;
 use poly_commitment::evaluation_proof::OpeningProof;
 
 pub mod accumulator_check;
@@ -29,9 +30,18 @@ pub mod zkapp;
 pub const BACKEND_TICK_ROUNDS_N: usize = 16;
 pub const BACKEND_TOCK_ROUNDS_N: usize = 15;
 
-pub type VerifierIndex<Curve> = kimchi::verifier_index::VerifierIndex<Curve, OpeningProof<Curve>>;
-pub type ProverIndex<Curve> = kimchi::prover_index::ProverIndex<Curve, OpeningProof<Curve>>;
-pub type ProverProof<Curve> = kimchi::proof::ProverProof<Curve, OpeningProof<Curve>>;
+pub type VerifierIndex<F> = kimchi::verifier_index::VerifierIndex<
+    <F as FieldWitness>::OtherCurve,
+    OpeningProof<<F as FieldWitness>::OtherCurve>,
+>;
+pub type ProverIndex<F> = kimchi::prover_index::ProverIndex<
+    <F as FieldWitness>::OtherCurve,
+    OpeningProof<<F as FieldWitness>::OtherCurve>,
+>;
+pub type ProverProof<F> = kimchi::proof::ProverProof<
+    <F as FieldWitness>::OtherCurve,
+    OpeningProof<<F as FieldWitness>::OtherCurve>,
+>;
 
 pub fn generate_tx_proof(
     params: transaction::TransactionParams,
