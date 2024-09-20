@@ -18,7 +18,6 @@ export const environment: Readonly<MinaEnv> = {
       zk: ['test'],
     },
     canAddNodes: true,
-    minaExplorerNetwork: 'devnet',
   },
   configs: [
     // {
