@@ -1,10 +1,6 @@
-use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingAction};
-use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
-use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
-use crate::disconnection::P2pDisconnectionAction;
-use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{
-    P2pAction, P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pPeerStatus, P2pState,
+    connection::P2pConnectionState, disconnection::P2pDisconnectionAction, P2pAction,
+    P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pPeerStatus, P2pState,
 };
 use openmina_core::{bug_condition, Substate};
 
@@ -12,77 +8,29 @@ impl P2pState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, Self>,
         action: P2pActionWithMetaRef<'_>,
-    ) where
+    ) -> Result<(), String>
+    where
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
         let Ok(state) = state_context.get_substate_mut() else {
             bug_condition!("no P2pState");
-            return;
+            return Ok(());
         };
         let (action, meta) = action.split();
 
         match action {
             P2pAction::Initialization(_) => {
                 // noop
+                Ok(())
             }
             P2pAction::Connection(action) => {
-                let my_id = state.my_id();
-                let Some(peer_id) = action.peer_id() else {
-                    return;
-                };
-                let peer = match action {
-                    P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init {
-                        opts,
-                        ..
-                    }) => state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                        is_libp2p: opts.is_libp2p(),
-                        dial_opts: Some(opts.clone()),
-                        status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(opts)),
-                        identify: None,
-                    }),
-                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init {
-                        opts,
-                        ..
-                    }) => state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                        is_libp2p: false,
-                        dial_opts: opts.offer.listen_port.map(|listen_port| {
-                            let signaling = match opts.signaling {
-                                IncomingSignalingMethod::Http => {
-                                    SignalingMethod::Http(HttpSignalingInfo {
-                                        host: opts.offer.host.clone(),
-                                        port: listen_port,
-                                    })
-                                }
-                            };
-                            P2pConnectionOutgoingInitOpts::WebRTC {
-                                peer_id: *peer_id,
-                                signaling,
-                            }
-                        }),
-                        status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
-                        identify: None,
-                    }),
-                    P2pConnectionAction::Incoming(
-                        P2pConnectionIncomingAction::FinalizePendingLibp2p { .. },
-                    ) => {
-                        state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                            is_libp2p: true,
-                            dial_opts: None,
-                            // correct status later set in the child reducer.
-                            status: P2pPeerStatus::Disconnected { time: meta.time() },
-                            identify: None,
-                        })
-                    }
-                    _ => match state.peers.get_mut(peer_id) {
-                        Some(v) => v,
-                        None => return,
-                    },
-                };
-                p2p_connection_reducer(peer, my_id, meta.with_action(action));
+                P2pConnectionState::reducer(state_context, meta.with_action(action))
             }
             P2pAction::Disconnection(action) => match action {
-                P2pDisconnectionAction::Init { .. } => {}
+                P2pDisconnectionAction::Init { .. } => {
+                    Ok(())
+                }
                 P2pDisconnectionAction::Finish { peer_id } => {
                     #[cfg(feature = "p2p-libp2p")]
                     if state
@@ -93,32 +41,29 @@ impl P2pState {
                         .any(|(_addr, conn_state)| conn_state.peer_id() == Some(peer_id))
                     {
                         // still have other connections
-                        return;
+                        return Ok(());
                     }
                     let Some(peer) = state.peers.get_mut(peer_id) else {
-                        return;
+                        return Ok(());
                     };
                     peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
+                    Ok(())
                 }
             },
-            P2pAction::Peer(action) => {
-                let time = meta.time();
-                if let Err(error) = P2pPeerState::reducer(
-                    Substate::from_compatible_substate(state_context),
-                    meta.with_action(action),
-                ) {
-                    openmina_core::warn!(time; "error = {error}")
-                }
-            }
+            P2pAction::Peer(action) => P2pPeerState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(action),
+            ),
             P2pAction::Channels(action) => {
                 let Some(peer_id) = action.peer_id() else {
-                    return;
+                    return Ok(());
                 };
                 let is_libp2p = state.is_libp2p_peer(peer_id);
                 let Some(peer) = state.get_ready_peer_mut(peer_id) else {
-                    return;
+                    return Ok(());
                 };
                 peer.channels.reducer(meta.with_action(action), is_libp2p);
+                Ok(())
             }
             P2pAction::Identify(_action) =>
             {
@@ -131,20 +76,23 @@ impl P2pState {
                         }
                     }
                 }
+                Ok(())
             }
             P2pAction::Network(_action) => {
                 #[cfg(feature = "p2p-libp2p")]
                 {
                     let limits = state.config.limits;
-                    let time = meta.time();
-                    if let Err(error) = P2pNetworkState::reducer(
+                    P2pNetworkState::reducer(
                         Substate::from_compatible_substate(state_context),
                         meta.with_action(_action),
                         &limits,
-                    ) {
-                        openmina_core::warn!(time; "error = {error}")
-                    }
+                    )?;
                 }
+                Ok(())
+            }
+            P2pAction::ConnectionEffectful(_) => {
+                // effectful
+                Ok(())
             }
         }
     }

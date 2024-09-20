@@ -14,9 +14,6 @@ pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(opts), display(peer_id), display(error)))]
 pub enum P2pConnectionOutgoingAction {
-    /// Initialize connection to a random peer.
-    #[action_event(level = trace)]
-    RandomInit,
     /// Initialize connection to a new peer.
     #[action_event(level = info)]
     Init {
@@ -92,10 +89,9 @@ pub enum P2pConnectionOutgoingAction {
 }
 
 impl P2pConnectionOutgoingAction {
-    pub fn peer_id(&self) -> Option<&PeerId> {
+    pub fn peer_id(&self) -> &PeerId {
         match self {
-            Self::RandomInit => None,
-            Self::Init { opts, .. } | Self::Reconnect { opts, .. } => Some(opts.peer_id()),
+            Self::Init { opts, .. } | Self::Reconnect { opts, .. } => opts.peer_id(),
             Self::OfferSdpCreatePending { peer_id, .. }
             | Self::OfferSdpCreateError { peer_id, .. }
             | Self::OfferSdpCreateSuccess { peer_id, .. }
@@ -109,7 +105,7 @@ impl P2pConnectionOutgoingAction {
             | Self::FinalizeSuccess { peer_id }
             | Self::Timeout { peer_id }
             | Self::Error { peer_id, .. }
-            | Self::Success { peer_id } => Some(peer_id),
+            | Self::Success { peer_id } => peer_id,
         }
     }
 }
@@ -117,9 +113,6 @@ impl P2pConnectionOutgoingAction {
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
     fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            P2pConnectionOutgoingAction::RandomInit => {
-                !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
-            }
             P2pConnectionOutgoingAction::Init { opts, .. } => {
                 !state.already_has_min_peers() &&
                 &state.my_id() != opts.peer_id() &&

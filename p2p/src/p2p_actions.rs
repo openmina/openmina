@@ -2,6 +2,8 @@ use openmina_macros::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
+use crate::connection::P2pConnectionEffectfulAction;
+
 use super::channels::P2pChannelsAction;
 use super::connection::P2pConnectionAction;
 use super::disconnection::P2pDisconnectionAction;
@@ -17,6 +19,7 @@ pub type P2pActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pAction>;
 pub enum P2pAction {
     Initialization(P2pInitializeAction),
     Connection(P2pConnectionAction),
+    ConnectionEffectful(P2pConnectionEffectfulAction),
     Disconnection(P2pDisconnectionAction),
     Identify(P2pIdentifyAction),
     Channels(P2pChannelsAction),
@@ -44,6 +47,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pAction {
         match self {
             P2pAction::Initialization(a) => a.is_enabled(state, time),
             P2pAction::Connection(a) => a.is_enabled(state, time),
+            P2pAction::ConnectionEffectful(a) => a.is_enabled(state, time),
             P2pAction::Disconnection(a) => a.is_enabled(state, time),
             P2pAction::Channels(a) => a.is_enabled(state, time),
             P2pAction::Peer(a) => a.is_enabled(state, time),

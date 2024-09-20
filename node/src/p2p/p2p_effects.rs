@@ -6,6 +6,7 @@ use p2p::channels::streaming_rpc::{
     P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest, P2pStreamingRpcResponseFull,
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
+use p2p::connection::P2pConnectionEffectfulAction;
 use p2p::P2pInitializeAction;
 
 use crate::consensus::ConsensusAction;
@@ -48,30 +49,27 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             }
         }
         P2pAction::Connection(action) => match action {
-            P2pConnectionAction::Outgoing(action) => {
-                match action {
-                    P2pConnectionOutgoingAction::Error {
-                        ref peer_id,
-                        ref error,
-                    } => {
-                        let p2p = p2p_ready!(store.state().p2p, meta.time());
-                        if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
-                            store.dispatch(RpcAction::P2pConnectionOutgoingError {
-                                rpc_id,
-                                error: error.clone(),
-                            });
-                        }
+            P2pConnectionAction::Outgoing(action) => match action {
+                P2pConnectionOutgoingAction::Error {
+                    ref peer_id,
+                    ref error,
+                } => {
+                    let p2p = p2p_ready!(store.state().p2p, meta.time());
+                    if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
+                        store.dispatch(RpcAction::P2pConnectionOutgoingError {
+                            rpc_id,
+                            error: error.clone(),
+                        });
                     }
-                    P2pConnectionOutgoingAction::Success { ref peer_id } => {
-                        let p2p = p2p_ready!(store.state().p2p, meta.time());
-                        if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
-                            store.dispatch(RpcAction::P2pConnectionOutgoingSuccess { rpc_id });
-                        }
-                    }
-                    _ => {}
                 }
-                action.effects(&meta, store);
-            }
+                P2pConnectionOutgoingAction::Success { ref peer_id } => {
+                    let p2p = p2p_ready!(store.state().p2p, meta.time());
+                    if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
+                        store.dispatch(RpcAction::P2pConnectionOutgoingSuccess { rpc_id });
+                    }
+                }
+                _ => {}
+            },
             P2pConnectionAction::Incoming(action) => {
                 match &action {
                     P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
@@ -103,7 +101,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     }
                     _ => {}
                 }
-                action.effects(&meta, store);
             }
         },
         P2pAction::Disconnection(action) => {
@@ -678,5 +675,9 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             #[cfg(feature = "p2p-libp2p")]
             _action.effects(&meta, store);
         }
+        P2pAction::ConnectionEffectful(action) => match action {
+            P2pConnectionEffectfulAction::Outgoing(action) => action.effects(&meta, store),
+            P2pConnectionEffectfulAction::Incoming(action) => action.effects(&meta, store),
+        },
     }
 }

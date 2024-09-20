@@ -16,7 +16,11 @@ use p2p::{
         snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
         streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
     },
-    connection::outgoing::P2pConnectionOutgoingAction,
+    connection::{
+        incoming_effectful::P2pConnectionIncomingEffectfulAction,
+        outgoing::P2pConnectionOutgoingAction,
+        outgoing_effectful::P2pConnectionOutgoingEffectfulAction,
+    },
     disconnection::P2pDisconnectionAction,
     identify::P2pIdentifyAction,
     network::identify::{
@@ -270,5 +274,7 @@ impl_from_p2p!(p2p::P2pNetworkPnetEffectfulAction);
 impl_from_p2p!(P2pChannelsBestTipAction);
 impl_from_p2p!(P2pChannelsSnarkJobCommitmentAction);
 impl_from_p2p!(P2pChannelsStreamingRpcAction);
+impl_from_p2p!(P2pConnectionIncomingEffectfulAction);
+impl_from_p2p!(P2pConnectionOutgoingEffectfulAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

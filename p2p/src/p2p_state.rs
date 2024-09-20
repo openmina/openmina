@@ -312,6 +312,30 @@ impl P2pState {
             })
             .map(|(peer_id, peer_state)| (*peer_id, peer_state.clone()))
     }
+
+    pub fn incoming_peer_connection_mut(
+        &mut self,
+        peer_id: &PeerId,
+    ) -> Option<&mut P2pConnectionIncomingState> {
+        let peer_state = self.peers.get_mut(peer_id)?;
+
+        match &mut peer_state.status {
+            P2pPeerStatus::Connecting(P2pConnectionState::Incoming(state)) => Some(state),
+            _ => None,
+        }
+    }
+
+    pub fn outgoing_peer_connection_mut(
+        &mut self,
+        peer_id: &PeerId,
+    ) -> Option<&mut P2pConnectionOutgoingState> {
+        let peer_state = self.peers.get_mut(peer_id)?;
+
+        match &mut peer_state.status {
+            P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(state)) => Some(state),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

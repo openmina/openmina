@@ -3,7 +3,10 @@ use redux::{ActionMeta, ActionWithMeta};
 
 use crate::{
     channels::P2pChannelsAction,
-    connection::{outgoing::P2pConnectionOutgoingAction, P2pConnectionAction},
+    connection::{
+        outgoing::P2pConnectionOutgoingAction,
+        outgoing_effectful::P2pConnectionOutgoingEffectfulAction, P2pConnectionEffectfulAction,
+    },
     P2pAction, P2pStore,
 };
 #[cfg(feature = "p2p-libp2p")]
@@ -17,7 +20,7 @@ where
     Store: P2pStore<S>,
 {
     p2p_connection_timeouts(store, meta);
-    store.dispatch(P2pConnectionOutgoingAction::RandomInit);
+    store.dispatch(P2pConnectionOutgoingEffectfulAction::RandomInit);
 
     p2p_try_reconnect_disconnected_peers(store, meta.time());
 
@@ -280,9 +283,12 @@ where
         P2pAction::Initialization(_) => {
             // Noop
         }
-        P2pAction::Connection(action) => match action {
-            P2pConnectionAction::Outgoing(action) => action.effects(&meta, store),
-            P2pConnectionAction::Incoming(action) => action.effects(&meta, store),
+        P2pAction::Connection(_) => {
+            // handled by reducer
+        }
+        P2pAction::ConnectionEffectful(action) => match action {
+            P2pConnectionEffectfulAction::Outgoing(action) => action.effects(&meta, store),
+            P2pConnectionEffectfulAction::Incoming(action) => action.effects(&meta, store),
         },
         P2pAction::Disconnection(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {

@@ -9,7 +9,11 @@ use channels::{
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
     streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
 };
-use connection::incoming::P2pConnectionIncomingAction;
+use connection::{
+    incoming::P2pConnectionIncomingAction,
+    incoming_effectful::P2pConnectionIncomingEffectfulAction,
+    outgoing_effectful::P2pConnectionOutgoingEffectfulAction,
+};
 use disconnection::P2pDisconnectionAction;
 use identify::P2pIdentifyAction;
 pub use identity::PeerId;
@@ -122,5 +126,7 @@ pub trait P2pActionTrait<State>:
     + From<P2pChannelsBestTipAction>
     + From<P2pChannelsSnarkJobCommitmentAction>
     + From<P2pChannelsStreamingRpcAction>
+    + From<P2pConnectionIncomingEffectfulAction>
+    + From<P2pConnectionOutgoingEffectfulAction>
 {
 }

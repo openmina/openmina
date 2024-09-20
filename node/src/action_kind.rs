@@ -31,8 +31,10 @@ use crate::p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
 use crate::p2p::channels::transaction::P2pChannelsTransactionAction;
 use crate::p2p::channels::{P2pChannelsAction, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
+use crate::p2p::connection::incoming_effectful::P2pConnectionIncomingEffectfulAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
-use crate::p2p::connection::P2pConnectionAction;
+use crate::p2p::connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction;
+use crate::p2p::connection::{P2pConnectionAction, P2pConnectionEffectfulAction};
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::identify::P2pIdentifyAction;
 use crate::p2p::network::identify::stream::P2pNetworkIdentifyStreamAction;
@@ -237,6 +239,8 @@ pub enum ActionKind {
     P2pConnectionIncomingLibp2pReceived,
     P2pConnectionIncomingSuccess,
     P2pConnectionIncomingTimeout,
+    P2pConnectionIncomingEffectfulAnswerReady,
+    P2pConnectionIncomingEffectfulInit,
     P2pConnectionOutgoingAnswerRecvError,
     P2pConnectionOutgoingAnswerRecvPending,
     P2pConnectionOutgoingAnswerRecvSuccess,
@@ -250,10 +254,13 @@ pub enum ActionKind {
     P2pConnectionOutgoingOfferSdpCreatePending,
     P2pConnectionOutgoingOfferSdpCreateSuccess,
     P2pConnectionOutgoingOfferSendSuccess,
-    P2pConnectionOutgoingRandomInit,
     P2pConnectionOutgoingReconnect,
     P2pConnectionOutgoingSuccess,
     P2pConnectionOutgoingTimeout,
+    P2pConnectionOutgoingEffectfulAnswerRecvSuccess,
+    P2pConnectionOutgoingEffectfulInit,
+    P2pConnectionOutgoingEffectfulOfferReady,
+    P2pConnectionOutgoingEffectfulRandomInit,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pIdentifyNewRequest,
@@ -558,7 +565,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 463;
+    pub const COUNT: u16 = 468;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -611,6 +618,7 @@ impl ActionKindGet for P2pAction {
         match self {
             Self::Initialization(a) => a.kind(),
             Self::Connection(a) => a.kind(),
+            Self::ConnectionEffectful(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::Identify(a) => a.kind(),
             Self::Channels(a) => a.kind(),
@@ -892,6 +900,15 @@ impl ActionKindGet for P2pInitializeAction {
 }
 
 impl ActionKindGet for P2pConnectionAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Outgoing(a) => a.kind(),
+            Self::Incoming(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pConnectionEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Outgoing(a) => a.kind(),
@@ -1194,7 +1211,6 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
 impl ActionKindGet for P2pConnectionOutgoingAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::RandomInit => ActionKind::P2pConnectionOutgoingRandomInit,
             Self::Init { .. } => ActionKind::P2pConnectionOutgoingInit,
             Self::Reconnect { .. } => ActionKind::P2pConnectionOutgoingReconnect,
             Self::OfferSdpCreatePending { .. } => {
@@ -1246,6 +1262,28 @@ impl ActionKindGet for P2pConnectionIncomingAction {
                 ActionKind::P2pConnectionIncomingFinalizePendingLibp2p
             }
             Self::Libp2pReceived { .. } => ActionKind::P2pConnectionIncomingLibp2pReceived,
+        }
+    }
+}
+
+impl ActionKindGet for P2pConnectionOutgoingEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::RandomInit => ActionKind::P2pConnectionOutgoingEffectfulRandomInit,
+            Self::Init { .. } => ActionKind::P2pConnectionOutgoingEffectfulInit,
+            Self::OfferReady { .. } => ActionKind::P2pConnectionOutgoingEffectfulOfferReady,
+            Self::AnswerRecvSuccess { .. } => {
+                ActionKind::P2pConnectionOutgoingEffectfulAnswerRecvSuccess
+            }
+        }
+    }
+}
+
+impl ActionKindGet for P2pConnectionIncomingEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pConnectionIncomingEffectfulInit,
+            Self::AnswerReady { .. } => ActionKind::P2pConnectionIncomingEffectfulAnswerReady,
         }
     }
 }

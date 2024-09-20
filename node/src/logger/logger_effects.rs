@@ -1,6 +1,7 @@
 use openmina_core::log::inner::field::{display, DisplayValue};
 use openmina_core::log::inner::Value;
 use openmina_core::log::{time_to_str, ActionEvent, EventContext};
+use p2p::connection::P2pConnectionEffectfulAction;
 use p2p::PeerId;
 
 use crate::p2p::channels::P2pChannelsAction;
@@ -52,6 +53,10 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => action.action_event(&context),
                 P2pConnectionAction::Incoming(action) => action.action_event(&context),
+            },
+            P2pAction::ConnectionEffectful(action) => match action {
+                P2pConnectionEffectfulAction::Outgoing(action) => action.action_event(&context),
+                P2pConnectionEffectfulAction::Incoming(action) => action.action_event(&context),
             },
             P2pAction::Disconnection(action) => action.action_event(&context),
             P2pAction::Identify(action) => action.action_event(&context),
