@@ -866,7 +866,7 @@ impl ScanState {
                 //     assert_eq!(&b, transaction.as_ref());
                 // }
 
-                (**transaction).binprot_write(buffer).unwrap();
+                transaction.binprot_write(buffer).unwrap();
             },
         );
 

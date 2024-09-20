@@ -834,7 +834,7 @@ mod scalars {
                 base
             },
             mds: &<F::OtherCurve>::sponge_params().mds,
-            zk_rows: 0,
+            zk_rows: 3,
         };
 
         let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
