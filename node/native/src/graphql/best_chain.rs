@@ -1,7 +1,9 @@
 use std::iter;
+use std::{fs, path::Path};
 
 use juniper::GraphQLObject;
 use ledger::{scan_state::transaction_logic::Memo, FpExt};
+use mina_p2p_messages::binprot::BinProtWrite;
 use mina_p2p_messages::v2::{
     MinaBaseVerificationKeyWireStableV1Base64, ReceiptChainHash, TokenIdKeyHash,
 };
@@ -110,7 +112,6 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
             .rev()
             .filter_map(|cmd| {
                 if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = cmd.data {
-                    // println!("ZKapp: {:?}", zkapp);
                     let failure_reason =
                         if let MinaBaseTransactionStatusStableV2::Failed(failure_collection) =
                             cmd.status
