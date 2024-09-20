@@ -16,6 +16,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 
+use ledger::proofs::gates::BlockProver;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::consensus::ConsensusConstants;
@@ -318,7 +319,8 @@ impl Cluster {
             });
 
         if let Some(keypair) = block_producer_sec_key {
-            service_builder.block_producer_init(keypair);
+            let provers = BlockProver::make(None, None);
+            service_builder.block_producer_init(provers, keypair);
         }
 
         let real_service = service_builder
