@@ -30,7 +30,7 @@ pub fn replay_state_with_input_actions(
         // TODO(binier): we shouldn't have to do this, but serialized
         // index/srs doesn't match deserialized one.
         state.snark.block_verify.verifier_index =
-            node::snark::get_verifier_index(VerifierKind::Blockchain).into();
+            node::snark::get_verifier_index(VerifierKind::Blockchain);
         state.snark.block_verify.verifier_srs = node::snark::get_srs();
         state
     };

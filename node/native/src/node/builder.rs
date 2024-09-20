@@ -274,10 +274,10 @@ impl NodeBuilder {
         let srs = self.verifier_srs.unwrap_or_else(get_srs);
         let block_verifier_index = self
             .block_verifier_index
-            .unwrap_or_else(|| get_verifier_index(VerifierKind::Blockchain).into());
+            .unwrap_or_else(|| get_verifier_index(VerifierKind::Blockchain));
         let work_verifier_index = self
             .work_verifier_index
-            .unwrap_or_else(|| get_verifier_index(VerifierKind::Transaction).into());
+            .unwrap_or_else(|| get_verifier_index(VerifierKind::Transaction));
 
         let initial_time = self
             .custom_initial_time

@@ -56,8 +56,8 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
 ) -> openmina_node_common::Node<NodeService> {
-    let block_verifier_index = Arc::new(get_verifier_index(VerifierKind::Blockchain));
-    let work_verifier_index = Arc::new(get_verifier_index(VerifierKind::Transaction));
+    let block_verifier_index = get_verifier_index(VerifierKind::Blockchain);
+    let work_verifier_index = get_verifier_index(VerifierKind::Transaction);
 
     let genesis_config = ::node::config::DEVNET_CONFIG.clone();
     let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
