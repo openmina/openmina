@@ -11,7 +11,6 @@ export default {
       'benchmarks': ['wallets'],
     },
     canAddNodes: false,
-    minaExplorerNetwork: 'devnet',
   },
   configs: [
     {

@@ -55,7 +55,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   appIdentifier: string = CONFIG.identifier;
   activeNode: MinaNode;
   activeRoute: string;
-  network: string;
+  network?: MinaNetwork;
   chainId?: string;
 
   constructor(private router: Router,
@@ -102,8 +102,6 @@ export class MenuComponent extends ManualDetection implements OnInit {
       )
       .subscribe((node: MinaNode) => {
         this.activeNode = node;
-        this.network = node.minaExplorerNetwork ?? CONFIG.globalConfig?.minaExplorerNetwork;
-        this.network = this.network.charAt(0).toUpperCase() + this.network.slice(1);
         this.menuItems = this.allowedMenuItems;
         this.detect();
       });
@@ -113,8 +111,9 @@ export class MenuComponent extends ManualDetection implements OnInit {
         filter(Boolean),
         untilDestroyed(this),
       )
-      .subscribe(({ chainId }) => {
+      .subscribe(({ chainId, network }) => {
         this.chainId = chainId;
+        this.network = network as MinaNetwork;
         this.detect();
       });
   }

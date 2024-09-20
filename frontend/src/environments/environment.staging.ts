@@ -13,7 +13,6 @@ export const environment: Readonly<MinaEnv> = {
       'benchmarks': ['wallets'],
     },
     canAddNodes: false,
-    minaExplorerNetwork: 'devnet',
   },
   configs: [
     {
