@@ -191,7 +191,7 @@ impl generated::MinaBaseSignedCommandStableV2 {
 impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
     fn binprot_write_with_default(&self) -> io::Result<Vec<u8>> {
         let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
-        let default_proof = super::dummy_transaction_proof();
+        let default_proof = super::sideloaded_transaction_proof();
 
         let mut encoded = vec![];
 
@@ -846,7 +846,11 @@ mod verification_key;
 
 #[cfg(test)]
 mod hash_tests {
-    use crate::v2::MinaStateProtocolStateValueStableV2;
+    use binprot::BinProtRead;
+
+    use crate::v2::{
+        MinaBaseZkappCommandTStableV1WireStableV1, MinaStateProtocolStateValueStableV2,
+    };
 
     #[test]
     #[ignore = "fix expected hash/hasing"]
@@ -858,5 +862,31 @@ mod hash_tests {
         let hash = state.hash();
         let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
         assert_eq!(hash, expected_hash)
+    }
+
+    #[test]
+    fn test_zkapp_with_proof_auth_hash() {
+        // expected: 5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o
+        // MinaBaseZkappCommandTStableV1WireStableV1
+        //
+        let expected_hash = "5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o".to_string();
+        let bytes = include_bytes!("../../../tests/files/zkapps/with_proof_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+        let hash = zkapp.hash().unwrap().to_string();
+
+        assert_eq!(expected_hash, hash);
+    }
+
+    #[test]
+
+    fn test_zkapp_with_sig_auth_hash() {
+        let expected_hash = "5JvQ6xQeGgCTe2d4KpCsJ97yK61mNRZHixJxPbKTppY1qSGgtj6t".to_string();
+        let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+        let hash = zkapp.hash().unwrap().to_string();
+
+        assert_eq!(expected_hash, hash);
     }
 }

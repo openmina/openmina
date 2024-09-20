@@ -32,6 +32,19 @@ pub fn dummy_transaction_proof() -> Arc<TransactionSnarkProofStableV2> {
     DUMMY_PROOF.clone()
 }
 
+pub fn sideloaded_transaction_proof() -> Arc<TransactionSnarkProofStableV2> {
+    lazy_static::lazy_static! {
+        static ref DUMMY_PROOF: Arc<TransactionSnarkProofStableV2> = {
+            let bytes = include_bytes!("sideloaded_proof.bin");
+            TransactionSnarkProofStableV2::binprot_read(&mut bytes.as_slice())
+                .unwrap()
+                .into()
+        };
+    }
+
+    DUMMY_PROOF.clone()
+}
+
 /// Value of `Proof.blockchain_dummy`
 pub fn dummy_blockchain_proof() -> Arc<MinaBaseProofStableV2> {
     lazy_static::lazy_static! {
