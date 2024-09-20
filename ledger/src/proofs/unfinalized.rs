@@ -118,7 +118,7 @@ pub struct Unfinalized {
 
 #[derive(Clone, Debug)]
 pub struct EvalsWithPublicInput<F: FieldWitness> {
-    pub evals: ProofEvaluations<[Vec<F>; 2]>,
+    pub evals: ProofEvaluations<PointEvaluations<Vec<F>>>,
     pub public_input: (Vec<F>, Vec<F>),
 }
 
@@ -131,10 +131,11 @@ pub struct AllEvals<F: FieldWitness> {
 impl AllEvals<Fq> {
     /// Dummy.evals
     fn dummy_impl() -> Self {
+        let to_vec = |p: PointEvaluations<_>| p.map(&|v| vec![v]);
         Self {
             ft_eval1: ro::tock(89),
             evals: EvalsWithPublicInput {
-                evals: dummy_evals().map(&|[a, b]| [vec![a], vec![b]]),
+                evals: dummy_evals().map(&to_vec),
                 public_input: (vec![ro::tock(88)], vec![ro::tock(87)]),
             },
         }
@@ -166,8 +167,7 @@ impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEv
         Ok(Self {
             ft_eval1: ft_eval1.to_field()?,
             evals: EvalsWithPublicInput {
-                evals: prev_evals_from_p2p::<F>(evals)?
-                    .map(&|PointEvaluations { zeta, zeta_omega }| [zeta, zeta_omega]),
+                evals: prev_evals_from_p2p::<F>(evals)?,
                 public_input: (vec![p0.to_field()?], vec![p1.to_field()?]),
             },
         })
@@ -177,7 +177,7 @@ impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEv
 /// Equivalent of `to_kimchi` in OCaml
 pub fn evals_from_p2p<F: FieldWitness>(
     e: &v2::PicklesWrapWireProofEvaluationsStableV1,
-) -> Result<ProofEvaluations<[Vec<F>; 2]>, InvalidBigInt> {
+) -> Result<ProofEvaluations<PointEvaluations<Vec<F>>>, InvalidBigInt> {
     let v2::PicklesWrapWireProofEvaluationsStableV1 {
         w,
         coefficients,
@@ -193,8 +193,11 @@ pub fn evals_from_p2p<F: FieldWitness>(
 
     use mina_p2p_messages::bigint::BigInt;
 
-    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<[Vec<F>; 2], _> {
-        Ok([vec![zeta.to_field()?], vec![zeta_omega.to_field()?]])
+    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<PointEvaluations<Vec<F>>, _> {
+        Ok(PointEvaluations {
+            zeta: vec![zeta.to_field()?],
+            zeta_omega: vec![zeta_omega.to_field()?],
+        })
     };
 
     use std::array;
@@ -228,8 +231,8 @@ pub fn evals_from_p2p<F: FieldWitness>(
     })
 }
 
-fn dummy_evals() -> ProofEvaluations<[Fq; 2]> {
-    type Evals = ProofEvaluations<[Fq; 2]>;
+fn dummy_evals() -> ProofEvaluations<PointEvaluations<Fq>> {
+    type Evals = ProofEvaluations<PointEvaluations<Fq>>;
     cache_one! {
         Evals,
         {
@@ -242,9 +245,12 @@ fn dummy_evals() -> ProofEvaluations<[Fq; 2]> {
                 Some(res)
             });
 
-            let mut next = || [iter.next().unwrap(), iter.next().unwrap()];
+            let mut next = || PointEvaluations {
+                zeta: iter.next().unwrap(),
+                zeta_omega: iter.next().unwrap(),
+            };
 
-            ProofEvaluations::<[Fq; 2]> {
+            ProofEvaluations {
                 public: None,
                 w: std::array::from_fn(|_| next()),
                 coefficients: std::array::from_fn(|_| next()),

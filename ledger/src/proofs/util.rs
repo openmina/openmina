@@ -1,6 +1,5 @@
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field};
 use kimchi::proof::{PointEvaluations, ProofEvaluations};
-use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt, pseq::PaddedSeq,
     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
@@ -135,6 +134,7 @@ pub fn challenge_polynomial_checked<F: FieldWitness>(
 }
 
 /// Note: Outdated URL
+/// Note: Same as `to_absorption_sequence`
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
 pub fn proof_evaluation_to_list<F: FieldWitness>(
     e: &ProofEvaluations<PointEvaluations<Vec<F>>>,
@@ -213,10 +213,10 @@ pub fn proof_evaluation_to_list<F: FieldWitness>(
 
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
 pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
-    e: &ProofEvaluations<[Vec<F>; 2]>,
+    e: &ProofEvaluations<PointEvaluations<Vec<F>>>,
     hack_feature_flags: OptFlag,
-) -> Vec<Opt<[Vec<F>; 2]>> {
-    let ProofEvaluations::<[Vec<F>; 2]> {
+) -> Vec<Opt<PointEvaluations<Vec<F>>>> {
+    let ProofEvaluations {
         public: _,
         w,
         z,
@@ -259,12 +259,15 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
     list.extend(coefficients.iter().cloned().map(Opt::Some));
     list.extend(s.iter().cloned().map(Opt::Some));
 
-    let zero = F::zero();
-    let to_opt = |v: &Option<[Vec<F>; 2]>| {
+    let zero = || PointEvaluations {
+        zeta: vec![F::zero()],
+        zeta_omega: vec![F::zero()],
+    };
+    let to_opt = |v: &Option<PointEvaluations<Vec<F>>>| {
         if let OptFlag::Maybe = hack_feature_flags {
             match v {
                 Some(v) => Opt::Maybe(Boolean::True, v.clone()),
-                None => Opt::Maybe(Boolean::False, [vec![zero], vec![zero]]),
+                None => Opt::Maybe(Boolean::False, zero()),
             }
         } else {
             match v {
@@ -304,265 +307,12 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
     list
 }
 
-/// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L459
-pub fn to_absorption_sequence(
-    evals: &mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
-) -> Result<Vec<(Vec<Fp>, Vec<Fp>)>, InvalidBigInt> {
-    let mina_p2p_messages::v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
-        w,
-        coefficients,
-        z,
-        s,
-        generic_selector,
-        poseidon_selector,
-        complete_add_selector,
-        mul_selector,
-        emul_selector,
-        endomul_scalar_selector,
-        range_check0_selector,
-        range_check1_selector,
-        foreign_field_add_selector,
-        foreign_field_mul_selector,
-        xor_selector,
-        rot_selector,
-        lookup_aggregation,
-        lookup_table,
-        lookup_sorted,
-        runtime_lookup_table,
-        runtime_lookup_table_selector,
-        xor_lookup_selector,
-        lookup_gate_lookup_selector,
-        range_check_lookup_selector,
-        foreign_field_mul_lookup_selector,
-    } = evals;
-
-    let mut list = vec![
-        z,
-        generic_selector,
-        poseidon_selector,
-        complete_add_selector,
-        mul_selector,
-        emul_selector,
-        endomul_scalar_selector,
-    ];
-
-    list.extend(w.iter());
-    list.extend(coefficients.iter());
-    list.extend(s.iter());
-
-    list.extend(
-        [
-            range_check0_selector,
-            range_check1_selector,
-            foreign_field_add_selector,
-            foreign_field_mul_selector,
-            xor_selector,
-            rot_selector,
-            lookup_aggregation,
-            lookup_table,
-        ]
-        .iter()
-        .filter_map(|v| v.as_ref()),
-    );
-
-    list.extend(lookup_sorted.iter().filter_map(|v| v.as_ref()));
-
-    list.extend(
-        [
-            runtime_lookup_table,
-            runtime_lookup_table_selector,
-            xor_lookup_selector,
-            lookup_gate_lookup_selector,
-            range_check_lookup_selector,
-            foreign_field_mul_lookup_selector,
-        ]
-        .iter()
-        .filter_map(|v| v.as_ref()),
-    );
-
-    list.iter()
-        .map(|(a, b)| {
-            let a: Vec<_> = a.iter().map(Fp::try_from).collect::<Result<_, _>>()?;
-            let b: Vec<_> = b.iter().map(Fp::try_from).collect::<Result<_, _>>()?;
-            Ok((a, b))
-        })
-        .collect()
-}
-
-// TODO: Dedup with above
-pub fn to_absorption_sequence2<F: FieldWitness>(
-    evals: &ProofEvaluations<[Vec<F>; 2]>,
-) -> Vec<(Vec<F>, Vec<F>)> {
-    let ProofEvaluations {
-        public: _,
-        w,
-        coefficients,
-        z,
-        s,
-        generic_selector,
-        poseidon_selector,
-        complete_add_selector,
-        mul_selector,
-        emul_selector,
-        endomul_scalar_selector,
-        range_check0_selector,
-        range_check1_selector,
-        foreign_field_add_selector,
-        foreign_field_mul_selector,
-        xor_selector,
-        rot_selector,
-        lookup_aggregation,
-        lookup_table,
-        lookup_sorted,
-        runtime_lookup_table,
-        runtime_lookup_table_selector,
-        xor_lookup_selector,
-        lookup_gate_lookup_selector,
-        range_check_lookup_selector,
-        foreign_field_mul_lookup_selector,
-    } = evals;
-
-    let mut list = vec![
-        z,
-        generic_selector,
-        poseidon_selector,
-        complete_add_selector,
-        mul_selector,
-        emul_selector,
-        endomul_scalar_selector,
-    ];
-
-    list.extend(w.iter());
-    list.extend(coefficients.iter());
-    list.extend(s.iter());
-
-    list.extend(
-        [
-            range_check0_selector,
-            range_check1_selector,
-            foreign_field_add_selector,
-            foreign_field_mul_selector,
-            xor_selector,
-            rot_selector,
-            lookup_aggregation,
-            lookup_table,
-        ]
-        .into_iter()
-        .filter_map(|v| v.as_ref()),
-    );
-
-    list.extend(lookup_sorted.iter().filter_map(|v| v.as_ref()));
-
-    list.extend(
-        [
-            runtime_lookup_table,
-            runtime_lookup_table_selector,
-            xor_lookup_selector,
-            lookup_gate_lookup_selector,
-            range_check_lookup_selector,
-            foreign_field_mul_lookup_selector,
-        ]
-        .into_iter()
-        .filter_map(|v| v.as_ref()),
-    );
-
-    list.iter().map(|[a, b]| (a.clone(), b.clone())).collect()
-}
-
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L674
 pub fn to_absorption_sequence_opt<F: FieldWitness>(
-    evals: &ProofEvaluations<[Vec<F>; 2]>,
+    evals: &ProofEvaluations<PointEvaluations<Vec<F>>>,
     hack_feature_flags: OptFlag,
-) -> Vec<Opt<[Vec<F>; 2]>> {
-    let ProofEvaluations {
-        public: _,
-        w,
-        coefficients,
-        z,
-        s,
-        generic_selector,
-        poseidon_selector,
-        complete_add_selector,
-        mul_selector,
-        emul_selector,
-        endomul_scalar_selector,
-        range_check0_selector,
-        range_check1_selector,
-        foreign_field_add_selector,
-        foreign_field_mul_selector,
-        xor_selector,
-        rot_selector,
-        lookup_aggregation,
-        lookup_table,
-        lookup_sorted,
-        runtime_lookup_table,
-        runtime_lookup_table_selector,
-        xor_lookup_selector,
-        lookup_gate_lookup_selector,
-        range_check_lookup_selector,
-        foreign_field_mul_lookup_selector,
-    } = evals;
-
-    let mut list = vec![
-        Opt::Some(z.clone()),
-        Opt::Some(generic_selector.clone()),
-        Opt::Some(poseidon_selector.clone()),
-        Opt::Some(complete_add_selector.clone()),
-        Opt::Some(mul_selector.clone()),
-        Opt::Some(emul_selector.clone()),
-        Opt::Some(endomul_scalar_selector.clone()),
-    ];
-
-    list.extend(w.iter().cloned().map(Opt::Some));
-    list.extend(coefficients.iter().cloned().map(Opt::Some));
-    list.extend(s.iter().cloned().map(Opt::Some));
-
-    let zero = F::zero();
-    let to_opt = |v: &Option<[Vec<F>; 2]>| {
-        if let OptFlag::Maybe = hack_feature_flags {
-            match v {
-                Some(v) => Opt::Maybe(Boolean::True, v.clone()),
-                None => Opt::Maybe(Boolean::False, [vec![zero], vec![zero]]),
-            }
-        } else {
-            match v {
-                Some(v) => Opt::Some(v.clone()),
-                None => Opt::No,
-            }
-        }
-    };
-
-    list.extend(
-        [
-            range_check0_selector,
-            range_check1_selector,
-            foreign_field_add_selector,
-            foreign_field_mul_selector,
-            xor_selector,
-            rot_selector,
-            lookup_aggregation,
-            lookup_table,
-        ]
-        .into_iter()
-        .map(to_opt),
-    );
-
-    list.extend(lookup_sorted.iter().map(to_opt));
-
-    list.extend(
-        [
-            runtime_lookup_table,
-            runtime_lookup_table_selector,
-            xor_lookup_selector,
-            lookup_gate_lookup_selector,
-            range_check_lookup_selector,
-            foreign_field_mul_lookup_selector,
-        ]
-        .into_iter()
-        .map(to_opt),
-    );
-
-    list
+) -> Vec<Opt<PointEvaluations<Vec<F>>>> {
+    proof_evaluation_to_list_opt(evals, hack_feature_flags)
 }
 
 pub fn sha256_sum(s: &[u8]) -> String {

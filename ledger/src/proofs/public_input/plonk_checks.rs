@@ -2,7 +2,11 @@ use std::rc::Rc;
 
 use ark_ff::{Field, One};
 use ark_poly::Radix2EvaluationDomain;
-use kimchi::{circuits::expr::RowOffset, curve::KimchiCurve, proof::ProofEvaluations};
+use kimchi::{
+    circuits::expr::RowOffset,
+    curve::KimchiCurve,
+    proof::{PointEvaluations, ProofEvaluations},
+};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
@@ -234,7 +238,7 @@ pub fn powers_of_alpha<F: FieldWitness>(alpha: F) -> Box<[F; NPOWERS_OF_ALPHA]> 
 
 pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
-    evals: &ProofEvaluations<[F; 2]>,
+    evals: &ProofEvaluations<PointEvaluations<F>>,
     minimal: &PlonkMinimal<F, NLIMB>,
 ) -> InCircuit<F> {
     let PlonkMinimal {
@@ -249,15 +253,15 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(*alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
-    let w0 = evals.w.map(|fields| fields[0]);
+    let w0 = evals.w.map(|point| point.fst());
 
     let beta = *beta;
     let gamma = *gamma;
 
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L397
     let perm = evals.s.iter().enumerate().fold(
-        evals.z[1] * beta * alpha_pow(PERM_ALPHA0) * zkp,
-        |accum, (index, elem)| accum * (gamma + (beta * elem[0]) + w0[index]),
+        evals.z.snd() * beta * alpha_pow(PERM_ALPHA0) * zkp,
+        |accum, (index, elem)| accum * (gamma + (beta * elem.fst()) + w0[index]),
     );
     let perm = -perm;
 
@@ -289,7 +293,7 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
 // TODO: De-duplicate with `derive_plonk`
 pub fn derive_plonk_checked<F: FieldWitness>(
     env: &ScalarsEnv<F>,
-    evals: &ProofEvaluations<[F; 2]>,
+    evals: &ProofEvaluations<PointEvaluations<F>>,
     minimal: &PlonkWithField<F>,
     w: &mut Witness<F>,
 ) -> InCircuit<F> {
@@ -298,16 +302,16 @@ pub fn derive_plonk_checked<F: FieldWitness>(
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
-    let w0 = evals.w.map(|fields| fields[0]);
+    let w0 = evals.w.map(|point| point.fst());
 
     let beta = minimal.beta;
     let gamma = minimal.gamma;
 
     let perm = evals.s.iter().enumerate().fold(
-        field::muls(&[evals.z[1], beta, alpha_pow(PERM_ALPHA0), zkp], w),
+        field::muls(&[evals.z.snd(), beta, alpha_pow(PERM_ALPHA0), zkp], w),
         |accum, (index, elem)| {
             // We decompose this way because of OCaml evaluation order
-            let beta_elem = field::mul(beta, elem[0], w);
+            let beta_elem = field::mul(beta, elem.fst(), w);
             field::mul(accum, gamma + beta_elem + w0[index], w)
         },
     );
@@ -349,7 +353,7 @@ pub fn derive_plonk_checked<F: FieldWitness>(
 
 pub fn checked<F: FieldWitness>(
     env: &ScalarsEnv<F>,
-    evals: &ProofEvaluations<[F; 2]>,
+    evals: &ProofEvaluations<PointEvaluations<F>>,
     plonk: &PlonkWithField<F>,
     w: &mut Witness<F>,
 ) -> Boolean {
@@ -375,13 +379,13 @@ pub fn make_shifts<F: FieldWitness>(
 
 pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
-    evals: &ProofEvaluations<[F; 2]>,
+    evals: &ProofEvaluations<PointEvaluations<F>>,
     minimal: &PlonkMinimal<F, NLIMB>,
     p_eval0: &[F],
 ) -> F {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
 
-    let e0_s: Vec<_> = evals.s.iter().map(|s| s[0]).collect();
+    let e0_s: Vec<_> = evals.s.iter().map(|s| s.fst()).collect();
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
@@ -401,12 +405,12 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
         })
         .unwrap(); // Never fail, `p_eval0` is non-empty
 
-    let w0: Vec<_> = evals.w.iter().map(|w| w[0]).collect();
+    let w0: Vec<_> = evals.w.iter().map(|w| w.fst()).collect();
 
     let ft_eval0 = {
         let a0 = alpha_pow(PERM_ALPHA0);
         let w_n = w0[PLONK_TYPES_PERMUTS_MINUS_1_N];
-        let init = (w_n + minimal.gamma) * evals.z[1] * a0 * zkp;
+        let init = (w_n + minimal.gamma) * evals.z.snd() * a0 * zkp;
         e0_s.iter().enumerate().fold(init, |acc, (i, s)| {
             ((minimal.beta * s) + w0[i] + minimal.gamma) * acc
         })
@@ -416,17 +420,15 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
     let ft_eval0 = ft_eval0 - p_eval0;
 
     let ft_eval0 = ft_eval0
-        - shifts
-            .iter()
-            .enumerate()
-            .fold(alpha_pow(PERM_ALPHA0) * zkp * evals.z[0], |acc, (i, s)| {
-                acc * (minimal.gamma + (minimal.beta * minimal.zeta * s) + w0[i])
-            });
+        - shifts.iter().enumerate().fold(
+            alpha_pow(PERM_ALPHA0) * zkp * evals.z.fst(),
+            |acc, (i, s)| acc * (minimal.gamma + (minimal.beta * minimal.zeta * s) + w0[i]),
+        );
 
     let nominator =
         (zeta1m1 * alpha_pow(PERM_ALPHA0 + 1) * (minimal.zeta - env.omega_to_minus_zk_rows)
             + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - F::one())))
-            * (F::one() - evals.z[0]);
+            * (F::one() - evals.z.fst());
 
     let denominator = (minimal.zeta - env.omega_to_minus_zk_rows) * (minimal.zeta - F::one());
     let ft_eval0 = ft_eval0 + (nominator / denominator);
@@ -771,7 +773,7 @@ mod scalars {
     pub fn compute<F: FieldWitness>(
         gate: Option<GateType>,
         minimal: &MinimalForScalar<F>,
-        evals: &ProofEvaluations<[F; 2]>,
+        evals: &ProofEvaluations<PointEvaluations<F>>,
         env: &ScalarsEnv<F>,
         w: &mut Witness<F>,
     ) -> F {
@@ -837,13 +839,8 @@ mod scalars {
             zk_rows: 3,
         };
 
-        let evals = evals.map_ref(&|[zeta, zeta_omega]| kimchi::proof::PointEvaluations {
-            zeta: *zeta,
-            zeta_omega: *zeta_omega,
-        });
-
         let mut ctx = EvalContext {
-            evals: &evals,
+            evals,
             constants: &constants,
             cache: BTreeMap::new(),
             env,
@@ -868,7 +865,7 @@ mod scalars {
 // TODO: De-duplicate with `ft_eval0`
 pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
-    evals: &ProofEvaluations<[F; 2]>,
+    evals: &ProofEvaluations<PointEvaluations<F>>,
     minimal: &PlonkMinimal<F, NLIMB>,
     lookup: Option<F>,
     p_eval0: &[F],
@@ -876,7 +873,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
 ) -> F {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
 
-    let e0_s: Vec<_> = evals.s.iter().map(|s| s[0]).collect();
+    let e0_s: Vec<_> = evals.s.iter().map(|s| s.fst()).collect();
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
@@ -893,12 +890,12 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
             }
         })
         .unwrap(); // Never fail, `p_eval0` is non-empty
-    let w0: Vec<_> = evals.w.iter().map(|w| w[0]).collect();
+    let w0: Vec<_> = evals.w.iter().map(|w| w.fst()).collect();
 
     let ft_eval0 = {
         let a0 = alpha_pow(PERM_ALPHA0);
         let w_n = w0[PLONK_TYPES_PERMUTS_MINUS_1_N];
-        let init = field::muls(&[(w_n + minimal.gamma), evals.z[1], a0, zkp], w);
+        let init = field::muls(&[(w_n + minimal.gamma), evals.z.snd(), a0, zkp], w);
         e0_s.iter().enumerate().fold(init, |acc, (i, s)| {
             // We decompose this way because of OCaml evaluation order
             let beta_s = field::mul(minimal.beta, *s, w);
@@ -911,7 +908,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
 
     let ft_eval0 = ft_eval0
         - shifts.iter().enumerate().fold(
-            field::muls(&[alpha_pow(PERM_ALPHA0), zkp, evals.z[0]], w),
+            field::muls(&[alpha_pow(PERM_ALPHA0), zkp, evals.z.fst()], w),
             |acc, (i, s)| {
                 let beta_zeta = field::mul(minimal.beta, minimal.zeta, w);
                 field::mul(acc, minimal.gamma + (beta_zeta * s) + w0[i], w)
@@ -935,7 +932,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
         ],
         w,
     );
-    let nominator = field::mul(a + b, F::one() - evals.z[0], w);
+    let nominator = field::mul(a + b, F::one() - evals.z.fst(), w);
 
     let denominator = field::mul(
         minimal.zeta - env.omega_to_minus_zk_rows,

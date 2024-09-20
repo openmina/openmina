@@ -68,7 +68,7 @@ pub struct CombinedInnerProductParams<
 > {
     pub env: &'a ScalarsEnv<F>,
     pub evals: &'a ProofEvaluations<PointEvaluations<Vec<F>>>,
-    pub combined_evals: &'a ProofEvaluations<[F; 2]>,
+    pub combined_evals: &'a ProofEvaluations<PointEvaluations<F>>,
     pub public: &'a PointEvaluations<Vec<F>>,
     pub minimal: &'a PlonkMinimal<F, NLIMB>,
     pub ft_eval1: F,
@@ -285,18 +285,15 @@ fn actual_evaluation<F: FieldWitness>(pt: F, e: &[F], rounds: usize) -> F {
 }
 
 pub fn evals_of_split_evals<F: FieldWitness, S: AsRef<[F]>>(
-    zeta: F,
-    zetaw: F,
+    point_zeta: F,
+    point_zetaw: F,
     es: &ProofEvaluations<PointEvaluations<S>>,
     rounds: usize,
-) -> ProofEvaluations<[F; 2]> {
-    es.map_ref(&|PointEvaluations {
-                     zeta: x1,
-                     zeta_omega: x2,
-                 }| {
-        let zeta = actual_evaluation(zeta, x1.as_ref(), rounds);
-        let zeta_omega = actual_evaluation(zetaw, x2.as_ref(), rounds);
-        [zeta, zeta_omega]
+) -> ProofEvaluations<PointEvaluations<F>> {
+    es.map_ref(&|PointEvaluations { zeta, zeta_omega }| {
+        let zeta = actual_evaluation(point_zeta, zeta.as_ref(), rounds);
+        let zeta_omega = actual_evaluation(point_zetaw, zeta_omega.as_ref(), rounds);
+        PointEvaluations { zeta, zeta_omega }
     })
 }
 
@@ -329,15 +326,11 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let oracle = create_oracle(&step_vk, proof_with_public);
 
     let x_hat = match proof_with_public.public_evals() {
-        Some(x) => {
-            x.clone()
-            // let PointEvaluations { zeta, zeta_omega } = x;
-            // [zeta.clone(), zeta_omega.clone()]
-        }
+        Some(x) => x.clone(),
         None => PointEvaluations {
             zeta: vec![oracle.p_eval.0],
             zeta_omega: vec![oracle.p_eval.1],
-        }, // None => [vec![oracle.p_eval.0], vec![oracle.p_eval.1]]
+        },
     };
 
     let alpha = oracle.alpha();
@@ -659,6 +652,8 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         .map(MessagesForNextWrapProof::hash)
         .collect::<Vec<_>>();
 
+    // Note: This probably can be removed, because now we take
+    // the public_input from `ProofWithPublic`
     let public_input = make_public_input(
         &step_statement,
         messages_for_next_step_proof_hash,
@@ -822,11 +817,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
                     let PointEvaluations { zeta, zeta_omega } = x_hat_evals;
                     (zeta, zeta_omega)
                 },
-                evals: proof_with_public
-                    .proof
-                    .evals
-                    .clone()
-                    .map(&|PointEvaluations { zeta, zeta_omega }| [zeta, zeta_omega]),
+                evals: proof_with_public.proof.evals.clone(),
             },
         },
     })
@@ -1661,11 +1652,11 @@ pub mod wrap_verifier {
             for eval in &to_absorption_sequence_opt(&evals.evals, OptFlag::No) {
                 match eval {
                     Opt::No => {}
-                    Opt::Some([x1, x2]) => {
-                        sponge.absorb(x1, w);
-                        sponge.absorb(x2, w);
+                    Opt::Some(PointEvaluations { zeta, zeta_omega }) => {
+                        sponge.absorb(zeta, w);
+                        sponge.absorb(zeta_omega, w);
                     }
-                    Opt::Maybe(_b, [_x1, _x2]) => todo!(),
+                    Opt::Maybe(_b, _pt) => todo!(),
                 }
             }
         };
@@ -1706,11 +1697,13 @@ pub mod wrap_verifier {
             let zeta_n = pow2pow(plonk.zeta);
             let zetaw_n = pow2pow(zetaw);
 
-            evals.evals.map_ref(&|[x0, x1]| {
-                let a = actual_evaluation(x0, zeta_n);
-                let b = actual_evaluation(x1, zetaw_n);
-                [a, b]
-            })
+            evals
+                .evals
+                .map_ref(&|PointEvaluations { zeta, zeta_omega }| {
+                    let zeta = actual_evaluation(zeta, zeta_n);
+                    let zeta_omega = actual_evaluation(zeta_omega, zetaw_n);
+                    PointEvaluations { zeta, zeta_omega }
+                })
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_WRAP_LOG2 as u64;
@@ -1729,11 +1722,7 @@ pub mod wrap_verifier {
             let p_eval0 = &evals.public_input.0;
             let ft_eval0 =
                 ft_eval0_checked(&env, &combined_evals, &plonk_mininal, None, p_eval0, w);
-            let es = evals.evals.map_ref(&|[a, b]| PointEvaluations {
-                zeta: a.clone(),
-                zeta_omega: b.clone(),
-            });
-            let a = proof_evaluation_to_list(&es);
+            let a = proof_evaluation_to_list(&evals.evals);
 
             let actual_combined_inner_product = {
                 enum WhichEval {

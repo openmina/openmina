@@ -8,6 +8,7 @@ use crate::{
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
         unfinalized::dummy_ipa_step_challenges_computed,
+        util::proof_evaluation_to_list,
         verifier_index::wrap_domains,
         wrap::{
             create_oracle_with_public_input, dummy_ipa_wrap_sg, wrap_verifier, Domain,
@@ -34,7 +35,7 @@ use crate::proofs::{
         prepared_statement::Plonk,
     },
     transaction::endos,
-    util::{challenge_polynomial, four_u64_to_field, to_absorption_sequence2},
+    util::{challenge_polynomial, four_u64_to_field},
     verification::{make_scalars_env, prev_evals_from_p2p},
     wrap::{
         combined_inner_product, evals_of_split_evals, CombinedInnerProductParams,
@@ -669,16 +670,16 @@ pub mod step_verifier {
             for eval in &to_absorption_sequence_opt(&evals.evals, hack_feature_flags) {
                 match eval {
                     Opt::No => {}
-                    Opt::Some([x1, x2]) => {
-                        sponge.absorb(x1, w);
-                        sponge.absorb(x2, w);
+                    Opt::Some(PointEvaluations { zeta, zeta_omega }) => {
+                        sponge.absorb(zeta, w);
+                        sponge.absorb(zeta_omega, w);
                     }
-                    Opt::Maybe(b, [x1, x2]) => {
+                    Opt::Maybe(b, PointEvaluations { zeta, zeta_omega }) => {
                         let sponge_state_before = sponge.sponge_state.clone();
                         let state_before = sponge.state;
 
-                        sponge.absorb(x1, w);
-                        sponge.absorb(x2, w);
+                        sponge.absorb(zeta, w);
+                        sponge.absorb(zeta_omega, w);
 
                         // TODO: Does it panic in OCaml ?
                         use mina_poseidon::poseidon::SpongeState::{Absorbed, Squeezed};
@@ -738,11 +739,13 @@ pub mod step_verifier {
             let zeta_n = pow2pow(plonk.zeta);
             let zetaw_n = pow2pow(zetaw);
 
-            evals.evals.map_ref(&|[x0, x1]| {
-                let a = actual_evaluation(x0, zeta_n);
-                let b = actual_evaluation(x1, zetaw_n);
-                [a, b]
-            })
+            evals
+                .evals
+                .map_ref(&|PointEvaluations { zeta, zeta_omega }| {
+                    let zeta = actual_evaluation(zeta, zeta_n);
+                    let zeta_omega = actual_evaluation(zeta_omega, zetaw_n);
+                    PointEvaluations { zeta, zeta_omega }
+                })
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
@@ -771,15 +774,16 @@ pub mod step_verifier {
                 .into_iter()
                 .filter_map(|v| match v {
                     Opt::No => None,
-                    Opt::Some([a, b]) => Some([
-                        a.into_iter().map(Opt::Some).collect::<Vec<_>>(),
-                        b.into_iter().map(Opt::Some).collect::<Vec<_>>(),
+                    Opt::Some(PointEvaluations { zeta, zeta_omega }) => Some([
+                        zeta.into_iter().map(Opt::Some).collect::<Vec<_>>(),
+                        zeta_omega.into_iter().map(Opt::Some).collect::<Vec<_>>(),
                     ]),
-                    Opt::Maybe(boolean, [a, b]) => Some([
-                        a.into_iter()
+                    Opt::Maybe(boolean, PointEvaluations { zeta, zeta_omega }) => Some([
+                        zeta.into_iter()
                             .map(|a| Opt::Maybe(boolean, a))
                             .collect::<Vec<_>>(),
-                        b.into_iter()
+                        zeta_omega
+                            .into_iter()
                             .map(|a| Opt::Maybe(boolean, a))
                             .collect::<Vec<_>>(),
                     ]),
@@ -1966,11 +1970,8 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         feature_flags: plonk0.feature_flags.clone(),
     };
 
-    let es = evals.evals.evals.map_ref(&|[a, b]| PointEvaluations {
-        zeta: a.clone(),
-        zeta_omega: b.clone(),
-    });
-    let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
+    let combined_evals =
+        evals_of_split_evals(zeta, zetaw, &evals.evals.evals, BACKEND_TICK_ROUNDS_N);
 
     let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
     let env = make_scalars_env(&plonk_minimal, step_domain, srs_length_log2, zk_rows);
@@ -2001,7 +2002,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         }
     };
 
-    let xs = to_absorption_sequence2(&evals.evals.evals);
+    let xs = proof_evaluation_to_list(&evals.evals.evals);
     let (x1, x2) = &evals.evals.public_input;
 
     let old_bulletproof_challenges: Vec<_> = old_bulletproof_challenges
@@ -2030,9 +2031,9 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
     sponge.absorb_fq(&[evals.ft_eval1]);
     sponge.absorb_fq(x1);
     sponge.absorb_fq(x2);
-    xs.iter().for_each(|(x1, x2)| {
-        sponge.absorb_fq(x1);
-        sponge.absorb_fq(x2);
+    xs.iter().for_each(|PointEvaluations { zeta, zeta_omega }| {
+        sponge.absorb_fq(zeta);
+        sponge.absorb_fq(zeta_omega);
     });
     let xi_chal = sponge.squeeze_limbs(2);
     let r_chal = sponge.squeeze_limbs(2);
@@ -2042,14 +2043,8 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
 
     let public_input = &evals.evals.public_input;
 
-    let es = evals
-        .evals
-        .evals
-        .map_ref(&|[a, b]: &[_; 2]| PointEvaluations {
-            zeta: a.clone(),
-            zeta_omega: b.clone(),
-        });
-    let tick_combined_evals = evals_of_split_evals(zeta, zetaw, &es, super::BACKEND_TICK_ROUNDS_N);
+    let es = &evals.evals.evals;
+    let tick_combined_evals = evals_of_split_evals(zeta, zetaw, es, super::BACKEND_TICK_ROUNDS_N);
     let public = PointEvaluations {
         zeta: public_input.0.clone(),
         zeta_omega: public_input.1.clone(),
@@ -2058,7 +2053,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
     let combined_inner_product_actual =
         combined_inner_product(CombinedInnerProductParams::<_, { Fp::NROUNDS }, 4> {
             env: &env,
-            evals: &es,
+            evals: es,
             combined_evals: &tick_combined_evals,
             public: &public,
             minimal: &plonk_minimal,

@@ -227,7 +227,7 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
 }
 
 pub fn prev_evals_to_p2p(
-    evals: &ProofEvaluations<[Vec<Fp>; 2]>,
+    evals: &ProofEvaluations<PointEvaluations<Vec<Fp>>>,
 ) -> PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
     let ProofEvaluations {
         public: _,
@@ -260,14 +260,14 @@ pub fn prev_evals_to_p2p(
 
     use mina_p2p_messages::pseq::PaddedSeq;
 
-    let of = |[zeta, zeta_omega]: &[Vec<Fp>; 2]| {
+    let of = |PointEvaluations { zeta, zeta_omega }: &PointEvaluations<Vec<Fp>>| {
         (
             zeta.iter().map(Into::into).collect(),
             zeta_omega.iter().map(Into::into).collect(),
         )
     };
 
-    let of_opt = |v: &Option<[Vec<Fp>; 2]>| v.as_ref().map(of);
+    let of_opt = |v: &Option<PointEvaluations<Vec<Fp>>>| v.as_ref().map(of);
 
     PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
         w: PaddedSeq(w.each_ref().map(of)),
