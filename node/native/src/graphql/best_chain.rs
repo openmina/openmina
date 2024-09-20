@@ -1,5 +1,7 @@
+use std::iter;
+
 use juniper::GraphQLObject;
-use ledger::FpExt;
+use ledger::{scan_state::transaction_logic::Memo, FpExt};
 use mina_p2p_messages::v2::{
     MinaBaseVerificationKeyWireStableV1Base64, ReceiptChainHash, TokenIdKeyHash,
 };
@@ -31,6 +33,7 @@ pub struct GraphQLTransactions {
 pub struct GraphQLZkappCommand {
     pub hash: String,
     pub failure_reason: Option<Vec<GraphQLFailureReason>>,
+    pub memo: String,
 }
 
 #[derive(GraphQLObject)]
@@ -95,13 +98,19 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
             MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
         };
 
-        // TODO(adonagy): also check the second one (value.1)
+        let also_zkapp_commands = value
+            .1
+            .map_or_else(Vec::new, |v| v.commands.into_iter().collect::<Vec<_>>());
+
         let zkapp_commands = value
             .0
             .commands
             .into_iter()
+            .chain(also_zkapp_commands)
+            .rev()
             .filter_map(|cmd| {
                 if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = cmd.data {
+                    // println!("ZKapp: {:?}", zkapp);
                     let failure_reason =
                         if let MinaBaseTransactionStatusStableV2::Failed(failure_collection) =
                             cmd.status
@@ -109,8 +118,8 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
                             let res = failure_collection
                                 .0
                                 .into_iter()
-                                .skip(1)
                                 .enumerate()
+                                .skip(1)
                                 .map(|(index, failure_list)| {
                                     let fl =
                                         failure_list.into_iter().map(|v| v.to_string()).collect();
@@ -119,6 +128,7 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
                                         failures: fl,
                                     }
                                 })
+                                .rev()
                                 .collect();
                             Some(res)
                         } else {
@@ -127,6 +137,10 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
                     Some(GraphQLZkappCommand {
                         hash: zkapp.hash().unwrap().to_string(),
                         failure_reason,
+                        memo: serde_json::to_string_pretty(&zkapp.memo)
+                            .unwrap()
+                            .trim_matches('"')
+                            .to_string(),
                     })
                 } else {
                     None
