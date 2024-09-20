@@ -31,7 +31,7 @@ use poly_commitment::srs::SRS;
 // TODO: Move this into `Verifier` struct above
 pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Fq>>> = Lazy::new(|| {
     use crate::proofs::verifier_index::VerifierKind;
-    Arc::new(get_verifier_index(VerifierKind::Transaction))
+    get_verifier_index(VerifierKind::Transaction)
 });
 
 /// Returns the SRS on the other curve (immutable version for verifiers)

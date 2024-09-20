@@ -122,10 +122,13 @@ fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Fq> {
     }
 }
 
-pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Fq> {
+pub fn get_verifier_index(kind: VerifierKind) -> Arc<VerifierIndex<Fq>> {
+    static BLOCK_VERIFIER_INDEX: OnceCell<Arc<VerifierIndex<Fq>>> = OnceCell::new();
+    static TX_VERIFIER_INDEX: OnceCell<Arc<VerifierIndex<Fq>>> = OnceCell::new();
+
     match kind {
-        VerifierKind::Blockchain => {
-            cache_one!(VerifierIndex<Fq>, {
+        VerifierKind::Blockchain => BLOCK_VERIFIER_INDEX
+            .get_or_init(|| {
                 let network_name = openmina_core::NetworkConfig::global().name;
                 let (json_data, cache_filename) = match network_name {
                     "mainnet" => (
@@ -138,11 +141,11 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Fq> {
                     ),
                     other => panic!("get_verifier_index: unknown network '{other}'"),
                 };
-                make_with_ext_cache(json_data, cache_filename)
+                Arc::new(make_with_ext_cache(json_data, cache_filename))
             })
-        }
-        VerifierKind::Transaction => {
-            cache_one!(VerifierIndex<Fq>, {
+            .clone(),
+        VerifierKind::Transaction => TX_VERIFIER_INDEX
+            .get_or_init(|| {
                 let network_name = openmina_core::NetworkConfig::global().name;
                 let (json_data, cache_filename) = match network_name {
                     "mainnet" => (
@@ -155,9 +158,9 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Fq> {
                     ),
                     other => panic!("get_verifier_index: unknown network '{other}'"),
                 };
-                make_with_ext_cache(json_data, cache_filename)
+                Arc::new(make_with_ext_cache(json_data, cache_filename))
             })
-        }
+            .clone(),
     }
 }
 
