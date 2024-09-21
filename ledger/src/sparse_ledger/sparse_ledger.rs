@@ -365,7 +365,8 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
                     Box::new(right_node),
                 )
             } else {
-                assert!(!is_left && !is_right);
+                // Note: Only 1 of them if 1 level above the accounts
+                assert!((!is_left && !is_right) || (addr.length() == ledger_depth - 1));
                 let hash = matrix.get(&addr).unwrap();
                 MinaBaseSparseLedgerBaseStableV2Tree::Hash(to_ledger_hash(hash))
             }
@@ -406,7 +407,7 @@ impl TryFrom<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for Spars
             match node {
                 Account(account) => {
                     let account: crate::Account = (&**account).try_into()?;
-                    matrix.set(&addr, account.hash());
+                    // matrix.set(&addr, account.hash()); Do not hash here, it's slow
                     values.insert(addr.to_index(), account);
                 }
                 Hash(hash) => {
