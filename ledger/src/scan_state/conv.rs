@@ -1,6 +1,6 @@
 #![allow(unused_variables, unreachable_code)]
 
-use std::sync::Arc;
+use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_hasher::Fp;
@@ -1243,8 +1243,6 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACall
     fn try_from(
         value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
     ) -> Result<Self, Self::Error> {
-        use ark_ff::Zero;
-
         Ok(Self(
             value
                 .iter()
@@ -1252,10 +1250,10 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACall
                     Ok(WithStackHash {
                         elt: zkapp_command::Tree {
                             account_update: (&update.elt.account_update).try_into()?,
-                            account_update_digest: Fp::zero(), // replaced later
+                            account_update_digest: Rc::new(Cell::new(None)), // replaced later
                             calls: (&update.elt.calls).try_into()?,
                         },
-                        stack_hash: Fp::zero(), // replaced later
+                        stack_hash: Rc::new(Cell::new(None)), // replaced later
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -1271,26 +1269,27 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
     fn try_from(
         value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
     ) -> Result<Self, Self::Error> {
-        use ark_ff::Zero;
-
         let values = value
             .iter()
             .map(|update| {
                 Ok(WithStackHash {
                     elt: zkapp_command::Tree {
                         account_update: (&update.elt.account_update).try_into()?,
-                        account_update_digest: Fp::zero(), // replaced later in `of_wire`
+                        account_update_digest: Rc::new(Cell::new(None)), // replaced later in `of_wire`
                         calls: (&update.elt.calls).try_into()?,
                     },
-                    stack_hash: Fp::zero(), // replaced later in `of_wire`
+                    stack_hash: Rc::new(Cell::new(None)), // replaced later in `of_wire`
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1113-L1115
 
-        let mut call_forest = CallForest(values);
-        call_forest.of_wire(&[]);
+        let call_forest = CallForest(values);
+        // OCaml hashes the zkapp on deserialization:
+        // https://github.com/MinaProtocol/mina/blob/fb1c3c0a408c344810140bdbcedacc532a11be91/src/lib/mina_base/zkapp_command.ml#L805
+        // But we delay hashing until we need the hashes
+        // call_forest.of_wire(&[]);
         // call_forest.of_wire(value);
 
         Ok(call_forest)
@@ -1354,10 +1353,12 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACal
                     Ok(WithStackHash {
                         elt: zkapp_command::Tree {
                             account_update: (account.try_into()?, vk_opt),
-                            account_update_digest: account_update_digest.to_field()?,
+                            account_update_digest: Rc::new(Cell::new(Some(
+                                account_update_digest.to_field()?,
+                            ))),
                             calls: calls.try_into()?,
                         },
-                        stack_hash: stack_hash.to_field()?,
+                        stack_hash: Rc::new(Cell::new(Some(stack_hash.to_field()?))),
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?,
@@ -1390,10 +1391,12 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
                 Ok(WithStackHash {
                     elt: zkapp_command::Tree {
                         account_update: (account.try_into()?, vk_opt),
-                        account_update_digest: account_update_digest.to_field()?,
+                        account_update_digest: Rc::new(Cell::new(Some(
+                            account_update_digest.to_field()?,
+                        ))),
                         calls: calls.try_into()?,
                     },
-                    stack_hash: stack_hash.to_field()?,
+                    stack_hash: Rc::new(Cell::new(Some(stack_hash.to_field()?))),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -1420,12 +1423,12 @@ impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
                         account_update: (acc.into(), opt.as_ref().map(Into::into)),
                         account_update_digest:
                             v2::MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1(
-                                update.elt.account_update_digest.into(),
+                                update.elt.account_update_digest.get().unwrap().into(), // Not fail, we must hash before serializing
                             ),
                         calls: (&update.elt.calls).into(),
                     }),
                     stack_hash: v2::MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(
-                        update.stack_hash.into(),
+                        update.stack_hash.get().unwrap().into(), // Not fail, we must hash before serializing
                     ),
                 }
             })
@@ -1447,12 +1450,12 @@ impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
                         account_update: (acc.into(), opt.as_ref().map(Into::into)),
                         account_update_digest:
                             v2::MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1(
-                                update.elt.account_update_digest.into(),
+                                update.elt.account_update_digest.get().unwrap().into(), // Not fail, we must hash before serializing
                             ),
                         calls: (&update.elt.calls).into(),
                     },
                     stack_hash: v2::MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(
-                        update.stack_hash.into(),
+                        update.stack_hash.get().unwrap().into(), // Not fail, we must hash before serializing
                     ),
                 }
             })

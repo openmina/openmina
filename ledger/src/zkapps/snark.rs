@@ -378,7 +378,7 @@ impl CallForestInterface for SnarkCallForest {
         };
         let tl_hash = w.exists(match data.tail().unwrap() {
             [] => Fp::zero(),
-            [x, ..] => x.stack_hash,
+            [x, ..] => x.stack_hash.get().unwrap(), // Never fail, it was already hashed
         });
         let tree_hash = [account_update.hash, subforest.hash]
             .checked_hash_with_param(Tree::<AccountUpdate>::HASH_PARAM, w);

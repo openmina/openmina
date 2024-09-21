@@ -1990,9 +1990,7 @@ impl StagedLedger {
 #[cfg(test)]
 mod tests_ocaml {
     use std::{
-        collections::{BTreeSet, HashMap},
-        str::FromStr,
-        sync::atomic::{AtomicUsize, Ordering::Relaxed},
+        collections::{BTreeSet, HashMap}, panic::AssertUnwindSafe, str::FromStr, sync::atomic::{AtomicUsize, Ordering::Relaxed}
     };
 
     use ark_ec::{AffineCurve, ProjectiveCurve};
@@ -2461,15 +2459,15 @@ mod tests_ocaml {
         mask: Mask,
         fun: F,
     ) where
-        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R
     {
-        match std::panic::catch_unwind(move || {
+        match std::panic::catch_unwind(AssertUnwindSafe(move || {
             let test_mask = mask.make_child();
             let snarked_ledger_mask = mask.make_child();
             let sl = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
             fun(snarked_ledger_mask, sl, test_mask.clone());
             test_mask.unregister_mask(crate::UnregisterBehavior::Check);
-        }) {
+        })) {
             Ok(_) => {}
             Err(_) => {
                 let niters = NITERS.load(Relaxed);
@@ -2501,7 +2499,7 @@ mod tests_ocaml {
         cmd_iters: Vec<Option<usize>>,
         fun: F,
     ) where
-        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R,
     {
         let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 

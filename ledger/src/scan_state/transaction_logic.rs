@@ -917,7 +917,7 @@ pub mod signed_command {
 }
 
 pub mod zkapp_command {
-    use std::sync::Arc;
+    use std::{cell::Cell, rc::Rc, sync::Arc};
 
     use ark_ff::UniformRand;
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
@@ -3268,25 +3268,23 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L49
     #[derive(Debug, Clone, PartialEq)]
-    pub struct Tree<AccUpdate: Clone> {
+    pub struct Tree<AccUpdate: Clone + AccountUpdateRef> {
         pub account_update: AccUpdate,
-        pub account_update_digest: Fp,
+        pub account_update_digest: Rc<Cell<Option<Fp>>>,
         pub calls: CallForest<AccUpdate>,
     }
 
-    impl<AccUpdate: Clone> Tree<AccUpdate> {
+    impl<AccUpdate: Clone + AccountUpdateRef> Tree<AccUpdate> {
         pub const HASH_PARAM: &'static str = "MinaAcctUpdateNode";
 
+        // TODO: Cache this result somewhere ?
         pub fn digest(&self) -> Fp {
             let stack_hash = match self.calls.0.first() {
-                Some(e) => e.stack_hash,
+                Some(e) => e.stack_hash.get().expect("Must call `ensure_hashed`"),
                 None => Fp::zero(),
             };
-
-            // self.account_update_digest should have been updated in `CallForest::accumulate_hashes`
-            assert_ne!(self.account_update_digest, Fp::zero());
-
-            hash_with_kimchi(Self::HASH_PARAM, &[self.account_update_digest, stack_hash])
+            let account_update_digest = self.account_update_digest.get().unwrap();
+            hash_with_kimchi(Self::HASH_PARAM, &[account_update_digest, stack_hash])
         }
 
         fn fold<F>(&self, init: Vec<AccountId>, f: &mut F) -> Vec<AccountId>
@@ -3299,16 +3297,16 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
     #[derive(Debug, Clone, PartialEq)]
-    pub struct WithStackHash<AccUpdate: Clone> {
+    pub struct WithStackHash<AccUpdate: Clone + AccountUpdateRef> {
         pub elt: Tree<AccUpdate>,
-        pub stack_hash: Fp,
+        pub stack_hash: Rc<Cell<Option<Fp>>>,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
     #[derive(Debug, Clone, PartialEq)]
-    pub struct CallForest<AccUpdate: Clone>(pub Vec<WithStackHash<AccUpdate>>);
+    pub struct CallForest<AccUpdate: Clone + AccountUpdateRef>(pub Vec<WithStackHash<AccUpdate>>);
 
-    impl<Data: Clone> Default for CallForest<Data> {
+    impl<Data: Clone + AccountUpdateRef> Default for CallForest<Data> {
         fn default() -> Self {
             Self::new()
         }
@@ -3322,7 +3320,28 @@ pub mod zkapp_command {
 
     pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &str = "MinaAcctUpdateCons";
 
-    impl<AccUpdate: Clone> CallForest<AccUpdate> {
+    pub trait AccountUpdateRef {
+        fn account_update_ref(&self) -> &AccountUpdate;
+    }
+    impl AccountUpdateRef for AccountUpdate {
+        fn account_update_ref(&self) -> &AccountUpdate {
+            self
+        }
+    }
+    impl<T> AccountUpdateRef for (AccountUpdate, T) {
+        fn account_update_ref(&self) -> &AccountUpdate {
+            let (this, _) = self;
+            this
+        }
+    }
+    impl AccountUpdateRef for AccountUpdateSimple {
+        fn account_update_ref(&self) -> &AccountUpdate {
+            // AccountUpdateSimple are first converted into `AccountUpdate`
+            unreachable!()
+        }
+    }
+
+    impl<AccUpdate: Clone + AccountUpdateRef> CallForest<AccUpdate> {
         pub fn new() -> Self {
             Self(Vec::new())
         }
@@ -3351,6 +3370,7 @@ pub mod zkapp_command {
         }
 
         pub fn hash(&self) -> Fp {
+            self.ensure_hashed();
             /*
             for x in self.0.iter() {
                 println!("hash: {:?}", x.stack_hash);
@@ -3358,20 +3378,22 @@ pub mod zkapp_command {
             */
 
             if let Some(x) = self.first() {
-                x.stack_hash
+                x.stack_hash.get().unwrap() // Never fail, we called `ensure_hashed`
             } else {
                 Fp::zero()
             }
         }
 
         fn cons_tree(&self, tree: Tree<AccUpdate>) -> Self {
+            self.ensure_hashed();
+
             let hash = tree.digest();
             let h_tl = self.hash();
 
             let stack_hash = hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl]);
             let node = WithStackHash::<AccUpdate> {
                 elt: tree,
-                stack_hash,
+                stack_hash: Rc::new(Cell::new(Some(stack_hash))),
             };
             let mut forest = Vec::with_capacity(self.0.len() + 1);
             forest.push(node);
@@ -3416,7 +3438,10 @@ pub mod zkapp_command {
             self.fold_impl(init, &mut fun)
         }
 
-        fn map_to_impl<F, AnotherAccUpdate: Clone>(&self, fun: &F) -> CallForest<AnotherAccUpdate>
+        fn map_to_impl<F, AnotherAccUpdate: Clone + AccountUpdateRef>(
+            &self,
+            fun: &F,
+        ) -> CallForest<AnotherAccUpdate>
         where
             F: Fn(&AccUpdate) -> AnotherAccUpdate,
         {
@@ -3425,24 +3450,27 @@ pub mod zkapp_command {
                     .map(|item| WithStackHash::<AnotherAccUpdate> {
                         elt: Tree::<AnotherAccUpdate> {
                             account_update: fun(&item.elt.account_update),
-                            account_update_digest: item.elt.account_update_digest,
+                            account_update_digest: item.elt.account_update_digest.clone(),
                             calls: item.elt.calls.map_to_impl(fun),
                         },
-                        stack_hash: item.stack_hash,
+                        stack_hash: item.stack_hash.clone(),
                     })
                     .collect(),
             )
         }
 
         #[must_use]
-        pub fn map_to<F, AnotherAccUpdate: Clone>(&self, fun: F) -> CallForest<AnotherAccUpdate>
+        pub fn map_to<F, AnotherAccUpdate: Clone + AccountUpdateRef>(
+            &self,
+            fun: F,
+        ) -> CallForest<AnotherAccUpdate>
         where
             F: Fn(&AccUpdate) -> AnotherAccUpdate,
         {
             self.map_to_impl(&fun)
         }
 
-        fn map_with_trees_to_impl<F, AnotherAccUpdate: Clone>(
+        fn map_with_trees_to_impl<F, AnotherAccUpdate: Clone + AccountUpdateRef>(
             &self,
             fun: &F,
         ) -> CallForest<AnotherAccUpdate>
@@ -3457,10 +3485,10 @@ pub mod zkapp_command {
                         WithStackHash::<AnotherAccUpdate> {
                             elt: Tree::<AnotherAccUpdate> {
                                 account_update,
-                                account_update_digest: item.elt.account_update_digest,
+                                account_update_digest: item.elt.account_update_digest.clone(),
                                 calls: item.elt.calls.map_with_trees_to_impl(fun),
                             },
-                            stack_hash: item.stack_hash,
+                            stack_hash: item.stack_hash.clone(),
                         }
                     })
                     .collect(),
@@ -3468,7 +3496,7 @@ pub mod zkapp_command {
         }
 
         #[must_use]
-        pub fn map_with_trees_to<F, AnotherAccUpdate: Clone>(
+        pub fn map_with_trees_to<F, AnotherAccUpdate: Clone + AccountUpdateRef>(
             &self,
             fun: F,
         ) -> CallForest<AnotherAccUpdate>
@@ -3478,7 +3506,7 @@ pub mod zkapp_command {
             self.map_with_trees_to_impl(&fun)
         }
 
-        fn try_map_to_impl<F, E, AnotherAccUpdate: Clone>(
+        fn try_map_to_impl<F, E, AnotherAccUpdate: Clone + AccountUpdateRef>(
             &self,
             fun: &mut F,
         ) -> Result<CallForest<AnotherAccUpdate>, E>
@@ -3491,17 +3519,17 @@ pub mod zkapp_command {
                         Ok(WithStackHash::<AnotherAccUpdate> {
                             elt: Tree::<AnotherAccUpdate> {
                                 account_update: fun(&item.elt.account_update)?,
-                                account_update_digest: item.elt.account_update_digest,
+                                account_update_digest: item.elt.account_update_digest.clone(),
                                 calls: item.elt.calls.try_map_to_impl(fun)?,
                             },
-                            stack_hash: item.stack_hash,
+                            stack_hash: item.stack_hash.clone(),
                         })
                     })
                     .collect::<Result<_, E>>()?,
             ))
         }
 
-        pub fn try_map_to<F, E, AnotherAccUpdate: Clone>(
+        pub fn try_map_to<F, E, AnotherAccUpdate: Clone + AccountUpdateRef>(
             &self,
             mut fun: F,
         ) -> Result<CallForest<AnotherAccUpdate>, E>
@@ -3534,33 +3562,43 @@ pub mod zkapp_command {
                     account_update_digest: _,
                     calls,
                 } = elt;
-                output.push((account_update.clone(), *stack_hash));
+                output.push((account_update.clone(), stack_hash.get().unwrap())); // Never fail, we called `ensure_hashed`
                 calls.to_zkapp_command_with_hashes_list_impl(output);
             });
         }
 
         pub fn to_zkapp_command_with_hashes_list(&self) -> Vec<(AccUpdate, Fp)> {
+            self.ensure_hashed();
+
             let mut output = Vec::with_capacity(128);
             self.to_zkapp_command_with_hashes_list_impl(&mut output);
             output
         }
+
+        pub fn ensure_hashed(&self) {
+            let Some(first) = self.first() else {
+                return;
+            };
+            if first.stack_hash.get().is_none() {
+                self.accumulate_hashes();
+            }
+        }
     }
 
-    impl<AccUpdate: Clone> CallForest<AccUpdate> {
+    impl<AccUpdate: Clone + AccountUpdateRef> CallForest<AccUpdate> {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L583
-        pub fn accumulate_hashes<F>(&mut self, hash_account_update: &F)
-        where
-            F: Fn(&AccUpdate) -> Fp,
-        {
+        pub fn accumulate_hashes(&self) {
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293
             fn cons(hash: Fp, h_tl: Fp) -> Fp {
                 hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl])
             }
 
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561
-            fn hash<AccUpdate: Clone>(elem: Option<&WithStackHash<AccUpdate>>) -> Fp {
+            fn hash<AccUpdate: Clone + AccountUpdateRef>(
+                elem: Option<&WithStackHash<AccUpdate>>,
+            ) -> Fp {
                 match elem {
-                    Some(next) => next.stack_hash,
+                    Some(next) => next.stack_hash.get().unwrap(), // Never fail, we hash them from reverse below
                     None => Fp::zero(),
                 }
             }
@@ -3571,7 +3609,7 @@ pub mod zkapp_command {
             // We use indexes to make the borrow checker happy
 
             for index in (0..self.0.len()).rev() {
-                let elem = &mut self.0[index];
+                let elem = &self.0[index];
                 let WithStackHash {
                     elt:
                         Tree::<AccUpdate> {
@@ -3583,13 +3621,13 @@ pub mod zkapp_command {
                     ..
                 } = elem;
 
-                calls.accumulate_hashes(hash_account_update);
-                *account_update_digest = hash_account_update(account_update);
+                calls.accumulate_hashes();
+                account_update_digest.set(Some(account_update.account_update_ref().digest()));
 
                 let node_hash = elem.elt.digest();
                 let hash = hash(self.0.get(index + 1));
 
-                self.0[index].stack_hash = cons(node_hash, hash);
+                self.0[index].stack_hash.set(Some(cons(node_hash, hash)));
             }
         }
     }
@@ -3604,7 +3642,7 @@ pub mod zkapp_command {
 
             let tree = Tree::<AccountUpdate> {
                 account_update,
-                account_update_digest,
+                account_update_digest: Rc::new(Cell::new(Some(account_update_digest))),
                 calls: calls.unwrap_or_else(|| CallForest(Vec::new())),
             };
             self.cons_tree(tree)
@@ -3612,7 +3650,7 @@ pub mod zkapp_command {
 
         pub fn accumulate_hashes_predicated(&mut self) {
             // Note: There seems to be no difference with `accumulate_hashes`
-            self.accumulate_hashes(&|account_update| account_update.digest());
+            self.accumulate_hashes();
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L830
@@ -3620,7 +3658,7 @@ pub mod zkapp_command {
             &mut self,
             _wired: &[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
         ) {
-            self.accumulate_hashes(&|account_update| account_update.digest());
+            self.accumulate_hashes();
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L840
@@ -4350,7 +4388,9 @@ pub mod zkapp_statement {
             vec![**account_update, **calls]
         }
 
-        pub fn of_tree<AccUpdate: Clone>(tree: &Tree<AccUpdate>) -> Self {
+        pub fn of_tree<AccUpdate: Clone + zkapp_command::AccountUpdateRef>(
+            tree: &Tree<AccUpdate>,
+        ) -> Self {
             let Tree {
                 account_update: _,
                 account_update_digest,
@@ -4358,7 +4398,7 @@ pub mod zkapp_statement {
             } = tree;
 
             Self {
-                account_update: TransactionCommitment(*account_update_digest),
+                account_update: TransactionCommitment(account_update_digest.get().unwrap()),
                 calls: TransactionCommitment(calls.hash()),
             }
         }
@@ -5427,9 +5467,10 @@ pub mod local_state {
             inputs.append_field(self.caller.0);
             inputs.append_field(self.caller_caller.0);
 
+            self.calls.ensure_hashed();
             let field = match self.calls.0.first() {
                 None => Fp::zero(),
-                Some(call) => call.stack_hash,
+                Some(calls) => calls.stack_hash.get().unwrap(), // Never fail, we called `ensure_hashed`
             };
             inputs.append_field(field);
 

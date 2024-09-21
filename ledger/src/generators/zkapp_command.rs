@@ -1,9 +1,11 @@
 use std::{
+    cell::Cell,
     collections::{
         hash_map::Entry::{Occupied, Vacant},
         HashMap, HashSet,
     },
     marker::PhantomData,
+    rc::Rc,
 };
 
 use ark_ff::{UniformRand, Zero};
@@ -1455,7 +1457,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                 .map(|v| {
                     WithStackHash {
                         elt: v,
-                        stack_hash: Fp::zero(), // TODO: OCaml uses `()`
+                        stack_hash: Rc::new(Cell::new(Some(Fp::zero()))), // TODO: OCaml uses `()`
                     }
                 })
                 .collect(),
@@ -1468,7 +1470,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     ) -> zkapp_command::Tree<AccountUpdateSimple> {
         zkapp_command::Tree {
             account_update: p,
-            account_update_digest: Fp::zero(), // TODO: OCaml uses `()`
+            account_update_digest: Rc::new(Cell::new(Some(Fp::zero()))), // TODO: OCaml uses `()`
             calls: mk_forest(calls),
         }
     }
