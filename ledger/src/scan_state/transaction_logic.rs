@@ -15,12 +15,13 @@ use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
 use crate::scan_state::zkapp_logic;
-use crate::transaction_pool::VerificationKeyWire;
-use crate::{hash_with_kimchi, AccountIdOrderable, BaseLedger, ControlTag, Inputs};
+use crate::{
+    hash_with_kimchi, AccountIdOrderable, BaseLedger, ControlTag, Inputs, VerificationKeyWire,
+};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},
-    Account, AccountId, ReceiptChainHash, Timing, TokenId, VerificationKey,
+    Account, AccountId, ReceiptChainHash, Timing, TokenId,
 };
 
 use self::zkapp_command::{AccessedOrNot, Numeric};
@@ -935,10 +936,9 @@ pub mod zkapp_command {
             currency::{MinMax, Sgn},
             GenesisConstant, GENESIS_CONSTANT,
         },
-        transaction_pool::VerificationKeyWire,
         zkapps::snark::zkapp_check::InSnarkCheck,
         AuthRequired, MyCow, Permissions, SetVerificationKey, ToInputs, TokenSymbol,
-        VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
+        VerificationKey, VerificationKeyWire, VotingFor, ZkAppAccount, ZkAppUri,
     };
 
     use super::{zkapp_statement::TransactionCommitment, *};
@@ -1406,7 +1406,7 @@ pub mod zkapp_command {
     pub struct Update {
         pub app_state: [SetOrKeep<Fp>; 8],
         pub delegate: SetOrKeep<CompressedPubKey>,
-        pub verification_key: SetOrKeep<WithHash<VerificationKey>>,
+        pub verification_key: SetOrKeep<VerificationKeyWire>,
         pub permissions: SetOrKeep<Permissions<AuthRequired>>,
         pub zkapp_uri: SetOrKeep<ZkAppUri>,
         pub token_symbol: SetOrKeep<TokenSymbol>,
@@ -1431,7 +1431,7 @@ pub mod zkapp_command {
                 (s, Fp::zero).to_field_elements(fields);
             }
             (delegate, CompressedPubKey::empty).to_field_elements(fields);
-            (&verification_key.map(|w| w.hash), Fp::zero).to_field_elements(fields);
+            (&verification_key.map(|w| w.hash()), Fp::zero).to_field_elements(fields);
             (permissions, Permissions::empty).to_field_elements(fields);
             (&zkapp_uri.map(Some), || Option::<&ZkAppUri>::None).to_field_elements(fields);
             (token_symbol, TokenSymbol::default).to_field_elements(fields);
@@ -1464,7 +1464,7 @@ pub mod zkapp_command {
         pub fn gen(
             token_account: Option<bool>,
             zkapp_account: Option<bool>,
-            vk: Option<&WithHash<VerificationKey>>,
+            vk: Option<&VerificationKeyWire>,
             permissions_auth: Option<crate::ControlTag>,
         ) -> Self {
             let mut rng = rand::thread_rng();
@@ -1482,11 +1482,7 @@ pub mod zkapp_command {
 
             let verification_key = if zkapp_account {
                 SetOrKeep::gen(|| match vk {
-                    None => {
-                        let dummy = VerificationKey::dummy();
-                        let hash = dummy.digest();
-                        WithHash { data: dummy, hash }
-                    }
+                    None => VerificationKeyWire::dummy(),
                     Some(vk) => vk.clone(),
                 })
             } else {
@@ -2639,7 +2635,7 @@ pub mod zkapp_command {
                 }
 
                 inputs.append(&(delegate, CompressedPubKey::empty));
-                inputs.append(&(&verification_key.map(|w| w.hash), Fp::zero));
+                inputs.append(&(&verification_key.map(|w| w.hash()), Fp::zero));
                 inputs.append(&(permissions, Permissions::empty));
                 inputs.append(&(&zkapp_uri.map(Some), || Option::<&ZkAppUri>::None));
                 inputs.append(&(token_symbol, TokenSymbol::default));
@@ -3054,8 +3050,8 @@ pub mod zkapp_command {
             self.body.update.voting_for.clone()
         }
 
-        pub fn verification_key(&self) -> SetOrKeep<VerificationKey> {
-            self.body.update.verification_key.map(|vk| vk.data.clone())
+        pub fn verification_key(&self) -> SetOrKeep<VerificationKeyWire> {
+            self.body.update.verification_key.clone()
         }
 
         pub fn valid_while_precondition(&self) -> OrIgnore<ClosedInterval<Slot>> {
@@ -3158,11 +3154,7 @@ pub mod zkapp_command {
                     update: Update {
                         app_state: std::array::from_fn(|_| SetOrKeep::gen(|| Fp::rand(rng))),
                         delegate: SetOrKeep::gen(gen_compressed),
-                        verification_key: SetOrKeep::gen(|| {
-                            let vk = VerificationKey::gen();
-                            let hash = vk.hash();
-                            WithHash { data: vk, hash }
-                        }),
+                        verification_key: SetOrKeep::gen(VerificationKeyWire::gen),
                         permissions: SetOrKeep::gen(|| {
                             let auth_tag = [
                                 ControlTag::NoneGiven,
@@ -3933,7 +3925,7 @@ pub mod zkapp_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/02c9d453576fa47f78b2c388fb2e0025c47d991c/src/lib/mina_base/zkapp_command.ml#L989
-        pub fn extract_vks(&self) -> Vec<(AccountId, WithHash<VerificationKey>)> {
+        pub fn extract_vks(&self) -> Vec<(AccountId, VerificationKeyWire)> {
             self.account_updates
                 .fold(Vec::with_capacity(256), |mut acc, p| {
                     if let SetOrKeep::Set(vk) = &p.body.update.verification_key {
@@ -3978,16 +3970,16 @@ pub mod zkapp_command {
         #[serde(into = "MinaBaseZkappCommandVerifiableStableV1")]
         pub struct ZkAppCommand {
             pub fee_payer: FeePayer,
-            pub account_updates: CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>,
+            pub account_updates: CallForest<(AccountUpdate, Option<VerificationKeyWire>)>,
             pub memo: Memo,
         }
 
         fn ok_if_vk_hash_expected(
-            got: WithHash<VerificationKey>,
+            got: VerificationKeyWire,
             expected: Fp,
-        ) -> Result<WithHash<VerificationKey>, String> {
-            if got.hash == expected {
-                return Ok(got);
+        ) -> Result<VerificationKeyWire, String> {
+            if got.hash() == expected {
+                return Ok(got.clone());
             }
             Err(format!(
                 "Expected vk hash doesn't match hash in vk we received\
@@ -4001,7 +3993,7 @@ pub mod zkapp_command {
             ledger: L,
             expected_vk_hash: Fp,
             account_id: &AccountId,
-        ) -> Result<WithHash<VerificationKey>, String>
+        ) -> Result<VerificationKeyWire, String>
         where
             L: LedgerIntf + Clone,
         {
@@ -4016,13 +4008,7 @@ pub mod zkapp_command {
                 });
 
             match vk {
-                Some(vk) => {
-                    // TODO: The account should contains the `WithHash<VerificationKey>`
-                    let hash = vk.hash();
-                    let vk = WithHash { data: vk, hash };
-
-                    ok_if_vk_hash_expected(vk, expected_vk_hash)
-                }
+                Some(vk) => ok_if_vk_hash_expected(vk, expected_vk_hash),
                 None => Err(format!(
                     "No verification key found for proved account update\
                                      account_id: {:?}",
@@ -4058,7 +4044,7 @@ pub mod zkapp_command {
         pub fn create(
             zkapp: &super::ZkAppCommand,
             is_failed: bool,
-            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKeyWire, String>,
         ) -> Result<ZkAppCommand, String> {
             let super::ZkAppCommand {
                 fee_payer,
@@ -4069,7 +4055,7 @@ pub mod zkapp_command {
             let mut tbl = HashMap::with_capacity(128);
             // Keep track of the verification keys that have been set so far
             // during this transaction.
-            let mut vks_overridden: HashMap<AccountId, Option<WithHash<VerificationKey>>> =
+            let mut vks_overridden: HashMap<AccountId, Option<VerificationKeyWire>> =
                 HashMap::with_capacity(128);
 
             let account_updates = account_updates.try_map_to(|p| {
@@ -4102,7 +4088,7 @@ pub mod zkapp_command {
                             }
                         };
 
-                        tbl.insert(account_id, prioritized_vk.hash);
+                        tbl.insert(account_id, prioritized_vk.hash());
 
                         Ok((p.clone(), Some(prioritized_vk)))
                     },
@@ -4159,7 +4145,7 @@ pub mod zkapp_command {
         pub fn to_valid(
             zkapp_command: super::ZkAppCommand,
             status: &TransactionStatus,
-            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
+            find_vk: impl Fn(Fp, &AccountId) -> Result<VerificationKeyWire, String>,
         ) -> Result<ZkAppCommand, String> {
             create(&zkapp_command, status.is_failed(), find_vk).map(of_verifiable)
         }
@@ -4265,7 +4251,7 @@ pub mod zkapp_command {
             }
             fn add(&mut self, account_id: AccountId, vk: VerificationKeyWire) {
                 let vks = self.cache.entry(account_id).or_default();
-                vks.insert(vk.hash, vk);
+                vks.insert(vk.hash(), vk);
             }
         }
 
@@ -4291,7 +4277,9 @@ pub mod zkapp_command {
 
         impl ToVerifiableCache for Cache {
             fn find(&self, account_id: &AccountId, vk_hash: &Fp) -> Option<&VerificationKeyWire> {
-                self.cache.get(account_id).filter(|vk| &vk.hash == vk_hash)
+                self.cache
+                    .get(account_id)
+                    .filter(|vk| &vk.hash() == vk_hash)
             }
             fn add(&mut self, account_id: AccountId, vk: VerificationKeyWire) {
                 self.cache.insert(account_id, vk);
@@ -4604,7 +4592,7 @@ impl UserCommand {
         }
     }
 
-    pub fn extract_vks(&self) -> Vec<(AccountId, WithHash<VerificationKey>)> {
+    pub fn extract_vks(&self) -> Vec<(AccountId, VerificationKeyWire)> {
         match self {
             UserCommand::SignedCommand(_) => vec![],
             UserCommand::ZkAppCommand(zkapp) => zkapp.extract_vks(),
@@ -4630,7 +4618,7 @@ impl UserCommand {
         find_vk: F,
     ) -> Result<verifiable::UserCommand, String>
     where
-        F: Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
+        F: Fn(Fp, &AccountId) -> Result<VerificationKeyWire, String>,
     {
         use verifiable::UserCommand::{SignedCommand, ZkAppCommand};
         match self {
@@ -4658,11 +4646,6 @@ impl UserCommand {
                 let account = account.unwrap();
                 let zkapp = account.zkapp.as_ref()?;
                 let vk = zkapp.verification_key.clone()?;
-
-                // TODO: The account should contains the `WithHash<VerificationKey>`
-                let hash = vk.hash();
-                let vk = WithHash { data: vk, hash };
-
                 Some((account.id(), vk))
             })
             .collect()
@@ -4676,11 +4659,6 @@ impl UserCommand {
             .filter_map(|(_, account)| {
                 let zkapp = account.zkapp.as_ref()?;
                 let vk = zkapp.verification_key.clone()?;
-
-                // TODO: The account should contains the `WithHash<VerificationKey>`
-                let hash = vk.hash();
-                let vk = WithHash { data: vk, hash };
-
                 Some((account.id(), vk))
             })
             .collect()
@@ -8276,8 +8254,9 @@ pub mod for_tests {
 
                 let zkapp = if zkapp {
                     let zkapp = ZkAppAccount {
-                        // TODO: Hash is `Fp::zero` here
-                        verification_key: Some(crate::dummy::trivial_verification_key()),
+                        verification_key: Some(VerificationKeyWire::new(
+                            crate::dummy::trivial_verification_key(),
+                        )),
                         ..Default::default()
                     };
 
@@ -8426,7 +8405,7 @@ pub mod for_tests {
         account.permissions = permissions.unwrap_or_else(Permissions::user_default);
         account.zkapp = Some(
             ZkAppAccount {
-                verification_key: Some(vk),
+                verification_key: Some(VerificationKeyWire::new(vk)),
                 ..Default::default()
             }
             .into(),

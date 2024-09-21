@@ -1990,7 +1990,13 @@ impl StagedLedger {
 #[cfg(test)]
 mod tests_ocaml {
     use std::{
-        collections::{BTreeSet, HashMap}, panic::AssertUnwindSafe, str::FromStr, sync::atomic::{AtomicUsize, Ordering::Relaxed}
+        collections::{BTreeSet, HashMap},
+        panic::AssertUnwindSafe,
+        str::FromStr,
+        sync::{
+            atomic::{AtomicUsize, Ordering::Relaxed},
+            Mutex,
+        },
     };
 
     use ark_ec::{AffineCurve, ProjectiveCurve};
@@ -2025,7 +2031,7 @@ mod tests_ocaml {
         staged_ledger::diff::{
             PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase,
         },
-        util, Account, AuthRequired, Permissions, VerificationKey,
+        util, Account, AuthRequired, Permissions, VerificationKey, VerificationKeyWire,
     };
 
     use super::*;
@@ -2459,7 +2465,7 @@ mod tests_ocaml {
         mask: Mask,
         fun: F,
     ) where
-        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R
+        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R,
     {
         match std::panic::catch_unwind(AssertUnwindSafe(move || {
             let test_mask = mask.make_child();
@@ -3286,11 +3292,14 @@ mod tests_ocaml {
         num_zkapps: usize,
         zkapps_per_iter: Vec<Option<usize>>,
     ) -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
+        let vk = VK.clone();
+        let vk = VerificationKeyWire::with_hash(vk.data, vk.hash);
+
         let (zkapp_command_and_fee_payer_keypairs, ledger) = sequence_zkapp_command_with_ledger(
             None,
             Some(1),
             Some(num_zkapps),
-            Some(VK.clone()),
+            Some(vk),
             failure.as_ref(),
         );
 
@@ -3368,6 +3377,7 @@ mod tests_ocaml {
             let a: mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1 =
                 (&zkapp).into();
             let b: zkapp_command::ZkAppCommand = (&a).try_into().unwrap();
+            b.account_updates.accumulate_hashes();
 
             assert_eq!(zkapp, b, "failed at {:?}", index);
         }

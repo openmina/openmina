@@ -14,7 +14,7 @@ use crate::{
         },
     },
     util, Account, AccountId, AuthRequired, BaseLedger, Mask, MyCowMut, Permissions, TokenId,
-    VerificationKey, ZkAppAccount, TXN_VERSION_CURRENT,
+    VerificationKey, VerificationKeyWire, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 use super::{
@@ -27,7 +27,7 @@ fn zkapp_command_with_ledger(
     max_account_updates: Option<usize>,
     max_token_updates: Option<usize>,
     account_state_tbl: Option<&mut HashMap<AccountId, (Account, Role)>>,
-    vk: Option<WithHash<VerificationKey>>,
+    vk: Option<VerificationKeyWire>,
     failure: Option<&Failure>,
 ) -> (
     valid::UserCommand,
@@ -70,11 +70,7 @@ fn zkapp_command_with_ledger(
 
     let verification_key = vk.clone().unwrap_or_else(|| {
         let dummy_vk = VerificationKey::dummy();
-        let hash = dummy_vk.hash();
-        WithHash {
-            data: dummy_vk,
-            hash,
-        }
+        VerificationKeyWire::new((*dummy_vk).clone())
     });
 
     let balances: Vec<Balance> = {
@@ -127,7 +123,7 @@ fn zkapp_command_with_ledger(
             ..Permissions::user_default()
         };
 
-        let verification_key = Some(verification_key.data.clone());
+        let verification_key = Some(verification_key.clone());
         let zkapp = Some(
             ZkAppAccount {
                 verification_key,
@@ -209,7 +205,7 @@ pub fn sequence_zkapp_command_with_ledger(
     max_account_updates: Option<usize>,
     max_token_updates: Option<usize>,
     length: Option<usize>,
-    vk: Option<WithHash<VerificationKey>>,
+    vk: Option<VerificationKeyWire>,
     failure: Option<&Failure>,
 ) -> (
     Vec<(

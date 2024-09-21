@@ -1297,7 +1297,7 @@ fn snapp_proof_data<'a>(
             .and_then(|z| z.verification_key)
             .expect("No verification key found in the account")
     };
-    Some((pi, vk))
+    Some((pi, vk.vk().clone()))
 }
 
 fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(

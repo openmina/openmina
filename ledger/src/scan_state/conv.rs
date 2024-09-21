@@ -111,7 +111,8 @@ use crate::{
         },
     },
     staged_ledger::hash::{AuxHash, NonStark, PendingCoinbaseAux, StagedLedgerHash},
-    Account, AccountId, Address, HashesMatrix, TokenId, VerificationKey, VotingFor,
+    Account, AccountId, Address, HashesMatrix, TokenId, VerificationKey, VerificationKeyWire,
+    VotingFor,
 };
 
 use super::{
@@ -1128,9 +1129,8 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
 }
 
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/verification_key_wire.ml#L37
-fn of_vk(data: VerificationKey) -> WithHash<VerificationKey> {
-    let hash = data.hash();
-    WithHash { data, hash }
+fn of_vk(data: VerificationKey) -> VerificationKeyWire {
+    VerificationKeyWire::new(data)
 }
 
 impl TryFrom<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
@@ -1297,7 +1297,7 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
 }
 
 impl TryFrom<&v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>
-    for WithHash<VerificationKey>
+    for VerificationKeyWire
 {
     type Error = InvalidBigInt;
 
@@ -1305,20 +1305,16 @@ impl TryFrom<&v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>
         value: &v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA,
     ) -> Result<Self, Self::Error> {
         let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA { data, hash } = value;
-        Ok(Self {
-            data: data.try_into()?,
-            hash: hash.try_into()?,
-        })
+        Ok(Self::with_hash(data.try_into()?, hash.try_into()?))
     }
 }
 
-impl From<&WithHash<VerificationKey>>
-    for v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA
-{
-    fn from(value: &WithHash<VerificationKey>) -> Self {
-        let WithHash::<VerificationKey> { data, hash } = value;
+impl From<&VerificationKeyWire> for v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA {
+    fn from(value: &VerificationKeyWire) -> Self {
+        let vk = value.vk();
+        let hash = value.hash();
         Self {
-            data: data.into(),
+            data: vk.into(),
             hash: hash.into(),
         }
     }
@@ -1326,7 +1322,7 @@ impl From<&WithHash<VerificationKey>>
 
 /// Notes: childs for verifiable
 impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>>
-    for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
+    for CallForest<(AccountUpdate, Option<VerificationKeyWire>)>
 {
     type Error = InvalidBigInt;
 
@@ -1367,7 +1363,7 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACal
 }
 /// Notes: root for verifiable
 impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
-    for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
+    for CallForest<(AccountUpdate, Option<VerificationKeyWire>)>
 {
     type Error = InvalidBigInt;
 
@@ -1409,10 +1405,10 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
 }
 
 /// Childs for verifiable
-impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
+impl From<&CallForest<(AccountUpdate, Option<VerificationKeyWire>)>>
     for List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>
 {
-    fn from(value: &CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>) -> Self {
+    fn from(value: &CallForest<(AccountUpdate, Option<VerificationKeyWire>)>) -> Self {
         value
             .0
             .iter()
@@ -1436,10 +1432,10 @@ impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
     }
 }
 /// Root
-impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
+impl From<&CallForest<(AccountUpdate, Option<VerificationKeyWire>)>>
     for List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>
 {
-    fn from(value: &CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>) -> Self {
+    fn from(value: &CallForest<(AccountUpdate, Option<VerificationKeyWire>)>) -> Self {
         value
             .0
             .iter()
@@ -1516,7 +1512,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                         SetOrKeep::Keep => Delegate::Keep,
                     },
                     verification_key: match &value.body.update.verification_key {
-                        SetOrKeep::Set(vk) => VK::Set(Box::new((&vk.data).into())),
+                        SetOrKeep::Set(vk) => VK::Set(Box::new((vk.vk()).into())),
                         SetOrKeep::Keep => VK::Keep,
                     },
                     permissions: match &value.body.update.permissions {
