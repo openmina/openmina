@@ -51,7 +51,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierGenesisAction 
                 TransitionFrontierGenesisState::LedgerLoadSuccess { .. }
             ),
             TransitionFrontierGenesisAction::ProveInit => {
-                state.block_producer.is_enabled()
+                state.should_produce_blocks_after_genesis()
                     && matches!(
                         genesis_state,
                         TransitionFrontierGenesisState::Produced { .. }
