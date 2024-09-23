@@ -1,7 +1,7 @@
-use juniper::GraphQLObject;
+use juniper::{GraphQLInputObject, GraphQLObject};
 use ledger::FpExt;
 use mina_p2p_messages::v2::{
-    MinaBaseVerificationKeyWireStableV1Base64, ReceiptChainHash, TokenIdKeyHash,
+    MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseVerificationKeyWireStableV1Base64, ReceiptChainHash, TokenIdKeyHash
 };
 
 #[derive(GraphQLObject)]
@@ -43,6 +43,27 @@ pub struct GraphQLTiming {
     pub vesting_increment: Option<String>,
 }
 
+#[derive(GraphQLInputObject)]
+pub struct InputGraphQLTiming {
+    // pub is_timed: bool,
+    pub initial_minimum_balance: Option<String>,
+    pub cliff_time: Option<i32>,
+    pub cliff_amount: Option<String>,
+    pub vesting_period: Option<i32>,
+    pub vesting_increment: Option<String>,
+}
+
+impl From<MinaBaseAccountUpdateUpdateTimingInfoStableV1> for GraphQLTiming {
+    fn from(value: MinaBaseAccountUpdateUpdateTimingInfoStableV1) -> Self {
+        Self {
+            initial_minimum_balance: Some(value.initial_minimum_balance.0.as_u64().to_string()),
+            cliff_time: Some(value.cliff_time.as_u32() as i32),
+            cliff_amount: Some(value.cliff_amount.as_u64().to_string()),
+            vesting_period: Some(value.vesting_period.as_u32() as i32),
+            vesting_increment: Some(value.vesting_increment.0.as_u64().to_string()),
+        }
+    }
+}
 #[derive(GraphQLObject)]
 pub struct GraphQLPermissions {
     pub edit_state: String,

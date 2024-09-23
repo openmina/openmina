@@ -15,6 +15,7 @@ use warp::{Filter, Rejection, Reply};
 
 pub mod account;
 pub mod best_chain;
+pub mod send_zkapp;
 
 struct Context(RpcSender);
 
@@ -176,6 +177,15 @@ impl Query {
     //         .collect()
     // }
 }
+
+ struct Mutation;
+
+ #[juniper::graphql_object(context = Context)]
+ impl Mutation {
+    async fn send_zkapp(input: send_zkapp::SendZkappInput, context: &Context) -> Result<String, String> {
+        Ok("".to_string())
+    }
+ }  
 
 pub fn routes(
     rpc_sernder: RpcSender,
