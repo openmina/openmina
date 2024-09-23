@@ -15,6 +15,7 @@ pub enum P2pNetworkKadBootstrapAction {
         closest_peers: P2pNetworkKadLatestRequestPeers,
     },
     /// `FIND_NODE` request failed.
+    #[action_event(level = debug)]
     RequestError { peer_id: PeerId, error: String },
 }
 

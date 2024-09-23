@@ -59,7 +59,7 @@ pub enum P2pConnectionIncomingAction {
         peer_id: PeerId,
         error: P2pConnectionIncomingError,
     },
-    /// Incoming connection is succesful.
+    /// Incoming connection is successful.
     #[action_event(level = info)]
     Success {
         peer_id: PeerId,
@@ -69,7 +69,7 @@ pub enum P2pConnectionIncomingAction {
         peer_id: PeerId,
         addr: SocketAddr,
     },
-    /// Incoming libp2p connection is succesful.
+    /// Incoming libp2p connection is successful.
     Libp2pReceived {
         peer_id: PeerId,
     },

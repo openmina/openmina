@@ -576,7 +576,7 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
 
             for addr in entry.addrs {
                 if e.addrs.len() >= P2pNetworkKadEntry::MAX_ADDRS {
-                    openmina_core::log::info!(
+                    openmina_core::warn!(
                         openmina_core::log::system_time();
                         kind = "P2pNetworkKadBucket insert",
                         summary = format!("Skipping updates to Kad entry multiaddress list"),

@@ -106,7 +106,7 @@ impl TransactionPoolEffectfulAction {
             } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
-                    kind = "Info",
+                    kind = "TransactionPoolEffectfulFetchAccounts",
                     summary = "fetching accounts for tx pool");
                 // FIXME: the ledger ctx `get_accounts` function doesn't ensure that every account we
                 // asked for is included in the result.

@@ -18,14 +18,12 @@ pub enum P2pConnectionOutgoingAction {
     #[action_event(level = trace)]
     RandomInit,
     /// Initialize connection to a new peer.
-    #[action_event(level = info)]
     Init {
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
     /// Reconnect to an existing peer.
     // TODO: rename `Init` and `Reconnect` to `New` and `Connect` or something
-    #[action_event(level = info)]
     Reconnect {
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
@@ -66,12 +64,12 @@ pub enum P2pConnectionOutgoingAction {
         peer_id: PeerId,
     },
     /// Error finalizing outgoing connection.
+    #[action_event(level = debug)]
     FinalizeError {
         peer_id: PeerId,
         error: String,
     },
-    /// Outgoing connection succsessfully finalized.
-    #[action_event(level = info)]
+    /// Outgoing connection successfully finalized.
     FinalizeSuccess {
         peer_id: PeerId,
     },
@@ -80,12 +78,12 @@ pub enum P2pConnectionOutgoingAction {
         peer_id: PeerId,
     },
     /// Error connecting to a peer.
+    #[action_event(level = debug)]
     Error {
         peer_id: PeerId,
         error: P2pConnectionOutgoingError,
     },
     /// Outgoing connection is successful.
-    #[action_event(level = info)]
     Success {
         peer_id: PeerId,
     },
