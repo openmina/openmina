@@ -1,15 +1,13 @@
-use std::net::SocketAddr;
-
-use serde::{Deserialize, Serialize};
-
+use super::{
+    P2pConnectionIncomingError, P2pConnectionIncomingInitOpts, P2pConnectionIncomingState,
+};
+use crate::{
+    connection::{P2pConnectionAction, P2pConnectionState},
+    webrtc, P2pAction, P2pPeerStatus, P2pState, PeerId,
+};
 use openmina_core::{requests::RpcId, ActionEvent};
-
-use crate::{webrtc, P2pAction, P2pState, PeerId};
-
-use super::P2pConnectionIncomingInitOpts;
-
-pub type P2pConnectionIncomingActionWithMetaRef<'a> =
-    redux::ActionWithMeta<&'a P2pConnectionIncomingAction>;
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(debug(opts), display(peer_id), display(error)))]
@@ -78,9 +76,9 @@ pub enum P2pConnectionIncomingAction {
 }
 
 impl P2pConnectionIncomingAction {
-    pub fn peer_id(&self) -> Option<&PeerId> {
+    pub fn peer_id(&self) -> &PeerId {
         match self {
-            Self::Init { opts, .. } => Some(&opts.peer_id),
+            Self::Init { opts, .. } => &opts.peer_id,
             Self::AnswerSdpCreatePending { peer_id }
             | Self::AnswerSdpCreateError { peer_id, .. }
             | Self::AnswerSdpCreateSuccess { peer_id, .. }
@@ -91,10 +89,9 @@ impl P2pConnectionIncomingAction {
             | Self::FinalizeSuccess { peer_id }
             | Self::Timeout { peer_id }
             | Self::Error { peer_id, .. }
-            | Self::Success { peer_id } => Some(peer_id),
-            Self::FinalizePendingLibp2p { peer_id, .. } | Self::Libp2pReceived { peer_id } => {
-                Some(peer_id)
-            }
+            | Self::Success { peer_id }
+            | Self::FinalizePendingLibp2p { peer_id, .. }
+            | Self::Libp2pReceived { peer_id } => peer_id,
         }
     }
 }
@@ -232,13 +229,6 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
         }
     }
 }
-
-use crate::{
-    connection::{P2pConnectionAction, P2pConnectionState},
-    P2pPeerStatus,
-};
-
-use super::{P2pConnectionIncomingError, P2pConnectionIncomingState};
 
 impl From<P2pConnectionIncomingAction> for P2pAction {
     fn from(a: P2pConnectionIncomingAction) -> Self {

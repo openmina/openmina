@@ -615,7 +615,7 @@ pub trait P2pServiceWebrtc: redux::Service {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts;
+    ) -> Option<P2pConnectionOutgoingInitOpts>;
 
     fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event>;
 

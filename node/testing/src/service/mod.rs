@@ -336,7 +336,7 @@ impl P2pServiceWebrtc for NodeTestingService {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
+    ) -> Option<P2pConnectionOutgoingInitOpts> {
         self.real.random_pick(list)
     }
 

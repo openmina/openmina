@@ -1,7 +1,7 @@
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
-    disconnection::P2pDisconnectionService,
+    disconnection_effectful::P2pDisconnectionService,
     identity::SecretKey,
     P2pChannelEvent, P2pEvent, PeerId,
 };
@@ -68,7 +68,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
+    ) -> Option<P2pConnectionOutgoingInitOpts> {
         P2pServiceWebrtc::random_pick(self, list)
     }
 

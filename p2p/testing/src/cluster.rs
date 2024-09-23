@@ -384,10 +384,15 @@ impl Cluster {
             |state, action, dispatcher| {
                 log_action(action.action(), action.meta(), state.0.my_id());
                 if let Action::P2p(p2p_action) = action.action() {
-                    P2pState::reducer(
+                    let time = action.meta().time();
+                    let result = P2pState::reducer(
                         Substate::new(state, dispatcher),
                         action.meta().clone().with_action(p2p_action),
-                    )
+                    );
+
+                    if let Err(error) = result {
+                        openmina_core::error!(time; "error = {error}");
+                    }
                 }
             },
             override_fn.unwrap_or(|store, action| {

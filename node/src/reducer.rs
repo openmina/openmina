@@ -24,10 +24,17 @@ pub fn reducer(
                 P2p::Pending(_) => {
                     error!(meta.time(); summary = "p2p is not initialized", action = debug(action))
                 }
-                P2p::Ready(_) => p2p::P2pState::reducer(
-                    Substate::new(state, dispatcher),
-                    meta.with_action(action),
-                ),
+                P2p::Ready(_) => {
+                    let time = meta.time();
+                    let result = p2p::P2pState::reducer(
+                        Substate::new(state, dispatcher),
+                        meta.with_action(action),
+                    );
+
+                    if let Err(error) = result {
+                        error!(time; error = display(error));
+                    }
+                }
             },
         },
         Action::Ledger(a) => {

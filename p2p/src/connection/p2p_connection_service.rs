@@ -6,7 +6,7 @@ pub trait P2pConnectionService: redux::Service {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts;
+    ) -> Option<P2pConnectionOutgoingInitOpts>;
 
     /// Initiates an outgoing connection and creates an offer sdp,
     /// which will be received in the state machine as an event.

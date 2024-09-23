@@ -6,8 +6,6 @@ pub use p2p_connection_outgoing_actions::*;
 
 mod p2p_connection_outgoing_reducer;
 
-mod p2p_connection_outgoing_effects;
-
 #[cfg(feature = "p2p-libp2p")]
 use std::net::SocketAddr;
 use std::{fmt, str::FromStr};
@@ -19,12 +17,13 @@ use thiserror::Error;
 #[cfg(feature = "p2p-libp2p")]
 use mina_p2p_messages::v2;
 
-use crate::{webrtc, PeerId};
+use crate::{
+    webrtc::{self, Host},
+    PeerId,
+};
 
 #[cfg(feature = "p2p-libp2p")]
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
-
-use crate::webrtc::Host;
 
 // TODO(binier): maybe move to `crate::webrtc` module
 #[derive(
@@ -45,7 +44,7 @@ pub struct P2pConnectionOutgoingInitLibp2pOpts {
     pub port: u16,
 }
 
-mod libp2p_opts {
+pub(crate) mod libp2p_opts {
     use std::net::{IpAddr, SocketAddr};
 
     use multiaddr::Multiaddr;
@@ -135,7 +134,6 @@ impl P2pConnectionOutgoingInitOpts {
     pub fn peer_id(&self) -> &PeerId {
         match self {
             Self::WebRTC { peer_id, .. } => peer_id,
-
             Self::LibP2P(v) => &v.peer_id,
         }
     }

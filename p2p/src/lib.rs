@@ -2,7 +2,7 @@
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
-pub mod discovery;
+pub mod disconnection_effectful;
 pub mod identity;
 use bootstrap::P2pNetworkKadBootstrapState;
 use channels::{
@@ -10,8 +10,13 @@ use channels::{
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
     streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
 };
-use connection::incoming::P2pConnectionIncomingAction;
+use connection::{
+    incoming::P2pConnectionIncomingAction,
+    incoming_effectful::P2pConnectionIncomingEffectfulAction,
+    outgoing_effectful::P2pConnectionOutgoingEffectfulAction,
+};
 use disconnection::P2pDisconnectionAction;
+use disconnection_effectful::P2pDisconnectionEffectfulAction;
 use identify::P2pIdentifyAction;
 pub use identity::PeerId;
 use network::identify::{
@@ -123,5 +128,8 @@ pub trait P2pActionTrait<State>:
     + From<P2pChannelsBestTipAction>
     + From<P2pChannelsSnarkJobCommitmentAction>
     + From<P2pChannelsStreamingRpcAction>
+    + From<P2pConnectionIncomingEffectfulAction>
+    + From<P2pConnectionOutgoingEffectfulAction>
+    + From<P2pDisconnectionEffectfulAction>
 {
 }

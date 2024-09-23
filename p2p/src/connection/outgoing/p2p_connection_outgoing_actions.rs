@@ -91,35 +91,10 @@ pub enum P2pConnectionOutgoingAction {
     },
 }
 
-impl P2pConnectionOutgoingAction {
-    pub fn peer_id(&self) -> Option<&PeerId> {
-        match self {
-            Self::RandomInit => None,
-            Self::Init { opts, .. } | Self::Reconnect { opts, .. } => Some(opts.peer_id()),
-            Self::OfferSdpCreatePending { peer_id, .. }
-            | Self::OfferSdpCreateError { peer_id, .. }
-            | Self::OfferSdpCreateSuccess { peer_id, .. }
-            | Self::OfferReady { peer_id, .. }
-            | Self::OfferSendSuccess { peer_id }
-            | Self::AnswerRecvPending { peer_id }
-            | Self::AnswerRecvError { peer_id, .. }
-            | Self::AnswerRecvSuccess { peer_id, .. }
-            | Self::FinalizePending { peer_id }
-            | Self::FinalizeError { peer_id, .. }
-            | Self::FinalizeSuccess { peer_id }
-            | Self::Timeout { peer_id }
-            | Self::Error { peer_id, .. }
-            | Self::Success { peer_id } => Some(peer_id),
-        }
-    }
-}
-
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
     fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            P2pConnectionOutgoingAction::RandomInit => {
-                !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
-            }
+            P2pConnectionOutgoingAction::RandomInit =>  !state.already_has_min_peers() && state.disconnected_peers().next().is_some(),
             P2pConnectionOutgoingAction::Init { opts, .. } => {
                 !state.already_has_min_peers() &&
                 &state.my_id() != opts.peer_id() &&
