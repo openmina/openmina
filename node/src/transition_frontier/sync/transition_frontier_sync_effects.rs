@@ -1,5 +1,5 @@
 use mina_p2p_messages::v2::LedgerHash;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
 use p2p::PeerId;
 use redux::ActionMeta;
@@ -282,7 +282,10 @@ impl TransitionFrontierSyncAction {
                 let error = SyncError::BlockApplyFailed(failed_block.clone(), error.clone());
                 store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
             }
-            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
+            TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                hash,
+                just_emitted_a_proof: _,
+            } => {
                 if let Some(stats) = store.service.stats() {
                     stats.block_producer().block_apply_end(meta.time(), hash);
                 }
@@ -332,8 +335,12 @@ impl TransitionFrontierSyncAction {
                     .iter()
                     .any(|b| b.hash() == new_root.hash())
                 {
+                    let old_chain = transition_frontier
+                        .best_chain
+                        .iter()
+                        .map(AppliedBlock::block_with_hash);
                     root_snarked_ledger_updates
-                        .extend_with_needed(new_root, &transition_frontier.best_chain);
+                        .extend_with_needed(new_root.block_with_hash(), old_chain);
                 }
 
                 let needed_protocol_states = if root_snarked_ledger_updates.is_empty() {

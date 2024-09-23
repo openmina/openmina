@@ -243,8 +243,8 @@ pub fn block_producer_effects<S: crate::Service>(
 
                 let input = Box::new(ProverExtendBlockchainInputStableV2 {
                     chain: BlockchainSnarkBlockchainStableV2 {
-                        state: pred_block.block.header.protocol_state.clone(),
-                        proof: pred_block.block.header.protocol_state_proof.clone(),
+                        state: pred_block.header().protocol_state.clone(),
+                        proof: pred_block.header().protocol_state_proof.clone(),
                     },
                     next_state: block.protocol_state.clone(),
                     block: MinaStateSnarkTransitionValueStableV2 {
@@ -296,7 +296,7 @@ pub fn block_producer_effects<S: crate::Service>(
             let Some((best_tip, root_block, blocks_inbetween)) = None.or_else(|| {
                 let (best_tip, chain) = store.state().block_producer.produced_block_with_chain()?;
                 let mut iter = chain.iter();
-                let root_block = iter.next()?;
+                let root_block = iter.next()?.block_with_hash();
                 let blocks_inbetween = iter.map(|b| b.hash().clone()).collect();
                 Some((best_tip.clone(), root_block.clone(), blocks_inbetween))
             }) else {

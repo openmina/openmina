@@ -4,7 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use super::ledger_manager::{LedgerManager, LedgerRequest};
+use super::{
+    ledger_manager::{LedgerManager, LedgerRequest},
+    write::BlockApplyResult,
+};
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::{
     scan_state::{
@@ -39,9 +42,9 @@ use mina_p2p_messages::{
         StateHash,
     },
 };
-use openmina_core::constants::constraint_constants;
 use openmina_core::snark::{Snark, SnarkJobId};
 use openmina_core::thread;
+use openmina_core::{block::AppliedBlock, constants::constraint_constants};
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
@@ -634,8 +637,8 @@ impl LedgerCtx {
     pub fn block_apply(
         &mut self,
         block: ArcBlockWithHash,
-        pred_block: ArcBlockWithHash,
-    ) -> Result<(), String> {
+        pred_block: AppliedBlock,
+    ) -> Result<BlockApplyResult, String> {
         openmina_core::info!(openmina_core::log::system_time();
             kind = "LedgerService::block_apply",
             summary = format!("{}, {} <- {}", block.height(), block.hash(), block.pred_hash()),
@@ -662,7 +665,7 @@ impl LedgerCtx {
             .map_err(error_to_string)?;
         let supercharge_coinbase = consensus_state.supercharge_coinbase;
 
-        let diff: Diff = (&block.block.body.staged_ledger_diff)
+        let diff: Diff = (&block.body().staged_ledger_diff)
             .try_into()
             .map_err(error_to_string)?;
 
@@ -684,6 +687,7 @@ impl LedgerCtx {
                 supercharge_coinbase,
             )
             .map_err(|err| format!("{err:?}"))?;
+        let just_emitted_a_proof = result.ledger_proof.is_some();
         let ledger_hashes = MinaBaseStagedLedgerHashStableV1::from(&result.hash_after_applying);
 
         // TODO(binier): return error if not matching.
@@ -713,7 +717,9 @@ impl LedgerCtx {
             .staged_ledgers
             .insert(Arc::new(ledger_hashes), staged_ledger);
 
-        Ok(())
+        Ok(BlockApplyResult {
+            just_emitted_a_proof,
+        })
     }
 
     pub fn commit(
@@ -951,7 +957,7 @@ impl LedgerCtx {
     #[allow(clippy::too_many_arguments)]
     pub fn staged_ledger_diff_create(
         &mut self,
-        pred_block: ArcBlockWithHash,
+        pred_block: AppliedBlock,
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
         is_new_epoch: bool,
         producer: NonZeroCurvePoint,
@@ -1391,7 +1397,7 @@ fn dump_reconstruct_to_file(
 fn dump_application_to_file(
     staged_ledger: &StagedLedger,
     block: ArcBlockWithHash,
-    pred_block: ArcBlockWithHash,
+    pred_block: AppliedBlock,
 ) -> std::io::Result<String> {
     use mina_p2p_messages::binprot::{
         self,
@@ -1419,7 +1425,7 @@ fn dump_application_to_file(
             .collect::<Vec<_>>(),
         scan_state: staged_ledger.scan_state().into(),
         pending_coinbase: staged_ledger.pending_coinbase_collection().into(),
-        pred_block: (*pred_block.block).clone(),
+        pred_block: (**pred_block.block()).clone(),
         blocks: vec![(*block.block).clone()],
     };
 

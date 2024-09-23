@@ -4,6 +4,7 @@ pub use ledger_write_actions::*;
 
 mod ledger_write_state;
 pub use ledger_write_state::*;
+use openmina_core::block::AppliedBlock;
 
 mod ledger_write_reducer;
 
@@ -36,7 +37,7 @@ pub enum LedgerWriteRequest {
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     },
     StagedLedgerDiffCreate {
-        pred_block: ArcBlockWithHash,
+        pred_block: AppliedBlock,
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
         is_new_epoch: bool,
         producer: v2::NonZeroCurvePoint,
@@ -48,14 +49,14 @@ pub enum LedgerWriteRequest {
     },
     BlockApply {
         block: ArcBlockWithHash,
-        pred_block: ArcBlockWithHash,
+        pred_block: AppliedBlock,
     },
     Commit {
         ledgers_to_keep: BTreeSet<v2::LedgerHash>,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<v2::StateHash, v2::MinaStateProtocolStateValueStableV2>,
-        new_root: ArcBlockWithHash,
-        new_best_tip: ArcBlockWithHash,
+        new_root: AppliedBlock,
+        new_best_tip: AppliedBlock,
     },
 }
 
@@ -72,12 +73,17 @@ pub enum LedgerWriteResponse {
     },
     BlockApply {
         block_hash: v2::StateHash,
-        result: Result<(), String>,
+        result: Result<BlockApplyResult, String>,
     },
     Commit {
         best_tip_hash: v2::StateHash,
         result: CommitResult,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlockApplyResult {
+    pub just_emitted_a_proof: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

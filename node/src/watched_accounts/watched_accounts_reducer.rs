@@ -121,7 +121,7 @@ impl WatchedAccountsState {
             WatchedAccountsAction::TransactionsIncludedInBlock { pub_key, block } => {
                 let transactions = account_relevant_transactions_in_diff_iter(
                     pub_key,
-                    &block.block.body.staged_ledger_diff.diff,
+                    &block.body().staged_ledger_diff.diff,
                 )
                 .collect();
 

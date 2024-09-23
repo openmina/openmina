@@ -486,7 +486,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     let root_block = chain_iter.next()?;
                                     // TODO(binier): cache body hashes
                                     let Ok(body_hashes) = chain_iter
-                                        .map(|b| b.block.header.protocol_state.body.try_hash())
+                                        .map(|b| b.header().protocol_state.body.try_hash())
                                         .collect::<Result<_, _>>()
                                     else {
                                         openmina_core::error!(meta.time(); "P2pRpcRequest::BestTipWithProof: invalid protocol state");
@@ -494,8 +494,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     };
 
                                     Some(BestTipWithProof {
-                                        best_tip: best_tip.block.clone(),
-                                        proof: (body_hashes, root_block.block.clone()),
+                                        best_tip: best_tip.block().clone(),
+                                        proof: (body_hashes, root_block.block().clone()),
                                     })
                                 });
                                 let response =
@@ -511,8 +511,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                 let response = best_chain
                                     .iter()
                                     .rev()
-                                    .find(|block| block.hash == hash)
-                                    .map(|block| block.block.clone())
+                                    .find(|b| b.hash() == &hash)
+                                    .map(|b| b.block().clone())
                                     .map(P2pRpcResponse::Block)
                                     .map(Box::new);
                                 store.dispatch(P2pChannelsRpcAction::ResponseSend {

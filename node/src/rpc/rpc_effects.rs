@@ -320,12 +320,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             };
 
             let block = match query {
-                RpcScanStateSummaryGetQuery::ForBestTip => transition_frontier.best_tip(),
+                RpcScanStateSummaryGetQuery::ForBestTip => {
+                    transition_frontier.best_tip_breadcrumb()
+                }
                 RpcScanStateSummaryGetQuery::ForBlockWithHash(hash) => transition_frontier
                     .best_chain
                     .iter()
                     .rev()
-                    .find(|b| &b.hash == hash),
+                    .find(|b| b.hash() == hash),
                 RpcScanStateSummaryGetQuery::ForBlockWithHeight(height) => transition_frontier
                     .best_chain
                     .iter()
