@@ -1993,10 +1993,7 @@ mod tests_ocaml {
         collections::{BTreeSet, HashMap},
         panic::AssertUnwindSafe,
         str::FromStr,
-        sync::{
-            atomic::{AtomicUsize, Ordering::Relaxed},
-            Mutex,
-        },
+        sync::atomic::{AtomicUsize, Ordering::Relaxed},
     };
 
     use ark_ec::{AffineCurve, ProjectiveCurve};

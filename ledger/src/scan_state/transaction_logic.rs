@@ -918,7 +918,7 @@ pub mod signed_command {
 }
 
 pub mod zkapp_command {
-    use std::{cell::Cell, rc::Rc, sync::Arc};
+    use std::sync::Arc;
 
     use ark_ff::UniformRand;
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
@@ -937,7 +937,7 @@ pub mod zkapp_command {
             GenesisConstant, GENESIS_CONSTANT,
         },
         zkapps::snark::zkapp_check::InSnarkCheck,
-        AuthRequired, MyCow, Permissions, SetVerificationKey, ToInputs, TokenSymbol,
+        AuthRequired, MutableFp, MyCow, Permissions, SetVerificationKey, ToInputs, TokenSymbol,
         VerificationKey, VerificationKeyWire, VotingFor, ZkAppAccount, ZkAppUri,
     };
 
@@ -3262,7 +3262,7 @@ pub mod zkapp_command {
     #[derive(Debug, Clone, PartialEq)]
     pub struct Tree<AccUpdate: Clone + AccountUpdateRef> {
         pub account_update: AccUpdate,
-        pub account_update_digest: Rc<Cell<Option<Fp>>>,
+        pub account_update_digest: MutableFp,
         pub calls: CallForest<AccUpdate>,
     }
 
@@ -3288,10 +3288,17 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_stack_hash.ml#L6
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone)]
     pub struct WithStackHash<AccUpdate: Clone + AccountUpdateRef> {
         pub elt: Tree<AccUpdate>,
-        pub stack_hash: Rc<Cell<Option<Fp>>>,
+        pub stack_hash: MutableFp,
+    }
+
+    impl<AccUpdate: Clone + AccountUpdateRef + PartialEq> PartialEq for WithStackHash<AccUpdate> {
+        fn eq(&self, other: &Self) -> bool {
+            self.elt == other.elt
+                && self.stack_hash.get().unwrap() == other.stack_hash.get().unwrap()
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_command.ml#L345
@@ -3385,7 +3392,7 @@ pub mod zkapp_command {
             let stack_hash = hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl]);
             let node = WithStackHash::<AccUpdate> {
                 elt: tree,
-                stack_hash: Rc::new(Cell::new(Some(stack_hash))),
+                stack_hash: MutableFp::new(stack_hash),
             };
             let mut forest = Vec::with_capacity(self.0.len() + 1);
             forest.push(node);
@@ -3614,12 +3621,12 @@ pub mod zkapp_command {
                 } = elem;
 
                 calls.accumulate_hashes();
-                account_update_digest.set(Some(account_update.account_update_ref().digest()));
+                account_update_digest.set(account_update.account_update_ref().digest());
 
                 let node_hash = elem.elt.digest();
                 let hash = hash(self.0.get(index + 1));
 
-                self.0[index].stack_hash.set(Some(cons(node_hash, hash)));
+                self.0[index].stack_hash.set(cons(node_hash, hash));
             }
         }
     }
@@ -3634,7 +3641,7 @@ pub mod zkapp_command {
 
             let tree = Tree::<AccountUpdate> {
                 account_update,
-                account_update_digest: Rc::new(Cell::new(Some(account_update_digest))),
+                account_update_digest: MutableFp::new(account_update_digest),
                 calls: calls.unwrap_or_else(|| CallForest(Vec::new())),
             };
             self.cons_tree(tree)
@@ -8149,7 +8156,7 @@ pub mod for_tests {
 
     use crate::{
         gen_keypair, scan_state::parallel_scan::ceil_log2, AuthRequired, Mask, Permissions,
-        ZkAppAccount, TXN_VERSION_CURRENT,
+        VerificationKey, ZkAppAccount, TXN_VERSION_CURRENT,
     };
 
     use super::*;

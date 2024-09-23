@@ -10,7 +10,7 @@ use crate::{
         transaction_logic::{
             for_tests::HashableCompressedPubKey,
             valid,
-            zkapp_command::{self, verifiable, WithHash},
+            zkapp_command::{self, verifiable},
         },
     },
     util, Account, AccountId, AuthRequired, BaseLedger, Mask, MyCowMut, Permissions, TokenId,

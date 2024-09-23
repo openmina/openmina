@@ -1,11 +1,9 @@
 use std::{
-    cell::Cell,
     collections::{
         hash_map::Entry::{Occupied, Vacant},
         HashMap, HashSet,
     },
     marker::PhantomData,
-    rc::Rc,
 };
 
 use ark_ff::{UniformRand, Zero};
@@ -31,15 +29,14 @@ use crate::{
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
                 ClosedInterval, Control, FeePayer, FeePayerBody, MayUseToken, Numeric, OrIgnore,
-                Preconditions, SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand,
-                ZkAppPreconditions,
+                Preconditions, SetOrKeep, Update, WithStackHash, ZkAppCommand, ZkAppPreconditions,
             },
             Memo,
         },
         zkapp_logic::{self, ZkAppCommandElt},
     },
-    Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions,
-    ReceiptChainHash, SetVerificationKey, TokenId, VerificationKey, VerificationKeyWire, VotingFor,
+    Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MutableFp, MyCowMut,
+    Permissions, ReceiptChainHash, SetVerificationKey, TokenId, VerificationKeyWire, VotingFor,
     ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
@@ -1453,7 +1450,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                 .map(|v| {
                     WithStackHash {
                         elt: v,
-                        stack_hash: Rc::new(Cell::new(Some(Fp::zero()))), // TODO: OCaml uses `()`
+                        stack_hash: MutableFp::new(Fp::zero()), // TODO: OCaml uses `()`
                     }
                 })
                 .collect(),
@@ -1466,7 +1463,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     ) -> zkapp_command::Tree<AccountUpdateSimple> {
         zkapp_command::Tree {
             account_update: p,
-            account_update_digest: Rc::new(Cell::new(Some(Fp::zero()))), // TODO: OCaml uses `()`
+            account_update_digest: MutableFp::new(Fp::zero()), // TODO: OCaml uses `()`
             calls: mk_forest(calls),
         }
     }

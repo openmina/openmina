@@ -1,6 +1,6 @@
 #![allow(unused_variables, unreachable_code)]
 
-use std::{cell::Cell, rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_hasher::Fp;
@@ -111,8 +111,8 @@ use crate::{
         },
     },
     staged_ledger::hash::{AuxHash, NonStark, PendingCoinbaseAux, StagedLedgerHash},
-    Account, AccountId, Address, HashesMatrix, TokenId, VerificationKey, VerificationKeyWire,
-    VotingFor,
+    Account, AccountId, Address, HashesMatrix, MutableFp, TokenId, VerificationKey,
+    VerificationKeyWire, VotingFor,
 };
 
 use super::{
@@ -134,7 +134,7 @@ use super::{
         signed_command::SignedCommand,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
-            verifiable, AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
+            verifiable, AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithStackHash,
         },
         zkapp_statement::ZkappStatement,
         CoinbaseFeeTransfer, FeeTransfer, Memo, SingleFeeTransfer, Transaction, TransactionFailure,
@@ -1250,10 +1250,10 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACall
                     Ok(WithStackHash {
                         elt: zkapp_command::Tree {
                             account_update: (&update.elt.account_update).try_into()?,
-                            account_update_digest: Rc::new(Cell::new(None)), // replaced later
+                            account_update_digest: MutableFp::empty(), // replaced later
                             calls: (&update.elt.calls).try_into()?,
                         },
-                        stack_hash: Rc::new(Cell::new(None)), // replaced later
+                        stack_hash: MutableFp::empty(), // replaced later
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -1275,10 +1275,10 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
                 Ok(WithStackHash {
                     elt: zkapp_command::Tree {
                         account_update: (&update.elt.account_update).try_into()?,
-                        account_update_digest: Rc::new(Cell::new(None)), // replaced later in `of_wire`
+                        account_update_digest: MutableFp::empty(), // replaced later in `of_wire`
                         calls: (&update.elt.calls).try_into()?,
                     },
-                    stack_hash: Rc::new(Cell::new(None)), // replaced later in `of_wire`
+                    stack_hash: MutableFp::empty(), // replaced later in `of_wire`
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -1349,12 +1349,12 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACal
                     Ok(WithStackHash {
                         elt: zkapp_command::Tree {
                             account_update: (account.try_into()?, vk_opt),
-                            account_update_digest: Rc::new(Cell::new(Some(
+                            account_update_digest: MutableFp::new(
                                 account_update_digest.to_field()?,
-                            ))),
+                            ),
                             calls: calls.try_into()?,
                         },
-                        stack_hash: Rc::new(Cell::new(Some(stack_hash.to_field()?))),
+                        stack_hash: MutableFp::new(stack_hash.to_field()?),
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?,
@@ -1387,12 +1387,10 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
                 Ok(WithStackHash {
                     elt: zkapp_command::Tree {
                         account_update: (account.try_into()?, vk_opt),
-                        account_update_digest: Rc::new(Cell::new(Some(
-                            account_update_digest.to_field()?,
-                        ))),
+                        account_update_digest: MutableFp::new(account_update_digest.to_field()?),
                         calls: calls.try_into()?,
                     },
-                    stack_hash: Rc::new(Cell::new(Some(stack_hash.to_field()?))),
+                    stack_hash: MutableFp::new(stack_hash.to_field()?),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;

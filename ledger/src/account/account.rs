@@ -1,4 +1,4 @@
-use std::{cell::Cell, fmt::Write, io::Cursor, rc::Rc, str::FromStr, sync::Arc};
+use std::{fmt::Write, io::Cursor, str::FromStr, sync::Arc};
 
 use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
@@ -662,24 +662,69 @@ impl From<&ZkAppUri> for mina_p2p_messages::string::ZkAppUri {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Alternative to `Rc<Cell<Option<Fp>>>` that is `Send`
+// TODO: Use atomics here, instead of mutex
+#[derive(Clone, Debug)]
+pub struct MutableFp {
+    fp: Arc<std::sync::Mutex<Option<Fp>>>,
+}
+
+impl Eq for MutableFp {}
+
+impl PartialEq for MutableFp {
+    fn eq(&self, other: &Self) -> bool {
+        self.get().unwrap() == other.get().unwrap()
+    }
+}
+
+impl MutableFp {
+    pub fn empty() -> Self {
+        Self {
+            fp: Arc::new(std::sync::Mutex::new(None)),
+        }
+    }
+    pub fn new(fp: Fp) -> Self {
+        Self {
+            fp: Arc::new(std::sync::Mutex::new(Some(fp))),
+        }
+    }
+    pub fn get(&self) -> Option<Fp> {
+        self.fp.lock().unwrap().clone()
+    }
+    pub fn set(&self, fp: Fp) {
+        *self.fp.lock().unwrap() = Some(fp)
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct VerificationKeyWire {
     vk: VerificationKey,
-    hash: Rc<Cell<Option<Fp>>>,
+    hash: MutableFp,
+}
+
+impl Eq for VerificationKeyWire {}
+
+impl PartialEq for VerificationKeyWire {
+    fn eq(&self, other: &Self) -> bool {
+        match (self.hash.get(), other.hash.get()) {
+            (Some(this), Some(other)) => this == other,
+            _ => self.vk == other.vk,
+        }
+    }
 }
 
 impl VerificationKeyWire {
     pub fn new(vk: VerificationKey) -> Self {
         Self {
             vk,
-            hash: Rc::new(Cell::new(None)),
+            hash: MutableFp::empty(),
         }
     }
 
     pub fn with_hash(vk: VerificationKey, hash: Fp) -> Self {
         Self {
             vk,
-            hash: Rc::new(Cell::new(Some(hash))),
+            hash: MutableFp::new(hash),
         }
     }
 
@@ -689,7 +734,7 @@ impl VerificationKeyWire {
             return hash;
         }
         let vk_hash = vk.hash();
-        hash.set(Some(vk_hash));
+        hash.set(vk_hash);
         vk_hash
     }
 
@@ -709,7 +754,7 @@ impl VerificationKeyWire {
     pub fn dummy() -> Self {
         Self {
             vk: (*VerificationKey::dummy()).clone(),
-            hash: Rc::new(Cell::new(Some(Self::dummy_hash()))),
+            hash: MutableFp::new(Self::dummy_hash()),
         }
     }
 
@@ -1696,9 +1741,6 @@ mod tests {
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
-
-    #[cfg(not(target_family = "wasm"))]
-    use crate::{base::BaseLedger, database::Database, tree_version::V2};
 
     use super::*;
 

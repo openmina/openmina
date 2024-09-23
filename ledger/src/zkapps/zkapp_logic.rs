@@ -12,7 +12,7 @@ use crate::{
         },
     },
     zkapps::intefaces::*,
-    AuthRequired, MyCow, TokenId, VerificationKey,
+    AuthRequired, MyCow, TokenId,
 };
 use crate::{Permissions, SetVerificationKey, VerificationKeyWire};
 
