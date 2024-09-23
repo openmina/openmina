@@ -945,22 +945,27 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
 #[derive(Debug, Clone)]
 pub struct MinaBaseVerificationKeyWireStableV1Base64(pub MinaBaseVerificationKeyWireStableV1);
 
+impl MinaBaseVerificationKeyWireStableV1 {
+    pub fn to_base64(&self) -> Result<String, serde_json::Error> {
+        let mut buffer: Vec<u8> = Vec::new();
+        self.binprot_write(&mut buffer).map_err(serde::ser::Error::custom)?;
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let base64_data = STANDARD.encode(buffer);
+        Ok(base64_data)
+    }
+}
+
 impl Serialize for MinaBaseVerificationKeyWireStableV1Base64 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::ser::Serializer,
     {
         if serializer.is_human_readable() {
-            let mut buffer: Vec<u8> = Vec::new();
-            self.0
-                .binprot_write(&mut buffer)
-                .map_err(serde::ser::Error::custom)?;
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
-
-            let base64_data = STANDARD.encode(buffer);
+            let base64_data = self.0.to_base64().map_err(serde::ser::Error::custom)?;
             serializer.serialize_str(&base64_data)
         } else {
-            self.serialize(serializer)
+            self.0.serialize(serializer)
         }
     }
 }
@@ -988,6 +993,69 @@ impl<'de> Deserialize<'de> for MinaBaseVerificationKeyWireStableV1Base64 {
         Ok(Self(res))
     }
 }
+
+/// TODO(adonagy): implement the base64 conversions similarly to the base58check ones (versioned/not versioned)
+#[derive(Debug, Clone)]
+pub struct MinaBaseZkappCommandTStableV1WireStableV1Base64(pub MinaBaseZkappCommandTStableV1WireStableV1);
+
+impl MinaBaseZkappCommandTStableV1WireStableV1 {
+    pub fn to_base64(&self) -> Result<String, serde_json::Error> {
+        const ZKAPP_VERSION_TAG: u8 = 1;
+
+        let mut buffer: Vec<u8> = Vec::new();
+        ZKAPP_VERSION_TAG.binprot_write(&mut buffer).map_err(serde::ser::Error::custom)?;
+        self.binprot_write(&mut buffer).map_err(serde::ser::Error::custom)?;
+        use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
+
+        let base64_data = STANDARD_NO_PAD.encode(buffer);
+        Ok(base64_data)
+    }
+}
+
+impl From<MinaBaseZkappCommandTStableV1WireStableV1> for MinaBaseZkappCommandTStableV1WireStableV1Base64 {
+    fn from(value: MinaBaseZkappCommandTStableV1WireStableV1) -> Self {
+        Self(value)
+    }
+}
+
+impl Serialize for MinaBaseZkappCommandTStableV1WireStableV1Base64 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let base64_data = self.0.to_base64().map_err(serde::ser::Error::custom)?;
+            serializer.serialize_str(&base64_data)
+        } else {
+            self.0.serialize(serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for MinaBaseZkappCommandTStableV1WireStableV1Base64 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let deserialised = if deserializer.is_human_readable() {
+            use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
+            let base64_data = String::deserialize(deserializer)?;
+            STANDARD_NO_PAD.decode(&base64_data).map_err(|e| {
+                serde::de::Error::custom(format!("Error deserializing zkapp: {e}"))
+            })?
+        } else {
+            Deserialize::deserialize(deserializer)?
+        };
+
+        let res = MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut deserialised.as_slice())
+            .map_err(|e| {
+            serde::de::Error::custom(format!("Error deserializing zkapp: {e}"))
+        })?;
+
+        Ok(Self(res))
+    }
+}
+
 
 impl Serialize for ConsensusBodyReferenceStableV1 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -1487,5 +1555,48 @@ impl From<PicklesProofProofsVerified2ReprStableV2> for PicklesProofProofsVerifie
             prev_evals: value.prev_evals,
             proof: value.proof,
         }
+    }
+}
+
+impl std::fmt::Display for SgnStableV1 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SgnStableV1::Pos => write!(f, "Positive"),
+            SgnStableV1::Neg => write!(f, "Negative"),
+        }
+    }
+}
+
+impl std::str::FromStr for SgnStableV1 {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Positive" => Ok(SgnStableV1::Pos),
+            "Negative" => Ok(SgnStableV1::Neg),
+            _ => Err("Invalid Sgn string, expected Positive or Negative".to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use binprot::BinProtRead;
+
+    use crate::v2::{MinaBaseZkappCommandTStableV1WireStableV1, MinaBaseZkappCommandTStableV1WireStableV1Base64};
+
+    #[test]
+    fn test_zkapp_with_sig_auth_hash() {
+        let expexcted = "AbliNXLg4Keq0ZJyxK/QNAx8SxrJeffYytk5lbcTF9s9Af0A4fUFAP2+oQMA48vntxcABLty3SXWjvuadrLtBjcsxT1oJ3C2hwS/LDh364LKUxrLe3uF/9lr8VlW/J+ctbiI+m9I61sb9BC/AAG5YjVy4OCnqtGScsSv0DQMfEsayXn32MrZOZW3ExfbPQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAAEBAQEBAQH9AJQ1dwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAEBAQEBAAAAAePL57cXAAS7ct0l1o77mnay7QY3LMU9aCdwtocEvyw4d+uCylMay3t7hf/Za/FZVvyfnLW4iPpvSOtbG/QQvwAAAcwXZjv4NJwWwlJhFZPh2AK+o0dKOpIy1a6CXlskW7gmAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEAAQEBAQEBAf0AlDV3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAQEBAQAAAAICAAAAACIBFlRlc3QgWktBcHAgdG8gUmVjZWl2ZXIAAAAAAAAAAAAA".to_string();
+        let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+
+        let zkapp_id = MinaBaseZkappCommandTStableV1WireStableV1Base64::from(zkapp);
+
+        let zkapp_id_string = serde_json::to_string_pretty(&zkapp_id).unwrap();
+        let zkapp_id_string = zkapp_id_string.trim_matches('"');
+
+        assert_eq!(expexcted, zkapp_id_string);
     }
 }
