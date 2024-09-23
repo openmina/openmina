@@ -87,6 +87,11 @@ impl P2pConnectionIncomingState {
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionIncomingAction::AnswerSdpCreatePending`: {:?}",
+                        action
+                    );
                 }
                 Ok(())
             }
@@ -116,6 +121,12 @@ impl P2pConnectionIncomingState {
                         sdp: sdp.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionIncomingAction::AnswerSdpCreateSuccess`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -146,6 +157,11 @@ impl P2pConnectionIncomingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionIncomingAction::AnswerReady`: {:?}",
+                        action
+                    );
                 }
                 Ok(())
             }
@@ -168,6 +184,12 @@ impl P2pConnectionIncomingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionIncomingAction::AnswerSendSuccess`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -193,6 +215,11 @@ impl P2pConnectionIncomingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionIncomingAction::FinalizePending`: {:?}",
+                        action
+                    );
                 }
                 Ok(())
             }
@@ -223,6 +250,12 @@ impl P2pConnectionIncomingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionIncomingAction::FinalizeSuccess`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -289,6 +322,12 @@ impl P2pConnectionIncomingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionIncomingAction::Success`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -331,6 +370,12 @@ impl P2pConnectionIncomingState {
 
                     if let Self::FinalizePendingLibp2p { time, .. } = state {
                         *state = Self::Libp2pReceived { time: *time };
+                    } else {
+                        bug_condition!(
+                            "Invalid state for `P2pConnectionIncomingAction::Libp2pReceived`: {:?}",
+                            action
+                        );
+                        return Ok(());
                     }
 
                     let dispatcher = state_context.into_dispatcher();

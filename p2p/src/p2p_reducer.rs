@@ -28,9 +28,7 @@ impl P2pState {
                 P2pConnectionState::reducer(state_context, meta.with_action(action))
             }
             P2pAction::Disconnection(action) => match action {
-                P2pDisconnectionAction::Init { .. } => {
-                    Ok(())
-                }
+                P2pDisconnectionAction::Init { .. } => Ok(()),
                 P2pDisconnectionAction::Finish { peer_id } => {
                     #[cfg(feature = "p2p-libp2p")]
                     if state
@@ -65,8 +63,7 @@ impl P2pState {
                 peer.channels.reducer(meta.with_action(action), is_libp2p);
                 Ok(())
             }
-            P2pAction::Identify(_action) =>
-            {
+            P2pAction::Identify(_action) => {
                 #[cfg(feature = "p2p-libp2p")]
                 match _action {
                     crate::identify::P2pIdentifyAction::NewRequest { .. } => {}

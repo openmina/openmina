@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use openmina_core::{warn, Substate};
+use openmina_core::{bug_condition, warn, Substate};
 
 use crate::{
     connection::{
@@ -128,6 +128,8 @@ impl P2pConnectionOutgoingState {
                         opts: opts.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreatePending`: {:?}", action);
                 }
 
                 Ok(())
@@ -152,6 +154,9 @@ impl P2pConnectionOutgoingState {
                         sdp: sdp.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`: {:?}", action);
+                    return Ok(());
                 }
 
                 let offer = Box::new(crate::webrtc::Offer {
@@ -177,6 +182,12 @@ impl P2pConnectionOutgoingState {
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionOutgoingAction::OfferReady`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -203,6 +214,12 @@ impl P2pConnectionOutgoingState {
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionOutgoingAction::OfferSendSuccess`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -226,6 +243,11 @@ impl P2pConnectionOutgoingState {
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionOutgoingAction::AnswerRecvPending`: {:?}",
+                        action
+                    );
                 }
                 Ok(())
             }
@@ -264,6 +286,11 @@ impl P2pConnectionOutgoingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionOutgoingAction::AnswerRecvSuccess`: {:?}",
+                        action
+                    );
                 }
                 Ok(())
             }
@@ -299,7 +326,13 @@ impl P2pConnectionOutgoingState {
                         };
                         Ok(())
                     }
-                    _ => Ok(()),
+                    _ => {
+                        bug_condition!(
+                                "Invalid state for `P2pConnectionOutgoingAction::FinalizePending`: {:?}",
+                                action
+                            );
+                        Ok(())
+                    }
                 }
             }
             P2pConnectionOutgoingAction::FinalizeError { error, .. } => {
@@ -330,6 +363,12 @@ impl P2pConnectionOutgoingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionOutgoingAction::FinalizeSuccess`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -393,6 +432,12 @@ impl P2pConnectionOutgoingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                } else {
+                    bug_condition!(
+                        "Invalid state for `P2pConnectionOutgoingAction::Success`: {:?}",
+                        action
+                    );
+                    return Ok(());
                 }
 
                 let dispatcher = state_context.into_dispatcher();

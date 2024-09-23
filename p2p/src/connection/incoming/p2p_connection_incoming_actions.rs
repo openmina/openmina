@@ -1,6 +1,3 @@
-use std::net::SocketAddr;
-use serde::{Deserialize, Serialize};
-use openmina_core::{requests::RpcId, ActionEvent};
 use super::{
     P2pConnectionIncomingError, P2pConnectionIncomingInitOpts, P2pConnectionIncomingState,
 };
@@ -8,6 +5,9 @@ use crate::{
     connection::{P2pConnectionAction, P2pConnectionState},
     webrtc, P2pAction, P2pPeerStatus, P2pState, PeerId,
 };
+use openmina_core::{requests::RpcId, ActionEvent};
+use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(debug(opts), display(peer_id), display(error)))]

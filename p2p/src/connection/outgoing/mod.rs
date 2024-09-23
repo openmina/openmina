@@ -17,11 +17,13 @@ use thiserror::Error;
 #[cfg(feature = "p2p-libp2p")]
 use mina_p2p_messages::v2;
 
-use crate::{webrtc::{self, Host}, PeerId};
+use crate::{
+    webrtc::{self, Host},
+    PeerId,
+};
 
 #[cfg(feature = "p2p-libp2p")]
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
-
 
 // TODO(binier): maybe move to `crate::webrtc` module
 #[derive(
