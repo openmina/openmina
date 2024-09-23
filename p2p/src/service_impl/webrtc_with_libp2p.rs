@@ -68,7 +68,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
+    ) -> Option<P2pConnectionOutgoingInitOpts> {
         P2pServiceWebrtc::random_pick(self, list)
     }
 

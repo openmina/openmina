@@ -22,6 +22,7 @@ use super::{
 };
 
 impl P2pConnectionIncomingState {
+    /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
         action: ActionWithMeta<&P2pConnectionIncomingAction>,
@@ -90,7 +91,7 @@ impl P2pConnectionIncomingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::AnswerSdpCreatePending`: {:?}",
-                        action
+                        state
                     );
                 }
                 Ok(())
@@ -124,7 +125,7 @@ impl P2pConnectionIncomingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::AnswerSdpCreateSuccess`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }
@@ -160,7 +161,7 @@ impl P2pConnectionIncomingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::AnswerReady`: {:?}",
-                        action
+                        state
                     );
                 }
                 Ok(())
@@ -187,7 +188,7 @@ impl P2pConnectionIncomingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::AnswerSendSuccess`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }
@@ -218,7 +219,7 @@ impl P2pConnectionIncomingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::FinalizePending`: {:?}",
-                        action
+                        state
                     );
                 }
                 Ok(())
@@ -253,7 +254,7 @@ impl P2pConnectionIncomingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::FinalizeSuccess`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }
@@ -325,7 +326,7 @@ impl P2pConnectionIncomingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::Success`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }
@@ -373,7 +374,7 @@ impl P2pConnectionIncomingState {
                     } else {
                         bug_condition!(
                             "Invalid state for `P2pConnectionIncomingAction::Libp2pReceived`: {:?}",
-                            action
+                            state
                         );
                         return Ok(());
                     }

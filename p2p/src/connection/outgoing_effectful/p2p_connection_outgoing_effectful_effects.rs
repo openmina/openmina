@@ -1,3 +1,4 @@
+use openmina_core::bug_condition;
 use redux::ActionMeta;
 
 use crate::{
@@ -22,10 +23,14 @@ impl P2pConnectionOutgoingEffectfulAction {
             P2pConnectionOutgoingEffectfulAction::RandomInit => {
                 let peers = store.state().disconnected_peers().collect::<Vec<_>>();
                 let picked_peer = store.service().random_pick(&peers);
-                store.dispatch(P2pConnectionOutgoingAction::Reconnect {
-                    opts: picked_peer,
-                    rpc_id: None,
-                });
+                if let Some(picked_peer) = picked_peer {
+                    store.dispatch(P2pConnectionOutgoingAction::Reconnect {
+                        opts: picked_peer,
+                        rpc_id: None,
+                    });
+                } else {
+                    bug_condition!("Picked peer is None");
+                }
             }
             P2pConnectionOutgoingEffectfulAction::Init { opts, .. } => {
                 let peer_id = *opts.peer_id();

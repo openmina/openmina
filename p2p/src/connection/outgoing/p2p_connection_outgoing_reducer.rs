@@ -19,6 +19,7 @@ use super::{
 };
 
 impl P2pConnectionOutgoingState {
+    /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
         action: P2pConnectionOutgoingActionWithMetaRef<'_>,
@@ -129,7 +130,7 @@ impl P2pConnectionOutgoingState {
                         rpc_id: rpc_id.take(),
                     };
                 } else {
-                    bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreatePending`: {:?}", action);
+                    bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreatePending`: {:?}", state);
                 }
 
                 Ok(())
@@ -155,7 +156,7 @@ impl P2pConnectionOutgoingState {
                         rpc_id: rpc_id.take(),
                     };
                 } else {
-                    bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`: {:?}", action);
+                    bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`: {:?}", state);
                     return Ok(());
                 }
 
@@ -185,7 +186,7 @@ impl P2pConnectionOutgoingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::OfferReady`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }
@@ -217,7 +218,7 @@ impl P2pConnectionOutgoingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::OfferSendSuccess`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }
@@ -246,7 +247,7 @@ impl P2pConnectionOutgoingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::AnswerRecvPending`: {:?}",
-                        action
+                        state
                     );
                 }
                 Ok(())
@@ -289,7 +290,7 @@ impl P2pConnectionOutgoingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::AnswerRecvSuccess`: {:?}",
-                        action
+                        state
                     );
                 }
                 Ok(())
@@ -329,7 +330,7 @@ impl P2pConnectionOutgoingState {
                     _ => {
                         bug_condition!(
                                 "Invalid state for `P2pConnectionOutgoingAction::FinalizePending`: {:?}",
-                                action
+                                state
                             );
                         Ok(())
                     }
@@ -366,7 +367,7 @@ impl P2pConnectionOutgoingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::FinalizeSuccess`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }
@@ -435,7 +436,7 @@ impl P2pConnectionOutgoingState {
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::Success`: {:?}",
-                        action
+                        state
                     );
                     return Ok(());
                 }

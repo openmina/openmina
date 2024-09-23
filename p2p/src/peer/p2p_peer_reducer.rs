@@ -28,6 +28,7 @@ impl P2pPeerState {
 
         match action {
             P2pPeerAction::Discovered { peer_id, dial_opts } => {
+                // TODO: add bound to peers
                 let peer_state = p2p_state
                     .peers
                     .entry(*peer_id)
