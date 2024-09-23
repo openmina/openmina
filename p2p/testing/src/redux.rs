@@ -22,6 +22,7 @@ use p2p::{
         outgoing_effectful::P2pConnectionOutgoingEffectfulAction,
     },
     disconnection::P2pDisconnectionAction,
+    disconnection_effectful::P2pDisconnectionEffectfulAction,
     identify::P2pIdentifyAction,
     network::identify::{
         stream_effectful::P2pNetworkIdentifyStreamEffectfulAction, P2pNetworkIdentifyState,
@@ -276,5 +277,6 @@ impl_from_p2p!(P2pChannelsSnarkJobCommitmentAction);
 impl_from_p2p!(P2pChannelsStreamingRpcAction);
 impl_from_p2p!(P2pConnectionIncomingEffectfulAction);
 impl_from_p2p!(P2pConnectionOutgoingEffectfulAction);
+impl_from_p2p!(P2pDisconnectionEffectfulAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

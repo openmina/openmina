@@ -3,6 +3,7 @@ use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::P2pConnectionEffectfulAction;
+use crate::disconnection_effectful::P2pDisconnectionEffectfulAction;
 
 use super::channels::P2pChannelsAction;
 use super::connection::P2pConnectionAction;
@@ -21,6 +22,7 @@ pub enum P2pAction {
     Connection(P2pConnectionAction),
     ConnectionEffectful(P2pConnectionEffectfulAction),
     Disconnection(P2pDisconnectionAction),
+    DisconnectionEffectful(P2pDisconnectionEffectfulAction),
     Identify(P2pIdentifyAction),
     Channels(P2pChannelsAction),
     Peer(P2pPeerAction),
@@ -49,6 +51,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pAction {
             P2pAction::Connection(a) => a.is_enabled(state, time),
             P2pAction::ConnectionEffectful(a) => a.is_enabled(state, time),
             P2pAction::Disconnection(a) => a.is_enabled(state, time),
+            P2pAction::DisconnectionEffectful(a) => a.is_enabled(state, time),
             P2pAction::Channels(a) => a.is_enabled(state, time),
             P2pAction::Peer(a) => a.is_enabled(state, time),
             P2pAction::Identify(a) => a.is_enabled(state, time),

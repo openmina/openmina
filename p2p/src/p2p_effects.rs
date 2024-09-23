@@ -283,14 +283,14 @@ where
         P2pAction::Initialization(_) => {
             // Noop
         }
-        P2pAction::Connection(_) => {
+        P2pAction::Connection(_) | P2pAction::Disconnection(_) | P2pAction::Peer(_) => {
             // handled by reducer
         }
         P2pAction::ConnectionEffectful(action) => match action {
             P2pConnectionEffectfulAction::Outgoing(action) => action.effects(&meta, store),
             P2pConnectionEffectfulAction::Incoming(action) => action.effects(&meta, store),
         },
-        P2pAction::Disconnection(action) => action.effects(&meta, store),
+        P2pAction::DisconnectionEffectful(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => action.effects(&meta, store),
             P2pChannelsAction::BestTip(action) => action.effects(&meta, store),
@@ -300,9 +300,6 @@ where
             P2pChannelsAction::Rpc(action) => action.effects(&meta, store),
             P2pChannelsAction::StreamingRpc(action) => action.effects(&meta, store),
         },
-        P2pAction::Peer(_) => {
-            // handled by reducer
-        }
         P2pAction::Identify(_action) => {
             #[cfg(feature = "p2p-libp2p")]
             _action.effects(&meta, store);

@@ -2,6 +2,7 @@
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
+pub mod disconnection_effectful;
 pub mod identity;
 use bootstrap::P2pNetworkKadBootstrapState;
 use channels::{
@@ -15,6 +16,7 @@ use connection::{
     outgoing_effectful::P2pConnectionOutgoingEffectfulAction,
 };
 use disconnection::P2pDisconnectionAction;
+use disconnection_effectful::P2pDisconnectionEffectfulAction;
 use identify::P2pIdentifyAction;
 pub use identity::PeerId;
 use network::identify::{
@@ -128,5 +130,6 @@ pub trait P2pActionTrait<State>:
     + From<P2pChannelsStreamingRpcAction>
     + From<P2pConnectionIncomingEffectfulAction>
     + From<P2pConnectionOutgoingEffectfulAction>
+    + From<P2pDisconnectionEffectfulAction>
 {
 }

@@ -1,7 +1,7 @@
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
-    disconnection::P2pDisconnectionService,
+    disconnection_effectful::P2pDisconnectionService,
     identity::SecretKey,
     P2pChannelEvent, P2pEvent, PeerId,
 };

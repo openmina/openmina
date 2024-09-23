@@ -59,6 +59,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pConnectionEffectfulAction::Incoming(action) => action.action_event(&context),
             },
             P2pAction::Disconnection(action) => action.action_event(&context),
+            P2pAction::DisconnectionEffectful(action) => action.action_event(&context),
             P2pAction::Identify(action) => action.action_event(&context),
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(action) => action.action_event(&context),

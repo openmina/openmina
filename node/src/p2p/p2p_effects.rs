@@ -101,100 +101,97 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 _ => {}
             },
         },
-        P2pAction::Disconnection(action) => {
-            action.effects(&meta, store);
+        P2pAction::Disconnection(action) => match action {
+            P2pDisconnectionAction::Init { .. } => {}
+            P2pDisconnectionAction::Finish { peer_id } => {
+                if let Some(s) = store.state().transition_frontier.sync.ledger() {
+                    let snarked_ledger_num_accounts_rpc_id = s
+                        .snarked()
+                        .and_then(|s| s.peer_num_accounts_rpc_id(&peer_id));
+                    let snarked_ledger_address_rpc_ids = s
+                        .snarked()
+                        .map(|s| s.peer_address_query_pending_rpc_ids(&peer_id).collect())
+                        .unwrap_or(vec![]);
+                    let staged_ledger_parts_fetch_rpc_id =
+                        s.staged().and_then(|s| s.parts_fetch_rpc_id(&peer_id));
 
-            match action {
-                P2pDisconnectionAction::Init { .. } => {}
-                P2pDisconnectionAction::Finish { peer_id } => {
-                    if let Some(s) = store.state().transition_frontier.sync.ledger() {
-                        let snarked_ledger_num_accounts_rpc_id = s
-                            .snarked()
-                            .and_then(|s| s.peer_num_accounts_rpc_id(&peer_id));
-                        let snarked_ledger_address_rpc_ids = s
-                            .snarked()
-                            .map(|s| s.peer_address_query_pending_rpc_ids(&peer_id).collect())
-                            .unwrap_or(vec![]);
-                        let staged_ledger_parts_fetch_rpc_id =
-                            s.staged().and_then(|s| s.parts_fetch_rpc_id(&peer_id));
-
-                        for rpc_id in snarked_ledger_address_rpc_ids {
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
-                                    peer_id,
-                                    rpc_id,
-                                    error: PeerLedgerQueryError::Disconnected,
-                                },
-                            );
-                        }
-
-                        if let Some(rpc_id) = snarked_ledger_num_accounts_rpc_id {
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
-                                    peer_id,
-                                    rpc_id,
-                                    error: PeerLedgerQueryError::Disconnected,
-                                },
-                            );
-                        }
-
-                        if let Some(rpc_id) = staged_ledger_parts_fetch_rpc_id {
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
-                                    peer_id,
-                                    rpc_id,
-                                    error: PeerStagedLedgerPartsFetchError::Disconnected,
-                                },
-                            );
-                        }
+                    for rpc_id in snarked_ledger_address_rpc_ids {
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
+                                peer_id,
+                                rpc_id,
+                                error: PeerLedgerQueryError::Disconnected,
+                            },
+                        );
                     }
 
-                    let blocks_fetch_rpc_ids = store
-                        .state()
-                        .transition_frontier
-                        .sync
-                        .blocks_fetch_from_peer_pending_rpc_ids(&peer_id)
-                        .collect::<Vec<_>>();
-
-                    for rpc_id in blocks_fetch_rpc_ids {
-                        store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryError {
-                            peer_id,
-                            rpc_id,
-                            error: PeerBlockFetchError::Disconnected,
-                        });
+                    if let Some(rpc_id) = snarked_ledger_num_accounts_rpc_id {
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
+                                peer_id,
+                                rpc_id,
+                                error: PeerLedgerQueryError::Disconnected,
+                            },
+                        );
                     }
 
-                    let actions = store
-                        .state()
-                        .watched_accounts
-                        .iter()
-                        .filter_map(|(pub_key, a)| match &a.initial_state {
-                            WatchedAccountLedgerInitialState::Pending {
-                                peer_id: account_peer_id,
-                                ..
-                            } => {
-                                if account_peer_id == &peer_id {
-                                    Some(WatchedAccountsAction::LedgerInitialStateGetError {
+                    if let Some(rpc_id) = staged_ledger_parts_fetch_rpc_id {
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
+                                peer_id,
+                                rpc_id,
+                                error: PeerStagedLedgerPartsFetchError::Disconnected,
+                            },
+                        );
+                    }
+                }
+
+                let blocks_fetch_rpc_ids = store
+                    .state()
+                    .transition_frontier
+                    .sync
+                    .blocks_fetch_from_peer_pending_rpc_ids(&peer_id)
+                    .collect::<Vec<_>>();
+
+                for rpc_id in blocks_fetch_rpc_ids {
+                    store.dispatch(TransitionFrontierSyncAction::BlocksPeerQueryError {
+                        peer_id,
+                        rpc_id,
+                        error: PeerBlockFetchError::Disconnected,
+                    });
+                }
+
+                let actions = store
+                    .state()
+                    .watched_accounts
+                    .iter()
+                    .filter_map(|(pub_key, a)| match &a.initial_state {
+                        WatchedAccountLedgerInitialState::Pending {
+                            peer_id: account_peer_id,
+                            ..
+                        } => {
+                            if account_peer_id == &peer_id {
+                                Some(WatchedAccountsAction::LedgerInitialStateGetError {
                                     pub_key: pub_key.clone(),
                                     error:
                                         WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
                                 })
-                                } else {
-                                    None
-                                }
+                            } else {
+                                None
                             }
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>();
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
 
-                    for action in actions {
-                        store.dispatch(action);
-                    }
-
-                    store.dispatch(SnarkPoolCandidateAction::PeerPrune { peer_id });
+                for action in actions {
+                    store.dispatch(action);
                 }
+
+                store.dispatch(SnarkPoolCandidateAction::PeerPrune { peer_id });
             }
-        }
+        },
+        P2pAction::DisconnectionEffectful(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);

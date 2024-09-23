@@ -113,5 +113,6 @@ impl_into_global_action!(p2p::P2pNetworkSchedulerEffectfulAction);
 impl_into_global_action!(p2p::P2pNetworkPnetEffectfulAction);
 impl_into_global_action!(connection::incoming_effectful::P2pConnectionIncomingEffectfulAction);
 impl_into_global_action!(connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction);
+impl_into_global_action!(p2p::disconnection_effectful::P2pDisconnectionEffectfulAction);
 
 impl p2p::P2pActionTrait<crate::State> for crate::Action {}

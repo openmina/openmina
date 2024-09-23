@@ -1,6 +1,6 @@
 use crate::{
-    connection::P2pConnectionState, disconnection::P2pDisconnectionAction, P2pAction,
-    P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pPeerStatus, P2pState,
+    connection::P2pConnectionState, disconnection::P2pDisconnectedState, P2pAction,
+    P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pState,
 };
 use openmina_core::{bug_condition, Substate};
 
@@ -27,27 +27,9 @@ impl P2pState {
             P2pAction::Connection(action) => {
                 P2pConnectionState::reducer(state_context, meta.with_action(action))
             }
-            P2pAction::Disconnection(action) => match action {
-                P2pDisconnectionAction::Init { .. } => Ok(()),
-                P2pDisconnectionAction::Finish { peer_id } => {
-                    #[cfg(feature = "p2p-libp2p")]
-                    if state
-                        .network
-                        .scheduler
-                        .connections
-                        .iter()
-                        .any(|(_addr, conn_state)| conn_state.peer_id() == Some(peer_id))
-                    {
-                        // still have other connections
-                        return Ok(());
-                    }
-                    let Some(peer) = state.peers.get_mut(peer_id) else {
-                        return Ok(());
-                    };
-                    peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
-                    Ok(())
-                }
-            },
+            P2pAction::Disconnection(action) => {
+                P2pDisconnectedState::reducer(state_context, meta.with_action(action))
+            }
             P2pAction::Peer(action) => P2pPeerState::reducer(
                 Substate::from_compatible_substate(state_context),
                 meta.with_action(action),
@@ -87,7 +69,7 @@ impl P2pState {
                 }
                 Ok(())
             }
-            P2pAction::ConnectionEffectful(_) => {
+            P2pAction::ConnectionEffectful(_) | P2pAction::DisconnectionEffectful(_) => {
                 // effectful
                 Ok(())
             }
