@@ -950,6 +950,7 @@ impl LedgerCtx {
         &mut self,
         pred_block: ArcBlockWithHash,
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        is_new_epoch: bool,
         producer: NonZeroCurvePoint,
         delegator: NonZeroCurvePoint,
         coinbase_receiver: NonZeroCurvePoint,
@@ -1024,6 +1025,11 @@ impl LedgerCtx {
             .map_err(|err| format!("{err:?}"))?;
 
         let diff_hash = block_body_hash(&diff).map_err(|err| format!("{err:?}"))?;
+        let staking_ledger_hash = if is_new_epoch {
+            pred_block.next_epoch_ledger_hash()
+        } else {
+            pred_block.staking_epoch_ledger_hash()
+        };
 
         Ok(StagedLedgerDiffCreateOutput {
             diff,
@@ -1039,11 +1045,7 @@ impl LedgerCtx {
                 is_new_stack: res.pending_coinbase_update.0,
             },
             stake_proof_sparse_ledger: self
-                .stake_proof_sparse_ledger(
-                    pred_block.staking_epoch_ledger_hash(),
-                    &producer,
-                    &delegator,
-                )
+                .stake_proof_sparse_ledger(staking_ledger_hash, &producer, &delegator)
                 .map_err(error_to_string)?,
         })
     }

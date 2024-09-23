@@ -38,6 +38,7 @@ pub enum LedgerWriteRequest {
     StagedLedgerDiffCreate {
         pred_block: ArcBlockWithHash,
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        is_new_epoch: bool,
         producer: v2::NonZeroCurvePoint,
         delegator: v2::NonZeroCurvePoint,
         coinbase_receiver: v2::NonZeroCurvePoint,

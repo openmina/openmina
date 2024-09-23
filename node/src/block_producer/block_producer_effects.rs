@@ -151,6 +151,16 @@ pub fn block_producer_effects<S: crate::Service>(
                 .collect();
             // TODO(binier)
             let supercharge_coinbase = true;
+            // We want to know if this is a new epoch to decide which staking ledger to use
+            // (staking epoch ledger or next epoch ledger).
+            let is_new_epoch = won_slot.epoch()
+                > pred_block
+                    .header()
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .epoch_count
+                    .as_u32();
 
             let transactions_by_fee = state.block_producer.pending_transactions();
 
@@ -159,6 +169,7 @@ pub fn block_producer_effects<S: crate::Service>(
                     pred_block: pred_block.clone(),
                     global_slot_since_genesis: won_slot
                         .global_slot_since_genesis(pred_block.global_slot_diff()),
+                    is_new_epoch,
                     producer: producer.clone(),
                     delegator: won_slot.delegator.0.clone(),
                     coinbase_receiver: coinbase_receiver.clone(),
