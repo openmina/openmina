@@ -134,7 +134,6 @@ impl P2pConnectionOutgoingInitOpts {
     pub fn peer_id(&self) -> &PeerId {
         match self {
             Self::WebRTC { peer_id, .. } => peer_id,
-
             Self::LibP2P(v) => &v.peer_id,
         }
     }

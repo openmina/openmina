@@ -255,6 +255,7 @@ pub enum ActionKind {
     P2pConnectionOutgoingOfferSdpCreatePending,
     P2pConnectionOutgoingOfferSdpCreateSuccess,
     P2pConnectionOutgoingOfferSendSuccess,
+    P2pConnectionOutgoingRandomInit,
     P2pConnectionOutgoingReconnect,
     P2pConnectionOutgoingSuccess,
     P2pConnectionOutgoingTimeout,
@@ -567,7 +568,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 469;
+    pub const COUNT: u16 = 470;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1222,6 +1223,7 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
 impl ActionKindGet for P2pConnectionOutgoingAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::RandomInit => ActionKind::P2pConnectionOutgoingRandomInit,
             Self::Init { .. } => ActionKind::P2pConnectionOutgoingInit,
             Self::Reconnect { .. } => ActionKind::P2pConnectionOutgoingReconnect,
             Self::OfferSdpCreatePending { .. } => {

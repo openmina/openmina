@@ -1,4 +1,4 @@
-use openmina_core::Substate;
+use openmina_core::{bug_condition, Substate};
 use redux::{ActionWithMeta, Timestamp};
 
 use crate::{
@@ -87,6 +87,7 @@ impl P2pPeerState {
             }
             P2pPeerAction::BestTipUpdate { peer_id, best_tip } => {
                 let Some(peer) = p2p_state.get_ready_peer_mut(peer_id) else {
+                    bug_condition!("Peer state not found for `P2pPeerAction::BestTipUpdate`");
                     return Ok(());
                 };
                 peer.best_tip = Some(best_tip.clone());

@@ -31,13 +31,8 @@ pub enum P2pConnectionOutgoingEffectfulAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingEffectfulAction {
-    fn is_enabled(&self, state: &P2pState, _: redux::Timestamp) -> bool {
-        match self {
-            P2pConnectionOutgoingEffectfulAction::RandomInit => {
-                !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
-            }
-            _ => true,
-        }
+    fn is_enabled(&self, _: &P2pState, _: redux::Timestamp) -> bool {
+        true
     }
 }
 
