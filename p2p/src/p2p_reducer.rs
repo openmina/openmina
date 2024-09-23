@@ -47,14 +47,7 @@ impl P2pState {
             }
             P2pAction::Identify(_action) => {
                 #[cfg(feature = "p2p-libp2p")]
-                match _action {
-                    crate::identify::P2pIdentifyAction::NewRequest { .. } => {}
-                    crate::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
-                        if let Some(peer) = state.peers.get_mut(peer_id) {
-                            peer.identify = Some(*info.clone());
-                        }
-                    }
-                }
+                Self::identify_reducer(state_context, meta.with_action(_action))?;
                 Ok(())
             }
             P2pAction::Network(_action) => {

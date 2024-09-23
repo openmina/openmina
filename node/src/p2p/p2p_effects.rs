@@ -662,9 +662,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 store.dispatch(TransitionFrontierSyncAction::BlocksPeersQuery);
             }
         },
-        P2pAction::Identify(_action) => {
-            #[cfg(feature = "p2p-libp2p")]
-            _action.effects(&meta, store);
+        P2pAction::Identify(_) => {
+            // handled by reducer
         }
         P2pAction::Network(_action) => {
             #[cfg(feature = "p2p-libp2p")]
