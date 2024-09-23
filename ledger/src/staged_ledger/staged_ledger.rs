@@ -6209,6 +6209,8 @@ mod tests {
             states: List<v2::MinaStateProtocolStateValueStableV2>,
         }
 
+        let now = std::time::Instant::now();
+
         let Ok(file) = std::fs::read("/tmp/failed_reconstruct_ctx.binprot") else {
             eprintln!("no reconstruct context found");
             return;
@@ -6241,11 +6243,17 @@ mod tests {
         }
         assert_eq!(ledger.num_accounts(), accounts.len());
 
-        StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+        eprintln!("time to parse and restore state: {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+
+        let scan_state = (&scan_state).try_into().unwrap();
+        eprintln!("time to convert scan state: {:?}", now.elapsed());
+
+        let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             openmina_core::constants::constraint_constants(),
             Verifier,
-            (&scan_state).try_into().unwrap(),
+            scan_state,
             ledger,
             LocalState::empty(),
             staged_ledger_hash.0.to_field().unwrap(),
@@ -6253,5 +6261,10 @@ mod tests {
             |key| states.get(&key).cloned().unwrap(),
         )
         .unwrap();
+
+        eprintln!("time to reconstruct: {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+        dbg!(staged_ledger.hash());
+        eprintln!("time to hash: {:?}", now.elapsed());
     }
 }
