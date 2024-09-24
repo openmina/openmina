@@ -8,7 +8,8 @@ use crate::{
         streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
         ChannelId,
     },
-    token::{BroadcastAlgorithm, IdentifyAlgorithm, RpcAlgorithm, StreamKind},
+    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
+    token::{BroadcastAlgorithm, DiscoveryAlgorithm, IdentifyAlgorithm, RpcAlgorithm, StreamKind},
     P2pNetworkConnectionMuxState, P2pNetworkKadRequestAction, P2pNetworkKadState,
     P2pNetworkKademliaAction, P2pNetworkYamuxAction, P2pState, YamuxStreamKind,
 };
@@ -25,8 +26,6 @@ impl P2pState {
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
-        use crate::token::DiscoveryAlgorithm;
-
         let (action, _meta) = action.split();
         let p2p_state = state_context.get_substate_mut()?;
 
@@ -76,6 +75,22 @@ impl P2pState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let peer_id = *peer_id;
 
+                dispatcher.push(P2pNetworkKademliaAction::UpdateRoutingTable {
+                    peer_id,
+                    addrs: info.listen_addrs.clone(),
+                });
+
+                let stream_id = YamuxStreamKind::Rpc.stream_id(addr.incoming);
+
+                let stream_kind = StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1);
+                if !info.protocols.contains(&stream_kind) {
+                    dispatcher.push(P2pDisconnectionAction::Init {
+                        peer_id,
+                        reason: P2pDisconnectionReason::Unsupported,
+                    });
+                    return Ok(());
+                }
+
                 // Dispatches can be done without a loop, but inside we do
                 // exhaustive matching so that we don't miss any channels.
                 for id in ChannelId::iter_all() {
@@ -101,21 +116,11 @@ impl P2pState {
                     }
                 }
 
-                dispatcher.push(P2pNetworkKademliaAction::UpdateRoutingTable {
-                    peer_id,
-                    addrs: info.listen_addrs.clone(),
+                dispatcher.push(P2pNetworkYamuxAction::OpenStream {
+                    addr: *addr,
+                    stream_id,
+                    stream_kind,
                 });
-
-                let stream_id = YamuxStreamKind::Rpc.stream_id(addr.incoming);
-
-                let stream_kind = StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1);
-                if info.protocols.contains(&stream_kind) {
-                    dispatcher.push(P2pNetworkYamuxAction::OpenStream {
-                        addr: *addr,
-                        stream_id,
-                        stream_kind,
-                    });
-                }
 
                 let stream_kind = StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0);
                 if info.protocols.contains(&stream_kind) {
