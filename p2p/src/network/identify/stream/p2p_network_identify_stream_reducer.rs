@@ -131,6 +131,7 @@ impl P2pNetworkIdentifyStreamState {
                             dispatcher.push(P2pIdentifyAction::UpdatePeerInformation {
                                 peer_id: *peer_id,
                                 info: data,
+                                addr: *addr,
                             });
                             dispatcher.push(P2pNetworkIdentifyStreamAction::Close {
                                 addr: *addr,
@@ -198,12 +199,13 @@ impl P2pNetworkIdentifyStreamState {
                             dispatcher.push(P2pIdentifyAction::UpdatePeerInformation {
                                 peer_id: *peer_id,
                                 info: data,
+                                addr: *addr,
                             });
                             dispatcher.push(P2pNetworkIdentifyStreamAction::Close {
                                 addr: *addr,
                                 peer_id: *peer_id,
                                 stream_id: *stream_id,
-                            })
+                            });
                         } else {
                             let P2pNetworkIdentifyStreamState::Error(error) = stream_state else {
                                 bug_condition!("Invalid stream state");

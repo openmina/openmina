@@ -2,8 +2,15 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    token::{IdentifyAlgorithm, StreamKind},
-    P2pNetworkConnectionMuxState, P2pNetworkKademliaAction, P2pNetworkYamuxAction, P2pState,
+    channels::{
+        best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
+        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+        streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
+        ChannelId,
+    },
+    token::{BroadcastAlgorithm, IdentifyAlgorithm, RpcAlgorithm, StreamKind},
+    P2pNetworkConnectionMuxState, P2pNetworkKadRequestAction, P2pNetworkKadState,
+    P2pNetworkKademliaAction, P2pNetworkYamuxAction, P2pState, YamuxStreamKind,
 };
 
 use super::P2pIdentifyAction;
@@ -18,6 +25,8 @@ impl P2pState {
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
+        use crate::token::DiscoveryAlgorithm;
+
         let (action, _meta) = action.split();
         let p2p_state = state_context.get_substate_mut()?;
 
@@ -50,7 +59,11 @@ impl P2pState {
 
                 Ok(())
             }
-            P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
+            P2pIdentifyAction::UpdatePeerInformation {
+                peer_id,
+                info,
+                addr,
+            } => {
                 if let Some(peer) = p2p_state.peers.get_mut(peer_id) {
                     peer.identify = Some(*info.clone());
                 } else {
@@ -60,11 +73,70 @@ impl P2pState {
                     return Ok(());
                 }
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let peer_id = *peer_id;
+
+                // Dispatches can be done without a loop, but inside we do
+                // exhaustive matching so that we don't miss any channels.
+                for id in ChannelId::iter_all() {
+                    match id {
+                        ChannelId::BestTipPropagation => {
+                            dispatcher.push(P2pChannelsBestTipAction::Init { peer_id });
+                        }
+                        ChannelId::TransactionPropagation => {
+                            dispatcher.push(P2pChannelsTransactionAction::Init { peer_id });
+                        }
+                        ChannelId::SnarkPropagation => {
+                            dispatcher.push(P2pChannelsSnarkAction::Init { peer_id });
+                        }
+                        ChannelId::SnarkJobCommitmentPropagation => {
+                            dispatcher.push(P2pChannelsSnarkJobCommitmentAction::Init { peer_id });
+                        }
+                        ChannelId::Rpc => {
+                            dispatcher.push(P2pChannelsRpcAction::Init { peer_id });
+                        }
+                        ChannelId::StreamingRpc => {
+                            dispatcher.push(P2pChannelsStreamingRpcAction::Init { peer_id });
+                        }
+                    }
+                }
+
                 dispatcher.push(P2pNetworkKademliaAction::UpdateRoutingTable {
-                    peer_id: *peer_id,
+                    peer_id,
                     addrs: info.listen_addrs.clone(),
                 });
+
+                let stream_id = YamuxStreamKind::Rpc.stream_id(addr.incoming);
+
+                let stream_kind = StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1);
+                if info.protocols.contains(&stream_kind) {
+                    dispatcher.push(P2pNetworkYamuxAction::OpenStream {
+                        addr: *addr,
+                        stream_id,
+                        stream_kind,
+                    });
+                }
+
+                let stream_kind = StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0);
+                if info.protocols.contains(&stream_kind) {
+                    dispatcher.push(P2pNetworkYamuxAction::OpenStream {
+                        addr: *addr,
+                        stream_id: stream_id + 2,
+                        stream_kind,
+                    });
+                }
+
+                let kad_state: Option<&P2pNetworkKadState> = state.substate().ok();
+                let protocol = StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0);
+                if kad_state.map_or(false, |state| state.request(&peer_id).is_some())
+                    && info.protocols.contains(&protocol)
+                {
+                    dispatcher.push(P2pNetworkKadRequestAction::MuxReady {
+                        peer_id,
+                        addr: *addr,
+                    });
+                }
+
                 Ok(())
             }
         }

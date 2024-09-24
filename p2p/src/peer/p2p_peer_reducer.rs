@@ -1,15 +1,7 @@
 use openmina_core::{bug_condition, Substate};
 use redux::{ActionWithMeta, Timestamp};
 
-use crate::{
-    channels::{
-        best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
-        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-        streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
-        ChannelId,
-    },
-    P2pPeerState, P2pPeerStatus, P2pPeerStatusReady, P2pState,
-};
+use crate::{P2pPeerState, P2pPeerStatus, P2pPeerStatusReady, P2pState};
 
 use super::P2pPeerAction;
 
@@ -40,6 +32,7 @@ impl P2pPeerState {
                             time: Timestamp::ZERO,
                         },
                     });
+
                 if let Some(dial_opts) = dial_opts {
                     peer_state.dial_opts.get_or_insert(dial_opts.clone());
                 }
@@ -54,34 +47,6 @@ impl P2pPeerState {
                     meta.time(),
                     &p2p_state.config.enabled_channels,
                 ));
-
-                let dispatcher = state_context.into_dispatcher();
-                let peer_id = *peer_id;
-
-                // Dispatches can be done without a loop, but inside we do
-                // exhaustive matching so that we don't miss any channels.
-                for id in ChannelId::iter_all() {
-                    match id {
-                        ChannelId::BestTipPropagation => {
-                            dispatcher.push(P2pChannelsBestTipAction::Init { peer_id });
-                        }
-                        ChannelId::TransactionPropagation => {
-                            dispatcher.push(P2pChannelsTransactionAction::Init { peer_id });
-                        }
-                        ChannelId::SnarkPropagation => {
-                            dispatcher.push(P2pChannelsSnarkAction::Init { peer_id });
-                        }
-                        ChannelId::SnarkJobCommitmentPropagation => {
-                            dispatcher.push(P2pChannelsSnarkJobCommitmentAction::Init { peer_id });
-                        }
-                        ChannelId::Rpc => {
-                            dispatcher.push(P2pChannelsRpcAction::Init { peer_id });
-                        }
-                        ChannelId::StreamingRpc => {
-                            dispatcher.push(P2pChannelsStreamingRpcAction::Init { peer_id });
-                        }
-                    }
-                }
 
                 Ok(())
             }
