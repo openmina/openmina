@@ -4,7 +4,6 @@ use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::snark::SnarkJobId;
-use openmina_core::transaction::Transaction;
 use openmina_core::ActionEvent;
 use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
@@ -15,8 +14,8 @@ use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnection
 use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
-    ActionStatsQuery, RpcId, RpcInjectPayment, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryScanStateJob, SyncStatsQuery,
+    ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob,
+    SyncStatsQuery,
 };
 
 pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
@@ -192,6 +191,9 @@ pub enum RpcAction {
         rpc_id: RpcId,
         max_length: u32,
     },
+    ConsensusConstantsGet {
+        rpc_id: RpcId,
+    },
 
     Finish {
         rpc_id: RpcId,
@@ -283,6 +285,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::DiscoveryRoutingTable { .. } => true,
             RpcAction::DiscoveryBoostrapStats { .. } => true,
             RpcAction::TransactionPool { .. } => true,
+            RpcAction::ConsensusConstantsGet { .. } => true,
             RpcAction::BestChain { .. } => state.transition_frontier.best_tip().is_some(),
             RpcAction::LedgerAccountsGetInit { .. } => {
                 state.transition_frontier.best_tip().is_some()

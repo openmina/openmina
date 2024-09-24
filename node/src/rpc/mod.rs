@@ -14,6 +14,7 @@ use mina_p2p_messages::v2::{
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::consensus::ConsensusConstants;
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
@@ -78,6 +79,7 @@ pub enum RpcRequest {
     TransactionInject(Vec<MinaBaseUserCommandStableV2>),
     TransitionFrontierUserCommandsGet,
     BestChain(MaxLength),
+    ConsensusConstantsGet,
 }
 
 pub type MaxLength = u32;
@@ -336,6 +338,7 @@ pub type RpcLedgerSlimAccountsResponse = Vec<AccountSlim>;
 pub type RpcLedgerAccountsResponse = Vec<Account>;
 pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
 pub type RpcBestChainResponse = Vec<ArcBlockWithHash>;
+pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
 
 // TODO(adonagy): rework this to handle all the possible user commands (enum..)
 #[derive(Serialize, Deserialize, Debug, Clone)]

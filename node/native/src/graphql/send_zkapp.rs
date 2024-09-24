@@ -1,6 +1,5 @@
-use juniper::{GraphQLInputObject, GraphQLObject, GraphQLUnion};
+use juniper::GraphQLInputObject;
 use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
-use openmina_core::transaction::Transaction;
 
 use super::best_chain::InputGraphQLZkappCommand;
 

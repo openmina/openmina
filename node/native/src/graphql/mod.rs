@@ -1,26 +1,25 @@
 use std::str::FromStr;
 
 use juniper::{EmptyMutation, EmptySubscription, GraphQLEnum, RootNode};
-use ledger::{
-    scan_state::transaction_logic::valid::UserCommand, transaction_pool::ValidCommandWithHash,
-    Account,
-};
+use ledger::Account;
 use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use node::rpc::RpcTransactionInjectResponse;
 use node::rpc::RpcTransactionInjectedCommand;
 use node::{
     account::AccountPublicKey,
-    ledger::read::LedgerReadRequest,
     rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
     stats::sync::SyncKind,
 };
-use openmina_core::{block::ArcBlockWithHash, transaction::Transaction};
+use openmina_core::block::ArcBlockWithHash;
+use openmina_core::consensus::ConsensusConstants;
+use openmina_core::constants::constraint_constants;
 use openmina_node_common::rpc::RpcSender;
 use warp::{Filter, Rejection, Reply};
 
 pub mod account;
 pub mod best_chain;
+pub mod constants;
 pub mod send_zkapp;
 
 struct Context(RpcSender);
@@ -152,6 +151,28 @@ impl Query {
             .unwrap();
 
         best_chain.into_iter().map(|v| v.into()).collect()
+    }
+
+    async fn daemon_status(context: &Context) -> constants::GraphQLDaemonStatus {
+        let consensus_constants: ConsensusConstants = context
+            .0
+            .oneshot_request(RpcRequest::ConsensusConstantsGet)
+            .await
+            .unwrap();
+        constants::GraphQLDaemonStatus {
+            consensus_configuration: consensus_constants.into(),
+        }
+    }
+
+    async fn genesis_constants(context: &Context) -> constants::GraphQLGenesisConstants {
+        let consensus_constants: ConsensusConstants = context
+            .0
+            .oneshot_request(RpcRequest::ConsensusConstantsGet)
+            .await
+            .unwrap();
+        let constraint_constants = constraint_constants();
+
+        constants::GraphQLGenesisConstants::new(constraint_constants.clone(), consensus_constants)
     }
 
     // async fn best_chain(max_length: i32, context: &Context) -> Vec<BestChain> {

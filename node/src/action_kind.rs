@@ -369,6 +369,7 @@ pub enum ActionKind {
     RpcActionStatsGet,
     RpcBestChain,
     RpcBlockProducerStatsGet,
+    RpcConsensusConstantsGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
@@ -549,7 +550,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 455;
+    pub const COUNT: u16 = 456;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -838,6 +839,7 @@ impl ActionKindGet for RpcAction {
                 ActionKind::RpcTransitionFrontierUserCommandsGet
             }
             Self::BestChain { .. } => ActionKind::RpcBestChain,
+            Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

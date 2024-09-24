@@ -8,7 +8,7 @@ use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer
 use time::OffsetDateTime;
 
 use crate::{
-    b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes, Base58CheckVersion, FromBase58Check},
+    b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes, Base58CheckVersion},
     b58version::USER_COMMAND_MEMO,
     bigint::BigInt,
     number::Number,
