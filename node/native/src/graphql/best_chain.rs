@@ -1,12 +1,58 @@
 use std::iter;
-use std::{fs, path::Path};
+use std::str::FromStr;
 
 use juniper::{GraphQLInputObject, GraphQLObject};
 use ledger::{scan_state::transaction_logic::Memo, FpExt};
-use mina_p2p_messages::binprot::BinProtWrite;
+use mina_p2p_messages::b58::FromBase58Check;
+use mina_p2p_messages::bigint::BigInt;
+use mina_p2p_messages::list::List;
+use mina_p2p_messages::pseq::PaddedSeq;
+use mina_p2p_messages::string::{TokenSymbol, ZkAppUri};
 use mina_p2p_messages::v2::{
-    MinaBaseAccountUpdateAccountPreconditionStableV1, MinaBaseAccountUpdateAuthorizationKindStableV1, MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdateMayUseTokenStableV1, MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTStableV1, MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA, MinaBaseAccountUpdateUpdateStableV1Delegate, MinaBaseAccountUpdateUpdateStableV1Permissions, MinaBaseAccountUpdateUpdateStableV1Timing, MinaBaseAccountUpdateUpdateStableV1TokenSymbol, MinaBaseAccountUpdateUpdateStableV1VerificationKey, MinaBaseAccountUpdateUpdateStableV1VotingFor, MinaBaseAccountUpdateUpdateStableV1ZkappUri, MinaBaseControlStableV2, MinaBasePermissionsStableV2, MinaBaseVerificationKeyWireStableV1Base64, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA, MinaBaseZkappCommandTStableV1WireStableV1Base64, MinaBaseZkappPreconditionAccountStableV2Balance, MinaBaseZkappPreconditionAccountStableV2Delegate, MinaBaseZkappPreconditionAccountStableV2ProvedState, MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash, MinaBaseZkappPreconditionAccountStableV2StateA, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint, MinaBaseZkappPreconditionProtocolStateStableV1, MinaBaseZkappPreconditionProtocolStateStableV1Amount, MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot, MinaBaseZkappPreconditionProtocolStateStableV1Length, MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash, MinaStateBlockchainStateValueStableV2SignedAmount, ReceiptChainHash, TokenIdKeyHash
+    CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
+    MinaBaseAccountUpdateAccountPreconditionStableV1,
+    MinaBaseAccountUpdateAuthorizationKindStableV1, MinaBaseAccountUpdateBodyEventsStableV1,
+    MinaBaseAccountUpdateBodyFeePayerStableV1, MinaBaseAccountUpdateBodyStableV1,
+    MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdateMayUseTokenStableV1,
+    MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTStableV1,
+    MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA,
+    MinaBaseAccountUpdateUpdateStableV1Delegate, MinaBaseAccountUpdateUpdateStableV1Permissions,
+    MinaBaseAccountUpdateUpdateStableV1Timing, MinaBaseAccountUpdateUpdateStableV1TokenSymbol,
+    MinaBaseAccountUpdateUpdateStableV1VerificationKey,
+    MinaBaseAccountUpdateUpdateStableV1VotingFor, MinaBaseAccountUpdateUpdateStableV1ZkappUri,
+    MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseControlStableV2,
+    MinaBasePermissionsStableV2, MinaBaseReceiptChainHashStableV1,
+    MinaBaseSignedCommandMemoStableV1, MinaBaseUserCommandStableV2,
+    MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1Base64,
+    MinaBaseZkappCommandTStableV1WireStableV1,
+    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
+    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
+    MinaBaseZkappCommandTStableV1WireStableV1Base64, MinaBaseZkappPreconditionAccountStableV2,
+    MinaBaseZkappPreconditionAccountStableV2Balance,
+    MinaBaseZkappPreconditionAccountStableV2BalanceA,
+    MinaBaseZkappPreconditionAccountStableV2Delegate,
+    MinaBaseZkappPreconditionAccountStableV2ProvedState,
+    MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash,
+    MinaBaseZkappPreconditionAccountStableV2StateA,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint,
+    MinaBaseZkappPreconditionProtocolStateStableV1,
+    MinaBaseZkappPreconditionProtocolStateStableV1Amount,
+    MinaBaseZkappPreconditionProtocolStateStableV1AmountA,
+    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot,
+    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA,
+    MinaBaseZkappPreconditionProtocolStateStableV1Length,
+    MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
+    MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash,
+    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSpanStableV1,
+    MinaStateBlockchainStateValueStableV2SignedAmount, NonZeroCurvePoint, ReceiptChainHash,
+    StateHash, TokenIdKeyHash,
 };
+
+use mina_signer::CompressedPubKey;
+use node::account::AccountPublicKey;
 use openmina_core::{block::ArcBlockWithHash, transaction::Transaction};
 
 use super::account::{GraphQLAccount, GraphQLTiming, InputGraphQLTiming};
@@ -44,10 +90,10 @@ pub struct GraphQLZkapp {
 
 #[derive(GraphQLInputObject)]
 pub struct InputGraphQLZkapp {
-    pub hash: String,
+    // pub hash: String,
     // pub failure_reason: Option<Vec<GraphQLFailureReason>>,
     /// Zkapp represented as base64 string
-    pub id: String,
+    // pub id: String,
     pub zkapp_command: InputGraphQLZkappCommand,
 }
 
@@ -65,7 +111,58 @@ pub struct InputGraphQLZkappCommand {
     pub fee_payer: InputGraphQLFeePayer,
 }
 
+/// TODO(adonagy): Look into the handling of failures, this only returns successful zkapp commands
+impl From<MinaBaseUserCommandStableV2> for GraphQLZkapp {
+    fn from(value: MinaBaseUserCommandStableV2) -> Self {
+        if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = value {
+            let account_updates = zkapp
+                .account_updates
+                .clone()
+                .into_iter()
+                .map(|v| v.elt.account_update.into())
+                .collect();
+            GraphQLZkapp {
+                hash: zkapp.hash().unwrap().to_string(),
+                failure_reason: None,
+                id: zkapp.to_base64().unwrap(),
+                zkapp_command: GraphQLZkappCommand {
+                    memo: serde_json::to_string_pretty(&zkapp.memo)
+                        .unwrap()
+                        .trim_matches('"')
+                        .to_string(),
+                    account_updates,
+                    fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
+                },
+            }
+        } else {
+            unreachable!()
+        }
+    }
+}
 
+impl From<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
+    fn from(value: InputGraphQLZkappCommand) -> Self {
+        MinaBaseUserCommandStableV2::ZkappCommand(MinaBaseZkappCommandTStableV1WireStableV1 {
+            fee_payer: value.fee_payer.into(),
+            account_updates: value
+                .account_updates
+                .into_iter()
+                .map(
+                    |update| MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
+                        elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                            account_update: update.into(),
+                            account_update_digest: (),
+                            // TODO: look into this, in the body of the account update there are fields callData and callDepth, is it related?
+                            calls: List::new(),
+                        },
+                        stack_hash: (),
+                    },
+                )
+                .collect(),
+            memo: MinaBaseSignedCommandMemoStableV1::from_base58check(&value.memo).unwrap(),
+        })
+    }
+}
 
 #[derive(GraphQLObject)]
 pub struct GraphQLFeePayer {
@@ -127,13 +224,30 @@ impl From<MinaBaseControlStableV2> for GraphQLAuthorization {
                 signature: Some(signature.to_string()),
             },
             MinaBaseControlStableV2::Proof(proof) => GraphQLAuthorization {
-                proof: Some(serde_json::to_string_pretty(&proof).unwrap().trim_matches('"').to_string()),
+                proof: Some(
+                    serde_json::to_string_pretty(&proof)
+                        .unwrap()
+                        .trim_matches('"')
+                        .to_string(),
+                ),
                 signature: None,
             },
             MinaBaseControlStableV2::NoneGiven => GraphQLAuthorization {
                 proof: None,
                 signature: None,
             },
+        }
+    }
+}
+
+impl From<InputGraphQLAuthorization> for MinaBaseControlStableV2 {
+    fn from(value: InputGraphQLAuthorization) -> Self {
+        if let Some(signature) = value.signature {
+            MinaBaseControlStableV2::Signature(signature.parse().unwrap())
+        } else if let Some(proof) = value.proof {
+            MinaBaseControlStableV2::Proof(serde_json::from_str(&proof).unwrap())
+        } else {
+            MinaBaseControlStableV2::NoneGiven
         }
     }
 }
@@ -153,6 +267,7 @@ pub struct GraphQLAccountUpdateBody {
     pub preconditions: GraphQLPreconditions,
     pub may_use_token: GraphQLMayUseToken,
     pub authorization_kind: GraphQLAuthorizationKind,
+    pub implicit_account_creation_fee: bool,
 }
 
 #[derive(GraphQLInputObject)]
@@ -170,6 +285,7 @@ pub struct InputGraphQLAccountUpdateBody {
     pub preconditions: InputGraphQLPreconditions,
     pub may_use_token: InputGraphQLMayUseToken,
     pub authorization_kind: InputGraphQLAuthorizationKind,
+    pub implicit_account_creation_fee: bool,
 }
 
 #[derive(GraphQLObject)]
@@ -194,11 +310,13 @@ impl From<MinaBaseAccountUpdateAuthorizationKindStableV1> for GraphQLAuthorizati
                 is_proved: false,
                 verification_key_hash: None,
             },
-            MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(proof) => GraphQLAuthorizationKind {
-                is_signed: false,
-                is_proved: true,
-                verification_key_hash: Some(proof.to_fp().unwrap().to_decimal()),
-            },
+            MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(proof) => {
+                GraphQLAuthorizationKind {
+                    is_signed: false,
+                    is_proved: true,
+                    verification_key_hash: Some(proof.to_fp().unwrap().to_decimal()),
+                }
+            }
             MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven => GraphQLAuthorizationKind {
                 is_signed: false,
                 is_proved: false,
@@ -206,7 +324,22 @@ impl From<MinaBaseAccountUpdateAuthorizationKindStableV1> for GraphQLAuthorizati
             },
         }
     }
-}   
+}
+
+impl From<InputGraphQLAuthorizationKind> for MinaBaseAccountUpdateAuthorizationKindStableV1 {
+    fn from(value: InputGraphQLAuthorizationKind) -> Self {
+        if value.is_signed {
+            MinaBaseAccountUpdateAuthorizationKindStableV1::Signature
+        } else if value.is_proved {
+            MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(
+                BigInt::from_decimal(&value.verification_key_hash.unwrap()).unwrap(),
+            )
+        } else {
+            MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven
+        }
+    }
+}
+
 #[derive(GraphQLObject)]
 pub struct GraphQLMayUseToken {
     pub parents_own_token: bool,
@@ -234,6 +367,18 @@ impl From<MinaBaseAccountUpdateMayUseTokenStableV1> for GraphQLMayUseToken {
                 parents_own_token: false,
                 inherit_from_parent: false,
             },
+        }
+    }
+}
+
+impl From<InputGraphQLMayUseToken> for MinaBaseAccountUpdateMayUseTokenStableV1 {
+    fn from(value: InputGraphQLMayUseToken) -> Self {
+        if value.parents_own_token {
+            MinaBaseAccountUpdateMayUseTokenStableV1::ParentsOwnToken
+        } else if value.inherit_from_parent {
+            MinaBaseAccountUpdateMayUseTokenStableV1::InheritFromParent
+        } else {
+            MinaBaseAccountUpdateMayUseTokenStableV1::No
         }
     }
 }
@@ -300,11 +445,12 @@ pub struct InputGraphQLPreconditionsAccount {
     pub is_new: Option<String>,
 }
 
-
 impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPreconditionsAccount {
     fn from(value: MinaBaseAccountUpdateAccountPreconditionStableV1) -> Self {
         Self {
-            balance: if let MinaBaseZkappPreconditionAccountStableV2Balance::Check(v) = value.0.balance {
+            balance: if let MinaBaseZkappPreconditionAccountStableV2Balance::Check(v) =
+                value.0.balance
+            {
                 Some(GraphQLPreconditionsNetworkBounds {
                     upper: v.upper.as_u64() as i32,
                     lower: v.lower.as_u64() as i32,
@@ -312,7 +458,9 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
             } else {
                 None
             },
-            nonce: if let MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(v) = value.0.nonce {
+            nonce: if let MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(v) =
+                value.0.nonce
+            {
                 Some(GraphQLPreconditionsNetworkBounds {
                     upper: v.upper.as_u32() as i32,
                     lower: v.lower.as_u32() as i32,
@@ -320,43 +468,138 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
             } else {
                 None
             },
-            receipt_chain_hash: if let MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash::Check(v) = value.0.receipt_chain_hash {
-                Some(v.to_fp().unwrap().to_decimal())
-            } else {
-                None
-            },
-            delegate: if let MinaBaseZkappPreconditionAccountStableV2Delegate::Check(v) = value.0.delegate {
+            receipt_chain_hash:
+                if let MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash::Check(v) =
+                    value.0.receipt_chain_hash
+                {
+                    Some(v.to_fp().unwrap().to_decimal())
+                } else {
+                    None
+                },
+            delegate: if let MinaBaseZkappPreconditionAccountStableV2Delegate::Check(v) =
+                value.0.delegate
+            {
                 Some(v.to_string())
             } else {
                 None
             },
-            state: value.0.state.clone().iter().map(|v| {
-                if let MinaBaseZkappPreconditionAccountStableV2StateA::Check(state_value) = v {
-                    Some(state_value.to_fp().unwrap().to_decimal())
-                } else {
-                    None
-                }
-            }).collect(),
-            action_state: if let MinaBaseZkappPreconditionAccountStableV2StateA::Check(value) = value.0.action_state {
+            state: value
+                .0
+                .state
+                .clone()
+                .iter()
+                .map(|v| {
+                    if let MinaBaseZkappPreconditionAccountStableV2StateA::Check(state_value) = v {
+                        Some(state_value.to_fp().unwrap().to_decimal())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            action_state: if let MinaBaseZkappPreconditionAccountStableV2StateA::Check(value) =
+                value.0.action_state
+            {
                 Some(value.to_fp().unwrap().to_decimal())
             } else {
                 None
             },
-            proved_state: if let MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(v) = value.0.proved_state {
+            proved_state: if let MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(v) =
+                value.0.proved_state
+            {
                 Some(v.to_string())
             } else {
                 None
             },
-            is_new: if let MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(v) = value.0.is_new {
+            is_new: if let MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(v) =
+                value.0.is_new
+            {
                 Some(v.to_string())
             } else {
                 None
             },
         }
     }
-    
 }
 
+impl From<InputGraphQLPreconditionsAccount> for MinaBaseAccountUpdateAccountPreconditionStableV1 {
+    fn from(value: InputGraphQLPreconditionsAccount) -> Self {
+        let state: Vec<_> = value
+            .state
+            .iter()
+            .map(|v| {
+                if let Some(state) = v {
+                    MinaBaseZkappPreconditionAccountStableV2StateA::Check(
+                        BigInt::from_decimal(&state).unwrap(),
+                    )
+                } else {
+                    MinaBaseZkappPreconditionAccountStableV2StateA::Ignore
+                }
+            })
+            .collect();
+        Self(MinaBaseZkappPreconditionAccountStableV2 {
+            balance: if let Some(balance) = value.balance {
+                MinaBaseZkappPreconditionAccountStableV2Balance::Check(
+                    MinaBaseZkappPreconditionAccountStableV2BalanceA {
+                        lower: CurrencyBalanceStableV1(CurrencyAmountStableV1(
+                            (balance.lower as u64).into(),
+                        )),
+                        upper: CurrencyBalanceStableV1(CurrencyAmountStableV1(
+                            (balance.upper as u64).into(),
+                        )),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionAccountStableV2Balance::Ignore
+            },
+            nonce: if let Some(nonce) = value.nonce {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                        lower: (nonce.lower as u32).into(),
+                        upper: (nonce.upper as u32).into(),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Ignore
+            },
+            receipt_chain_hash: if let Some(receipt_chain_hash) = value.receipt_chain_hash {
+                MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash::Check(
+                    MinaBaseReceiptChainHashStableV1(
+                        BigInt::from_decimal(&receipt_chain_hash).unwrap(),
+                    ),
+                )
+            } else {
+                MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash::Ignore
+            },
+            delegate: if let Some(delegate) = value.delegate {
+                MinaBaseZkappPreconditionAccountStableV2Delegate::Check(
+                    AccountPublicKey::from_str(&delegate).unwrap().into(),
+                )
+            } else {
+                MinaBaseZkappPreconditionAccountStableV2Delegate::Ignore
+            },
+            state: PaddedSeq(state.try_into().unwrap()),
+            action_state: if let Some(action_state) = value.action_state {
+                MinaBaseZkappPreconditionAccountStableV2StateA::Check(
+                    BigInt::from_decimal(&action_state).unwrap(),
+                )
+            } else {
+                MinaBaseZkappPreconditionAccountStableV2StateA::Ignore
+            },
+            proved_state: if let Some(proved_state) = value.proved_state {
+                MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(
+                    proved_state.parse().unwrap(),
+                )
+            } else {
+                MinaBaseZkappPreconditionAccountStableV2ProvedState::Ignore
+            },
+            is_new: if let Some(is_new) = value.is_new {
+                MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(is_new.parse().unwrap())
+            } else {
+                MinaBaseZkappPreconditionAccountStableV2ProvedState::Ignore
+            },
+        })
+    }
+}
 #[derive(GraphQLObject)]
 pub struct GraphQLPreconditionsNetwork {
     pub snarked_ledger_hash: Option<String>,
@@ -420,7 +663,9 @@ pub struct InputGraphQLPreconditionsNetworkBounds {
     pub lower: i32,
 }
 
-impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1> for GraphQLPreconditionsNetworkEpochData {
+impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1>
+    for GraphQLPreconditionsNetworkEpochData
+{
     fn from(value: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1) -> Self {
         Self {
             ledger: GraphQLPreconditionsNetworkLedger::from(value.ledger),
@@ -451,15 +696,63 @@ impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1> for GraphQLPr
     }
 }
 
-impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger> for GraphQLPreconditionsNetworkLedger {
+impl From<InputGraphQLPreconditionsNetworkEpochData>
+    for MinaBaseZkappPreconditionProtocolStateEpochDataStableV1
+{
+    fn from(value: InputGraphQLPreconditionsNetworkEpochData) -> Self {
+        Self {
+            ledger: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger::from(
+                value.ledger,
+            ),
+            seed: if let Some(seed) = value.seed {
+                MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed::Check(
+                    seed.parse().unwrap(),
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed::Ignore
+            },
+            start_checkpoint: if let Some(start_checkpoint) = value.start_checkpoint {
+                MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint::Check(
+                    start_checkpoint.parse().unwrap(),
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint::Ignore
+            },
+            lock_checkpoint: if let Some(lock_checkpoint) = value.lock_checkpoint {
+                MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint::Check(
+                    lock_checkpoint.parse().unwrap(),
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint::Ignore
+            },
+            epoch_length: if let Some(epoch_length) = value.epoch_length {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                        lower: (epoch_length.lower as u32).into(),
+                        upper: (epoch_length.upper as u32).into(),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Ignore
+            },
+        }
+    }
+}
+impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger>
+    for GraphQLPreconditionsNetworkLedger
+{
     fn from(value: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger) -> Self {
         Self {
-            hash: if let MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Check(v) = value.hash {
+            hash: if let MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Check(v) =
+                value.hash
+            {
                 Some(v.to_string())
             } else {
                 None
             },
-            total_currency: if let MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(v) = value.total_currency {
+            total_currency: if let MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(v) =
+                value.total_currency
+            {
                 Some(GraphQLPreconditionsNetworkBounds {
                     upper: v.upper.as_u64() as i32,
                     lower: v.lower.as_u64() as i32,
@@ -471,15 +764,47 @@ impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger> fo
     }
 }
 
+impl From<InputGraphQLPreconditionsNetworkLedger>
+    for MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger
+{
+    fn from(value: InputGraphQLPreconditionsNetworkLedger) -> Self {
+        Self {
+            hash: if let Some(hash) = value.hash {
+                MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Check(
+                    hash.parse().unwrap(),
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Ignore
+            },
+            total_currency: if let Some(total_currency) = value.total_currency {
+                MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
+                        lower: CurrencyAmountStableV1((total_currency.lower as u64).into()),
+                        upper: CurrencyAmountStableV1((total_currency.upper as u64).into()),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1Amount::Ignore
+            },
+        }
+    }
+}
+
 impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditionsNetwork {
     fn from(value: MinaBaseZkappPreconditionProtocolStateStableV1) -> Self {
         Self {
-            snarked_ledger_hash: if let MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Check(v) = value.snarked_ledger_hash {
-                Some(v.to_string())
-            } else {
-                None
-            },
-            blockchain_length: if let MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(v) = value.blockchain_length {
+            snarked_ledger_hash:
+                if let MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Check(v) =
+                    value.snarked_ledger_hash
+                {
+                    Some(v.to_string())
+                } else {
+                    None
+                },
+            blockchain_length: if let MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
+                v,
+            ) = value.blockchain_length
+            {
                 Some(GraphQLPreconditionsNetworkBounds {
                     upper: v.upper.as_u32() as i32,
                     lower: v.lower.as_u32() as i32,
@@ -487,7 +812,10 @@ impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditio
             } else {
                 None
             },
-            min_window_density: if let MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(v) = value.min_window_density {
+            min_window_density: if let MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
+                v,
+            ) = value.min_window_density
+            {
                 Some(GraphQLPreconditionsNetworkBounds {
                     upper: v.upper.as_u32() as i32,
                     lower: v.lower.as_u32() as i32,
@@ -495,7 +823,9 @@ impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditio
             } else {
                 None
             },
-            total_currency: if let MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(v) = value.total_currency {
+            total_currency: if let MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(v) =
+                value.total_currency
+            {
                 Some(GraphQLPreconditionsNetworkBounds {
                     upper: v.upper.as_u64() as i32,
                     lower: v.lower.as_u64() as i32,
@@ -503,16 +833,83 @@ impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditio
             } else {
                 None
             },
-            global_slot_since_genesis: if let MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(v) = value.global_slot_since_genesis {
-                Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u32() as i32,
-                    lower: v.lower.as_u32() as i32,
-                })
-            } else {
-                None
-            },
-            staking_epoch_data: GraphQLPreconditionsNetworkEpochData::from(value.staking_epoch_data),
+            global_slot_since_genesis:
+                if let MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(v) =
+                    value.global_slot_since_genesis
+                {
+                    Some(GraphQLPreconditionsNetworkBounds {
+                        upper: v.upper.as_u32() as i32,
+                        lower: v.lower.as_u32() as i32,
+                    })
+                } else {
+                    None
+                },
+            staking_epoch_data: GraphQLPreconditionsNetworkEpochData::from(
+                value.staking_epoch_data,
+            ),
             next_epoch_data: GraphQLPreconditionsNetworkEpochData::from(value.next_epoch_data),
+        }
+    }
+}
+
+impl From<InputGraphQLPreconditionsNetwork> for MinaBaseZkappPreconditionProtocolStateStableV1 {
+    fn from(value: InputGraphQLPreconditionsNetwork) -> Self {
+        Self {
+            snarked_ledger_hash: if let Some(snarked_ledger_hash) = value.snarked_ledger_hash {
+                MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Check(
+                    snarked_ledger_hash.parse().unwrap(),
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash::Ignore
+            },
+            blockchain_length: if let Some(blockchain_length) = value.blockchain_length {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                        lower: (blockchain_length.lower as u32).into(),
+                        upper: (blockchain_length.upper as u32).into(),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Ignore
+            },
+            min_window_density: if let Some(min_window_density) = value.min_window_density {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                        lower: (min_window_density.lower as u32).into(),
+                        upper: (min_window_density.upper as u32).into(),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1Length::Ignore
+            },
+            total_currency: if let Some(total_currency) = value.total_currency {
+                MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
+                        lower: CurrencyAmountStableV1((total_currency.lower as u64).into()),
+                        upper: CurrencyAmountStableV1((total_currency.upper as u64).into()),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1Amount::Ignore
+            },
+            global_slot_since_genesis: if let Some(global_slot_since_genesis) =
+                value.global_slot_since_genesis
+            {
+                MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
+                        lower: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+                            (global_slot_since_genesis.lower as u32).into(),
+                        ),
+                        upper: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+                            (global_slot_since_genesis.upper as u32).into(),
+                        ),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Ignore
+            },
+            staking_epoch_data: value.staking_epoch_data.into(),
+            next_epoch_data: value.next_epoch_data.into(),
         }
     }
 }
@@ -584,13 +981,39 @@ impl From<MinaBasePermissionsStableV2> for GraphQLAccountUpdateUpdatePermissions
             receive: value.receive.to_string(),
             set_delegate: value.set_delegate.to_string(),
             set_permissions: value.set_permissions.to_string(),
-            set_verification_key: [value.set_verification_key.0.to_string(), value.set_verification_key.1.to_string()],
+            set_verification_key: [
+                value.set_verification_key.0.to_string(),
+                value.set_verification_key.1.to_string(),
+            ],
             set_zkapp_uri: value.set_zkapp_uri.to_string(),
             edit_action_state: value.edit_action_state.to_string(),
             set_token_symbol: value.set_token_symbol.to_string(),
             set_timing: value.set_timing.to_string(),
             set_voting_for: value.set_voting_for.to_string(),
             increment_nonce: value.increment_nonce.to_string(),
+        }
+    }
+}
+
+impl From<InputGraphQLAccountUpdateUpdatePermissions> for MinaBasePermissionsStableV2 {
+    fn from(value: InputGraphQLAccountUpdateUpdatePermissions) -> Self {
+        Self {
+            edit_state: value.edit_state.parse().unwrap(),
+            access: value.access.parse().unwrap(),
+            send: value.send.parse().unwrap(),
+            receive: value.receive.parse().unwrap(),
+            set_delegate: value.set_delegate.parse().unwrap(),
+            set_permissions: value.set_permissions.parse().unwrap(),
+            set_verification_key: (
+                value.set_verification_key[0].parse().unwrap(),
+                value.set_verification_key[1].parse::<u32>().unwrap().into(),
+            ),
+            set_zkapp_uri: value.set_zkapp_uri.parse().unwrap(),
+            edit_action_state: value.edit_action_state.parse().unwrap(),
+            set_token_symbol: value.set_token_symbol.parse().unwrap(),
+            set_timing: value.set_timing.parse().unwrap(),
+            set_voting_for: value.set_voting_for.parse().unwrap(),
+            increment_nonce: value.increment_nonce.parse().unwrap(),
         }
     }
 }
@@ -672,12 +1095,23 @@ impl From<MinaStateBlockchainStateValueStableV2SignedAmount> for GraphQLBalanceC
     }
 }
 
+impl From<InputGraphQLBalanceChange> for MinaStateBlockchainStateValueStableV2SignedAmount {
+    fn from(value: InputGraphQLBalanceChange) -> Self {
+        Self {
+            magnitude: CurrencyAmountStableV1(value.magnitude.parse::<u64>().unwrap().into()),
+            sgn: value.sgn.parse().unwrap(),
+        }
+    }
+}
+
 impl From<MinaBaseAccountUpdatePreconditionsStableV1> for GraphQLPreconditions {
     fn from(value: MinaBaseAccountUpdatePreconditionsStableV1) -> Self {
         Self {
             network: GraphQLPreconditionsNetwork::from(value.network),
             account: GraphQLPreconditionsAccount::from(value.account),
-            valid_while: if let MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(v) = value.valid_while {
+            valid_while: if let MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(v) =
+                value.valid_while
+            {
                 Some(GraphQLPreconditionsNetworkBounds {
                     upper: v.upper.as_u32() as i32,
                     lower: v.lower.as_u32() as i32,
@@ -689,35 +1123,72 @@ impl From<MinaBaseAccountUpdatePreconditionsStableV1> for GraphQLPreconditions {
     }
 }
 
+impl From<InputGraphQLPreconditions> for MinaBaseAccountUpdatePreconditionsStableV1 {
+    fn from(value: InputGraphQLPreconditions) -> Self {
+        Self {
+            network: value.network.into(),
+            account: value.account.into(),
+            valid_while: if let Some(v) = value.valid_while {
+                MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(
+                    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
+                        upper: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+                            (v.upper as u32).into(),
+                        ),
+                        lower: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+                            (v.lower as u32).into(),
+                        ),
+                    },
+                )
+            } else {
+                MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Ignore
+            },
+        }
+    }
+}
+
 impl From<MinaBaseAccountUpdateUpdateStableV1> for GraphQLAccountUpdateUpdate {
     fn from(value: MinaBaseAccountUpdateUpdateStableV1) -> Self {
         Self {
-            app_state: value.app_state.0.into_iter().map(|v| if let MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(value) = v {
-                Some(value.to_fp().unwrap().to_decimal())
-            } else {
-                None
-            }).collect(),
+            app_state: value
+                .app_state
+                .0
+                .into_iter()
+                .map(|v| {
+                    if let MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(value) = v {
+                        Some(value.to_fp().unwrap().to_decimal())
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
             delegate: if let MinaBaseAccountUpdateUpdateStableV1Delegate::Set(v) = value.delegate {
                 Some(v.to_string())
             } else {
                 None
             },
-            verification_key: if let MinaBaseAccountUpdateUpdateStableV1VerificationKey::Set(v) = value.verification_key {
+            verification_key: if let MinaBaseAccountUpdateUpdateStableV1VerificationKey::Set(v) =
+                value.verification_key
+            {
                 Some(v.to_base64().unwrap())
             } else {
                 None
             },
-            permissions: if let MinaBaseAccountUpdateUpdateStableV1Permissions::Set(v) = value.permissions {
+            permissions: if let MinaBaseAccountUpdateUpdateStableV1Permissions::Set(v) =
+                value.permissions
+            {
                 Some(GraphQLAccountUpdateUpdatePermissions::from(*v))
             } else {
                 None
             },
-            zkapp_uri: if let MinaBaseAccountUpdateUpdateStableV1ZkappUri::Set(v) = value.zkapp_uri  {
+            zkapp_uri: if let MinaBaseAccountUpdateUpdateStableV1ZkappUri::Set(v) = value.zkapp_uri
+            {
                 Some(v.to_string())
             } else {
                 None
             },
-            token_symbol: if let MinaBaseAccountUpdateUpdateStableV1TokenSymbol::Set(v) = value.token_symbol {
+            token_symbol: if let MinaBaseAccountUpdateUpdateStableV1TokenSymbol::Set(v) =
+                value.token_symbol
+            {
                 Some(v.to_string())
             } else {
                 None
@@ -727,7 +1198,9 @@ impl From<MinaBaseAccountUpdateUpdateStableV1> for GraphQLAccountUpdateUpdate {
             } else {
                 None
             },
-            voting_for: if let MinaBaseAccountUpdateUpdateStableV1VotingFor::Set(v) = value.voting_for {
+            voting_for: if let MinaBaseAccountUpdateUpdateStableV1VotingFor::Set(v) =
+                value.voting_for
+            {
                 Some(v.to_string())
             } else {
                 None
@@ -736,17 +1209,101 @@ impl From<MinaBaseAccountUpdateUpdateStableV1> for GraphQLAccountUpdateUpdate {
     }
 }
 
-
+impl From<InputGraphQLAccountUpdateUpdate> for MinaBaseAccountUpdateUpdateStableV1 {
+    fn from(value: InputGraphQLAccountUpdateUpdate) -> Self {
+        let app_state: Vec<_> = value
+            .app_state
+            .iter()
+            .map(|v| {
+                if let Some(v) = v {
+                    MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(
+                        BigInt::from_decimal(&v).unwrap().into(),
+                    )
+                } else {
+                    MinaBaseAccountUpdateUpdateStableV1AppStateA::Keep
+                }
+            })
+            .collect();
+        Self {
+            app_state: PaddedSeq(app_state.try_into().unwrap()),
+            delegate: if let Some(delegate) = value.delegate {
+                MinaBaseAccountUpdateUpdateStableV1Delegate::Set(
+                    AccountPublicKey::from_str(&delegate).unwrap().into(),
+                )
+            } else {
+                MinaBaseAccountUpdateUpdateStableV1Delegate::Keep
+            },
+            verification_key: if let Some(vk) = value.verification_key {
+                MinaBaseAccountUpdateUpdateStableV1VerificationKey::Set(Box::new(
+                    MinaBaseVerificationKeyWireStableV1::from_base64(&vk).unwrap(),
+                ))
+            } else {
+                MinaBaseAccountUpdateUpdateStableV1VerificationKey::Keep
+            },
+            permissions: if let Some(permissions) = value.permissions {
+                MinaBaseAccountUpdateUpdateStableV1Permissions::Set(Box::new(
+                    MinaBasePermissionsStableV2::from(permissions),
+                ))
+            } else {
+                MinaBaseAccountUpdateUpdateStableV1Permissions::Keep
+            },
+            zkapp_uri: if let Some(zkapp_uri) = value.zkapp_uri {
+                MinaBaseAccountUpdateUpdateStableV1ZkappUri::Set(ZkAppUri::from(zkapp_uri.as_str()))
+            } else {
+                MinaBaseAccountUpdateUpdateStableV1ZkappUri::Keep
+            },
+            token_symbol: if let Some(token_symbol) = value.token_symbol {
+                MinaBaseAccountUpdateUpdateStableV1TokenSymbol::Set(TokenSymbol::from(
+                    token_symbol.as_str(),
+                ))
+            } else {
+                MinaBaseAccountUpdateUpdateStableV1TokenSymbol::Keep
+            },
+            timing: if let Some(timing) = value.timing {
+                MinaBaseAccountUpdateUpdateStableV1Timing::Set(Box::new(
+                    MinaBaseAccountUpdateUpdateTimingInfoStableV1::from(timing),
+                ))
+            } else {
+                MinaBaseAccountUpdateUpdateStableV1Timing::Keep
+            },
+            voting_for: if let Some(voting_for) = value.voting_for {
+                MinaBaseAccountUpdateUpdateStableV1VotingFor::Set(
+                    StateHash::from_str(&voting_for).unwrap(),
+                )
+            } else {
+                MinaBaseAccountUpdateUpdateStableV1VotingFor::Keep
+            },
+        }
+    }
+}
 
 impl From<MinaBaseAccountUpdateFeePayerStableV1> for GraphQLFeePayer {
     fn from(value: MinaBaseAccountUpdateFeePayerStableV1) -> Self {
-         Self {
+        Self {
             authorization: value.authorization.to_string(),
             body: GraphQLFeePayerBody {
                 public_key: value.body.public_key.to_string(),
                 fee: value.body.fee.as_u64().to_string(),
                 valid_until: value.body.valid_until.map(|v| v.as_u32().to_string()),
                 nonce: value.body.nonce.to_string(),
+            },
+        }
+    }
+}
+
+impl From<InputGraphQLFeePayer> for MinaBaseAccountUpdateFeePayerStableV1 {
+    fn from(value: InputGraphQLFeePayer) -> Self {
+        Self {
+            authorization: value.authorization.parse().unwrap(),
+            body: MinaBaseAccountUpdateBodyFeePayerStableV1 {
+                public_key: value.body.public_key.parse().unwrap(),
+                fee: CurrencyFeeStableV1(value.body.fee.parse::<u64>().unwrap().into()),
+                valid_until: value.body.valid_until.map(|v| {
+                    MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+                        v.parse::<u32>().unwrap().into(),
+                    )
+                }),
+                nonce: value.body.nonce.parse::<u32>().unwrap().into(),
             },
         }
     }
@@ -762,16 +1319,82 @@ impl From<MinaBaseAccountUpdateTStableV1> for GraphQLAccountUpdate {
                 increment_nonce: value.body.increment_nonce,
                 update: GraphQLAccountUpdateUpdate::from(value.body.update),
                 balance_change: GraphQLBalanceChange::from(value.body.balance_change),
-                events: value.body.events.0.into_iter().map(|v| v.into_iter().map(|i| i.to_fp().unwrap().to_decimal()).collect()).collect(),
-                actions: value.body.actions.0.into_iter().map(|v| v.into_iter().map(|i| i.to_fp().unwrap().to_decimal()).collect()).collect(),
+                events: value
+                    .body
+                    .events
+                    .0
+                    .into_iter()
+                    .map(|v| {
+                        v.into_iter()
+                            .map(|i| i.to_fp().unwrap().to_decimal())
+                            .collect()
+                    })
+                    .collect(),
+                actions: value
+                    .body
+                    .actions
+                    .0
+                    .into_iter()
+                    .map(|v| {
+                        v.into_iter()
+                            .map(|i| i.to_fp().unwrap().to_decimal())
+                            .collect()
+                    })
+                    .collect(),
                 call_data: value.body.call_data.to_fp().unwrap().to_decimal(),
                 // TODO(adonagy): figure out call depth
                 call_depth: 0,
                 preconditions: GraphQLPreconditions::from(value.body.preconditions),
                 may_use_token: GraphQLMayUseToken::from(value.body.may_use_token),
                 authorization_kind: GraphQLAuthorizationKind::from(value.body.authorization_kind),
+                implicit_account_creation_fee: value.body.implicit_account_creation_fee,
             },
             authorization: GraphQLAuthorization::from(value.authorization),
+        }
+    }
+}
+
+impl From<InputGraphQLAccountUpdate> for MinaBaseAccountUpdateTStableV1 {
+    fn from(value: InputGraphQLAccountUpdate) -> Self {
+        Self {
+            body: MinaBaseAccountUpdateBodyStableV1 {
+                public_key: value.body.public_key.parse().unwrap(),
+                token_id: value.body.token_id.parse().unwrap(),
+                update: value.body.update.into(),
+                balance_change: value.body.balance_change.into(),
+                increment_nonce: value.body.increment_nonce,
+                events: MinaBaseAccountUpdateBodyEventsStableV1(
+                    value
+                        .body
+                        .events
+                        .into_iter()
+                        .map(|v| {
+                            v.into_iter()
+                                .map(|i| BigInt::from_decimal(&i).unwrap())
+                                .collect()
+                        })
+                        .collect(),
+                ),
+                actions: MinaBaseAccountUpdateBodyEventsStableV1(
+                    value
+                        .body
+                        .actions
+                        .into_iter()
+                        .map(|v| {
+                            v.into_iter()
+                                .map(|i| BigInt::from_decimal(&i).unwrap())
+                                .collect()
+                        })
+                        .collect(),
+                ),
+                call_data: BigInt::from_decimal(&value.body.call_data).unwrap(),
+                preconditions: value.body.preconditions.into(),
+                use_full_commitment: value.body.use_full_commitment,
+                implicit_account_creation_fee: value.body.implicit_account_creation_fee,
+                may_use_token: value.body.may_use_token.into(),
+                authorization_kind: value.body.authorization_kind.into(),
+            },
+            authorization: value.authorization.into(),
         }
     }
 }
@@ -817,11 +1440,21 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
                         } else {
                             None
                         };
-                    let account_updates = zkapp.account_updates.clone().into_iter().map(|v| v.elt.account_update.into()).collect();
+                    let account_updates = zkapp
+                        .account_updates
+                        .clone()
+                        .into_iter()
+                        .map(|v| v.elt.account_update.into())
+                        .collect();
                     Some(GraphQLZkapp {
                         hash: zkapp.hash().unwrap().to_string(),
                         failure_reason,
-                        id: serde_json::to_string_pretty(&MinaBaseZkappCommandTStableV1WireStableV1Base64::from(zkapp.clone())).unwrap().trim_matches('"').to_string(),
+                        id: serde_json::to_string_pretty(
+                            &MinaBaseZkappCommandTStableV1WireStableV1Base64::from(zkapp.clone()),
+                        )
+                        .unwrap()
+                        .trim_matches('"')
+                        .to_string(),
                         zkapp_command: GraphQLZkappCommand {
                             memo: serde_json::to_string_pretty(&zkapp.memo)
                                 .unwrap()
@@ -982,3 +1615,23 @@ impl From<ArcBlockWithHash> for GraphQLBestChainBlock {
 //         GraphQLBestChain(value.into_iter().map(|b| b.into()).collect())
 //     }
 // }
+
+impl From<InputGraphQLTiming> for MinaBaseAccountUpdateUpdateTimingInfoStableV1 {
+    fn from(value: InputGraphQLTiming) -> Self {
+        Self {
+            initial_minimum_balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
+                value.initial_minimum_balance.parse::<u64>().unwrap().into(),
+            )),
+            cliff_time: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
+                (value.cliff_time as u32).into(),
+            ),
+            cliff_amount: CurrencyAmountStableV1(value.cliff_amount.parse::<u64>().unwrap().into()),
+            vesting_period: MinaNumbersGlobalSlotSpanStableV1::GlobalSlotSpan(
+                (value.vesting_period as u32).into(),
+            ),
+            vesting_increment: CurrencyAmountStableV1(
+                value.vesting_increment.parse::<u64>().unwrap().into(),
+            ),
+        }
+    }
+}

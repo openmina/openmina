@@ -485,13 +485,15 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
     let transaction_post = warp::path("send-payment")
         .and(warp::post())
         .and(warp::filters::body::json())
-        .then(move |body: Vec<_>| {
+        .then(move |body: Vec<RpcInjectPayment>| {
             let rpc_sender_clone = rpc_sender_clone.clone();
 
             async move {
                 println!("Transaction inject post: {:#?}", body);
                 rpc_sender_clone
-                    .oneshot_request(RpcRequest::TransactionInject(body))
+                    .oneshot_request(RpcRequest::TransactionInject(
+                        body.into_iter().map(|cmd| cmd.into()).collect(),
+                    ))
                     .await
                     .map_or_else(
                         dropped_channel_response,

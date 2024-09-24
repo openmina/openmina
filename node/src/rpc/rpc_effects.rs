@@ -749,7 +749,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             // sort the commadns by nonce
 
             store.dispatch(TransactionPoolAction::StartVerify {
-                commands: commands.into_iter().map(|c| c.into()).collect(),
+                commands: commands.into_iter().collect(),
                 from_rpc: Some(rpc_id),
             });
         }

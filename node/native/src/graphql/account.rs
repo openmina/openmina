@@ -1,7 +1,8 @@
 use juniper::{GraphQLInputObject, GraphQLObject};
 use ledger::FpExt;
 use mina_p2p_messages::v2::{
-    MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseVerificationKeyWireStableV1Base64, ReceiptChainHash, TokenIdKeyHash
+    MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseVerificationKeyWireStableV1Base64,
+    ReceiptChainHash, TokenIdKeyHash,
 };
 
 #[derive(GraphQLObject)]
@@ -46,11 +47,11 @@ pub struct GraphQLTiming {
 #[derive(GraphQLInputObject)]
 pub struct InputGraphQLTiming {
     // pub is_timed: bool,
-    pub initial_minimum_balance: Option<String>,
-    pub cliff_time: Option<i32>,
-    pub cliff_amount: Option<String>,
-    pub vesting_period: Option<i32>,
-    pub vesting_increment: Option<String>,
+    pub initial_minimum_balance: String,
+    pub cliff_time: i32,
+    pub cliff_amount: String,
+    pub vesting_period: i32,
+    pub vesting_increment: String,
 }
 
 impl From<MinaBaseAccountUpdateUpdateTimingInfoStableV1> for GraphQLTiming {
