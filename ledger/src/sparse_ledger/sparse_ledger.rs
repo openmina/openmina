@@ -351,8 +351,12 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
             let child_left = addr.child_left();
             let child_right = addr.child_right();
 
-            let is_left = matrix.get(&child_left).is_some();
-            let is_right = matrix.get(&child_right).is_some();
+            let is_level_above_accounts = addr.length() == ledger_depth - 1;
+
+            let is_left = matrix.get(&child_left).is_some()
+                || (is_level_above_accounts && values.get(&child_left.to_index()).is_some());
+            let is_right = matrix.get(&child_right).is_some()
+                || (is_level_above_accounts && values.get(&child_right.to_index()).is_some());
 
             if is_left && is_right {
                 let hash = matrix.get(&addr).unwrap();
@@ -365,8 +369,7 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
                     Box::new(right_node),
                 )
             } else {
-                // Note: Only 1 of them if 1 level above the accounts
-                assert!((!is_left && !is_right) || (addr.length() == ledger_depth - 1));
+                assert!(!is_left && !is_right);
                 let hash = matrix.get(&addr).unwrap();
                 MinaBaseSparseLedgerBaseStableV2Tree::Hash(to_ledger_hash(hash))
             }
