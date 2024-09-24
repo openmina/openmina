@@ -98,4 +98,8 @@ impl RpcService for super::NodeTestingService {
         node::rpc::RpcTransitionFrontierUserCommandsResponse,
     );
     to_real!(respond_best_chain, node::rpc::RpcBestChainResponse,);
+    to_real!(
+        respond_consensus_constants,
+        node::rpc::RpcConsensusConstantsGetResponse,
+    );
 }

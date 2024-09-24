@@ -69,6 +69,7 @@ impl std::fmt::Display for Event {
                         write!(f, "TransitionFrontierUserCommandsGet")
                     }
                     RpcRequest::BestChain(..) => write!(f, "BestChain"),
+                    RpcRequest::ConsensusConstantsGet => write!(f, "ConsensusConstantsGet"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {
