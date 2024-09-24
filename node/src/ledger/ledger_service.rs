@@ -934,6 +934,9 @@ impl LedgerCtx {
             .map(|hash| protocol_states.get(&hash.into()).ok_or(()).cloned())
             .collect::<Result<_, _>>()
             .ok()?;
+        // Required so that we can perform the conversion bellow, which
+        // will not work if the hash is not available already.
+        ledger.pending_coinbase_collection_merkle_root();
         Some(
             StagedLedgerAuxAndPendingCoinbases {
                 scan_state: (ledger.scan_state()).into(),
