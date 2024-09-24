@@ -191,7 +191,10 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     }
                 }
                 TransitionFrontierSyncAction::BlocksNextApplyError { .. } => {}
-                TransitionFrontierSyncAction::BlocksNextApplySuccess { ref hash } => {
+                TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                    ref hash,
+                    just_emitted_a_proof: _,
+                } => {
                     if let Some(stats) = store.service.stats() {
                         if let Some(state) =
                             store.state.get().transition_frontier.sync.block_state(hash)
@@ -290,13 +293,15 @@ fn synced_effects<S: crate::Service>(
     for peer_id in store.state().p2p.ready_peers() {
         store.dispatch(P2pChannelsBestTipAction::ResponseSend {
             peer_id,
-            best_tip: best_tip.clone(),
+            best_tip: best_tip.block.clone(),
         });
     }
 
     let best_tip_hash = best_tip.merkle_root_hash().clone();
     store.dispatch(ConsensusAction::Prune);
-    store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
+    store.dispatch(BlockProducerAction::BestTipUpdate {
+        best_tip: best_tip.block.clone(),
+    });
     store.dispatch(TransactionPoolAction::BestTipChanged {
         best_tip_hash: best_tip_hash.clone(),
     });

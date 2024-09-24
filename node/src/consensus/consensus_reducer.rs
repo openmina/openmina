@@ -277,12 +277,12 @@ fn transition_frontier_new_best_tip_handler(
                 if old_best_tip.height() > old_best_tip.constants().k.as_u32() {
                     iter.next();
                 }
-                let root_block = iter.next()?.clone();
-                let hashes = iter.map(|b| b.hash.clone()).collect();
+                let root_block = iter.next()?.block_with_hash().clone();
+                let hashes = iter.map(|b| b.hash().clone()).collect();
                 Some((hashes, root_block))
             } else if old_best_tip.pred_hash() == pred_hash {
-                let root_block = iter.next()?.clone();
-                let hashes = iter.rev().skip(1).rev().map(|b| b.hash.clone()).collect();
+                let root_block = iter.next()?.block_with_hash().clone();
+                let hashes = iter.rev().skip(1).rev().map(|b| b.hash().clone()).collect();
                 Some((hashes, root_block))
             } else {
                 None

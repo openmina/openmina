@@ -140,8 +140,11 @@ fn propagate_write_response<S: redux::Service>(
             Err(error) => {
                 store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyError { hash, error });
             }
-            Ok(_) => {
-                store.dispatch(TransitionFrontierSyncAction::BlocksNextApplySuccess { hash });
+            Ok(result) => {
+                store.dispatch(TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                    hash,
+                    just_emitted_a_proof: result.just_emitted_a_proof,
+                });
             }
         },
         (
@@ -271,7 +274,7 @@ fn build_staged_ledger_parts_request(
     let ledger_hash = tf
         .best_chain
         .iter()
-        .find(|b| &b.hash == block_hash)
+        .find(|b| b.hash() == block_hash)
         .map(|b| b.staged_ledger_hashes().clone())?;
     let protocol_states = tf
         .needed_protocol_states

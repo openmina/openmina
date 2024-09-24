@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::AppliedBlock;
 use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,7 @@ pub enum RpcRequestStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequestExtraData {
     None,
-    FullBlockOpt(Option<ArcBlockWithHash>),
+    FullBlockOpt(Option<AppliedBlock>),
 }
 
 impl RpcRequestStatus {

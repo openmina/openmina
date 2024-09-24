@@ -1,6 +1,6 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::AppliedBlock;
 use openmina_core::snark::SnarkJobId;
 use openmina_core::ActionEvent;
 use openmina_node_account::AccountPublicKey;
@@ -93,7 +93,7 @@ pub enum RpcAction {
     },
     ScanStateSummaryGetPending {
         rpc_id: RpcId,
-        block: Option<ArcBlockWithHash>,
+        block: Option<AppliedBlock>,
     },
     ScanStateSummaryGetSuccess {
         rpc_id: RpcId,

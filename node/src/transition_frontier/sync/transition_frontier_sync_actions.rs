@@ -102,10 +102,14 @@ pub enum TransitionFrontierSyncAction {
     },
     BlocksNextApplySuccess {
         hash: StateHash,
+        just_emitted_a_proof: bool,
     },
+    /// Done applying all pending blocks
     BlocksSuccess,
+    /// Commit snarked ledger to transition frontier root
     CommitInit,
     CommitPending,
+    /// Root snarked ledger commited succesfully
     CommitSuccess {
         result: CommitResult,
     },
@@ -337,7 +341,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .sync
                 .blocks_apply_pending()
                 .map_or(false, |b| &b.hash == hash),
-            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => state
+            TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                hash,
+                just_emitted_a_proof: _,
+            } => state
                 .transition_frontier
                 .sync
                 .blocks_apply_pending()
