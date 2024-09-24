@@ -844,6 +844,8 @@ impl ScanState {
     pub fn hash(&self) -> AuxHash {
         use binprot::BinProtWrite;
 
+        eprintln!("SCAN_STATE HASH");
+
         let Self {
             scan_state,
             previous_incomplete_zkapp_updates,

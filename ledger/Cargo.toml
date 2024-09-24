@@ -4,7 +4,12 @@ version = "0.11.0"
 edition = "2021"
 license = "Apache-2.0"
 
+[package.metadata]
+wasm-opt = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
 
 [[bin]]
 name = "ledger"
@@ -78,6 +83,19 @@ fraction = { version = "=0.15.1", default-features = false, features = ["with-se
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+# web-sys = { version = "0.3", features = ["Window", "Response"] }
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  'Document',
+  'Element',
+  'HtmlElement',
+  'Node',
+  'Window',
+  'Response',
+]
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 zstd = { version = "0.12", optional = true }

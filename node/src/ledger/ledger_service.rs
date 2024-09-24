@@ -1263,6 +1263,9 @@ fn staged_ledger_reconstruct(
 
     let ledger = snarked_ledger.make_child();
 
+    // dump_reconstruct_to_file(&snarked_ledger, &parts).unwrap();
+    // panic!("dump");
+
     let mut result = if let Some(parts) = &parts {
         let states = parts
             .needed_blocks

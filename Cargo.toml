@@ -1,3 +1,9 @@
+[metadata]
+wasm-opt = false
+
+[metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [workspace]
 members = [
     "core",
@@ -69,6 +75,9 @@ juniper = { version = "0.16" }
 ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
 # UNCOMMENTED_IN_CI ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std", "32x9" ] }
 
+
+[profile.release]
+debug = true
 
 [profile.fuzz]
 inherits = "release"
