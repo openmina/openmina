@@ -767,7 +767,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             };
 
             store.dispatch(TransactionPoolAction::StartVerify {
-                commands,
+                commands: commands.into_iter().collect(),
                 from_rpc: Some(rpc_id),
             });
         }

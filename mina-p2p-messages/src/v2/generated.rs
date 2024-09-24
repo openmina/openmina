@@ -1225,7 +1225,16 @@ pub struct MinaBaseLedgerHash0StableV1(pub crate::bigint::BigInt);
 ///
 /// Gid: `706`
 /// Location: [src/lib/mina_base/permissions.ml:53:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/permissions.ml#L53)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, strum_macros::Display)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    SerdeYojsonEnum,
+    BinProtRead,
+    BinProtWrite,
+    strum_macros::Display,
+    strum_macros::EnumString,
+)]
 pub enum MinaBasePermissionsAuthRequiredStableV2 {
     None,
     Either,

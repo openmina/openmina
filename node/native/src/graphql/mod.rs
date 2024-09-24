@@ -1,15 +1,21 @@
 use std::str::FromStr;
 
 use juniper::{EmptyMutation, EmptySubscription, GraphQLEnum, RootNode};
-use ledger::Account;
+use ledger::{
+    scan_state::transaction_logic::valid::UserCommand, transaction_pool::ValidCommandWithHash,
+    Account,
+};
+use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_p2p_messages::v2::TokenIdKeyHash;
+use node::rpc::RpcTransactionInjectResponse;
+use node::rpc::RpcTransactionInjectedCommand;
 use node::{
     account::AccountPublicKey,
     ledger::read::LedgerReadRequest,
     rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
     stats::sync::SyncKind,
 };
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, transaction::Transaction};
 use openmina_node_common::rpc::RpcSender;
 use warp::{Filter, Rejection, Reply};
 
@@ -178,14 +184,33 @@ impl Query {
     // }
 }
 
- struct Mutation;
+#[derive(Clone, Debug)]
+struct Mutation;
 
- #[juniper::graphql_object(context = Context)]
- impl Mutation {
-    async fn send_zkapp(input: send_zkapp::SendZkappInput, context: &Context) -> Result<String, String> {
-        Ok("".to_string())
+#[juniper::graphql_object(context = Context)]
+impl Mutation {
+    async fn send_zkapp(
+        input: send_zkapp::SendZkappInput,
+        context: &Context,
+    ) -> best_chain::GraphQLZkapp {
+        let res: RpcTransactionInjectResponse = context
+            .0
+            .oneshot_request(RpcRequest::TransactionInject(vec![input.into()]))
+            .await
+            .unwrap();
+
+        match res {
+            RpcTransactionInjectResponse::Success(res) => {
+                let zkapp_cmd: MinaBaseUserCommandStableV2 = match res.first().cloned() {
+                    Some(RpcTransactionInjectedCommand::Zkapp(zkapp_cmd)) => zkapp_cmd.into(),
+                    _ => unreachable!(),
+                };
+                zkapp_cmd.into()
+            }
+            _ => unreachable!(),
+        }
     }
- }  
+}
 
 pub fn routes(
     rpc_sernder: RpcSender,
