@@ -689,7 +689,7 @@ impl MutableFp {
         }
     }
     pub fn get(&self) -> Option<Fp> {
-        self.fp.lock().unwrap().clone()
+        *self.fp.lock().unwrap()
     }
     pub fn set(&self, fp: Fp) {
         *self.fp.lock().unwrap() = Some(fp)
@@ -828,7 +828,7 @@ impl ToFieldElements<Fp> for ZkAppAccount {
                     .map(VerificationKeyWire::hash)
                     .as_ref(),
             ),
-            || VerificationKeyWire::dummy_hash(),
+            VerificationKeyWire::dummy_hash,
         )
             .to_field_elements(fields);
         Fp::from(*zkapp_version).to_field_elements(fields);
