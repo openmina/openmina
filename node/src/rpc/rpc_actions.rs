@@ -1,8 +1,10 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
 use openmina_core::block::AppliedBlock;
+use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use openmina_core::snark::SnarkJobId;
+use openmina_core::transaction::Transaction;
 use openmina_core::ActionEvent;
 use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
@@ -160,7 +162,7 @@ pub enum RpcAction {
     #[action_event(level = info)]
     TransactionInjectInit {
         rpc_id: RpcId,
-        commands: Vec<RpcInjectPayment>,
+        commands: Vec<MinaBaseUserCommandStableV2>,
     },
     #[action_event(level = info)]
     TransactionInjectPending {

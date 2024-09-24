@@ -5,7 +5,7 @@ use std::str::FromStr;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
-use ledger::scan_state::transaction_logic::{self, signed_command, Memo};
+use ledger::scan_state::transaction_logic::{self, signed_command, valid, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
 use mina_p2p_messages::bigint::BigInt;
@@ -76,7 +76,7 @@ pub enum RpcRequest {
     DiscoveryBoostrapStats,
     TransactionPoolGet,
     LedgerAccountsGet(AccountQuery),
-    TransactionInject(Vec<RpcInjectPayment>),
+    TransactionInject(Vec<MinaBaseUserCommandStableV2>),
     TransitionFrontierUserCommandsGet,
     BestChain(MaxLength),
 }
@@ -360,7 +360,7 @@ pub struct RpcTransactionInjectedPayment {
 pub enum RpcTransactionInjectedCommand {
     Payment(RpcTransactionInjectedPayment),
     Delegation,
-    Zkapp,
+    Zkapp(valid::UserCommand),
 }
 
 pub type RpcTransactionInjectSuccess = Vec<RpcTransactionInjectedCommand>;
@@ -400,7 +400,9 @@ impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
                     }
                 }
             }
-            transaction_logic::valid::UserCommand::ZkAppCommand(_) => todo!("inject zkapp"),
+            transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
+                Self::Zkapp(value.data.clone())
+            }
         }
     }
 }
