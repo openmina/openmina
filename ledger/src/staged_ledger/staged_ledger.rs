@@ -136,6 +136,10 @@ impl StagedLedger {
         self.scan_state.all_work_statements_exn()
     }
 
+    pub fn pending_coinbase_collection_merkle_root(&mut self) -> Fp {
+        self.pending_coinbase_collection.merkle_root()
+    }
+
     pub fn pending_coinbase_collection(&self) -> &PendingCoinbase {
         &self.pending_coinbase_collection
     }
