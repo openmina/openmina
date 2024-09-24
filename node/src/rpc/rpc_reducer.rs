@@ -169,6 +169,7 @@ impl RpcState {
             }
             RpcAction::TransitionFrontierUserCommandsGet { .. } => {}
             RpcAction::BestChain { .. } => {}
+            RpcAction::ConsensusConstantsGet { .. } => {}
         }
     }
 }

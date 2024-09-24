@@ -284,12 +284,15 @@ impl NodeBuilder {
             .unwrap_or_else(redux::Timestamp::global_now);
 
         let protocol_constants = self.genesis_config.protocol_constants()?;
+        let consensus_consts =
+            ConsensusConstants::create(constraint_constants(), &protocol_constants);
 
         // build config
         let node_config = node::Config {
             global: GlobalConfig {
                 build: node::BuildEnv::get().into(),
                 snarker: self.snarker,
+                consensus_constants: consensus_consts.clone(),
             },
             p2p: P2pConfig {
                 libp2p_port: self.p2p_libp2p_port,
@@ -331,9 +334,6 @@ impl NodeBuilder {
         if !self.p2p_is_started {
             service.p2p_init(p2p_sec_key);
         }
-
-        let consensus_consts =
-            ConsensusConstants::create(constraint_constants(), &protocol_constants);
 
         let service = service.build()?;
         let state = node::State::new(node_config, &consensus_consts, initial_time);

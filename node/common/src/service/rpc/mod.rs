@@ -5,11 +5,11 @@ pub mod state;
 pub mod stats;
 
 use node::rpc::{
-    RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
-    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
-    RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
-    RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse,
-    RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
+    RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
+    RpcStatusGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
@@ -295,6 +295,10 @@ impl node::rpc::RpcService for NodeService {
         RpcTransitionFrontierUserCommandsResponse
     );
     rpc_service_impl!(respond_best_chain, RpcBestChainResponse);
+    rpc_service_impl!(
+        respond_consensus_constants,
+        RpcConsensusConstantsGetResponse
+    );
 }
 
 #[cfg(test)]

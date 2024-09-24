@@ -840,6 +840,15 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             )
         }
+        RpcAction::ConsensusConstantsGet { rpc_id } => {
+            let response = store.state().config.consensus_constants.clone();
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_consensus_constants(rpc_id, response),
+                meta.time()
+            )
+        }
         RpcAction::Finish { .. } => {}
     }
 }

@@ -417,6 +417,7 @@ pub enum ActionKind {
     RpcActionStatsGet,
     RpcBestChain,
     RpcBlockProducerStatsGet,
+    RpcConsensusConstantsGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
@@ -888,6 +889,7 @@ impl ActionKindGet for RpcAction {
                 ActionKind::RpcTransitionFrontierUserCommandsGet
             }
             Self::BestChain { .. } => ActionKind::RpcBestChain,
+            Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

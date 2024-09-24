@@ -1,3 +1,4 @@
+use openmina_core::consensus::ConsensusConstants;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -174,5 +175,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcBestChainResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_consensus_constants(
+        &mut self,
+        rpc_id: RpcId,
+        response: ConsensusConstants,
     ) -> Result<(), RespondError>;
 }
