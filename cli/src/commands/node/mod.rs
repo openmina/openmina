@@ -203,8 +203,8 @@ impl Node {
             node_builder.initial_peers_from_url(url)?;
         }
 
-        let block_verifier_index = Arc::new(get_verifier_index(VerifierKind::Blockchain));
-        let work_verifier_index = Arc::new(get_verifier_index(VerifierKind::Transaction));
+        let block_verifier_index = get_verifier_index(VerifierKind::Blockchain);
+        let work_verifier_index = get_verifier_index(VerifierKind::Transaction);
         node_builder
             .block_verifier_index(block_verifier_index.clone())
             .work_verifier_index(work_verifier_index.clone());

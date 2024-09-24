@@ -1,4 +1,4 @@
-use kimchi::mina_curves::pasta::{Pallas, Vesta};
+use kimchi::mina_curves::pasta::Vesta;
 
 mod merkle_path;
 
@@ -30,7 +30,7 @@ pub use snark_state::*;
 
 mod snark_reducer;
 
-pub type VerifierIndex = kimchi::verifier_index::VerifierIndex<Pallas>;
+pub type VerifierIndex = ledger::proofs::VerifierIndex<mina_curves::pasta::Fq>;
 pub type VerifierSRS = poly_commitment::srs::SRS<Vesta>;
 
 use redux::SubStore;

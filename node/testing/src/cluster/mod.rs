@@ -115,8 +115,8 @@ fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
 
 lazy_static::lazy_static! {
     static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs();
-    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain).into();
-    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction).into();
+    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain);
+    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction);
 }
 
 lazy_static::lazy_static! {

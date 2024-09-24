@@ -152,7 +152,7 @@ pub mod devnet {
     };
 
     pub const CIRCUITS_CONFIG: CircuitsConfig = CircuitsConfig {
-        directory_name: "3.0.0devnet",
+        directory_name: "3.0.1devnet",
 
         step_transaction_gates: "step-step-proving-key-transaction-snark-transaction-0-c33ec5211c07928c87e850a63c6a2079",
         wrap_transaction_gates:

@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    proofs::{field::FieldWitness, verification, verifier_index::get_verifier_index},
+    proofs::{
+        field::FieldWitness, verification, verifier_index::get_verifier_index, VerifierIndex,
+    },
     scan_state::{
         scan_state::transaction_snark::{
             LedgerProof, LedgerProofWithSokMessage, SokMessage, TransactionSnark,
@@ -17,7 +19,7 @@ use self::common::CheckResult;
 #[derive(Debug, Clone)]
 pub struct Verifier;
 
-use kimchi::{mina_curves::pasta::Pallas, verifier_index::VerifierIndex};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerifiedMaxStableV2,
@@ -27,9 +29,9 @@ use once_cell::sync::Lazy;
 use poly_commitment::srs::SRS;
 
 // TODO: Move this into `Verifier` struct above
-pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Pallas>>> = Lazy::new(|| {
+pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Fq>>> = Lazy::new(|| {
     use crate::proofs::verifier_index::VerifierKind;
-    Arc::new(get_verifier_index(VerifierKind::Transaction))
+    get_verifier_index(VerifierKind::Transaction)
 });
 
 /// Returns the SRS on the other curve (immutable version for verifiers)
