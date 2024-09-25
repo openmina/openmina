@@ -2,6 +2,7 @@ use mina_p2p_messages::v2::{
     BlockchainSnarkBlockchainStableV2, ConsensusStakeProofStableV2,
     MinaStateSnarkTransitionValueStableV2, ProverExtendBlockchainInputStableV2,
 };
+use openmina_core::bug_condition;
 
 use crate::account::AccountSecretKey;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -44,6 +45,15 @@ pub fn block_producer_effects<S: crate::Service>(
                 .clone();
 
             let (best_tip_epoch, best_tip_slot) = to_epoch_and_slot(&global_slot);
+            let root_block_epoch = if let Some(root_block) =
+                store.state().transition_frontier.root()
+            {
+                let root_block_global_slot = root_block.curr_global_slot_since_hard_fork();
+                to_epoch_and_slot(root_block_global_slot).0
+            } else {
+                bug_condition!("Expected to find a block at the root of the transition frontier but there was none");
+                best_tip_epoch.saturating_sub(1)
+            };
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
             let current_epoch = store.state().current_epoch();
 
@@ -67,23 +77,15 @@ pub fn block_producer_effects<S: crate::Service>(
                 }
             }
 
-            store.dispatch(
-                BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch {
-                    epoch_number: best_tip_epoch,
-                    last_block_height: best_tip.height(),
-                },
-            );
-
             store.dispatch(BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
                 current_epoch,
+                root_block_epoch,
                 best_tip_epoch,
-                best_tip_height: best_tip.height(),
                 best_tip_slot,
                 best_tip_global_slot: best_tip.global_slot(),
                 next_epoch_first_slot,
                 staking_epoch_data: Box::new(best_tip.consensus_state().staking_epoch_data.clone()),
                 next_epoch_data: Box::new(best_tip.consensus_state().next_epoch_data.clone()),
-                transition_frontier_size: best_tip.constants().k.as_u32(),
             });
 
             if let Some(reason) = store

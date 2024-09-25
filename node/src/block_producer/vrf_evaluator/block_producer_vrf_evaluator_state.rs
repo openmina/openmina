@@ -18,7 +18,6 @@ pub struct BlockProducerVrfEvaluatorState {
     pub latest_evaluated_slot: u32,
     pub genesis_timestamp: redux::Timestamp,
     last_evaluated_epoch: Option<u32>,
-    last_block_heights_in_epoch: BTreeMap<u32, u32>,
     pending_evaluation: Option<PendingEvaluation>,
     epoch_context: EpochContext,
 }
@@ -31,7 +30,6 @@ impl BlockProducerVrfEvaluatorState {
             latest_evaluated_slot: Default::default(),
             genesis_timestamp: redux::Timestamp::ZERO,
             last_evaluated_epoch: Default::default(),
-            last_block_heights_in_epoch: Default::default(),
             pending_evaluation: Default::default(),
             epoch_context: EpochContext::Waiting,
         }
@@ -90,10 +88,8 @@ impl BlockProducerVrfEvaluatorState {
     pub fn set_epoch_context(&mut self) {
         // guard the epoch context change and permit it only if in the ReadinessCheck state
         if let BlockProducerVrfEvaluatorStatus::ReadinessCheck {
-            last_epoch_block_height,
-            best_tip_height: current_best_tip_height,
-            transition_frontier_size,
             best_tip_epoch,
+            root_block_epoch,
             current_epoch,
             staking_epoch_data,
             next_epoch_data,
@@ -115,17 +111,10 @@ impl BlockProducerVrfEvaluatorState {
             if !self.is_epoch_evaluated(best_tip_epoch) {
                 self.epoch_context = EpochContext::Current((*staking_epoch_data).into())
             } else if !self.is_epoch_evaluated(best_tip_epoch + 1) {
-                if let Some(last_epoch_block_height) = last_epoch_block_height {
-                    if current_best_tip_height
-                        >= (last_epoch_block_height + transition_frontier_size)
-                    {
-                        self.epoch_context = EpochContext::Next((*next_epoch_data).into())
-                    } else {
-                        self.epoch_context = EpochContext::Waiting
-                    }
-                } else {
-                    // if last_epoch_block_height is not set, we are still in genesis epoch, Next epoch evaluation is possible
+                if root_block_epoch == best_tip_epoch {
                     self.epoch_context = EpochContext::Next((*next_epoch_data).into())
+                } else {
+                    self.epoch_context = EpochContext::Waiting
                 }
             } else {
                 self.epoch_context = EpochContext::Waiting
@@ -167,26 +156,6 @@ impl BlockProducerVrfEvaluatorState {
 
     pub fn last_evaluated_epoch(&self) -> Option<u32> {
         self.last_evaluated_epoch
-    }
-
-    /// Adds or updates the highest block height reached within a specified epoch.
-    ///
-    /// Arguments:
-    /// - `epoch`: The epoch number as a 32-bit unsigned integer.
-    /// - `height`: The block height as a 32-bit unsigned integer.
-    pub fn add_last_height(&mut self, epoch: u32, height: u32) {
-        self.last_block_heights_in_epoch.insert(epoch, height);
-    }
-
-    /// Retrieves the highest block height reached in a specified epoch, if available.
-    ///
-    /// Arguments:
-    /// - `epoch`: The epoch number as a 32-bit unsigned integer.
-    ///
-    /// Returns:
-    /// - `Option<u32>`: The highest block height within the specified epoch, or `None` if not available.
-    pub fn last_height(&self, epoch: u32) -> Option<u32> {
-        self.last_block_heights_in_epoch.get(&epoch).copied()
     }
 
     /// TODO: remove, not needed anymore
@@ -306,11 +275,7 @@ impl BlockProducerVrfEvaluatorState {
         }
     }
 
-    pub fn initialize_evaluator(&mut self, epoch: u32, last_height: u32) {
-        if !self.is_idle() {
-            self.last_block_heights_in_epoch.insert(epoch, last_height);
-        }
-    }
+    pub fn initialize_evaluator(&mut self, _epoch: u32, _last_height: u32) {}
 
     pub fn set_last_evaluated_epoch(&mut self) {
         if let BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess { epoch_number, .. } =
@@ -467,12 +432,10 @@ pub enum BlockProducerVrfEvaluatorStatus {
         is_next_epoch_evaluated: bool,
 
         best_tip_slot: u32,
-        best_tip_height: u32,
         best_tip_global_slot: u32,
         next_epoch_first_slot: u32,
         staking_epoch_data: EpochData,
         producer: AccountPublicKey,
-        transition_frontier_size: u32,
     },
     /// Waiting for delegator table building
     EpochDelegatorTablePending {
@@ -481,12 +444,10 @@ pub enum BlockProducerVrfEvaluatorStatus {
 
         best_tip_epoch: u32,
         best_tip_slot: u32,
-        best_tip_height: u32,
         best_tip_global_slot: u32,
         next_epoch_first_slot: u32,
         staking_epoch_data: EpochData,
         producer: AccountPublicKey,
-        transition_frontier_size: u32,
     },
     /// Delegator table built successfully
     EpochDelegatorTableSuccess {
@@ -495,12 +456,10 @@ pub enum BlockProducerVrfEvaluatorStatus {
 
         best_tip_epoch: u32,
         best_tip_slot: u32,
-        best_tip_height: u32,
         best_tip_global_slot: u32,
         next_epoch_first_slot: u32,
         staking_epoch_data: EpochData,
         producer: AccountPublicKey,
-        transition_frontier_size: u32,
     },
     InitialSlotSelection {
         time: redux::Timestamp,
@@ -530,27 +489,17 @@ pub enum BlockProducerVrfEvaluatorStatus {
         epoch_number: u32,
     },
     /// Waiting for the next possible epoch evaluation
-    WaitingForNextEvaluation {
-        time: redux::Timestamp,
-        best_tip_epoch: u32,
-        best_tip_height: u32,
-        best_tip_slot: u32,
-        best_tip_global_slot: u32,
-        last_epoch_block_height: Option<u32>,
-        transition_frontier_size: u32,
-    },
+    WaitingForNextEvaluation { time: redux::Timestamp },
     /// Checking whether the evaluator is abble to evaluate the epoch
     /// Note: The current epoch can be allways evaluated right away
     ReadinessCheck {
         time: redux::Timestamp,
         current_epoch: Option<u32>,
         best_tip_epoch: u32,
+        root_block_epoch: u32,
         is_current_epoch_evaluated: bool,
         is_next_epoch_evaluated: bool,
-        transition_frontier_size: u32,
-        best_tip_height: u32,
         last_evaluated_epoch: Option<u32>,
-        last_epoch_block_height: Option<u32>,
         staking_epoch_data:
             Box<v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>,
         next_epoch_data: Box<v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>,
@@ -705,13 +654,11 @@ mod test {
                 status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
                     time: redux::Timestamp::global_now(),
                     current_epoch: Some(0), // TODO(adonagy)
+                    root_block_epoch: 0,
                     best_tip_epoch: 0,
                     is_current_epoch_evaluated: false,
                     is_next_epoch_evaluated: false,
-                    transition_frontier_size: 290,
-                    best_tip_height: 1,
                     last_evaluated_epoch: None,
-                    last_epoch_block_height: Some(1),
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
@@ -719,7 +666,6 @@ mod test {
                 latest_evaluated_slot: 0,
                 genesis_timestamp: redux::Timestamp::global_now(),
                 last_evaluated_epoch: None,
-                last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
                 epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
@@ -730,13 +676,11 @@ mod test {
                 status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
                     time: redux::Timestamp::global_now(),
                     current_epoch: Some(0), // TODO(adonagy)
+                    root_block_epoch: 0,
                     best_tip_epoch: 0,
                     is_current_epoch_evaluated: true,
                     is_next_epoch_evaluated: false,
-                    transition_frontier_size: 290,
-                    best_tip_height: 900,
                     last_evaluated_epoch: Some(0),
-                    last_epoch_block_height: None,
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
@@ -744,7 +688,6 @@ mod test {
                 latest_evaluated_slot: 7139,
                 genesis_timestamp: redux::Timestamp::global_now(),
                 last_evaluated_epoch: Some(0),
-                last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
                 epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
@@ -755,13 +698,11 @@ mod test {
                 status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
                     time: redux::Timestamp::global_now(),
                     current_epoch: Some(0), // TODO(adonagy)
+                    root_block_epoch: 0,
                     best_tip_epoch: 0,
                     is_current_epoch_evaluated: true,
                     is_next_epoch_evaluated: true,
-                    transition_frontier_size: 290,
-                    best_tip_height: 1500,
                     last_evaluated_epoch: Some(1),
-                    last_epoch_block_height: None,
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
@@ -769,7 +710,6 @@ mod test {
                 latest_evaluated_slot: 14279,
                 genesis_timestamp: redux::Timestamp::global_now(),
                 last_evaluated_epoch: Some(1),
-                last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
                 epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
@@ -780,13 +720,11 @@ mod test {
                 status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
                     time: redux::Timestamp::global_now(),
                     current_epoch: Some(2), // TODO(adonagy)
+                    root_block_epoch: 2,
                     best_tip_epoch: 2,
                     is_current_epoch_evaluated: false,
                     is_next_epoch_evaluated: false,
-                    transition_frontier_size: 290,
-                    best_tip_height: 15000,
                     last_evaluated_epoch: None,
-                    last_epoch_block_height: Some(14500),
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
@@ -794,7 +732,6 @@ mod test {
                 latest_evaluated_slot: 0,
                 genesis_timestamp: redux::Timestamp::global_now(),
                 last_evaluated_epoch: None,
-                last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
                 epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
@@ -805,13 +742,11 @@ mod test {
                 status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
                     time: redux::Timestamp::global_now(),
                     current_epoch: Some(2), // TODO(adonagy)
+                    root_block_epoch: 1,
                     best_tip_epoch: 2,
                     is_current_epoch_evaluated: true,
                     is_next_epoch_evaluated: false,
-                    transition_frontier_size: 290,
-                    best_tip_height: 15000,
                     last_evaluated_epoch: Some(2),
-                    last_epoch_block_height: Some(14900),
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
@@ -819,7 +754,6 @@ mod test {
                 latest_evaluated_slot: 21419,
                 genesis_timestamp: redux::Timestamp::global_now(),
                 last_evaluated_epoch: Some(2),
-                last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
                 epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
@@ -879,17 +813,16 @@ mod test {
             EpochContext::Waiting
         ));
 
+        // Epoch has changed but the root is still from the previous epoch.
+        // Next epoch must not be evaluated yet.
         vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
             time: redux::Timestamp::global_now(),
             current_epoch: Some(2), // TODO(adonagy)
+            root_block_epoch: 1,
             best_tip_epoch: 2,
             is_current_epoch_evaluated: true,
             is_next_epoch_evaluated: false,
-            transition_frontier_size: 290,
-            // right after epoch switch
-            best_tip_height: 14900,
             last_evaluated_epoch: Some(2),
-            last_epoch_block_height: Some(14900),
             staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
             next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
         };
@@ -900,38 +833,16 @@ mod test {
             EpochContext::Waiting
         ));
 
+        // Epoch has changed, and the root is already at that epoch too.
+        // Next epoch must be evaluated now.
         vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
             time: redux::Timestamp::global_now(),
             current_epoch: Some(2), // TODO(adonagy)
+            root_block_epoch: 2,
             best_tip_epoch: 2,
             is_current_epoch_evaluated: true,
             is_next_epoch_evaluated: false,
-            transition_frontier_size: 290,
-            // one block until can evaluate next
-            best_tip_height: 15189,
             last_evaluated_epoch: Some(2),
-            last_epoch_block_height: Some(14900),
-            staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
-            next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
-        };
-
-        vrf_evaluator_state.set_epoch_context();
-        assert!(matches!(
-            vrf_evaluator_state.epoch_context(),
-            EpochContext::Waiting
-        ));
-
-        vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
-            time: redux::Timestamp::global_now(),
-            current_epoch: Some(2), // TODO(adonagy)
-            best_tip_epoch: 2,
-            is_current_epoch_evaluated: true,
-            is_next_epoch_evaluated: false,
-            transition_frontier_size: 290,
-            // Best tip at position that the ledger is set and materialized
-            best_tip_height: 15190,
-            last_evaluated_epoch: Some(2),
-            last_epoch_block_height: Some(14900),
             staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
             next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
         };
