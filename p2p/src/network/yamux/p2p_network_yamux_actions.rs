@@ -59,19 +59,20 @@ impl From<P2pNetworkYamuxAction> for crate::P2pAction {
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
-        if state
+        let Some(yamux_state) = state
             .network
             .scheduler
             .connection_state(self.addr())
             .and_then(|state| state.yamux_state())
-            .is_none()
-        {
+        else {
             return false;
         };
 
         match self {
             P2pNetworkYamuxAction::IncomingData { .. } => true,
-            P2pNetworkYamuxAction::OutgoingData { .. } => true,
+            P2pNetworkYamuxAction::OutgoingData { stream_id, .. } => {
+                yamux_state.streams.contains_key(stream_id)
+            }
             P2pNetworkYamuxAction::IncomingFrame { .. } => true,
             P2pNetworkYamuxAction::OutgoingFrame { .. } => true,
             P2pNetworkYamuxAction::PingStream { .. } => true,

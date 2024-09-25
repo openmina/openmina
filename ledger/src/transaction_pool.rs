@@ -2001,10 +2001,7 @@ impl TransactionPool {
                         account.liquid_balance_at_slot(global_slot_since_genesis),
                     ) {
                         Ok(x) => Ok(x),
-                        Err(e) => {
-                            eprintln!();
-                            Err(e.into())
-                        }
+                        Err(e) => Err(e.into()),
                     }
                 })();
 

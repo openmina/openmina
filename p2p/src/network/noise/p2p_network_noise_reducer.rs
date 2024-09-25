@@ -357,9 +357,9 @@ impl P2pNetworkNoiseState {
                                 if noise_state.expected_peer_id.is_some_and(|expected_per_id| {
                                     expected_per_id != remote_peer_id
                                 }) {
-                                    *state = P2pNetworkNoiseStateInner::Error(dbg!(
-                                        NoiseError::RemotePeerIdMismatch
-                                    ));
+                                    *state = P2pNetworkNoiseStateInner::Error(
+                                        NoiseError::RemotePeerIdMismatch,
+                                    );
                                 } else {
                                     *state = P2pNetworkNoiseStateInner::Done {
                                         incoming: false,

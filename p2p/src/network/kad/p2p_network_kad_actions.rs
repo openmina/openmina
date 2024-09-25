@@ -69,7 +69,6 @@ pub enum P2pNetworkKademliaAction {
     #[action_event(level = info)]
     StartBootstrap { key: PeerId },
     /// Bootstrap is finished.
-    #[action_event(level = info)]
     BootstrapFinished,
 
     /// Update routing table with peer addresses

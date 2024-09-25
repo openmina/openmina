@@ -2,7 +2,7 @@ use openmina_core::log::inner::field::{display, DisplayValue};
 use openmina_core::log::inner::Value;
 use openmina_core::log::{time_to_str, ActionEvent, EventContext};
 use p2p::connection::P2pConnectionEffectfulAction;
-use p2p::PeerId;
+use p2p::{P2pNetworkConnectionError, P2pNetworkSchedulerAction, PeerId};
 
 use crate::p2p::channels::P2pChannelsAction;
 use crate::p2p::connection::P2pConnectionAction;
@@ -72,7 +72,21 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
             P2pAction::Peer(action) => action.action_event(&context),
             P2pAction::Network(action) => match action {
-                P2pNetworkAction::Scheduler(action) => action.action_event(&context),
+                P2pNetworkAction::Scheduler(action) => match action {
+                    // MioErrors in scheduler are logged using debug instead of warn, to prevent spam
+                    P2pNetworkSchedulerAction::Error {
+                        error: P2pNetworkConnectionError::MioError(summary),
+                        addr,
+                    } => {
+                        openmina_core::action_debug!(
+                            context,
+                            kind = "P2pNetworkSchedulerError",
+                            summary = display(summary),
+                            addr = display(addr)
+                        );
+                    }
+                    action => action.action_event(&context),
+                },
                 P2pNetworkAction::SchedulerEffectful(action) => action.action_event(&context),
                 P2pNetworkAction::Pnet(action) => action.action_event(&context),
                 P2pNetworkAction::PnetEffectful(action) => action.action_event(&context),
