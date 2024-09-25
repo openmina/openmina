@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use ledger::transaction_pool::diff::BestTipDiff;
 use mina_p2p_messages::v2::{
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2, StateHash,
+    TransactionHash,
 };
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
@@ -50,6 +51,17 @@ impl TransitionFrontierState {
 
     pub fn root(&self) -> Option<&ArcBlockWithHash> {
         self.best_chain.first()
+    }
+
+    /// FIXME
+    /// Note(adonagy): This can be expensive, keep a map with all the tx hashis in the best chain
+    pub fn contains_transaction(&self, hash: &TransactionHash) -> bool {
+        self.best_chain.iter().any(|block| {
+            block
+                .body()
+                .transactions()
+                .any(|transaction| transaction.hash().as_ref().ok() == Some(hash))
+        })
     }
 
     /// Looks up state body by state hash.

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use ledger::Account;
 use mina_p2p_messages::rpc_kernel::QueryHeader;
-use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
+use mina_p2p_messages::v2::{MinaBaseTransactionStatusStableV2, TransactionHash};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::bug_condition;
@@ -16,7 +16,7 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{
     AccountSlim, PeerConnectionStatus, RpcPeerInfo, RpcTransactionInjectResponse,
-    RpcTransactionInjectSuccess,
+    RpcTransactionInjectSuccess, TransactionStatus,
 };
 use crate::snark_pool::SnarkPoolAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
@@ -830,6 +830,56 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     .respond_consensus_constants(rpc_id, response),
                 meta.time()
             )
+        }
+        RpcAction::TransactionStatusGet { rpc_id, tx } => {
+            // Check if the transaction is in the pool, if it is, return PENDING
+            let tx_hash = tx.hash().ok();
+
+            let in_tx_pool = store
+                .state()
+                .transaction_pool
+                .get_all_transactions()
+                .iter()
+                .any(|tx_with_hash| {
+                    Some(TransactionHash::from(tx_with_hash.hash.as_ref())) == tx_hash
+                });
+
+            if in_tx_pool {
+                respond_or_log!(
+                    store
+                        .service()
+                        .respond_transaction_status(rpc_id, TransactionStatus::Pending),
+                    meta.time()
+                );
+                return;
+            }
+
+            let in_transition_frontier = if let Some(hash) = tx_hash {
+                store
+                    .state()
+                    .transition_frontier
+                    .contains_transaction(&hash)
+            } else {
+                false
+            };
+
+            // Check whether the transaction is in the transition frontier, if it is, return INCLUDED
+            if in_transition_frontier {
+                respond_or_log!(
+                    store
+                        .service()
+                        .respond_transaction_status(rpc_id, TransactionStatus::Included),
+                    meta.time()
+                )
+            // Otherwise, return UNKNOWN
+            } else {
+                respond_or_log!(
+                    store
+                        .service()
+                        .respond_transaction_status(rpc_id, TransactionStatus::Unknown),
+                    meta.time()
+                )
+            }
         }
         RpcAction::Finish { .. } => {}
     }

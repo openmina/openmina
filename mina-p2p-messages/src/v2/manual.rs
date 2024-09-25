@@ -1011,6 +1011,36 @@ impl<'de> Deserialize<'de> for MinaBaseVerificationKeyWireStableV1Base64 {
     }
 }
 
+// TODO(adonagy): macro?
+impl MinaBaseSignedCommandStableV2 {
+    pub fn to_base64(&self) -> Result<String, serde_json::Error> {
+        const COMMAND_VERSION_TAG: u8 = 2;
+
+        let mut buffer: Vec<u8> = Vec::new();
+        COMMAND_VERSION_TAG
+            .binprot_write(&mut buffer)
+            .map_err(serde::ser::Error::custom)?;
+        self.binprot_write(&mut buffer)
+            .map_err(serde::ser::Error::custom)?;
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let base64_data = STANDARD.encode(buffer);
+        Ok(base64_data)
+    }
+
+    pub fn from_base64(base64_data: &str) -> Result<Self, serde_json::Error> {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let decoded_data = STANDARD
+            .decode(&base64_data)
+            .map_err(serde::de::Error::custom)?;
+        let res = MinaBaseSignedCommandStableV2::binprot_read(&mut decoded_data[1..].as_ref())
+            .map_err(|e| {
+                serde::de::Error::custom(format!("Error deserializing signed command: {e}"))
+            })?;
+        Ok(res)
+    }
+}
+
 /// TODO(adonagy): implement the base64 conversions similarly to the base58check ones (versioned/not versioned)
 #[derive(Debug, Clone)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1Base64(
@@ -1031,6 +1061,18 @@ impl MinaBaseZkappCommandTStableV1WireStableV1 {
 
         let base64_data = STANDARD_NO_PAD.encode(buffer);
         Ok(base64_data)
+    }
+
+    pub fn from_base64(base64_data: &str) -> Result<Self, serde_json::Error> {
+        use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
+        let decoded_data = STANDARD_NO_PAD
+            .decode(&base64_data)
+            .map_err(serde::de::Error::custom)?;
+        let res = MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(
+            &mut decoded_data[1..].as_ref(),
+        )
+        .map_err(|e| serde::de::Error::custom(format!("Error deserializing zkapp: {e}")))?;
+        Ok(res)
     }
 }
 
@@ -1485,6 +1527,10 @@ impl StagedLedgerDiffBodyStableV1 {
         } else {
             Box::new(iter)
         }
+    }
+
+    pub fn transactions(&self) -> impl Iterator<Item = &MinaBaseUserCommandStableV2> {
+        self.commands_iter().map(|command| &command.data)
     }
 
     // FIXME(tizoc): this is not correct, the coinbases are in the commands

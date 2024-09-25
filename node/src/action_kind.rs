@@ -408,6 +408,7 @@ pub enum ActionKind {
     RpcTransactionInjectRejected,
     RpcTransactionInjectSuccess,
     RpcTransactionPool,
+    RpcTransactionStatusGet,
     RpcTransitionFrontierUserCommandsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
@@ -550,7 +551,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 456;
+    pub const COUNT: u16 = 457;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -840,6 +841,7 @@ impl ActionKindGet for RpcAction {
             }
             Self::BestChain { .. } => ActionKind::RpcBestChain,
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
+            Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

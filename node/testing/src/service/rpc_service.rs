@@ -102,4 +102,8 @@ impl RpcService for super::NodeTestingService {
         respond_consensus_constants,
         node::rpc::RpcConsensusConstantsGetResponse,
     );
+    to_real!(
+        respond_transaction_status,
+        node::rpc::RpcTransactionStatusGetResponse,
+    );
 }
