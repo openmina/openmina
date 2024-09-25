@@ -341,12 +341,12 @@ pub mod common {
                                 ]);
                             };
                             // check that vk expected for proof is the one being used
-                            if vk_hash != &vk.hash {
+                            if vk_hash != &vk.hash() {
                                 return CheckResult::UnexpectedVerificationKey(vec![
                                     p.account_id().public_key,
                                 ]);
                             }
-                            valid_assuming.push((vk.data, stmt, pi.clone()));
+                            valid_assuming.push((vk.vk().clone(), stmt, pi.clone()));
                         }
                         _ => {
                             return CheckResult::MismatchedAuthorizationKind(vec![

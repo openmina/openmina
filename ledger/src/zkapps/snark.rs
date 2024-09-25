@@ -38,7 +38,7 @@ use crate::{
     sparse_ledger::SparseLedger,
     zkapps::zkapp_logic,
     Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ReceiptChainHash,
-    ToInputs, TokenId, VerificationKey, ZkAppAccount, TXN_VERSION_CURRENT,
+    ToInputs, TokenId, VerificationKey, VerificationKeyWire, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 use super::intefaces::{
@@ -378,7 +378,7 @@ impl CallForestInterface for SnarkCallForest {
         };
         let tl_hash = w.exists(match data.tail().unwrap() {
             [] => Fp::zero(),
-            [x, ..] => x.stack_hash,
+            [x, ..] => x.stack_hash.get().unwrap(), // Never fail, it was already hashed
         });
         let tree_hash = [account_update.hash, subforest.hash]
             .checked_hash_with_param(Tree::<AccountUpdate>::HASH_PARAM, w);
@@ -950,7 +950,7 @@ impl AccountInterface for SnarkAccount {
                     .verification_key
                     .as_ref()
                     .unwrap();
-                let vk = w.exists(vk);
+                let vk = w.exists(vk.vk());
                 vk.checked_hash_with_param(VerificationKey::HASH_PARAM, w);
             }
             Signature | NoneGiven => {}
@@ -983,9 +983,12 @@ impl AccountInterface for SnarkAccount {
         self.data.zkapp.as_mut().unwrap()
     }
     fn verification_key_hash(&self) -> Fp {
-        // TODO: We shouldn't compute the hash here
         let zkapp = self.zkapp();
-        MyCow::borrow_or_else(&zkapp.verification_key, VerificationKey::dummy).hash()
+        zkapp
+            .verification_key
+            .as_ref()
+            .map(VerificationKeyWire::hash)
+            .unwrap_or_else(VerificationKeyWire::dummy_hash)
     }
     fn set_token_id(&mut self, token_id: TokenId) {
         let Self { data: account, .. } = self;

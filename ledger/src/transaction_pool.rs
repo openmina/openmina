@@ -26,7 +26,7 @@ use crate::{
         },
     },
     verifier::{Verifier, VerifierError},
-    Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey, VerificationKeyWire,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -284,8 +284,6 @@ pub struct Config {
     pub slot_tx_end: Option<Slot>,
 }
 
-pub type VerificationKeyWire = WithHash<VerificationKey>;
-
 /// Used to be able to de/serialize our `TransactionPool` in the state machine
 #[derive(Serialize, Deserialize)]
 struct VkRefcountTableBigInts {
@@ -304,14 +302,14 @@ impl From<VkRefcountTable> for VkRefcountTableBigInts {
             verification_keys: verification_keys
                 .into_iter()
                 .map(|(hash, (count, vk))| {
-                    assert_eq!(hash, vk.hash);
+                    assert_eq!(hash, vk.hash());
                     let hash: BigInt = hash.into();
                     (
                         hash.clone(),
                         (
                             count,
                             WithHash {
-                                data: vk.data,
+                                data: vk.vk().clone(),
                                 hash,
                             },
                         ),
@@ -349,16 +347,7 @@ impl From<VkRefcountTableBigInts> for VkRefcountTable {
                 .map(|(hash, (count, vk))| {
                     assert_eq!(hash, vk.hash);
                     let hash: Fp = hash.to_field().unwrap(); // We trust our serialized data
-                    (
-                        hash,
-                        (
-                            count,
-                            WithHash {
-                                data: vk.data,
-                                hash,
-                            },
-                        ),
-                    )
+                    (hash, (count, VerificationKeyWire::with_hash(vk.data, hash)))
                 })
                 .collect(),
             account_id_to_vks: account_id_to_vks
@@ -389,7 +378,7 @@ struct VkRefcountTable {
 }
 
 impl VkRefcountTable {
-    fn find_vk(&self, f: &Fp) -> Option<&(usize, WithHash<VerificationKey>)> {
+    fn find_vk(&self, f: &Fp) -> Option<&(usize, VerificationKeyWire)> {
         self.verification_keys.get(f)
     }
 
@@ -407,7 +396,7 @@ impl VkRefcountTable {
     fn inc(&mut self, account_id: AccountId, vk: VerificationKeyWire) {
         use std::collections::hash_map::Entry::{Occupied, Vacant};
 
-        match self.verification_keys.entry(vk.hash) {
+        match self.verification_keys.entry(vk.hash()) {
             Vacant(e) => {
                 e.insert((1, vk.clone()));
             }
@@ -421,10 +410,10 @@ impl VkRefcountTable {
             .account_id_to_vks
             .entry(account_id.clone())
             .or_default(); // or insert empty map
-        let count = map.entry(vk.hash).or_default(); // or insert count 0
+        let count = map.entry(vk.hash()).or_default(); // or insert count 0
         *count += 1;
 
-        let map = self.vk_to_account_ids.entry(vk.hash).or_default(); // or insert empty map
+        let map = self.vk_to_account_ids.entry(vk.hash()).or_default(); // or insert empty map
         let count = map.entry(account_id).or_default(); // or insert count 0
         *count += 1;
     }
@@ -476,7 +465,7 @@ impl VkRefcountTable {
     fn decrement_list(&mut self, list: &[ValidCommandWithHash]) {
         list.iter().for_each(|c| {
             for (id, vk) in c.data.forget_check().extract_vks() {
-                self.dec(id, vk.hash);
+                self.dec(id, vk.hash());
             }
         });
     }
@@ -488,7 +477,7 @@ impl VkRefcountTable {
     {
         list.into_iter().for_each(|c| {
             for (id, vk) in c.borrow().data.forget_check().extract_vks() {
-                self.dec(id, vk.hash);
+                self.dec(id, vk.hash());
             }
         });
     }
@@ -2193,7 +2182,7 @@ impl TransactionPool {
                 .map(|id| {
                     let vks = self.verification_key_table.find_vks_by_account_id(id);
                     let vks: HashMap<_, _> =
-                        vks.iter().map(|vk| (vk.hash, (*vk).clone())).collect();
+                        vks.iter().map(|vk| (vk.hash(), (*vk).clone())).collect();
                     (id.clone(), vks)
                 })
                 .collect();
@@ -2203,7 +2192,7 @@ impl TransactionPool {
                 .into_iter()
                 .map(|(id, vk)| {
                     let mut map = HashMap::new();
-                    map.insert(vk.hash, vk);
+                    map.insert(vk.hash(), vk);
                     (id, map)
                 })
                 .collect();

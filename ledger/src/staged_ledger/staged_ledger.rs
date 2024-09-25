@@ -1991,6 +1991,7 @@ impl StagedLedger {
 mod tests_ocaml {
     use std::{
         collections::{BTreeSet, HashMap},
+        panic::AssertUnwindSafe,
         str::FromStr,
         sync::atomic::{AtomicUsize, Ordering::Relaxed},
     };
@@ -2027,7 +2028,7 @@ mod tests_ocaml {
         staged_ledger::diff::{
             PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase,
         },
-        util, Account, AuthRequired, Permissions, VerificationKey,
+        util, Account, AuthRequired, Permissions, VerificationKey, VerificationKeyWire,
     };
 
     use super::*;
@@ -2461,15 +2462,15 @@ mod tests_ocaml {
         mask: Mask,
         fun: F,
     ) where
-        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R,
     {
-        match std::panic::catch_unwind(move || {
+        match std::panic::catch_unwind(AssertUnwindSafe(move || {
             let test_mask = mask.make_child();
             let snarked_ledger_mask = mask.make_child();
             let sl = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
             fun(snarked_ledger_mask, sl, test_mask.clone());
             test_mask.unregister_mask(crate::UnregisterBehavior::Check);
-        }) {
+        })) {
             Ok(_) => {}
             Err(_) => {
                 let niters = NITERS.load(Relaxed);
@@ -2501,7 +2502,7 @@ mod tests_ocaml {
         cmd_iters: Vec<Option<usize>>,
         fun: F,
     ) where
-        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R + std::panic::UnwindSafe,
+        F: FnOnce(SnarkedLedger, StagedLedger, Mask) -> R,
     {
         let mut ephemeral_ledger = Mask::new_unattached(CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
@@ -3288,11 +3289,14 @@ mod tests_ocaml {
         num_zkapps: usize,
         zkapps_per_iter: Vec<Option<usize>>,
     ) -> (Mask, Vec<valid::UserCommand>, Vec<Option<usize>>) {
+        let vk = VK.clone();
+        let vk = VerificationKeyWire::with_hash(vk.data, vk.hash);
+
         let (zkapp_command_and_fee_payer_keypairs, ledger) = sequence_zkapp_command_with_ledger(
             None,
             Some(1),
             Some(num_zkapps),
-            Some(VK.clone()),
+            Some(vk),
             failure.as_ref(),
         );
 
@@ -3370,6 +3374,7 @@ mod tests_ocaml {
             let a: mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1 =
                 (&zkapp).into();
             let b: zkapp_command::ZkAppCommand = (&a).try_into().unwrap();
+            b.account_updates.accumulate_hashes();
 
             assert_eq!(zkapp, b, "failed at {:?}", index);
         }
@@ -6201,6 +6206,8 @@ mod tests {
             states: List<v2::MinaStateProtocolStateValueStableV2>,
         }
 
+        let now = std::time::Instant::now();
+
         let Ok(file) = std::fs::read("/tmp/failed_reconstruct_ctx.binprot") else {
             eprintln!("no reconstruct context found");
             return;
@@ -6233,11 +6240,17 @@ mod tests {
         }
         assert_eq!(ledger.num_accounts(), accounts.len());
 
-        StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+        eprintln!("time to parse and restore state: {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+
+        let scan_state = (&scan_state).try_into().unwrap();
+        eprintln!("time to convert scan state: {:?}", now.elapsed());
+
+        let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             openmina_core::constants::constraint_constants(),
             Verifier,
-            (&scan_state).try_into().unwrap(),
+            scan_state,
             ledger,
             LocalState::empty(),
             staged_ledger_hash.0.to_field().unwrap(),
@@ -6245,5 +6258,10 @@ mod tests {
             |key| states.get(&key).cloned().unwrap(),
         )
         .unwrap();
+
+        eprintln!("time to reconstruct: {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+        dbg!(staged_ledger.hash());
+        eprintln!("time to hash: {:?}", now.elapsed());
     }
 }
