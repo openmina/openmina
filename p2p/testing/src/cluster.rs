@@ -391,7 +391,7 @@ impl Cluster {
                     );
 
                     if let Err(error) = result {
-                        openmina_core::error!(time; "error = {error}");
+                        openmina_core::warn!(time; "error = {error}");
                     }
                 }
             },

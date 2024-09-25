@@ -275,41 +275,19 @@ impl P2pNetworkSchedulerState {
                 }
 
                 let incoming = cn.incoming;
-                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let dispatcher = state_context.into_dispatcher();
                 let peer_id = *peer_id;
-                let addr = *addr;
 
-                // TODO: move code bellow to happen only after identify message is exchange
                 if incoming {
                     dispatcher.push(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
                 } else {
                     dispatcher.push(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
                 }
 
-                // for each negotiated yamux conenction open a new outgoing RPC stream
-                // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
-                // Also rpc streams are short-living -- they only persist for a single request-response (?)
-                let stream_id = YamuxStreamKind::Rpc.stream_id(incoming);
-                dispatcher.push(P2pNetworkYamuxAction::OpenStream {
-                    addr,
-                    stream_id,
-                    stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
+                dispatcher.push(P2pIdentifyAction::NewRequest {
+                    peer_id,
+                    addr: *addr,
                 });
-                dispatcher.push(P2pNetworkYamuxAction::OpenStream {
-                    addr,
-                    stream_id: stream_id + 2,
-                    stream_kind: StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
-                });
-
-                // TODO: open RPC and Kad connections only after identify reports support for it?
-                dispatcher.push(P2pIdentifyAction::NewRequest { peer_id, addr });
-
-                // Kademlia: if the connection is initiated by Kademlia request, notify that it is ready.
-                let kad_state: Option<&P2pNetworkKadState> = state.substate().ok();
-
-                if kad_state.map_or(false, |state| state.request(&peer_id).is_some()) {
-                    dispatcher.push(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
-                }
                 Ok(())
             }
             P2pNetworkSchedulerAction::Disconnect { addr, reason } => {

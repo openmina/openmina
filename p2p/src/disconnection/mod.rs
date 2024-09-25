@@ -37,4 +37,6 @@ pub enum P2pDisconnectionReason {
     DuplicateConnection,
     #[error("timeout")]
     Timeout,
+    #[error("rpc protocol not supported")]
+    Unsupported,
 }
