@@ -7,6 +7,7 @@ use once_cell::sync::OnceCell;
 use openmina_core::network::CircuitsConfig;
 
 use super::{
+    circuit_blobs,
     constants::{
         StepBlockProof, StepMergeProof, StepTransactionProof, StepZkappOptSignedOptSignedProof,
         StepZkappOptSignedProof, StepZkappProvedProof, WrapBlockProof, WrapTransactionProof,
@@ -50,119 +51,18 @@ fn decode_gates_file<F: FieldWitness>(
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn read_or_fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
-    use std::path::PathBuf;
-
-    fn try_base_dir<P: Into<PathBuf>>(base_dir: P, filename: &impl AsRef<Path>) -> Option<PathBuf> {
-        let mut path = base_dir.into();
-        path.push(filename);
-        path.exists().then_some(path)
-    }
-
-    fn to_io_err(err: impl std::fmt::Display) -> std::io::Error {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!(
-                "failed to find circuit-blobs locally and to fetch the from github! error: {err}"
-            ),
-        )
-    }
-
-    let home_base_dir = None.or_else(|| {
-        let mut path = std::path::PathBuf::from(std::env::var("HOME").ok()?);
-        path.push(".openmina/circuit-blobs");
-        Some(path)
-    });
-    let found = None
-        .or_else(|| {
-            try_base_dir(
-                std::env::var("OPENMINA_CIRCUIT_BLOBS_BASE_DIR").ok()?,
-                filename,
-            )
-        })
-        .or_else(|| try_base_dir(env!("CARGO_MANIFEST_DIR").to_string(), filename))
-        .or_else(|| try_base_dir(home_base_dir.clone()?, filename))
-        .or_else(|| try_base_dir("/usr/local/lib/openmina/circuit-blobs", filename));
-
-    if let Some(path) = found {
-        return std::fs::read(path);
-    }
-
-    let filename_str = filename.as_ref().to_str().unwrap();
-    eprintln!(
-        "circuit-blobs '{}' not found locally, so fetching it...",
-        filename_str
-    );
-    let base_dir = home_base_dir.expect("$HOME env not set!");
-    let releases_path = "https://github.com/openmina/circuit-blobs/releases/download";
-
-    let bytes = reqwest::blocking::get(format!("{releases_path}/{filename_str}",))
-        .map_err(to_io_err)?
-        .bytes()
-        .map_err(to_io_err)?
-        .to_vec();
-
-    // cache it to home dir.
-    let cache_path = base_dir.join(filename);
-    eprintln!("caching circuit-blobs to {}", cache_path.to_str().unwrap());
-    let _ = std::fs::create_dir_all(cache_path.parent().unwrap());
-    let _ = std::fs::write(cache_path, &bytes);
-
-    Ok(bytes)
-}
-
-#[cfg(not(target_family = "wasm"))]
 fn read_gates_file<F: FieldWitness>(
     filename: &impl AsRef<Path>,
 ) -> std::io::Result<Vec<CircuitGate<F>>> {
-    let bytes = read_or_fetch(filename)?;
+    let bytes = circuit_blobs::fetch(filename)?;
     decode_gates_file(bytes.as_slice())
 }
 
 #[cfg(target_family = "wasm")]
-mod http {
-    use openmina_core::thread;
-    use wasm_bindgen::prelude::*;
-
-    fn to_io_err(err: JsValue) -> std::io::Error {
-        std::io::Error::new(std::io::ErrorKind::Other, format!("{err:?}"))
-    }
-
-    async fn _get_bytes(url: String) -> std::io::Result<Vec<u8>> {
-        use wasm_bindgen_futures::JsFuture;
-        use web_sys::Response;
-
-        // let window = js_sys::global().dyn_into::<web_sys::WorkerGlobalScope>().unwrap();
-        let window = web_sys::window().unwrap();
-
-        let resp_value = JsFuture::from(window.fetch_with_str(&url))
-            .await
-            .map_err(to_io_err)?;
-
-        assert!(resp_value.is_instance_of::<Response>());
-        let resp: Response = resp_value.dyn_into().unwrap();
-        let js = JsFuture::from(resp.array_buffer().map_err(to_io_err)?)
-            .await
-            .map_err(to_io_err)?;
-        Ok(js_sys::Uint8Array::new(&js).to_vec())
-    }
-
-    pub async fn get_bytes(url: &str) -> std::io::Result<Vec<u8>> {
-        let url = url.to_owned();
-        if thread::is_web_worker_thread() {
-            thread::run_async_fn_in_main_thread(move || _get_bytes(url)).await.expect("failed to run task in the main thread! Maybe main thread crashed or not initialized?")
-        } else {
-            _get_bytes(url).await
-        }
-    }
-}
-
-#[cfg(target_family = "wasm")]
 async fn read_gates_file<F: FieldWitness>(
-    filepath: impl AsRef<Path>,
+    filepath: &impl AsRef<Path>,
 ) -> std::io::Result<Vec<CircuitGate<F>>> {
-    let url = filepath.as_ref().to_str().unwrap();
-    let resp = http::get_bytes(url).await?;
+    let resp = circuit_blobs::fetch(filepath).await?;
     decode_gates_file(&mut resp.as_slice())
 }
 
@@ -578,10 +478,10 @@ fn read_constraints_data<F: FieldWitness>(
     rows_rev_path: &Path,
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
     // ((Fp.t * V.t) list * Fp.t option)
-    let internal_vars = read_or_fetch(&internal_vars_path).ok()?;
+    let internal_vars = circuit_blobs::fetch(&internal_vars_path).ok()?;
 
     // V.t option array list
-    let rows_rev = read_or_fetch(&rows_rev_path).ok()?;
+    let rows_rev = circuit_blobs::fetch(&rows_rev_path).ok()?;
 
     decode_constraints_data(internal_vars.as_slice(), rows_rev.as_slice())
 }
@@ -592,14 +492,10 @@ async fn read_constraints_data<F: FieldWitness>(
     rows_rev_path: &Path,
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
     // ((Fp.t * V.t) list * Fp.t option)
-    let internal_vars = http::get_bytes(internal_vars_path.to_str().unwrap())
-        .await
-        .ok()?;
+    let internal_vars = circuit_blobs::fetch(&internal_vars_path).await.ok()?;
 
     // V.t option array list
-    let rows_rev = http::get_bytes(rows_rev_path.to_str().unwrap())
-        .await
-        .ok()?;
+    let rows_rev = circuit_blobs::fetch(&rows_rev_path).await.ok()?;
     // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin")).unwrap();
 
     decode_constraints_data(internal_vars.as_ref(), rows_rev.as_ref())

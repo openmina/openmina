@@ -4,6 +4,7 @@ use poly_commitment::evaluation_proof::OpeningProof;
 pub mod accumulator_check;
 pub mod block;
 pub mod caching;
+mod circuit_blobs;
 pub mod constants;
 mod conv;
 pub mod field;

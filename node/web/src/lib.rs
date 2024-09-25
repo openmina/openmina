@@ -8,8 +8,6 @@ pub use rayon::init_rayon;
 mod node;
 pub use node::{Node, NodeBuilder};
 
-use std::sync::Arc;
-
 use ::node::account::AccountSecretKey;
 use ::node::core::thread;
 use ::node::snark::{get_verifier_index, VerifierKind};
