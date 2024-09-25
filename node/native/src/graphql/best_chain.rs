@@ -5,6 +5,7 @@ use juniper::{GraphQLInputObject, GraphQLObject};
 use ledger::{scan_state::transaction_logic::Memo, FpExt};
 use mina_p2p_messages::b58::FromBase58Check;
 use mina_p2p_messages::bigint::BigInt;
+use mina_p2p_messages::hash::MinaHash;
 use mina_p2p_messages::list::List;
 use mina_p2p_messages::pseq::PaddedSeq;
 use mina_p2p_messages::string::{TokenSymbol, ZkAppUri};
@@ -106,7 +107,7 @@ pub struct GraphQLZkappCommand {
 
 #[derive(GraphQLInputObject)]
 pub struct InputGraphQLZkappCommand {
-    pub memo: String,
+    pub memo: Option<String>,
     pub account_updates: Vec<InputGraphQLAccountUpdate>,
     pub fee_payer: InputGraphQLFeePayer,
 }
@@ -159,7 +160,11 @@ impl From<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
                     },
                 )
                 .collect(),
-            memo: MinaBaseSignedCommandMemoStableV1::from_base58check(&value.memo).unwrap(),
+            memo: if let Some(memo) = value.memo {
+                MinaBaseSignedCommandMemoStableV1::from_base58check(&memo).unwrap()
+            } else {
+                MinaBaseSignedCommandMemoStableV1::from_base58check("").unwrap()
+            },
         })
     }
 }
@@ -918,7 +923,7 @@ impl From<InputGraphQLPreconditionsNetwork> for MinaBaseZkappPreconditionProtoco
 pub struct GraphQLAccountUpdateUpdate {
     pub app_state: Vec<Option<String>>,
     pub delegate: Option<String>,
-    pub verification_key: Option<String>,
+    pub verification_key: Option<GraphQLVerificationKey>,
     pub permissions: Option<GraphQLAccountUpdateUpdatePermissions>,
     pub zkapp_uri: Option<String>,
     pub token_symbol: Option<String>,
@@ -926,16 +931,28 @@ pub struct GraphQLAccountUpdateUpdate {
     pub voting_for: Option<String>,
 }
 
+#[derive(GraphQLObject)]
+pub struct GraphQLVerificationKey {
+    pub data: String,
+    pub hash: String,
+}
+
 #[derive(GraphQLInputObject)]
 pub struct InputGraphQLAccountUpdateUpdate {
     pub app_state: Vec<Option<String>>,
     pub delegate: Option<String>,
-    pub verification_key: Option<String>,
+    pub verification_key: Option<InputGraphQLVerificationKey>,
     pub permissions: Option<InputGraphQLAccountUpdateUpdatePermissions>,
     pub zkapp_uri: Option<String>,
     pub token_symbol: Option<String>,
     pub timing: Option<InputGraphQLTiming>,
     pub voting_for: Option<String>,
+}
+
+#[derive(GraphQLInputObject)]
+pub struct InputGraphQLVerificationKey {
+    pub data: String,
+    pub hash: String,
 }
 
 #[derive(GraphQLObject)]
@@ -1146,6 +1163,21 @@ impl From<InputGraphQLPreconditions> for MinaBaseAccountUpdatePreconditionsStabl
     }
 }
 
+impl From<MinaBaseVerificationKeyWireStableV1> for GraphQLVerificationKey {
+    fn from(value: MinaBaseVerificationKeyWireStableV1) -> Self {
+        Self {
+            data: value.to_base64().unwrap(),
+            hash: value.hash().to_decimal(),
+        }
+    }
+}
+
+impl From<InputGraphQLVerificationKey> for MinaBaseVerificationKeyWireStableV1 {
+    fn from(value: InputGraphQLVerificationKey) -> Self {
+        Self::from_base64(&value.data).unwrap()
+    }
+}
+
 impl From<MinaBaseAccountUpdateUpdateStableV1> for GraphQLAccountUpdateUpdate {
     fn from(value: MinaBaseAccountUpdateUpdateStableV1) -> Self {
         Self {
@@ -1169,7 +1201,7 @@ impl From<MinaBaseAccountUpdateUpdateStableV1> for GraphQLAccountUpdateUpdate {
             verification_key: if let MinaBaseAccountUpdateUpdateStableV1VerificationKey::Set(v) =
                 value.verification_key
             {
-                Some(v.to_base64().unwrap())
+                Some(GraphQLVerificationKey::from(*v))
             } else {
                 None
             },
@@ -1217,7 +1249,7 @@ impl From<InputGraphQLAccountUpdateUpdate> for MinaBaseAccountUpdateUpdateStable
             .map(|v| {
                 if let Some(v) = v {
                     MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(
-                        BigInt::from_decimal(&v).unwrap().into(),
+                        BigInt::from_decimal(&v).unwrap(),
                     )
                 } else {
                     MinaBaseAccountUpdateUpdateStableV1AppStateA::Keep
@@ -1235,7 +1267,7 @@ impl From<InputGraphQLAccountUpdateUpdate> for MinaBaseAccountUpdateUpdateStable
             },
             verification_key: if let Some(vk) = value.verification_key {
                 MinaBaseAccountUpdateUpdateStableV1VerificationKey::Set(Box::new(
-                    MinaBaseVerificationKeyWireStableV1::from_base64(&vk).unwrap(),
+                    MinaBaseVerificationKeyWireStableV1::from(vk),
                 ))
             } else {
                 MinaBaseAccountUpdateUpdateStableV1VerificationKey::Keep
