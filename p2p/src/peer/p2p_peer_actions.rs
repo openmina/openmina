@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pState, PeerId};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(level = info, fields(display(peer_id), debug(dial_opts), best_tip = display(&best_tip.hash), incoming))]
+#[action_event(level = debug, fields(display(peer_id), debug(dial_opts), best_tip = display(&best_tip.hash), incoming))]
 pub enum P2pPeerAction {
     /// Peer is discovered.
     #[action_event(level = debug)]
