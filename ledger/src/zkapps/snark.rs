@@ -32,7 +32,7 @@ use crate::{
                 ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
             zkapp_statement::ZkappStatement,
-            TransactionFailure,
+            TimingValidation, TransactionFailure,
         },
     },
     sparse_ledger::SparseLedger,
@@ -678,6 +678,7 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
     type SingleData = ZkappSingleData;
     type Bool = SnarkBool;
     type SignedAmount = SnarkSignedAmount;
+    type VerificationKeyHash = SnarkVerificationKeyHash;
 
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
@@ -686,12 +687,6 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
         } = self;
         let WithHash { data, hash: _ } = body;
         data
-    }
-    fn set(&mut self, new: Self) {
-        *self = new;
-    }
-    fn verification_key_hash(&self) -> Fp {
-        self.body().authorization_kind.vk_hash()
     }
     fn is_proved(&self) -> Self::Bool {
         self.body()
@@ -706,6 +701,10 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
             .is_signed()
             .to_boolean()
             .var()
+    }
+    fn verification_key_hash(&self) -> Self::VerificationKeyHash {
+        let hash = self.body().authorization_kind.vk_hash();
+        SnarkVerificationKeyHash(hash)
     }
     fn check_authorization(
         &self,
@@ -937,6 +936,7 @@ impl AccountInterface for SnarkAccount {
     type Bool = SnarkBool;
     type Balance = SnarkBalance;
     type GlobalSlot = SnarkGlobalSlot;
+    type VerificationKeyHash = SnarkVerificationKeyHash;
 
     fn register_verification_key(&self, data: &Self::D, w: &mut Self::W) {
         use crate::ControlTag::*;
@@ -982,13 +982,14 @@ impl AccountInterface for SnarkAccount {
         // `unwrap`: `make_zkapp` is supposed to be called before `zkapp_mut`
         self.data.zkapp.as_mut().unwrap()
     }
-    fn verification_key_hash(&self) -> Fp {
+    fn verification_key_hash(&self) -> Self::VerificationKeyHash {
         let zkapp = self.zkapp();
-        zkapp
+        let hash = zkapp
             .verification_key
             .as_ref()
             .map(VerificationKeyWire::hash)
-            .unwrap_or_else(VerificationKeyWire::dummy_hash)
+            .unwrap_or_else(VerificationKeyWire::dummy_hash);
+        SnarkVerificationKeyHash(hash)
     }
     fn set_token_id(&mut self, token_id: TokenId) {
         let Self { data: account, .. } = self;
@@ -1009,7 +1010,7 @@ impl AccountInterface for SnarkAccount {
         &self,
         txn_global_slot: &Self::GlobalSlot,
         w: &mut Self::W,
-    ) -> (Self::Bool, crate::Timing) {
+    ) -> (TimingValidation<Self::Bool>, crate::Timing) {
         let mut invalid_timing = Option::<Boolean>::None;
         let timed_balance_check = |b: Boolean, _w: &mut Witness<Fp>| {
             invalid_timing = Some(b.neg());
@@ -1017,7 +1018,10 @@ impl AccountInterface for SnarkAccount {
         let account = self.get();
         let (_min_balance, timing) =
             check_timing(account, None, *txn_global_slot, timed_balance_check, w);
-        (invalid_timing.unwrap().var(), timing)
+        (
+            TimingValidation::InvalidTiming(invalid_timing.unwrap().var()),
+            timing,
+        )
     }
     fn make_zkapp(&mut self) {
         if self.data.zkapp.is_none() {
@@ -1162,7 +1166,7 @@ pub type SnarkAmount = CheckedAmount<Fp>;
 pub type SnarkSignedAmount = CheckedSigned<Fp, CheckedAmount<Fp>>;
 pub type SnarkBalance = CheckedBalance<Fp>;
 pub struct SnarkTransactionCommitment;
-pub struct SnarkVerificationKeyHash;
+pub struct SnarkVerificationKeyHash(Fp);
 pub struct SnarkController;
 pub struct SnarkTxnVersion;
 pub struct SnarkSetOrKeep;
@@ -1192,8 +1196,10 @@ impl VerificationKeyHashInterface for SnarkVerificationKeyHash {
     type W = Witness<Fp>;
     type Bool = SnarkBool;
 
-    fn equal(a: Fp, b: Fp, w: &mut Self::W) -> Self::Bool {
-        field::equal(a, b, w).var()
+    fn equal(a: &Self, b: &Self, w: &mut Self::W) -> Self::Bool {
+        let Self(a) = a;
+        let Self(b) = b;
+        field::equal(*a, *b, w).var()
     }
 }
 
@@ -1356,13 +1362,13 @@ impl ControllerInterface for SnarkController {
         auth: &AuthRequired,
         single_data: &Self::SingleData,
         w: &mut Self::W,
-    ) -> Self::Bool {
+    ) -> Result<Self::Bool, String> {
         use crate::ControlTag::{NoneGiven, Proof, Signature};
 
-        match single_data.spec().auth_type {
+        Ok(match single_data.spec().auth_type {
             Proof => eval_proof(auth, w),
             Signature | NoneGiven => eval_no_proof(auth, signature_verifies, w),
-        }
+        })
     }
 
     fn verification_key_perm_fallback_to_signature_with_older_version(

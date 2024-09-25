@@ -3,6 +3,7 @@ use mina_signer::CompressedPubKey;
 use openmina_core::constants::constraint_constants;
 
 use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
+use crate::scan_state::transaction_logic::TimingValidation;
 use crate::{
     scan_state::{
         currency::{Fee, Magnitude, SlotSpan},
@@ -512,8 +513,8 @@ where
     let matching_verification_key_hashes = {
         let is_not_proved = account_update.is_proved().neg();
         let is_same_vk = Z::VerificationKeyHash::equal(
-            a.verification_key_hash(),
-            account_update.verification_key_hash(),
+            &a.verification_key_hash(),
+            &account_update.verification_key_hash(),
             w,
         );
         Z::Bool::or(is_not_proved, is_same_vk, w)
@@ -635,7 +636,7 @@ where
                 set_timing,
                 &single_data,
                 w,
-            )
+            )?
         };
         let is_keep = Z::SetOrKeep::is_keep(timing);
         let v_and = Z::Bool::and(account_is_untimed, has_permission, w);
@@ -778,7 +779,7 @@ where
                 &controller,
                 &single_data,
                 w,
-            );
+            )?;
             let first = Z::SignedAmount::equal(&Z::SignedAmount::zero(), &actual_balance_change, w);
             Z::LocalState::add_check(
                 local_state,
@@ -794,7 +795,12 @@ where
     let txn_global_slot = global_state.block_global_slot();
     // Check timing with current balance
     let (_a, _local_state) = {
-        let (invalid_timing, timing) = Z::Account::check_timing(&a, &txn_global_slot, w);
+        let (invalid_timing, timing) = match Z::Account::check_timing(&a, &txn_global_slot, w) {
+            (TimingValidation::InsufficientBalance(_), _) => {
+                return Err("Did not propose a balance change at this timing check!".to_string())
+            }
+            (TimingValidation::InvalidTiming(invalid_timing), timing) => (invalid_timing, timing),
+        };
         Z::LocalState::add_check(
             local_state,
             TransactionFailure::SourceMinimumBalanceViolation,
@@ -810,7 +816,7 @@ where
     {
         let has_permission = {
             let access = &a.get().permissions.access;
-            Z::Controller::check(proof_verifies, signature_verifies, access, &single_data, w)
+            Z::Controller::check(proof_verifies, signature_verifies, access, &single_data, w)?
         };
         Z::LocalState::add_check(
             local_state,
@@ -861,7 +867,7 @@ where
                 edit_state,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -914,7 +920,7 @@ where
                 )
             };
 
-            Z::Controller::check(proof_verifies, signature_verifies, &auth, &single_data, w)
+            Z::Controller::check(proof_verifies, signature_verifies, &auth, &single_data, w)?
         };
         Z::LocalState::add_check(
             local_state,
@@ -960,7 +966,7 @@ where
                 edit_action_state,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -984,7 +990,7 @@ where
                 set_zkapp_uri,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1014,7 +1020,7 @@ where
                 set_token_symbol,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1043,7 +1049,7 @@ where
                 set_delegate,
                 &single_data,
                 w,
-            )
+            )?
         };
         let first = Z::Bool::and(has_permission, account_update_token_is_default, w);
         Z::LocalState::add_check(
@@ -1081,7 +1087,7 @@ where
                 increment_nonce,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1104,7 +1110,7 @@ where
                 set_voting_for,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1151,7 +1157,7 @@ where
                 set_permissions,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,

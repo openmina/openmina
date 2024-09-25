@@ -1805,7 +1805,7 @@ pub mod zkapp_command {
     }
 
     impl EpochLedger {
-        pub fn epoch_ledger(&self, t: protocol_state::EpochLedger<Fp>) -> Result<(), String> {
+        pub fn epoch_ledger(&self, t: &protocol_state::EpochLedger<Fp>) -> Result<(), String> {
             self.hash.zcheck("epoch_ledger_hash".to_string(), t.hash)?;
             self.total_currency
                 .zcheck("epoch_ledger_total_currency".to_string(), t.total_currency)
@@ -1908,9 +1908,9 @@ pub mod zkapp_command {
         pub fn epoch_data(
             &self,
             label: &str,
-            t: protocol_state::EpochData<Fp>,
+            t: &protocol_state::EpochData<Fp>,
         ) -> Result<(), String> {
-            self.ledger.epoch_ledger(t.ledger)?;
+            self.ledger.epoch_ledger(&t.ledger)?;
             // ignore seed
             self.start_checkpoint.zcheck(
                 format!("{}_{}", label, "start_checkpoint"),
@@ -1954,7 +1954,7 @@ pub mod zkapp_command {
 
     impl ZkAppPreconditions {
         /// zkapp check
-        pub fn zcheck(&self, s: ProtocolStateView) -> Result<(), String> {
+        pub fn zcheck(&self, s: &ProtocolStateView) -> Result<(), String> {
             self.snarked_ledger_hash
                 .zcheck("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
             self.blockchain_length
@@ -1968,9 +1968,9 @@ pub mod zkapp_command {
                 s.global_slot_since_genesis,
             )?;
             self.staking_epoch_data
-                .epoch_data("staking_epoch_data", s.staking_epoch_data)?;
+                .epoch_data("staking_epoch_data", &s.staking_epoch_data)?;
             self.next_epoch_data
-                .epoch_data("next_epoch_data", s.next_epoch_data)
+                .epoch_data("next_epoch_data", &s.next_epoch_data)
         }
 
         pub fn checked_zcheck(&self, s: &ProtocolStateView, w: &mut Witness<Fp>) -> Boolean {
@@ -2167,7 +2167,7 @@ pub mod zkapp_command {
 
     impl Account {
         /// zkapp check
-        pub fn zcheck<F>(&self, new_account: bool, mut check: F, a: account::Account)
+        pub fn zcheck<F>(&self, new_account: bool, mut check: F, a: &account::Account)
         where
             F: FnMut(TransactionFailure, bool),
         {
@@ -2179,9 +2179,12 @@ pub mod zkapp_command {
         fn zchecks(
             &self,
             new_account: bool,
-            a: account::Account,
+            a: &account::Account,
         ) -> Vec<(TransactionFailure, Result<(), String>)> {
-            let zkapp = a.zkapp.unwrap_or_default();
+            let zkapp = match a.zkapp.as_ref() {
+                Some(zkapp) => MyCow::Borrow(&**zkapp),
+                None => MyCow::Own(ZkAppAccount::default()),
+            };
             let mut ret = vec![
                 (
                     TransactionFailure::AccountBalancePreconditionUnsatisfied,
@@ -2200,7 +2203,7 @@ pub mod zkapp_command {
                     TransactionFailure::AccountDelegatePreconditionUnsatisfied,
                     self.delegate.zcheck(
                         "delegate".to_string(),
-                        a.delegate.unwrap_or_else(invalid_public_key),
+                        a.delegate.clone().unwrap_or_else(invalid_public_key),
                     ),
                 ),
                 (
@@ -5227,7 +5230,7 @@ pub mod protocol_state {
         }
 
         #[must_use]
-        fn set_fee_excess(&self, fee_excess: Signed<Amount>) -> Self {
+        pub fn set_fee_excess(&self, fee_excess: Signed<Amount>) -> Self {
             let mut this = self.clone();
             this.fee_excess = fee_excess;
             this
@@ -5244,7 +5247,7 @@ pub mod protocol_state {
             this
         }
 
-        fn block_global_slot(&self) -> Slot {
+        pub fn block_global_slot(&self) -> Slot {
             self.block_global_slot
         }
     }
@@ -5856,7 +5859,7 @@ where
                     .is_ok(),
             ),
             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
-                PerformResult::Bool(pred.zcheck(global_state.protocol_state).is_ok())
+                PerformResult::Bool(pred.zcheck(&global_state.protocol_state).is_ok())
             }
             Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
                 let local_state = {
@@ -5865,7 +5868,7 @@ where
                     let check = |failure, b| {
                         _local_state = _local_state.add_check(failure, b);
                     };
-                    precondition_account.zcheck(new_account, check, account);
+                    precondition_account.zcheck(new_account, check, &account);
                     _local_state
                 };
                 PerformResult::LocalState(Box::new(local_state))
@@ -7895,7 +7898,7 @@ pub fn validate_timing(
 pub fn account_check_timing(
     txn_global_slot: &Slot,
     account: &Account,
-) -> (TimingValidation, Timing) {
+) -> (TimingValidation<bool>, Timing) {
     let (invalid_timing, timing, _) =
         validate_timing_with_min_balance_impl(account, Amount::from_u64(0), txn_global_slot);
     // TODO: In OCaml the returned Timing is actually converted to None/Some(fields of Timing structure)
@@ -7958,9 +7961,9 @@ pub fn timing_error_to_user_command_status(
     }
 }
 
-pub enum TimingValidation {
-    InsufficientBalance(bool),
-    InvalidTiming(bool),
+pub enum TimingValidation<B> {
+    InsufficientBalance(B),
+    InvalidTiming(B),
 }
 
 #[derive(Debug)]
@@ -7970,7 +7973,7 @@ fn validate_timing_with_min_balance_impl(
     account: &Account,
     txn_amount: Amount,
     txn_global_slot: &Slot,
-) -> (TimingValidation, Timing, MinBalance) {
+) -> (TimingValidation<bool>, Timing, MinBalance) {
     use crate::Timing::*;
     use TimingValidation::*;
 
