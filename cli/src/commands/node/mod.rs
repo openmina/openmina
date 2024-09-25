@@ -1,7 +1,7 @@
 use std::{fs::File, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
     snark::{get_verifier_index, VerifierKind},

@@ -62,11 +62,11 @@ use super::{
         WrapZkappProvedProof,
     },
     field::GroupAffine,
-    gates::devnet_circuit_directory,
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedSlot},
     },
+    provers::devnet_circuit_directory,
     to_field_elements::ToFieldElements,
     transaction::{dummy_constraints, Check, ProofError, Prover},
     witness::Witness,

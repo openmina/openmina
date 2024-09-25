@@ -460,7 +460,7 @@ thread_local! {
 }
 
 impl BlockProducerService for NodeTestingService {
-    fn provers(&self) -> ledger::proofs::gates::BlockProver {
+    fn provers(&self) -> ledger::proofs::provers::BlockProver {
         self.real.provers()
     }
 

@@ -1,4 +1,4 @@
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
     core::channels::mpsc,

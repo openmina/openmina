@@ -16,7 +16,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::consensus::ConsensusConstants;

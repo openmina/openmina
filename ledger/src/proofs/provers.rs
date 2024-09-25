@@ -35,34 +35,6 @@ pub fn devnet_circuit_directory() -> &'static str {
 //     openmina_core::NetworkConfig::global().circuits_config.directory_name
 // }
 
-#[derive(Clone)]
-struct Gates {
-    step_tx_gates: Vec<CircuitGate<Fp>>,
-    wrap_tx_gates: Vec<CircuitGate<Fq>>,
-    step_merge_gates: Vec<CircuitGate<Fp>>,
-    step_block_gates: Vec<CircuitGate<Fp>>,
-    wrap_block_gates: Vec<CircuitGate<Fq>>,
-    step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>>,
-    step_opt_signed_gates: Vec<CircuitGate<Fp>>,
-    step_proved_gates: Vec<CircuitGate<Fp>>,
-    step_tx_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_tx_rows_rev: Vec<Vec<Option<V>>>,
-    wrap_tx_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
-    wrap_tx_rows_rev: Vec<Vec<Option<V>>>,
-    step_merge_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_merge_rows_rev: Vec<Vec<Option<V>>>,
-    step_block_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_block_rows_rev: Vec<Vec<Option<V>>>,
-    wrap_block_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
-    wrap_block_rows_rev: Vec<Vec<Option<V>>>,
-    step_opt_signed_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_opt_signed_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
-    step_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
-    step_proved_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_proved_rows_rev: Vec<Vec<Option<V>>>,
-}
-
 fn decode_gates_file<F: FieldWitness>(
     reader: impl std::io::Read,
 ) -> std::io::Result<Vec<CircuitGate<F>>> {

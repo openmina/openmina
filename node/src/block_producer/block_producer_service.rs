@@ -1,4 +1,4 @@
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use mina_p2p_messages::v2::{
     ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBasePendingCoinbaseUpdateStableV1,
     MinaBasePendingCoinbaseWitnessStableV2, MinaBaseSparseLedgerBaseStableV2,

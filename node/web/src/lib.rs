@@ -14,7 +14,7 @@ use ::node::account::AccountSecretKey;
 use ::node::core::thread;
 use ::node::snark::{get_verifier_index, VerifierKind};
 use anyhow::Context;
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use openmina_node_common::rpc::RpcSender;
 use wasm_bindgen::prelude::*;
 

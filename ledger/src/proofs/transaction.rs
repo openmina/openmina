@@ -4193,8 +4193,8 @@ mod tests {
         proofs::{
             block::{generate_block_proof, BlockParams},
             constants::{StepBlockProof, StepMergeProof},
-            gates::{devnet_circuit_directory, BlockProver, TransactionProver, ZkappProver},
             merge::{generate_merge_proof, MergeParams},
+            provers::{devnet_circuit_directory, BlockProver, TransactionProver, ZkappProver},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
         },

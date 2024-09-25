@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use node::{
     account::AccountSecretKey,
