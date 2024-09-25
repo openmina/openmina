@@ -1,7 +1,10 @@
 use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
-use crate::{disconnection_effectful::P2pDisconnectionEffectfulAction, P2pPeerStatus, P2pState};
+use crate::{
+    disconnection_effectful::P2pDisconnectionEffectfulAction, P2pNetworkSchedulerAction,
+    P2pPeerAction, P2pPeerStatus, P2pState,
+};
 
 use super::{P2pDisconnectedState, P2pDisconnectionAction};
 
@@ -31,7 +34,7 @@ impl P2pDisconnectedState {
                         .iter()
                         .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
                     {
-                        dispatcher.push(crate::P2pNetworkSchedulerAction::Disconnect {
+                        dispatcher.push(P2pNetworkSchedulerAction::Disconnect {
                             addr: *addr,
                             reason: reason.clone(),
                         });
@@ -50,23 +53,31 @@ impl P2pDisconnectedState {
                     return Ok(());
                 };
                 peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pPeerAction::Remove { peer_id: *peer_id });
                 Ok(())
             }
             #[cfg(feature = "p2p-libp2p")]
             P2pDisconnectionAction::Finish { peer_id } => {
-                if !p2p_state
+                if p2p_state
                     .network
                     .scheduler
                     .connections
                     .iter()
                     .any(|(_addr, conn_state)| conn_state.peer_id() == Some(peer_id))
                 {
-                    let Some(peer) = p2p_state.peers.get_mut(peer_id) else {
-                        bug_condition!("Invalid state for: `P2pDisconnectionAction::Finish`");
-                        return Ok(());
-                    };
-                    peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
+                    return Ok(());
                 }
+
+                let Some(peer) = p2p_state.peers.get_mut(peer_id) else {
+                    bug_condition!("Invalid state for: `P2pDisconnectionAction::Finish`");
+                    return Ok(());
+                };
+                peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pPeerAction::Remove { peer_id: *peer_id });
                 Ok(())
             }
         }

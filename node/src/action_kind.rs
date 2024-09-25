@@ -386,6 +386,7 @@ pub enum ActionKind {
     P2pPeerBestTipUpdate,
     P2pPeerDiscovered,
     P2pPeerReady,
+    P2pPeerRemove,
     RpcActionStatsGet,
     RpcBlockProducerStatsGet,
     RpcDiscoveryBoostrapStats,
@@ -568,7 +569,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 470;
+    pub const COUNT: u16 = 471;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -967,6 +968,7 @@ impl ActionKindGet for P2pPeerAction {
             Self::Discovered { .. } => ActionKind::P2pPeerDiscovered,
             Self::Ready { .. } => ActionKind::P2pPeerReady,
             Self::BestTipUpdate { .. } => ActionKind::P2pPeerBestTipUpdate,
+            Self::Remove { .. } => ActionKind::P2pPeerRemove,
         }
     }
 }

@@ -648,7 +648,9 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             }
         },
         P2pAction::Peer(action) => match action {
-            P2pPeerAction::Discovered { .. } | P2pPeerAction::Ready { .. } => {
+            P2pPeerAction::Discovered { .. }
+            | P2pPeerAction::Ready { .. }
+            | P2pPeerAction::Remove { .. } => {
                 // handled by reducer
             }
             P2pPeerAction::BestTipUpdate { best_tip, .. } => {
