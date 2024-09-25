@@ -59,6 +59,15 @@ impl P2pPeerState {
 
                 Ok(())
             }
+            P2pPeerAction::Remove { peer_id } => {
+                if p2p_state.peers.remove(peer_id).is_none() {
+                    bug_condition!(
+                        "Missing state for peer {peer_id} action: `P2pPeerAction::Remove`"
+                    );
+                }
+
+                Ok(())
+            }
         }
     }
 }
