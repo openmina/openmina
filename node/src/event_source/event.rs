@@ -70,6 +70,7 @@ impl std::fmt::Display for Event {
                     }
                     RpcRequest::BestChain(..) => write!(f, "BestChain"),
                     RpcRequest::ConsensusConstantsGet => write!(f, "ConsensusConstantsGet"),
+                    RpcRequest::TransactionStatusGet(..) => write!(f, "TransactionStatusGet"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {

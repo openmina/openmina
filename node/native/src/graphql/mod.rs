@@ -2,10 +2,13 @@ use std::str::FromStr;
 
 use juniper::{EmptyMutation, EmptySubscription, GraphQLEnum, RootNode};
 use ledger::Account;
+use mina_p2p_messages::v2::MinaBaseSignedCommandStableV2;
 use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
+use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1;
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use node::rpc::RpcTransactionInjectResponse;
 use node::rpc::RpcTransactionInjectedCommand;
+use node::rpc::RpcTransactionStatusGetResponse;
 use node::{
     account::AccountPublicKey,
     rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
@@ -175,6 +178,33 @@ impl Query {
         constants::GraphQLGenesisConstants::new(constraint_constants.clone(), consensus_constants)
     }
 
+    async fn transaction_status(
+        payment: Option<String>,
+        zkapp_transaction: Option<String>,
+        context: &Context,
+    ) -> String {
+        if payment.is_some() && zkapp_transaction.is_some() {
+            panic!("Cannot provide both payment and zkapp transaction");
+        }
+
+        let tx = if let Some(payment) = payment {
+            MinaBaseUserCommandStableV2::SignedCommand(
+                MinaBaseSignedCommandStableV2::from_base64(&payment).unwrap(),
+            )
+        } else if let Some(zkapp_transaction) = zkapp_transaction {
+            MinaBaseUserCommandStableV2::ZkappCommand(
+                MinaBaseZkappCommandTStableV1WireStableV1::from_base64(&zkapp_transaction).unwrap(),
+            )
+        } else {
+            panic!("Must provide either payment or zkapp transaction");
+        };
+        let res: RpcTransactionStatusGetResponse = context
+            .0
+            .oneshot_request(RpcRequest::TransactionStatusGet(tx))
+            .await
+            .unwrap();
+        res.to_string()
+    }
     // async fn best_chain(max_length: i32, context: &Context) -> Vec<BestChain> {
     //     let state: RpcSyncStatsGetResponse = context
     //         .0

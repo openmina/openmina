@@ -1,7 +1,7 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
 use openmina_core::block::AppliedBlock;
-use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
+use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use openmina_core::snark::SnarkJobId;
 use openmina_core::ActionEvent;
@@ -195,6 +195,11 @@ pub enum RpcAction {
         rpc_id: RpcId,
     },
 
+    TransactionStatusGet {
+        rpc_id: RpcId,
+        tx: MinaBaseUserCommandStableV2,
+    },
+
     Finish {
         rpc_id: RpcId,
     },
@@ -287,6 +292,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::TransactionPool { .. } => true,
             RpcAction::ConsensusConstantsGet { .. } => true,
             RpcAction::BestChain { .. } => state.transition_frontier.best_tip().is_some(),
+            RpcAction::TransactionStatusGet { .. } => true,
             RpcAction::LedgerAccountsGetInit { .. } => {
                 state.transition_frontier.best_tip().is_some()
             }

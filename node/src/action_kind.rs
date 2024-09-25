@@ -456,6 +456,7 @@ pub enum ActionKind {
     RpcTransactionInjectRejected,
     RpcTransactionInjectSuccess,
     RpcTransactionPool,
+    RpcTransactionStatusGet,
     RpcTransitionFrontierUserCommandsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
@@ -890,6 +891,7 @@ impl ActionKindGet for RpcAction {
             }
             Self::BestChain { .. } => ActionKind::RpcBestChain,
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
+            Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
