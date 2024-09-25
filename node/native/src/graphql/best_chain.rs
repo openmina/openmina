@@ -81,6 +81,11 @@ pub struct GraphQLTransactions {
 }
 
 #[derive(GraphQLObject)]
+pub struct GraphQLSendZkappResponse {
+    pub zkapp: GraphQLZkapp,
+}
+
+#[derive(GraphQLObject)]
 pub struct GraphQLZkapp {
     pub hash: String,
     pub failure_reason: Option<Vec<GraphQLFailureReason>>,
@@ -113,7 +118,7 @@ pub struct InputGraphQLZkappCommand {
 }
 
 /// TODO(adonagy): Look into the handling of failures, this only returns successful zkapp commands
-impl From<MinaBaseUserCommandStableV2> for GraphQLZkapp {
+impl From<MinaBaseUserCommandStableV2> for GraphQLSendZkappResponse {
     fn from(value: MinaBaseUserCommandStableV2) -> Self {
         if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = value {
             let account_updates = zkapp
@@ -122,17 +127,19 @@ impl From<MinaBaseUserCommandStableV2> for GraphQLZkapp {
                 .into_iter()
                 .map(|v| v.elt.account_update.into())
                 .collect();
-            GraphQLZkapp {
-                hash: zkapp.hash().unwrap().to_string(),
-                failure_reason: None,
-                id: zkapp.to_base64().unwrap(),
-                zkapp_command: GraphQLZkappCommand {
-                    memo: serde_json::to_string_pretty(&zkapp.memo)
-                        .unwrap()
-                        .trim_matches('"')
-                        .to_string(),
-                    account_updates,
-                    fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
+            GraphQLSendZkappResponse {
+                zkapp: GraphQLZkapp {
+                    hash: zkapp.hash().unwrap().to_string(),
+                    failure_reason: None,
+                    id: zkapp.to_base64().unwrap(),
+                    zkapp_command: GraphQLZkappCommand {
+                        memo: serde_json::to_string_pretty(&zkapp.memo)
+                            .unwrap()
+                            .trim_matches('"')
+                            .to_string(),
+                        account_updates,
+                        fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
+                    },
                 },
             }
         } else {
@@ -434,8 +441,8 @@ pub struct GraphQLPreconditionsAccount {
     pub delegate: Option<String>,
     pub state: Vec<Option<String>>,
     pub action_state: Option<String>,
-    pub proved_state: Option<String>,
-    pub is_new: Option<String>,
+    pub proved_state: Option<bool>,
+    pub is_new: Option<bool>,
 }
 
 #[derive(GraphQLInputObject)]
@@ -446,8 +453,8 @@ pub struct InputGraphQLPreconditionsAccount {
     pub delegate: Option<String>,
     pub state: Vec<Option<String>>,
     pub action_state: Option<String>,
-    pub proved_state: Option<String>,
-    pub is_new: Option<String>,
+    pub proved_state: Option<bool>,
+    pub is_new: Option<bool>,
 }
 
 impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPreconditionsAccount {
@@ -457,8 +464,8 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
                 value.0.balance
             {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u64() as i32,
-                    lower: v.lower.as_u64() as i32,
+                    upper: v.upper.as_u64().to_string(),
+                    lower: v.lower.as_u64().to_string(),
                 })
             } else {
                 None
@@ -467,8 +474,8 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
                 value.0.nonce
             {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u32() as i32,
-                    lower: v.lower.as_u32() as i32,
+                    upper: v.upper.as_u32().to_string(),
+                    lower: v.lower.as_u32().to_string(),
                 })
             } else {
                 None
@@ -511,14 +518,14 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
             proved_state: if let MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(v) =
                 value.0.proved_state
             {
-                Some(v.to_string())
+                Some(v)
             } else {
                 None
             },
             is_new: if let MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(v) =
                 value.0.is_new
             {
-                Some(v.to_string())
+                Some(v)
             } else {
                 None
             },
@@ -546,10 +553,10 @@ impl From<InputGraphQLPreconditionsAccount> for MinaBaseAccountUpdateAccountPrec
                 MinaBaseZkappPreconditionAccountStableV2Balance::Check(
                     MinaBaseZkappPreconditionAccountStableV2BalanceA {
                         lower: CurrencyBalanceStableV1(CurrencyAmountStableV1(
-                            (balance.lower as u64).into(),
+                            balance.lower.parse::<u64>().unwrap().into(),
                         )),
                         upper: CurrencyBalanceStableV1(CurrencyAmountStableV1(
-                            (balance.upper as u64).into(),
+                            balance.upper.parse::<u64>().unwrap().into(),
                         )),
                     },
                 )
@@ -559,8 +566,8 @@ impl From<InputGraphQLPreconditionsAccount> for MinaBaseAccountUpdateAccountPrec
             nonce: if let Some(nonce) = value.nonce {
                 MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
-                        lower: (nonce.lower as u32).into(),
-                        upper: (nonce.upper as u32).into(),
+                        lower: (nonce.lower.parse::<u32>().unwrap()).into(),
+                        upper: (nonce.upper.parse::<u32>().unwrap()).into(),
                     },
                 )
             } else {
@@ -591,14 +598,12 @@ impl From<InputGraphQLPreconditionsAccount> for MinaBaseAccountUpdateAccountPrec
                 MinaBaseZkappPreconditionAccountStableV2StateA::Ignore
             },
             proved_state: if let Some(proved_state) = value.proved_state {
-                MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(
-                    proved_state.parse().unwrap(),
-                )
+                MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(proved_state)
             } else {
                 MinaBaseZkappPreconditionAccountStableV2ProvedState::Ignore
             },
             is_new: if let Some(is_new) = value.is_new {
-                MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(is_new.parse().unwrap())
+                MinaBaseZkappPreconditionAccountStableV2ProvedState::Check(is_new)
             } else {
                 MinaBaseZkappPreconditionAccountStableV2ProvedState::Ignore
             },
@@ -658,14 +663,14 @@ pub struct InputGraphQLPreconditionsNetworkLedger {
 }
 #[derive(GraphQLObject)]
 pub struct GraphQLPreconditionsNetworkBounds {
-    pub upper: i32,
-    pub lower: i32,
+    pub upper: String,
+    pub lower: String,
 }
 
 #[derive(GraphQLInputObject)]
 pub struct InputGraphQLPreconditionsNetworkBounds {
-    pub upper: i32,
-    pub lower: i32,
+    pub upper: String,
+    pub lower: String,
 }
 
 impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1>
@@ -691,8 +696,8 @@ impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1>
             },
             epoch_length: if let MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(v) = value.epoch_length {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u32() as i32,
-                    lower: v.lower.as_u32() as i32,
+                    upper: v.upper.as_u32().to_string(),
+                    lower: v.lower.as_u32().to_string(),
                 })
             } else {
                 None
@@ -733,8 +738,8 @@ impl From<InputGraphQLPreconditionsNetworkEpochData>
             epoch_length: if let Some(epoch_length) = value.epoch_length {
                 MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
-                        lower: (epoch_length.lower as u32).into(),
-                        upper: (epoch_length.upper as u32).into(),
+                        lower: (epoch_length.lower.parse::<u32>().unwrap()).into(),
+                        upper: (epoch_length.upper.parse::<u32>().unwrap()).into(),
                     },
                 )
             } else {
@@ -759,8 +764,8 @@ impl From<MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger>
                 value.total_currency
             {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u64() as i32,
-                    lower: v.lower.as_u64() as i32,
+                    upper: v.upper.as_u64().to_string(),
+                    lower: v.lower.as_u64().to_string(),
                 })
             } else {
                 None
@@ -784,8 +789,12 @@ impl From<InputGraphQLPreconditionsNetworkLedger>
             total_currency: if let Some(total_currency) = value.total_currency {
                 MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
-                        lower: CurrencyAmountStableV1((total_currency.lower as u64).into()),
-                        upper: CurrencyAmountStableV1((total_currency.upper as u64).into()),
+                        lower: CurrencyAmountStableV1(
+                            (total_currency.lower.parse::<u64>().unwrap()).into(),
+                        ),
+                        upper: CurrencyAmountStableV1(
+                            (total_currency.upper.parse::<u64>().unwrap()).into(),
+                        ),
                     },
                 )
             } else {
@@ -811,8 +820,8 @@ impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditio
             ) = value.blockchain_length
             {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u32() as i32,
-                    lower: v.lower.as_u32() as i32,
+                    upper: v.upper.as_u32().to_string(),
+                    lower: v.lower.as_u32().to_string(),
                 })
             } else {
                 None
@@ -822,8 +831,8 @@ impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditio
             ) = value.min_window_density
             {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u32() as i32,
-                    lower: v.lower.as_u32() as i32,
+                    upper: v.upper.as_u32().to_string(),
+                    lower: v.lower.as_u32().to_string(),
                 })
             } else {
                 None
@@ -832,8 +841,8 @@ impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditio
                 value.total_currency
             {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u64() as i32,
-                    lower: v.lower.as_u64() as i32,
+                    upper: v.upper.as_u64().to_string(),
+                    lower: v.lower.as_u64().to_string(),
                 })
             } else {
                 None
@@ -843,8 +852,8 @@ impl From<MinaBaseZkappPreconditionProtocolStateStableV1> for GraphQLPreconditio
                     value.global_slot_since_genesis
                 {
                     Some(GraphQLPreconditionsNetworkBounds {
-                        upper: v.upper.as_u32() as i32,
-                        lower: v.lower.as_u32() as i32,
+                        upper: v.upper.as_u32().to_string(),
+                        lower: v.lower.as_u32().to_string(),
                     })
                 } else {
                     None
@@ -870,8 +879,8 @@ impl From<InputGraphQLPreconditionsNetwork> for MinaBaseZkappPreconditionProtoco
             blockchain_length: if let Some(blockchain_length) = value.blockchain_length {
                 MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
-                        lower: (blockchain_length.lower as u32).into(),
-                        upper: (blockchain_length.upper as u32).into(),
+                        lower: (blockchain_length.lower.parse::<u32>().unwrap()).into(),
+                        upper: (blockchain_length.upper.parse::<u32>().unwrap()).into(),
                     },
                 )
             } else {
@@ -880,8 +889,8 @@ impl From<InputGraphQLPreconditionsNetwork> for MinaBaseZkappPreconditionProtoco
             min_window_density: if let Some(min_window_density) = value.min_window_density {
                 MinaBaseZkappPreconditionProtocolStateStableV1Length::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
-                        lower: (min_window_density.lower as u32).into(),
-                        upper: (min_window_density.upper as u32).into(),
+                        lower: (min_window_density.lower.parse::<u32>().unwrap()).into(),
+                        upper: (min_window_density.upper.parse::<u32>().unwrap()).into(),
                     },
                 )
             } else {
@@ -890,8 +899,12 @@ impl From<InputGraphQLPreconditionsNetwork> for MinaBaseZkappPreconditionProtoco
             total_currency: if let Some(total_currency) = value.total_currency {
                 MinaBaseZkappPreconditionProtocolStateStableV1Amount::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
-                        lower: CurrencyAmountStableV1((total_currency.lower as u64).into()),
-                        upper: CurrencyAmountStableV1((total_currency.upper as u64).into()),
+                        lower: CurrencyAmountStableV1(
+                            (total_currency.lower.parse::<u64>().unwrap()).into(),
+                        ),
+                        upper: CurrencyAmountStableV1(
+                            (total_currency.upper.parse::<u64>().unwrap()).into(),
+                        ),
                     },
                 )
             } else {
@@ -903,10 +916,10 @@ impl From<InputGraphQLPreconditionsNetwork> for MinaBaseZkappPreconditionProtoco
                 MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
                         lower: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
-                            (global_slot_since_genesis.lower as u32).into(),
+                            (global_slot_since_genesis.lower.parse::<u32>().unwrap()).into(),
                         ),
                         upper: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
-                            (global_slot_since_genesis.upper as u32).into(),
+                            (global_slot_since_genesis.upper.parse::<u32>().unwrap()).into(),
                         ),
                     },
                 )
@@ -963,13 +976,19 @@ pub struct GraphQLAccountUpdateUpdatePermissions {
     pub receive: String,
     pub set_delegate: String,
     pub set_permissions: String,
-    pub set_verification_key: [String; 2],
+    pub set_verification_key: GraphQLSetVerificationKeyPermissions,
     pub set_zkapp_uri: String,
     pub edit_action_state: String,
     pub set_token_symbol: String,
     pub set_timing: String,
     pub set_voting_for: String,
     pub increment_nonce: String,
+}
+
+#[derive(GraphQLObject)]
+pub struct GraphQLSetVerificationKeyPermissions {
+    pub auth: String,
+    pub txn_version: String,
 }
 
 #[derive(GraphQLInputObject)]
@@ -980,13 +999,19 @@ pub struct InputGraphQLAccountUpdateUpdatePermissions {
     pub receive: String,
     pub set_delegate: String,
     pub set_permissions: String,
-    pub set_verification_key: [String; 2],
+    pub set_verification_key: InputGraphQLSetVerificationKeyPermissions,
     pub set_zkapp_uri: String,
     pub edit_action_state: String,
     pub set_token_symbol: String,
     pub set_timing: String,
     pub set_voting_for: String,
     pub increment_nonce: String,
+}
+
+#[derive(GraphQLInputObject)]
+pub struct InputGraphQLSetVerificationKeyPermissions {
+    pub auth: String,
+    pub txn_version: String,
 }
 
 impl From<MinaBasePermissionsStableV2> for GraphQLAccountUpdateUpdatePermissions {
@@ -998,10 +1023,10 @@ impl From<MinaBasePermissionsStableV2> for GraphQLAccountUpdateUpdatePermissions
             receive: value.receive.to_string(),
             set_delegate: value.set_delegate.to_string(),
             set_permissions: value.set_permissions.to_string(),
-            set_verification_key: [
-                value.set_verification_key.0.to_string(),
-                value.set_verification_key.1.to_string(),
-            ],
+            set_verification_key: GraphQLSetVerificationKeyPermissions {
+                auth: value.set_verification_key.0.to_string(),
+                txn_version: value.set_verification_key.1.to_string(),
+            },
             set_zkapp_uri: value.set_zkapp_uri.to_string(),
             edit_action_state: value.edit_action_state.to_string(),
             set_token_symbol: value.set_token_symbol.to_string(),
@@ -1022,8 +1047,13 @@ impl From<InputGraphQLAccountUpdateUpdatePermissions> for MinaBasePermissionsSta
             set_delegate: value.set_delegate.parse().unwrap(),
             set_permissions: value.set_permissions.parse().unwrap(),
             set_verification_key: (
-                value.set_verification_key[0].parse().unwrap(),
-                value.set_verification_key[1].parse::<u32>().unwrap().into(),
+                value.set_verification_key.auth.parse().unwrap(),
+                value
+                    .set_verification_key
+                    .txn_version
+                    .parse::<u32>()
+                    .unwrap()
+                    .into(),
             ),
             set_zkapp_uri: value.set_zkapp_uri.parse().unwrap(),
             edit_action_state: value.edit_action_state.parse().unwrap(),
@@ -1130,8 +1160,8 @@ impl From<MinaBaseAccountUpdatePreconditionsStableV1> for GraphQLPreconditions {
                 value.valid_while
             {
                 Some(GraphQLPreconditionsNetworkBounds {
-                    upper: v.upper.as_u32() as i32,
-                    lower: v.lower.as_u32() as i32,
+                    upper: v.upper.as_u32().to_string(),
+                    lower: v.lower.as_u32().to_string(),
                 })
             } else {
                 None
@@ -1149,10 +1179,10 @@ impl From<InputGraphQLPreconditions> for MinaBaseAccountUpdatePreconditionsStabl
                 MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot::Check(
                     MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
                         upper: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
-                            (v.upper as u32).into(),
+                            (v.upper.parse::<u32>().unwrap()).into(),
                         ),
                         lower: MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
-                            (v.lower as u32).into(),
+                            (v.lower.parse::<u32>().unwrap()).into(),
                         ),
                     },
                 )
