@@ -363,6 +363,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::ConsensusConstantsGet => {
                     store.dispatch(RpcAction::ConsensusConstantsGet { rpc_id });
                 }
+                RpcRequest::TransactionStatusGet(tx) => {
+                    store.dispatch(RpcAction::TransactionStatusGet { rpc_id, tx });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

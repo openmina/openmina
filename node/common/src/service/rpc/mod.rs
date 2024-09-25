@@ -10,7 +10,7 @@ use node::rpc::{
     RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
     RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
     RpcStatusGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
-    RpcTransitionFrontierUserCommandsResponse,
+    RpcTransactionStatusGetResponse, RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -299,6 +299,7 @@ impl node::rpc::RpcService for NodeService {
         respond_consensus_constants,
         RpcConsensusConstantsGetResponse
     );
+    rpc_service_impl!(respond_transaction_status, RpcTransactionStatusGetResponse);
 }
 
 #[cfg(test)]

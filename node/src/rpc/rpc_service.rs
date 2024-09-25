@@ -13,7 +13,8 @@ use super::{
     RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
     RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
     RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
-    RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
+    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+    RpcTransitionFrontierUserCommandsResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -180,5 +181,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: ConsensusConstants,
+    ) -> Result<(), RespondError>;
+    fn respond_transaction_status(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcTransactionStatusGetResponse,
     ) -> Result<(), RespondError>;
 }

@@ -81,6 +81,7 @@ pub enum RpcRequest {
     TransitionFrontierUserCommandsGet,
     BestChain(MaxLength),
     ConsensusConstantsGet,
+    TransactionStatusGet(MinaBaseUserCommandStableV2),
 }
 
 pub type MaxLength = u32;
@@ -342,6 +343,15 @@ pub type RpcLedgerAccountsResponse = Vec<Account>;
 pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
 pub type RpcBestChainResponse = Vec<ArcBlockWithHash>;
 pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
+pub type RpcTransactionStatusGetResponse = TransactionStatus;
+
+#[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum TransactionStatus {
+    Pending,
+    Included,
+    Unknown,
+}
 
 // TODO(adonagy): rework this to handle all the possible user commands (enum..)
 #[derive(Serialize, Deserialize, Debug, Clone)]
