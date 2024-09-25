@@ -128,7 +128,6 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorInitializeEvaluator,
     BlockProducerVrfEvaluatorInterruptEpochEvaluation,
     BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
-    BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
     BlockProducerVrfEvaluatorSelectInitialSlot,
     BlockProducerVrfEvaluatorWaitForNextEvaluation,
     CheckTimeouts,
@@ -569,7 +568,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 471;
+    pub const COUNT: u16 = 470;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1204,16 +1203,13 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             Self::InterruptEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorInterruptEpochEvaluation
             }
-            Self::RecordLastBlockHeightInEpoch { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch
-            }
             Self::ContinueEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorContinueEpochEvaluation
             }
             Self::FinishEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorFinishEpochEvaluation
             }
-            Self::WaitForNextEvaluation { .. } => {
+            Self::WaitForNextEvaluation => {
                 ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
             }
             Self::CheckEpochBounds { .. } => ActionKind::BlockProducerVrfEvaluatorCheckEpochBounds,

@@ -47,26 +47,23 @@ pub enum BlockProducerVrfEvaluatorAction {
     CheckEpochEvaluability {
         current_epoch: Option<u32>,
         best_tip_epoch: u32,
-        best_tip_height: u32,
+        root_block_epoch: u32,
         best_tip_slot: u32,
         best_tip_global_slot: u32,
         next_epoch_first_slot: u32,
         staking_epoch_data:
             Box<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>,
         next_epoch_data: Box<ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>,
-        transition_frontier_size: u32,
     },
     /// Initalize epoch vrf evaluation.
     #[action_event(level = info, fields(best_tip_epoch, best_tip_slot, best_tip_global_slot))]
     InitializeEpochEvaluation {
         best_tip_epoch: u32,
         best_tip_slot: u32,
-        best_tip_height: u32,
         best_tip_global_slot: u32,
         next_epoch_first_slot: u32,
         staking_epoch_data: EpochData,
         producer: AccountPublicKey,
-        transition_frontier_size: u32,
     },
     /// Constructing delegator table.
     #[action_event(level = info)]
@@ -80,7 +77,6 @@ pub enum BlockProducerVrfEvaluatorAction {
     #[action_event(level = info, fields(current_global_slot, best_tip_height))]
     SelectInitialSlot {
         current_global_slot: u32,
-        best_tip_height: u32,
         best_tip_slot: u32,
         best_tip_global_slot: u32,
         best_tip_epoch: u32,
@@ -90,7 +86,6 @@ pub enum BlockProducerVrfEvaluatorAction {
     /// Starting epoch evaluation.
     #[action_event(level = info, fields(best_tip_epoch, best_tip_slot, best_tip_global_slot))]
     BeginEpochEvaluation {
-        best_tip_height: u32,
         best_tip_slot: u32,
         best_tip_global_slot: u32,
         best_tip_epoch: u32,
@@ -99,12 +94,6 @@ pub enum BlockProducerVrfEvaluatorAction {
     },
     #[action_event(level = info, fields(display(reason)))]
     InterruptEpochEvaluation { reason: InterruptReason },
-    /// Saving last block height in epoch.
-    #[action_event(level = info, fields(epoch_number, last_block_height))]
-    RecordLastBlockHeightInEpoch {
-        epoch_number: u32,
-        last_block_height: u32,
-    },
     #[action_event(level = trace)]
     ContinueEpochEvaluation {
         latest_evaluated_global_slot: u32,
@@ -117,15 +106,8 @@ pub enum BlockProducerVrfEvaluatorAction {
         latest_evaluated_global_slot: u32,
     },
     /// Waiting for epoch to evaluate.
-    #[action_event(level = info, fields(best_tip_epoch, best_tip_height))]
-    WaitForNextEvaluation {
-        best_tip_epoch: u32,
-        best_tip_height: u32,
-        best_tip_slot: u32,
-        best_tip_global_slot: u32,
-        last_epoch_block_height: Option<u32>,
-        transition_frontier_size: u32,
-    },
+    #[action_event(level = info)]
+    WaitForNextEvaluation,
     /// Checking epoch bounds.
     #[action_event(level = trace)]
     CheckEpochBounds {
@@ -196,9 +178,6 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             BlockProducerVrfEvaluatorAction::BeginEpochEvaluation { .. } => state
                 .block_producer
                 .with(false, |this| this.vrf_evaluator.is_slot_selection()),
-            BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch { .. } => {
-                state.block_producer.vrf_evaluator().is_some()
-            }
             BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation { .. } => {
                 state.block_producer.with(false, |this| {
                     this.vrf_evaluator.is_epoch_bound_evaluated()
