@@ -269,7 +269,7 @@ pub fn routes(
     let state = warp::any().map(move || Context(rpc_sernder.clone()));
     let schema = RootNode::new(
         Query,
-        EmptyMutation::<Context>::new(),
+        Mutation,
         EmptySubscription::<Context>::new(),
     );
     let graphql_filter = juniper_warp::make_graphql_filter(schema, state.boxed());
