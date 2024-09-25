@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use juniper::{EmptyMutation, EmptySubscription, GraphQLEnum, RootNode};
+use juniper::{EmptySubscription, GraphQLEnum, RootNode};
 use ledger::Account;
 use mina_p2p_messages::v2::MinaBaseSignedCommandStableV2;
 use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
@@ -243,7 +243,7 @@ impl Mutation {
     async fn send_zkapp(
         input: send_zkapp::SendZkappInput,
         context: &Context,
-    ) -> best_chain::GraphQLZkapp {
+    ) -> best_chain::GraphQLSendZkappResponse {
         let res: RpcTransactionInjectResponse = context
             .0
             .oneshot_request(RpcRequest::TransactionInject(vec![input.into()]))
@@ -267,11 +267,7 @@ pub fn routes(
     rpc_sernder: RpcSender,
 ) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
     let state = warp::any().map(move || Context(rpc_sernder.clone()));
-    let schema = RootNode::new(
-        Query,
-        Mutation,
-        EmptySubscription::<Context>::new(),
-    );
+    let schema = RootNode::new(Query, Mutation, EmptySubscription::<Context>::new());
     let graphql_filter = juniper_warp::make_graphql_filter(schema, state.boxed());
     let graphiql_filter = juniper_warp::graphiql_filter("/graphql", None);
     let playground_filter = juniper_warp::playground_filter("/graphql", None);
