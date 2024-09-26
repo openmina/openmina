@@ -203,7 +203,7 @@ pub type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 pub mod diff {
     use super::*;
 
-    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum_macros::Display)]
     pub enum Error {
         InsufficientReplaceFee,
         Duplicate,

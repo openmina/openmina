@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use juniper::{graphql_value, FieldError};
 use juniper::{EmptySubscription, GraphQLEnum, RootNode};
 use ledger::Account;
 use mina_p2p_messages::v2::MinaBaseSignedCommandStableV2;
@@ -243,7 +244,7 @@ impl Mutation {
     async fn send_zkapp(
         input: send_zkapp::SendZkappInput,
         context: &Context,
-    ) -> best_chain::GraphQLSendZkappResponse {
+    ) -> juniper::FieldResult<best_chain::GraphQLSendZkappResponse> {
         let res: RpcTransactionInjectResponse = context
             .0
             .oneshot_request(RpcRequest::TransactionInject(vec![input.into()]))
@@ -256,9 +257,30 @@ impl Mutation {
                     Some(RpcTransactionInjectedCommand::Zkapp(zkapp_cmd)) => zkapp_cmd.into(),
                     _ => unreachable!(),
                 };
-                zkapp_cmd.into()
+                Ok(zkapp_cmd.into())
             }
-            _ => unreachable!(),
+            RpcTransactionInjectResponse::Rejected(rejected) => {
+                let error_list = rejected
+                    .into_iter()
+                    .map(|(_, err)| graphql_value!({ "message": err.to_string() }))
+                    .collect::<Vec<_>>();
+
+                Err(FieldError::new(
+                    "Transaction rejected",
+                    graphql_value!(juniper::Value::List(error_list)),
+                ))
+            }
+            RpcTransactionInjectResponse::Failure(failure) => {
+                let error_list = failure
+                    .into_iter()
+                    .map(|err| graphql_value!({ "message": err.to_string() }))
+                    .collect::<Vec<_>>();
+
+                Err(FieldError::new(
+                    "Transaction failed",
+                    graphql_value!(juniper::Value::List(error_list)),
+                ))
+            }
         }
     }
 }
