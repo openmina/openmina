@@ -1,10 +1,12 @@
 use std::iter;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use juniper::{GraphQLInputObject, GraphQLObject};
 use ledger::{scan_state::transaction_logic::Memo, FpExt};
 use mina_p2p_messages::b58::FromBase58Check;
 use mina_p2p_messages::bigint::BigInt;
+use mina_p2p_messages::binprot::BinProtWrite;
 use mina_p2p_messages::hash::MinaHash;
 use mina_p2p_messages::list::List;
 use mina_p2p_messages::pseq::PaddedSeq;
@@ -1480,6 +1482,15 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
             .rev()
             .filter_map(|cmd| {
                 if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = cmd.data {
+                    std::fs::create_dir_all("zkapps").unwrap();
+                    let zkapp_path = format!("zkapps/{}", zkapp.hash().unwrap());
+                    let path = PathBuf::from(zkapp_path.clone());
+                    if !path.exists() {
+                        let mut buff = Vec::new();
+                        zkapp.binprot_write(&mut buff).unwrap();
+                        std::fs::write(zkapp_path, buff).unwrap();
+                    }
+
                     let failure_reason =
                         if let MinaBaseTransactionStatusStableV2::Failed(failure_collection) =
                             cmd.status
@@ -1703,7 +1714,15 @@ impl From<InputGraphQLTiming> for MinaBaseAccountUpdateUpdateTimingInfoStableV1 
 mod test {
     use std::str::FromStr;
 
-    use mina_p2p_messages::v2::MinaBaseSignedCommandMemoStableV1;
+    use mina_p2p_messages::{
+        binprot::BinProtRead,
+        v2::{
+            MinaBaseSignatureStableV1, MinaBaseSignedCommandMemoStableV1,
+            MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1, Signature,
+        },
+    };
+
+    use super::*;
 
     #[test]
     fn test_empty_memo() {
@@ -1713,5 +1732,272 @@ mod test {
         let empty_memo = Memo::from_str("").unwrap();
         let mina_empty_memo = MinaBaseSignedCommandMemoStableV1::from(&empty_memo);
         assert_eq!(mina_empty_memo.to_base58check(), expected);
+    }
+
+    // #[test]
+    // fn test_verification_key() {
+    //     let vk_base64 = "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";
+    //     let decoded = MinaBaseVerificationKeyWireStableV1::from_base64(vk_base64).unwrap();
+    //     println!("{:?}", decoded);
+
+    //     let vk_base64 = "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";
+    //     let decoded = MinaBaseVerificationKeyWireStableV1::from_base64(vk_base64).unwrap();
+    //     println!("{:?}", decoded);
+
+    // }
+
+    #[test]
+    fn test_zkapp_from_input() {
+        let bytes = include_bytes!("../../../../tests/files/zkapps/valid_zkapp.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+
+        let serialized_valid = serde_json::to_string_pretty(&zkapp).unwrap();
+
+        std::fs::write("zkapp_valid.json", &serialized_valid).unwrap();
+
+        let from_input = create_input_graphql_zkapp();
+        let converted: MinaBaseUserCommandStableV2 = from_input.zkapp_command.into();
+        if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp_cmd) = converted {
+            let serialized_converted = serde_json::to_string_pretty(&zkapp_cmd).unwrap();
+            std::fs::write("zkapp_converted.json", &serialized_converted).unwrap();
+            assert_eq!(serialized_valid, serialized_converted);
+        } else {
+            unreachable!()
+        }
+    }
+
+    fn create_input_graphql_zkapp() -> InputGraphQLZkapp {
+        InputGraphQLZkapp {
+            zkapp_command: InputGraphQLZkappCommand {
+                memo: Some("E4YM2vTHhWEg66xpj52JErHUBU4pZ1yageL4TVDDpTTSsv8mK6YaH".to_string()),
+                fee_payer: InputGraphQLFeePayer {
+                    body: InputGraphQLFeePayerBody {
+                        public_key: "B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV".to_string(),
+                        fee: "117000000".to_string(),
+                        valid_until: None,
+                        nonce: "1128".to_string(),
+                    },
+                    authorization: "7mX5Lwu2bdnJPc4DJu7CkwTSR5behoKH8yZh7myCGgYfib5Sq3dfgPQY6LcXdrpQma1NvoLC5i7HLFEQZTnkBFcn96TP57JF".to_string(),
+                },
+                account_updates: vec![
+                    InputGraphQLAccountUpdate {
+                        body: InputGraphQLAccountUpdateBody {
+                            call_depth: 0,
+                            public_key: "B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV".to_string(),
+                            token_id: "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf".to_string(),
+                            update: InputGraphQLAccountUpdateUpdate {
+                                app_state: vec![
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                ],
+                                delegate: None,
+                                verification_key: None,
+                                permissions: None,
+                                zkapp_uri: None,
+                                token_symbol: None,
+                                timing: None,
+                                voting_for: None,
+                            },
+                            balance_change: InputGraphQLBalanceChange {
+                                magnitude: "1000000000".to_string(),
+                                sgn: "Negative".to_string(),
+                            },
+                            increment_nonce: false,
+                            events: vec![],
+                            actions: vec![],
+                            call_data: "0".to_string(),
+                            preconditions: InputGraphQLPreconditions {
+                                network: InputGraphQLPreconditionsNetwork {
+                                    snarked_ledger_hash: None,
+                                    blockchain_length: None,
+                                    min_window_density: None,
+                                    total_currency: None,
+                                    global_slot_since_genesis: None,
+                                    staking_epoch_data: InputGraphQLPreconditionsNetworkEpochData {
+                                        ledger: InputGraphQLPreconditionsNetworkLedger {
+                                            hash: None,
+                                            total_currency: None,
+                                        },
+                                        seed: None,
+                                        start_checkpoint: None,
+                                        lock_checkpoint: None,
+                                        epoch_length: None,
+                                    },
+                                    next_epoch_data: InputGraphQLPreconditionsNetworkEpochData {
+                                        ledger: InputGraphQLPreconditionsNetworkLedger {
+                                            hash: None,
+                                            total_currency: None,
+                                        },
+                                        seed: None,
+                                        start_checkpoint: None,
+                                        lock_checkpoint: None,
+                                        epoch_length: None,
+                                    },
+                                },
+                                account: InputGraphQLPreconditionsAccount {
+                                    balance: None,
+                                    nonce: None,
+                                    receipt_chain_hash: None,
+                                    delegate: None,
+                                    state: vec![
+                                        None, None, None, None, None, None, None, None
+                                    ],
+                                    action_state: None,
+                                    proved_state: None,
+                                    is_new: None,
+                                },
+                                valid_while: None,
+                            },
+                            use_full_commitment: true,
+                            implicit_account_creation_fee: false,
+                            may_use_token: InputGraphQLMayUseToken {
+                                parents_own_token: false,
+                                inherit_from_parent: false,
+                            },
+                            authorization_kind: InputGraphQLAuthorizationKind {
+                                is_signed: true,
+                                is_proved: false,
+                                verification_key_hash: None,
+                            },
+                        },
+                        authorization: InputGraphQLAuthorization {
+                            proof: None,
+                            signature: Some("7mX5Lwu2bdnJPc4DJu7CkwTSR5behoKH8yZh7myCGgYfib5Sq3dfgPQY6LcXdrpQma1NvoLC5i7HLFEQZTnkBFcn96TP57JF".to_string()),
+                        },
+                    },
+                    InputGraphQLAccountUpdate {
+                        body: InputGraphQLAccountUpdateBody {
+                            call_depth: 0,
+                            public_key: "B62qqKAQh8M61uvuw3tjJsmRgsEvzRm84Nc9MwXTF3zoqFRZ86rV8qk".to_string(),
+                            token_id: "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf".to_string(),
+                            update: InputGraphQLAccountUpdateUpdate {
+                                app_state: vec![
+                                    Some("1".to_string()),
+                                    Some("0".to_string()),
+                                    Some("0".to_string()),
+                                    Some("0".to_string()),
+                                    Some("0".to_string()),
+                                    Some("0".to_string()),
+                                    Some("0".to_string()),
+                                    Some("0".to_string()),
+                                ],
+                                delegate: None,
+                                verification_key: Some(InputGraphQLVerificationKey {
+                                    data: "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".to_string(),
+                                    hash: "11640126627177324946637007967436400725357874055180801746732941023691529117236".to_string(),
+                                }),
+                                permissions: Some(InputGraphQLAccountUpdateUpdatePermissions {
+                                    edit_state: "Proof".to_string(),
+                                    access: "Proof".to_string(),
+                                    send: "Proof".to_string(),
+                                    receive: "Proof".to_string(),
+                                    set_delegate: "Proof".to_string(),
+                                    set_permissions: "Proof".to_string(),
+                                    set_verification_key: InputGraphQLSetVerificationKeyPermissions {
+                                        auth: "Proof".to_string(),
+                                        txn_version: "3".to_string(),
+                                    },
+                                    set_zkapp_uri: "Proof".to_string(),
+                                    edit_action_state: "Proof".to_string(),
+                                    set_token_symbol: "Proof".to_string(),
+                                    set_timing: "Proof".to_string(),
+                                    set_voting_for: "Proof".to_string(),
+                                    increment_nonce: "Proof".to_string(),
+                                }),
+                                zkapp_uri: None,
+                                token_symbol: None,
+                                timing: None,
+                                voting_for: None,
+                            },
+                            balance_change: InputGraphQLBalanceChange {
+                                magnitude: "0".to_string(),
+                                sgn: "Positive".to_string(),
+                            },
+                            increment_nonce: true,
+                            events: vec![],
+                            actions: vec![],
+                            call_data: "0".to_string(),
+                            preconditions: InputGraphQLPreconditions {
+                                network: InputGraphQLPreconditionsNetwork {
+                                    snarked_ledger_hash: None,
+                                    blockchain_length: None,
+                                    min_window_density: None,
+                                    total_currency: None,
+                                    global_slot_since_genesis: None,
+                                    staking_epoch_data: InputGraphQLPreconditionsNetworkEpochData {
+                                        ledger: InputGraphQLPreconditionsNetworkLedger {
+                                            hash: None,
+                                            total_currency: None,
+                                        },
+                                        seed: None,
+                                        start_checkpoint: None,
+                                        lock_checkpoint: None,
+                                        epoch_length: None,
+                                    },
+                                    next_epoch_data: InputGraphQLPreconditionsNetworkEpochData {
+                                        ledger: InputGraphQLPreconditionsNetworkLedger {
+                                            hash: None,
+                                            total_currency: None,
+                                        },
+                                        seed: None,
+                                        start_checkpoint: None,
+                                        lock_checkpoint: None,
+                                        epoch_length: None,
+                                    },
+                                },
+                                account: InputGraphQLPreconditionsAccount {
+                                    balance: None,
+                                    nonce: Some(InputGraphQLPreconditionsNetworkBounds {
+                                        upper: "0".to_string(),
+                                        lower: "0".to_string(),
+                                    }),
+                                    receipt_chain_hash: None,
+                                    delegate: None,
+                                    state: vec![
+                                        None, None, None, None, None, None, None, None
+                                    ],
+                                    action_state: None,
+                                    proved_state: Some(false),
+                                    is_new: None,
+                                },
+                                valid_while: None,
+                            },
+                            use_full_commitment: false,
+                            implicit_account_creation_fee: false,
+                            may_use_token: InputGraphQLMayUseToken {
+                                parents_own_token: false,
+                                inherit_from_parent: false,
+                            },
+                            authorization_kind: InputGraphQLAuthorizationKind {
+                                is_signed: true,
+                                is_proved: false,
+                                verification_key_hash: None,
+                            },
+                        },
+                        authorization: InputGraphQLAuthorization {
+                            proof: None,
+                            signature: Some("7mXFnDxZBE5iXBfw9LRPXST3sSodXAdTJSWFqX3hBoDA3wv5s2s9TLMDCXgatMvMH4bDttAFyJuezWmbSA81FXeMFZgqcxtt".to_string()),
+                        },
+                    },
+                ],
+            },
+        }
+    }
+
+    #[test]
+    pub fn test_bigint_to_decimal() {
+        let bigint = BigInt::from_decimal("1").unwrap();
+        let decimal = serde_json::to_string(&bigint).unwrap();
+        assert_eq!(
+            decimal,
+            "\"0x0000000000000000000000000000000000000000000000000000000000000001\"".to_string()
+        );
     }
 }

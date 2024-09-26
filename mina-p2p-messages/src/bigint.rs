@@ -48,7 +48,6 @@ impl BigInt {
                 let mut bytes = num.to_bytes_be().1;
                 bytes.reverse();
                 bytes.resize(32, 0); // Ensure the byte vector has 32 bytes
-                bytes.reverse();
                 BigInt::from_bytes(bytes.try_into().unwrap())
             })
             .ok_or_else(|| "failed to parse decimal number".to_string())
