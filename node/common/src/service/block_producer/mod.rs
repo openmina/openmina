@@ -1,7 +1,7 @@
 mod vrf_evaluator;
 
 use ledger::proofs::{
-    block::BlockParams, gates::BlockProver, generate_block_proof, transaction::ProofError,
+    block::BlockParams, generate_block_proof, provers::BlockProver, transaction::ProofError,
 };
 use mina_p2p_messages::{
     binprot::BinProtWrite,

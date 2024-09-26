@@ -1,14 +1,13 @@
 use std::{
-    fs::File,
-    io::{Read, Write},
-    path::Path,
+    io::Read,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::Context;
 use once_cell::sync::OnceCell;
-#[cfg(not(target_family = "wasm"))]
 use openmina_core::{info, log::system_time, warn};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
@@ -29,47 +28,93 @@ use poly_commitment::srs::SRS;
 use crate::{proofs::BACKEND_TOCK_ROUNDS_N, VerificationKey};
 
 use super::{
-    caching::{verifier_index_from_bytes, verifier_index_to_bytes},
-    transaction::InnerCurve,
-    VerifierIndex,
-};
-use super::{
     transaction::endos,
     wrap::{Domain, Domains},
 };
+use super::{transaction::InnerCurve, VerifierIndex};
 
-pub enum VerifierKind {
-    Blockchain,
-    Transaction,
+#[derive(Clone, Copy)]
+enum Kind {
+    BlockVerifier,
+    TransactionVerifier,
 }
 
-fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Fq>> {
-    let mut buf = Vec::with_capacity(5700000);
-    let mut file = File::open(path).context("opening cache file")?;
-    let mut d = [0; 32];
-    // source digest
-    file.read_exact(&mut d).context("reading source digest")?;
-    if d != digest {
-        anyhow::bail!("source digest verification failed");
+impl Kind {
+    pub fn to_str(self) -> &'static str {
+        match self {
+            Self::BlockVerifier => "block_verifier_index",
+            Self::TransactionVerifier => "transaction_verifier_index",
+        }
     }
 
-    // index digest
-    file.read_exact(&mut d).context("reading index digest")?;
-    // index
-    file.read_to_end(&mut buf)
-        .context("reading verifier index from cache file")?;
-
-    let mut hasher = Sha256::new();
-    hasher.update(&buf);
-    let digest = hasher.finalize();
-    if d != digest.as_slice() {
-        anyhow::bail!("verifier index digest verification failed");
+    pub fn filename(self) -> String {
+        format!("{}.postcard", self.to_str())
     }
-    Ok(verifier_index_from_bytes(&buf)?)
 }
 
-fn write_index(path: &Path, index: &VerifierIndex<Fq>, digest: &[u8]) -> anyhow::Result<()> {
-    let bytes = verifier_index_to_bytes(index)?;
+impl std::fmt::Display for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_str())
+    }
+}
+
+fn cache_filename(kind: Kind) -> PathBuf {
+    let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
+    Path::new(circuits_config.directory_name).join(kind.filename())
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn cache_path(kind: Kind) -> Option<PathBuf> {
+    super::circuit_blobs::home_base_dir().map(|p| p.join(cache_filename(kind)))
+}
+
+macro_rules! read_cache {
+    ($kind: expr, $digest: expr) => {{
+        #[cfg(not(target_family = "wasm"))]
+        let data = super::circuit_blobs::fetch(&cache_filename($kind))
+            .context("fetching verifier index failed")?;
+        #[cfg(target_family = "wasm")]
+        let data = super::circuit_blobs::fetch(&cache_filename($kind))
+            .await
+            .context("fetching verifier index failed")?;
+        let mut slice = data.as_slice();
+        let mut d = [0; 32];
+        // source digest
+        slice.read_exact(&mut d).context("reading source digest")?;
+        if d != $digest {
+            anyhow::bail!("source digest verification failed");
+        }
+
+        // index digest
+        slice.read_exact(&mut d).context("reading index digest")?;
+
+        let mut hasher = Sha256::new();
+        hasher.update(slice);
+        let digest = hasher.finalize();
+        if d != digest.as_slice() {
+            anyhow::bail!("verifier index digest verification failed");
+        }
+        Ok(super::caching::verifier_index_from_bytes(slice)?)
+    }};
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn read_cache(kind: Kind, digest: &[u8]) -> anyhow::Result<VerifierIndex<Fq>> {
+    read_cache!(kind, digest)
+}
+
+#[cfg(target_family = "wasm")]
+async fn read_cache(kind: Kind, digest: &[u8]) -> anyhow::Result<VerifierIndex<Fq>> {
+    read_cache!(kind, digest)
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn write_cache(kind: Kind, index: &VerifierIndex<Fq>, digest: &[u8]) -> anyhow::Result<()> {
+    use std::{fs::File, io::Write};
+
+    let path = cache_path(kind)
+        .ok_or_else(|| anyhow::anyhow!("$HOME env not set, so can't cache verifier index"))?;
+    let bytes = super::caching::verifier_index_to_bytes(index)?;
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
     let Some(parent) = path.parent() else {
@@ -85,82 +130,172 @@ fn write_index(path: &Path, index: &VerifierIndex<Fq>, digest: &[u8]) -> anyhow:
     Ok(())
 }
 
-#[cfg(target_family = "wasm")]
-fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Fq> {
-    let verifier_index: VerifierIndex<Fq> = serde_json::from_str(data).unwrap();
-    make_verifier_index(verifier_index)
-}
+macro_rules! make_with_ext_cache {
+    ($kind: expr, $data: expr) => {{
+        let verifier_index: VerifierIndex<Fq> = serde_json::from_str($data).unwrap();
+        let mut hasher = Sha256::new();
+        hasher.update($data);
+        let src_index_digest = hasher.finalize();
 
-#[cfg(not(target_family = "wasm"))]
-fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Fq> {
-    use super::caching::openmina_cache_path;
-    let verifier_index: VerifierIndex<Fq> = serde_json::from_str(data).unwrap();
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    let src_index_digest = hasher.finalize();
+        #[cfg(not(target_family = "wasm"))]
+        let cache = read_cache($kind, &src_index_digest);
+        #[cfg(target_family = "wasm")]
+        let cache = read_cache($kind, &src_index_digest).await;
 
-    if let Some(path) = openmina_cache_path(cache) {
-        match read_index(&path, &src_index_digest) {
+        match cache {
             Ok(verifier_index) => {
-                info!(system_time(); "Block verifier index is loaded from {path:?}");
+                info!(system_time(); "Verifier index is loaded");
                 verifier_index
             }
             Err(err) => {
-                warn!(system_time(); "Cannot load verifier index from cache file {path:?}: {err}");
+                warn!(system_time(); "Cannot load verifier index: {err}");
                 let index = make_verifier_index(verifier_index);
-                if let Err(err) = write_index(&path, &index, &src_index_digest) {
-                    warn!(system_time(); "Cannot store verifier index to cache file {path:?}: {err}");
+                #[cfg(not(target_family = "wasm"))]
+                if let Err(err) = write_cache($kind, &index, &src_index_digest) {
+                    warn!(system_time(); "Cannot store verifier index to cache file: {err}");
                 } else {
-                    info!(system_time(); "Stored block verifier index to cache file {path:?}");
+                    info!(system_time(); "Stored verifier index to cache file");
                 }
                 index
             }
         }
-    } else {
-        warn!(system_time(); "Cannot determine cache path for verifier index");
-        make_verifier_index(verifier_index)
+    }}
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn make_with_ext_cache(kind: Kind, data: &str) -> VerifierIndex<Fq> {
+    make_with_ext_cache!(kind, data)
+}
+
+#[cfg(target_family = "wasm")]
+async fn make_with_ext_cache(kind: Kind, data: &str) -> VerifierIndex<Fq> {
+    make_with_ext_cache!(kind, data)
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlockVerifier(Arc<VerifierIndex<Fq>>);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransactionVerifier(Arc<VerifierIndex<Fq>>);
+
+static BLOCK_VERIFIER: OnceCell<BlockVerifier> = OnceCell::new();
+static TX_VERIFIER: OnceCell<TransactionVerifier> = OnceCell::new();
+
+impl BlockVerifier {
+    fn kind() -> Kind {
+        Kind::BlockVerifier
+    }
+
+    fn src_json() -> &'static str {
+        let network_name = openmina_core::NetworkConfig::global().name;
+        match network_name {
+            "mainnet" => include_str!("data/mainnet_blockchain_verifier_index.json"),
+            "devnet" => include_str!("data/devnet_blockchain_verifier_index.json"),
+            other => panic!("get_verifier_index: unknown network '{other}'"),
+        }
     }
 }
 
-pub fn get_verifier_index(kind: VerifierKind) -> Arc<VerifierIndex<Fq>> {
-    static BLOCK_VERIFIER_INDEX: OnceCell<Arc<VerifierIndex<Fq>>> = OnceCell::new();
-    static TX_VERIFIER_INDEX: OnceCell<Arc<VerifierIndex<Fq>>> = OnceCell::new();
+impl TransactionVerifier {
+    fn kind() -> Kind {
+        Kind::TransactionVerifier
+    }
 
-    match kind {
-        VerifierKind::Blockchain => BLOCK_VERIFIER_INDEX
+    fn src_json() -> &'static str {
+        let network_name = openmina_core::NetworkConfig::global().name;
+        match network_name {
+            "mainnet" => include_str!("data/mainnet_transaction_verifier_index.json"),
+            "devnet" => include_str!("data/devnet_transaction_verifier_index.json"),
+            other => panic!("get_verifier_index: unknown network '{other}'"),
+        }
+    }
+
+    pub fn get() -> Option<Self> {
+        TX_VERIFIER.get().cloned()
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl BlockVerifier {
+    pub fn make() -> Self {
+        BLOCK_VERIFIER
             .get_or_init(|| {
-                let network_name = openmina_core::NetworkConfig::global().name;
-                let (json_data, cache_filename) = match network_name {
-                    "mainnet" => (
-                        include_str!("data/mainnet_blockchain_verifier_index.json"),
-                        "mainnet_block_verifier_index.bin",
-                    ),
-                    "devnet" => (
-                        include_str!("data/devnet_blockchain_verifier_index.json"),
-                        "devnet_block_verifier_index.bin",
-                    ),
-                    other => panic!("get_verifier_index: unknown network '{other}'"),
-                };
-                Arc::new(make_with_ext_cache(json_data, cache_filename))
+                Self(Arc::new(make_with_ext_cache(
+                    Self::kind(),
+                    Self::src_json(),
+                )))
             })
-            .clone(),
-        VerifierKind::Transaction => TX_VERIFIER_INDEX
+            .clone()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl BlockVerifier {
+    pub async fn make() -> Self {
+        if let Some(v) = BLOCK_VERIFIER.get() {
+            v.clone()
+        } else {
+            let verifier = Self(Arc::new(
+                make_with_ext_cache(Self::kind(), Self::src_json()).await,
+            ));
+            BLOCK_VERIFIER.get_or_init(move || verifier).clone()
+        }
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl TransactionVerifier {
+    pub fn make() -> Self {
+        TX_VERIFIER
             .get_or_init(|| {
-                let network_name = openmina_core::NetworkConfig::global().name;
-                let (json_data, cache_filename) = match network_name {
-                    "mainnet" => (
-                        include_str!("data/mainnet_transaction_verifier_index.json"),
-                        "mainnet_transaction_verifier_index.bin",
-                    ),
-                    "devnet" => (
-                        include_str!("data/devnet_transaction_verifier_index.json"),
-                        "devnet_transaction_verifier_index.bin",
-                    ),
-                    other => panic!("get_verifier_index: unknown network '{other}'"),
-                };
-                Arc::new(make_with_ext_cache(json_data, cache_filename))
+                Self(Arc::new(make_with_ext_cache(
+                    Self::kind(),
+                    Self::src_json(),
+                )))
             })
-            .clone(),
+            .clone()
+    }
+}
+
+#[cfg(target_family = "wasm")]
+impl TransactionVerifier {
+    pub async fn make() -> Self {
+        if let Some(v) = TX_VERIFIER.get() {
+            v.clone()
+        } else {
+            let verifier = Self(Arc::new(
+                make_with_ext_cache(Self::kind(), Self::src_json()).await,
+            ));
+            TX_VERIFIER.get_or_init(move || verifier).clone()
+        }
+    }
+}
+
+impl std::ops::Deref for BlockVerifier {
+    type Target = VerifierIndex<Fq>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::Deref for TransactionVerifier {
+    type Target = VerifierIndex<Fq>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<BlockVerifier> for Arc<VerifierIndex<Fq>> {
+    fn from(value: BlockVerifier) -> Self {
+        value.0
+    }
+}
+
+impl From<TransactionVerifier> for Arc<VerifierIndex<Fq>> {
+    fn from(value: TransactionVerifier) -> Self {
+        value.0
     }
 }
 

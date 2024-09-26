@@ -16,7 +16,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::consensus::ConsensusConstants;
@@ -25,12 +25,12 @@ use node::core::log::system_time;
 use node::core::requests::RpcId;
 use node::core::{thread, warn};
 use node::p2p::{P2pConnectionEvent, P2pEvent, P2pLimits, P2pMeshsubConfig, PeerId};
-use node::snark::{VerifierIndex, VerifierSRS};
+use node::snark::{BlockVerifier, TransactionVerifier, VerifierSRS};
 use node::{
     event_source::Event,
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::{Recorder, Service},
-    snark::{get_srs, get_verifier_index, VerifierKind},
+    snark::get_srs,
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
     TransitionFrontierConfig,
 };
@@ -115,8 +115,6 @@ fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
 
 lazy_static::lazy_static! {
     static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs();
-    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain);
-    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction);
 }
 
 lazy_static::lazy_static! {
@@ -139,8 +137,8 @@ pub struct Cluster {
     ocaml_libp2p_keypair_i: usize,
 
     verifier_srs: Arc<VerifierSRS>,
-    block_verifier_index: Arc<VerifierIndex>,
-    work_verifier_index: Arc<VerifierIndex>,
+    block_verifier_index: BlockVerifier,
+    work_verifier_index: TransactionVerifier,
 
     debugger: Option<Debugger>,
 }
@@ -179,8 +177,8 @@ impl Cluster {
             ocaml_libp2p_keypair_i: 0,
 
             verifier_srs: VERIFIER_SRS.clone(),
-            block_verifier_index: BLOCK_VERIFIER_INDEX.clone(),
-            work_verifier_index: WORK_VERIFIER_INDEX.clone(),
+            block_verifier_index: BlockVerifier::make(),
+            work_verifier_index: TransactionVerifier::make(),
 
             debugger,
         }

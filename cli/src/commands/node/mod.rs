@@ -1,10 +1,10 @@
 use std::{fs::File, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
-    snark::{get_verifier_index, VerifierKind},
+    snark::{BlockVerifier, TransactionVerifier},
     transition_frontier::genesis::GenesisConfig,
 };
 
@@ -203,8 +203,8 @@ impl Node {
             node_builder.initial_peers_from_url(url)?;
         }
 
-        let block_verifier_index = get_verifier_index(VerifierKind::Blockchain);
-        let work_verifier_index = get_verifier_index(VerifierKind::Transaction);
+        let block_verifier_index = BlockVerifier::make();
+        let work_verifier_index = TransactionVerifier::make();
         node_builder
             .block_verifier_index(block_verifier_index.clone())
             .work_verifier_index(work_verifier_index.clone());

@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
-use ledger::proofs::gates::BlockProver;
+use ledger::proofs::provers::BlockProver;
 use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use node::{
     account::AccountSecretKey,
@@ -17,7 +17,7 @@ use node::{
         identity::SecretKey as P2pSecretKey, P2pLimits, P2pMeshsubConfig, P2pTimeouts,
     },
     service::Recorder,
-    snark::{get_srs, get_verifier_index, VerifierIndex, VerifierKind, VerifierSRS},
+    snark::{get_srs, BlockVerifier, TransactionVerifier, VerifierSRS},
     transition_frontier::genesis::GenesisConfig,
     BlockProducerConfig, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, SnarkerConfig,
     SnarkerStrategy, TransitionFrontierConfig,
@@ -44,8 +44,8 @@ pub struct NodeBuilder {
     snarker: Option<SnarkerConfig>,
     service: NodeServiceBuilder,
     verifier_srs: Option<Arc<VerifierSRS>>,
-    block_verifier_index: Option<Arc<VerifierIndex>>,
-    work_verifier_index: Option<Arc<VerifierIndex>>,
+    block_verifier_index: Option<BlockVerifier>,
+    work_verifier_index: Option<TransactionVerifier>,
     http_port: Option<u16>,
     daemon_conf: Daemon,
 }
@@ -237,12 +237,12 @@ impl NodeBuilder {
         self
     }
 
-    pub fn block_verifier_index(&mut self, index: Arc<VerifierIndex>) -> &mut Self {
+    pub fn block_verifier_index(&mut self, index: BlockVerifier) -> &mut Self {
         self.block_verifier_index = Some(index);
         self
     }
 
-    pub fn work_verifier_index(&mut self, index: Arc<VerifierIndex>) -> &mut Self {
+    pub fn work_verifier_index(&mut self, index: TransactionVerifier) -> &mut Self {
         self.work_verifier_index = Some(index);
         self
     }
@@ -274,10 +274,10 @@ impl NodeBuilder {
         let srs = self.verifier_srs.unwrap_or_else(get_srs);
         let block_verifier_index = self
             .block_verifier_index
-            .unwrap_or_else(|| get_verifier_index(VerifierKind::Blockchain));
+            .unwrap_or_else(BlockVerifier::make);
         let work_verifier_index = self
             .work_verifier_index
-            .unwrap_or_else(|| get_verifier_index(VerifierKind::Transaction));
+            .unwrap_or_else(TransactionVerifier::make);
 
         let initial_time = self
             .custom_initial_time

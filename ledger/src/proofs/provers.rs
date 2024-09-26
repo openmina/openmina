@@ -7,13 +7,14 @@ use once_cell::sync::OnceCell;
 use openmina_core::network::CircuitsConfig;
 
 use super::{
+    circuit_blobs,
     constants::{
         StepBlockProof, StepMergeProof, StepTransactionProof, StepZkappOptSignedOptSignedProof,
         StepZkappOptSignedProof, StepZkappProvedProof, WrapBlockProof, WrapTransactionProof,
     },
     field::FieldWitness,
     transaction::{make_prover_index, InternalVars, Prover, V},
-    VerifierIndex,
+    verifiers::{BlockVerifier, TransactionVerifier},
 };
 
 use mina_p2p_messages::binprot::{
@@ -35,34 +36,6 @@ pub fn devnet_circuit_directory() -> &'static str {
 //     openmina_core::NetworkConfig::global().circuits_config.directory_name
 // }
 
-#[derive(Clone)]
-struct Gates {
-    step_tx_gates: Vec<CircuitGate<Fp>>,
-    wrap_tx_gates: Vec<CircuitGate<Fq>>,
-    step_merge_gates: Vec<CircuitGate<Fp>>,
-    step_block_gates: Vec<CircuitGate<Fp>>,
-    wrap_block_gates: Vec<CircuitGate<Fq>>,
-    step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>>,
-    step_opt_signed_gates: Vec<CircuitGate<Fp>>,
-    step_proved_gates: Vec<CircuitGate<Fp>>,
-    step_tx_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_tx_rows_rev: Vec<Vec<Option<V>>>,
-    wrap_tx_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
-    wrap_tx_rows_rev: Vec<Vec<Option<V>>>,
-    step_merge_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_merge_rows_rev: Vec<Vec<Option<V>>>,
-    step_block_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_block_rows_rev: Vec<Vec<Option<V>>>,
-    wrap_block_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
-    wrap_block_rows_rev: Vec<Vec<Option<V>>>,
-    step_opt_signed_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_opt_signed_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
-    step_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
-    step_proved_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    step_proved_rows_rev: Vec<Vec<Option<V>>>,
-}
-
 fn decode_gates_file<F: FieldWitness>(
     reader: impl std::io::Read,
 ) -> std::io::Result<Vec<CircuitGate<F>>> {
@@ -78,119 +51,18 @@ fn decode_gates_file<F: FieldWitness>(
 }
 
 #[cfg(not(target_family = "wasm"))]
-fn read_or_fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
-    use std::path::PathBuf;
-
-    fn try_base_dir<P: Into<PathBuf>>(base_dir: P, filename: &impl AsRef<Path>) -> Option<PathBuf> {
-        let mut path = base_dir.into();
-        path.push(filename);
-        path.exists().then_some(path)
-    }
-
-    fn to_io_err(err: impl std::fmt::Display) -> std::io::Error {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!(
-                "failed to find circuit-blobs locally and to fetch the from github! error: {err}"
-            ),
-        )
-    }
-
-    let home_base_dir = None.or_else(|| {
-        let mut path = std::path::PathBuf::from(std::env::var("HOME").ok()?);
-        path.push(".openmina/circuit-blobs");
-        Some(path)
-    });
-    let found = None
-        .or_else(|| {
-            try_base_dir(
-                std::env::var("OPENMINA_CIRCUIT_BLOBS_BASE_DIR").ok()?,
-                filename,
-            )
-        })
-        .or_else(|| try_base_dir(env!("CARGO_MANIFEST_DIR").to_string(), filename))
-        .or_else(|| try_base_dir(home_base_dir.clone()?, filename))
-        .or_else(|| try_base_dir("/usr/local/lib/openmina/circuit-blobs", filename));
-
-    if let Some(path) = found {
-        return std::fs::read(path);
-    }
-
-    let filename_str = filename.as_ref().to_str().unwrap();
-    eprintln!(
-        "circuit-blobs '{}' not found locally, so fetching it...",
-        filename_str
-    );
-    let base_dir = home_base_dir.expect("$HOME env not set!");
-    let releases_path = "https://github.com/openmina/circuit-blobs/releases/download";
-
-    let bytes = reqwest::blocking::get(format!("{releases_path}/{filename_str}",))
-        .map_err(to_io_err)?
-        .bytes()
-        .map_err(to_io_err)?
-        .to_vec();
-
-    // cache it to home dir.
-    let cache_path = base_dir.join(filename);
-    eprintln!("caching circuit-blobs to {}", cache_path.to_str().unwrap());
-    let _ = std::fs::create_dir_all(cache_path.parent().unwrap());
-    let _ = std::fs::write(cache_path, &bytes);
-
-    Ok(bytes)
-}
-
-#[cfg(not(target_family = "wasm"))]
 fn read_gates_file<F: FieldWitness>(
     filename: &impl AsRef<Path>,
 ) -> std::io::Result<Vec<CircuitGate<F>>> {
-    let bytes = read_or_fetch(filename)?;
+    let bytes = circuit_blobs::fetch(filename)?;
     decode_gates_file(bytes.as_slice())
 }
 
 #[cfg(target_family = "wasm")]
-mod http {
-    use openmina_core::thread;
-    use wasm_bindgen::prelude::*;
-
-    fn to_io_err(err: JsValue) -> std::io::Error {
-        std::io::Error::new(std::io::ErrorKind::Other, format!("{err:?}"))
-    }
-
-    async fn _get_bytes(url: String) -> std::io::Result<Vec<u8>> {
-        use wasm_bindgen_futures::JsFuture;
-        use web_sys::Response;
-
-        // let window = js_sys::global().dyn_into::<web_sys::WorkerGlobalScope>().unwrap();
-        let window = web_sys::window().unwrap();
-
-        let resp_value = JsFuture::from(window.fetch_with_str(&url))
-            .await
-            .map_err(to_io_err)?;
-
-        assert!(resp_value.is_instance_of::<Response>());
-        let resp: Response = resp_value.dyn_into().unwrap();
-        let js = JsFuture::from(resp.array_buffer().map_err(to_io_err)?)
-            .await
-            .map_err(to_io_err)?;
-        Ok(js_sys::Uint8Array::new(&js).to_vec())
-    }
-
-    pub async fn get_bytes(url: &str) -> std::io::Result<Vec<u8>> {
-        let url = url.to_owned();
-        if thread::is_web_worker_thread() {
-            thread::run_async_fn_in_main_thread(move || _get_bytes(url)).await.expect("failed to run task in the main thread! Maybe main thread crashed or not initialized?")
-        } else {
-            _get_bytes(url).await
-        }
-    }
-}
-
-#[cfg(target_family = "wasm")]
 async fn read_gates_file<F: FieldWitness>(
-    filepath: impl AsRef<Path>,
+    filepath: &impl AsRef<Path>,
 ) -> std::io::Result<Vec<CircuitGate<F>>> {
-    let url = filepath.as_ref().to_str().unwrap();
-    let resp = http::get_bytes(url).await?;
+    let resp = circuit_blobs::fetch(filepath).await?;
     decode_gates_file(&mut resp.as_slice())
 }
 
@@ -225,8 +97,7 @@ async fn make_gates<F: FieldWitness>(
     Vec<CircuitGate<F>>,
 ) {
     let circuits_config = openmina_core::NetworkConfig::global().circuits_config;
-    let base_dir = Path::new("/circuit-blobs");
-    let base_dir = base_dir.join(circuits_config.directory_name);
+    let base_dir = Path::new(circuits_config.directory_name);
 
     let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
     let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
@@ -295,12 +166,12 @@ mod prover_makers {
     }
     fn get_or_make_tx_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+        verifier_index: Option<TransactionVerifier>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             TX_WRAP_PROVER,
             WrapTransactionProof,
-            verifier_index,
+            verifier_index.map(Into::into),
             config.wrap_transaction_gates
         )
     }
@@ -316,12 +187,12 @@ mod prover_makers {
     }
     fn get_or_make_block_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+        verifier_index: Option<BlockVerifier>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             BLOCK_WRAP_PROVER,
             WrapBlockProof,
-            verifier_index,
+            verifier_index.map(Into::into),
             config.wrap_blockchain_gates
         )
     }
@@ -351,8 +222,8 @@ mod prover_makers {
 
     impl BlockProver {
         pub fn make(
-            block_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
-            tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+            block_verifier_index: Option<BlockVerifier>,
+            tx_verifier_index: Option<TransactionVerifier>,
         ) -> Self {
             let config = default_circuits_config();
             let block_step_prover = get_or_make_block_step_prover(config);
@@ -368,7 +239,7 @@ mod prover_makers {
     }
 
     impl TransactionProver {
-        pub fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
+        pub fn make(tx_verifier_index: Option<TransactionVerifier>) -> Self {
             let config = default_circuits_config();
             let tx_step_prover = get_or_make_tx_step_prover(config);
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index);
@@ -383,7 +254,7 @@ mod prover_makers {
     }
 
     impl ZkappProver {
-        pub fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
+        pub fn make(tx_verifier_index: Option<TransactionVerifier>) -> Self {
             let config = default_circuits_config();
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index);
             let merge_step_prover = get_or_make_merge_step_prover(config);
@@ -416,12 +287,12 @@ mod prover_makers {
     }
     async fn get_or_make_tx_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+        verifier_index: Option<TransactionVerifier>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             TX_WRAP_PROVER,
             WrapTransactionProof,
-            verifier_index,
+            verifier_index.map(Into::into),
             config.wrap_transaction_gates
         )
     }
@@ -437,12 +308,12 @@ mod prover_makers {
     }
     async fn get_or_make_block_wrap_prover(
         config: &CircuitsConfig,
-        verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+        verifier_index: Option<BlockVerifier>,
     ) -> Arc<Prover<Fq>> {
         get_or_make!(
             BLOCK_WRAP_PROVER,
             WrapBlockProof,
-            verifier_index,
+            verifier_index.map(Into::into),
             config.wrap_blockchain_gates
         )
     }
@@ -472,8 +343,8 @@ mod prover_makers {
 
     impl BlockProver {
         pub async fn make(
-            block_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
-            tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>,
+            block_verifier_index: Option<BlockVerifier>,
+            tx_verifier_index: Option<TransactionVerifier>,
         ) -> Self {
             let config = default_circuits_config();
             let block_step_prover = get_or_make_block_step_prover(config).await;
@@ -490,7 +361,7 @@ mod prover_makers {
     }
 
     impl TransactionProver {
-        pub async fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
+        pub async fn make(tx_verifier_index: Option<TransactionVerifier>) -> Self {
             let config = default_circuits_config();
             let tx_step_prover = get_or_make_tx_step_prover(config).await;
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index).await;
@@ -505,7 +376,7 @@ mod prover_makers {
     }
 
     impl ZkappProver {
-        pub async fn make(tx_verifier_index: Option<Arc<VerifierIndex<Fq>>>) -> Self {
+        pub async fn make(tx_verifier_index: Option<TransactionVerifier>) -> Self {
             let config = default_circuits_config();
             let tx_wrap_prover = get_or_make_tx_wrap_prover(config, tx_verifier_index).await;
             let merge_step_prover = get_or_make_merge_step_prover(config).await;
@@ -606,10 +477,10 @@ fn read_constraints_data<F: FieldWitness>(
     rows_rev_path: &Path,
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
     // ((Fp.t * V.t) list * Fp.t option)
-    let internal_vars = read_or_fetch(&internal_vars_path).ok()?;
+    let internal_vars = circuit_blobs::fetch(&internal_vars_path).ok()?;
 
     // V.t option array list
-    let rows_rev = read_or_fetch(&rows_rev_path).ok()?;
+    let rows_rev = circuit_blobs::fetch(&rows_rev_path).ok()?;
 
     decode_constraints_data(internal_vars.as_slice(), rows_rev.as_slice())
 }
@@ -620,14 +491,10 @@ async fn read_constraints_data<F: FieldWitness>(
     rows_rev_path: &Path,
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
     // ((Fp.t * V.t) list * Fp.t option)
-    let internal_vars = http::get_bytes(internal_vars_path.to_str().unwrap())
-        .await
-        .ok()?;
+    let internal_vars = circuit_blobs::fetch(&internal_vars_path).await.ok()?;
 
     // V.t option array list
-    let rows_rev = http::get_bytes(rows_rev_path.to_str().unwrap())
-        .await
-        .ok()?;
+    let rows_rev = circuit_blobs::fetch(&rows_rev_path).await.ok()?;
     // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rows_rev.bin")).unwrap();
 
     decode_constraints_data(internal_vars.as_ref(), rows_rev.as_ref())

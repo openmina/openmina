@@ -1458,7 +1458,7 @@ pub mod wrap_verifier {
         transaction::scalar_challenge::{self, to_field_checked},
         unfinalized,
         util::{challenge_polynomial_checked, to_absorption_sequence_opt, two_u64_to_field},
-        verifier_index::wrap_domains,
+        verifiers::wrap_domains,
         wrap::pcs_batch::PcsBatch,
     };
 
