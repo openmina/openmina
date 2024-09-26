@@ -655,6 +655,10 @@ impl GlobalSlotSinceGenesisInterface for SnarkGlobalSlot {
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
         <Self as CheckedNat<_, 32>>::equal(self, other, w).var()
     }
+
+    fn exists_no_check(self, w: &mut Self::W) -> Self {
+        w.exists_no_check(self)
+    }
 }
 
 fn signature_verifies(

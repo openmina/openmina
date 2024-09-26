@@ -290,10 +290,11 @@ fn update_action_state<Z: ZkappApplication>(
         Boolean::True => s2,
         Boolean::False => s1,
     });
-    let last_action_slot = w.exists_no_check(match is_empty.as_boolean() {
+    let last_action_slot = match is_empty.as_boolean() {
         Boolean::True => last_action_slot,
         Boolean::False => txn_global_slot,
-    });
+    }
+    .exists_no_check(w);
     ([s1_new, s2, s3, s4, s5], last_action_slot)
 }
 

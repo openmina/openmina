@@ -197,6 +197,7 @@ pub trait GlobalSlotSinceGenesisInterface {
     type Bool: BoolInterface;
 
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool;
+    fn exists_no_check(self, w: &mut Self::W) -> Self;
 }
 
 pub trait GlobalSlotSpanInterface {
@@ -477,7 +478,7 @@ where
     fn set_last_action_slot(&mut self, slot: Self::GlobalSlot);
 }
 
-pub trait LedgerInterface {
+pub trait LedgerInterface: LedgerIntf + Clone + ToFieldElements<Fp> {
     type W: WitnessGenerator<Fp>;
     type AccountUpdate: AccountUpdateInterface;
     type Account: AccountInterface;
@@ -567,15 +568,12 @@ pub trait ZkappApplication
 where
     Self: Sized,
 {
-    type Ledger: LedgerIntf
-        + Clone
-        + ToFieldElements<Fp>
-        + LedgerInterface<
-            W = Self::WitnessGenerator,
-            AccountUpdate = Self::AccountUpdate,
-            Account = Self::Account,
-            Bool = Self::Bool,
-        >;
+    type Ledger: LedgerInterface<
+        W = Self::WitnessGenerator,
+        AccountUpdate = Self::AccountUpdate,
+        Account = Self::Account,
+        Bool = Self::Bool,
+    >;
     type SignedAmount: SignedAmountInterface<W = Self::WitnessGenerator, Bool = Self::Bool, Amount = Self::Amount>
         + std::fmt::Debug
         + Clone
@@ -588,10 +586,11 @@ where
         SignedAmount = Self::SignedAmount,
     >;
     type Index: IndexInterface + Clone + ToFieldElements<Fp>;
-    type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface<W = Self::WitnessGenerator, Bool = Self::Bool>
-        + ToFieldElements<Fp>;
+    type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface<
+        W = Self::WitnessGenerator,
+        Bool = Self::Bool,
+    >;
     type StackFrame: StackFrameInterface<W = Self::WitnessGenerator, Calls = Self::CallForest, Bool = Self::Bool>
-        + ToFieldElements<Fp>
         + std::fmt::Debug
         + Clone;
     type CallForest: CallForestInterface<

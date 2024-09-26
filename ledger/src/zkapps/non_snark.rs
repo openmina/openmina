@@ -62,15 +62,12 @@ pub struct NonSnarkHandler<L>(PhantomData<L>);
 pub struct ZkappNonSnark<L>(PhantomData<L>);
 
 impl<
-        L: LedgerIntf
-            + Clone
-            + ToFieldElements<Fp>
-            + LedgerInterface<
-                W = (),
-                AccountUpdate = AccountUpdate,
-                Account = crate::Account,
-                Bool = bool,
-            >,
+        L: LedgerInterface<
+            W = (),
+            AccountUpdate = AccountUpdate,
+            Account = crate::Account,
+            Bool = bool,
+        >,
     > ZkappApplication for ZkappNonSnark<L>
 {
     type Ledger = L;
@@ -128,15 +125,12 @@ impl<F: FieldWitness> WitnessGenerator<F> for () {
 }
 
 impl<
-        L: LedgerIntf
-            + Clone
-            + ToFieldElements<Fp>
-            + LedgerInterface<
-                W = (),
-                AccountUpdate = AccountUpdate,
-                Account = crate::Account,
-                Bool = bool,
-            >,
+        L: LedgerInterface<
+            W = (),
+            AccountUpdate = AccountUpdate,
+            Account = crate::Account,
+            Bool = bool,
+        >,
     > ZkappHandler for NonSnarkHandler<L>
 {
     type Z = ZkappNonSnark<L>;
@@ -322,15 +316,12 @@ impl TokenIdInterface for TokenId {
 }
 
 impl<
-        L: LedgerIntf
-            + Clone
-            + ToFieldElements<Fp>
-            + LedgerInterface<
-                W = (),
-                AccountUpdate = AccountUpdate,
-                Account = crate::Account,
-                Bool = bool,
-            >,
+        L: LedgerInterface<
+            W = (),
+            AccountUpdate = AccountUpdate,
+            Account = crate::Account,
+            Bool = bool,
+        >,
     > LocalStateInterface for zkapp_logic::LocalState<ZkappNonSnark<L>>
 {
     type Z = ZkappNonSnark<L>;
@@ -426,11 +417,9 @@ impl GlobalSlotSinceGenesisInterface for Slot {
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
         self == other
     }
-}
 
-impl<F: FieldWitness> ToFieldElements<F> for StackFrame {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        unreachable!()
+    fn exists_no_check(self, w: &mut Self::W) -> Self {
+        self
     }
 }
 
