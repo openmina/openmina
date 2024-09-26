@@ -10,6 +10,7 @@ use crate::{
         field::{Boolean, FieldWitness, ToBoolean},
         to_field_elements::ToFieldElements,
         transaction::Check,
+        witness::Witness,
     },
     scan_state::{
         currency::{Amount, Balance, Index, Magnitude, Signed, Slot, SlotSpan, TxnVersion},
@@ -42,6 +43,7 @@ use super::{
         TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
         ZkappHandler,
     },
+    snark::NonSnarkOps,
     zkapp_logic,
 };
 
@@ -147,11 +149,27 @@ impl<
         local_state: &mut zkapp_logic::LocalState<ZkappNonSnark<L>>,
         w: &mut Self::W,
     ) {
-        let AccountPreconditions(precondition_account) = &account_update.body.preconditions.account;
-        let check = |failure, b| {
-            zkapp_logic::LocalState::<ZkappNonSnark<L>>::add_check(local_state, failure, b, w);
+        let precondition_account = &account_update.body.preconditions.account;
+        let check = |failure, b: Boolean, _: &mut Witness<Fp>| {
+            zkapp_logic::LocalState::<ZkappNonSnark<L>>::add_check(
+                local_state,
+                failure,
+                b.as_bool(),
+                w,
+            );
         };
-        precondition_account.zcheck(new_account, check, account);
+        let mut w = Witness::empty();
+        precondition_account.checked_zcheck::<NonSnarkOps, _>(
+            new_account.to_boolean(),
+            account,
+            check,
+            &mut w,
+        );
+        // let AccountPreconditions(precondition_account) = &account_update.body.preconditions.account;
+        // let check = |failure, b| {
+        //     zkapp_logic::LocalState::<ZkappNonSnark<L>>::add_check(local_state, failure, b, w);
+        // };
+        // precondition_account.zcheck(new_account, check, account);
     }
 
     fn check_protocol_state_precondition(
@@ -159,9 +177,13 @@ impl<
         global_state: &mut Self::GlobalState,
         w: &mut Self::W,
     ) -> Self::Bool {
+        let mut w = Witness::empty();
         protocol_state_predicate
-            .zcheck(&global_state.protocol_state)
-            .is_ok()
+            .checked_zcheck::<NonSnarkOps>(&global_state.protocol_state, &mut w)
+            .as_bool()
+        // protocol_state_predicate
+        //     .zcheck(&global_state.protocol_state)
+        //     .is_ok()
     }
 
     fn check_valid_while_precondition(
@@ -169,12 +191,18 @@ impl<
         global_state: &mut Self::GlobalState,
         w: &mut Self::W,
     ) -> Self::Bool {
-        valid_while
-            .zcheck(
-                || "valid_while_precondition".to_string(),
-                &global_state.block_global_slot,
-            )
-            .is_ok()
+        use crate::zkapps::snark::zkapp_check::InSnarkCheck;
+        use zkapp_command::ClosedInterval;
+        let mut w = Witness::empty();
+        (valid_while, ClosedInterval::min_max)
+            .checked_zcheck::<NonSnarkOps>(&global_state.block_global_slot, &mut w)
+            .as_bool()
+        // valid_while
+        //     .zcheck(
+        //         || "valid_while_precondition".to_string(),
+        //         &global_state.block_global_slot,
+        //     )
+        //     .is_ok()
     }
 
     fn init_account(
