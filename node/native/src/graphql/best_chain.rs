@@ -168,9 +168,10 @@ impl From<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
                 )
                 .collect(),
             memo: if let Some(memo) = value.memo {
-                MinaBaseSignedCommandMemoStableV1::from_base58check(&memo).unwrap()
+                MinaBaseSignedCommandMemoStableV1::from_base58check(&memo)
             } else {
-                MinaBaseSignedCommandMemoStableV1::from_base58check("").unwrap()
+                let empty_memo = ledger::scan_state::transaction_logic::Memo::from_str("").unwrap();
+                MinaBaseSignedCommandMemoStableV1::from(&empty_memo)
             },
         })
     }
@@ -1695,5 +1696,22 @@ impl From<InputGraphQLTiming> for MinaBaseAccountUpdateUpdateTimingInfoStableV1 
                 value.vesting_increment.parse::<u64>().unwrap().into(),
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use mina_p2p_messages::v2::MinaBaseSignedCommandMemoStableV1;
+
+    #[test]
+    fn test_empty_memo() {
+        use ledger::scan_state::transaction_logic::Memo;
+
+        let expected = "E4YM2vTHhWEg66xpj52JErHUBU4pZ1yageL4TVDDpTTSsv8mK6YaH";
+        let empty_memo = Memo::from_str("").unwrap();
+        let mina_empty_memo = MinaBaseSignedCommandMemoStableV1::from(&empty_memo);
+        assert_eq!(mina_empty_memo.to_base58check(), expected);
     }
 }
