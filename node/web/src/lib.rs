@@ -10,7 +10,7 @@ pub use node::{Node, NodeBuilder};
 
 use ::node::account::AccountSecretKey;
 use ::node::core::thread;
-use ::node::snark::{get_verifier_index, VerifierKind};
+use ::node::snark::{BlockVerifier, TransactionVerifier};
 use anyhow::Context;
 use ledger::proofs::provers::BlockProver;
 use openmina_node_common::rpc::RpcSender;
@@ -54,8 +54,8 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
 ) -> openmina_node_common::Node<NodeService> {
-    let block_verifier_index = get_verifier_index(VerifierKind::Blockchain);
-    let work_verifier_index = get_verifier_index(VerifierKind::Transaction);
+    let block_verifier_index = BlockVerifier::make().await;
+    let work_verifier_index = TransactionVerifier::make().await;
 
     let genesis_config = ::node::config::DEVNET_CONFIG.clone();
     let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);

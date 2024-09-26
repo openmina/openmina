@@ -1,9 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    proofs::{
-        field::FieldWitness, verification, verifier_index::get_verifier_index, VerifierIndex,
-    },
+    proofs::{field::FieldWitness, verification, verifiers::TransactionVerifier, VerifierIndex},
     scan_state::{
         scan_state::transaction_snark::{
             LedgerProof, LedgerProofWithSokMessage, SokMessage, TransactionSnark,
@@ -30,8 +28,9 @@ use poly_commitment::srs::SRS;
 
 // TODO: Move this into `Verifier` struct above
 pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Fq>>> = Lazy::new(|| {
-    use crate::proofs::verifier_index::VerifierKind;
-    get_verifier_index(VerifierKind::Transaction)
+    TransactionVerifier::get()
+        .expect("verifier index not initialized")
+        .into()
 });
 
 /// Returns the SRS on the other curve (immutable version for verifiers)

@@ -34,7 +34,7 @@ use node::snark::block_verify::{
 use node::snark::user_command_verify::SnarkUserCommandVerifyId;
 use node::snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
-use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
+use node::snark::{BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS};
 use node::snark_pool::SnarkPoolService;
 use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
@@ -372,7 +372,7 @@ impl SnarkBlockVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: BlockVerifier,
         verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
@@ -398,7 +398,7 @@ impl SnarkUserCommandVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkUserCommandVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: TransactionVerifier,
         verifier_srs: Arc<VerifierSRS>,
         commands: List<v2::MinaBaseUserCommandStableV2>,
     ) {
@@ -416,7 +416,7 @@ impl SnarkWorkVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: TransactionVerifier,
         verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {

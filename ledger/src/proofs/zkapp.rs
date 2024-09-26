@@ -23,7 +23,7 @@ use crate::{
         transaction::{ProofWithPublic, ReducedMessagesForNextStepProof},
         unfinalized::{AllEvals, EvalsWithPublicInput},
         verification::prev_evals_to_p2p,
-        verifier_index::make_zkapp_verifier_index,
+        verifiers::make_zkapp_verifier_index,
         wrap::{self, WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
     },

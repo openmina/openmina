@@ -23,7 +23,7 @@ pub mod unfinalized;
 mod urs_utils;
 pub mod util;
 pub mod verification;
-pub mod verifier_index;
+pub mod verifiers;
 pub mod witness;
 pub mod wrap;
 pub mod zkapp;

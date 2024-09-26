@@ -9,7 +9,7 @@ use crate::{
         },
         unfinalized::dummy_ipa_step_challenges_computed,
         util::proof_evaluation_to_list,
-        verifier_index::wrap_domains,
+        verifiers::wrap_domains,
         wrap::{
             create_oracle_with_public_input, dummy_ipa_wrap_sg, wrap_verifier, Domain,
             COMMON_MAX_DEGREE_WRAP_LOG2,

@@ -5,7 +5,7 @@ mod merkle_path;
 pub use ledger::proofs::caching::{
     srs_from_bytes, srs_to_bytes, verifier_index_from_bytes, verifier_index_to_bytes,
 };
-pub use ledger::proofs::verifier_index::{get_verifier_index, VerifierKind};
+pub use ledger::proofs::verifiers::{BlockVerifier, TransactionVerifier};
 
 pub use merkle_path::calc_merkle_root_hash;
 

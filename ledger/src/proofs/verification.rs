@@ -10,7 +10,7 @@ use crate::{
         accumulator_check,
         step::{expand_deferred, StatementProofState},
         unfinalized::AllEvals,
-        verifier_index::make_zkapp_verifier_index,
+        verifiers::make_zkapp_verifier_index,
         wrap::Domain,
         BACKEND_TICK_ROUNDS_N,
     },

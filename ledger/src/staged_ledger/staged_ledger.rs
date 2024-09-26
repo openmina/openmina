@@ -6008,9 +6008,7 @@ mod tests {
             pending_coinbase_collection: pending_coinbase,
         };
 
-        let block_verifier = crate::proofs::verifier_index::get_verifier_index(
-            crate::proofs::verifier_index::VerifierKind::Blockchain,
-        );
+        let block_verifier = crate::proofs::verifiers::BlockVerifier::make();
 
         println!("initialized in {:?}", now.elapsed());
 

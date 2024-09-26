@@ -38,6 +38,13 @@ mod http {
     }
 }
 
+#[cfg(not(target_family = "wasm"))]
+pub fn home_base_dir() -> Option<std::path::PathBuf> {
+    let mut path = std::path::PathBuf::from(std::env::var("HOME").ok()?);
+    path.push(".openmina/circuit-blobs");
+    Some(path)
+}
+
 fn git_release_url(filename: &impl AsRef<Path>) -> String {
     const RELEASES_PATH: &str = "https://github.com/openmina/circuit-blobs/releases/download";
     let filename_str = filename.as_ref().to_str().unwrap();
@@ -47,7 +54,7 @@ fn git_release_url(filename: &impl AsRef<Path>) -> String {
 
 #[cfg(not(target_family = "wasm"))]
 pub fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
-    use std::path::{PathBuf};
+    use std::path::PathBuf;
 
     fn try_base_dir<P: Into<PathBuf>>(base_dir: P, filename: &impl AsRef<Path>) -> Option<PathBuf> {
         let mut path = base_dir.into();
@@ -64,11 +71,7 @@ pub fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
         )
     }
 
-    let home_base_dir = None.or_else(|| {
-        let mut path = std::path::PathBuf::from(std::env::var("HOME").ok()?);
-        path.push(".openmina/circuit-blobs");
-        Some(path)
-    });
+    let home_base_dir = home_base_dir();
     let found = None
         .or_else(|| {
             try_base_dir(
@@ -107,5 +110,9 @@ pub fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
 
 #[cfg(target_family = "wasm")]
 pub async fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
-    http::get_bytes(&git_release_url(filename)).await
+    let prefix =
+        option_env!("CIRCUIT_BLOBS_HTTP_PREFIX").unwrap_or("/assets/webnode/circuit-blobs");
+    let url = format!("{prefix}/{}", filename.as_ref().to_str().unwrap());
+    http::get_bytes(&url).await
+    // http::get_bytes(&git_release_url(filename)).await
 }

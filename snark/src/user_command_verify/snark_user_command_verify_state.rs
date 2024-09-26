@@ -6,19 +6,19 @@ use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::PendingRequests;
 
-use crate::{VerifierIndex, VerifierSRS};
+use crate::{TransactionVerifier, VerifierSRS};
 
 use super::{SnarkUserCommandVerifyError, SnarkUserCommandVerifyId, SnarkUserCommandVerifyIdType};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkUserCommandVerifyState {
-    pub verifier_index: Arc<VerifierIndex>,
+    pub verifier_index: TransactionVerifier,
     pub verifier_srs: Arc<VerifierSRS>,
     pub jobs: PendingRequests<SnarkUserCommandVerifyIdType, SnarkUserCommandVerifyStatus>,
 }
 
 impl SnarkUserCommandVerifyState {
-    pub fn new(verifier_index: Arc<VerifierIndex>, verifier_srs: Arc<VerifierSRS>) -> Self {
+    pub fn new(verifier_index: TransactionVerifier, verifier_srs: Arc<VerifierSRS>) -> Self {
         Self {
             verifier_index,
             verifier_srs,
