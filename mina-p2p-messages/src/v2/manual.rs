@@ -1656,11 +1656,12 @@ impl std::str::FromStr for SgnStableV1 {
 
 #[cfg(test)]
 mod test {
-    use binprot::BinProtRead;
     use crate::b58::ToBase58Check;
+    use binprot::BinProtRead;
 
     use crate::v2::{
-        MinaBaseSignedCommandMemoStableV1, MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1, MinaBaseZkappCommandTStableV1WireStableV1Base64
+        MinaBaseSignedCommandMemoStableV1, MinaBaseVerificationKeyWireStableV1,
+        MinaBaseZkappCommandTStableV1WireStableV1, MinaBaseZkappCommandTStableV1WireStableV1Base64,
     };
 
     #[test]
