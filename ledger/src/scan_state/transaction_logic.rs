@@ -936,7 +936,7 @@ pub mod zkapp_command {
             currency::{MinMax, Sgn},
             GenesisConstant, GENESIS_CONSTANT,
         },
-        zkapps::snark::{zkapp_check::InSnarkCheck, ZkappCheckOps},
+        zkapps::checks::{ZkappCheck, ZkappCheckOps},
         AuthRequired, MutableFp, MyCow, Permissions, SetVerificationKey, ToInputs, TokenSymbol,
         VerificationKey, VerificationKeyWire, VotingFor, ZkAppAccount, ZkAppUri,
     };
@@ -1536,12 +1536,14 @@ pub mod zkapp_command {
         }
     }
 
+    // TODO: Remove this. It's been replaced by `ZkappCheck`
     pub trait OutSnarkCheck {
         type A;
         type B;
 
-        /// zkapp check
-        fn zcheck<F: Fn() -> String>(&self, label: F, x: &Self::B) -> Result<(), String>;
+        /// zkapp check.
+        // name is `out_zheck`, to differentiate with `zcheck`. It means out of snark
+        fn out_zcheck<F: Fn() -> String>(&self, label: F, x: &Self::B) -> Result<(), String>;
     }
 
     impl<T> OutSnarkCheck for T
@@ -1552,7 +1554,7 @@ pub mod zkapp_command {
         type B = T;
 
         /// zkapp check
-        fn zcheck<F: Fn() -> String>(&self, label: F, rhs: &Self::B) -> Result<(), String> {
+        fn out_zcheck<F: Fn() -> String>(&self, label: F, rhs: &Self::B) -> Result<(), String> {
             if self == rhs {
                 Ok(())
             } else {
@@ -1625,7 +1627,7 @@ pub mod zkapp_command {
         type B = T;
 
         /// zkapp check
-        fn zcheck<F: Fn() -> String>(&self, label: F, rhs: &Self::B) -> Result<(), String> {
+        fn out_zcheck<F: Fn() -> String>(&self, label: F, rhs: &Self::B) -> Result<(), String> {
             /*println!(
                 "bounds check lower {:?} rhs {:?} upper {:?}",
                 self.lower, rhs, self.upper
@@ -1740,11 +1742,11 @@ pub mod zkapp_command {
         T: OutSnarkCheck<A = T>,
     {
         /// zkapp check
-        pub fn zcheck<F: Fn() -> String>(&self, label: F, rhs: &T::B) -> Result<(), String> {
+        pub fn out_zcheck<F: Fn() -> String>(&self, label: F, rhs: &T::B) -> Result<(), String> {
             // println!("[rust] check {}, {:?}", label, ret);
             match self {
                 Self::Ignore => Ok(()),
-                Self::Check(t) => t.zcheck(label, rhs),
+                Self::Check(t) => t.out_zcheck(label, rhs),
             }
         }
     }
@@ -1807,8 +1809,8 @@ pub mod zkapp_command {
     impl EpochLedger {
         pub fn epoch_ledger(&self, t: &protocol_state::EpochLedger<Fp>) -> Result<(), String> {
             self.hash
-                .zcheck(|| "epoch_ledger_hash".to_string(), &t.hash)?;
-            self.total_currency.zcheck(
+                .out_zcheck(|| "epoch_ledger_hash".to_string(), &t.hash)?;
+            self.total_currency.out_zcheck(
                 || "epoch_ledger_total_currency".to_string(),
                 &t.total_currency,
             )
@@ -1915,16 +1917,16 @@ pub mod zkapp_command {
         ) -> Result<(), String> {
             self.ledger.epoch_ledger(&t.ledger)?;
             // ignore seed
-            self.start_checkpoint.zcheck(
+            self.start_checkpoint.out_zcheck(
                 || format!("{}_{}", label, "start_checkpoint"),
                 &t.start_checkpoint,
             )?;
-            self.lock_checkpoint.zcheck(
+            self.lock_checkpoint.out_zcheck(
                 || format!("{}_{}", label, "lock_checkpoint"),
                 &t.lock_checkpoint,
             )?;
             self.epoch_length
-                .zcheck(|| format!("{}_{}", label, "epoch_length"), &t.epoch_length)
+                .out_zcheck(|| format!("{}_{}", label, "epoch_length"), &t.epoch_length)
         }
 
         pub fn gen() -> Self {
@@ -1957,16 +1959,16 @@ pub mod zkapp_command {
 
     impl ZkAppPreconditions {
         /// zkapp check
-        pub fn zcheck(&self, s: &ProtocolStateView) -> Result<(), String> {
+        pub fn out_zcheck(&self, s: &ProtocolStateView) -> Result<(), String> {
             self.snarked_ledger_hash
-                .zcheck(|| "snarker_ledger_hash".to_string(), &s.snarked_ledger_hash)?;
+                .out_zcheck(|| "snarker_ledger_hash".to_string(), &s.snarked_ledger_hash)?;
             self.blockchain_length
-                .zcheck(|| "blockchain_length".to_string(), &s.blockchain_length)?;
+                .out_zcheck(|| "blockchain_length".to_string(), &s.blockchain_length)?;
             self.min_window_density
-                .zcheck(|| "min_window_density".to_string(), &s.min_window_density)?;
+                .out_zcheck(|| "min_window_density".to_string(), &s.min_window_density)?;
             self.total_currency
-                .zcheck(|| "total_currency".to_string(), &s.total_currency)?;
-            self.global_slot_since_genesis.zcheck(
+                .out_zcheck(|| "total_currency".to_string(), &s.total_currency)?;
+            self.global_slot_since_genesis.out_zcheck(
                 || "global_slot_since_genesis".to_string(),
                 &s.global_slot_since_genesis,
             )?;
@@ -1976,7 +1978,7 @@ pub mod zkapp_command {
                 .epoch_data("next_epoch_data", &s.next_epoch_data)
         }
 
-        pub fn checked_zcheck<Ops: ZkappCheckOps>(
+        pub fn zcheck<Ops: ZkappCheckOps>(
             &self,
             s: &ProtocolStateView,
             w: &mut Witness<Fp>,
@@ -2007,34 +2009,31 @@ pub mod zkapp_command {
                     lock_checkpoint,
                     epoch_length,
                 } = epoch_data;
-                // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+                // Reverse to match OCaml order of the list, while still executing `zcheck`
                 // in correct order
                 [
-                    (epoch_length, ClosedInterval::min_max)
-                        .checked_zcheck::<Ops>(&view.epoch_length, w),
-                    (lock_checkpoint, Fp::zero).checked_zcheck::<Ops>(&view.lock_checkpoint, w),
-                    (start_checkpoint, Fp::zero).checked_zcheck::<Ops>(&view.start_checkpoint, w),
+                    (epoch_length, ClosedInterval::min_max).zcheck::<Ops>(&view.epoch_length, w),
+                    (lock_checkpoint, Fp::zero).zcheck::<Ops>(&view.lock_checkpoint, w),
+                    (start_checkpoint, Fp::zero).zcheck::<Ops>(&view.start_checkpoint, w),
                     (total_currency, ClosedInterval::min_max)
-                        .checked_zcheck::<Ops>(&view.ledger.total_currency, w),
-                    (hash, Fp::zero).checked_zcheck::<Ops>(&view.ledger.hash, w),
+                        .zcheck::<Ops>(&view.ledger.total_currency, w),
+                    (hash, Fp::zero).zcheck::<Ops>(&view.ledger.hash, w),
                 ]
             };
 
             let next_epoch_data = epoch_data(next_epoch_data, &s.next_epoch_data, w);
             let staking_epoch_data = epoch_data(staking_epoch_data, &s.staking_epoch_data, w);
 
-            // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+            // Reverse to match OCaml order of the list, while still executing `zcheck`
             // in correct order
             let bools = [
                 (global_slot_since_genesis, ClosedInterval::min_max)
-                    .checked_zcheck::<Ops>(&s.global_slot_since_genesis, w),
-                (total_currency, ClosedInterval::min_max)
-                    .checked_zcheck::<Ops>(&s.total_currency, w),
+                    .zcheck::<Ops>(&s.global_slot_since_genesis, w),
+                (total_currency, ClosedInterval::min_max).zcheck::<Ops>(&s.total_currency, w),
                 (min_window_density, ClosedInterval::min_max)
-                    .checked_zcheck::<Ops>(&s.min_window_density, w),
-                (blockchain_length, ClosedInterval::min_max)
-                    .checked_zcheck::<Ops>(&s.blockchain_length, w),
-                (snarked_ledger_hash, Fp::zero).checked_zcheck::<Ops>(&s.snarked_ledger_hash, w),
+                    .zcheck::<Ops>(&s.min_window_density, w),
+                (blockchain_length, ClosedInterval::min_max).zcheck::<Ops>(&s.blockchain_length, w),
+                (snarked_ledger_hash, Fp::zero).zcheck::<Ops>(&s.snarked_ledger_hash, w),
             ]
             .into_iter()
             .rev()
@@ -2175,16 +2174,16 @@ pub mod zkapp_command {
 
     impl Account {
         /// zkapp check
-        pub fn zcheck<F>(&self, new_account: bool, mut check: F, a: &account::Account)
+        pub fn out_zcheck<F>(&self, new_account: bool, mut check: F, a: &account::Account)
         where
             F: FnMut(TransactionFailure, bool),
         {
-            self.zchecks(new_account, a)
+            self.out_zchecks(new_account, a)
                 .iter()
                 .for_each(|(failure, res)| check(failure.clone(), res.is_ok()))
         }
 
-        fn zchecks(
+        fn out_zchecks(
             &self,
             new_account: bool,
             a: &account::Account,
@@ -2196,20 +2195,21 @@ pub mod zkapp_command {
             let mut ret = vec![
                 (
                     TransactionFailure::AccountBalancePreconditionUnsatisfied,
-                    self.balance.zcheck(|| "balance".to_string(), &a.balance),
+                    self.balance
+                        .out_zcheck(|| "balance".to_string(), &a.balance),
                 ),
                 (
                     TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                    self.nonce.zcheck(|| "nonce".to_string(), &a.nonce),
+                    self.nonce.out_zcheck(|| "nonce".to_string(), &a.nonce),
                 ),
                 (
                     TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
                     self.receipt_chain_hash
-                        .zcheck(|| "receipt_chain_hash".to_string(), &a.receipt_chain_hash.0),
+                        .out_zcheck(|| "receipt_chain_hash".to_string(), &a.receipt_chain_hash.0),
                 ),
                 (
                     TransactionFailure::AccountDelegatePreconditionUnsatisfied,
-                    self.delegate.zcheck(
+                    self.delegate.out_zcheck(
                         || "delegate".to_string(),
                         &a.delegate.clone().unwrap_or_else(invalid_public_key),
                     ),
@@ -2218,7 +2218,7 @@ pub mod zkapp_command {
                     TransactionFailure::AccountActionStatePreconditionUnsatisfied,
                     match zkapp.action_state.iter().find(|state| {
                         self.action_state
-                            .zcheck(|| "".to_string(), &**state)
+                            .out_zcheck(|| "".to_string(), &**state)
                             .is_ok()
                     }) {
                         None => Err("Action state mismatch".to_string()),
@@ -2230,7 +2230,7 @@ pub mod zkapp_command {
             for (i, (c, v)) in self.state.iter().zip(zkapp.app_state.iter()).enumerate() {
                 ret.push((
                     TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as u64),
-                    c.zcheck(|| format!("state[{}]", i), &*v),
+                    c.out_zcheck(|| format!("state[{}]", i), v),
                 ));
             }
 
@@ -2238,11 +2238,12 @@ pub mod zkapp_command {
                 (
                     TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
                     self.proved_state
-                        .zcheck(|| "proved_state".to_string(), &zkapp.proved_state),
+                        .out_zcheck(|| "proved_state".to_string(), &zkapp.proved_state),
                 ),
                 (
                     TransactionFailure::AccountIsNewPreconditionUnsatisfied,
-                    self.is_new.zcheck(|| "is_new".to_string(), &new_account),
+                    self.is_new
+                        .out_zcheck(|| "is_new".to_string(), &new_account),
                 ),
             ];
 
@@ -2250,7 +2251,7 @@ pub mod zkapp_command {
             ret
         }
 
-        fn checked_zchecks<Ops: ZkappCheckOps>(
+        fn zchecks<Ops: ZkappCheckOps>(
             &self,
             account: &crate::Account,
             new_account: Boolean,
@@ -2273,7 +2274,7 @@ pub mod zkapp_command {
             let is_new = is_new.map(ToBoolean::to_boolean);
             let proved_state = proved_state.map(ToBoolean::to_boolean);
 
-            // NOTE: Here we need to execute all `checked_zcheck` in the exact same order than OCaml
+            // NOTE: Here we need to execute all `zcheck` in the exact same order than OCaml
             // so we execute them in reverse order (compared to OCaml): OCaml evaluates from right
             // to left.
             // We then have to reverse the resulting vector, to match OCaml resulting list.
@@ -2282,12 +2283,12 @@ pub mod zkapp_command {
             let mut checks: Vec<(TransactionFailure, _)> = [
                 (
                     AccountIsNewPreconditionUnsatisfied,
-                    (&is_new, || Boolean::False).checked_zcheck::<Ops>(&new_account, w),
+                    (&is_new, || Boolean::False).zcheck::<Ops>(&new_account, w),
                 ),
                 (
                     AccountProvedStatePreconditionUnsatisfied,
                     (&proved_state, || Boolean::False)
-                        .checked_zcheck::<Ops>(&zkapp_account.proved_state.to_boolean(), w),
+                        .zcheck::<Ops>(&zkapp_account.proved_state.to_boolean(), w),
                 ),
             ]
             .into_iter()
@@ -2298,7 +2299,7 @@ pub mod zkapp_command {
                     .enumerate()
                     .rev()
                     .map(|(i, (s, account_s))| {
-                        let b = (s, Fp::zero).checked_zcheck::<Ops>(account_s, w);
+                        let b = (s, Fp::zero).zcheck::<Ops>(account_s, w);
                         (AccountAppStatePreconditionUnsatisfied(i as u64), b)
                     })
                     .collect::<Vec<_>>();
@@ -2312,7 +2313,7 @@ pub mod zkapp_command {
                         .iter()
                         .map(|account_s| {
                             (action_state, ZkAppAccount::empty_action_state)
-                                .checked_zcheck::<Ops>(account_s, w)
+                                .zcheck::<Ops>(account_s, w)
                         })
                         .collect();
                     (
@@ -2323,20 +2324,19 @@ pub mod zkapp_command {
                 (
                     AccountDelegatePreconditionUnsatisfied,
                     (delegate, CompressedPubKey::empty)
-                        .checked_zcheck::<Ops>(&*account.delegate_or_empty(), w),
+                        .zcheck::<Ops>(&*account.delegate_or_empty(), w),
                 ),
                 (
                     AccountReceiptChainHashPreconditionUnsatisfied,
-                    (receipt_chain_hash, Fp::zero)
-                        .checked_zcheck::<Ops>(&account.receipt_chain_hash.0, w),
+                    (receipt_chain_hash, Fp::zero).zcheck::<Ops>(&account.receipt_chain_hash.0, w),
                 ),
                 (
                     AccountNoncePreconditionUnsatisfied,
-                    (nonce, ClosedInterval::min_max).checked_zcheck::<Ops>(&account.nonce, w),
+                    (nonce, ClosedInterval::min_max).zcheck::<Ops>(&account.nonce, w),
                 ),
                 (
                     AccountBalancePreconditionUnsatisfied,
-                    (balance, ClosedInterval::min_max).checked_zcheck::<Ops>(&account.balance, w),
+                    (balance, ClosedInterval::min_max).zcheck::<Ops>(&account.balance, w),
                 ),
             ])
             .collect::<Vec<_>>();
@@ -2458,7 +2458,7 @@ pub mod zkapp_command {
             MyCow::Borrow(&self.0)
         }
 
-        pub fn checked_zcheck<Ops, Fun>(
+        pub fn zcheck<Ops, Fun>(
             &self,
             new_account: Boolean,
             account: &crate::Account,
@@ -2469,7 +2469,7 @@ pub mod zkapp_command {
             Fun: FnMut(TransactionFailure, Boolean, &mut Witness<Fp>),
         {
             let this = self.to_full();
-            for (failure, passed) in this.checked_zchecks::<Ops>(account, new_account, w) {
+            for (failure, passed) in this.zchecks::<Ops>(account, new_account, w) {
                 check(failure, passed, w);
             }
         }
@@ -5862,14 +5862,14 @@ where
         match eff {
             Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
                 valid_while
-                    .zcheck(
+                    .out_zcheck(
                         || "valid_while_precondition".to_string(),
                         &global_state.block_global_slot,
                     )
                     .is_ok(),
             ),
             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
-                PerformResult::Bool(pred.zcheck(&global_state.protocol_state).is_ok())
+                PerformResult::Bool(pred.out_zcheck(&global_state.protocol_state).is_ok())
             }
             Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
                 let local_state = {
@@ -5878,7 +5878,7 @@ where
                     let check = |failure, b| {
                         _local_state = _local_state.add_check(failure, b);
                     };
-                    precondition_account.zcheck(new_account, check, &account);
+                    precondition_account.out_zcheck(new_account, check, &account);
                     _local_state
                 };
                 PerformResult::LocalState(Box::new(local_state))

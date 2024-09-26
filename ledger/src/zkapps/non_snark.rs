@@ -28,10 +28,12 @@ use crate::{
         zkapp_logic::controller_check,
     },
     sparse_ledger::LedgerIntf,
+    zkapps::checks::ZkappCheck,
     Account, AccountId, Mask, MyCow, TokenId, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 use super::{
+    checks::NonSnarkOps,
     intefaces::{
         AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
         AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
@@ -43,7 +45,6 @@ use super::{
         TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
         ZkappHandler,
     },
-    snark::NonSnarkOps,
     zkapp_logic,
 };
 
@@ -159,7 +160,7 @@ impl<
             );
         };
         let mut w = Witness::empty();
-        precondition_account.checked_zcheck::<NonSnarkOps, _>(
+        precondition_account.zcheck::<NonSnarkOps, _>(
             new_account.to_boolean(),
             account,
             check,
@@ -169,7 +170,7 @@ impl<
         // let check = |failure, b| {
         //     zkapp_logic::LocalState::<ZkappNonSnark<L>>::add_check(local_state, failure, b, w);
         // };
-        // precondition_account.zcheck(new_account, check, account);
+        // precondition_account.out_zcheck(new_account, check, account);
     }
 
     fn check_protocol_state_precondition(
@@ -179,10 +180,10 @@ impl<
     ) -> Self::Bool {
         let mut w = Witness::empty();
         protocol_state_predicate
-            .checked_zcheck::<NonSnarkOps>(&global_state.protocol_state, &mut w)
+            .zcheck::<NonSnarkOps>(&global_state.protocol_state, &mut w)
             .as_bool()
         // protocol_state_predicate
-        //     .zcheck(&global_state.protocol_state)
+        //     .out_zcheck(&global_state.protocol_state)
         //     .is_ok()
     }
 
@@ -191,14 +192,13 @@ impl<
         global_state: &mut Self::GlobalState,
         w: &mut Self::W,
     ) -> Self::Bool {
-        use crate::zkapps::snark::zkapp_check::InSnarkCheck;
         use zkapp_command::ClosedInterval;
         let mut w = Witness::empty();
         (valid_while, ClosedInterval::min_max)
-            .checked_zcheck::<NonSnarkOps>(&global_state.block_global_slot, &mut w)
+            .zcheck::<NonSnarkOps>(&global_state.block_global_slot, &mut w)
             .as_bool()
         // valid_while
-        //     .zcheck(
+        //     .out_zcheck(
         //         || "valid_while_precondition".to_string(),
         //         &global_state.block_global_slot,
         //     )

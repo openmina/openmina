@@ -9,7 +9,6 @@ use crate::{
     proofs::{
         field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
         numbers::{
-            common::ForZkappCheck,
             currency::{CheckedAmount, CheckedBalance, CheckedCurrency, CheckedSigned},
             nat::{CheckedIndex, CheckedNat, CheckedSlot},
         },
@@ -41,15 +40,19 @@ use crate::{
     ToInputs, TokenId, VerificationKey, VerificationKeyWire, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
-use super::intefaces::{
-    AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
-    AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
-    BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
-    GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
-    LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
-    SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
-    StackInterface, TokenIdInterface, TransactionCommitmentInterface, TxnVersionInterface,
-    VerificationKeyHashInterface, WitnessGenerator, ZkappApplication, ZkappHandler,
+use super::{
+    checks::{InSnarkOps, ZkappCheck},
+    intefaces::{
+        AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
+        AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
+        BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
+        GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface,
+        IndexInterface, LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface,
+        SetOrKeepInterface, SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface,
+        StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
+        TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
+        ZkappHandler,
+    },
 };
 
 pub struct ZkappSnark;
@@ -85,197 +88,6 @@ impl ZkappApplication for ZkappSnark {
     type Handler = super::snark::SnarkHandler;
     type Branch = SnarkBranch;
     type WitnessGenerator = Witness<Fp>;
-}
-
-pub trait ZkappCheckOps {
-    fn compare_closed_interval<T: ForZkappCheck<Fp>>(
-        interval: &ClosedInterval<T>,
-        value: &T,
-        w: &mut Witness<Fp>,
-    ) -> Boolean;
-    fn is_boolean_equal(a: &Boolean, b: &Boolean, w: &mut Witness<Fp>) -> Boolean;
-    fn is_field_equal(a: &Fp, b: &Fp, w: &mut Witness<Fp>) -> Boolean;
-    fn is_compressed_key_equal(
-        a: &CompressedPubKey,
-        b: &CompressedPubKey,
-        w: &mut Witness<Fp>,
-    ) -> Boolean;
-    fn boolean_all<I>(bools: I, w: &mut Witness<Fp>) -> Boolean
-    where
-        I: IntoIterator<Item = Boolean>;
-    fn boolean_any<I>(bools: I, w: &mut Witness<Fp>) -> Boolean
-    where
-        I: IntoIterator<Item = Boolean>;
-}
-
-struct InSnarkOps;
-pub struct NonSnarkOps;
-
-impl ZkappCheckOps for InSnarkOps {
-    fn compare_closed_interval<T: ForZkappCheck<Fp>>(
-        interval: &ClosedInterval<T>,
-        value: &T,
-        w: &mut Witness<Fp>,
-    ) -> Boolean {
-        let ClosedInterval { lower, upper } = interval;
-        let lower = lower.to_checked();
-        let upper = upper.to_checked();
-        let x = value.to_checked();
-        // We decompose this way because of OCaml evaluation order
-        let lower_than_upper = <T as ForZkappCheck<Fp>>::lte(&x, &upper, w);
-        let greater_than_lower = <T as ForZkappCheck<Fp>>::lte(&lower, &x, w);
-        Boolean::all(&[greater_than_lower, lower_than_upper], w)
-    }
-    fn is_boolean_equal(a: &Boolean, b: &Boolean, w: &mut Witness<Fp>) -> Boolean {
-        Boolean::equal(a, b, w)
-    }
-    fn is_field_equal(a: &Fp, b: &Fp, w: &mut Witness<Fp>) -> Boolean {
-        field::equal(*a, *b, w)
-    }
-    fn is_compressed_key_equal(
-        a: &CompressedPubKey,
-        b: &CompressedPubKey,
-        w: &mut Witness<Fp>,
-    ) -> Boolean {
-        checked_equal_compressed_key(a, b, w)
-    }
-    fn boolean_all<I>(bools: I, w: &mut Witness<Fp>) -> Boolean
-    where
-        I: IntoIterator<Item = Boolean>,
-    {
-        let bools = bools.into_iter().collect::<Vec<_>>();
-        Boolean::all(&bools, w)
-    }
-    fn boolean_any<I>(bools: I, w: &mut Witness<Fp>) -> Boolean
-    where
-        I: IntoIterator<Item = Boolean>,
-    {
-        let bools = bools.into_iter().collect::<Vec<_>>();
-        Boolean::any(&bools, w)
-    }
-}
-
-impl ZkappCheckOps for NonSnarkOps {
-    fn compare_closed_interval<T: ForZkappCheck<Fp>>(
-        interval: &ClosedInterval<T>,
-        value: &T,
-        _w: &mut Witness<Fp>,
-    ) -> Boolean {
-        let ClosedInterval { lower, upper } = interval;
-        (lower <= value && value <= upper).to_boolean()
-    }
-    fn is_boolean_equal(a: &Boolean, b: &Boolean, _w: &mut Witness<Fp>) -> Boolean {
-        (a == b).to_boolean()
-    }
-    fn is_field_equal(a: &Fp, b: &Fp, _w: &mut Witness<Fp>) -> Boolean {
-        (a == b).to_boolean()
-    }
-    fn is_compressed_key_equal(
-        a: &CompressedPubKey,
-        b: &CompressedPubKey,
-        _w: &mut Witness<Fp>,
-    ) -> Boolean {
-        (a == b).to_boolean()
-    }
-    fn boolean_all<I>(bools: I, _w: &mut Witness<Fp>) -> Boolean
-    where
-        I: IntoIterator<Item = Boolean>,
-    {
-        bools.into_iter().all(|b| b.as_bool()).to_boolean()
-    }
-    fn boolean_any<I>(bools: I, _w: &mut Witness<Fp>) -> Boolean
-    where
-        I: IntoIterator<Item = Boolean>,
-    {
-        bools.into_iter().any(|b| b.as_bool()).to_boolean()
-    }
-}
-
-pub mod zkapp_check {
-    use super::*;
-
-    pub trait InSnarkCheck {
-        type T;
-
-        fn checked_zcheck<Ops: ZkappCheckOps>(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean;
-    }
-
-    impl<T> OrIgnore<T> {
-        fn make_zcheck<Ops, F, F2>(
-            &self,
-            default_fn: F,
-            compare_fun: F2,
-            w: &mut Witness<Fp>,
-        ) -> Boolean
-        where
-            Ops: ZkappCheckOps,
-            F: Fn() -> T,
-            F2: Fn(&T, &mut Witness<Fp>) -> Boolean,
-        {
-            let (is_some, value) = match self {
-                OrIgnore::Check(v) => (Boolean::True, MyCow::Borrow(v)),
-                OrIgnore::Ignore => (Boolean::False, MyCow::Own(default_fn())),
-            };
-            let is_good = compare_fun(value.as_ref(), w);
-            Ops::boolean_any([is_some.neg(), is_good], w)
-        }
-    }
-
-    impl<Fun> InSnarkCheck for (&OrIgnore<Boolean>, Fun)
-    where
-        Fun: Fn() -> Boolean,
-    {
-        type T = Boolean;
-
-        fn checked_zcheck<Ops: ZkappCheckOps>(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare = |value: &Self::T, w: &mut Witness<Fp>| Ops::is_boolean_equal(x, value, w);
-            this.make_zcheck::<Ops, _, _>(default_fn, compare, w)
-        }
-    }
-
-    impl<Fun> InSnarkCheck for (&OrIgnore<Fp>, Fun)
-    where
-        Fun: Fn() -> Fp,
-    {
-        type T = Fp;
-
-        fn checked_zcheck<Ops: ZkappCheckOps>(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare = |value: &Self::T, w: &mut Witness<Fp>| Ops::is_field_equal(x, value, w);
-            this.make_zcheck::<Ops, _, _>(default_fn, compare, w)
-        }
-    }
-
-    impl<Fun> InSnarkCheck for (&OrIgnore<CompressedPubKey>, Fun)
-    where
-        Fun: Fn() -> CompressedPubKey,
-    {
-        type T = CompressedPubKey;
-
-        fn checked_zcheck<Ops: ZkappCheckOps>(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare =
-                |value: &Self::T, w: &mut Witness<Fp>| Ops::is_compressed_key_equal(x, value, w);
-            this.make_zcheck::<Ops, _, _>(default_fn, compare, w)
-        }
-    }
-
-    impl<T, Fun> InSnarkCheck for (&OrIgnore<ClosedInterval<T>>, Fun)
-    where
-        Fun: Fn() -> ClosedInterval<T>,
-        T: ForZkappCheck<Fp>,
-    {
-        type T = T;
-
-        fn checked_zcheck<Ops: ZkappCheckOps>(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare = |value: &ClosedInterval<T>, w: &mut Witness<Fp>| {
-                Ops::compare_closed_interval(value, x, w)
-            };
-            this.make_zcheck::<Ops, _, _>(default_fn, compare, w)
-        }
-    }
 }
 
 impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
@@ -328,7 +140,7 @@ impl ZkappHandler for SnarkHandler {
             .body
             .preconditions
             .account
-            .checked_zcheck::<InSnarkOps, _>(new_account.as_boolean(), &account.data, check, w);
+            .zcheck::<InSnarkOps, _>(new_account.as_boolean(), &account.data, check, w);
     }
 
     fn check_protocol_state_precondition(
@@ -337,7 +149,7 @@ impl ZkappHandler for SnarkHandler {
         w: &mut Self::W,
     ) -> Self::Bool {
         protocol_state_predicate
-            .checked_zcheck::<InSnarkOps>(&global_state.protocol_state, w)
+            .zcheck::<InSnarkOps>(&global_state.protocol_state, w)
             .var()
     }
 
@@ -346,10 +158,8 @@ impl ZkappHandler for SnarkHandler {
         global_state: &mut Self::GlobalState,
         w: &mut Self::W,
     ) -> Self::Bool {
-        use zkapp_check::InSnarkCheck;
-
         (valid_while, ClosedInterval::min_max)
-            .checked_zcheck::<InSnarkOps>(&global_state.block_global_slot.to_inner(), w)
+            .zcheck::<InSnarkOps>(&global_state.block_global_slot.to_inner(), w)
             .var()
     }
 
