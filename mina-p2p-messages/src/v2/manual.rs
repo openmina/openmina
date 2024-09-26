@@ -43,8 +43,15 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
 
-impl Base58CheckVersion for MinaBaseSignedCommandMemoStableV1 {
-    const VERSION_BYTE: u8 = USER_COMMAND_MEMO;
+impl MinaBaseSignedCommandMemoStableV1 {
+    pub fn to_base58check(&self) -> String {
+        b58::encode(self.0.as_ref(), USER_COMMAND_MEMO)
+    }
+
+    pub fn from_base58check(s: &str) -> Self {
+        let decoded = b58::decode(s, USER_COMMAND_MEMO).unwrap();
+        MinaBaseSignedCommandMemoStableV1(decoded[1..].into())
+    }
 }
 
 impl Serialize for MinaBaseSignedCommandMemoStableV1 {
@@ -1773,10 +1780,10 @@ impl std::str::FromStr for SgnStableV1 {
 #[cfg(test)]
 mod test {
     use binprot::BinProtRead;
+    use crate::b58::ToBase58Check;
 
     use crate::v2::{
-        MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
-        MinaBaseZkappCommandTStableV1WireStableV1Base64,
+        MinaBaseSignedCommandMemoStableV1, MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1, MinaBaseZkappCommandTStableV1WireStableV1Base64
     };
 
     #[test]
