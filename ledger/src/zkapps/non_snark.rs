@@ -171,17 +171,17 @@ impl<
     ) -> Self::Bool {
         valid_while
             .zcheck(
-                "valid_while_precondition".to_string(),
-                global_state.block_global_slot,
+                || "valid_while_precondition".to_string(),
+                &global_state.block_global_slot,
             )
             .is_ok()
     }
 
     fn init_account(
         _account_update: &Self::AccountUpdate,
-        account: &Self::Account,
+        account: Self::Account,
     ) -> Self::Account {
-        account.clone()
+        account
     }
 }
 

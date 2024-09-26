@@ -81,8 +81,7 @@ pub trait ZkappHandler {
         global_state: &mut Self::GlobalState,
         w: &mut Self::W,
     ) -> Self::Bool;
-    fn init_account(account_update: &Self::AccountUpdate, account: &Self::Account)
-        -> Self::Account;
+    fn init_account(account_update: &Self::AccountUpdate, account: Self::Account) -> Self::Account;
 }
 
 pub struct Opt<T> {

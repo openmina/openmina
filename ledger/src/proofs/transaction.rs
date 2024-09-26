@@ -4633,7 +4633,7 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn test_zkapp_proof_sig() {
+    fn test_proof_zkapp_sig() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join(devnet_circuit_directory())

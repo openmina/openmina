@@ -253,10 +253,7 @@ impl ZkappHandler for SnarkHandler {
             .var()
     }
 
-    fn init_account(
-        account_update: &Self::AccountUpdate,
-        account: &Self::Account,
-    ) -> Self::Account {
+    fn init_account(account_update: &Self::AccountUpdate, account: Self::Account) -> Self::Account {
         let AccountUpdateSkeleton {
             body: account_update,
             authorization: _,
@@ -264,7 +261,7 @@ impl ZkappHandler for SnarkHandler {
         let account = Box::new(crate::Account {
             public_key: account_update.data.public_key.clone(),
             token_id: account_update.data.token_id.clone(),
-            ..(*account.data).clone()
+            ..*account.data
         });
         let account2 = account.clone();
         let account = WithLazyHash::new(account, move |w: &mut Witness<Fp>| {

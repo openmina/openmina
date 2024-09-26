@@ -1177,7 +1177,7 @@ where
         ((), ())
     };
 
-    let a = Z::Handler::init_account(&account_update, &a);
+    let a = Z::Handler::init_account(&account_update, a);
 
     let local_delta = account_update_balance_change.negate();
 

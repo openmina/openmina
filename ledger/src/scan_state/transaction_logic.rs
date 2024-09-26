@@ -1541,7 +1541,7 @@ pub mod zkapp_command {
         type B;
 
         /// zkapp check
-        fn zcheck(&self, label: String, x: Self::B) -> Result<(), String>;
+        fn zcheck<F: Fn() -> String>(&self, label: F, x: &Self::B) -> Result<(), String>;
     }
 
     impl<T> OutSnarkCheck for T
@@ -1552,11 +1552,11 @@ pub mod zkapp_command {
         type B = T;
 
         /// zkapp check
-        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
-            if *self == rhs {
+        fn zcheck<F: Fn() -> String>(&self, label: F, rhs: &Self::B) -> Result<(), String> {
+            if self == rhs {
                 Ok(())
             } else {
-                Err(format!("Equality check failed: {}", label))
+                Err(format!("Equality check failed: {}", label()))
             }
         }
     }
@@ -1625,15 +1625,15 @@ pub mod zkapp_command {
         type B = T;
 
         /// zkapp check
-        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
+        fn zcheck<F: Fn() -> String>(&self, label: F, rhs: &Self::B) -> Result<(), String> {
             /*println!(
                 "bounds check lower {:?} rhs {:?} upper {:?}",
                 self.lower, rhs, self.upper
             );*/
-            if self.lower <= rhs && rhs <= self.upper {
+            if &self.lower <= rhs && rhs <= &self.upper {
                 Ok(())
             } else {
-                Err(format!("Bounds check failed: {}", label))
+                Err(format!("Bounds check failed: {}", label()))
             }
         }
     }
@@ -1740,7 +1740,7 @@ pub mod zkapp_command {
         T: OutSnarkCheck<A = T>,
     {
         /// zkapp check
-        pub fn zcheck(&self, label: String, rhs: T::B) -> Result<(), String> {
+        pub fn zcheck<F: Fn() -> String>(&self, label: F, rhs: &T::B) -> Result<(), String> {
             // println!("[rust] check {}, {:?}", label, ret);
             match self {
                 Self::Ignore => Ok(()),
@@ -1806,9 +1806,12 @@ pub mod zkapp_command {
 
     impl EpochLedger {
         pub fn epoch_ledger(&self, t: &protocol_state::EpochLedger<Fp>) -> Result<(), String> {
-            self.hash.zcheck("epoch_ledger_hash".to_string(), t.hash)?;
-            self.total_currency
-                .zcheck("epoch_ledger_total_currency".to_string(), t.total_currency)
+            self.hash
+                .zcheck(|| "epoch_ledger_hash".to_string(), &t.hash)?;
+            self.total_currency.zcheck(
+                || "epoch_ledger_total_currency".to_string(),
+                &t.total_currency,
+            )
         }
     }
 
@@ -1913,15 +1916,15 @@ pub mod zkapp_command {
             self.ledger.epoch_ledger(&t.ledger)?;
             // ignore seed
             self.start_checkpoint.zcheck(
-                format!("{}_{}", label, "start_checkpoint"),
-                t.start_checkpoint,
+                || format!("{}_{}", label, "start_checkpoint"),
+                &t.start_checkpoint,
             )?;
             self.lock_checkpoint.zcheck(
-                format!("{}_{}", label, "lock_checkpoint"),
-                t.lock_checkpoint,
+                || format!("{}_{}", label, "lock_checkpoint"),
+                &t.lock_checkpoint,
             )?;
             self.epoch_length
-                .zcheck(format!("{}_{}", label, "epoch_length"), t.epoch_length)
+                .zcheck(|| format!("{}_{}", label, "epoch_length"), &t.epoch_length)
         }
 
         pub fn gen() -> Self {
@@ -1956,16 +1959,16 @@ pub mod zkapp_command {
         /// zkapp check
         pub fn zcheck(&self, s: &ProtocolStateView) -> Result<(), String> {
             self.snarked_ledger_hash
-                .zcheck("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
+                .zcheck(|| "snarker_ledger_hash".to_string(), &s.snarked_ledger_hash)?;
             self.blockchain_length
-                .zcheck("blockchain_length".to_string(), s.blockchain_length)?;
+                .zcheck(|| "blockchain_length".to_string(), &s.blockchain_length)?;
             self.min_window_density
-                .zcheck("min_window_density".to_string(), s.min_window_density)?;
+                .zcheck(|| "min_window_density".to_string(), &s.min_window_density)?;
             self.total_currency
-                .zcheck("total_currency".to_string(), s.total_currency)?;
+                .zcheck(|| "total_currency".to_string(), &s.total_currency)?;
             self.global_slot_since_genesis.zcheck(
-                "global_slot_since_genesis".to_string(),
-                s.global_slot_since_genesis,
+                || "global_slot_since_genesis".to_string(),
+                &s.global_slot_since_genesis,
             )?;
             self.staking_epoch_data
                 .epoch_data("staking_epoch_data", &s.staking_epoch_data)?;
@@ -2188,31 +2191,31 @@ pub mod zkapp_command {
             let mut ret = vec![
                 (
                     TransactionFailure::AccountBalancePreconditionUnsatisfied,
-                    self.balance.zcheck("balance".to_string(), a.balance),
+                    self.balance.zcheck(|| "balance".to_string(), &a.balance),
                 ),
                 (
                     TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                    self.nonce.zcheck("nonce".to_string(), a.nonce),
+                    self.nonce.zcheck(|| "nonce".to_string(), &a.nonce),
                 ),
                 (
                     TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
                     self.receipt_chain_hash
-                        .zcheck("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
+                        .zcheck(|| "receipt_chain_hash".to_string(), &a.receipt_chain_hash.0),
                 ),
                 (
                     TransactionFailure::AccountDelegatePreconditionUnsatisfied,
                     self.delegate.zcheck(
-                        "delegate".to_string(),
-                        a.delegate.clone().unwrap_or_else(invalid_public_key),
+                        || "delegate".to_string(),
+                        &a.delegate.clone().unwrap_or_else(invalid_public_key),
                     ),
                 ),
                 (
                     TransactionFailure::AccountActionStatePreconditionUnsatisfied,
-                    match zkapp
-                        .action_state
-                        .iter()
-                        .find(|state| self.action_state.zcheck("".to_string(), **state).is_ok())
-                    {
+                    match zkapp.action_state.iter().find(|state| {
+                        self.action_state
+                            .zcheck(|| "".to_string(), &**state)
+                            .is_ok()
+                    }) {
                         None => Err("Action state mismatch".to_string()),
                         Some(_) => Ok(()),
                     },
@@ -2222,7 +2225,7 @@ pub mod zkapp_command {
             for (i, (c, v)) in self.state.iter().zip(zkapp.app_state.iter()).enumerate() {
                 ret.push((
                     TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as u64),
-                    c.zcheck(format!("state[{}]", i), *v),
+                    c.zcheck(|| format!("state[{}]", i), &*v),
                 ));
             }
 
@@ -2230,11 +2233,11 @@ pub mod zkapp_command {
                 (
                     TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
                     self.proved_state
-                        .zcheck("proved_state".to_string(), zkapp.proved_state),
+                        .zcheck(|| "proved_state".to_string(), &zkapp.proved_state),
                 ),
                 (
                     TransactionFailure::AccountIsNewPreconditionUnsatisfied,
-                    self.is_new.zcheck("is_new".to_string(), new_account),
+                    self.is_new.zcheck(|| "is_new".to_string(), &new_account),
                 ),
             ];
 
@@ -5853,8 +5856,8 @@ where
             Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
                 valid_while
                     .zcheck(
-                        "valid_while_precondition".to_string(),
-                        global_state.block_global_slot,
+                        || "valid_while_precondition".to_string(),
+                        &global_state.block_global_slot,
                     )
                     .is_ok(),
             ),
