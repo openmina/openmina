@@ -7,6 +7,7 @@ export interface MinaEnv {
   globalConfig?: {
     features?: FeaturesConfig;
     canAddNodes?: boolean;
+    graphQL?: string;
   };
 }
 

@@ -10,7 +10,8 @@
     "watch": "ng build --watch --configuration development",
     "tests": "npx cypress open --config baseUrl=http://localhost:4200",
     "tests:headless": "npx cypress run --headless --config baseUrl=http://localhost:4200",
-    "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest"
+    "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest",
+    "replace-assertion": "node replace-assertion.js"
   },
   "private": true,
   "dependencies": {
@@ -38,7 +39,7 @@
     "mathjs": "^12.3.0",
     "mina-signer": "^3.0.7",
     "ngx-json-viewer": "^3.2.1",
-    "o1js": "^1.7.0",
+    "o1js": "^1.8.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.13.0"
