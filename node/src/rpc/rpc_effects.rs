@@ -701,7 +701,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         } => {
             // TODO(adonagy): maybe something more effective?
             match account_query {
-                super::AccountQuery::SinglePublicKey(pk) => todo!(),
+                super::AccountQuery::SinglePublicKey(_pk) => todo!(),
                 // all the accounts for the FE in Slim form
                 super::AccountQuery::All => {
                     let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts

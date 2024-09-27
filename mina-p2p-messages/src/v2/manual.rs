@@ -8,7 +8,7 @@ use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer
 use time::OffsetDateTime;
 
 use crate::{
-    b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes, Base58CheckVersion},
+    b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes},
     b58version::USER_COMMAND_MEMO,
     bigint::BigInt,
     number::Number,
@@ -1779,12 +1779,11 @@ impl std::str::FromStr for SgnStableV1 {
 
 #[cfg(test)]
 mod test {
-    use crate::b58::ToBase58Check;
     use binprot::BinProtRead;
 
     use crate::v2::{
-        MinaBaseSignedCommandMemoStableV1, MinaBaseVerificationKeyWireStableV1,
-        MinaBaseZkappCommandTStableV1WireStableV1, MinaBaseZkappCommandTStableV1WireStableV1Base64,
+        MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
+        MinaBaseZkappCommandTStableV1WireStableV1Base64,
     };
 
     #[test]
