@@ -22,9 +22,9 @@ use openmina_node_common::rpc::RpcSender;
 use warp::{Filter, Rejection, Reply};
 
 pub mod account;
-pub mod best_chain;
+pub mod block;
 pub mod constants;
-pub mod send_zkapp;
+pub mod zkapp;
 
 struct Context(RpcSender);
 
@@ -144,10 +144,7 @@ impl Query {
             SyncStatus::LISTENING
         }
     }
-    async fn best_chain(
-        max_length: i32,
-        context: &Context,
-    ) -> Vec<best_chain::GraphQLBestChainBlock> {
+    async fn best_chain(max_length: i32, context: &Context) -> Vec<block::GraphQLBestChainBlock> {
         let best_chain: Vec<ArcBlockWithHash> = context
             .0
             .oneshot_request(RpcRequest::BestChain(max_length as u32))
@@ -242,9 +239,9 @@ struct Mutation;
 #[juniper::graphql_object(context = Context)]
 impl Mutation {
     async fn send_zkapp(
-        input: send_zkapp::SendZkappInput,
+        input: zkapp::SendZkappInput,
         context: &Context,
-    ) -> juniper::FieldResult<best_chain::GraphQLSendZkappResponse> {
+    ) -> juniper::FieldResult<zkapp::GraphQLSendZkappResponse> {
         let res: RpcTransactionInjectResponse = context
             .0
             .oneshot_request(RpcRequest::TransactionInject(vec![input.into()]))
