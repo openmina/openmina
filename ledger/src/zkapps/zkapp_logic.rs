@@ -1306,7 +1306,7 @@ where
             local_state.success.neg(),
         ],
         w,
-    );
+    )?;
 
     // global state
     {

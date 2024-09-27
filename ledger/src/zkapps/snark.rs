@@ -1150,8 +1150,9 @@ impl BoolInterface for SnarkBool {
     fn all(bs: &[Self], w: &mut Self::W) -> Self {
         SnarkBool::all(bs, w)
     }
-    fn assert_any(bs: &[Self], w: &mut Self::W) {
+    fn assert_any(bs: &[Self], w: &mut Self::W) -> Result<(), String> {
         SnarkBool::assert_any::<Fp>(bs, w);
+        Ok(())
     }
     fn assert_with_failure_status_tbl(
         _b: Self,

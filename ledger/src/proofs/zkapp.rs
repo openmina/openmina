@@ -745,8 +745,8 @@ pub fn zkapp_command_witnesses_exn(
                     data: call_stack,
                     hash: Fp::zero(), // TODO
                 },
-                transaction_commitment: TransactionCommitment(transaction_commitment.0),
-                full_transaction_commitment: TransactionCommitment(full_transaction_commitment.0),
+                transaction_commitment: TransactionCommitment(transaction_commitment),
+                full_transaction_commitment: TransactionCommitment(full_transaction_commitment),
                 excess,
                 supply_increase,
                 ledger,

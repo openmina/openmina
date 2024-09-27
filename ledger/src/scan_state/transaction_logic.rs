@@ -14,9 +14,11 @@ use openmina_macros::SerdeYojsonEnum;
 use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
-use crate::scan_state::zkapp_logic;
+use crate::zkapps::intefaces::LedgerInterface;
+use crate::zkapps::non_snark::ZkappNonSnark;
 use crate::{
-    hash_with_kimchi, AccountIdOrderable, BaseLedger, ControlTag, Inputs, VerificationKeyWire,
+    hash_with_kimchi, zkapps, AccountIdOrderable, BaseLedger, ControlTag, Inputs,
+    VerificationKeyWire,
 };
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
@@ -44,7 +46,6 @@ use super::{
     currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
     fee_excess::FeeExcess,
     scan_state::transaction_snark::OneOrTwo,
-    zkapp_logic::{Handler, StartData},
 };
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
@@ -5582,17 +5583,20 @@ pub mod local_state {
     /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
     /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
     /// Maybe a better solution is to keep the LocalState name and put it under a different module
-    pub type LocalStateEnv<L> = LocalStateSkeleton<
-        L,                            // ledger
-        StackFrame,                   // stack_frame
-        CallStack,                    // call_stack
-        ReceiptChainHash,             // commitments
-        Signed<Amount>,               // excess & supply_increase
-        Vec<Vec<TransactionFailure>>, // failure_status_tbl
-        bool,                         // success & will_succeed
-        Index,                        // account_update_index
-    >;
+    // pub type LocalStateEnv<L> = LocalStateSkeleton<
+    //     L,                            // ledger
+    //     StackFrame,                   // stack_frame
+    //     CallStack,                    // call_stack
+    //     ReceiptChainHash,             // commitments
+    //     Signed<Amount>,               // excess & supply_increase
+    //     Vec<Vec<TransactionFailure>>, // failure_status_tbl
+    //     bool,                         // success & will_succeed
+    //     Index,                        // account_update_index
+    // >;
 
+    pub type LocalStateEnv<L> = crate::zkapps::zkapp_logic::LocalState<ZkappNonSnark<L>>;
+
+    // TODO: Dedub this with `crate::zkapps::zkapp_logic::LocalState`
     #[derive(Debug, Clone)]
     pub struct LocalStateSkeleton<
         L: LedgerIntf + Clone,
@@ -5618,32 +5622,35 @@ pub mod local_state {
         pub will_succeed: Bool,
     }
 
-    impl<L: LedgerIntf + Clone> LocalStateEnv<L> {
-        pub fn add_new_failure_status_bucket(&self) -> Self {
-            let mut failure_status_tbl = self.failure_status_tbl.clone();
-            failure_status_tbl.insert(0, Vec::new());
-            Self {
-                failure_status_tbl,
-                ..self.clone()
-            }
-        }
+    // impl<L> LocalStateEnv<L>
+    // where
+    //     L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    // {
+    //     pub fn add_new_failure_status_bucket(&self) -> Self {
+    //         let mut failure_status_tbl = self.failure_status_tbl.clone();
+    //         failure_status_tbl.insert(0, Vec::new());
+    //         Self {
+    //             failure_status_tbl,
+    //             ..self.clone()
+    //         }
+    //     }
 
-        pub fn add_check(&self, failure: TransactionFailure, b: bool) -> Self {
-            let failure_status_tbl = if !b {
-                let mut failure_status_tbl = self.failure_status_tbl.clone();
-                failure_status_tbl[0].insert(0, failure);
-                failure_status_tbl
-            } else {
-                self.failure_status_tbl.clone()
-            };
+    //     pub fn add_check(&self, failure: TransactionFailure, b: bool) -> Self {
+    //         let failure_status_tbl = if !b {
+    //             let mut failure_status_tbl = self.failure_status_tbl.clone();
+    //             failure_status_tbl[0].insert(0, failure);
+    //             failure_status_tbl
+    //         } else {
+    //             self.failure_status_tbl.clone()
+    //         };
 
-            Self {
-                failure_status_tbl,
-                success: self.success && b,
-                ..self.clone()
-            }
-        }
-    }
+    //         Self {
+    //             failure_status_tbl,
+    //             success: self.success && b,
+    //             ..self.clone()
+    //         }
+    //     }
+    // }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct LocalState {
@@ -5813,14 +5820,18 @@ pub mod local_state {
 //     ~failure_status_tbl:(f (fun () () -> Impl.Boolean.true_))
 //     ~will_succeed:(f Impl.Boolean.equal)
 
-pub enum Eff<L: LedgerIntf + Clone> {
+pub enum Eff<
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+> {
     CheckValidWhilePrecondition(Numeric<Slot>, GlobalState<L>),
     CheckAccountPrecondition(AccountUpdate, Account, bool, LocalStateEnv<L>),
     CheckProtocolStatePrecondition(Box<ZkAppPreconditions>, GlobalState<L>),
     InitAccount(AccountUpdate, Account),
 }
 
-pub struct Env<L: LedgerIntf + Clone> {
+pub struct Env<
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+> {
     account_update: AccountUpdate,
     zkapp_command: ZkAppCommand,
     account: Account,
@@ -5839,13 +5850,18 @@ pub struct Env<L: LedgerIntf + Clone> {
     failure: Option<TransactionFailure>,
 }
 
-pub enum PerformResult<L: LedgerIntf + Clone> {
+pub enum PerformResult<
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+> {
     Bool(bool),
     LocalState(Box<LocalStateEnv<L>>),
     Account(Box<Account>),
 }
 
-impl<L: LedgerIntf + Clone> PerformResult<L> {
+impl<L> PerformResult<L>
+where
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+{
     pub fn to_bool(self) -> bool {
         match self {
             PerformResult::Bool(v) => v,
@@ -5854,100 +5870,55 @@ impl<L: LedgerIntf + Clone> PerformResult<L> {
     }
 }
 
-impl<L> Env<L>
-where
-    L: LedgerIntf + Clone,
-{
-    pub fn perform(eff: Eff<L>) -> PerformResult<L> {
-        match eff {
-            Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
-                valid_while
-                    .out_zcheck(
-                        || "valid_while_precondition".to_string(),
-                        &global_state.block_global_slot,
-                    )
-                    .is_ok(),
-            ),
-            Eff::CheckProtocolStatePrecondition(pred, global_state) => {
-                PerformResult::Bool(pred.out_zcheck(&global_state.protocol_state).is_ok())
-            }
-            Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
-                let local_state = {
-                    let precondition_account = &account_update.body.preconditions.account.0;
-                    let mut _local_state = local_state;
-                    let check = |failure, b| {
-                        _local_state = _local_state.add_check(failure, b);
-                    };
-                    precondition_account.out_zcheck(new_account, check, &account);
-                    _local_state
-                };
-                PerformResult::LocalState(Box::new(local_state))
-            }
-            Eff::InitAccount(_account_update, a) => PerformResult::Account(Box::new(a)),
-        }
-    }
-}
-
-// fn step_all<L>(
-//     constraint_constants: &ConstraintConstants,
-//     f: &impl Fn(
-//         Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//         (GlobalState<L>, LocalStateEnv<L>),
-//     ) -> Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//     h: fn(Eff<L>) -> PerformResult<L>,
-//     user_acc: Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//     (g_state, l_state): (GlobalState<L>, LocalStateEnv<L>),
-// ) -> Result<
-//     (
-//         Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//         Vec<Vec<TransactionFailure>>,
-//     ),
-//     String,
-// >
+// impl<L> Env<L>
 // where
-//     L: LedgerIntf + Clone,
+//     L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 // {
-//     if l_state.stack_frame.calls.is_empty() {
-//         Ok((user_acc, l_state.failure_status_tbl))
-//     } else {
-//         let states = apply(
-//             constraint_constants,
-//             IsStart::No,
-//             Handler { perform: h },
-//             (g_state, l_state),
-//         );
-//         step_all(
-//             constraint_constants,
-//             f,
-//             h,
-//             f(user_acc, states.clone()),
-//             states,
-//         )
+//     pub fn perform(eff: Eff<L>) -> PerformResult<L> {
+//         match eff {
+//             Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
+//                 valid_while
+//                     .out_zcheck(
+//                         || "valid_while_precondition".to_string(),
+//                         &global_state.block_global_slot,
+//                     )
+//                     .is_ok(),
+//             ),
+//             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
+//                 PerformResult::Bool(pred.out_zcheck(&global_state.protocol_state).is_ok())
+//             }
+//             Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
+//                 let local_state = {
+//                     let precondition_account = &account_update.body.preconditions.account.0;
+//                     let mut _local_state = local_state;
+//                     let check = |failure, b| {
+//                         _local_state = _local_state.add_check(failure, b);
+//                     };
+//                     precondition_account.out_zcheck(new_account, check, &account);
+//                     _local_state
+//                 };
+//                 PerformResult::LocalState(Box::new(local_state))
+//             }
+//             Eff::InitAccount(_account_update, a) => PerformResult::Account(Box::new(a)),
+//         }
 //     }
 // }
 
 fn step_all<A, L>(
-    constraint_constants: &ConstraintConstants,
-    f: &impl Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
-    handler: &Handler<L>,
-    user_acc: A,
-    (g_state, l_state): (GlobalState<L>, LocalStateEnv<L>),
+    _constraint_constants: &ConstraintConstants,
+    f: &impl Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
+    // handler: &Handler<L>,
+    mut user_acc: A,
+    (g_state, l_state): (&mut GlobalState<L>, &mut LocalStateEnv<L>),
 ) -> Result<(A, Vec<Vec<TransactionFailure>>), String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 {
-    if l_state.stack_frame.calls.is_empty() {
-        Ok((user_acc, l_state.failure_status_tbl))
-    } else {
-        let states = zkapp_logic::step(constraint_constants, handler, (g_state, l_state))?;
-        step_all(
-            constraint_constants,
-            f,
-            handler,
-            f(user_acc, states.clone()),
-            states,
-        )
+    while !l_state.stack_frame.calls.is_empty() {
+        zkapps::non_snark::step(g_state, l_state)?;
+        user_acc = f(user_acc, (g_state, l_state));
     }
+    Ok((user_acc, l_state.failure_status_tbl.clone()))
 }
 
 /// apply zkapp command fee payer's while stubbing out the second pass ledger
@@ -5965,8 +5936,8 @@ pub fn apply_zkapp_command_first_pass_aux<A, F, L>(
     command: &ZkAppCommand,
 ) -> Result<(ZkappCommandPartiallyApplied<L>, A), String>
 where
-    L: LedgerIntf + Clone,
-    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
 {
     let fee_excess = fee_excess.unwrap_or_else(Signed::zero);
     let supply_increase = supply_increase.unwrap_or_else(Signed::zero);
@@ -5982,17 +5953,16 @@ where
 
         vec![(id, location)]
     };
+    // let perform = |eff: Eff<L>| Env::perform(eff);
 
-    let perform = |eff: Eff<L>| Env::perform(eff);
-
-    let initial_state = (
+    let (mut global_state, mut local_state) = (
         GlobalState {
             protocol_state: state_view.clone(),
             first_pass_ledger: ledger.clone(),
             second_pass_ledger: {
                 // We stub out the second_pass_ledger initially, and then poke the
                 // correct value in place after the first pass is finished.
-                L::empty(0)
+                <L as LedgerIntf>::empty(0)
             },
             fee_excess,
             supply_increase,
@@ -6001,11 +5971,11 @@ where
         LocalStateEnv {
             stack_frame: StackFrame::default(),
             call_stack: CallStack::new(),
-            transaction_commitment: ReceiptChainHash(Fp::zero()),
-            full_transaction_commitment: ReceiptChainHash(Fp::zero()),
+            transaction_commitment: Fp::zero(),
+            full_transaction_commitment: Fp::zero(),
             excess: Signed::<Amount>::zero(),
             supply_increase,
-            ledger: L::empty(0),
+            ledger: <L as LedgerIntf>::empty(0),
             success: true,
             account_update_index: Index::zero(),
             failure_status_tbl: Vec::new(),
@@ -6013,23 +5983,20 @@ where
         },
     );
 
-    let user_acc = f(init, initial_state.clone());
+    let user_acc = f(init, (&global_state, &local_state));
     let account_updates = command.all_account_updates();
 
-    let (global_state, local_state) = {
-        zkapp_logic::start(
-            constraint_constants,
-            StartData {
-                account_updates,
-                memo_hash: command.memo.hash(),
-                // It's always valid to set this value to true, and it will
-                // have no effect outside of the snark.
-                will_succeed: true,
-            },
-            &Handler { perform },
-            initial_state,
-        )?
-    };
+    zkapps::non_snark::start(
+        &mut global_state,
+        &mut local_state,
+        zkapps::non_snark::StartData {
+            account_updates,
+            memo_hash: command.memo.hash(),
+            // It's always valid to set this value to true, and it will
+            // have no effect outside of the snark.
+            will_succeed: true,
+        },
+    )?;
 
     let command = command.clone();
     let constraint_constants = constraint_constants.clone();
@@ -6058,14 +6025,14 @@ fn apply_zkapp_command_first_pass<L>(
     command: &ZkAppCommand,
 ) -> Result<ZkappCommandPartiallyApplied<L>, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 {
     let (partial_stmt, _user_acc) = apply_zkapp_command_first_pass_aux(
         constraint_constants,
         global_slot,
         state_view,
         None,
-        |_acc, state| Some(state),
+        |_acc, (g, l)| Some((g.clone(), l.clone())),
         fee_excess,
         supply_increase,
         ledger,
@@ -6083,10 +6050,10 @@ pub fn apply_zkapp_command_second_pass_aux<A, F, L>(
     c: ZkappCommandPartiallyApplied<L>,
 ) -> Result<(ZkappCommandApplied, A), String>
 where
-    L: LedgerIntf + Clone,
-    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
 {
-    let perform = |eff: Eff<L>| Env::perform(eff);
+    // let perform = |eff: Eff<L>| Env::perform(eff);
 
     let original_account_states: Vec<(AccountId, Option<_>)> = {
         // get the original states of all the accounts in each pass.
@@ -6155,12 +6122,12 @@ where
 
     // TODO(OCaml): Remove this, and uplift the logic into the call in staged ledger.
 
-    let global_state = GlobalState {
+    let mut global_state = GlobalState {
         second_pass_ledger: ledger.clone(),
         ..c.global_state
     };
 
-    let local_state = {
+    let mut local_state = {
         if c.local_state.stack_frame.calls.is_empty() {
             // Don't mess with the local state; we've already finished the
             // transaction after the fee payer.
@@ -6175,15 +6142,10 @@ where
         }
     };
 
-    let start = (global_state, local_state);
+    let acc = f(init, (&global_state, &local_state));
+    let start = (&mut global_state, &mut local_state);
 
-    let (user_acc, reversed_failure_status_tbl) = step_all(
-        constraint_constants,
-        &f,
-        &Handler { perform },
-        f(init, start.clone()),
-        start,
-    )?;
+    let (user_acc, reversed_failure_status_tbl) = step_all(constraint_constants, &f, acc, start)?;
 
     let failure_status_tbl = reversed_failure_status_tbl
         .into_iter()
@@ -6274,7 +6236,7 @@ fn apply_zkapp_command_second_pass<L>(
     c: ZkappCommandPartiallyApplied<L>,
 ) -> Result<ZkappCommandApplied, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 {
     let (x, _) =
         apply_zkapp_command_second_pass_aux(constraint_constants, (), |a, _| a, ledger, c)?;
@@ -6293,8 +6255,8 @@ fn apply_zkapp_command_unchecked_aux<A, F, L>(
     command: &ZkAppCommand,
 ) -> Result<(ZkappCommandApplied, A), String>
 where
-    L: LedgerIntf + Clone,
-    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
 {
     let (partial_stmt, user_acc) = apply_zkapp_command_first_pass_aux(
         constraint_constants,
@@ -6319,7 +6281,7 @@ fn apply_zkapp_command_unchecked<L>(
     command: &ZkAppCommand,
 ) -> Result<(ZkappCommandApplied, (LocalStateEnv<L>, Signed<Amount>)), String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 {
     let zkapp_partially_applied: ZkappCommandPartiallyApplied<L> = apply_zkapp_command_first_pass(
         constraint_constants,
@@ -6334,12 +6296,13 @@ where
     let (account_update_applied, state_res) = apply_zkapp_command_second_pass_aux(
         constraint_constants,
         None,
-        |_acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
+        |_acc, (global_state, local_state)| Some((local_state.clone(), global_state.fee_excess)),
         ledger,
         zkapp_partially_applied,
     )?;
+    let (state, amount) = state_res.unwrap();
 
-    Ok((account_update_applied, state_res.unwrap()))
+    Ok((account_update_applied, (state.clone(), amount)))
 }
 
 pub mod transaction_partially_applied {
@@ -6349,7 +6312,9 @@ pub mod transaction_partially_applied {
     };
 
     #[derive(Clone, Debug)]
-    pub struct ZkappCommandPartiallyApplied<L: LedgerIntf + Clone> {
+    pub struct ZkappCommandPartiallyApplied<
+        L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    > {
         pub command: ZkAppCommand,
         pub previous_hash: Fp,
         pub original_first_pass_account_states:
@@ -6367,14 +6332,19 @@ pub mod transaction_partially_applied {
     }
 
     #[derive(Clone, Debug)]
-    pub enum TransactionPartiallyApplied<L: LedgerIntf + Clone> {
+    pub enum TransactionPartiallyApplied<
+        L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    > {
         SignedCommand(FullyApplied<SignedCommandApplied>),
         ZkappCommand(Box<ZkappCommandPartiallyApplied<L>>),
         FeeTransfer(FullyApplied<FeeTransferApplied>),
         Coinbase(FullyApplied<CoinbaseApplied>),
     }
 
-    impl<L: LedgerIntf + Clone> TransactionPartiallyApplied<L> {
+    impl<L> TransactionPartiallyApplied<L>
+    where
+        L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    {
         pub fn command(self) -> Transaction {
             use Transaction as T;
 
@@ -6400,7 +6370,7 @@ pub fn apply_transaction_first_pass<L>(
     transaction: &Transaction,
 ) -> Result<TransactionPartiallyApplied<L>, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 {
     use Transaction::*;
     use UserCommand::*;
@@ -6460,7 +6430,7 @@ pub fn apply_transaction_second_pass<L>(
     partial_transaction: TransactionPartiallyApplied<L>,
 ) -> Result<TransactionApplied, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 {
     use TransactionPartiallyApplied as P;
 
@@ -6511,7 +6481,7 @@ pub fn apply_transactions<L>(
     txns: &[Transaction],
 ) -> Result<Vec<TransactionApplied>, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
 {
     let first_pass: Vec<_> = txns
         .iter()

@@ -146,7 +146,7 @@ impl SparseLedger {
             global_slot,
             state_view,
             Vec::with_capacity(16),
-            |mut acc, (global_state, mut local_state)| {
+            |mut acc, (global_state, local_state)| {
                 let GlobalState {
                     first_pass_ledger,
                     second_pass_ledger: _,
@@ -154,8 +154,9 @@ impl SparseLedger {
                     supply_increase,
                     protocol_state,
                     block_global_slot,
-                } = global_state;
+                } = global_state.clone();
 
+                let mut local_state = local_state.clone();
                 local_state.ledger = local_state.ledger.copy_content();
 
                 acc.insert(
@@ -195,7 +196,7 @@ impl SparseLedger {
         let (account_update_applied, mut rev_states) = apply_zkapp_command_second_pass_aux(
             constraint_constants(),
             init,
-            |mut acc, (global_state, mut local_state)| {
+            |mut acc, (global_state, local_state)| {
                 let GlobalState {
                     first_pass_ledger,
                     second_pass_ledger,
@@ -203,8 +204,9 @@ impl SparseLedger {
                     supply_increase,
                     protocol_state,
                     block_global_slot,
-                } = global_state;
+                } = global_state.clone();
 
+                let mut local_state = local_state.clone();
                 local_state.ledger = local_state.ledger.copy_content();
 
                 acc.insert(

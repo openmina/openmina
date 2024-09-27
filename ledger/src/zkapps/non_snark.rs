@@ -64,6 +64,7 @@ pub struct NonSnarkActions;
 pub struct NonSnarkReceiptChainHash;
 pub struct NonSnarkHandler<L>(PhantomData<L>);
 
+#[derive(Clone, Debug)]
 pub struct ZkappNonSnark<L>(PhantomData<L>);
 
 impl<
@@ -646,14 +647,23 @@ impl BoolInterface for bool {
     fn all(bs: &[Self], w: &mut Self::W) -> Self {
         bs.iter().all(|b| *b)
     }
-    fn assert_any(bs: &[Self], w: &mut Self::W) {
-        todo!()
+    fn assert_any(bs: &[Self], w: &mut Self::W) -> Result<(), String> {
+        if !bs.iter().any(|b| *b) {
+            return Err("Bool::assert_any failed".to_string());
+        }
+        Ok(())
     }
     fn assert_with_failure_status_tbl(
         b: Self,
-        table: &Self::FailureStatusTable,
+        failure_status_tbl: &Self::FailureStatusTable,
     ) -> Result<(), String> {
-        todo!()
+        if !b && !(failure_status_tbl.is_empty()) {
+            Err(format!("{:?}", failure_status_tbl))
+        } else if !b {
+            Err("assert_with_failure_status_tbl failed".to_string())
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -1020,7 +1030,7 @@ where
     )
 }
 
-type StartData = StartDataSkeleton<CallForest<AccountUpdate>, bool>;
+pub type StartData = StartDataSkeleton<CallForest<AccountUpdate>, bool>;
 
 pub fn start<L>(
     global_state: &mut GlobalStateForNonSnark<L>,

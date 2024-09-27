@@ -24,18 +24,21 @@ use crate::{
         },
         snark_work::spec,
         transaction_logic::{
-            apply_transaction_first_pass, apply_transaction_second_pass, local_state::LocalState,
+            apply_transaction_first_pass, apply_transaction_second_pass,
+            local_state::LocalState,
             protocol_state::ProtocolStateView,
-            transaction_partially_applied::TransactionPartiallyApplied, valid,
-            zkapp_command::MaybeWithStatus, CoinbaseFeeTransfer, Transaction, TransactionStatus,
-            UserCommand, WithStatus,
+            transaction_partially_applied::TransactionPartiallyApplied,
+            valid,
+            zkapp_command::{AccountUpdate, MaybeWithStatus},
+            CoinbaseFeeTransfer, Transaction, TransactionStatus, UserCommand, WithStatus,
         },
     },
-    sparse_ledger::{self, SparseLedger},
+    sparse_ledger::SparseLedger,
     split_at, split_at_vec,
     staged_ledger::{pre_diff_info, resources::IncreaseBy, transaction_validator},
     verifier::{Verifier, VerifierError},
-    AccountId, BaseLedger, Mask, TokenId,
+    zkapps::intefaces::LedgerInterface,
+    Account, AccountId, BaseLedger, Mask, TokenId,
 };
 
 use super::{
@@ -77,7 +80,9 @@ pub enum StagedLedgerError {
 
 const ZKAPP_LIMIT_PER_BLOCK: Option<usize> = None;
 
-pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
+pub struct PreStatement<
+    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+> {
     partially_applied_transaction: TransactionPartiallyApplied<L>,
     expected_status: TransactionStatus,
     accounts_accessed: Vec<AccountId>,

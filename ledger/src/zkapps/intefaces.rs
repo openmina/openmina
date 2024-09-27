@@ -419,7 +419,7 @@ where
     fn and(a: Self, b: Self, w: &mut Self::W) -> Self;
     fn equal(a: Self, b: Self, w: &mut Self::W) -> Self;
     fn all(bs: &[Self], w: &mut Self::W) -> Self;
-    fn assert_any(bs: &[Self], w: &mut Self::W);
+    fn assert_any(bs: &[Self], w: &mut Self::W) -> Result<(), String>;
     fn assert_with_failure_status_tbl(
         b: Self,
         table: &Self::FailureStatusTable,
