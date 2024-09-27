@@ -9,13 +9,16 @@ enum BenchmarksWalletsActionTypes {
   BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS = 'BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS',
   BENCHMARKS_WALLETS_UPDATE_WALLETS_SUCCESS = 'BENCHMARKS_WALLETS_UPDATE_WALLETS_SUCCESS',
   BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH = 'BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH',
+  BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH = 'BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH',
   BENCHMARKS_WALLETS_SEND_TXS = 'BENCHMARKS_WALLETS_SEND_TXS',
-  BENCHMARKS_WALLETS_SEND_TX_SYNCED = 'BENCHMARKS_WALLETS_SEND_TX_SYNCED',
   BENCHMARKS_WALLETS_SEND_TX_SUCCESS = 'BENCHMARKS_WALLETS_SEND_TX_SUCCESS',
+  BENCHMARKS_WALLETS_SEND_ZKAPPS = 'BENCHMARKS_WALLETS_SEND_ZKAPPS',
+  BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS = 'BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS',
   BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET = 'BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET',
   BENCHMARKS_WALLETS_SELECT_WALLET = 'BENCHMARKS_WALLETS_SELECT_WALLET',
   BENCHMARKS_WALLETS_CHANGE_AMOUNT = 'BENCHMARKS_WALLETS_CHANGE_AMOUNT',
   BENCHMARKS_WALLETS_CHANGE_FEE = 'BENCHMARKS_WALLETS_CHANGE_FEE',
+  BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS = 'BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS',
   BENCHMARKS_WALLETS_GET_ALL_TXS = 'BENCHMARKS_WALLETS_GET_ALL_TXS',
   BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS = 'BENCHMARKS_GET_ALL_TXS_SUCCESS',
 }
@@ -25,13 +28,16 @@ export const BENCHMARKS_WALLETS_GET_WALLETS = BenchmarksWalletsActionTypes.BENCH
 export const BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS;
 export const BENCHMARKS_WALLETS_UPDATE_WALLETS_SUCCESS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_UPDATE_WALLETS_SUCCESS;
 export const BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH;
+export const BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH;
 export const BENCHMARKS_WALLETS_SEND_TXS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SEND_TXS;
-export const BENCHMARKS_WALLETS_SEND_TX_SYNCED = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SEND_TX_SYNCED;
 export const BENCHMARKS_WALLETS_SEND_TX_SUCCESS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SEND_TX_SUCCESS;
+export const BENCHMARKS_WALLETS_SEND_ZKAPPS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SEND_ZKAPPS;
+export const BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS;
 export const BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET;
 export const BENCHMARKS_WALLETS_SELECT_WALLET = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_SELECT_WALLET;
 export const BENCHMARKS_WALLETS_CHANGE_AMOUNT = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_CHANGE_AMOUNT;
 export const BENCHMARKS_WALLETS_CHANGE_FEE = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_CHANGE_FEE;
+export const BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS;
 export const BENCHMARKS_WALLETS_GET_ALL_TXS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_GET_ALL_TXS;
 export const BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS = BenchmarksWalletsActionTypes.BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS;
 
@@ -67,18 +73,28 @@ export class BenchmarksWalletsChangeTransactionBatch implements BenchmarksWallet
   constructor(public payload: number) {}
 }
 
+export class BenchmarksWalletsChangeZkAppsBatch implements BenchmarksWalletsAction {
+  readonly type = BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH;
+
+  constructor(public payload: number) {}
+}
+
 export class BenchmarksWalletsSendTxs implements BenchmarksWalletsAction {
   readonly type = BENCHMARKS_WALLETS_SEND_TXS;
 }
 
-export class BenchmarksWalletsSendTxSynced implements BenchmarksWalletsAction {
-  readonly type = BENCHMARKS_WALLETS_SEND_TX_SYNCED;
-
-  constructor(public payload: BenchmarksWalletTransaction[]) {}
-}
-
 export class BenchmarksWalletsSendTxSuccess implements BenchmarksWalletsAction {
   readonly type = BENCHMARKS_WALLETS_SEND_TX_SUCCESS;
+
+  constructor(public payload: Partial<{ transactions: BenchmarksWalletTransaction[], error: Error }>) {}
+}
+
+export class BenchmarksWalletsSendZkApps implements BenchmarksWalletsAction {
+  readonly type = BENCHMARKS_WALLETS_SEND_ZKAPPS;
+}
+
+export class BenchmarksWalletsSendZkAppsSuccess implements BenchmarksWalletsAction {
+  readonly type = BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS;
 
   constructor(public payload: Partial<{ transactions: BenchmarksWalletTransaction[], error: Error }>) {}
 }
@@ -105,6 +121,12 @@ export class BenchmarksWalletsChangeFee implements BenchmarksWalletsAction {
   constructor(public payload: number) {}
 }
 
+export class BenchmarksWalletsChangeFeeZkApps implements BenchmarksWalletsAction {
+  readonly type = BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS;
+
+  constructor(public payload: number) {}
+}
+
 export class BenchmarksWalletsGetAllTxs implements BenchmarksWalletsAction {
   readonly type = BENCHMARKS_WALLETS_GET_ALL_TXS;
 }
@@ -125,13 +147,16 @@ export type BenchmarksWalletsActions =
   | BenchmarksWalletsGetWalletsSuccess
   | BenchmarksWalletsUpdateWalletsSuccess
   | BenchmarksWalletsChangeTransactionBatch
+  | BenchmarksWalletsChangeZkAppsBatch
   | BenchmarksWalletsSendTxs
-  | BenchmarksWalletsSendTxSynced
   | BenchmarksWalletsSendTxSuccess
+  | BenchmarksWalletsSendZkApps
+  | BenchmarksWalletsSendZkAppsSuccess
   | BenchmarksWalletsToggleRandomWallet
   | BenchmarksWalletsSelectWallet
   | BenchmarksWalletsChangeAmount
   | BenchmarksWalletsChangeFee
+  | BenchmarksWalletsChangeFeeZkApps
   | BenchmarksWalletsGetAllTxs
   | BenchmarksWalletsGetAllTxsSuccess
   ;
