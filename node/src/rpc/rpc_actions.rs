@@ -1,7 +1,7 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
+use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_p2p_messages::v2::TokenIdKeyHash;
-use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::snark::SnarkJobId;
 use openmina_core::ActionEvent;
