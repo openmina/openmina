@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+use ledger::scan_state::currency::{Balance, Magnitude};
 use ledger::Account;
 use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
@@ -705,7 +706,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                                 account.nonce = nonce.incr();
                             }
                         }
-                        account.balance = account.balance.sub_amount(*amount).unwrap();
+                        account.balance = account
+                            .balance
+                            .sub_amount(*amount)
+                            .unwrap_or(Balance::zero());
                     }
                 });
 
