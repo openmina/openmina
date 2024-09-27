@@ -422,7 +422,9 @@ impl VkRefcountTable {
         use std::collections::hash_map::Entry::{Occupied, Vacant};
 
         match self.verification_keys.entry(vk_hash) {
-            Vacant(_e) => unreachable!(),
+            Vacant(_e) => {
+                bug_condition!("vk_map: Unexpected error on self.verification_keys: vacant vk_hash")
+            }
             Occupied(mut e) => {
                 let (count, _vk) = e.get_mut();
                 if *count == 1 {
@@ -433,33 +435,48 @@ impl VkRefcountTable {
             }
         }
 
-        fn remove<K1, K2>(key1: K1, key2: K2, table: &mut HashMap<K1, HashMap<K2, usize>>)
+        fn remove<K1, K2>(
+            key1: K1,
+            key2: K2,
+            table: &mut HashMap<K1, HashMap<K2, usize>>,
+        ) -> Result<(), &'static str>
         where
             K1: std::hash::Hash + Eq,
             K2: std::hash::Hash + Eq,
         {
             match table.entry(key1) {
-                Vacant(_e) => unreachable!(),
+                Vacant(_e) => return Err("vacant on key1"),
                 Occupied(mut e) => {
                     let map = e.get_mut();
                     match map.entry(key2) {
-                        Vacant(_e) => unreachable!(),
+                        Vacant(_e) => return Err("vacant on key2"),
                         Occupied(mut e2) => {
                             let count: &mut usize = e2.get_mut();
                             if *count == 1 {
                                 e2.remove();
                                 e.remove();
                             } else {
-                                *count = count.checked_sub(1).expect("Invalid state");
+                                *count = count.checked_sub(1).ok_or("invalid count state")?
                             }
                         }
                     }
                 }
             }
+            Ok(())
         }
 
-        remove(account_id.clone(), vk_hash, &mut self.account_id_to_vks);
-        remove(vk_hash, account_id.clone(), &mut self.vk_to_account_ids);
+        if let Err(e) = remove(account_id.clone(), vk_hash, &mut self.account_id_to_vks) {
+            bug_condition!(
+                "vk_map: Unexpected error on self.account_id_to_vks: {:?}",
+                e
+            );
+        }
+        if let Err(e) = remove(vk_hash, account_id.clone(), &mut self.vk_to_account_ids) {
+            bug_condition!(
+                "vk_map: Unexpected error on self.vk_to_account_ids: {:?}",
+                e
+            );
+        }
     }
 
     fn decrement_list(&mut self, list: &[ValidCommandWithHash]) {
