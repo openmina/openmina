@@ -1,10 +1,8 @@
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use juniper::{GraphQLInputObject, GraphQLObject};
 use ledger::FpExt;
 use mina_p2p_messages::bigint::BigInt;
-use mina_p2p_messages::binprot::BinProtWrite;
 use mina_p2p_messages::hash::MinaHash;
 use mina_p2p_messages::list::List;
 use mina_p2p_messages::pseq::PaddedSeq;
@@ -27,8 +25,7 @@ use mina_p2p_messages::v2::{
     MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
-    MinaBaseZkappCommandTStableV1WireStableV1Base64, MinaBaseZkappPreconditionAccountStableV2,
-    MinaBaseZkappPreconditionAccountStableV2Balance,
+    MinaBaseZkappPreconditionAccountStableV2, MinaBaseZkappPreconditionAccountStableV2Balance,
     MinaBaseZkappPreconditionAccountStableV2BalanceA,
     MinaBaseZkappPreconditionAccountStableV2Delegate,
     MinaBaseZkappPreconditionAccountStableV2ProvedState,
@@ -51,30 +48,18 @@ use mina_p2p_messages::v2::{
 };
 
 use node::account::AccountPublicKey;
-use openmina_core::block::ArcBlockWithHash;
 
 use super::account::{GraphQLTiming, InputGraphQLTiming};
 
-// pub struct GraphQLBestChain(pub Vec<GraphQLBestChainBlock>);
-
-// #[juniper::graphql_object]
-// impl GraphQLBestChain {
-//     fn best_chain(&self) -> &Vec<GraphQLBestChainBlock> {
-//         &self.0
-//     }
-// }
-
-#[derive(GraphQLObject)]
-#[graphql(description = "A Mina block")]
-pub struct GraphQLBestChainBlock {
-    pub protocol_state: GraphQLProtocolState,
-    pub state_hash: String,
-    pub transactions: GraphQLTransactions,
+#[derive(GraphQLInputObject)]
+pub struct SendZkappInput {
+    pub zkapp_command: InputGraphQLZkappCommand,
 }
 
-#[derive(GraphQLObject)]
-pub struct GraphQLTransactions {
-    pub zkapp_commands: Vec<GraphQLZkapp>,
+impl From<SendZkappInput> for MinaBaseUserCommandStableV2 {
+    fn from(value: SendZkappInput) -> Self {
+        value.zkapp_command.into()
+    }
 }
 
 #[derive(GraphQLObject)]
@@ -1081,56 +1066,6 @@ pub struct GraphQLFailureReason {
     pub failures: Vec<String>,
 }
 
-#[derive(GraphQLObject)]
-pub struct GraphQLProtocolState {
-    pub previous_state_hash: String,
-    pub blockchain_state: GraphQLBlockchainState,
-    pub consensus_state: GraphQLConsensusState,
-    // pub genesis_state_hash: StateHash,
-    // pub blockchain_state: MinaStateBlockchainStateValueStableV2,
-    // pub consensus_state: ConsensusProofOfStakeDataConsensusStateValueStableV2,
-    // pub constants: MinaBaseProtocolConstantsCheckedValueStableV1,
-}
-
-#[derive(GraphQLObject)]
-pub struct GraphQLBlockchainState {
-    pub snarked_ledger_hash: String,
-    pub staged_ledger_hash: String,
-    pub date: String,
-    pub utc_date: String,
-    pub staged_ledger_proof_emitted: bool,
-}
-
-#[derive(GraphQLObject)]
-pub struct GraphQLConsensusState {
-    pub block_height: String,
-    pub slot_since_genesis: String,
-    pub slot: String,
-    pub next_epoch_data: GraphQLEpochData,
-    pub staking_epoch_data: GraphQLEpochData,
-    // pub staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    // pub next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-    pub epoch_count: String,
-    pub min_window_density: String,
-    pub total_currency: String,
-    pub epoch: String,
-}
-
-#[derive(GraphQLObject)]
-pub struct GraphQLEpochData {
-    pub ledger: GraphQLLedger,
-    pub seed: String,
-    pub start_checkpoint: String,
-    pub lock_checkpoint: String,
-    pub epoch_length: String,
-}
-
-#[derive(GraphQLObject)]
-pub struct GraphQLLedger {
-    pub hash: String,
-    pub total_currency: String,
-}
-
 impl From<MinaStateBlockchainStateValueStableV2SignedAmount> for GraphQLBalanceChange {
     fn from(value: MinaStateBlockchainStateValueStableV2SignedAmount) -> Self {
         Self {
@@ -1459,232 +1394,6 @@ impl From<InputGraphQLAccountUpdate> for MinaBaseAccountUpdateTStableV1 {
     }
 }
 
-impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTransactions {
-    fn from(value: mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2) -> Self {
-        use mina_p2p_messages::v2::{
-            MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
-        };
-
-        let also_zkapp_commands = value
-            .1
-            .map_or_else(Vec::new, |v| v.commands.into_iter().collect::<Vec<_>>());
-
-        let zkapp_commands = value
-            .0
-            .commands
-            .into_iter()
-            .chain(also_zkapp_commands)
-            .rev()
-            .filter_map(|cmd| {
-                if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = cmd.data {
-                    std::fs::create_dir_all("zkapps").unwrap();
-                    let zkapp_path = format!("zkapps/{}", zkapp.hash().unwrap());
-                    let path = PathBuf::from(zkapp_path.clone());
-                    if !path.exists() {
-                        let mut buff = Vec::new();
-                        zkapp.binprot_write(&mut buff).unwrap();
-                        std::fs::write(zkapp_path, buff).unwrap();
-                    }
-
-                    let failure_reason =
-                        if let MinaBaseTransactionStatusStableV2::Failed(failure_collection) =
-                            cmd.status
-                        {
-                            let res = failure_collection
-                                .0
-                                .into_iter()
-                                .enumerate()
-                                .skip(1)
-                                .map(|(index, failure_list)| {
-                                    let fl =
-                                        failure_list.into_iter().map(|v| v.to_string()).collect();
-                                    GraphQLFailureReason {
-                                        index: index.to_string(),
-                                        failures: fl,
-                                    }
-                                })
-                                .rev()
-                                .collect();
-                            Some(res)
-                        } else {
-                            None
-                        };
-                    let account_updates = zkapp
-                        .account_updates
-                        .clone()
-                        .into_iter()
-                        .map(|v| v.elt.account_update.into())
-                        .collect();
-                    Some(GraphQLZkapp {
-                        hash: zkapp.hash().unwrap().to_string(),
-                        failure_reason,
-                        id: serde_json::to_string_pretty(
-                            &MinaBaseZkappCommandTStableV1WireStableV1Base64::from(zkapp.clone()),
-                        )
-                        .unwrap()
-                        .trim_matches('"')
-                        .to_string(),
-                        zkapp_command: GraphQLZkappCommand {
-                            memo: serde_json::to_string_pretty(&zkapp.memo)
-                                .unwrap()
-                                .trim_matches('"')
-                                .to_string(),
-                            account_updates,
-                            fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
-                        },
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        Self { zkapp_commands }
-    }
-}
-
-impl From<mina_p2p_messages::v2::MinaBaseEpochLedgerValueStableV1> for GraphQLLedger {
-    fn from(value: mina_p2p_messages::v2::MinaBaseEpochLedgerValueStableV1) -> Self {
-        Self {
-            hash: value.hash.to_string(),
-            total_currency: value.total_currency.as_u64().to_string(),
-        }
-    }
-}
-
-impl From<mina_p2p_messages::v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>
-    for GraphQLEpochData
-{
-    fn from(
-        value: mina_p2p_messages::v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-    ) -> Self {
-        Self {
-            ledger: value.ledger.into(),
-            seed: value.seed.to_string(),
-            start_checkpoint: value.start_checkpoint.to_string(),
-            lock_checkpoint: value.lock_checkpoint.to_string(),
-            epoch_length: value.epoch_length.as_u32().to_string(),
-        }
-    }
-}
-
-impl
-    From<
-        mina_p2p_messages::v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    > for GraphQLEpochData
-{
-    fn from(
-        value: mina_p2p_messages::v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-    ) -> Self {
-        Self {
-            ledger: value.ledger.into(),
-            seed: value.seed.to_string(),
-            start_checkpoint: value.start_checkpoint.to_string(),
-            lock_checkpoint: value.lock_checkpoint.to_string(),
-            epoch_length: value.epoch_length.as_u32().to_string(),
-        }
-    }
-}
-
-impl From<mina_p2p_messages::v2::ConsensusProofOfStakeDataConsensusStateValueStableV2>
-    for GraphQLConsensusState
-{
-    fn from(
-        value: mina_p2p_messages::v2::ConsensusProofOfStakeDataConsensusStateValueStableV2,
-    ) -> Self {
-        let slot = value.curr_global_slot_since_hard_fork.slot_number.as_u32()
-            % value
-                .curr_global_slot_since_hard_fork
-                .slots_per_epoch
-                .as_u32();
-
-        Self {
-            block_height: value.blockchain_length.as_u32().to_string(),
-            slot_since_genesis: value.global_slot_since_genesis.as_u32().to_string(),
-            slot: slot.to_string(),
-            next_epoch_data: value.next_epoch_data.into(),
-            staking_epoch_data: value.staking_epoch_data.into(),
-            epoch_count: value.epoch_count.as_u32().to_string(),
-            min_window_density: value.min_window_density.as_u32().to_string(),
-            total_currency: value.total_currency.as_u64().to_string(),
-            epoch: value.epoch_count.as_u32().to_string(),
-        }
-    }
-}
-
-// impl From<mina_p2p_messages::v2::MinaStateBlockchainStateValueStableV2> for GraphQLBlockchainState {
-//     fn from(value: mina_p2p_messages::v2::MinaStateBlockchainStateValueStableV2) -> Self {
-//         Self {
-//             snarked_ledger_hash: value.ledger_proof_statement.target.first_pass_ledger.to_string(),
-//             staged_ledger_hash: value.staged_ledger_hash.non_snark.ledger_hash.to_string(),
-//             date: value.timestamp.to_string(),
-//             // TODO(adonagy): verify this
-//             utc_date: value.timestamp.to_string(),
-//             staged_ledger_proof_emitted: value.staged_ledger_hash.non_snark.
-//         }
-//     }
-// }
-
-// impl From<mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2> for GraphQLProtocolState {
-//     fn from(value: mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2) -> Self {
-//         value.
-//         todo!()
-//     }
-// }
-
-impl From<ArcBlockWithHash> for GraphQLBestChainBlock {
-    fn from(value: ArcBlockWithHash) -> Self {
-        let blockchain_state = GraphQLBlockchainState {
-            snarked_ledger_hash: value.snarked_ledger_hash().to_string(),
-            staged_ledger_hash: value
-                .staged_ledger_hashes()
-                .non_snark
-                .ledger_hash
-                .to_string(),
-            date: value
-                .header()
-                .protocol_state
-                .body
-                .blockchain_state
-                .timestamp
-                .to_string(),
-            utc_date: value
-                .header()
-                .protocol_state
-                .body
-                .blockchain_state
-                .timestamp
-                .to_string(),
-            // staged_ledger_proof_emitted: value.body().has_emitted_proof(),
-            // FIXME: info comming from Breadcrumb, which is not implemented
-            staged_ledger_proof_emitted: false,
-        };
-
-        let protocol_state = GraphQLProtocolState {
-            previous_state_hash: value.pred_hash().to_string(),
-            blockchain_state,
-            consensus_state: value
-                .header()
-                .protocol_state
-                .body
-                .consensus_state
-                .clone()
-                .into(),
-        };
-
-        Self {
-            protocol_state,
-            state_hash: value.hash.to_string(),
-            transactions: value.body().diff().clone().into(),
-        }
-    }
-}
-
-// impl From<Vec<ArcBlockWithHash>> for GraphQLBestChain {
-//     fn from(value: Vec<ArcBlockWithHash>) -> Self {
-//         GraphQLBestChain(value.into_iter().map(|b| b.into()).collect())
-//     }
-// }
-
 impl From<InputGraphQLTiming> for MinaBaseAccountUpdateUpdateTimingInfoStableV1 {
     fn from(value: InputGraphQLTiming) -> Self {
         Self {
@@ -1728,18 +1437,6 @@ mod test {
         let mina_empty_memo = MinaBaseSignedCommandMemoStableV1::from(&empty_memo);
         assert_eq!(mina_empty_memo.to_base58check(), expected);
     }
-
-    // #[test]
-    // fn test_verification_key() {
-    //     let vk_base64 = "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";
-    //     let decoded = MinaBaseVerificationKeyWireStableV1::from_base64(vk_base64).unwrap();
-    //     println!("{:?}", decoded);
-
-    //     let vk_base64 = "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";
-    //     let decoded = MinaBaseVerificationKeyWireStableV1::from_base64(vk_base64).unwrap();
-    //     println!("{:?}", decoded);
-
-    // }
 
     #[test]
     fn test_zkapp_from_input() {
