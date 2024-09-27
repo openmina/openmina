@@ -28,12 +28,6 @@ pub enum IsStart<T> {
     Compute(T),
 }
 
-enum PerformResult<Z: ZkappApplication> {
-    None,
-    Bool(Z::Bool),
-    Account(Z::Account),
-}
-
 struct GetNextAccountUpdateResult<Z: ZkappApplication> {
     account_update: Z::AccountUpdate,
     caller_id: TokenId,
@@ -367,13 +361,11 @@ where
         IsStart::Yes(start_data) => start_data.will_succeed,
         IsStart::No => local_state.will_succeed,
     };
-    local_state.ledger = w.exists_no_check_on_bool(
-        is_start2,
-        match is_start2.as_boolean() {
-            Boolean::True => global_state.first_pass_ledger(),
-            Boolean::False => local_state.ledger.clone(),
-        },
-    );
+    local_state.ledger = match is_start2.as_boolean() {
+        Boolean::True => global_state.first_pass_ledger(),
+        Boolean::False => local_state.ledger.clone(),
+    }
+    .exists_no_check_on_bool(is_start2, w);
     local_state.will_succeed = will_succeed;
 
     let ((account_update, remaining, call_stack), account_update_forest, (mut a, inclusion_proof)) = {
@@ -440,7 +432,7 @@ where
             );
         };
 
-        let acct = local_state.ledger.get_account(&account_update, w);
+        let acct = local_state.ledger.get_account(&account_update, w)?;
         local_state.ledger.check_inclusion(&acct, w);
 
         let (transaction_commitment, full_transaction_commitment) = match is_start {
@@ -490,7 +482,7 @@ where
         &account_update.body().token_id,
         (&a, &inclusion_proof),
         w,
-    );
+    )?;
 
     {
         let self_delegate = {
@@ -1211,7 +1203,7 @@ where
         overflowed.neg(),
         w,
     );
-    local_state.ledger.set_account((a, inclusion_proof), w);
+    local_state.ledger.set_account((a, inclusion_proof), w)?;
 
     let is_last_account_update = Z::CallForest::is_empty(Z::StackFrame::calls(&remaining), w);
     // We decompose this way because of OCaml evaluation order
@@ -1347,7 +1339,7 @@ where
             Boolean::False => local_state.success,
         });
         let ledger = match is_last_account_update.as_boolean() {
-            Boolean::True => Z::Ledger::empty(),
+            Boolean::True => Z::Ledger::empty(0),
             Boolean::False => local_state.ledger.clone(),
         }
         .exists_no_check(w);

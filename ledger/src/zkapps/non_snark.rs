@@ -11,6 +11,7 @@ use crate::{
         to_field_elements::ToFieldElements,
         transaction::Check,
         witness::Witness,
+        zkapp::StartDataSkeleton,
     },
     scan_state::{
         currency::{Amount, Balance, Index, Magnitude, Signed, Slot, SlotSpan, TxnVersion},
@@ -18,16 +19,17 @@ use crate::{
             account_check_timing,
             local_state::{CallStack, StackFrame},
             protocol_state::GlobalStateSkeleton,
+            set_with_location,
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdate, CallForest, CheckAuthorizationResult,
                 SetOrKeep,
             },
             zkapp_statement::TransactionCommitment,
-            TimingValidation, TransactionFailure,
+            ExistingOrNew, TimingValidation, TransactionFailure,
         },
         zkapp_logic::controller_check,
     },
-    sparse_ledger::LedgerIntf,
+    sparse_ledger::{LedgerIntf, SparseLedger},
     zkapps::checks::ZkappCheck,
     Account, AccountId, Mask, MyCow, TokenId, ZkAppAccount, TXN_VERSION_CURRENT,
 };
@@ -45,7 +47,7 @@ use super::{
         TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
         ZkappHandler,
     },
-    zkapp_logic,
+    zkapp_logic::{self, ApplyZkappParams},
 };
 
 pub type GlobalStateForNonSnark<L> = GlobalStateSkeleton<
@@ -863,4 +865,183 @@ impl BranchInterface for NonSnarkBranch {
         // The closure will be run when `BranchEvaluation::eval` is called.
         BranchEvaluation::Pending(run)
     }
+}
+
+fn get_with_location<L>(
+    ledger: &L,
+    account_id: &AccountId,
+) -> Result<(ExistingOrNew<L::Location>, Box<Account>), String>
+where
+    L: LedgerIntf,
+{
+    match ledger.location_of_account(account_id) {
+        Some(location) => match ledger.get(&location) {
+            Some(account) => Ok((ExistingOrNew::Existing(location), account)),
+            None => Err("Ledger location with no account".to_string()),
+        },
+        None => Ok((
+            ExistingOrNew::New,
+            Box::new(Account::create_with(account_id.clone(), Balance::zero())),
+        )),
+    }
+}
+
+mod ledger {
+    use super::*;
+
+    type InclusionProof<L> = ExistingOrNew<<L as LedgerIntf>::Location>;
+
+    pub(super) fn get_account<L: LedgerIntf>(
+        ledger: &L,
+        account_update: &AccountUpdate,
+    ) -> Result<(Account, InclusionProof<L>), String> {
+        let (loc, account) = get_with_location(ledger, &account_update.account_id())?;
+        Ok((*account, loc))
+    }
+    pub(super) fn set_account<L: LedgerIntf>(
+        ledger: &mut L,
+        account: (Account, InclusionProof<L>),
+    ) -> Result<(), String> {
+        let (account, location) = account;
+        set_with_location(ledger, &location, Box::new(account))
+    }
+    pub(super) fn check_account<L: LedgerIntf>(
+        public_key: &CompressedPubKey,
+        token_id: &TokenId,
+        account: (&Account, &InclusionProof<L>),
+    ) -> Result<bool, String> {
+        let (account, loc) = account;
+        if public_key != &account.public_key {
+            return Err("check_account: public_key != &account.public_key".to_string());
+        }
+        if token_id != &account.token_id {
+            return Err("check_account: token_id != &account.token_id".to_string());
+        }
+        match loc {
+            ExistingOrNew::Existing(_) => Ok(false),
+            ExistingOrNew::New => Ok(true),
+        }
+    }
+}
+
+impl LedgerInterface for Mask {
+    type W = ();
+    type AccountUpdate = AccountUpdate;
+    type Account = Account;
+    type Bool = bool;
+    type InclusionProof = ExistingOrNew<<Mask as LedgerIntf>::Location>;
+
+    fn empty(depth: usize) -> Self {
+        <Self as LedgerIntf>::empty(depth)
+    }
+    fn get_account(
+        &self,
+        account_update: &Self::AccountUpdate,
+        _w: &mut Self::W,
+    ) -> Result<(Self::Account, Self::InclusionProof), String> {
+        ledger::get_account(self, account_update)
+    }
+    fn set_account(
+        &mut self,
+        account: (Self::Account, Self::InclusionProof),
+        _w: &mut Self::W,
+    ) -> Result<(), String> {
+        ledger::set_account(self, account)
+    }
+    fn check_inclusion(&self, _account: &(Self::Account, Self::InclusionProof), _w: &mut Self::W) {
+        // Nothing
+    }
+    fn check_account(
+        public_key: &CompressedPubKey,
+        token_id: &TokenId,
+        account: (&Self::Account, &Self::InclusionProof),
+        _w: &mut Self::W,
+    ) -> Result<Self::Bool, String> {
+        ledger::check_account::<Self>(public_key, token_id, account)
+    }
+}
+impl LedgerInterface for SparseLedger {
+    type W = ();
+    type AccountUpdate = AccountUpdate;
+    type Account = Account;
+    type Bool = bool;
+    type InclusionProof = ExistingOrNew<<Mask as LedgerIntf>::Location>;
+
+    fn empty(depth: usize) -> Self {
+        <Self as LedgerIntf>::empty(depth)
+    }
+    fn get_account(
+        &self,
+        account_update: &Self::AccountUpdate,
+        _w: &mut Self::W,
+    ) -> Result<(Self::Account, Self::InclusionProof), String> {
+        ledger::get_account(self, account_update)
+    }
+    fn set_account(
+        &mut self,
+        account: (Self::Account, Self::InclusionProof),
+        _w: &mut Self::W,
+    ) -> Result<(), String> {
+        ledger::set_account(self, account)
+    }
+    fn check_inclusion(&self, _account: &(Self::Account, Self::InclusionProof), _w: &mut Self::W) {
+        // Nothing
+    }
+    fn check_account(
+        public_key: &CompressedPubKey,
+        token_id: &TokenId,
+        account: (&Self::Account, &Self::InclusionProof),
+        _w: &mut Self::W,
+    ) -> Result<Self::Bool, String> {
+        ledger::check_account::<Self>(public_key, token_id, account)
+    }
+}
+
+pub fn step<L>(
+    global_state: &mut GlobalStateForNonSnark<L>,
+    local_state: &mut zkapp_logic::LocalState<ZkappNonSnark<L>>,
+) -> Result<(), String>
+where
+    L: LedgerInterface<
+        W = (),
+        AccountUpdate = AccountUpdate,
+        Account = crate::Account,
+        Bool = bool,
+    >,
+{
+    zkapp_logic::apply(
+        ApplyZkappParams {
+            is_start: zkapp_logic::IsStart::No,
+            global_state,
+            local_state,
+            single_data: (),
+        },
+        &mut (),
+    )
+}
+
+type StartData = StartDataSkeleton<CallForest<AccountUpdate>, bool>;
+
+pub fn start<L>(
+    global_state: &mut GlobalStateForNonSnark<L>,
+    local_state: &mut zkapp_logic::LocalState<ZkappNonSnark<L>>,
+    start_data: StartData,
+) -> Result<(), String>
+where
+    L: LedgerInterface<
+        W = (),
+        AccountUpdate = AccountUpdate,
+        Account = crate::Account,
+        Bool = bool,
+    >,
+{
+    zkapp_logic::apply(
+        ApplyZkappParams {
+            is_start: zkapp_logic::IsStart::Yes(start_data),
+            global_state,
+            local_state,
+            single_data: (),
+        },
+        &mut (),
+    )
 }

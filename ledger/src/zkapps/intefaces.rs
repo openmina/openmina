@@ -477,29 +477,37 @@ where
     fn set_last_action_slot(&mut self, slot: Self::GlobalSlot);
 }
 
-pub trait LedgerInterface: LedgerIntf + Clone + ToFieldElements<Fp> {
+pub trait LedgerInterface: LedgerIntf + Clone {
     type W: WitnessGenerator<Fp>;
     type AccountUpdate: AccountUpdateInterface;
     type Account: AccountInterface;
     type Bool: BoolInterface;
     type InclusionProof;
 
-    fn empty() -> Self;
+    fn empty(depth: usize) -> Self;
     fn get_account(
         &self,
         account_update: &Self::AccountUpdate,
         w: &mut Self::W,
-    ) -> (Self::Account, Self::InclusionProof);
-    fn set_account(&mut self, account: (Self::Account, Self::InclusionProof), w: &mut Self::W);
+    ) -> Result<(Self::Account, Self::InclusionProof), String>;
+    fn set_account(
+        &mut self,
+        account: (Self::Account, Self::InclusionProof),
+        w: &mut Self::W,
+    ) -> Result<(), String>;
     fn check_inclusion(&self, account: &(Self::Account, Self::InclusionProof), w: &mut Self::W);
     fn check_account(
         public_key: &CompressedPubKey,
         token_id: &TokenId,
         account: (&Self::Account, &Self::InclusionProof),
         w: &mut Self::W,
-    ) -> Self::Bool;
-    fn exists_no_check(self, w: &mut Self::W) -> Self;
-    fn exists_no_check_on_bool(self, b: Self::Bool, w: &mut Self::W) -> Self;
+    ) -> Result<Self::Bool, String>;
+    fn exists_no_check(self, _w: &mut Self::W) -> Self {
+        self
+    }
+    fn exists_no_check_on_bool(self, _b: Self::Bool, _w: &mut Self::W) -> Self {
+        self
+    }
 }
 
 pub trait VerificationKeyHashInterface {

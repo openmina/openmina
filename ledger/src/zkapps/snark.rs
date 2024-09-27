@@ -992,8 +992,8 @@ impl LedgerInterface for LedgerWithHash {
     type Bool = SnarkBool;
     type InclusionProof = Vec<(Boolean, Fp)>;
 
-    fn empty() -> Self {
-        let mut ledger = <SparseLedger as crate::sparse_ledger::LedgerIntf>::empty(0);
+    fn empty(depth: usize) -> Self {
+        let mut ledger = <SparseLedger as crate::sparse_ledger::LedgerIntf>::empty(depth);
         let hash = ledger.merkle_root();
         Self { ledger, hash }
     }
@@ -1001,7 +1001,7 @@ impl LedgerInterface for LedgerWithHash {
         &self,
         account_update: &Self::AccountUpdate,
         w: &mut Self::W,
-    ) -> (Self::Account, Self::InclusionProof) {
+    ) -> Result<(Self::Account, Self::InclusionProof), String> {
         let Self {
             ledger,
             hash: _root,
@@ -1026,14 +1026,19 @@ impl LedgerInterface for LedgerWithHash {
                 })
                 .collect::<Vec<_>>(),
         );
-        (account, inclusion)
+        Ok((account, inclusion))
     }
-    fn set_account(&mut self, (a, incl): (Self::Account, Self::InclusionProof), w: &mut Self::W) {
+    fn set_account(
+        &mut self,
+        (a, incl): (Self::Account, Self::InclusionProof),
+        w: &mut Self::W,
+    ) -> Result<(), String> {
         let Self { ledger, hash } = self;
         let new_hash = implied_root(&a, &incl, w);
         let idx = ledger.find_index_exn(a.id());
         ledger.set_exn(idx, a.data);
         *hash = new_hash;
+        Ok(())
     }
     fn check_inclusion(
         &self,
@@ -1047,7 +1052,7 @@ impl LedgerInterface for LedgerWithHash {
         token_id: &TokenId,
         account: (&Self::Account, &Self::InclusionProof),
         w: &mut Self::W,
-    ) -> Self::Bool {
+    ) -> Result<Self::Bool, String> {
         let (WithLazyHash { data: account, .. }, _) = account;
         let is_new = checked_equal_compressed_key_const_and(
             &account.public_key,
@@ -1058,7 +1063,7 @@ impl LedgerInterface for LedgerWithHash {
         Boolean::assert_any(&[is_new, is_same], w);
         let is_same_token = field::equal(token_id.0, account.token_id.0, w);
         Boolean::assert_any(&[is_new, is_same_token], w);
-        is_new.var()
+        Ok(is_new.var())
     }
     fn exists_no_check(self, w: &mut Self::W) -> Self {
         w.exists_no_check(self.hash);
