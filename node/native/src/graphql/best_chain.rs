@@ -1,10 +1,8 @@
-use std::iter;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use juniper::{GraphQLInputObject, GraphQLObject};
-use ledger::{scan_state::transaction_logic::Memo, FpExt};
-use mina_p2p_messages::b58::FromBase58Check;
+use ledger::FpExt;
 use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::binprot::BinProtWrite;
 use mina_p2p_messages::hash::MinaHash;
@@ -26,8 +24,7 @@ use mina_p2p_messages::v2::{
     MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseControlStableV2,
     MinaBasePermissionsStableV2, MinaBaseReceiptChainHashStableV1,
     MinaBaseSignedCommandMemoStableV1, MinaBaseUserCommandStableV2,
-    MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1Base64,
-    MinaBaseZkappCommandTStableV1WireStableV1,
+    MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
     MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
     MinaBaseZkappCommandTStableV1WireStableV1Base64, MinaBaseZkappPreconditionAccountStableV2,
@@ -50,15 +47,13 @@ use mina_p2p_messages::v2::{
     MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
     MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash,
     MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSpanStableV1,
-    MinaStateBlockchainStateValueStableV2SignedAmount, NonZeroCurvePoint, ReceiptChainHash,
-    StateHash, TokenIdKeyHash,
+    MinaStateBlockchainStateValueStableV2SignedAmount, StateHash,
 };
 
-use mina_signer::CompressedPubKey;
 use node::account::AccountPublicKey;
-use openmina_core::{block::ArcBlockWithHash, transaction::Transaction};
+use openmina_core::block::ArcBlockWithHash;
 
-use super::account::{GraphQLAccount, GraphQLTiming, InputGraphQLTiming};
+use super::account::{GraphQLTiming, InputGraphQLTiming};
 
 // pub struct GraphQLBestChain(pub Vec<GraphQLBestChainBlock>);
 
@@ -544,7 +539,7 @@ impl From<InputGraphQLPreconditionsAccount> for MinaBaseAccountUpdateAccountPrec
             .map(|v| {
                 if let Some(state) = v {
                     MinaBaseZkappPreconditionAccountStableV2StateA::Check(
-                        BigInt::from_decimal(&state).unwrap(),
+                        BigInt::from_decimal(state).unwrap(),
                     )
                 } else {
                     MinaBaseZkappPreconditionAccountStableV2StateA::Ignore
@@ -1282,7 +1277,7 @@ impl From<InputGraphQLAccountUpdateUpdate> for MinaBaseAccountUpdateUpdateStable
             .map(|v| {
                 if let Some(v) = v {
                     MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(
-                        BigInt::from_decimal(&v).unwrap(),
+                        BigInt::from_decimal(v).unwrap(),
                     )
                 } else {
                     MinaBaseAccountUpdateUpdateStableV1AppStateA::Keep
@@ -1717,8 +1712,8 @@ mod test {
     use mina_p2p_messages::{
         binprot::BinProtRead,
         v2::{
-            MinaBaseSignatureStableV1, MinaBaseSignedCommandMemoStableV1,
-            MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1, Signature,
+            MinaBaseSignedCommandMemoStableV1, MinaBaseUserCommandStableV2,
+            MinaBaseZkappCommandTStableV1WireStableV1,
         },
     };
 
