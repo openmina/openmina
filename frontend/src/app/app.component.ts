@@ -9,7 +9,7 @@ import { AppActions } from '@app/app.actions';
 import { Observable, timer } from 'rxjs';
 import { CONFIG } from '@shared/constants/config';
 // import { AccountUpdate, declareMethods, Field, method, Mina, PrivateKey, SmartContract, State, state } from 'o1js';
-
+//
 // export class Square extends SmartContract {
 //   @state(Field) num = State<Field>();
 //
@@ -26,6 +26,8 @@ import { CONFIG } from '@shared/constants/config';
 //     this.num.set(square);
 //   }
 // }
+
+declare const $: any;
 
 @Component({
   selector: 'app-root',
@@ -49,16 +51,39 @@ export class AppComponent extends ManualDetection implements OnInit {
     }
   }
 
-  ngOnInit(): void {
+  async ngOnInit() {
     if (!this.hideToolbar && !CONFIG.hideNodeStats) {
       this.scheduleNodeUpdates();
     }
     this.listenToWindowResizing();
     // console.log('Start');
-    // this.startZK();
+    // // this.startZK();
     // console.log('Finish!');
+    // try {
+    //   await this.loadScript('assets/o1js/main.js');
+    //   // Now the script is loaded, and you can access the exported variable
+    //   if (typeof (window as any).$ !== 'undefined') {
+    //     const $ = (window as any).$;
+    //     console.log('Script loaded:', $);
+    //     // Use $ here
+    //     $.default.gql4();
+    //   } else {
+    //     console.error('$ is not defined after loading the script');
+    //   }
+    // } catch (error) {
+    //   console.error('Error loading script:', error);
+    // }
   }
 
+  loadScript(scriptUrl: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.onload = () => resolve();
+      script.onerror = (error) => reject(error);
+      document.body.appendChild(script);
+    });
+  }
 
 //   async startZK() {
 //     //@ts-ignore
