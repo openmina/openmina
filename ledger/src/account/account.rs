@@ -4,7 +4,7 @@ use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot::{BinProtRead, BinProtWrite},
-    v2::{self, MinaBaseVerificationKeyWireStableV1Base64},
+    v2,
 };
 use mina_signer::CompressedPubKey;
 use once_cell::sync::OnceCell;
@@ -419,11 +419,11 @@ pub struct VerificationKey {
     pub wrap_vk: Option<()>,
 }
 
-impl From<VerificationKey> for MinaBaseVerificationKeyWireStableV1Base64 {
-    fn from(value: VerificationKey) -> Self {
-        MinaBaseVerificationKeyWireStableV1Base64((&value).into())
-    }
-}
+// impl From<VerificationKey> for MinaBaseVerificationKeyWireStableV1Base64 {
+//     fn from(value: VerificationKey) -> Self {
+//         MinaBaseVerificationKeyWireStableV1Base64((&value).into())
+//     }
+// }
 
 impl Check<Fp> for VerificationKey {
     fn check(&self, w: &mut Witness<Fp>) {

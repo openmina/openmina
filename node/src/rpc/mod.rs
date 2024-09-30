@@ -14,7 +14,7 @@ use mina_p2p_messages::v2::{
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::AppliedBlock;
 use openmina_core::consensus::ConsensusConstants;
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
@@ -341,7 +341,7 @@ pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
 pub type RpcLedgerSlimAccountsResponse = Vec<AccountSlim>;
 pub type RpcLedgerAccountsResponse = Vec<Account>;
 pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
-pub type RpcBestChainResponse = Vec<ArcBlockWithHash>;
+pub type RpcBestChainResponse = Vec<AppliedBlock>;
 pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
 pub type RpcTransactionStatusGetResponse = TransactionStatus;
 

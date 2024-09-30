@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
 use juniper::{GraphQLInputObject, GraphQLObject};
-use ledger::FpExt;
+use ledger::{FpExt, VerificationKey};
 use mina_p2p_messages::bigint::BigInt;
-use mina_p2p_messages::hash::MinaHash;
 use mina_p2p_messages::list::List;
 use mina_p2p_messages::pseq::PaddedSeq;
 use mina_p2p_messages::string::{TokenSymbol, ZkAppUri};
@@ -309,7 +308,7 @@ impl From<MinaBaseAccountUpdateAuthorizationKindStableV1> for GraphQLAuthorizati
                 GraphQLAuthorizationKind {
                     is_signed: false,
                     is_proved: true,
-                    verification_key_hash: Some(proof.to_fp().unwrap().to_decimal()),
+                    verification_key_hash: Some(proof.to_decimal()),
                 }
             }
             MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven => GraphQLAuthorizationKind {
@@ -467,7 +466,7 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
                 if let MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash::Check(v) =
                     value.0.receipt_chain_hash
                 {
-                    Some(v.to_fp().unwrap().to_decimal())
+                    Some(v.to_decimal())
                 } else {
                     None
                 },
@@ -485,7 +484,7 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
                 .iter()
                 .map(|v| {
                     if let MinaBaseZkappPreconditionAccountStableV2StateA::Check(state_value) = v {
-                        Some(state_value.to_fp().unwrap().to_decimal())
+                        Some(state_value.to_decimal())
                     } else {
                         None
                     }
@@ -494,7 +493,7 @@ impl From<MinaBaseAccountUpdateAccountPreconditionStableV1> for GraphQLPrecondit
             action_state: if let MinaBaseZkappPreconditionAccountStableV2StateA::Check(value) =
                 value.0.action_state
             {
-                Some(value.to_fp().unwrap().to_decimal())
+                Some(value.to_decimal())
             } else {
                 None
             },
@@ -1130,7 +1129,10 @@ impl From<MinaBaseVerificationKeyWireStableV1> for GraphQLVerificationKey {
     fn from(value: MinaBaseVerificationKeyWireStableV1) -> Self {
         Self {
             data: value.to_base64().unwrap(),
-            hash: value.hash().to_decimal(),
+            hash: VerificationKey::try_from(&value)
+                .unwrap()
+                .hash()
+                .to_decimal(),
         }
     }
 }
@@ -1150,7 +1152,7 @@ impl From<MinaBaseAccountUpdateUpdateStableV1> for GraphQLAccountUpdateUpdate {
                 .into_iter()
                 .map(|v| {
                     if let MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(value) = v {
-                        Some(value.to_fp().unwrap().to_decimal())
+                        Some(value.to_decimal())
                     } else {
                         None
                     }
@@ -1319,24 +1321,16 @@ impl From<MinaBaseAccountUpdateTStableV1> for GraphQLAccountUpdate {
                     .events
                     .0
                     .into_iter()
-                    .map(|v| {
-                        v.into_iter()
-                            .map(|i| i.to_fp().unwrap().to_decimal())
-                            .collect()
-                    })
+                    .map(|v| v.into_iter().map(|i| i.to_decimal()).collect())
                     .collect(),
                 actions: value
                     .body
                     .actions
                     .0
                     .into_iter()
-                    .map(|v| {
-                        v.into_iter()
-                            .map(|i| i.to_fp().unwrap().to_decimal())
-                            .collect()
-                    })
+                    .map(|v| v.into_iter().map(|i| i.to_decimal()).collect())
                     .collect(),
-                call_data: value.body.call_data.to_fp().unwrap().to_decimal(),
+                call_data: value.body.call_data.to_decimal(),
                 // TODO(adonagy): figure out call depth
                 call_depth: 0,
                 preconditions: GraphQLPreconditions::from(value.body.preconditions),

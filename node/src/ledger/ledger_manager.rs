@@ -232,7 +232,7 @@ impl LedgerRequest {
                             AccountQuery::All => ledger_ctx.get_accounts_for_rpc(ledger_hash, None),
                             AccountQuery::PubKeyWithTokenId(public_key, token_id_key_hash) => {
                                 let id = AccountId {
-                                    public_key: public_key.clone().into(),
+                                    public_key: public_key.clone().try_into().unwrap(),
                                     token_id: token_id_key_hash.clone().into(),
                                 };
                                 ledger_ctx.get_accounts(ledger_hash, vec![id])

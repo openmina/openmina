@@ -4,7 +4,7 @@ use juniper::GraphQLObject;
 use mina_p2p_messages::{
     binprot::BinProtWrite, v2::MinaBaseZkappCommandTStableV1WireStableV1Base64,
 };
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::AppliedBlock;
 
 use crate::graphql::zkapp::{GraphQLFailureReason, GraphQLFeePayer, GraphQLZkappCommand};
 
@@ -23,37 +23,37 @@ pub struct GraphQLTransactions {
     pub zkapp_commands: Vec<GraphQLZkapp>,
 }
 
-impl From<ArcBlockWithHash> for GraphQLBestChainBlock {
-    fn from(value: ArcBlockWithHash) -> Self {
+impl From<AppliedBlock> for GraphQLBestChainBlock {
+    fn from(value: AppliedBlock) -> Self {
+        let block = value.block;
         let blockchain_state = GraphQLBlockchainState {
-            snarked_ledger_hash: value.snarked_ledger_hash().to_string(),
-            staged_ledger_hash: value
+            snarked_ledger_hash: block.snarked_ledger_hash().to_string(),
+            staged_ledger_hash: block
                 .staged_ledger_hashes()
                 .non_snark
                 .ledger_hash
                 .to_string(),
-            date: value
+            date: block
                 .header()
                 .protocol_state
                 .body
                 .blockchain_state
                 .timestamp
                 .to_string(),
-            utc_date: value
+            utc_date: block
                 .header()
                 .protocol_state
                 .body
                 .blockchain_state
                 .timestamp
                 .to_string(),
-            // FIXME: info comming from Breadcrumb, which is not implemented
-            staged_ledger_proof_emitted: false,
+            staged_ledger_proof_emitted: value.just_emitted_a_proof,
         };
 
         let protocol_state = GraphQLProtocolState {
-            previous_state_hash: value.pred_hash().to_string(),
+            previous_state_hash: block.pred_hash().to_string(),
             blockchain_state,
-            consensus_state: value
+            consensus_state: block
                 .header()
                 .protocol_state
                 .body
@@ -64,8 +64,8 @@ impl From<ArcBlockWithHash> for GraphQLBestChainBlock {
 
         Self {
             protocol_state,
-            state_hash: value.hash.to_string(),
-            transactions: value.body().diff().clone().into(),
+            state_hash: block.hash.to_string(),
+            transactions: block.body().diff().clone().into(),
         }
     }
 }

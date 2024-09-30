@@ -15,7 +15,7 @@ use node::{
     rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
     stats::sync::SyncKind,
 };
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::AppliedBlock;
 use openmina_core::consensus::ConsensusConstants;
 use openmina_core::constants::constraint_constants;
 use openmina_node_common::rpc::RpcSender;
@@ -145,7 +145,7 @@ impl Query {
         }
     }
     async fn best_chain(max_length: i32, context: &Context) -> Vec<block::GraphQLBestChainBlock> {
-        let best_chain: Vec<ArcBlockWithHash> = context
+        let best_chain: Vec<AppliedBlock> = context
             .0
             .oneshot_request(RpcRequest::BestChain(max_length as u32))
             .await

@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
-use ark_ff::{fields::arithmetic::InvalidBigInt, Field};
+use ark_ff::{fields::arithmetic::InvalidBigInt, Field, PrimeField};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt,
@@ -54,6 +54,12 @@ impl binprot::BinProtWrite for TokenId {
 impl From<TokenId> for TokenIdKeyHash {
     fn from(value: TokenId) -> Self {
         MinaBaseAccountIdDigestStableV1(value.0.into()).into()
+    }
+}
+
+impl From<TokenIdKeyHash> for TokenId {
+    fn from(value: TokenIdKeyHash) -> Self {
+        value.inner().try_into().unwrap()
     }
 }
 
