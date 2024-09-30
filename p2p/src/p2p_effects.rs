@@ -2,7 +2,7 @@ use openmina_core::bug_condition;
 use redux::{ActionMeta, ActionWithMeta};
 
 use crate::{
-    channels::P2pChannelsAction,
+    channels::P2pChannelsEffectfulAction,
     connection::{outgoing::P2pConnectionOutgoingAction, P2pConnectionEffectfulAction},
     P2pAction, P2pStore,
 };
@@ -285,20 +285,21 @@ where
             P2pConnectionEffectfulAction::Incoming(action) => action.effects(&meta, store),
         },
         P2pAction::DisconnectionEffectful(action) => action.effects(&meta, store),
-        P2pAction::Channels(action) => match action {
-            P2pChannelsAction::MessageReceived(action) => action.effects(&meta, store),
-            P2pChannelsAction::BestTip(action) => action.effects(&meta, store),
-            P2pChannelsAction::Transaction(action) => action.effects(&meta, store),
-            P2pChannelsAction::Snark(action) => action.effects(&meta, store),
-            P2pChannelsAction::SnarkJobCommitment(action) => action.effects(&meta, store),
-            P2pChannelsAction::Rpc(action) => action.effects(&meta, store),
-            P2pChannelsAction::StreamingRpc(action) => action.effects(&meta, store),
+
+        P2pAction::ChannelsEffectful(action) => match action {
+            P2pChannelsEffectfulAction::BestTip(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::Transaction(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::StreamingRpc(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::SnarkJobCommitment(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::Rpc(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::Snark(action) => action.effects(&meta, store),
         },
         P2pAction::Network(_action) => {
             #[cfg(feature = "p2p-libp2p")]
             _action.effects(&meta, store);
         }
         P2pAction::Connection(_)
+        | P2pAction::Channels(_)
         | P2pAction::Disconnection(_)
         | P2pAction::Peer(_)
         | P2pAction::Identify(_) => {

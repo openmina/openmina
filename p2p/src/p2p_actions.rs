@@ -2,6 +2,7 @@ use openmina_macros::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
+use crate::channels::P2pChannelsEffectfulAction;
 use crate::connection::P2pConnectionEffectfulAction;
 use crate::disconnection_effectful::P2pDisconnectionEffectfulAction;
 
@@ -25,6 +26,7 @@ pub enum P2pAction {
     DisconnectionEffectful(P2pDisconnectionEffectfulAction),
     Identify(P2pIdentifyAction),
     Channels(P2pChannelsAction),
+    ChannelsEffectful(P2pChannelsEffectfulAction),
     Peer(P2pPeerAction),
     Network(P2pNetworkAction),
 }
@@ -56,6 +58,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pAction {
             P2pAction::Peer(a) => a.is_enabled(state, time),
             P2pAction::Identify(a) => a.is_enabled(state, time),
             P2pAction::Network(a) => a.is_enabled(state, time),
+            P2pAction::ChannelsEffectful(a) => a.is_enabled(state, time),
         }
     }
 }

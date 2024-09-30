@@ -376,7 +376,7 @@ impl P2pLimits {
 impl Default for P2pLimits {
     fn default() -> Self {
         let max_peers = Limit::Some(100);
-        let min_peers_in_state = Limit::Some(20);
+        let min_peers_in_state = Limit::Some(50);
         let max_peers_in_state = Limit::Some(100);
         let max_streams = Limit::Some(10);
         // 256 MiB

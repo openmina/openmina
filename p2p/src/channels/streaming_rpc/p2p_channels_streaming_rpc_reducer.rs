@@ -1,40 +1,68 @@
-use openmina_core::bug_condition;
+use openmina_core::{bug_condition, Substate};
+use redux::ActionWithMeta;
+
+use crate::{channels::streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction, P2pState};
 
 use super::{
     staged_ledger_parts::{StagedLedgerPartsReceiveProgress, StagedLedgerPartsSendProgress},
-    P2pChannelsStreamingRpcAction, P2pChannelsStreamingRpcActionWithMetaRef,
-    P2pChannelsStreamingRpcState, P2pStreamingRpcId, P2pStreamingRpcLocalState,
+    P2pChannelsStreamingRpcAction, P2pChannelsStreamingRpcState, P2pStreamingRpcLocalState,
     P2pStreamingRpcRemoteState, P2pStreamingRpcRequest, P2pStreamingRpcResponseFull,
     P2pStreamingRpcSendProgress,
 };
 
 impl P2pChannelsStreamingRpcState {
-    pub fn reducer(
-        &mut self,
-        action: P2pChannelsStreamingRpcActionWithMetaRef<'_>,
-        next_local_rpc_id: &mut P2pStreamingRpcId,
-    ) {
+    pub fn reducer<Action, State>(
+        mut state_context: Substate<Action, State, P2pState>,
+        action: ActionWithMeta<&P2pChannelsStreamingRpcAction>,
+    ) -> Result<(), String>
+    where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
         let (action, meta) = action.split();
+        let peer_id = *action.peer_id();
+        let p2p_state = state_context.get_substate_mut()?;
+
+        let channels_state = &mut p2p_state
+            .get_ready_peer_mut(&peer_id)
+            .ok_or_else(|| format!("Invalid state for: {action:?}"))?
+            .channels;
+
+        let next_local_rpc_id = &mut channels_state.next_local_rpc_id;
+        let streaming_rpc_state = &mut channels_state.streaming_rpc;
+
         match action {
             P2pChannelsStreamingRpcAction::Init { .. } => {
-                *self = Self::Init { time: meta.time() };
+                *streaming_rpc_state = Self::Init { time: meta.time() };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::Init { peer_id });
+                Ok(())
             }
             P2pChannelsStreamingRpcAction::Pending { .. } => {
-                *self = Self::Pending { time: meta.time() };
+                *streaming_rpc_state = Self::Pending { time: meta.time() };
+                Ok(())
             }
             P2pChannelsStreamingRpcAction::Ready { .. } => {
-                *self = Self::Ready {
+                *streaming_rpc_state = Self::Ready {
                     time: meta.time(),
                     local: P2pStreamingRpcLocalState::WaitingForRequest { time: meta.time() },
                     remote: P2pStreamingRpcRemoteState::WaitingForRequest { time: meta.time() },
                     remote_last_responded: redux::Timestamp::ZERO,
                 };
+                Ok(())
             }
-            P2pChannelsStreamingRpcAction::RequestSend { id, request, .. } => {
-                let Self::Ready { local, .. } = self else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+            P2pChannelsStreamingRpcAction::RequestSend {
+                id,
+                request,
+                on_init,
+                ..
+            } => {
+                let Self::Ready { local, .. } = streaming_rpc_state else {
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
+
                 *next_local_rpc_id += 1;
                 *local = P2pStreamingRpcLocalState::Requested {
                     time: meta.time(),
@@ -48,16 +76,25 @@ impl P2pChannelsStreamingRpcState {
                         }
                     },
                 };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::RequestSend {
+                    peer_id,
+                    id: *id,
+                    request: request.clone(),
+                    on_init: on_init.clone(),
+                });
+                Ok(())
             }
-            P2pChannelsStreamingRpcAction::Timeout { .. } => {}
-            P2pChannelsStreamingRpcAction::ResponseNextPartGet { .. } => {
+            P2pChannelsStreamingRpcAction::Timeout { .. } => Ok(()),
+            P2pChannelsStreamingRpcAction::ResponseNextPartGet { id, .. } => {
                 let Self::Ready {
                     local: P2pStreamingRpcLocalState::Requested { progress, .. },
                     ..
-                } = self
+                } = streaming_rpc_state
                 else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
 
                 if !progress.set_next_pending(meta.time()) {
@@ -67,39 +104,67 @@ impl P2pChannelsStreamingRpcState {
                 if !progress.is_part_pending() {
                     bug_condition!("progress state is not pending {:?}", progress);
                 }
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(
+                    P2pChannelsStreamingRpcEffectfulAction::ResponseNextPartGet {
+                        peer_id,
+                        id: *id,
+                    },
+                );
+                Ok(())
             }
-            P2pChannelsStreamingRpcAction::ResponsePartReceived { response, .. } => {
+            P2pChannelsStreamingRpcAction::ResponsePartReceived { response, id, .. } => {
                 let Self::Ready {
                     local: P2pStreamingRpcLocalState::Requested { progress, .. },
                     ..
-                } = self
+                } = streaming_rpc_state
                 else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
                 if !progress.update(meta.time(), response) {
                     bug_condition!("progress response mismatch! {progress:?}\n{response:?}");
                 }
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let state: &P2pState = state.substate()?;
+                let Some(peer) = state.get_ready_peer(&peer_id) else {
+                    return Ok(());
+                };
+
+                if let Some(response) = peer.channels.streaming_rpc.local_done_response() {
+                    dispatcher.push(P2pChannelsStreamingRpcAction::ResponseReceived {
+                        peer_id,
+                        id: *id,
+                        response: Some(response),
+                    });
+                    return Ok(());
+                }
+                dispatcher
+                    .push(P2pChannelsStreamingRpcAction::ResponseNextPartGet { peer_id, id: *id });
+                Ok(())
             }
             P2pChannelsStreamingRpcAction::ResponseReceived { .. } => {
-                let Self::Ready { local, .. } = self else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                let Self::Ready { local, .. } = streaming_rpc_state else {
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
                 let P2pStreamingRpcLocalState::Requested { id, request, .. } = local else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
                 *local = P2pStreamingRpcLocalState::Responded {
                     time: meta.time(),
                     id: *id,
                     request: std::mem::take(request),
                 };
+                Ok(())
             }
             P2pChannelsStreamingRpcAction::RequestReceived { id, request, .. } => {
-                let Self::Ready { remote, .. } = self else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                let Self::Ready { remote, .. } = streaming_rpc_state else {
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
                 *remote = P2pStreamingRpcRemoteState::Requested {
                     time: meta.time(),
@@ -108,6 +173,7 @@ impl P2pChannelsStreamingRpcState {
                     progress: StagedLedgerPartsSendProgress::LedgerGetIdle { time: meta.time() }
                         .into(),
                 };
+                Ok(())
             }
             P2pChannelsStreamingRpcAction::ResponsePending { .. } => {
                 let Self::Ready {
@@ -116,10 +182,10 @@ impl P2pChannelsStreamingRpcState {
                             request, progress, ..
                         },
                     ..
-                } = self
+                } = streaming_rpc_state
                 else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
                 match &**request {
                     P2pStreamingRpcRequest::StagedLedgerParts(_) => {
@@ -128,18 +194,19 @@ impl P2pChannelsStreamingRpcState {
                                 .into();
                     }
                 }
+                Ok(())
             }
-            P2pChannelsStreamingRpcAction::ResponseSendInit { response, .. } => {
+            P2pChannelsStreamingRpcAction::ResponseSendInit { response, id, .. } => {
                 let Self::Ready {
                     remote:
                         P2pStreamingRpcRemoteState::Requested {
                             request, progress, ..
                         },
                     ..
-                } = self
+                } = streaming_rpc_state
                 else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
                 match (&**request, response) {
                     (_, Some(P2pStreamingRpcResponseFull::StagedLedgerParts(data))) => {
@@ -154,16 +221,42 @@ impl P2pChannelsStreamingRpcState {
                             StagedLedgerPartsSendProgress::Success { time: meta.time() }.into();
                     } // _ => todo!("unexpected response send call: {response:?}"),
                 }
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::ResponseSendInit {
+                    peer_id,
+                    id: *id,
+                    response: response.clone(),
+                });
+                Ok(())
             }
-            P2pChannelsStreamingRpcAction::ResponsePartNextSend { .. } => {}
-            P2pChannelsStreamingRpcAction::ResponsePartSend { .. } => {
+            P2pChannelsStreamingRpcAction::ResponsePartNextSend { id, .. } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let state: &P2pState = state.substate()?;
+
+                let Some(response) = None.or_else(|| {
+                    let peer = state.get_ready_peer(&peer_id)?;
+                    peer.channels.streaming_rpc.remote_next_msg().map(Box::new)
+                }) else {
+                    return Ok(());
+                };
+
+                dispatcher.push(P2pChannelsStreamingRpcAction::ResponsePartSend {
+                    peer_id,
+                    id: *id,
+                    response,
+                });
+
+                Ok(())
+            }
+            P2pChannelsStreamingRpcAction::ResponsePartSend { id, response, .. } => {
                 let Self::Ready {
                     remote: P2pStreamingRpcRemoteState::Requested { progress, .. },
                     ..
-                } = self
+                } = streaming_rpc_state
                 else {
-                    bug_condition!("{:?} with state {:?}", action, self);
-                    return;
+                    bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                    return Ok(());
                 };
                 match progress {
                     P2pStreamingRpcSendProgress::StagedLedgerParts(progress) => {
@@ -206,7 +299,7 @@ impl P2pChannelsStreamingRpcState {
                             },
                             progress => {
                                 bug_condition!("unexpected state during `P2pStreamingRpcSendProgress::StagedLedgerParts`: {progress:?}");
-                                return;
+                                return Ok(());
                             }
                         };
 
@@ -224,22 +317,30 @@ impl P2pChannelsStreamingRpcState {
                         }
                     }
                 }
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::ResponsePartSend {
+                    peer_id,
+                    id: *id,
+                    response: response.clone(),
+                });
+                Ok(())
             }
             P2pChannelsStreamingRpcAction::ResponseSent { id, .. } => {
-                let (remote, request) = match self {
+                let (remote, request) = match streaming_rpc_state {
                     Self::Ready { remote, .. } => match remote {
                         P2pStreamingRpcRemoteState::Requested { request, .. } => {
                             let request = std::mem::take(request);
                             (remote, request)
                         }
                         _ => {
-                            bug_condition!("{:?} with state {:?}", action, self);
-                            return;
+                            bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                            return Ok(());
                         }
                     },
                     _ => {
-                        bug_condition!("{:?} with state {:?}", action, self);
-                        return;
+                        bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
+                        return Ok(());
                     }
                 };
                 *remote = P2pStreamingRpcRemoteState::Responded {
@@ -247,6 +348,8 @@ impl P2pChannelsStreamingRpcState {
                     id: *id,
                     request,
                 };
+
+                Ok(())
             }
         }
     }
