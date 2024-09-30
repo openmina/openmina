@@ -272,11 +272,12 @@ impl P2pNetworkPubsubState {
                             peer_id: *peer_id,
                         });
                     } else {
-                        let signed = msg
-                            .publish
-                            .iter()
-                            .all(|m| m.data.is_none() || m.signature.is_some());
-                        assert!(signed);
+                        for m in msg.publish.iter() {
+                            if !(m.data.is_none() || m.signature.is_some()) {
+                                panic!("Unexpected unsigned message {m:?}");
+                            }
+                        }
+
                         dispatcher.push(P2pNetworkPubsubAction::OutgoingData {
                             data: Data::from(data),
                             peer_id: *peer_id,
