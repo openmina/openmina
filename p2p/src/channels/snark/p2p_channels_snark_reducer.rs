@@ -24,12 +24,11 @@ impl P2pChannelsSnarkState {
             .peer_id()
             .and_then(|peer_id| p2p_state.get_ready_peer_mut(peer_id))
             .map(|peer_state| &mut peer_state.channels.snark)
-            .ok_or_else(|| format!("Invalid state for: {action:?}"))
-            .inspect_err(|error| bug_condition!("{}", error));
+            .ok_or_else(|| format!("Invalid state for: {action:?}"));
 
         match action {
             P2pChannelsSnarkAction::Init { peer_id } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
@@ -37,12 +36,12 @@ impl P2pChannelsSnarkState {
                 Ok(())
             }
             P2pChannelsSnarkAction::Pending { .. } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 *state = Self::Pending { time: meta.time() };
                 Ok(())
             }
             P2pChannelsSnarkAction::Ready { .. } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 *state = Self::Ready {
                     time: meta.time(),
                     local: SnarkPropagationState::WaitingForRequest { time: meta.time() },
@@ -52,7 +51,7 @@ impl P2pChannelsSnarkState {
                 Ok(())
             }
             P2pChannelsSnarkAction::RequestSend { limit, peer_id } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsSnarkAction::RequestSend`, state: {:?}",
@@ -73,7 +72,7 @@ impl P2pChannelsSnarkState {
                 Ok(())
             }
             P2pChannelsSnarkAction::PromiseReceived { promised_count, .. } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsSnarkAction::PromiseReceived`, state: {:?}",
@@ -96,7 +95,7 @@ impl P2pChannelsSnarkState {
                 Ok(())
             }
             P2pChannelsSnarkAction::Received { .. } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsSnarkAction::Received`, state: {:?}",
@@ -128,7 +127,7 @@ impl P2pChannelsSnarkState {
                 Ok(())
             }
             P2pChannelsSnarkAction::RequestReceived { limit, .. } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsSnarkAction::RequestReceived`, state: {:?}",
@@ -148,7 +147,7 @@ impl P2pChannelsSnarkState {
                 peer_id,
                 ..
             } => {
-                let state = state?;
+                let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready {
                     remote,
                     next_send_index,
