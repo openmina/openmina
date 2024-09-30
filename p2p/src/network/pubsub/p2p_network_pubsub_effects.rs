@@ -245,6 +245,11 @@ impl P2pNetworkPubsubAction {
                             peer_id,
                         });
                     } else {
+                        for m in msg.publish.iter() {
+                            if !(m.data.is_none() || m.signature.is_some()) {
+                                panic!("Unexpected unsigned message {m:?}");
+                            }
+                        }
                         store.dispatch(P2pNetworkPubsubAction::OutgoingData {
                             data: data.into(),
                             peer_id,
