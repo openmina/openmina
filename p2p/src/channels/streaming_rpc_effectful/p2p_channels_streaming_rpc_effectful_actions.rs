@@ -47,7 +47,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcEffectfulActi
 }
 
 impl From<P2pChannelsStreamingRpcEffectfulAction> for crate::P2pAction {
-    fn from(a: P2pChannelsStreamingRpcEffectfulAction) -> Self {
-        Self::ChannelsEffectful(P2pChannelsEffectfulAction::StreamingRpc(a))
+    fn from(a: P2pChannelsStreamingRpcEffectfulAction) -> crate::P2pAction {
+        crate::P2pAction::ChannelsEffectful(P2pChannelsEffectfulAction::StreamingRpc(a))
     }
 }

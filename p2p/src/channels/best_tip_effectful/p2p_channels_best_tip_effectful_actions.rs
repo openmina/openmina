@@ -25,7 +25,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipEffectfulAction {
 }
 
 impl From<P2pChannelsBestTipEffectfulAction> for crate::P2pAction {
-    fn from(action: P2pChannelsBestTipEffectfulAction) -> Self {
-        Self::ChannelsEffectful(P2pChannelsEffectfulAction::BestTip(action))
+    fn from(action: P2pChannelsBestTipEffectfulAction) -> crate::P2pAction {
+        crate::P2pAction::ChannelsEffectful(P2pChannelsEffectfulAction::BestTip(action))
     }
 }

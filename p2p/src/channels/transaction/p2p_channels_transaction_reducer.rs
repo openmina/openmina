@@ -25,7 +25,8 @@ impl P2pChannelsTransactionState {
             .peer_id()
             .and_then(|peer_id| p2p_state.get_ready_peer_mut(peer_id))
             .map(|peer_state| &mut peer_state.channels.transaction)
-            .ok_or_else(|| format!("Invalid state for: {action:?}"));
+            .ok_or_else(|| format!("Invalid state for: {action:?}"))
+            .inspect_err(|error| bug_condition!("{}", error));
 
         match action {
             P2pChannelsTransactionAction::Init { peer_id } => {

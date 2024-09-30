@@ -234,10 +234,10 @@ impl P2pChannelsStreamingRpcState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let state: &P2pState = state.substate()?;
 
-                let Some(response) = None.or_else(|| {
-                    let peer = state.get_ready_peer(&peer_id)?;
-                    peer.channels.streaming_rpc.remote_next_msg().map(Box::new)
-                }) else {
+                let Some(response) = state
+                    .get_ready_peer(&peer_id)
+                    .and_then(|peer| peer.channels.streaming_rpc.remote_next_msg().map(Box::new))
+                else {
                     return Ok(());
                 };
 
