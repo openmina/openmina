@@ -349,7 +349,9 @@ impl P2pNetworkPubsubState {
                         .clients
                         .iter_mut()
                         .for_each(|(_, state)| state.message.publish.push(message.clone()));
-                }
+                } else {
+                    bug_condition!("Expected to find a message for {signature} but didn't find any");
+                };
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 broadcast(dispatcher, state)

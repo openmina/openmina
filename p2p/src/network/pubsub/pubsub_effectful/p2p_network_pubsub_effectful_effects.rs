@@ -28,6 +28,8 @@ impl P2pNetworkPubsubEffectfulAction {
                         let signature = store.service().sign_publication(&publication).into();
                         store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
                     }
+                } else {
+                    bug_condition!("Expected to find message author={author:?} topic={topic} to sign but found none");
                 }
             }
             P2pNetworkPubsubEffectfulAction::IncomingData {
