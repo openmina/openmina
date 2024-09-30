@@ -561,9 +561,9 @@ impl std::str::FromStr for Memo {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let length = std::cmp::min(s.len(), Self::DIGEST_LENGTH) as u8;
-        let mut memo: [u8; Self::DIGEST_LENGTH + 2] = std::array::from_fn(|i| (i == 0) as u8);
-        memo[0] = Self::BYTES_TAG;
-        memo[1] = length;
+        let mut memo: [u8; Self::MEMO_LENGTH] = std::array::from_fn(|i| (i == 0) as u8);
+        memo[Self::TAG_INDEX] = Self::BYTES_TAG;
+        memo[Self::LENGTH_INDEX] = length;
         let padded = format!("{s:\0<32}");
         memo[2..].copy_from_slice(
             &padded.as_bytes()[..std::cmp::min(padded.len(), Self::DIGEST_LENGTH)],
