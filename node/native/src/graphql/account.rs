@@ -1,8 +1,11 @@
 use juniper::{GraphQLInputObject, GraphQLObject};
 use ledger::FpExt;
-use mina_p2p_messages::v2::{
-    MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseVerificationKeyWireStableV1Base64,
-    ReceiptChainHash, TokenIdKeyHash,
+use mina_p2p_messages::{
+    string::{TokenSymbol, ZkAppUri},
+    v2::{
+        MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseVerificationKeyWireStableV1,
+        ReceiptChainHash, TokenIdKeyHash,
+    },
 };
 
 #[derive(GraphQLObject)]
@@ -184,7 +187,7 @@ impl From<ledger::Account> for GraphQLAccount {
             public_key: value.public_key.into_address(),
             token_id: TokenIdKeyHash::from(value.token_id.clone()).to_string(),
             token: TokenIdKeyHash::from(value.token_id).to_string(),
-            token_symbol: value.token_symbol.0,
+            token_symbol: TokenSymbol::from(&value.token_symbol).to_string(),
             balance: GraphQLBalance::from(value.balance),
             nonce: value.nonce.as_u32().to_string(),
             receipt_chain_hash: ReceiptChainHash::from(value.receipt_chain_hash).to_string(),
@@ -205,15 +208,12 @@ impl From<ledger::Account> for GraphQLAccount {
             }),
             verification_key: value.zkapp.clone().and_then(|zkapp| {
                 zkapp.verification_key.map(|vk| {
-                    let ser = serde_json::to_string_pretty(
-                        &MinaBaseVerificationKeyWireStableV1Base64::from(vk.clone()),
-                    )
-                    .unwrap()
-                    .trim_matches('"')
-                    .to_string();
+                    let ser = MinaBaseVerificationKeyWireStableV1::from(vk.vk())
+                        .to_base64()
+                        .unwrap();
                     GraphQLVerificationKey {
                         verification_key: ser,
-                        hash: vk.digest().to_decimal(),
+                        hash: vk.hash().to_decimal(),
                     }
                 })
             }),
@@ -225,7 +225,9 @@ impl From<ledger::Account> for GraphQLAccount {
                     .collect::<Vec<_>>()
             }),
             proved_state: value.zkapp.clone().map(|zkapp| zkapp.proved_state),
-            zkapp_uri: value.zkapp.map(|zkapp| zkapp.zkapp_uri.to_string()),
+            zkapp_uri: value
+                .zkapp
+                .map(|zkapp| ZkAppUri::from(&zkapp.zkapp_uri).to_string()),
         }
     }
 }

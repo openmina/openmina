@@ -52,6 +52,11 @@ impl BigInt {
             })
             .ok_or_else(|| "failed to parse decimal number".to_string())
     }
+
+    pub fn to_decimal(&self) -> String {
+        let bigint: num_bigint::BigUint = self.0.into();
+        bigint.to_string()
+    }
 }
 
 impl AsRef<BigInteger256> for BigInt {

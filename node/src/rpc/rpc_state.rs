@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2;
 use openmina_core::block::AppliedBlock;
-use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 
 use super::{AccountQuery, RpcId, RpcRequest};

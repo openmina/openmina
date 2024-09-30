@@ -723,15 +723,12 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                                         account.nonce = nonce.incr();
                                     }
                                 }
-                                account.balance = account.balance.sub_amount(*amount).unwrap();
+                                account.balance = account
+                                    .balance
+                                    .sub_amount(*amount)
+                                    .unwrap_or(Balance::zero());
                             }
-                        }
-                        account.balance = account
-                            .balance
-                            .sub_amount(*amount)
-                            .unwrap_or(Balance::zero());
-                    }
-                });
+                        });
 
                     let accounts = accounts
                         .into_values()
@@ -758,13 +755,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
             // sort the commadns by nonce
 
-            let Ok(commands) = commands
-                .into_iter()
-                .map(|c| c.try_into())
-                .collect::<Result<_, _>>()
-            else {
-                return;
-            };
+            // let Ok(commands) = commands
+            //     .into_iter()
+            //     .map(|c| c.try_into())
+            //     .collect::<Result<_, _>>()
+            // else {
+            //     return;
+            // };
 
             store.dispatch(TransactionPoolAction::StartVerify {
                 commands: commands.into_iter().collect(),
