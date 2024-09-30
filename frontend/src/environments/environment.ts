@@ -18,7 +18,7 @@ export const environment: Readonly<MinaEnv> = {
       zk: ['test'],
     },
     canAddNodes: true,
-    graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
+    graphQL: 'http://adonagy.hz.minaprotocol.network:3000/graphql',
   },
   configs: [
     // {

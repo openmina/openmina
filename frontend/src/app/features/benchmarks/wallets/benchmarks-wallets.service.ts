@@ -4106,34 +4106,37 @@ export class BenchmarksWalletsService {
   }
 
   private mapTxPoolResponse(response: Array<[MempoolTransactionResponseKind, SignedCommand | ZkappCommand]>): MempoolTransaction[] {
-    // return response
-    //   .filter(tx => !!any(tx).SignedCommand)
-    //   .map(tx => tx as { SignedCommand: SignedCommand })
-    //   .map((tx: { SignedCommand: SignedCommand }) => ({
-    //     kind: MempoolTransactionKind.PAYMENT,
-    //     sender: tx.SignedCommand.payload.common.fee_payer_pk,
-    //     fee: Number(tx.SignedCommand.payload.common.fee),
-    //     nonce: Number(tx.SignedCommand.payload.common.nonce),
-    //     memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
-    //     transactionData: tx.SignedCommand,
-    //     sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
-    //     sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
-    //   } as MempoolTransaction));
     return response
-      .filter(tx => tx[0] === MempoolTransactionResponseKind.SignedCommand)
-      .map(tx => tx[1] as SignedCommand)
-      .map((tx: SignedCommand) => {
-        const memo = decodeMemo(tx.payload.common.memo);
-        return {
-          kind: MempoolTransactionKind.PAYMENT,
-          sender: tx.payload.common.fee_payer_pk,
-          fee: Number(tx.payload.common.fee),
-          nonce: Number(tx.payload.common.nonce),
-          memo: removeUnicodeEscapes(memo),
-          transactionData: tx,
-          sentFromStressingTool: memo.includes('S.T.'),
-          sentByMyBrowser: memo.includes(localStorage.getItem('browserId')),
-        } as MempoolTransaction;
+      .map(([kind, command]: [MempoolTransactionResponseKind, SignedCommand | ZkappCommand]) => {
+        switch (kind) {
+          case MempoolTransactionResponseKind.SignedCommand:
+            const tx = command as SignedCommand;
+            const memo = decodeMemo(tx.payload.common.memo);
+            return {
+              kind: MempoolTransactionKind.PAYMENT,
+              sender: tx.payload.common.fee_payer_pk,
+              fee: Number(tx.payload.common.fee),
+              nonce: Number(tx.payload.common.nonce),
+              memo: removeUnicodeEscapes(memo),
+              transactionData: tx,
+              sentFromStressingTool: memo.includes('S.T.'),
+              sentByMyBrowser: memo.includes(localStorage.getItem('browserId')),
+            } as MempoolTransaction;
+          case MempoolTransactionResponseKind.ZkappCommand:
+            const zkTx = command as ZkappCommand;
+            const zkMemo = decodeMemo(zkTx.memo);
+            return {
+              kind: MempoolTransactionKind.ZK_APP,
+              sender: zkTx.fee_payer.body.public_key,
+              fee: Number(zkTx.fee_payer.body.fee),
+              nonce: Number(zkTx.fee_payer.body.nonce),
+              memo: removeUnicodeEscapes(zkMemo),
+              transactionData: zkTx,
+              sentFromStressingTool: zkMemo.includes('S.T.'),
+              sentByMyBrowser: zkMemo.includes(localStorage.getItem('browserId')),
+            } as MempoolTransaction;
+        }
+
       });
   }
 }

@@ -25,7 +25,7 @@ export class BlockProductionOverviewSlotDetailsComponent extends StoreDispatcher
 
   private listenToActiveNode(): void {
     this.select(AppSelectors.activeNodeDetails, (node: AppNodeDetails) => {
-      this.minaExplorer = node.network.toLowerCase();
+      this.minaExplorer = node.network?.toLowerCase();
     }, filter(Boolean));
   }
 

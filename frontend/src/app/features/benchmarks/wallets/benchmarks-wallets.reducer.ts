@@ -1,14 +1,17 @@
 import {
   BENCHMARKS_WALLETS_CHANGE_AMOUNT,
-  BENCHMARKS_WALLETS_CHANGE_FEE, BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS,
-  BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH, BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH,
+  BENCHMARKS_WALLETS_CHANGE_FEE,
+  BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS,
+  BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH,
+  BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH,
   BENCHMARKS_WALLETS_CLOSE,
   BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
   BENCHMARKS_WALLETS_GET_WALLETS,
   BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
   BENCHMARKS_WALLETS_SELECT_WALLET,
   BENCHMARKS_WALLETS_SEND_TX_SUCCESS,
-  BENCHMARKS_WALLETS_SEND_TXS, BENCHMARKS_WALLETS_SEND_ZKAPPS,
+  BENCHMARKS_WALLETS_SEND_TXS,
+  BENCHMARKS_WALLETS_SEND_ZKAPPS,
   BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET,
   BENCHMARKS_WALLETS_UPDATE_WALLETS_SUCCESS,
   BenchmarksWalletsActions,
@@ -278,7 +281,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             const nonce = getNonceForWallet(wallet, state).toString();
             const counter = state.sentTxCount + i;
             const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + localStorage.getItem('browserId');
-            const payment = {
+            return {
               payerPublicKey: wallet.publicKey,
               payerPrivateKey: wallet.privateKey,
               fee: state.sendingFeeZkapps,
@@ -286,8 +289,6 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
               memo,
               accountUpdates: 1,
             };
-
-            return payment;
           });
       } else {
         const wallet = state.activeWallet;
