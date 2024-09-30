@@ -118,11 +118,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     MioEvent::ConnectionDidCloseOnDemand(addr) => {
                         // enabling condition
                         // it could be the case that the connection initialized again, so should not remove the state
-                        let exist = store.state().p2p.ready().unwrap().peers.iter().any(|(_, x)| match &x.dial_opts {
-                            Some(p2p::connection::outgoing::P2pConnectionOutgoingInitOpts::LibP2P(o)) => o.matches_socket_addr(addr.sock_addr),
-                            _ => false,
+                        let ready = store.state().p2p.ready().map_or(false, |ready| {
+                            ready.peers.iter().any(|(_, state)| state.status.as_ready().is_some() && match &state.dial_opts {
+                                Some(p2p::connection::outgoing::P2pConnectionOutgoingInitOpts::LibP2P(o)) => o.matches_socket_ip(addr.sock_addr),
+                                _ => false,
+                            })
                         });
-                        if !exist {
+                        if !ready {
                             store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
                         }
                     }
