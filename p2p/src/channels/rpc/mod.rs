@@ -6,8 +6,6 @@ pub use p2p_channels_rpc_actions::*;
 
 mod p2p_channels_rpc_reducer;
 
-mod p2p_channels_rpc_effects;
-
 use std::{sync::Arc, time::Duration};
 
 use binprot_derive::{BinProtRead, BinProtWrite};

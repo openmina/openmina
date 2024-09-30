@@ -6,9 +6,15 @@ pub mod disconnection_effectful;
 pub mod identity;
 use bootstrap::P2pNetworkKadBootstrapState;
 use channels::{
-    best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
+    best_tip::P2pChannelsBestTipAction, best_tip_effectful::P2pChannelsBestTipEffectfulAction,
+    rpc::P2pChannelsRpcAction, rpc_effectful::P2pChannelsRpcEffectfulAction,
+    snark::P2pChannelsSnarkAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-    streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
+    snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
+    streaming_rpc::P2pChannelsStreamingRpcAction,
+    streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
+    transaction::P2pChannelsTransactionAction,
+    transaction_effectful::P2pChannelsTransactionEffectfulAction,
 };
 use connection::{
     incoming::P2pConnectionIncomingAction,
@@ -70,7 +76,7 @@ pub use multiaddr;
 ))]
 pub mod fuzzer;
 
-use redux::{EnablingCondition, SubStore};
+use redux::{AnyAction, EnablingCondition, SubStore};
 
 pub trait P2pStore<GlobalState>: SubStore<GlobalState, P2pState, SubAction = P2pAction> {}
 impl<S, T: SubStore<S, P2pState, SubAction = P2pAction>> P2pStore<S> for T {}
@@ -100,6 +106,7 @@ pub trait P2pStateTrait:
 
 pub trait P2pActionTrait<State>:
     EnablingCondition<State>
+    + From<AnyAction>
     + From<P2pAction>
     + From<P2pNetworkKademliaStreamAction>
     + From<P2pNetworkKadRequestAction>
@@ -131,5 +138,11 @@ pub trait P2pActionTrait<State>:
     + From<P2pConnectionIncomingEffectfulAction>
     + From<P2pConnectionOutgoingEffectfulAction>
     + From<P2pDisconnectionEffectfulAction>
+    + From<P2pChannelsBestTipEffectfulAction>
+    + From<P2pChannelsTransactionEffectfulAction>
+    + From<P2pChannelsStreamingRpcEffectfulAction>
+    + From<P2pChannelsSnarkJobCommitmentEffectfulAction>
+    + From<P2pChannelsRpcEffectfulAction>
+    + From<P2pChannelsSnarkEffectfulAction>
 {
 }

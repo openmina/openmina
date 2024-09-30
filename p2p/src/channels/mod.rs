@@ -1,9 +1,15 @@
 pub mod best_tip;
+pub mod best_tip_effectful;
 pub mod rpc;
+pub mod rpc_effectful;
 pub mod snark;
+pub mod snark_effectful;
 pub mod snark_job_commitment;
+pub mod snark_job_commitment_effectful;
 pub mod streaming_rpc;
+pub mod streaming_rpc_effectful;
 pub mod transaction;
+pub mod transaction_effectful;
 
 mod p2p_channels_state;
 pub use p2p_channels_state::*;
@@ -12,8 +18,6 @@ mod p2p_channels_actions;
 pub use p2p_channels_actions::*;
 
 mod p2p_channels_reducer;
-
-mod p2p_channels_effects;
 
 mod p2p_channels_service;
 pub use p2p_channels_service::*;

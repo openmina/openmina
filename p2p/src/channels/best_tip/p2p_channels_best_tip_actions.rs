@@ -8,9 +8,6 @@ use crate::{
 
 use super::BestTipPropagationState;
 
-pub type P2pChannelsBestTipActionWithMetaRef<'a> =
-    redux::ActionWithMeta<&'a P2pChannelsBestTipAction>;
-
 #[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
 #[action_event(fields(display(peer_id), best_tip = display(&best_tip.hash)))]
 pub enum P2pChannelsBestTipAction {
