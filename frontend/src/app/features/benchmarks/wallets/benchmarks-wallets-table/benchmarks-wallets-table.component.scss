@@ -19,7 +19,8 @@
     color: $special-selected-alt-2-primary;
   }
 
-  &.error {
+  &.error,
+  &.rejected {
     background-color: $warn-container;
     color: $warn-primary;
   }
