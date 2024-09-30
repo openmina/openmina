@@ -25,12 +25,11 @@ impl P2pChannelsTransactionState {
             .peer_id()
             .and_then(|peer_id| p2p_state.get_ready_peer_mut(peer_id))
             .map(|peer_state| &mut peer_state.channels.transaction)
-            .ok_or_else(|| format!("Invalid state for: {action:?}"))
-            .inspect_err(|error| bug_condition!("{}", error));
+            .ok_or_else(|| format!("Invalid state for: {action:?}"));
 
         match action {
             P2pChannelsTransactionAction::Init { peer_id } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
@@ -38,12 +37,12 @@ impl P2pChannelsTransactionState {
                 Ok(())
             }
             P2pChannelsTransactionAction::Pending { .. } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 *state = Self::Pending { time: meta.time() };
                 Ok(())
             }
             P2pChannelsTransactionAction::Ready { .. } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 *state = Self::Ready {
                     time: meta.time(),
                     local: TransactionPropagationState::WaitingForRequest { time: meta.time() },
@@ -53,7 +52,7 @@ impl P2pChannelsTransactionState {
                 Ok(())
             }
             P2pChannelsTransactionAction::RequestSend { limit, peer_id, .. } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
                     "Invalid state for `P2pChannelsTransactionAction::RequestSend `, state: {:?}",
@@ -74,7 +73,7 @@ impl P2pChannelsTransactionState {
                 Ok(())
             }
             P2pChannelsTransactionAction::PromiseReceived { promised_count, .. } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
                     "Invalid state for `P2pChannelsTransactionAction::PromiseReceived `, state: {:?}",
@@ -101,7 +100,7 @@ impl P2pChannelsTransactionState {
                 Ok(())
             }
             P2pChannelsTransactionAction::Received { .. } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsTransactionAction::Received `, state: {:?}",
@@ -129,7 +128,7 @@ impl P2pChannelsTransactionState {
                 Ok(())
             }
             P2pChannelsTransactionAction::RequestReceived { limit, .. } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
                     "Invalid state for `P2pChannelsTransactionAction::RequestReceived `, state: {:?}",
@@ -149,7 +148,7 @@ impl P2pChannelsTransactionState {
                 peer_id,
                 ..
             } => {
-                let state = transaction_state?;
+                let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready {
                     remote,
                     next_send_index,
