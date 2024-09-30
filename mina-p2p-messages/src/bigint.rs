@@ -13,6 +13,10 @@ impl std::fmt::Debug for BigInt {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid decimal number")]
+pub struct InvalidDecimalNumber;
+
 impl BigInt {
     pub fn zero() -> Self {
         mina_curves::pasta::Fp::from(0u64).into()
@@ -42,7 +46,7 @@ impl BigInt {
         Self(BigInteger256::read(&bytes[..]).unwrap()) // Never fail, we read from 32 bytes
     }
 
-    pub fn from_decimal(s: &str) -> Result<Self, String> {
+    pub fn from_decimal(s: &str) -> Result<Self, InvalidDecimalNumber> {
         num_bigint::BigInt::parse_bytes(s.as_bytes(), 10)
             .map(|num| {
                 let mut bytes = num.to_bytes_be().1;
@@ -50,7 +54,7 @@ impl BigInt {
                 bytes.resize(32, 0); // Ensure the byte vector has 32 bytes
                 BigInt::from_bytes(bytes.try_into().unwrap())
             })
-            .ok_or_else(|| "failed to parse decimal number".to_string())
+            .ok_or(InvalidDecimalNumber)
     }
 
     pub fn to_decimal(&self) -> String {

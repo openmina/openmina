@@ -26,6 +26,38 @@ pub mod block;
 pub mod constants;
 pub mod zkapp;
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Conversion error: {0}")]
+    Conversion(ConversionError),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConversionError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error(transparent)]
+    Conversion(#[from] mina_p2p_messages::v2::conv::Error),
+    #[error("Wrong variant")]
+    WrongVariant,
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
+    #[error(transparent)]
+    Base58Check(#[from] mina_p2p_messages::b58::FromBase58CheckError),
+    #[error(transparent)]
+    InvalidDecimalNumber(#[from] mina_p2p_messages::bigint::InvalidDecimalNumber),
+    #[error("Invalid bigint")]
+    InvalidBigInt,
+    #[error(transparent)]
+    ParseInt(#[from] std::num::ParseIntError),
+    #[error(transparent)]
+    EnumParse(#[from] strum::ParseError),
+    #[error(transparent)]
+    TryFromInt(#[from] std::num::TryFromIntError),
+    #[error("Missing field: {0}")]
+    MissingField(String),
+}
+
 struct Context(RpcSender);
 
 impl juniper::Context for Context {}
@@ -144,14 +176,20 @@ impl Query {
             SyncStatus::LISTENING
         }
     }
-    async fn best_chain(max_length: i32, context: &Context) -> Vec<block::GraphQLBestChainBlock> {
+    async fn best_chain(
+        max_length: i32,
+        context: &Context,
+    ) -> juniper::FieldResult<Vec<block::GraphQLBestChainBlock>> {
         let best_chain: Vec<AppliedBlock> = context
             .0
             .oneshot_request(RpcRequest::BestChain(max_length as u32))
             .await
             .unwrap();
 
-        best_chain.into_iter().map(|v| v.into()).collect()
+        Ok(best_chain
+            .into_iter()
+            .map(|v| v.try_into())
+            .collect::<Result<Vec<_>, _>>()?)
     }
 
     async fn daemon_status(context: &Context) -> constants::GraphQLDaemonStatus {
@@ -244,7 +282,7 @@ impl Mutation {
     ) -> juniper::FieldResult<zkapp::GraphQLSendZkappResponse> {
         let res: RpcTransactionInjectResponse = context
             .0
-            .oneshot_request(RpcRequest::TransactionInject(vec![input.into()]))
+            .oneshot_request(RpcRequest::TransactionInject(vec![input.try_into()?]))
             .await
             .unwrap();
 
@@ -254,7 +292,7 @@ impl Mutation {
                     Some(RpcTransactionInjectedCommand::Zkapp(zkapp_cmd)) => zkapp_cmd.into(),
                     _ => unreachable!(),
                 };
-                Ok(zkapp_cmd.into())
+                Ok(zkapp_cmd.try_into()?)
             }
             RpcTransactionInjectResponse::Rejected(rejected) => {
                 let error_list = rejected

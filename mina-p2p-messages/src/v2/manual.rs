@@ -965,97 +965,42 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-// #[derive(Debug, Clone)]
-// pub struct MinaBaseVerificationKeyWireStableV1Base64(pub MinaBaseVerificationKeyWireStableV1);
-
 impl MinaBaseVerificationKeyWireStableV1 {
-    pub fn to_base64(&self) -> Result<String, serde_json::Error> {
+    pub fn to_base64(&self) -> Result<String, conv::Error> {
         let mut buffer: Vec<u8> = Vec::new();
-        self.binprot_write(&mut buffer)
-            .map_err(serde::ser::Error::custom)?;
+        self.binprot_write(&mut buffer)?;
         use base64::{engine::general_purpose::STANDARD, Engine as _};
 
         let base64_data = STANDARD.encode(buffer);
         Ok(base64_data)
     }
 
-    pub fn from_base64(base64_data: &str) -> Result<Self, serde_json::Error> {
+    pub fn from_base64(base64_data: &str) -> Result<Self, conv::Error> {
         use base64::{engine::general_purpose::STANDARD, Engine as _};
-        let decoded_data = STANDARD
-            .decode(base64_data)
-            .map_err(serde::de::Error::custom)?;
-        let res = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded_data.as_slice())
-            .map_err(|e| {
-            serde::de::Error::custom(format!("Error deserializing Verification Key: {e}"))
-        })?;
+        let decoded_data = STANDARD.decode(base64_data)?;
+        let res = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded_data.as_slice())?;
         Ok(res)
     }
 }
 
-// impl Serialize for MinaBaseVerificationKeyWireStableV1Base64 {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::ser::Serializer,
-//     {
-//         if serializer.is_human_readable() {
-//             let base64_data = self.0.to_base64().map_err(serde::ser::Error::custom)?;
-//             serializer.serialize_str(&base64_data)
-//         } else {
-//             self.0.serialize(serializer)
-//         }
-//     }
-// }
-
-// impl<'de> Deserialize<'de> for MinaBaseVerificationKeyWireStableV1Base64 {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: serde::Deserializer<'de>,
-//     {
-//         let deserialised = if deserializer.is_human_readable() {
-//             use base64::{engine::general_purpose::STANDARD, Engine as _};
-//             let base64_data = String::deserialize(deserializer)?;
-//             STANDARD.decode(&base64_data).map_err(|e| {
-//                 serde::de::Error::custom(format!("Error deserializing Verification Key: {e}"))
-//             })?
-//         } else {
-//             Deserialize::deserialize(deserializer)?
-//         };
-
-//         let res = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut deserialised.as_slice())
-//             .map_err(|e| {
-//             serde::de::Error::custom(format!("Error deserializing Verification Key: {e}"))
-//         })?;
-
-//         Ok(Self(res))
-//     }
-// }
-
 // TODO(adonagy): macro?
 impl MinaBaseSignedCommandStableV2 {
-    pub fn to_base64(&self) -> Result<String, serde_json::Error> {
+    pub fn to_base64(&self) -> Result<String, conv::Error> {
         const COMMAND_VERSION_TAG: u8 = 2;
 
         let mut buffer: Vec<u8> = Vec::new();
-        COMMAND_VERSION_TAG
-            .binprot_write(&mut buffer)
-            .map_err(serde::ser::Error::custom)?;
-        self.binprot_write(&mut buffer)
-            .map_err(serde::ser::Error::custom)?;
+        COMMAND_VERSION_TAG.binprot_write(&mut buffer)?;
+        self.binprot_write(&mut buffer)?;
         use base64::{engine::general_purpose::STANDARD, Engine as _};
 
         let base64_data = STANDARD.encode(buffer);
         Ok(base64_data)
     }
 
-    pub fn from_base64(base64_data: &str) -> Result<Self, serde_json::Error> {
+    pub fn from_base64(base64_data: &str) -> Result<Self, conv::Error> {
         use base64::{engine::general_purpose::STANDARD, Engine as _};
-        let decoded_data = STANDARD
-            .decode(&base64_data)
-            .map_err(serde::de::Error::custom)?;
-        let res = MinaBaseSignedCommandStableV2::binprot_read(&mut decoded_data[1..].as_ref())
-            .map_err(|e| {
-                serde::de::Error::custom(format!("Error deserializing signed command: {e}"))
-            })?;
+        let decoded_data = STANDARD.decode(&base64_data)?;
+        let res = MinaBaseSignedCommandStableV2::binprot_read(&mut decoded_data[1..].as_ref())?;
         Ok(res)
     }
 }
@@ -1067,30 +1012,24 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1Base64(
 );
 
 impl MinaBaseZkappCommandTStableV1WireStableV1 {
-    pub fn to_base64(&self) -> Result<String, serde_json::Error> {
+    pub fn to_base64(&self) -> Result<String, conv::Error> {
         const ZKAPP_VERSION_TAG: u8 = 1;
 
         let mut buffer: Vec<u8> = Vec::new();
-        ZKAPP_VERSION_TAG
-            .binprot_write(&mut buffer)
-            .map_err(serde::ser::Error::custom)?;
-        self.binprot_write(&mut buffer)
-            .map_err(serde::ser::Error::custom)?;
+        ZKAPP_VERSION_TAG.binprot_write(&mut buffer)?;
+        self.binprot_write(&mut buffer)?;
         use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
 
         let base64_data = STANDARD_NO_PAD.encode(buffer);
         Ok(base64_data)
     }
 
-    pub fn from_base64(base64_data: &str) -> Result<Self, serde_json::Error> {
+    pub fn from_base64(base64_data: &str) -> Result<Self, conv::Error> {
         use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
-        let decoded_data = STANDARD_NO_PAD
-            .decode(&base64_data)
-            .map_err(serde::de::Error::custom)?;
+        let decoded_data = STANDARD_NO_PAD.decode(&base64_data)?;
         let res = MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(
             &mut decoded_data[1..].as_ref(),
-        )
-        .map_err(|e| serde::de::Error::custom(format!("Error deserializing zkapp: {e}")))?;
+        )?;
         Ok(res)
     }
 }

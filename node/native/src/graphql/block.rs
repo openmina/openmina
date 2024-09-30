@@ -1,14 +1,10 @@
-use std::path::PathBuf;
-
 use juniper::GraphQLObject;
-use mina_p2p_messages::{
-    binprot::BinProtWrite, v2::MinaBaseZkappCommandTStableV1WireStableV1Base64,
-};
+use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1Base64;
 use openmina_core::block::AppliedBlock;
 
 use crate::graphql::zkapp::{GraphQLFailureReason, GraphQLFeePayer, GraphQLZkappCommand};
 
-use super::zkapp::GraphQLZkapp;
+use super::{zkapp::GraphQLZkapp, ConversionError};
 
 #[derive(GraphQLObject)]
 #[graphql(description = "A Mina block")]
@@ -23,8 +19,9 @@ pub struct GraphQLTransactions {
     pub zkapp_commands: Vec<GraphQLZkapp>,
 }
 
-impl From<AppliedBlock> for GraphQLBestChainBlock {
-    fn from(value: AppliedBlock) -> Self {
+impl TryFrom<AppliedBlock> for GraphQLBestChainBlock {
+    type Error = ConversionError;
+    fn try_from(value: AppliedBlock) -> Result<Self, Self::Error> {
         let block = value.block;
         let blockchain_state = GraphQLBlockchainState {
             snarked_ledger_hash: block.snarked_ledger_hash().to_string(),
@@ -62,11 +59,11 @@ impl From<AppliedBlock> for GraphQLBestChainBlock {
                 .into(),
         };
 
-        Self {
+        Ok(Self {
             protocol_state,
             state_hash: block.hash.to_string(),
-            transactions: block.body().diff().clone().into(),
-        }
+            transactions: block.body().diff().clone().try_into()?,
+        })
     }
 }
 
@@ -114,8 +111,11 @@ pub struct GraphQLLedger {
     pub total_currency: String,
 }
 
-impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTransactions {
-    fn from(value: mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2) -> Self {
+impl TryFrom<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTransactions {
+    type Error = ConversionError;
+    fn try_from(
+        value: mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2,
+    ) -> Result<Self, Self::Error> {
         use mina_p2p_messages::v2::{
             MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
         };
@@ -130,17 +130,16 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
             .into_iter()
             .chain(also_zkapp_commands)
             .rev()
-            .filter_map(|cmd| {
+            .map(|cmd| {
+                // std::fs::create_dir_all("zkapps").unwrap();
+                // let zkapp_path = format!("zkapps/{}", zkapp.hash().unwrap());
+                // let path = PathBuf::from(zkapp_path.clone());
+                // if !path.exists() {
+                //     let mut buff = Vec::new();
+                //     zkapp.binprot_write(&mut buff).unwrap();
+                //     std::fs::write(zkapp_path, buff).unwrap();
+                // }
                 if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = cmd.data {
-                    std::fs::create_dir_all("zkapps").unwrap();
-                    let zkapp_path = format!("zkapps/{}", zkapp.hash().unwrap());
-                    let path = PathBuf::from(zkapp_path.clone());
-                    if !path.exists() {
-                        let mut buff = Vec::new();
-                        zkapp.binprot_write(&mut buff).unwrap();
-                        std::fs::write(zkapp_path, buff).unwrap();
-                    }
-
                     let failure_reason =
                         if let MinaBaseTransactionStatusStableV2::Failed(failure_collection) =
                             cmd.status
@@ -168,32 +167,33 @@ impl From<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQLTr
                         .account_updates
                         .clone()
                         .into_iter()
-                        .map(|v| v.elt.account_update.into())
-                        .collect();
-                    Some(GraphQLZkapp {
-                        hash: zkapp.hash().unwrap().to_string(),
+                        .map(|v| v.elt.account_update.try_into())
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok(Some(GraphQLZkapp {
+                        hash: zkapp.hash()?.to_string(),
                         failure_reason,
                         id: serde_json::to_string_pretty(
                             &MinaBaseZkappCommandTStableV1WireStableV1Base64::from(zkapp.clone()),
-                        )
-                        .unwrap()
+                        )?
                         .trim_matches('"')
                         .to_string(),
                         zkapp_command: GraphQLZkappCommand {
-                            memo: serde_json::to_string_pretty(&zkapp.memo)
-                                .unwrap()
+                            memo: serde_json::to_string_pretty(&zkapp.memo)?
                                 .trim_matches('"')
                                 .to_string(),
                             account_updates,
                             fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
                         },
-                    })
+                    }))
                 } else {
-                    None
+                    Ok(None)
                 }
             })
+            .collect::<Result<Vec<_>, Self::Error>>()?
+            .into_iter()
+            .flatten()
             .collect::<Vec<_>>();
-        Self { zkapp_commands }
+        Ok(Self { zkapp_commands })
     }
 }
 

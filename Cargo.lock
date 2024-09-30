@@ -4569,6 +4569,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
+ "strum 0.26.2",
+ "strum_macros 0.26.4",
  "thiserror",
  "tokio",
  "tracing",
