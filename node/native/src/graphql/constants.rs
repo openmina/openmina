@@ -1,6 +1,8 @@
 use juniper::GraphQLObject;
 use openmina_core::{consensus::ConsensusConstants, constants::ConstraintConstants};
 
+use super::ConversionError;
+
 #[derive(GraphQLObject)]
 pub struct GraphQLGenesisConstants {
     pub genesis_timestamp: String,
@@ -9,17 +11,17 @@ pub struct GraphQLGenesisConstants {
 }
 
 impl GraphQLGenesisConstants {
-    pub fn new(
+    pub fn try_new(
         constrain_constants: ConstraintConstants,
         consensus_constants: ConsensusConstants,
-    ) -> Self {
-        GraphQLGenesisConstants {
+    ) -> Result<Self, ConversionError> {
+        Ok(GraphQLGenesisConstants {
             genesis_timestamp: consensus_constants
                 .human_readable_genesis_timestamp()
-                .unwrap(),
+                .map_err(|e| ConversionError::Custom(e.to_string()))?,
             coinbase: constrain_constants.coinbase_amount.to_string(),
             account_creation_fee: constrain_constants.account_creation_fee.to_string(),
-        }
+        })
     }
 }
 

@@ -100,7 +100,6 @@ pub struct InputGraphQLZkappCommand {
     pub fee_payer: InputGraphQLFeePayer,
 }
 
-/// TODO(adonagy): Look into the handling of failures, this only returns successful zkapp commands
 impl TryFrom<MinaBaseUserCommandStableV2> for GraphQLSendZkappResponse {
     type Error = ConversionError;
     fn try_from(value: MinaBaseUserCommandStableV2) -> Result<Self, Self::Error> {
@@ -154,8 +153,7 @@ impl TryFrom<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
                 memo: if let Some(memo) = value.memo {
                     MinaBaseSignedCommandMemoStableV1::from_base58check(&memo)
                 } else {
-                    let empty_memo =
-                        ledger::scan_state::transaction_logic::Memo::from_str("").unwrap(); // Unwrap is safe here because the empty string is a valid memo
+                    let empty_memo = ledger::scan_state::transaction_logic::Memo::empty();
                     MinaBaseSignedCommandMemoStableV1::from(&empty_memo)
                 },
             },
@@ -588,7 +586,11 @@ impl TryFrom<InputGraphQLPreconditionsAccount>
             } else {
                 MinaBaseZkappPreconditionAccountStableV2Delegate::Ignore
             },
-            state: PaddedSeq(state.try_into().unwrap()),
+            state: PaddedSeq(
+                state
+                    .try_into()
+                    .map_err(|_| ConversionError::InvalidLength)?,
+            ),
             action_state: if let Some(action_state) = value.action_state {
                 MinaBaseZkappPreconditionAccountStableV2StateA::Check(BigInt::from_decimal(
                     &action_state,
@@ -1243,16 +1245,20 @@ impl TryFrom<InputGraphQLAccountUpdateUpdate> for MinaBaseAccountUpdateUpdateSta
             .iter()
             .map(|v| {
                 if let Some(v) = v {
-                    MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(
-                        BigInt::from_decimal(v).unwrap(),
-                    )
+                    Ok(MinaBaseAccountUpdateUpdateStableV1AppStateA::Set(
+                        BigInt::from_decimal(v)?,
+                    ))
                 } else {
-                    MinaBaseAccountUpdateUpdateStableV1AppStateA::Keep
+                    Ok(MinaBaseAccountUpdateUpdateStableV1AppStateA::Keep)
                 }
             })
-            .collect();
+            .collect::<Result<Vec<_>, ConversionError>>()?;
         Ok(Self {
-            app_state: PaddedSeq(app_state.try_into().unwrap()),
+            app_state: PaddedSeq(
+                app_state
+                    .try_into()
+                    .map_err(|_| ConversionError::InvalidLength)?,
+            ),
             delegate: if let Some(delegate) = value.delegate {
                 MinaBaseAccountUpdateUpdateStableV1Delegate::Set(
                     AccountPublicKey::from_str(&delegate)?.into(),
@@ -1468,6 +1474,9 @@ mod test {
 
         let expected = "E4YM2vTHhWEg66xpj52JErHUBU4pZ1yageL4TVDDpTTSsv8mK6YaH";
         let empty_memo = Memo::from_str("").unwrap();
+        let mina_empty_memo = MinaBaseSignedCommandMemoStableV1::from(&empty_memo);
+        assert_eq!(mina_empty_memo.to_base58check(), expected);
+        let empty_memo = Memo::empty();
         let mina_empty_memo = MinaBaseSignedCommandMemoStableV1::from(&empty_memo);
         assert_eq!(mina_empty_memo.to_base58check(), expected);
     }
