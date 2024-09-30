@@ -8,6 +8,8 @@ use mina_p2p_messages::{
     },
 };
 
+use super::ConversionError;
+
 #[derive(GraphQLObject)]
 #[graphql(description = "A Mina account")]
 pub struct GraphQLAccount {
@@ -181,9 +183,27 @@ impl From<ledger::scan_state::currency::Balance> for GraphQLBalance {
     }
 }
 
-impl From<ledger::Account> for GraphQLAccount {
-    fn from(value: ledger::Account) -> Self {
-        Self {
+impl TryFrom<ledger::Account> for GraphQLAccount {
+    type Error = ConversionError;
+
+    fn try_from(value: ledger::Account) -> Result<Self, Self::Error> {
+        // Process the verification_key with proper error handling
+        let verification_key = value
+            .zkapp
+            .clone()
+            .and_then(|zkapp| {
+                zkapp.verification_key.map(|vk| {
+                    let ser = MinaBaseVerificationKeyWireStableV1::from(vk.vk()).to_base64()?;
+
+                    Ok(GraphQLVerificationKey {
+                        verification_key: ser,
+                        hash: vk.hash().to_decimal(),
+                    }) as Result<GraphQLVerificationKey, Self::Error>
+                })
+            })
+            .transpose()?; // Transpose Option<Result<...>> to Result<Option<...>>
+
+        Ok(Self {
             public_key: value.public_key.into_address(),
             token_id: TokenIdKeyHash::from(value.token_id.clone()).to_string(),
             token: TokenIdKeyHash::from(value.token_id).to_string(),
@@ -206,17 +226,7 @@ impl From<ledger::Account> for GraphQLAccount {
                     .map(|v| v.to_decimal())
                     .collect::<Vec<_>>()
             }),
-            verification_key: value.zkapp.clone().and_then(|zkapp| {
-                zkapp.verification_key.map(|vk| {
-                    let ser = MinaBaseVerificationKeyWireStableV1::from(vk.vk())
-                        .to_base64()
-                        .unwrap();
-                    GraphQLVerificationKey {
-                        verification_key: ser,
-                        hash: vk.hash().to_decimal(),
-                    }
-                })
-            }),
+            verification_key,
             action_state: value.zkapp.clone().map(|zkapp| {
                 zkapp
                     .action_state
@@ -228,6 +238,6 @@ impl From<ledger::Account> for GraphQLAccount {
             zkapp_uri: value
                 .zkapp
                 .map(|zkapp| ZkAppUri::from(&zkapp.zkapp_uri).to_string()),
-        }
+        })
     }
 }

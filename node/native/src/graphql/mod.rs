@@ -30,6 +30,10 @@ pub mod zkapp;
 pub enum Error {
     #[error("Conversion error: {0}")]
     Conversion(ConversionError),
+    #[error("State machine empty response")]
+    StateMachineEmptyResponse,
+    #[error("Custom: {0}")]
+    Custom(String),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +60,10 @@ pub enum ConversionError {
     TryFromInt(#[from] std::num::TryFromIntError),
     #[error("Missing field: {0}")]
     MissingField(String),
+    #[error("Invalid length")]
+    InvalidLength,
+    #[error("Custom: {0}")]
+    Custom(String),
 }
 
 struct Context(RpcSender);
@@ -140,40 +148,42 @@ impl Query {
         public_key: String,
         token: String,
         context: &Context,
-    ) -> account::GraphQLAccount {
-        // TODO(adonagy): error handling
-        let token_id = TokenIdKeyHash::from_str(&token).unwrap();
-        let public_key = AccountPublicKey::from_str(&public_key).unwrap();
+    ) -> juniper::FieldResult<account::GraphQLAccount> {
+        let token_id = TokenIdKeyHash::from_str(&token)?;
+        let public_key = AccountPublicKey::from_str(&public_key)?;
         let accounts: Vec<Account> = context
             .0
             .oneshot_request(RpcRequest::LedgerAccountsGet(
                 AccountQuery::PubKeyWithTokenId(public_key, token_id),
             ))
             .await
-            .unwrap();
+            .ok_or(Error::StateMachineEmptyResponse)?;
 
-        // Error handling
-        accounts.first().cloned().unwrap().into()
+        Ok(accounts
+            .first()
+            .cloned()
+            .ok_or(Error::StateMachineEmptyResponse)?
+            .try_into()?)
     }
 
-    async fn sync_status(context: &Context) -> SyncStatus {
+    async fn sync_status(context: &Context) -> juniper::FieldResult<SyncStatus> {
         let state: RpcSyncStatsGetResponse = context
             .0
             .oneshot_request(RpcRequest::SyncStatsGet(SyncStatsQuery { limit: Some(1) }))
             .await
-            .unwrap();
+            .ok_or(Error::StateMachineEmptyResponse)?;
 
         if let Some(state) = state.as_ref().and_then(|s| s.first()) {
             if state.synced.is_some() {
-                SyncStatus::SYNCED
+                Ok(SyncStatus::SYNCED)
             } else {
                 match &state.kind {
-                    SyncKind::Bootstrap => SyncStatus::BOOTSTRAP,
-                    SyncKind::Catchup => SyncStatus::CATCHUP,
+                    SyncKind::Bootstrap => Ok(SyncStatus::BOOTSTRAP),
+                    SyncKind::Catchup => Ok(SyncStatus::CATCHUP),
                 }
             }
         } else {
-            SyncStatus::LISTENING
+            Ok(SyncStatus::LISTENING)
         }
     }
     async fn best_chain(
@@ -184,7 +194,7 @@ impl Query {
             .0
             .oneshot_request(RpcRequest::BestChain(max_length as u32))
             .await
-            .unwrap();
+            .ok_or(Error::StateMachineEmptyResponse)?;
 
         Ok(best_chain
             .into_iter()
@@ -192,83 +202,68 @@ impl Query {
             .collect::<Result<Vec<_>, _>>()?)
     }
 
-    async fn daemon_status(context: &Context) -> constants::GraphQLDaemonStatus {
+    async fn daemon_status(
+        context: &Context,
+    ) -> juniper::FieldResult<constants::GraphQLDaemonStatus> {
         let consensus_constants: ConsensusConstants = context
             .0
             .oneshot_request(RpcRequest::ConsensusConstantsGet)
             .await
-            .unwrap();
-        constants::GraphQLDaemonStatus {
+            .ok_or(Error::StateMachineEmptyResponse)?;
+        Ok(constants::GraphQLDaemonStatus {
             consensus_configuration: consensus_constants.into(),
-        }
+        })
     }
 
-    async fn genesis_constants(context: &Context) -> constants::GraphQLGenesisConstants {
+    async fn genesis_constants(
+        context: &Context,
+    ) -> juniper::FieldResult<constants::GraphQLGenesisConstants> {
         let consensus_constants: ConsensusConstants = context
             .0
             .oneshot_request(RpcRequest::ConsensusConstantsGet)
             .await
-            .unwrap();
+            .ok_or(Error::StateMachineEmptyResponse)?;
         let constraint_constants = constraint_constants();
 
-        constants::GraphQLGenesisConstants::new(constraint_constants.clone(), consensus_constants)
+        Ok(constants::GraphQLGenesisConstants::try_new(
+            constraint_constants.clone(),
+            consensus_constants,
+        )?)
     }
 
     async fn transaction_status(
         payment: Option<String>,
         zkapp_transaction: Option<String>,
         context: &Context,
-    ) -> String {
+    ) -> juniper::FieldResult<String> {
         if payment.is_some() && zkapp_transaction.is_some() {
-            panic!("Cannot provide both payment and zkapp transaction");
+            return Err(Error::Custom(
+                "Cannot provide both payment and zkapp transaction".to_string(),
+            )
+            .into());
         }
 
         let tx = if let Some(payment) = payment {
-            MinaBaseUserCommandStableV2::SignedCommand(
-                MinaBaseSignedCommandStableV2::from_base64(&payment).unwrap(),
-            )
+            MinaBaseUserCommandStableV2::SignedCommand(MinaBaseSignedCommandStableV2::from_base64(
+                &payment,
+            )?)
         } else if let Some(zkapp_transaction) = zkapp_transaction {
             MinaBaseUserCommandStableV2::ZkappCommand(
-                MinaBaseZkappCommandTStableV1WireStableV1::from_base64(&zkapp_transaction).unwrap(),
+                MinaBaseZkappCommandTStableV1WireStableV1::from_base64(&zkapp_transaction)?,
             )
         } else {
-            panic!("Must provide either payment or zkapp transaction");
+            return Err(Error::Custom(
+                "Must provide either payment or zkapp transaction".to_string(),
+            )
+            .into());
         };
         let res: RpcTransactionStatusGetResponse = context
             .0
             .oneshot_request(RpcRequest::TransactionStatusGet(tx))
             .await
-            .unwrap();
-        res.to_string()
+            .ok_or(Error::StateMachineEmptyResponse)?;
+        Ok(res.to_string())
     }
-    // async fn best_chain(max_length: i32, context: &Context) -> Vec<BestChain> {
-    //     let state: RpcSyncStatsGetResponse = context
-    //         .0
-    //         .oneshot_request(RpcRequest::SyncStatsGet(SyncStatsQuery {
-    //             limit: Some(max_length as _),
-    //         }))
-    //         .await
-    //         .unwrap();
-    //     state
-    //         .unwrap_or_default()
-    //         .into_iter()
-    //         .filter_map(|x| {
-    //             let head = x.blocks.first()?;
-    //             let snarked_ledger_hash = x.ledgers.root?.snarked.hash?;
-    //             Some(BestChain {
-    //                 state_hash: head.hash.to_string(),
-    //                 protocol_state: ProtocolState {
-    //                     consensus_state: ConsensusState {
-    //                         block_height: head.height as _,
-    //                     },
-    //                     blockchain_state: BlockchainState {
-    //                         snarked_ledger_hash: snarked_ledger_hash.to_string(),
-    //                     },
-    //                 },
-    //             })
-    //         })
-    //         .collect()
-    // }
 }
 
 #[derive(Clone, Debug)]
@@ -284,7 +279,7 @@ impl Mutation {
             .0
             .oneshot_request(RpcRequest::TransactionInject(vec![input.try_into()?]))
             .await
-            .unwrap();
+            .ok_or(Error::StateMachineEmptyResponse)?;
 
         match res {
             RpcTransactionInjectResponse::Success(res) => {
