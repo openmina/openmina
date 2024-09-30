@@ -36,6 +36,7 @@ import {
   BenchmarksWalletsToggleRandomWallet,
 } from '@benchmarks/wallets/benchmarks-wallets.actions';
 import { TemplatePortal } from '@angular/cdk/portal';
+import { BenchmarksWalletsZkService } from '@benchmarks/wallets/benchmarks-wallets-zk.service';
 
 interface TransactionForm {
   batch: FormControl<number>;
@@ -52,10 +53,10 @@ interface TransactionForm {
 })
 export class BenchmarksWalletsZkappToolbarComponent extends ManualDetection implements OnInit {
 
+  protected readonly updates$ = this.zkService.updates$;
+
   formGroup: FormGroup<TransactionForm>;
   streamSending: boolean;
-  successSentTransactions: number;
-  failSentTransactions: number;
   randomWallet: boolean;
   activeWallet: BenchmarksWallet;
   wallets: BenchmarksWallet[];
@@ -71,12 +72,12 @@ export class BenchmarksWalletsZkappToolbarComponent extends ManualDetection impl
   constructor(private store: Store<MinaState>,
               private formBuilder: FormBuilder,
               private overlay: Overlay,
-              private viewContainerRef: ViewContainerRef) { super(); }
+              private viewContainerRef: ViewContainerRef,
+              private zkService: BenchmarksWalletsZkService) { super(); }
 
   ngOnInit(): void {
     this.initForm();
     this.listenToWalletsChanges();
-    this.listenToTransactionChanges();
     this.listenToStressingSendStreaming();
     this.listenToBatchChange();
     this.listenToFeeChange();
@@ -96,16 +97,6 @@ export class BenchmarksWalletsZkappToolbarComponent extends ManualDetection impl
         this.activeWallet = activeWallet;
         this.detect();
       });
-  }
-
-  private listenToTransactionChanges(): void {
-    // this.store.select(selectBenchmarksSentTransactionsStats)
-    //   .pipe(untilDestroyed(this))
-    //   .subscribe(stats => {
-    //     this.successSentTransactions = stats.success;
-    //     this.failSentTransactions = stats.fail;
-    //     this.detect();
-    //   });
   }
 
   private listenToBatchChange(): void {

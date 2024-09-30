@@ -2,6 +2,7 @@ import { FeatureAction } from '@openmina/shared';
 import { BenchmarksWallet } from '@shared/types/benchmarks/wallets/benchmarks-wallet.type';
 import { BenchmarksWalletTransaction } from '@shared/types/benchmarks/wallets/benchmarks-wallet-transaction.type';
 import { MempoolTransaction } from '@shared/types/mempool/mempool-transaction.type';
+import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';
 
 enum BenchmarksWalletsActionTypes {
   BENCHMARKS_WALLETS_CLOSE = 'BENCHMARKS_WALLETS_CLOSE',
@@ -96,7 +97,7 @@ export class BenchmarksWalletsSendZkApps implements BenchmarksWalletsAction {
 export class BenchmarksWalletsSendZkAppsSuccess implements BenchmarksWalletsAction {
   readonly type = BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS;
 
-  constructor(public payload: Partial<{ transactions: BenchmarksWalletTransaction[], error: Error }>) {}
+  constructor(public payload: Partial<{ zkApps: BenchmarksZkapp[], error: Error }>) {}
 }
 
 export class BenchmarksWalletsToggleRandomWallet implements BenchmarksWalletsAction {

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const filePath = path.join(__dirname, 'src', 'assets', 'o1js', 'main.js');
+const filePath = path.join(__dirname, 'src', 'assets', 'o1js', 'o1jsWrapper.js');
 
 fs.readFile(filePath, 'utf8', (err, data) => {
   if (err) {

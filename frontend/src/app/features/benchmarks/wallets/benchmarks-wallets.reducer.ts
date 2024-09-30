@@ -11,7 +11,7 @@ import {
   BENCHMARKS_WALLETS_SELECT_WALLET,
   BENCHMARKS_WALLETS_SEND_TX_SUCCESS,
   BENCHMARKS_WALLETS_SEND_TXS,
-  BENCHMARKS_WALLETS_SEND_ZKAPPS,
+  BENCHMARKS_WALLETS_SEND_ZKAPPS, BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS,
   BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET,
   BENCHMARKS_WALLETS_UPDATE_WALLETS_SUCCESS,
   BenchmarksWalletsActions,
@@ -60,7 +60,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
         wallets,
         blockSending: false,
         txSendingBatch: !hasValue(state.txSendingBatch) ? action.payload.length : state.txSendingBatch,
-        activeWallet: wallets[0],
+        activeWallet: state.activeWallet ?? wallets[0],
       };
     }
 
@@ -148,6 +148,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
           return {
             ...payment,
             privateKey: wallet.privateKey,
+            blockSending: true,
           };
         });
       }
@@ -183,16 +184,43 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             ...w,
             lastTxCount: lastItem(transactionsFromThisWallet).memo.split(',')[1],
             lastTxStatus: action.payload.error ? BenchmarksWalletTransactionStatus.ERROR : BenchmarksWalletTransactionStatus.GENERATED,
-            successTx: w.successTx + (!action.payload.error ? transactionsFromThisWallet.length : 0),
-            failedTx: w.failedTx + (action.payload.error ? transactionsFromThisWallet.length : 0),
             lastTxTime: lastItem(transactionsFromThisWallet).dateTime,
             lastTxMemo: lastItem(transactionsFromThisWallet).memo.replace('S.T.', ''),
+            successTx: w.successTx + (!action.payload.error ? transactionsFromThisWallet.length : 0),
+            failedTx: w.failedTx + (action.payload.error ? transactionsFromThisWallet.length : 0),
             errorReason: action.payload.error?.message,
           };
         }),
         sentTransactions: {
           success: state.sentTransactions.success + (!action.payload.error ? action.payload.transactions.length : 0),
           fail: state.sentTransactions.fail + (action.payload.error ? action.payload.transactions.length : 0),
+        },
+      };
+    }
+
+    case BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS: {
+      return {
+        ...state,
+        zkAppsToSend: [],
+        wallets: state.wallets.map((w: BenchmarksWallet) => {
+          const zkAppsFromThisWallet = action.payload.zkApps.filter(tx => tx.payerPublicKey === w.publicKey);
+          if (!zkAppsFromThisWallet.length) {
+            return w;
+          }
+          return {
+            ...w,
+            lastTxCount: lastItem(zkAppsFromThisWallet).memo.split(',')[1],
+            lastTxStatus: action.payload.error?.name ?? BenchmarksWalletTransactionStatus.GENERATED,
+            lastTxTime: getTimeFromMemo(lastItem(zkAppsFromThisWallet).memo),
+            lastTxMemo: lastItem(zkAppsFromThisWallet).memo,
+            successTx: w.successTx + (!action.payload.error ? zkAppsFromThisWallet.length : 0),
+            failedTx: w.failedTx + (action.payload.error ? zkAppsFromThisWallet.length : 0),
+            errorReason: action.payload.error?.message,
+          };
+        }),
+        sentTransactions: {
+          success: state.sentTransactions.success + (!action.payload.error ? action.payload.zkApps.length : 0),
+          fail: state.sentTransactions.fail + (action.payload.error ? action.payload.zkApps.length : 0),
         },
       };
     }
@@ -264,15 +292,6 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
     }
 
     case BENCHMARKS_WALLETS_SEND_ZKAPPS: {
-      //*
-      // export interface BenchmarksZkapp {
-      //   payerPublicKey: string;
-      //   payerPrivateKey: string;
-      //   fee: number;
-      //   nonce: string;
-      //   memo?: string;
-      //   accountUpdates: number;
-      // }*//
       let zkAppsToSend: BenchmarksZkapp[];
       if (state.randomWallet) {
         zkAppsToSend = state.wallets
@@ -287,7 +306,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
               fee: state.sendingFeeZkapps,
               nonce,
               memo,
-              accountUpdates: 1,
+              accountUpdates: 8,
             };
           });
       } else {
@@ -303,7 +322,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             fee: state.sendingFeeZkapps,
             nonce: nonce.toString(),
             memo,
-            accountUpdates: 1,
+            accountUpdates: 8,
           };
           nonce++;
 
@@ -326,6 +345,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             lastTxStatus: BenchmarksWalletTransactionStatus.SENDING,
           };
         }),
+        blockSending: true,
       };
     }
 

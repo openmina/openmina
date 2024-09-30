@@ -65,7 +65,7 @@ export class BenchmarksWalletsEffects extends MinaRustBaseEffect<BenchmarksWalle
     ));
 
     this.sendTxSuccess$ = createEffect(() => this.actions$.pipe(
-      ofType(BENCHMARKS_WALLETS_SEND_TX_SUCCESS),
+      ofType(BENCHMARKS_WALLETS_SEND_TX_SUCCESS, BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS),
       map(() => ({ type: BENCHMARKS_WALLETS_GET_WALLETS })),
     ));
 
