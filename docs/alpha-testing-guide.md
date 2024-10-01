@@ -29,12 +29,20 @@ Ensure you have **Docker** installed. For installation instructions specific to 
    ```
 
 4. **Access the Dashboard**:
-   Open `http://localhost:8070` in your browser.The dashboard will show the syncing process in real time. Syncing Steps:
+   Open `http://localhost:8070` in your browser.
+   
+   The dashboard will show the syncing process in real time. 
+   <img width="1417" alt="image" src="https://github.com/user-attachments/assets/d9a5f5b3-522f-479b-9829-37402c63bb98">
 
-  - **Connecting to Peers:** The node connects to peers. You’ll see the number of connected, connecting, and disconnected peers grow.
-  - **Fetching Ledgers:** The node downloads key data: Staking ledger, Next epoch ledger, and Snarked ledger. Progress bars show the download status.
-  - **Fetching & Applying Blocks:** The node downloads recent blocks to match the network’s current state. The dashboard tracks how many blocks are fetched and applied.
-  - **Synced:** The node is fully synced with the network and ready to operate.
+   Syncing Steps:
+   
+   **Connecting to Peers:** The node connects to peers. You’ll see the number of connected, connecting, and disconnected peers grow.
+
+   **Fetching Ledgers:** The node downloads key data: Staking ledger, Next epoch ledger, and Snarked ledger. Progress bars show the download status.
+
+   **Fetching & Applying Blocks:** The node downloads recent blocks to match the network’s current state. The dashboard tracks how many blocks are fetched and applied.
+
+   **Synced:** The node is fully synced with the network and ready to operate.
 
 ## 3. Logs
 
