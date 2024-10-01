@@ -1,6 +1,6 @@
 # Test Alpha Rust Node on Devnet
 
-This guide will walk you through running the **Alpha Rust Node** on Devnet using Docker. Follow these steps to set up the node and provide feedback on this Alpha release.
+This guide will walk you through running the **Alpha Rust Node** on Devnet using Docker. Follow these steps to set up the node and [Provide Feedback](#4-provide-feedback) on this Alpha release.
 
 ## 1. Prerequisites
 
@@ -32,11 +32,11 @@ Ensure you have **Docker** installed. For installation instructions specific to 
    The dashboard will show the syncing process in real time. 
    <img width="1417" alt="image" src="https://github.com/user-attachments/assets/d9a5f5b3-522f-479b-9829-37402c63bb98">
    
-   **1. Connecting to Peers:** The node connects to peers. You’ll see the number of connected, connecting, and disconnected peers grow.
-
-   **2. Fetching Ledgers:** The node downloads key data: Staking ledger, Next epoch ledger, and Snarked ledger. Progress bars show the download status.
-
-   **3. Fetching & Applying Blocks:** The node downloads recent blocks to match the network’s current state. The dashboard tracks how many blocks are fetched and applied.
+   >**1. Connecting to Peers:** The node connects to peers. You’ll see the number of connected, connecting, and disconnected peers grow.
+   >
+   >**2. Fetching Ledgers:** The node downloads key data: Staking ledger, Next epoch ledger, and Snarked ledger. Progress bars show the download status.
+   >
+   >**3. Fetching & Applying Blocks:** The node downloads recent blocks to match the network’s current state. The dashboard tracks how many blocks are fetched and applied.
 
 ## 3. Monitoring and troubleshooting
 
@@ -58,9 +58,8 @@ docker compose up --pull always
 
 This Alpha release is for testing purposes. Your feedback is essential. Follow these steps to report any issues:
 
-1. **Collect Logs**: Use the commands above to save logs.
-2. **Join Discord**: [discord.gg/your-discord-invite-link](discord link).
-3. **Describe the Issue**: Briefly explain the problem and steps to reproduce it.
-4. **Attach Logs**: Include the `openmina-node.log` file when reporting.
-
-**Note**: Including a screenshot of the dashboard when reporting issues can provide helpful context. The dashboard shows key details about syncing, peer connections, and block application that may assist in diagnosing the issue.
+1. **Collect Logs**: Use the [commands above to save logs](#3-start-the-node-on-devnet-and-save-logs)
+2. **Visit Discord**: [Open Mina Discord Channel](https://discord.com/channels/484437221055922177/1290662938734231552/1290667779317305354)
+3. **Describe the Issue**: Briefly explain the problem and steps to reproduce it
+4. **Attach Logs**: Discord allows files up to 25MB. If your logs are larger, use Google Drive or similar
+5. **Include a Screenshot**: A dashboard screenshot provides details about node status, making it easier to diagnose the issue
