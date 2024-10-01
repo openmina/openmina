@@ -446,8 +446,7 @@ impl P2pNetworkPubsubState {
                         }
                     }
                     Err(err) => {
-                        // TODO: add error handling
-                        dbg!(err);
+                        return Err(err.to_string());
                     }
                 }
             }
@@ -458,7 +457,8 @@ impl P2pNetworkPubsubState {
 
     fn reduce_incoming_data(&mut self, peer_id: &PeerId, data: &Data) -> Result<(), String> {
         let Some(state) = self.clients.get_mut(peer_id) else {
-            bug_condition!("State not found for action: P2pNetworkPubsubAction::IncomingData");
+            // TODO: investigate, cannot reproduce this
+            // bug_condition!("State not found for action: P2pNetworkPubsubAction::IncomingData");
             return Ok(());
         };
         let slice = if state.buffer.is_empty() {

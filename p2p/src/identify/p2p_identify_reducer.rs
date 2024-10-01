@@ -2,12 +2,6 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::{
-        best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
-        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-        streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
-        ChannelId,
-    },
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     token::{BroadcastAlgorithm, DiscoveryAlgorithm, IdentifyAlgorithm, RpcAlgorithm, StreamKind},
     P2pNetworkConnectionMuxState, P2pNetworkKadRequestAction, P2pNetworkKadState,
@@ -91,29 +85,9 @@ impl P2pState {
                     return Ok(());
                 }
 
-                // Dispatches can be done without a loop, but inside we do
-                // exhaustive matching so that we don't miss any channels.
-                for id in ChannelId::iter_all() {
-                    match id {
-                        ChannelId::BestTipPropagation => {
-                            dispatcher.push(P2pChannelsBestTipAction::Init { peer_id });
-                        }
-                        ChannelId::TransactionPropagation => {
-                            dispatcher.push(P2pChannelsTransactionAction::Init { peer_id });
-                        }
-                        ChannelId::SnarkPropagation => {
-                            dispatcher.push(P2pChannelsSnarkAction::Init { peer_id });
-                        }
-                        ChannelId::SnarkJobCommitmentPropagation => {
-                            dispatcher.push(P2pChannelsSnarkJobCommitmentAction::Init { peer_id });
-                        }
-                        ChannelId::Rpc => {
-                            dispatcher.push(P2pChannelsRpcAction::Init { peer_id });
-                        }
-                        ChannelId::StreamingRpc => {
-                            dispatcher.push(P2pChannelsStreamingRpcAction::Init { peer_id });
-                        }
-                    }
+                {
+                    let state: &P2pState = state.substate()?;
+                    state.channels_init(dispatcher, peer_id);
                 }
 
                 dispatcher.push(P2pNetworkYamuxAction::OpenStream {

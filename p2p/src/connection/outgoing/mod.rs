@@ -66,12 +66,15 @@ pub(crate) mod libp2p_opts {
         }
 
         pub fn matches_socket_addr(&self, addr: SocketAddr) -> bool {
-            self.port == addr.port()
-                && match (&self.host, addr) {
-                    (Host::Ipv4(ip), SocketAddr::V4(addr)) => ip == addr.ip(),
-                    (Host::Ipv6(ip), SocketAddr::V6(addr)) => ip == addr.ip(),
-                    _ => false,
-                }
+            self.port == addr.port() && self.matches_socket_ip(addr)
+        }
+
+        pub fn matches_socket_ip(&self, addr: SocketAddr) -> bool {
+            match (&self.host, addr) {
+                (Host::Ipv4(ip), SocketAddr::V4(addr)) => ip == addr.ip(),
+                (Host::Ipv6(ip), SocketAddr::V6(addr)) => ip == addr.ip(),
+                _ => false,
+            }
         }
     }
 

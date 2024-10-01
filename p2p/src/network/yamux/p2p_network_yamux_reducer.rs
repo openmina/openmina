@@ -230,7 +230,7 @@ impl P2pNetworkYamuxState {
                 let connection_state =
                     <State as SubstateAccess<P2pNetworkSchedulerState>>::substate(state)?
                         .connection_state(&addr)
-                        .ok_or_else(|| "Connection not found".to_owned())?;
+                        .ok_or_else(|| format!("Connection not found {}", action.addr()))?;
 
                 let stream = connection_state
                     .yamux_state()

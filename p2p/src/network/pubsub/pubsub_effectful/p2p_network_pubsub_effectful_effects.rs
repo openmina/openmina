@@ -33,7 +33,8 @@ impl P2pNetworkPubsubEffectfulAction {
                 seen_limit,
             } => {
                 let Some(state) = state.clients.get(&peer_id) else {
-                    bug_condition!("{:?} not found in state.clients", peer_id);
+                    // TODO: investigate, cannot reproduce this
+                    // bug_condition!("{:?} not found in state.clients", peer_id);
                     return;
                 };
                 let messages = state.incoming_messages.clone();

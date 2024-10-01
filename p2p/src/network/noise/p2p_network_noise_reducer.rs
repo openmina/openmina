@@ -33,7 +33,7 @@ impl P2pNetworkNoiseState {
             .get_substate_mut()?
             .connection_state_mut(action.addr())
             .and_then(|c| c.noise_state_mut())
-            .ok_or_else(|| "Invalid noise state".to_owned())?;
+            .ok_or_else(|| format!("Invalid noise state {}", action.addr()))?;
 
         match action {
             P2pNetworkNoiseAction::Init {

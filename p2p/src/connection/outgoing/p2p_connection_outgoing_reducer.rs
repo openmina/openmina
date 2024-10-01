@@ -206,7 +206,7 @@ impl P2pConnectionOutgoingState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferReady {
+                dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferSend {
                     peer_id: *peer_id,
                     offer: offer.clone(),
                 });
@@ -308,6 +308,12 @@ impl P2pConnectionOutgoingState {
                         state
                     );
                 }
+                state_context.into_dispatcher().push(
+                    P2pConnectionOutgoingEffectfulAction::AnswerSet {
+                        peer_id: *peer_id,
+                        answer: answer.clone(),
+                    },
+                );
                 Ok(())
             }
             P2pConnectionOutgoingAction::FinalizePending { peer_id } => {

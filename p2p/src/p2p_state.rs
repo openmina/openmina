@@ -370,7 +370,7 @@ impl P2pPeerState {
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Error { time, .. },
                 )) => is_time_passed(now, *time, timeouts.outgoing_error_reconnect_timeout),
-                P2pPeerStatus::Disconnected { time } => {
+                P2pPeerStatus::Disconnected { time } | P2pPeerStatus::Disconnecting { time } => {
                     *time == Timestamp::ZERO
                         || is_time_passed(now, *time, timeouts.reconnect_timeout)
                 }
@@ -383,6 +383,7 @@ impl P2pPeerState {
 #[serde(tag = "state")]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
+    Disconnecting { time: redux::Timestamp },
     Disconnected { time: redux::Timestamp },
 
     Ready(P2pPeerStatusReady),
@@ -402,8 +403,13 @@ impl P2pPeerStatus {
         match self {
             Self::Connecting(s) => !s.is_error(),
             Self::Ready(_) => true,
+            Self::Disconnecting { .. } => false,
             Self::Disconnected { .. } => false,
         }
+    }
+
+    pub fn is_disconnected_or_disconnecting(&self) -> bool {
+        matches!(self, Self::Disconnecting { .. } | Self::Disconnected { .. })
     }
 
     pub fn as_connecting(&self) -> Option<&P2pConnectionState> {

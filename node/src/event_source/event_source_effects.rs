@@ -115,6 +115,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             });
                         }
                     }
+                    MioEvent::ConnectionDidCloseOnDemand(addr) => {
+                        store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
+                    }
                 },
                 P2pEvent::Connection(e) => match e {
                     P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {

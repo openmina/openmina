@@ -1,4 +1,11 @@
 pub use ::p2p::*;
+use p2p::channels::{
+    best_tip_effectful::P2pChannelsBestTipEffectfulAction,
+    rpc_effectful::P2pChannelsRpcEffectfulAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
+    snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
+    streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
+    transaction_effectful::P2pChannelsTransactionEffectfulAction,
+};
 
 pub mod channels;
 pub mod connection;
@@ -114,5 +121,11 @@ impl_into_global_action!(p2p::P2pNetworkPnetEffectfulAction);
 impl_into_global_action!(connection::incoming_effectful::P2pConnectionIncomingEffectfulAction);
 impl_into_global_action!(connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction);
 impl_into_global_action!(p2p::disconnection_effectful::P2pDisconnectionEffectfulAction);
+impl_into_global_action!(P2pChannelsBestTipEffectfulAction);
+impl_into_global_action!(P2pChannelsStreamingRpcEffectfulAction);
+impl_into_global_action!(P2pChannelsTransactionEffectfulAction);
+impl_into_global_action!(P2pChannelsSnarkJobCommitmentEffectfulAction);
+impl_into_global_action!(P2pChannelsRpcEffectfulAction);
+impl_into_global_action!(P2pChannelsSnarkEffectfulAction);
 
 impl p2p::P2pActionTrait<crate::State> for crate::Action {}
