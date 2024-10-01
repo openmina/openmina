@@ -8,8 +8,10 @@ export default {
       state: ['actions'],
       network: ['node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state'],
+      benchmarks: ['wallets'],
     },
     canAddNodes: true,
+    graphQL: '/openmina-node/graphql',
   },
   configs: [
     {
