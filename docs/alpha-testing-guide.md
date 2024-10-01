@@ -10,8 +10,6 @@ Ensure you have **Docker** installed. For installation instructions specific to 
 
 ## 2. Download & Start the Node
 
-### Steps:
-
 1. **Download the Latest Alpha Release**:
    - Visit the [Open Mina Releases](https://github.com/openmina/openmina/releases).
    - Download the latest `openmina-vX.Y.Z-docker-compose.zip` (Alpha release).
@@ -33,33 +31,21 @@ Ensure you have **Docker** installed. For installation instructions specific to 
    
    The dashboard will show the syncing process in real time. 
    <img width="1417" alt="image" src="https://github.com/user-attachments/assets/d9a5f5b3-522f-479b-9829-37402c63bb98">
-
-   Syncing Steps:
    
-   **Connecting to Peers:** The node connects to peers. You’ll see the number of connected, connecting, and disconnected peers grow.
+   **1. Connecting to Peers:** The node connects to peers. You’ll see the number of connected, connecting, and disconnected peers grow.
 
-   **Fetching Ledgers:** The node downloads key data: Staking ledger, Next epoch ledger, and Snarked ledger. Progress bars show the download status.
+   **2. Fetching Ledgers:** The node downloads key data: Staking ledger, Next epoch ledger, and Snarked ledger. Progress bars show the download status.
 
-   **Fetching & Applying Blocks:** The node downloads recent blocks to match the network’s current state. The dashboard tracks how many blocks are fetched and applied.
+   **3. Fetching & Applying Blocks:** The node downloads recent blocks to match the network’s current state. The dashboard tracks how many blocks are fetched and applied.
 
-   **Synced:** The node is fully synced with the network and ready to operate.
+## 3. Monitoring and troubleshooting
 
-## 3. Logs
+### Inspecting Saved Logs
+If you’ve saved logs to a file, you can use tail or similar tools to view them:
 
-Monitoring and troubleshooting:
-
-### View Real-Time Logs:
 ```bash
-docker compose logs -f
+tail -f openmina-node.log
 ```
-
-### Save Logs to a File:
-Use the following command if you want to save the current logs for later analysis, e.g., for debugging or reporting issues:
-```bash
-docker compose logs > openmina-node.log
-```
-
-## 4. Troubleshooting
 
 ### Restart the Node:
 If the node becomes unresponsive or fails to start, restart the setup:
@@ -68,7 +54,7 @@ docker compose down
 docker compose up --pull always
 ```
 
-## 5. Provide Feedback
+## 4. Provide Feedback
 
 This Alpha release is for testing purposes. Your feedback is essential. Follow these steps to report any issues:
 
