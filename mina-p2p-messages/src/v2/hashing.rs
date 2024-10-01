@@ -33,9 +33,9 @@ use super::{
     MinaBasePendingCoinbaseHashVersionedStableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
     MinaBasePendingCoinbaseStateStackStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
     MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
-    MinaBaseStateBodyHashStableV1, MinaNumbersGlobalSlotSinceGenesisMStableV1,
-    MinaNumbersGlobalSlotSinceHardForkMStableV1, MinaNumbersGlobalSlotSpanStableV1,
-    MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    MinaBaseStateBodyHashStableV1, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
+    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
+    MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
     MinaStateProtocolStateValueStableV2,
@@ -223,7 +223,7 @@ impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
 
     pub fn replace_auth(auth: &mut MinaBaseControlStableV2) {
         let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
-        let default_proof = super::sideloaded_transaction_proof();
+        let default_proof = super::dummy_transaction_proof();
         *auth = match auth {
             MinaBaseControlStableV2::Proof(_) => {
                 MinaBaseControlStableV2::Proof(Box::new(default_proof.0.clone().into()))

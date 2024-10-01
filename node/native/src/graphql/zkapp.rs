@@ -54,7 +54,7 @@ use serde::Deserialize;
 use super::account::{GraphQLTiming, InputGraphQLTiming};
 use super::ConversionError;
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct SendZkappInput {
     pub zkapp_command: InputGraphQLZkappCommand,
 }
@@ -80,7 +80,7 @@ pub struct GraphQLZkapp {
     pub zkapp_command: GraphQLZkappCommand,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLZkapp {
     // pub hash: String,
     // pub failure_reason: Option<Vec<GraphQLFailureReason>>,
@@ -96,7 +96,7 @@ pub struct GraphQLZkappCommand {
     pub fee_payer: GraphQLFeePayer,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLZkappCommand {
     pub memo: Option<String>,
     pub account_updates: Vec<InputGraphQLAccountUpdate>,
@@ -156,6 +156,7 @@ impl TryFrom<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
 fn try_tree_from_account_updates(
     updates: List<InputGraphQLAccountUpdate>,
 ) -> Result<List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>, ConversionError> {
+    println!("++++ Before the conversion {:?}", updates);
     let result =
         try_tree_from_account_updates_aux(updates)?
             .into_iter()
@@ -177,7 +178,7 @@ fn try_tree_from_account_updates(
                 MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA { elt, stack_hash }
             })
             .collect();
-
+    println!("+++ After the conversion: {:?}", result);
     Ok(result)
 }
 
@@ -224,7 +225,7 @@ pub struct GraphQLFeePayer {
     pub authorization: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLFeePayer {
     pub body: InputGraphQLFeePayerBody,
     pub authorization: String,
@@ -238,7 +239,7 @@ pub struct GraphQLFeePayerBody {
     pub nonce: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLFeePayerBody {
     pub public_key: String,
     pub fee: String,
@@ -252,7 +253,7 @@ pub struct GraphQLAccountUpdate {
     pub authorization: GraphQLAuthorization,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLAccountUpdate {
     pub body: InputGraphQLAccountUpdateBody,
     pub authorization: InputGraphQLAuthorization,
@@ -264,7 +265,7 @@ pub struct GraphQLAuthorization {
     pub signature: Option<String>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLAuthorization {
     pub proof: Option<String>,
     pub signature: Option<String>,
@@ -337,7 +338,7 @@ pub struct GraphQLAccountUpdateBody {
     pub implicit_account_creation_fee: bool,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLAccountUpdateBody {
     pub public_key: String,
     pub token_id: String,
@@ -426,7 +427,7 @@ pub struct GraphQLMayUseToken {
     pub inherit_from_parent: bool,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLMayUseToken {
     pub parents_own_token: bool,
     pub inherit_from_parent: bool,
@@ -469,7 +470,7 @@ pub struct GraphQLEvent {
     pub data: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLEvent {
     pub event: String,
     pub data: String,
@@ -481,7 +482,7 @@ pub struct GraphQLAction {
     pub data: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLAction {
     pub action: String,
     pub data: String,
@@ -494,7 +495,7 @@ pub struct GraphQLPreconditions {
     pub valid_while: Option<GraphQLPreconditionsNetworkBounds>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLPreconditions {
     pub network: InputGraphQLPreconditionsNetwork,
     pub account: InputGraphQLPreconditionsAccount,
@@ -513,7 +514,7 @@ pub struct GraphQLPreconditionsAccount {
     pub is_new: Option<bool>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLPreconditionsAccount {
     pub balance: Option<InputGraphQLPreconditionsNetworkBounds>,
     pub nonce: Option<InputGraphQLPreconditionsNetworkBounds>,
@@ -695,7 +696,7 @@ pub struct GraphQLPreconditionsNetwork {
     pub next_epoch_data: GraphQLPreconditionsNetworkEpochData,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLPreconditionsNetwork {
     pub snarked_ledger_hash: Option<String>,
     pub blockchain_length: Option<InputGraphQLPreconditionsNetworkBounds>,
@@ -715,7 +716,7 @@ pub struct GraphQLPreconditionsNetworkEpochData {
     pub epoch_length: Option<GraphQLPreconditionsNetworkBounds>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLPreconditionsNetworkEpochData {
     pub ledger: InputGraphQLPreconditionsNetworkLedger,
     pub seed: Option<String>,
@@ -730,7 +731,7 @@ pub struct GraphQLPreconditionsNetworkLedger {
     pub total_currency: Option<GraphQLPreconditionsNetworkBounds>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLPreconditionsNetworkLedger {
     pub hash: Option<String>,
     pub total_currency: Option<InputGraphQLPreconditionsNetworkBounds>,
@@ -741,7 +742,7 @@ pub struct GraphQLPreconditionsNetworkBounds {
     pub lower: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLPreconditionsNetworkBounds {
     pub upper: String,
     pub lower: String,
@@ -1025,7 +1026,7 @@ pub struct GraphQLVerificationKey {
     pub hash: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLAccountUpdateUpdate {
     pub app_state: Vec<Option<String>>,
     pub delegate: Option<String>,
@@ -1037,7 +1038,7 @@ pub struct InputGraphQLAccountUpdateUpdate {
     pub voting_for: Option<String>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLVerificationKey {
     pub data: String,
     pub hash: String,
@@ -1066,7 +1067,7 @@ pub struct GraphQLSetVerificationKeyPermissions {
     pub txn_version: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLAccountUpdateUpdatePermissions {
     pub edit_state: String,
     pub access: String,
@@ -1083,7 +1084,7 @@ pub struct InputGraphQLAccountUpdateUpdatePermissions {
     pub increment_nonce: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLSetVerificationKeyPermissions {
     pub auth: String,
     pub txn_version: String,
@@ -1146,7 +1147,7 @@ pub struct GraphQLBalanceChange {
     pub sgn: String,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLBalanceChange {
     pub magnitude: String,
     pub sgn: String,
