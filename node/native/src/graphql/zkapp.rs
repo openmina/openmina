@@ -7,46 +7,11 @@ use mina_p2p_messages::list::List;
 use mina_p2p_messages::pseq::PaddedSeq;
 use mina_p2p_messages::string::{TokenSymbol, ZkAppUri};
 use mina_p2p_messages::v2::{
-    CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
-    MinaBaseAccountUpdateAccountPreconditionStableV1,
-    MinaBaseAccountUpdateAuthorizationKindStableV1, MinaBaseAccountUpdateBodyEventsStableV1,
-    MinaBaseAccountUpdateBodyFeePayerStableV1, MinaBaseAccountUpdateBodyStableV1,
-    MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdateMayUseTokenStableV1,
-    MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTStableV1,
-    MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA,
-    MinaBaseAccountUpdateUpdateStableV1Delegate, MinaBaseAccountUpdateUpdateStableV1Permissions,
-    MinaBaseAccountUpdateUpdateStableV1Timing, MinaBaseAccountUpdateUpdateStableV1TokenSymbol,
-    MinaBaseAccountUpdateUpdateStableV1VerificationKey,
-    MinaBaseAccountUpdateUpdateStableV1VotingFor, MinaBaseAccountUpdateUpdateStableV1ZkappUri,
-    MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseControlStableV2,
-    MinaBasePermissionsStableV2, MinaBaseReceiptChainHashStableV1,
-    MinaBaseSignedCommandMemoStableV1, MinaBaseUserCommandStableV2,
-    MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
-    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
-    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
-    MinaBaseZkappPreconditionAccountStableV2, MinaBaseZkappPreconditionAccountStableV2Balance,
-    MinaBaseZkappPreconditionAccountStableV2BalanceA,
-    MinaBaseZkappPreconditionAccountStableV2Delegate,
-    MinaBaseZkappPreconditionAccountStableV2ProvedState,
-    MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash,
-    MinaBaseZkappPreconditionAccountStableV2StateA,
-    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
-    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger,
-    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed,
-    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint,
-    MinaBaseZkappPreconditionProtocolStateStableV1,
-    MinaBaseZkappPreconditionProtocolStateStableV1Amount,
-    MinaBaseZkappPreconditionProtocolStateStableV1AmountA,
-    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot,
-    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA,
-    MinaBaseZkappPreconditionProtocolStateStableV1Length,
-    MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
-    MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash,
-    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSpanStableV1,
-    MinaStateBlockchainStateValueStableV2SignedAmount, StateHash,
+    CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1, MinaBaseAccountUpdateAccountPreconditionStableV1, MinaBaseAccountUpdateAuthorizationKindStableV1, MinaBaseAccountUpdateBodyEventsStableV1, MinaBaseAccountUpdateBodyFeePayerStableV1, MinaBaseAccountUpdateBodyStableV1, MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdateMayUseTokenStableV1, MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTStableV1, MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA, MinaBaseAccountUpdateUpdateStableV1Delegate, MinaBaseAccountUpdateUpdateStableV1Permissions, MinaBaseAccountUpdateUpdateStableV1Timing, MinaBaseAccountUpdateUpdateStableV1TokenSymbol, MinaBaseAccountUpdateUpdateStableV1VerificationKey, MinaBaseAccountUpdateUpdateStableV1VotingFor, MinaBaseAccountUpdateUpdateStableV1ZkappUri, MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseControlStableV2, MinaBasePermissionsStableV2, MinaBaseReceiptChainHashStableV1, MinaBaseSignedCommandMemoStableV1, MinaBaseUserCommandStableV2, MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA, MinaBaseZkappPreconditionAccountStableV2, MinaBaseZkappPreconditionAccountStableV2Balance, MinaBaseZkappPreconditionAccountStableV2BalanceA, MinaBaseZkappPreconditionAccountStableV2Delegate, MinaBaseZkappPreconditionAccountStableV2ProvedState, MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash, MinaBaseZkappPreconditionAccountStableV2StateA, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint, MinaBaseZkappPreconditionProtocolStateStableV1, MinaBaseZkappPreconditionProtocolStateStableV1Amount, MinaBaseZkappPreconditionProtocolStateStableV1AmountA, MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot, MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA, MinaBaseZkappPreconditionProtocolStateStableV1Length, MinaBaseZkappPreconditionProtocolStateStableV1LengthA, MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2SignedAmount, PicklesProofProofsVerifiedMaxStableV2, StateHash
 };
 
 use node::account::AccountPublicKey;
+use serde::Deserialize;
 
 use super::account::{GraphQLTiming, InputGraphQLTiming};
 use super::ConversionError;
@@ -241,15 +206,20 @@ impl TryFrom<MinaBaseControlStableV2> for GraphQLAuthorization {
 
 impl TryFrom<InputGraphQLAuthorization> for MinaBaseControlStableV2 {
     type Error = ConversionError;
+
     fn try_from(value: InputGraphQLAuthorization) -> Result<Self, Self::Error> {
-        let res = if let Some(signature) = value.signature {
-            MinaBaseControlStableV2::Signature(signature.parse()?)
-        } else if let Some(proof) = value.proof {
-            MinaBaseControlStableV2::Proof(serde_json::from_str(&proof)?)
-        } else {
-            MinaBaseControlStableV2::NoneGiven
-        };
-        Ok(res)
+        match (value.signature, value.proof) {
+            (Some(signature), None) => {
+                // Handle signature case
+                Ok(MinaBaseControlStableV2::Signature(signature.parse()?))
+            }
+            (None, Some(proof)) => {
+                // Handle proof case
+                let proof = PicklesProofProofsVerifiedMaxStableV2::deserialize(serde_json::Value::String(proof))?;
+                Ok(MinaBaseControlStableV2::Proof(Box::new(proof)))
+            }
+            _ => Err(ConversionError::Custom("Either signature or proof must be provided, but not both".into())),
+        }
     }
 }
 
@@ -1523,6 +1493,17 @@ mod test {
             kind.try_into();
 
         assert!(converted.is_ok());
+    }
+
+    #[test]
+    fn test_authorization_proof() {
+        let proof = InputGraphQLAuthorization {
+            signature: None,
+            proof: Some(include_str!("../../../../tests/files/zkapps/proof_string.txt").to_string()),
+        };
+
+        let converted: MinaBaseControlStableV2 = proof.try_into().unwrap();
+        println!("{:?}", converted);
     }
 
     fn create_input_graphql_zkapp() -> InputGraphQLZkapp {

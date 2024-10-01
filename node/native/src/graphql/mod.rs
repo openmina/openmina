@@ -44,9 +44,9 @@ pub enum ConversionError {
     Conversion(#[from] mina_p2p_messages::v2::conv::Error),
     #[error("Wrong variant")]
     WrongVariant,
-    #[error(transparent)]
+    #[error("SerdeJson: {0}")]
     SerdeJson(#[from] serde_json::Error),
-    #[error(transparent)]
+    #[error("Base58Check: {0}")]
     Base58Check(#[from] mina_p2p_messages::b58::FromBase58CheckError),
     #[error(transparent)]
     InvalidDecimalNumber(#[from] mina_p2p_messages::bigint::InvalidDecimalNumber),
