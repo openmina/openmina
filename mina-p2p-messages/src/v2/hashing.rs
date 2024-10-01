@@ -189,7 +189,6 @@ impl generated::MinaBaseSignedCommandStableV2 {
 impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
     fn binprot_write_with_default(&self) -> io::Result<Vec<u8>> {
         let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
-        let default_proof = super::sideloaded_transaction_proof();
 
         let mut encoded = vec![];
 
@@ -198,20 +197,44 @@ impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
         modified.fee_payer.authorization = default_signature.clone().into();
 
         modified.account_updates.iter_mut().for_each(|u| {
-            u.elt.account_update.authorization = match u.elt.account_update.authorization {
-                MinaBaseControlStableV2::Proof(_) => {
-                    MinaBaseControlStableV2::Proof(Box::new(default_proof.0.clone().into()))
-                }
-                MinaBaseControlStableV2::Signature(_) => {
-                    MinaBaseControlStableV2::Signature(default_signature.clone().into())
-                }
-                MinaBaseControlStableV2::NoneGiven => MinaBaseControlStableV2::NoneGiven,
-            };
+            Self::replace_auth_recursive(&mut u.elt);
         });
 
         modified.binprot_write(&mut encoded)?;
         Ok(encoded)
     }
+
+    fn replace_auth_recursive(
+        update_elt: &mut MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
+    ) {
+        Self::replace_auth(&mut update_elt.account_update.authorization);
+        // if update_elt.calls.is_empty() {
+        //     return;
+        // }
+
+        update_elt.calls.iter_mut().for_each(|call| {
+            Self::replace_auth_recursive(&mut call.elt);
+        });
+
+        // for call in update_elt.calls.iter_mut() {
+        //     Self::replace_auth_recursive(&mut call.elt);
+        // }
+    }
+
+    pub fn replace_auth(auth: &mut MinaBaseControlStableV2) {
+        let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
+        let default_proof = super::sideloaded_transaction_proof();
+        *auth = match auth {
+            MinaBaseControlStableV2::Proof(_) => {
+                MinaBaseControlStableV2::Proof(Box::new(default_proof.0.clone().into()))
+            }
+            MinaBaseControlStableV2::Signature(_) => {
+                MinaBaseControlStableV2::Signature(default_signature.clone().into())
+            }
+            MinaBaseControlStableV2::NoneGiven => MinaBaseControlStableV2::NoneGiven,
+        };
+    }
+
     pub fn hash(&self) -> io::Result<TransactionHash> {
         use blake2::{
             digest::{Update, VariableOutput},
