@@ -49,7 +49,7 @@ pub struct GraphQLTiming {
     pub vesting_increment: Option<String>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLTiming {
     // pub is_timed: bool,
     pub initial_minimum_balance: String,
