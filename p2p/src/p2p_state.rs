@@ -1,18 +1,23 @@
 use openmina_core::{block::ArcBlockWithHash, ChainId};
+use openmina_core::{impl_substate_access, SubstateAccess};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use openmina_core::requests::RpcId;
 
+use crate::bootstrap::P2pNetworkKadBootstrapState;
 use crate::channels::rpc::P2pRpcId;
 use crate::channels::streaming_rpc::P2pStreamingRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
-use crate::network::identify::P2pNetworkIdentify;
+use crate::network::identify::{P2pNetworkIdentify, P2pNetworkIdentifyState};
 use crate::network::P2pNetworkState;
-use crate::{is_time_passed, Limit, P2pTimeouts, PeerId};
+use crate::{
+    is_time_passed, Limit, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
+    P2pNetworkSchedulerState, P2pTimeouts, PeerId,
+};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -307,6 +312,30 @@ impl P2pState {
             })
             .map(|(peer_id, peer_state)| (*peer_id, peer_state.clone()))
     }
+
+    pub fn incoming_peer_connection_mut(
+        &mut self,
+        peer_id: &PeerId,
+    ) -> Option<&mut P2pConnectionIncomingState> {
+        let peer_state = self.peers.get_mut(peer_id)?;
+
+        match &mut peer_state.status {
+            P2pPeerStatus::Connecting(P2pConnectionState::Incoming(state)) => Some(state),
+            _ => None,
+        }
+    }
+
+    pub fn outgoing_peer_connection_mut(
+        &mut self,
+        peer_id: &PeerId,
+    ) -> Option<&mut P2pConnectionOutgoingState> {
+        let peer_state = self.peers.get_mut(peer_id)?;
+
+        match &mut peer_state.status {
+            P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(state)) => Some(state),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -425,3 +454,62 @@ impl P2pPeerStatusReady {
         }
     }
 }
+
+impl SubstateAccess<P2pState> for P2pState {
+    fn substate(&self) -> openmina_core::SubstateResult<&P2pState> {
+        Ok(self)
+    }
+
+    fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut P2pState> {
+        Ok(self)
+    }
+}
+
+impl_substate_access!(P2pState, P2pNetworkState, network);
+impl_substate_access!(P2pState, P2pNetworkSchedulerState, network.scheduler);
+impl_substate_access!(P2pState, P2pLimits, config.limits);
+
+impl SubstateAccess<P2pNetworkKadState> for P2pState {
+    fn substate(&self) -> openmina_core::SubstateResult<&P2pNetworkKadState> {
+        self.network
+            .scheduler
+            .discovery_state()
+            .ok_or_else(|| "kademlia state is unavailable".to_owned())
+    }
+
+    fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut P2pNetworkKadState> {
+        self.network
+            .scheduler
+            .discovery_state
+            .as_mut()
+            .ok_or_else(|| "kademlia state is unavailable".to_owned())
+    }
+}
+
+impl SubstateAccess<P2pNetworkKadBootstrapState> for P2pState {
+    fn substate(&self) -> openmina_core::SubstateResult<&P2pNetworkKadBootstrapState> {
+        let kad_state: &P2pNetworkKadState = self.substate()?;
+        kad_state
+            .bootstrap_state()
+            .ok_or_else(|| "bootstrap state is unavailable".to_owned())
+    }
+
+    fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut P2pNetworkKadBootstrapState> {
+        let kad_state: &mut P2pNetworkKadState = self.substate_mut()?;
+        kad_state
+            .bootstrap_state_mut()
+            .ok_or_else(|| "bootstrap state is unavailable".to_owned())
+    }
+}
+
+impl_substate_access!(
+    P2pState,
+    P2pNetworkIdentifyState,
+    network.scheduler.identify_state
+);
+impl_substate_access!(
+    P2pState,
+    P2pNetworkPubsubState,
+    network.scheduler.broadcast_state
+);
+impl_substate_access!(P2pState, P2pConfig, config);

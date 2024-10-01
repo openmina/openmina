@@ -34,7 +34,7 @@ impl ClusterService {
     ) -> Self {
         let mio = {
             let event_sender = event_sender.clone();
-            let mut mio = MioService::pending(secret_key.into());
+            let mut mio = MioService::pending(secret_key.try_into().expect("valid keypair"));
             mio.run(move |mio_event| {
                 let _ = event_sender.send(mio_event.into());
                 //.expect("cannot send mio event")
@@ -82,8 +82,8 @@ impl P2pServiceWebrtc for ClusterService {
     fn random_pick(
         &mut self,
         list: &[p2p::connection::outgoing::P2pConnectionOutgoingInitOpts],
-    ) -> p2p::connection::outgoing::P2pConnectionOutgoingInitOpts {
-        list.choose(&mut self.rng).unwrap().clone()
+    ) -> Option<p2p::connection::outgoing::P2pConnectionOutgoingInitOpts> {
+        list.choose(&mut self.rng).cloned()
     }
 
     fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event> {

@@ -100,13 +100,15 @@
     </div>
   </div>
   <div class="flex-column pl-12 pr-12">
-    <!--    <div class="fx-row-vert-cent flex-between h-lg">-->
-    <!--      <span class="tertiary">Mina Explorer</span>-->
-    <!--      <button class="btn-primary"-->
-    <!--              (click)="viewInMinaExplorer()"-->
-    <!--              [disabled]="!slot?.hash">View in Explorer-->
-    <!--      </button>-->
-    <!--    </div>-->
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <span class="tertiary">Mina Explorer</span>
+      <button class="btn-primary fx-row-vert-cent"
+              (click)="viewInMinaExplorer()"
+              [disabled]="!slot?.hash">
+        <span class="mina-icon f-18 primary icon-300 mr-5">open_in_new</span>
+        View in Explorer
+      </button>
+    </div>
     <div class="fx-row-vert-cent flex-between h-lg">
       <span class="tertiary">Consensus</span>
       <ng-container *ngIf="slot?.status === BlockProductionWonSlotsStatus.Canonical">

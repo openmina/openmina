@@ -11,12 +11,12 @@ pub mod runner;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 
+use ledger::proofs::provers::BlockProver;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::consensus::ConsensusConstants;
@@ -25,12 +25,12 @@ use node::core::log::system_time;
 use node::core::requests::RpcId;
 use node::core::{thread, warn};
 use node::p2p::{P2pConnectionEvent, P2pEvent, P2pLimits, P2pMeshsubConfig, PeerId};
-use node::snark::{VerifierIndex, VerifierSRS};
+use node::snark::{BlockVerifier, TransactionVerifier, VerifierSRS};
 use node::{
     event_source::Event,
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::{Recorder, Service},
-    snark::{get_srs, get_verifier_index, VerifierKind},
+    snark::get_srs,
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
     TransitionFrontierConfig,
 };
@@ -114,9 +114,7 @@ fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
 }
 
 lazy_static::lazy_static! {
-    static ref VERIFIER_SRS: Arc<Mutex<VerifierSRS>> = get_srs();
-    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain).into();
-    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction).into();
+    static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs();
 }
 
 lazy_static::lazy_static! {
@@ -138,9 +136,9 @@ pub struct Cluster {
     rpc_counter: usize,
     ocaml_libp2p_keypair_i: usize,
 
-    verifier_srs: Arc<Mutex<VerifierSRS>>,
-    block_verifier_index: Arc<VerifierIndex>,
-    work_verifier_index: Arc<VerifierIndex>,
+    verifier_srs: Arc<VerifierSRS>,
+    block_verifier_index: BlockVerifier,
+    work_verifier_index: TransactionVerifier,
 
     debugger: Option<Debugger>,
 }
@@ -179,8 +177,8 @@ impl Cluster {
             ocaml_libp2p_keypair_i: 0,
 
             verifier_srs: VERIFIER_SRS.clone(),
-            block_verifier_index: BLOCK_VERIFIER_INDEX.clone(),
-            work_verifier_index: WORK_VERIFIER_INDEX.clone(),
+            block_verifier_index: BlockVerifier::make(),
+            work_verifier_index: TransactionVerifier::make(),
 
             debugger,
         }
@@ -319,7 +317,8 @@ impl Cluster {
             });
 
         if let Some(keypair) = block_producer_sec_key {
-            service_builder.block_producer_init(keypair);
+            let provers = BlockProver::make(None, None);
+            service_builder.block_producer_init(provers, keypair);
         }
 
         let real_service = service_builder
@@ -740,7 +739,7 @@ impl Cluster {
                     .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?
                     .dispatch_event(event)
             }
-            ScenarioStep::AddNode { config } => match config {
+            ScenarioStep::AddNode { config } => match *config {
                 NodeTestingConfig::Rust(config) => {
                     self.add_rust_node(config);
                     // TODO(binier): wait for node ports to be opened instead.

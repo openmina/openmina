@@ -15,10 +15,10 @@ use openmina_core::{
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
-use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
+use snark::{user_command_verify::SnarkUserCommandVerifyId, TransactionVerifier, VerifierSRS};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 pub mod transaction_pool_actions;
@@ -100,7 +100,7 @@ impl TransactionPoolState {
         let substate = state.get_substate_mut().unwrap();
         if substate.file.is_none() {
             let mut file = std::fs::File::create("/tmp/pool.bin").unwrap();
-            postcard::to_io(&state.get_state(), &mut file).unwrap();
+            postcard::to_io(&state.unsafe_get_state(), &mut file).unwrap();
             let substate = state.get_substate_mut().unwrap();
             substate.file = Some(file);
         }
@@ -126,7 +126,9 @@ impl TransactionPoolState {
     }
 
     fn handle_action(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
-        let Some((global_slot, global_slot_from_genesis)) = Self::global_slots(state.get_state())
+        let Some((global_slot, global_slot_from_genesis)) =
+            // TODO: remove usage of `unsafe_get_state`
+            Self::global_slots(state.unsafe_get_state())
         else {
             return;
         };
@@ -134,7 +136,15 @@ impl TransactionPoolState {
 
         match action {
             TransactionPoolAction::StartVerify { commands, from_rpc } => {
-                let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
+                let Ok(commands) = commands
+                    .iter()
+                    .map(UserCommand::try_from)
+                    .collect::<Result<Vec<_>, _>>()
+                else {
+                    // ignore all commands if one is invalid
+                    return;
+                };
+
                 let account_ids = commands
                     .iter()
                     .flat_map(UserCommand::accounts_referenced)
@@ -165,7 +175,13 @@ impl TransactionPoolState {
                 };
 
                 // TODO: Convert those commands only once
-                let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
+                let Ok(commands) = commands
+                    .iter()
+                    .map(UserCommand::try_from)
+                    .collect::<Result<Vec<_>, _>>()
+                else {
+                    return;
+                };
                 let diff = diff::Diff { list: commands };
 
                 match substate.pool.verify(diff, accounts) {
@@ -418,8 +434,8 @@ pub trait VerifyUserCommandsService: redux::Service {
         &mut self,
         req_id: SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
-        verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_index: TransactionVerifier,
+        verifier_srs: Arc<VerifierSRS>,
     );
 }
 

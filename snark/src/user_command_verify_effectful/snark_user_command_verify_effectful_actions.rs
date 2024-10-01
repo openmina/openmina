@@ -1,9 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use mina_p2p_messages::{list::List, v2};
 use serde::{Deserialize, Serialize};
 
-use crate::{VerifierIndex, VerifierSRS};
+use crate::{TransactionVerifier, VerifierSRS};
 
 use super::SnarkUserCommandVerifyId;
 
@@ -14,8 +14,8 @@ pub enum SnarkUserCommandVerifyEffectfulAction {
         commands: List<v2::MinaBaseUserCommandStableV2>,
         // commands: Vec<WithStatus<verifiable::UserCommand>>,
         // sender: String,
-        verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_index: TransactionVerifier,
+        verifier_srs: Arc<VerifierSRS>,
     },
 }
 

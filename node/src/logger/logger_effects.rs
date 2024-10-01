@@ -1,7 +1,8 @@
 use openmina_core::log::inner::field::{display, DisplayValue};
 use openmina_core::log::inner::Value;
 use openmina_core::log::{time_to_str, ActionEvent, EventContext};
-use p2p::PeerId;
+use p2p::connection::P2pConnectionEffectfulAction;
+use p2p::{P2pNetworkConnectionError, P2pNetworkSchedulerAction, PeerId};
 
 use crate::p2p::channels::P2pChannelsAction;
 use crate::p2p::connection::P2pConnectionAction;
@@ -53,8 +54,12 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pConnectionAction::Outgoing(action) => action.action_event(&context),
                 P2pConnectionAction::Incoming(action) => action.action_event(&context),
             },
+            P2pAction::ConnectionEffectful(action) => match action {
+                P2pConnectionEffectfulAction::Outgoing(action) => action.action_event(&context),
+                P2pConnectionEffectfulAction::Incoming(action) => action.action_event(&context),
+            },
             P2pAction::Disconnection(action) => action.action_event(&context),
-            P2pAction::Discovery(action) => action.action_event(&context),
+            P2pAction::DisconnectionEffectful(action) => action.action_event(&context),
             P2pAction::Identify(action) => action.action_event(&context),
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(action) => action.action_event(&context),
@@ -67,14 +72,31 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
             P2pAction::Peer(action) => action.action_event(&context),
             P2pAction::Network(action) => match action {
-                P2pNetworkAction::Scheduler(action) => action.action_event(&context),
+                P2pNetworkAction::Scheduler(action) => match action {
+                    // MioErrors in scheduler are logged using debug instead of warn, to prevent spam
+                    P2pNetworkSchedulerAction::Error {
+                        error: P2pNetworkConnectionError::MioError(summary),
+                        addr,
+                    } => {
+                        openmina_core::action_debug!(
+                            context,
+                            kind = "P2pNetworkSchedulerError",
+                            summary = display(summary),
+                            addr = display(addr)
+                        );
+                    }
+                    action => action.action_event(&context),
+                },
+                P2pNetworkAction::SchedulerEffectful(action) => action.action_event(&context),
                 P2pNetworkAction::Pnet(action) => action.action_event(&context),
+                P2pNetworkAction::PnetEffectful(action) => action.action_event(&context),
                 P2pNetworkAction::Select(action) => action.action_event(&context),
                 P2pNetworkAction::Noise(action) => action.action_event(&context),
                 P2pNetworkAction::Yamux(action) => action.action_event(&context),
                 P2pNetworkAction::Rpc(action) => action.action_event(&context),
                 P2pNetworkAction::Kad(action) => action.action_event(&context),
                 P2pNetworkAction::Pubsub(action) => action.action_event(&context),
+                P2pNetworkAction::PubsubEffectful(action) => action.action_event(&context),
                 P2pNetworkAction::Identify(action) => action.action_event(&context),
             },
         },
@@ -102,6 +124,16 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     summary = "transition frontier synced",
                     block_hash = tip.hash().to_string(),
                     block_height = tip.height(),
+                );
+            }
+            TransitionFrontierAction::SyncFailed { best_tip, error } => {
+                openmina_core::action_error!(
+                    context,
+                    kind = action.kind().to_string(),
+                    summary = "transition frontier failed to sync",
+                    block_hash = best_tip.hash().to_string(),
+                    block_height = best_tip.height(),
+                    error = error.to_string(),
                 );
             }
             a => a.action_event(&context),

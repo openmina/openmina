@@ -42,6 +42,7 @@ pub enum P2pNetworkKadRequestAction {
     Prune {
         peer_id: PeerId,
     },
+    #[action_event(level = debug)]
     Error {
         peer_id: PeerId,
         error: String,

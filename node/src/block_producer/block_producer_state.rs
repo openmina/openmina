@@ -2,7 +2,10 @@ use std::{collections::BTreeSet, time::Duration};
 
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2;
-use openmina_core::{block::ArcBlockWithHash, consensus::consensus_take};
+use openmina_core::{
+    block::{AppliedBlock, ArcBlockWithHash},
+    consensus::consensus_take,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::account::AccountPublicKey;
@@ -47,33 +50,33 @@ pub enum BlockProducerCurrentState {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
     },
     WonSlotTransactionsGet {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
     },
     WonSlotTransactionsSuccess {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         transactions_by_fee: Vec<valid::UserCommand>,
     },
     StagedLedgerDiffCreatePending {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         transactions_by_fee: Vec<valid::UserCommand>,
     },
     StagedLedgerDiffCreateSuccess {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         diff: v2::StagedLedgerDiffDiffStableV2,
         /// `protocol_state.blockchain_state.body_reference`
         diff_hash: v2::ConsensusBodyReferenceStableV1,
@@ -87,7 +90,7 @@ pub enum BlockProducerCurrentState {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
@@ -99,7 +102,7 @@ pub enum BlockProducerCurrentState {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
@@ -111,7 +114,7 @@ pub enum BlockProducerCurrentState {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         block: BlockWithoutProof,
         block_hash: v2::StateHash,
         proof: Box<v2::MinaBaseProofStableV2>,
@@ -120,14 +123,14 @@ pub enum BlockProducerCurrentState {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         block: ArcBlockWithHash,
     },
     Injected {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         block: ArcBlockWithHash,
     },
 }
@@ -192,7 +195,7 @@ impl BlockProducerState {
         self.with(None, |this| this.current.won_slot())
     }
 
-    pub fn current_parent_chain(&self) -> Option<&[ArcBlockWithHash]> {
+    pub fn current_parent_chain(&self) -> Option<&[AppliedBlock]> {
         self.with(None, |this| this.current.parent_chain())
     }
 
@@ -205,7 +208,7 @@ impl BlockProducerState {
         self.with(None, |this| this.current.produced_block())
     }
 
-    pub fn produced_block_with_chain(&self) -> Option<(&ArcBlockWithHash, &[ArcBlockWithHash])> {
+    pub fn produced_block_with_chain(&self) -> Option<(&ArcBlockWithHash, &[AppliedBlock])> {
         self.with(None, |this| this.current.produced_block_with_chain())
     }
 
@@ -266,7 +269,7 @@ impl BlockProducerCurrentState {
         }
     }
 
-    pub fn parent_chain(&self) -> Option<&[ArcBlockWithHash]> {
+    pub fn parent_chain(&self) -> Option<&[AppliedBlock]> {
         match self {
             Self::Idle { .. }
             | Self::WonSlotDiscarded { .. }
@@ -310,7 +313,9 @@ impl BlockProducerCurrentState {
             return Some(BlockProducerWonSlotDiscardReason::BestTipGlobalSlotHigher);
         }
 
-        if &won_slot.staking_ledger_hash != best_tip.staking_epoch_ledger_hash() {
+        if &won_slot.staking_ledger_hash != best_tip.staking_epoch_ledger_hash()
+            && &won_slot.staking_ledger_hash != best_tip.next_epoch_ledger_hash()
+        {
             return Some(BlockProducerWonSlotDiscardReason::BestTipStakingLedgerDifferent);
         }
 
@@ -356,7 +361,7 @@ impl BlockProducerCurrentState {
         }
     }
 
-    pub fn produced_block_with_chain(&self) -> Option<(&ArcBlockWithHash, &[ArcBlockWithHash])> {
+    pub fn produced_block_with_chain(&self) -> Option<(&ArcBlockWithHash, &[AppliedBlock])> {
         match self {
             Self::Produced { chain, block, .. } => Some((block, chain)),
             _ => None,

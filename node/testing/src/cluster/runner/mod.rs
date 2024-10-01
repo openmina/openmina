@@ -109,13 +109,13 @@ impl<'a> ClusterRunner<'a> {
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let step = ScenarioStep::AddNode {
-            config: testing_config.into(),
+            config: Box::new(testing_config.into()),
         };
         (self.add_step)(&step);
-        let ScenarioStep::AddNode {
-            config: NodeTestingConfig::Rust(config),
-        } = step
-        else {
+        let ScenarioStep::AddNode { config } = step else {
+            unreachable!()
+        };
+        let NodeTestingConfig::Rust(config) = *config else {
             unreachable!()
         };
 
@@ -124,13 +124,13 @@ impl<'a> ClusterRunner<'a> {
 
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
         let step = ScenarioStep::AddNode {
-            config: testing_config.into(),
+            config: Box::new(testing_config.into()),
         };
         (self.add_step)(&step);
-        let ScenarioStep::AddNode {
-            config: NodeTestingConfig::Ocaml(config),
-        } = step
-        else {
+        let ScenarioStep::AddNode { config } = step else {
+            unreachable!()
+        };
+        let NodeTestingConfig::Ocaml(config) = *config else {
             unreachable!()
         };
 
@@ -284,7 +284,7 @@ impl<'a> ClusterRunner<'a> {
     ) -> Box<dyn 'b + Iterator<Item = (AccountSecretKey, Box<ledger::Account>)>> {
         let Some(mask) = self.node(node_id).and_then(|node| {
             let best_tip = node.state().transition_frontier.best_tip()?;
-            let ledger_hash = best_tip.staged_ledger_hash();
+            let ledger_hash = best_tip.merkle_root_hash();
             let (mask, _) = LedgerService::ledger_manager(node.service()).get_mask(ledger_hash)?;
             Some(mask)
         }) else {

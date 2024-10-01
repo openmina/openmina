@@ -115,7 +115,7 @@ pub struct Account {
     pub(super) balance: RawCurrency,
     delegate: Option<String>,
     token_id: Option<String>,
-    token_symbol: Option<String>,
+    token_symbol: Option<Vec<u8>>,
     #[serde(default, deserialize_with = "string_or_u32_option")]
     nonce: Option<u32>,
     receipt_chain_hash: Option<String>,
@@ -197,7 +197,7 @@ impl Account {
     pub fn token_symbol(&self) -> TokenSymbol {
         self.token_symbol
             .clone()
-            .map(TokenSymbol)
+            .map(TokenSymbol::from)
             .unwrap_or_default()
     }
 
@@ -242,13 +242,23 @@ impl Account {
 
     pub fn to_account(&self) -> Result<ledger::Account, AccountConfigError> {
         let mut account = ledger::Account::empty();
-        account.public_key = self.public_key()?.into();
+        account.public_key = self
+            .public_key()?
+            .try_into()
+            .map_err(|_| AccountConfigError::InvalidBigInt)?;
         account.token_id = self.token_id()?;
         account.token_symbol = self.token_symbol();
         account.balance = self.balance();
         account.nonce = self.nonce();
         account.receipt_chain_hash = self.receipt_chain_hash()?;
-        account.delegate = self.delegate()?.map(|pk| pk.into());
+        account.delegate = match self.delegate()? {
+            Some(delegate) => Some(
+                delegate
+                    .try_into()
+                    .map_err(|_| AccountConfigError::InvalidBigInt)?,
+            ),
+            None => None,
+        };
         account.voting_for = self.voting_for()?;
         account.timing = self.timing()?;
         account.permissions = self.permissions();
@@ -375,7 +385,7 @@ pub struct Zkapp {
     action_state: Vec<String>,
     last_action_slot: RawSlot,
     proved_state: bool,
-    zkapp_uri: String,
+    zkapp_uri: Vec<u8>,
 }
 
 fn parse_fp(str: &str) -> Result<Fp, AccountConfigError> {
@@ -445,6 +455,7 @@ pub enum AccountConfigError {
     ZkAppStateTooLong(Vec<String>),
     VerificationKeyParsingNotSupported,
     DelegateSetOnNonDefaultTokenAccount,
+    InvalidBigInt,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -557,6 +568,9 @@ impl Display for AccountConfigError {
             }
             Self::DelegateSetOnNonDefaultTokenAccount => {
                 write!(f, "delegate set on non-default token account")
+            }
+            Self::InvalidBigInt => {
+                write!(f, "Invalid BigInt")
             }
         }
     }

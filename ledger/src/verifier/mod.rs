@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    proofs::{field::FieldWitness, verification, verifier_index::get_verifier_index},
+    proofs::{field::FieldWitness, verification, verifiers::TransactionVerifier, VerifierIndex},
     scan_state::{
         scan_state::transaction_snark::{
             LedgerProof, LedgerProofWithSokMessage, SokMessage, TransactionSnark,
@@ -17,7 +17,7 @@ use self::common::CheckResult;
 #[derive(Debug, Clone)]
 pub struct Verifier;
 
-use kimchi::{mina_curves::pasta::Pallas, verifier_index::VerifierIndex};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerifiedMaxStableV2,
@@ -27,13 +27,25 @@ use once_cell::sync::Lazy;
 use poly_commitment::srs::SRS;
 
 // TODO: Move this into `Verifier` struct above
-pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Pallas>>> = Lazy::new(|| {
-    use crate::proofs::verifier_index::VerifierKind;
-    Arc::new(get_verifier_index(VerifierKind::Transaction))
+pub static VERIFIER_INDEX: Lazy<Arc<VerifierIndex<Fq>>> = Lazy::new(|| {
+    TransactionVerifier::get()
+        .expect("verifier index not initialized")
+        .into()
 });
 
-/// Returns the SRS on the other curve
-pub fn get_srs<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
+/// Returns the SRS on the other curve (immutable version for verifiers)
+pub fn get_srs<F: FieldWitness>() -> Arc<SRS<F::OtherCurve>> {
+    cache! {
+        Arc<SRS<F::OtherCurve>>,
+        {
+            let srs = SRS::<F::OtherCurve>::create(F::Scalar::SRS_DEPTH);
+            Arc::new(srs)
+        }
+    }
+}
+
+/// Returns the SRS on the other curve (Mutex-wrapped version for prover)
+pub fn get_srs_mut<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
     cache! {
         Arc<Mutex<SRS<F::OtherCurve>>>,
         {
@@ -46,7 +58,6 @@ pub fn get_srs<F: FieldWitness>() -> Arc<Mutex<SRS<F::OtherCurve>>> {
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/transaction_snark/transaction_snark.ml#L3492
 fn verify(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> {
     let srs = get_srs::<Fp>();
-    let srs = srs.lock().unwrap();
 
     if ts.iter().all(|(proof, msg)| {
         let LedgerProof(TransactionSnark { statement, .. }) = proof;
@@ -176,7 +187,6 @@ impl Verifier {
             true
         } else {
             let srs = get_srs::<Fp>();
-            let srs = srs.lock().unwrap();
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
@@ -330,12 +340,12 @@ pub mod common {
                                 ]);
                             };
                             // check that vk expected for proof is the one being used
-                            if vk_hash != &vk.hash {
+                            if vk_hash != &vk.hash() {
                                 return CheckResult::UnexpectedVerificationKey(vec![
                                     p.account_id().public_key,
                                 ]);
                             }
-                            valid_assuming.push((vk.data, stmt, pi.clone()));
+                            valid_assuming.push((vk.vk().clone(), stmt, pi.clone()));
                         }
                         _ => {
                             return CheckResult::MismatchedAuthorizationKind(vec![
@@ -379,7 +389,7 @@ pub mod common {
 
         let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
         let hash = hash_with_kimchi(signature_prefix, &[**msg, *x, *y, *rx]);
-        let hash: Fq = Fq::from(hash.into_repr());
+        let hash: Fq = Fq::try_from(hash.into_repr()).unwrap(); // Never fail, `Fq` is larger than `Fp`
 
         let sv: CurvePoint = CurvePoint::prime_subgroup_generator().mul(*s).into_affine();
         // Perform addition and infinity check in projective coordinates for performance

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use ark_ff::{BigInteger256, Zero};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Zero};
 use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -20,10 +20,10 @@ use crate::{
             extract_recursion_challenges, step, InductiveRule, OptFlag, PreviousProofStatement,
             StepParams, StepProof,
         },
-        transaction::ReducedMessagesForNextStepProof,
+        transaction::{ProofWithPublic, ReducedMessagesForNextStepProof},
         unfinalized::{AllEvals, EvalsWithPublicInput},
         verification::prev_evals_to_p2p,
-        verifier_index::make_zkapp_verifier_index,
+        verifiers::make_zkapp_verifier_index,
         wrap::{self, WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
     },
@@ -56,16 +56,17 @@ use crate::{
 use self::group::SegmentBasic;
 
 use super::{
+    block::ProtocolStateBody,
     constants::{
         ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProvedProof,
         WrapZkappProvedProof,
     },
     field::GroupAffine,
-    gates::devnet_circuit_directory,
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedSlot},
     },
+    provers::devnet_circuit_directory,
     to_field_elements::ToFieldElements,
     transaction::{dummy_constraints, Check, ProofError, Prover},
     witness::Witness,
@@ -455,11 +456,14 @@ pub struct ZkappCommandWitnessesParams<'a> {
 
 pub fn zkapp_command_witnesses_exn(
     params: ZkappCommandWitnessesParams,
-) -> Vec<(
-    ZkappCommandSegmentWitness<'_>,
-    group::SegmentBasic,
-    Statement<SokDigest>,
-)> {
+) -> Result<
+    Vec<(
+        ZkappCommandSegmentWitness<'_>,
+        group::SegmentBasic,
+        Statement<SokDigest>,
+    )>,
+    InvalidBigInt,
+> {
     let ZkappCommandWitnessesParams {
         global_slot,
         state_body,
@@ -468,7 +472,7 @@ pub fn zkapp_command_witnesses_exn(
     } = params;
 
     let supply_increase = Signed::<Amount>::zero();
-    let state_view = protocol_state_body_view(state_body);
+    let state_view = protocol_state_body_view(state_body)?;
 
     let (_, _, will_succeeds, mut states) = zkapp_commands_with_context.iter().fold(
         (fee_excess, supply_increase, vec![], vec![]),
@@ -581,7 +585,7 @@ pub fn zkapp_command_witnesses_exn(
     };
 
     let w = Vec::with_capacity(32);
-    states.into_iter().fold(w, |mut witnesses, s| {
+    let result = states.into_iter().fold(w, |mut witnesses, s| {
         let ZkappCommandIntermediateState {
             kind,
             spec,
@@ -885,7 +889,9 @@ pub fn zkapp_command_witnesses_exn(
 
         witnesses.insert(0, (w, spec, statement));
         witnesses
-    })
+    });
+
+    Ok(result)
 }
 
 #[derive(Clone, Debug)]
@@ -941,7 +947,7 @@ struct CheckProtocolStateParams<'a> {
     pending_coinbase_stack_before: Stack,
     pending_coinbase_stack_after: Stack,
     block_global_slot: CheckedSlot<Fp>,
-    state_body: &'a v2::MinaStateProtocolStateBodyValueStableV2,
+    state_body: &'a ProtocolStateBody,
 }
 
 fn check_protocol_state(params: CheckProtocolStateParams, w: &mut Witness<Fp>) {
@@ -1038,11 +1044,11 @@ fn zkapp_main(
     witness: &ZkappCommandSegmentWitness,
     spec: &[Spec],
     w: &mut Witness<Fp>,
-) -> (Option<ZkappStatement>, Boolean) {
+) -> Result<(Option<ZkappStatement>, Boolean), InvalidBigInt> {
     w.exists(&statement);
 
     dummy_constraints(w);
-    let state_body = w.exists(witness.state_body);
+    let state_body: &ProtocolStateBody = &w.exists(witness.state_body.try_into()?);
     let block_global_slot = w.exists(witness.block_global_slot).to_checked();
     let pending_coinbase_stack_init = w.exists(witness.init_stack.clone());
 
@@ -1069,7 +1075,7 @@ fn zkapp_main(
             },
             fee_excess: CheckedSigned::zero(),
             supply_increase: CheckedSigned::zero(),
-            protocol_state: protocol_state_body_view(state_body),
+            protocol_state: state_body.view(),
             block_global_slot,
         };
 
@@ -1238,7 +1244,7 @@ fn zkapp_main(
     let zkapp_input = Rc::into_inner(zkapp_input).unwrap().into_inner();
     let must_verify = Rc::into_inner(must_verify).unwrap().into_inner();
 
-    (zkapp_input, must_verify)
+    Ok((zkapp_input, must_verify))
 }
 
 pub struct LedgerProof {
@@ -1291,7 +1297,7 @@ fn snapp_proof_data<'a>(
             .and_then(|z| z.verification_key)
             .expect("No verification key found in the account")
     };
-    Some((pi, vk))
+    Some((pi, vk.vk().clone()))
 }
 
 fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
@@ -1316,12 +1322,12 @@ where
         w.ocaml_aux = read_witnesses(path);
     };
 
-    let (zkapp_input, must_verify) = zkapp_main(statement.clone(), zkapp_witness, &s, &mut w);
+    let (zkapp_input, must_verify) = zkapp_main(statement.clone(), zkapp_witness, &s, &mut w)?;
 
     let StepProof {
         statement: step_statement,
         prev_evals,
-        proof,
+        proof_with_public: proof,
     } = match spec {
         OptSignedOptSigned | OptSigned => step::<StepConstants, 0>(
             StepParams {
@@ -1348,7 +1354,7 @@ where
             let for_step_datas = [&zkapp_data];
 
             let indexes = [(&verifier_index, &dlog_plonk_index_cvar)];
-            let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof]);
+            let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof])?;
 
             step::<StepConstants, 1>(
                 StepParams {
@@ -1386,7 +1392,7 @@ where
     let proof = wrap::wrap::<WrapConstants>(
         WrapParams {
             app_state: Rc::new(statement.clone()),
-            proof: &proof,
+            proof_with_public: &proof,
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
@@ -1403,25 +1409,29 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
     fn from(value: &WrapProof) -> Self {
         let WrapProof {
             proof:
-                kimchi::proof::ProverProof {
-                    commitments:
-                        kimchi::proof::ProverCommitments {
-                            w_comm,
-                            z_comm,
-                            t_comm,
-                            lookup,
-                        },
+                ProofWithPublic {
                     proof:
-                        poly_commitment::evaluation_proof::OpeningProof {
-                            lr,
-                            delta,
-                            z1,
-                            z2,
-                            sg,
+                        kimchi::proof::ProverProof {
+                            commitments:
+                                kimchi::proof::ProverCommitments {
+                                    w_comm,
+                                    z_comm,
+                                    t_comm,
+                                    lookup,
+                                },
+                            proof:
+                                poly_commitment::evaluation_proof::OpeningProof {
+                                    lr,
+                                    delta,
+                                    z1,
+                                    z2,
+                                    sg,
+                                },
+                            evals,
+                            ft_eval1,
+                            prev_challenges: _,
                         },
-                    evals,
-                    ft_eval1,
-                    prev_challenges: _,
+                    public_input: _,
                 },
             statement:
                 WrapStatement {
@@ -1571,7 +1581,12 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
 
                 v2::PicklesProofProofsVerified2ReprStableV2PrevEvals {
                     evals: v2::PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
-                        public_input: (public_input.0.into(), public_input.1.into()),
+                        public_input: {
+                            let (a, b) = public_input;
+                            assert_eq!(a.len(), 1);
+                            assert_eq!(b.len(), 1);
+                            (a[0].into(), b[0].into())
+                        },
                         evals: prev_evals_to_p2p(evals),
                     },
                     ft_eval1: ft_eval1.into(),
@@ -1579,9 +1594,9 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
             },
             proof: v2::PicklesWrapWireProofStableV1 {
                 commitments: v2::PicklesWrapWireProofCommitmentsStableV1 {
-                    w_comm: PaddedSeq(w_comm.each_ref().map(|w| to_tuple(&w.unshifted[0]))),
-                    z_comm: to_tuple(&z_comm.unshifted[0]),
-                    t_comm: PaddedSeq(array::from_fn(|i| to_tuple(&t_comm.unshifted[i]))),
+                    w_comm: PaddedSeq(w_comm.each_ref().map(|w| to_tuple(&w.elems[0]))),
+                    z_comm: to_tuple(&z_comm.elems[0]),
+                    t_comm: PaddedSeq(array::from_fn(|i| to_tuple(&t_comm.elems[i]))),
                 },
                 evaluations: {
                     let kimchi::proof::ProofEvaluations {
@@ -1699,24 +1714,24 @@ pub fn generate_zkapp_proof(params: ZkappParams) -> Result<LedgerProof, ProofErr
         }
         _ => unreachable!(),
     };
-    let zkapp_command: ZkAppCommand = zkapp.into();
+    let zkapp_command: ZkAppCommand = zkapp.try_into()?;
 
     let witnesses_specs_stmts = zkapp_command_witnesses_exn(ZkappCommandWitnessesParams {
         global_slot: Slot::from_u32(tx_witness.block_global_slot.as_u32()),
         state_body: &tx_witness.protocol_state_body,
         fee_excess: Signed::zero(),
         zkapp_commands_with_context: vec![ZkappCommandsWithContext {
-            pending_coinbase_init_stack: (&tx_witness.init_stack).into(),
+            pending_coinbase_init_stack: (&tx_witness.init_stack).try_into()?,
             pending_coinbase_of_statement: pending_coinbase::StackState {
-                source: (&statement.source.pending_coinbase_stack).into(),
-                target: (&statement.target.pending_coinbase_stack).into(),
+                source: (&statement.source.pending_coinbase_stack).try_into()?,
+                target: (&statement.target.pending_coinbase_stack).try_into()?,
             },
-            first_pass_ledger: (&tx_witness.first_pass_ledger).into(),
-            second_pass_ledger: (&tx_witness.second_pass_ledger).into(),
-            connecting_ledger_hash: statement.connecting_ledger_left.to_field(),
+            first_pass_ledger: (&tx_witness.first_pass_ledger).try_into()?,
+            second_pass_ledger: (&tx_witness.second_pass_ledger).try_into()?,
+            connecting_ledger_hash: statement.connecting_ledger_left.to_field()?,
             zkapp_command: &zkapp_command,
         }],
-    });
+    })?;
 
     let of_zkapp_command_segment = |statement: Statement<SokDigest>,
                                     zkapp_witness: &ZkappCommandSegmentWitness<'_>,

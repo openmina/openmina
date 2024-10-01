@@ -37,7 +37,7 @@ pub enum TransitionFrontierSyncAction {
         new_best_tip_height = best_tip.height(),
         new_root_block_hash = display(&root_block.hash),
         new_root_snarked_ledger_hash = display(root_block.snarked_ledger_hash()),
-        new_root_staged_ledger_hash = display(root_block.staged_ledger_hash()),
+        new_root_staged_ledger_hash = display(root_block.merkle_root_hash()),
     ))]
     BestTipUpdate {
         // Required to be able to reuse partially synced root ledgers
@@ -96,12 +96,20 @@ pub enum TransitionFrontierSyncAction {
     BlocksNextApplyPending {
         hash: StateHash,
     },
+    BlocksNextApplyError {
+        hash: StateHash,
+        error: String,
+    },
     BlocksNextApplySuccess {
         hash: StateHash,
+        just_emitted_a_proof: bool,
     },
+    /// Done applying all pending blocks
     BlocksSuccess,
+    /// Commit snarked ledger to transition frontier root
     CommitInit,
     CommitPending,
+    /// Root snarked ledger commited succesfully
     CommitSuccess {
         result: CommitResult,
     },
@@ -124,7 +132,13 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                         .best_tip()
                         .map_or(false, |tip| &best_tip.hash == tip.hash)
             }
-            TransitionFrontierSyncAction::BestTipUpdate { best_tip, .. } => {
+            TransitionFrontierSyncAction::BestTipUpdate {
+                best_tip,
+                blocks_inbetween,
+                root_block,
+                ..
+            } => {
+                let blacklist = &state.transition_frontier.blacklist;
                 (state.transition_frontier.sync.is_pending() || state.transition_frontier.sync.is_synced())
                     && !matches!(&state.transition_frontier.sync, TransitionFrontierSyncState::CommitPending { .. } | TransitionFrontierSyncState::CommitSuccess { .. })
                 && state
@@ -151,6 +165,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                             consensus_take(tip.consensus_state(), best_tip.consensus_state(), tip.hash(), best_tip.hash())
                         }
                     })
+                // check the block blacklist
+                && !blacklist.contains_key(best_tip.hash())
+                && !blacklist.contains_key(root_block.hash())
+                && !blocks_inbetween.iter().any(|hash| blacklist.contains_key(hash))
                 // Don't sync to best tip if we are in the middle of producing
                 // a block unless that best tip candidate is better consensus-wise
                 // than the one that we are producing.
@@ -318,7 +336,15 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .sync
                 .blocks_apply_next()
                 .map_or(false, |(b, _)| &b.hash == hash),
-            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => state
+            TransitionFrontierSyncAction::BlocksNextApplyError { hash, .. } => state
+                .transition_frontier
+                .sync
+                .blocks_apply_pending()
+                .map_or(false, |b| &b.hash == hash),
+            TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                hash,
+                just_emitted_a_proof: _,
+            } => state
                 .transition_frontier
                 .sync
                 .blocks_apply_pending()

@@ -1,7 +1,7 @@
 <div class="wrapper fx-row-vert-cent"
      *ngIf="details"
      [ngClass]="details.status">
-  <ng-container *ngIf="!switchForbidden">
+  <ng-container *ngIf="!switchForbidden && !hideNodeStats">
     <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
          #mempoolAnchor
          (mouseenter)="openTooltipDropdown(mempoolAnchor, mempool)"
@@ -25,7 +25,7 @@
   </ng-container>
   <div class="node-status fx-row-vert-cent bg-surface h-sm border-rad-6 p-relative z-1 mr-10"
        [class.can-add-nodes]="canAddNodes">
-    <ng-container *ngIf="!switchForbidden">
+    <ng-container *ngIf="!switchForbidden && !hideNodeStats">
       <div class="shine-parent overflow-hidden p-absolute z-0 border-rad-6">
         <div *ngIf="details.status === AppNodeStatus.CATCHUP || details.status === AppNodeStatus.BOOTSTRAP"
              class="shining-border p-absolute"></div>
@@ -43,6 +43,7 @@
       </div>
     </ng-container>
     <div class="background-wrap p-relative fx-row-vert-cent h-100 pointer"
+         [class.hide-stats]="hideNodeStats"
          [class.switch-forbidden]="switchForbidden"
          (click)="openNodePicker($event)"
          [globalTooltip]="false"
@@ -97,7 +98,7 @@
 
 <ng-template #block>
   <div @fadeIn
-       class="bg-surface-top border-rad-8 popup-box-shadow-weak p-8 pb-5 w-100 h-100">
+       class="node-status-popup bg-surface-top border-rad-8 popup-box-shadow-weak p-8 pb-5 w-100 h-100 text-nowrap">
     <div class="h-sm tertiary">Node Status</div>
     <div class="fx-row-vert-cent flex-between h-xs">
       <div>MINA short history</div>

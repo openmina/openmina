@@ -1,7 +1,10 @@
 <ng-container #minaTable></ng-container>
 
 <ng-template #rowTemplate let-row="row">
-  <span class="primary">{{ row.kind }}</span>
+  <span>
+    <span class="status f-600"
+          [ngClass]="row.kind">{{ row.kind }}</span>
+  </span>
   <span>{{ row.txHash | truncateMid }}</span>
   <span>{{ row.sender | truncateMid }}</span>
   <span class="secondary">{{ row.fee }}</span>

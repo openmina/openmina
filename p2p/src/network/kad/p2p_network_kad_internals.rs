@@ -7,6 +7,7 @@ use crypto_bigint::{ArrayEncoding, Encoding, U256};
 use derive_more::From;
 use libp2p_identity::DecodingError;
 use multiaddr::Multiaddr;
+use openmina_core::bug_condition;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -294,7 +295,7 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
                     .pop()
                     .map(|b| b.split(|e| (&self.this_key - &e.key) >= split_dist))
                 else {
-                    debug_assert!(false, "should be unreachable");
+                    bug_condition!("should be unreachable");
                     return Err(P2pNetworkKadRoutingTableInsertError);
                 };
                 self.buckets.extend([bucket1, bucket2]);
@@ -373,22 +374,36 @@ impl Extend<P2pNetworkKadEntry> for P2pNetworkKadRoutingTable {
 pub struct P2pNetworkKadEntry {
     pub key: P2pNetworkKadKey,
     pub peer_id: PeerId,
-    pub addrs: Vec<Multiaddr>,
+    addrs: Vec<Multiaddr>,
     pub connection: ConnectionType,
 }
 
 impl P2pNetworkKadEntry {
+    pub const MAX_ADDRS: usize = 16;
+
     pub fn new(peer_id: PeerId, addrs: Vec<Multiaddr>) -> Result<Self, P2pNetworkKadKeyError> {
+        if addrs.len() > Self::MAX_ADDRS {
+            openmina_core::log::info!(
+                openmina_core::log::system_time();
+                kind = "P2pNetworkKadEntry new",
+                summary = format!("truncating {addrs:?} to {} elements", Self::MAX_ADDRS),
+            );
+        }
+
         Ok(P2pNetworkKadEntry {
             key: peer_id.try_into()?,
             peer_id,
-            addrs,
+            addrs: addrs.into_iter().take(Self::MAX_ADDRS).collect(),
             connection: ConnectionType::NotConnected,
         })
     }
 
     pub fn dist(&self, other: &P2pNetworkKadEntry) -> P2pNetworkKadDist {
         &self.key - &other.key
+    }
+
+    pub fn addresses(&self) -> &Vec<Multiaddr> {
+        &self.addrs
     }
 
     pub fn filter_addrs(&mut self) {
@@ -550,15 +565,34 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
     fn insert(&mut self, entry: P2pNetworkKadEntry) -> bool {
         if let Some(pos) = self.0.iter().position(|e| e.key == entry.key) {
             let e = &mut self.0[pos];
-            debug_assert!(e.peer_id == entry.peer_id);
+
+            if e.peer_id != entry.peer_id {
+                bug_condition!(
+                    "Kad entry peer_id mismatch {:?} != {:?}",
+                    e.peer_id,
+                    entry.peer_id
+                );
+            }
+
             for addr in entry.addrs {
+                if e.addrs.len() >= P2pNetworkKadEntry::MAX_ADDRS {
+                    openmina_core::warn!(
+                        openmina_core::log::system_time();
+                        kind = "P2pNetworkKadBucket insert",
+                        summary = format!("Skipping updates to Kad entry multiaddress list"),
+                    );
+                    break;
+                }
+
                 if !e.addrs.contains(&addr) {
                     e.addrs.push(addr);
                 }
             }
             false
         } else {
-            debug_assert!(self.len() < K);
+            if self.len() >= K {
+                bug_condition!("Kad bucket len {:?} >= K ({:?})", self.len(), K);
+            }
             self.0.push(entry);
             true
         }
@@ -643,7 +677,7 @@ mod tests {
     }
 
     fn entry_with_peer_id(peer_id: PeerId) -> P2pNetworkKadEntry {
-        let key = peer_id.try_into().unwrap();
+        let key = peer_id.try_into().expect("Error converting PeerId");
         P2pNetworkKadEntry {
             key,
             peer_id,
@@ -655,11 +689,12 @@ mod tests {
     #[test]
     fn test_key_generation() {
         let random_peer_id = SecretKey::rand().public_key().peer_id();
-        let libp2p_peer_id = libp2p_identity::PeerId::try_from(random_peer_id).unwrap();
+        let libp2p_peer_id =
+            libp2p_identity::PeerId::try_from(random_peer_id).expect("Conversion failed");
         let cid = CID::from(libp2p_peer_id);
 
-        let key0 = P2pNetworkKadKey::try_from(&random_peer_id).unwrap();
-        let key1 = P2pNetworkKadKey::try_from(random_peer_id).unwrap();
+        let key0 = P2pNetworkKadKey::try_from(&random_peer_id).expect("Conversion failed");
+        let key1 = P2pNetworkKadKey::try_from(random_peer_id).expect("Conversion failed");
         let key2 = P2pNetworkKadKey::from(cid);
 
         assert_eq!(key0, key1);
@@ -756,14 +791,17 @@ mod tests {
         let closest = BTreeSet::from_iter(iter);
         println!("{}", closest.len());
 
-        let max_closest_dist = closest.iter().max_by_key(|e| entry.dist(e)).unwrap();
+        let max_closest_dist = closest
+            .iter()
+            .max_by_key(|e| entry.dist(e))
+            .expect("Failed to find entry");
         let min_non_closest_dist = rt
             .buckets
             .iter()
             .flat_map(|e| e.iter())
             .filter(|e| !closest.contains(*e))
             .min_by_key(|e| entry.dist(e))
-            .unwrap();
+            .expect("Failed to find entry");
 
         let max = entry.dist(max_closest_dist);
         let min = entry.dist(min_non_closest_dist);
@@ -791,7 +829,10 @@ mod tests {
             let find_node = rt.find_node(&entry.key);
             let closest = BTreeSet::from_iter(find_node);
 
-            let max_closest_dist = closest.iter().max_by_key(|e| entry.dist(e)).unwrap();
+            let max_closest_dist = closest
+                .iter()
+                .max_by_key(|e| entry.dist(e))
+                .expect("Error finding entry");
             let min_non_closest_dist = rt
                 .buckets
                 .iter()
@@ -799,7 +840,7 @@ mod tests {
                 .filter(|e| e.key != entry.key && e.key != rt.this_key)
                 .filter(|e| !closest.contains(*e))
                 .min_by_key(|e| entry.dist(e))
-                .unwrap();
+                .expect("Error finding entry");
 
             let max = entry.dist(max_closest_dist);
             let min = entry.dist(min_non_closest_dist);

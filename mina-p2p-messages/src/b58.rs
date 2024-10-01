@@ -283,7 +283,6 @@ where
     }
 }
 
-#[cfg(feature = "hashing")]
 impl<T: mina_hasher::Hashable, U, const V: u8> mina_hasher::Hashable
     for Base58CheckOfBinProt<T, U, V>
 {
@@ -298,7 +297,6 @@ impl<T: mina_hasher::Hashable, U, const V: u8> mina_hasher::Hashable
     }
 }
 
-#[cfg(feature = "hashing")]
 impl<T: mina_hasher::Hashable, const V: u8> mina_hasher::Hashable for Base58CheckOfBytes<T, V> {
     type D = T::D;
 

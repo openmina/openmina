@@ -1,4 +1,6 @@
-use super::sync::TransitionFrontierSyncState;
+use openmina_core::block::AppliedBlock;
+
+use super::sync::{SyncError, TransitionFrontierSyncState};
 use super::{
     TransitionFrontierAction, TransitionFrontierActionWithMetaRef, TransitionFrontierState,
 };
@@ -29,6 +31,10 @@ impl TransitionFrontierState {
                 let Some(genesis) = state.genesis.block_with_real_or_dummy_proof() else {
                     return;
                 };
+                let genesis = AppliedBlock {
+                    block: genesis,
+                    just_emitted_a_proof: true,
+                };
                 let new_chain = vec![genesis];
                 state.chain_diff = state.maybe_make_chain_diff(&new_chain);
                 state.best_chain = new_chain;
@@ -55,7 +61,6 @@ impl TransitionFrontierState {
                 else {
                     return;
                 };
-
                 let mut needed_protocol_state_hashes = needed_protocol_state_hashes.clone();
                 let new_chain = std::mem::take(chain);
                 let needed_protocol_states = std::mem::take(needed_protocol_states);
@@ -69,16 +74,31 @@ impl TransitionFrontierState {
                     let block = state
                         .best_chain
                         .iter()
-                        .find(|b| b.hash == hash)
-                        .or_else(|| new_chain.iter().find(|b| b.hash == hash));
+                        .find(|b| b.hash() == &hash)
+                        .or_else(|| new_chain.iter().find(|b| b.hash() == &hash));
                     // TODO(binier): error log instead.
                     let block = block.expect("we lack needed block!");
                     let protocol_state = block.header().protocol_state.clone();
                     state.needed_protocol_states.insert(hash, protocol_state);
                 }
 
+                state.blacklist.retain(|_, height| {
+                    // prune blocks from black list that can't end up
+                    // into transition frontier anymore due to consensus
+                    // reasons.
+                    let tip = new_chain.last().unwrap();
+                    *height + tip.constants().k.as_u32() > tip.height()
+                });
                 state.chain_diff = state.maybe_make_chain_diff(&new_chain);
                 state.best_chain = new_chain;
+                state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
+            }
+            TransitionFrontierAction::SyncFailed { error, .. } => {
+                match error {
+                    SyncError::BlockApplyFailed(block, _) => {
+                        state.blacklist.insert(block.hash().clone(), block.height());
+                    }
+                }
                 state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
             }
         }

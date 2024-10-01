@@ -4,7 +4,7 @@ use ledger::transaction_pool::diff::BestTipDiff;
 use mina_p2p_messages::v2::{
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2, StateHash,
 };
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisState;
@@ -17,12 +17,16 @@ pub struct TransitionFrontierState {
     /// Genesis block generation/proving state
     pub genesis: TransitionFrontierGenesisState,
     /// Current best known chain, from root of the transition frontier to best tip
-    pub best_chain: Vec<ArcBlockWithHash>,
+    pub best_chain: Vec<AppliedBlock>,
     /// Needed protocol states for applying transactions in the root
     /// scan state that we don't have in the `best_chain` list.
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     /// Transition frontier synchronization state
     pub sync: TransitionFrontierSyncState,
+
+    /// Blocks which had valid proof but failed block application or
+    /// other validations after it reached transition frontier.
+    pub blacklist: BTreeMap<StateHash, u32>,
     /// The diff of `Self::best_chain` with the previous one
     pub chain_diff: Option<BestTipDiff>,
 }
@@ -35,15 +39,24 @@ impl TransitionFrontierState {
             best_chain: Vec::with_capacity(290),
             needed_protocol_states: Default::default(),
             sync: TransitionFrontierSyncState::Idle,
+            blacklist: Default::default(),
             chain_diff: None,
         }
     }
 
     pub fn best_tip(&self) -> Option<&ArcBlockWithHash> {
-        self.best_chain.last()
+        self.best_chain.last().map(|b| &b.block)
     }
 
     pub fn root(&self) -> Option<&ArcBlockWithHash> {
+        self.best_chain.first().map(|b| &b.block)
+    }
+
+    pub fn best_tip_breadcrumb(&self) -> Option<&AppliedBlock> {
+        self.best_chain.last()
+    }
+
+    pub fn root_breadcrumb(&self) -> Option<&AppliedBlock> {
         self.best_chain.first()
     }
 
@@ -54,9 +67,9 @@ impl TransitionFrontierState {
     ) -> Option<&MinaStateProtocolStateBodyValueStableV2> {
         self.best_chain
             .iter()
-            .find_map(|block_with_hash| {
-                if &block_with_hash.hash == hash {
-                    Some(&block_with_hash.block.header.protocol_state.body)
+            .find_map(|block| {
+                if block.hash() == hash {
+                    Some(&block.header().protocol_state.body)
                 } else {
                     None
                 }
@@ -76,7 +89,7 @@ impl TransitionFrontierState {
 
     /// Create a diff between the old best chain and the new one
     /// This is used to update the transaction pool
-    pub fn maybe_make_chain_diff(&self, new_chain: &[ArcBlockWithHash]) -> Option<BestTipDiff> {
+    pub fn maybe_make_chain_diff(&self, new_chain: &[AppliedBlock]) -> Option<BestTipDiff> {
         let old_chain = self.best_chain.as_slice();
         let new_root = new_chain.first();
 
@@ -125,13 +138,17 @@ impl TransitionFrontierState {
         };
 
         // Collect commands and convert them to type `WithStatus::<UserCommand>`
-        let collect = |chain: &[ArcBlockWithHash]| {
+        let collect = |chain: &[AppliedBlock]| {
             chain
                 .iter()
-                .flat_map(|block| block.body().commands_iter())
-                .map(|cmd| {
+                .flat_map(|breadcrumb| breadcrumb.commands_iter())
+                .filter_map(|cmd| {
                     use ledger::scan_state::transaction_logic::{UserCommand, WithStatus};
-                    WithStatus::<UserCommand>::from(cmd).into_map(UserCommand::to_valid_unsafe)
+                    Some(
+                        WithStatus::<UserCommand>::try_from(cmd)
+                            .ok()?
+                            .into_map(UserCommand::to_valid_unsafe),
+                    )
                 })
                 .collect::<Vec<_>>()
         };

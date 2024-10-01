@@ -164,7 +164,7 @@ pub fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
             ),
             _ => {}
         },
-        P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation { peer_id, info }) => {
+        P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation { peer_id, info, .. }) => {
             store_event(store, RustNodeEvent::Identify { peer_id, info })
         }
 

@@ -1,4 +1,5 @@
 use openmina_core::{
+    impl_substate_access,
     log::{
         inner::{
             field::{display, DisplayValue},
@@ -6,9 +7,32 @@ use openmina_core::{
         },
         time_to_str, EventContext,
     },
-    ActionEvent, SubstateAccess, SubstateResult,
+    ActionEvent,
 };
-use p2p::{MioEvent, P2pAction, P2pEvent, P2pNetworkSchedulerAction, P2pState, PeerId};
+use p2p::{
+    bootstrap::P2pNetworkKadBootstrapState,
+    channels::{
+        best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
+        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+        streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
+    },
+    connection::{
+        incoming_effectful::P2pConnectionIncomingEffectfulAction,
+        outgoing::P2pConnectionOutgoingAction,
+        outgoing_effectful::P2pConnectionOutgoingEffectfulAction,
+    },
+    disconnection::P2pDisconnectionAction,
+    disconnection_effectful::P2pDisconnectionEffectfulAction,
+    identify::P2pIdentifyAction,
+    network::identify::{
+        stream_effectful::P2pNetworkIdentifyStreamEffectfulAction, P2pNetworkIdentifyState,
+        P2pNetworkIdentifyStreamAction,
+    },
+    peer::P2pPeerAction,
+    MioEvent, P2pAction, P2pEvent, P2pNetworkKadBootstrapAction, P2pNetworkKadRequestAction,
+    P2pNetworkKademliaAction, P2pNetworkKademliaStreamAction, P2pNetworkSchedulerAction,
+    P2pNetworkSchedulerEffectfulAction, P2pNetworkYamuxAction, P2pState, P2pStateTrait, PeerId,
+};
 use redux::{ActionMeta, EnablingCondition, SubStore};
 
 use crate::service::ClusterService;
@@ -64,14 +88,34 @@ impl SubStore<State, P2pState> for Store {
     }
 }
 
-impl SubstateAccess<P2pState> for State {
-    fn substate(&self) -> SubstateResult<&P2pState> {
-        Ok(&self.0)
-    }
-    fn substate_mut(&mut self) -> SubstateResult<&mut P2pState> {
-        Ok(&mut self.0)
-    }
+impl_substate_access!(State, P2pState, 0);
+
+macro_rules! impl_p2p_state_access {
+    ($state:ty, $substate_type:ty) => {
+        impl openmina_core::SubstateAccess<$substate_type> for $state {
+            fn substate(&self) -> openmina_core::SubstateResult<&$substate_type> {
+                let substate: &P2pState = self.substate()?;
+                substate.substate()
+            }
+
+            fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut $substate_type> {
+                let substate: &mut P2pState = self.substate_mut()?;
+                substate.substate_mut()
+            }
+        }
+    };
 }
+
+impl_p2p_state_access!(State, P2pNetworkIdentifyState);
+impl_p2p_state_access!(State, p2p::P2pNetworkState);
+impl_p2p_state_access!(State, P2pNetworkKadBootstrapState);
+impl_p2p_state_access!(State, p2p::P2pNetworkKadState);
+impl_p2p_state_access!(State, p2p::P2pNetworkSchedulerState);
+impl_p2p_state_access!(State, p2p::P2pLimits);
+impl_p2p_state_access!(State, p2p::P2pNetworkPubsubState);
+impl_p2p_state_access!(State, p2p::P2pConfig);
+
+impl P2pStateTrait for State {}
 
 #[derive(Debug, derive_more::From)]
 pub enum Action {
@@ -148,7 +192,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
             ),
             MioEvent::IncomingConnectionIsReady { listener } => SubStore::dispatch(
                 store,
-                P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener },
+                P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener },
             ),
             MioEvent::IncomingConnectionDidAccept(addr, result) => SubStore::dispatch(
                 store,
@@ -193,3 +237,46 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
         _ => false,
     }
 }
+
+macro_rules! impl_from_p2p {
+    ($sub_action:ty) => {
+        impl From<$sub_action> for Action {
+            fn from(value: $sub_action) -> Self {
+                Self::P2p(P2pAction::from(value))
+            }
+        }
+    };
+}
+
+impl_from_p2p!(P2pNetworkKademliaAction);
+impl_from_p2p!(P2pNetworkKademliaStreamAction);
+impl_from_p2p!(P2pNetworkKadRequestAction);
+impl_from_p2p!(P2pNetworkKadBootstrapAction);
+impl_from_p2p!(P2pPeerAction);
+impl_from_p2p!(P2pNetworkYamuxAction);
+impl_from_p2p!(P2pConnectionOutgoingAction);
+impl_from_p2p!(P2pNetworkSchedulerAction);
+impl_from_p2p!(P2pNetworkIdentifyStreamAction);
+impl_from_p2p!(P2pIdentifyAction);
+impl_from_p2p!(P2pNetworkIdentifyStreamEffectfulAction);
+impl_from_p2p!(p2p::P2pNetworkSelectAction);
+impl_from_p2p!(p2p::P2pNetworkPnetAction);
+impl_from_p2p!(p2p::P2pNetworkNoiseAction);
+impl_from_p2p!(p2p::connection::incoming::P2pConnectionIncomingAction);
+impl_from_p2p!(p2p::P2pNetworkPubsubAction);
+impl_from_p2p!(p2p::P2pNetworkPubsubEffectfulAction);
+impl_from_p2p!(P2pChannelsTransactionAction);
+impl_from_p2p!(P2pChannelsSnarkAction);
+impl_from_p2p!(p2p::P2pNetworkRpcAction);
+impl_from_p2p!(P2pChannelsRpcAction);
+impl_from_p2p!(P2pDisconnectionAction);
+impl_from_p2p!(p2p::P2pNetworkSchedulerEffectfulAction);
+impl_from_p2p!(p2p::P2pNetworkPnetEffectfulAction);
+impl_from_p2p!(P2pChannelsBestTipAction);
+impl_from_p2p!(P2pChannelsSnarkJobCommitmentAction);
+impl_from_p2p!(P2pChannelsStreamingRpcAction);
+impl_from_p2p!(P2pConnectionIncomingEffectfulAction);
+impl_from_p2p!(P2pConnectionOutgoingEffectfulAction);
+impl_from_p2p!(P2pDisconnectionEffectfulAction);
+
+impl p2p::P2pActionTrait<State> for Action {}

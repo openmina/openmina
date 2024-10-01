@@ -1,5 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2;
 use node::{
@@ -10,7 +11,7 @@ use node::{
     snark::{
         block_verify::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash},
         work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId},
-        SnarkEvent, VerifierIndex, VerifierSRS,
+        BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS,
     },
 };
 use rand::prelude::*;
@@ -21,8 +22,8 @@ impl node::service::SnarkBlockVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
-        verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_index: BlockVerifier,
+        verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
         if self.replayer.is_some() {
@@ -33,7 +34,6 @@ impl node::service::SnarkBlockVerifyService for NodeService {
             eprintln!("verify({}) - start", block.hash_ref());
             let header = block.header_ref();
             let result = {
-                let verifier_srs = verifier_srs.lock().expect("Failed to lock the SRS");
                 if !ledger::proofs::verification::verify_block(
                     header,
                     &verifier_index,
@@ -55,8 +55,8 @@ impl node::service::SnarkWorkVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
-        verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_index: TransactionVerifier,
+        verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {
         if self.replayer.is_some() {
@@ -64,26 +64,29 @@ impl node::service::SnarkWorkVerifyService for NodeService {
         }
         let tx = self.event_sender().clone();
         rayon::spawn_fifo(move || {
-            let result = {
-                let conv = |proof: &v2::LedgerProofProdStableV2| {
-                    (
-                        Statement::<SokDigest>::from(&proof.0.statement),
+            let result = (|| {
+                let conv = |proof: &v2::LedgerProofProdStableV2| -> Result<_, InvalidBigInt> {
+                    Ok((
+                        Statement::<SokDigest>::try_from(&proof.0.statement)?,
                         proof.proof.clone(),
-                    )
+                    ))
                 };
-                let works = work
+                let Ok(works) = work
                     .into_iter()
                     .flat_map(|work| match &*work.proofs {
-                        v2::TransactionSnarkWorkTStableV2Proofs::One(v) => [Some(conv(v)), None],
+                        v2::TransactionSnarkWorkTStableV2Proofs::One(v) => {
+                            [conv(v).map(Some), Ok(None)]
+                        }
                         v2::TransactionSnarkWorkTStableV2Proofs::Two((v1, v2)) => {
-                            [Some(conv(v1)), Some(conv(v2))]
+                            [conv(v1).map(Some), conv(v2).map(Some)]
                         }
                     })
-                    .flatten()
-                    .collect::<Vec<_>>();
-                let verifier_srs = verifier_srs.lock().expect("Failed to lock SRS");
+                    .collect::<Result<Vec<_>, _>>()
+                else {
+                    return Err(SnarkWorkVerifyError::VerificationFailed);
+                };
                 if !ledger::proofs::verification::verify_transaction(
-                    works.iter().map(|(v1, v2)| (v1, v2)),
+                    works.iter().flatten().map(|(v1, v2)| (v1, v2)),
                     &verifier_index,
                     &verifier_srs,
                 ) {
@@ -91,7 +94,7 @@ impl node::service::SnarkWorkVerifyService for NodeService {
                 } else {
                     Ok(())
                 }
-            };
+            })();
 
             let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
         });
@@ -102,8 +105,8 @@ impl node::service::SnarkUserCommandVerifyService for NodeService {
     fn verify_init(
         &mut self,
         _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
-        _verifier_index: Arc<VerifierIndex>,
-        _verifier_srs: Arc<Mutex<VerifierSRS>>,
+        _verifier_index: TransactionVerifier,
+        _verifier_srs: Arc<VerifierSRS>,
         _commands: mina_p2p_messages::list::List<
             mina_p2p_messages::v2::MinaBaseUserCommandStableV2,
         >,

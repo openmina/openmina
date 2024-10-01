@@ -8,11 +8,17 @@ import {
   MempoolTransaction,
   MempoolTransactionKind,
   SignedCommand,
+  ZkappCommand,
 } from '@shared/types/mempool/mempool-transaction.type';
-import { getTimeFromMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
+import { decodeMemo, getTimeFromMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
 import { ONE_BILLION } from '@openmina/shared';
+import { MempoolTransactionResponseKind } from '@app/features/mempool/mempool.service';
 
 export const WALLETS: { privateKey: string, publicKey: string }[] = [
+  {
+    privateKey: 'EKEQGWy4TjbVeqKjbe7TW81DKQM34min5FNmXpKArHKLyGVd3KSP',
+    publicKey: 'B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV',
+  },
   {
     privateKey: 'EKETKywEr7ktbzqj8D2aj4yYZVMyj33sHuWLQydbzt1M3sGnAbTh',
     publicKey: 'B62qnLjgW4LAnrxkcdLc7Snb49qx6aP5qsmPsp6ueZN4XPMC621cqGc',
@@ -4030,16 +4036,28 @@ export class BenchmarksWalletsService {
 
   getAccounts(): Observable<Pick<BenchmarksWallet, 'publicKey' | 'privateKey' | 'minaTokens' | 'nonce'>[]> {
     return this.rust.get<any[]>('/accounts').pipe(
-      map(wallets => wallets.map(wallet => ({
-        privateKey: WALLETS.find(w => w.publicKey === wallet.public_key)?.privateKey,
-        publicKey: wallet.public_key,
-        minaTokens: wallet.balance / ONE_BILLION,
-        nonce: wallet.nonce,
-      }))),
-      // TODO: This is a backend issue, must delete this map when we have all 1000 accounts in the backend
-      map(wall => {
+      map(wallets => wallets.map(wallet => {
+        return ({
+          privateKey: WALLETS.find(w => w.publicKey === wallet.public_key)?.privateKey,
+          publicKey: wallet.public_key,
+          minaTokens: wallet.balance / ONE_BILLION,
+          nonce: wallet.nonce,
+        });
+      })),
+      map(wallets => {
         return [
-          ...wall.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
+          ...wallets.filter(w => WALLETS.map(w => w.publicKey).includes(w.publicKey)),
+          // ...wallets
+          //   .filter(w => {
+          //     let foundW = WALLETS.find(wa => wa.publicKey === w.publicKey);
+          //     return foundW?.publicKey === 'B62qpD75xH5R19wxZG2uz8whNsHPTioVoYcPV3zfjjSbzTmaHQHKKEV';
+          //   }),
+          //   .map(wallet => ({
+          //     privateKey: wallet.privateKey,
+          //     publicKey: wallet.publicKey,
+          //     minaTokens: 0,
+          //     nonce: 0,
+          //   })),
         ];
       }),
     );
@@ -4082,21 +4100,43 @@ export class BenchmarksWalletsService {
   }
 
   getAllIncludedTransactions(): Observable<MempoolTransaction[]> {
-    return this.rust.get<{ SignedCommand: SignedCommand }[]>('/best-chain-user-commands').pipe(
+    return this.rust.get<Array<[MempoolTransactionResponseKind, SignedCommand | ZkappCommand]>>('/best-chain-user-commands').pipe(
       map(data => this.mapTxPoolResponse(data)),
     );
   }
 
-  private mapTxPoolResponse(response: { SignedCommand: SignedCommand }[]): MempoolTransaction[] {
-    return response.map(tx => ({
-      kind: MempoolTransactionKind.PAYMENT,
-      sender: tx.SignedCommand.payload.common.fee_payer_pk,
-      fee: Number(tx.SignedCommand.payload.common.fee),
-      nonce: Number(tx.SignedCommand.payload.common.nonce),
-      memo: removeUnicodeEscapes(tx.SignedCommand.payload.common.memo),
-      transactionData: tx.SignedCommand,
-      sentFromStressingTool: tx.SignedCommand.payload.common.memo.includes('S.T.'),
-      sentByMyBrowser: tx.SignedCommand.payload.common.memo.includes(localStorage.getItem('browserId')),
-    } as MempoolTransaction));
+  private mapTxPoolResponse(response: Array<[MempoolTransactionResponseKind, SignedCommand | ZkappCommand]>): MempoolTransaction[] {
+    return response
+      .map(([kind, command]: [MempoolTransactionResponseKind, SignedCommand | ZkappCommand]) => {
+        switch (kind) {
+          case MempoolTransactionResponseKind.SignedCommand:
+            const tx = command as SignedCommand;
+            const memo = decodeMemo(tx.payload.common.memo);
+            return {
+              kind: MempoolTransactionKind.PAYMENT,
+              sender: tx.payload.common.fee_payer_pk,
+              fee: Number(tx.payload.common.fee),
+              nonce: Number(tx.payload.common.nonce),
+              memo: removeUnicodeEscapes(memo),
+              transactionData: tx,
+              sentFromStressingTool: memo.includes('S.T.'),
+              sentByMyBrowser: memo.includes(localStorage.getItem('browserId')),
+            } as MempoolTransaction;
+          case MempoolTransactionResponseKind.ZkappCommand:
+            const zkTx = command as ZkappCommand;
+            const zkMemo = decodeMemo(zkTx.memo);
+            return {
+              kind: MempoolTransactionKind.ZK_APP,
+              sender: zkTx.fee_payer.body.public_key,
+              fee: Number(zkTx.fee_payer.body.fee),
+              nonce: Number(zkTx.fee_payer.body.nonce),
+              memo: removeUnicodeEscapes(zkMemo),
+              transactionData: zkTx,
+              sentFromStressingTool: zkMemo.includes('S.T.'),
+              sentByMyBrowser: zkMemo.includes(localStorage.getItem('browserId')),
+            } as MempoolTransaction;
+        }
+
+      });
   }
 }

@@ -1,8 +1,8 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{block_verify::VerifiableBlockWithHash, VerifierIndex, VerifierSRS};
+use crate::{block_verify::VerifiableBlockWithHash, BlockVerifier, VerifierSRS};
 
 use super::SnarkBlockVerifyId;
 
@@ -11,8 +11,8 @@ pub enum SnarkBlockVerifyEffectfulAction {
     Init {
         req_id: SnarkBlockVerifyId,
         block: VerifiableBlockWithHash,
-        verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        verifier_index: BlockVerifier,
+        verifier_srs: Arc<VerifierSRS>,
     },
 }
 

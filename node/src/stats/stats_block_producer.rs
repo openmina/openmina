@@ -2,11 +2,12 @@ use std::collections::VecDeque;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2;
+use openmina_core::block::AppliedBlock;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     block_producer::{BlockProducerWonSlot, BlockProducerWonSlotDiscardReason, BlockWithoutProof},
-    core::block::{Block, BlockHash, BlockWithHash},
+    core::block::BlockHash,
 };
 
 const MAX_HISTORY: usize = 2048;
@@ -101,11 +102,7 @@ impl BlockProducerStats {
         self.attempts.iter().cloned().collect()
     }
 
-    pub fn new_best_chain<T: AsRef<Block>>(
-        &mut self,
-        time: redux::Timestamp,
-        chain: &[BlockWithHash<T>],
-    ) {
+    pub fn new_best_chain(&mut self, time: redux::Timestamp, chain: &[AppliedBlock]) {
         let (best_tip, chain) = chain.split_last().unwrap();
         let root_block = chain.first().unwrap_or(best_tip);
 
@@ -115,6 +112,14 @@ impl BlockProducerStats {
             .iter_mut()
             .rev()
             .take_while(|v| v.won_slot.global_slot >= root_block.global_slot())
+            .filter(|attempt| {
+                matches!(
+                    attempt.status,
+                    BlockProductionStatus::Committed
+                        | BlockProductionStatus::Canonical { .. }
+                        | BlockProductionStatus::Orphaned { .. }
+                )
+            })
             .for_each(|attempt| {
                 let Some(block) = attempt.block.as_ref() else {
                     return;

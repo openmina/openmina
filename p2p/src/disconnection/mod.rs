@@ -4,10 +4,7 @@ pub use p2p_disconnection_state::*;
 mod p2p_disconnection_actions;
 pub use p2p_disconnection_actions::*;
 
-mod p2p_disconnection_effects;
-
-mod p2p_disconnection_service;
-pub use p2p_disconnection_service::*;
+mod p2p_disconnection_reducer;
 
 use serde::{Deserialize, Serialize};
 
@@ -28,22 +25,18 @@ pub enum P2pDisconnectionReason {
     P2pChannelClosed(ChannelId),
     #[error("connection is rejected: {0}")]
     Libp2pIncomingRejected(RejectionReason),
-
     #[error("transition frontier RPC({0:?}) timeout")]
     TransitionFrontierRpcTimeout(P2pRpcKind),
-
     #[error("transition frontier streaming RPC({0:?}) timeout")]
     TransitionFrontierStreamingRpcTimeout(P2pStreamingRpcKind),
-
     #[error("received num accounts rejected")]
     TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
-
     #[error("failed to verify snark pool diff")]
     SnarkPoolVerifyError,
-
     #[error("duplicate connection")]
     DuplicateConnection,
-
     #[error("timeout")]
     Timeout,
+    #[error("rpc protocol not supported")]
+    Unsupported,
 }

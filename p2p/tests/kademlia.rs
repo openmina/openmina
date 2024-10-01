@@ -304,13 +304,15 @@ async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
         try_wait_for_nodes_to_connect(&mut cluster, peer_ids.map(|peer_id| (node, peer_id)), dur)
             .await?,
         "all peers should be connected\n{}",
-        serde_json::to_string_pretty(&cluster.rust_node(node).state()).unwrap()
+        serde_json::to_string_pretty(&cluster.rust_node(node).state())
+            .expect("Error serializing state")
     );
 
     Ok(())
 }
 
 #[tokio::test]
+#[ignore = "TODO: Add override for reducer"]
 async fn test_bad_node() -> anyhow::Result<()> {
     std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", "false");
 

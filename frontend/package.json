@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.8.3",
+  "version": "0.8.20",
   "scripts": {
     "install:deps": "npm install",
     "start": "npm install && ng serve --configuration local --open",
@@ -10,7 +10,8 @@
     "watch": "ng build --watch --configuration development",
     "tests": "npx cypress open --config baseUrl=http://localhost:4200",
     "tests:headless": "npx cypress run --headless --config baseUrl=http://localhost:4200",
-    "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest"
+    "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest",
+    "replace-assertion": "node replace-assertion.js"
   },
   "private": true,
   "dependencies": {
@@ -29,14 +30,16 @@
     "@ngrx/effects": "^16.2.0",
     "@ngrx/router-store": "^16.2.0",
     "@ngrx/store": "^16.2.0",
-    "@openmina/shared": "^0.96.0",
+    "@openmina/shared": "^0.102.0",
     "base-x": "^5.0.0",
+    "bs58check": "^4.0.0",
     "buffer": "^6.0.3",
     "d3": "^7.8.4",
     "eigen": "^0.2.2",
     "mathjs": "^12.3.0",
     "mina-signer": "^3.0.7",
     "ngx-json-viewer": "^3.2.1",
+    "o1js": "^1.8.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.13.0"
@@ -60,6 +63,7 @@
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "terser-webpack-plugin": "^5.3.10",
     "typescript": "~5.1.3",
     "webpack": "^5.88.2",
     "webpack-bundle-analyzer": "^4.9.0"

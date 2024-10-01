@@ -42,6 +42,10 @@
 
       span {
         color: $warn-secondary;
+
+        &.mina-icon {
+          color: $warn-primary;
+        }
       }
 
       &::before {
@@ -61,6 +65,10 @@
 
       span {
         color: $aware-secondary;
+
+        &.mina-icon {
+          color: $aware-primary;
+        }
       }
 
       &::before {
@@ -78,6 +86,10 @@
 
       span {
         color: $success-secondary;
+
+        &.mina-icon {
+          color: $success-primary;
+        }
       }
 
       &::before {
@@ -128,6 +140,10 @@
     &:not(.switch-forbidden)::before {
       border-bottom-left-radius: 0;
       border-top-left-radius: 0;
+    }
+
+    &.hide-stats::before {
+      border-radius: 6px;
     }
 
     .strong-text {

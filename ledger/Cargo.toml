@@ -1,6 +1,6 @@
 [package]
 name = "mina-tree"
-version = "0.8.2"
+version = "0.8.14"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -26,9 +26,10 @@ o1-utils = { workspace = true }
 kimchi = { workspace = true }
 mina-poseidon = { workspace = true }
 poly-commitment = { workspace = true }
+openmina-macros = { path = "../macros" }
 
 bs58 = "0.4.0"
-mina-p2p-messages = { workspace = true, features = ["hashing"] }
+mina-p2p-messages = { workspace = true }
 
 sha2 = "0.10"
 base64 = "0.13"
@@ -41,10 +42,10 @@ libc = "0.2"
 
 itertools = "0.10"
 
-ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
-ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
-ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
-ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
+ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-ec = { version = "0.3.0", features = [ "std" ] }
+ark-serialize = { version = "0.3.0", features = [ "std" ] }
+ark-poly = { version = "0.3.0", features = [ "std" ] }
 
 rayon = "1.5"
 
@@ -58,7 +59,7 @@ uuid = { version = "1", features = [ "v4" ] }
 
 serde = { version = "1.0", features = ["rc"] }
 serde_json = { version = "1.0", features = ["float_roundtrip"] }
-postcard = { version = "1.0.8", features = ["use-std"] }
+postcard = { version = "1.0.9", features = ["use-std"] }
 
 backtrace = "0.3"
 derive_more = "0.99.17"
@@ -72,12 +73,16 @@ fraction = { version = "=0.15.1", default-features = false, features = ["with-se
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Response"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 zstd = { version = "0.12", optional = true }
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values", optional = true }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
+reqwest = { version = "0.11.24", features = ["blocking"] }
 
 [dev-dependencies]
 rand_pcg = "0.3"

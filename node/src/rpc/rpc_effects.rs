@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+use ledger::scan_state::currency::{Balance, Magnitude};
 use ledger::Account;
 use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
@@ -54,7 +55,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::StatusGet { rpc_id } => {
             let state = store.state.get();
-
+            let chain_id = state.p2p.ready().map(|p2p| p2p.chain_id.to_hex());
             let block_summary =
                 |b: &ArcBlockWithHash| RpcNodeStatusTransitionFrontierBlockSummary {
                     hash: b.hash().clone(),
@@ -62,11 +63,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     global_slot: b.global_slot(),
                 };
             let status = RpcNodeStatus {
+                chain_id,
                 transition_frontier: RpcNodeStatusTransitionFrontier {
                     best_tip: state.transition_frontier.best_tip().map(block_summary),
                     sync: RpcNodeStatusTransitionFrontierSync {
                         time: state.transition_frontier.sync.time(),
                         status: state.transition_frontier.sync.to_string(),
+                        phase: state.transition_frontier.sync.sync_phase().to_string(),
                         target: state.transition_frontier.sync.best_tip().map(block_summary),
                     },
                 },
@@ -318,12 +321,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             };
 
             let block = match query {
-                RpcScanStateSummaryGetQuery::ForBestTip => transition_frontier.best_tip(),
+                RpcScanStateSummaryGetQuery::ForBestTip => {
+                    transition_frontier.best_tip_breadcrumb()
+                }
                 RpcScanStateSummaryGetQuery::ForBlockWithHash(hash) => transition_frontier
                     .best_chain
                     .iter()
                     .rev()
-                    .find(|b| &b.hash == hash),
+                    .find(|b| b.hash() == hash),
                 RpcScanStateSummaryGetQuery::ForBlockWithHeight(height) => transition_frontier
                     .best_chain
                     .iter()
@@ -345,7 +350,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 }
             };
             if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::ScanStateSummary(block.staged_ledger_hash().clone()),
+                request: LedgerReadRequest::ScanStateSummary(block.staged_ledger_hashes().clone()),
             }) {
                 store.dispatch(RpcAction::ScanStateSummaryGetPending {
                     rpc_id,
@@ -669,7 +674,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
             let ledger_hash = if let Some(best_tip) = store.state().transition_frontier.best_tip() {
-                best_tip.staged_ledger_hash()
+                best_tip.merkle_root_hash()
             } else {
                 return;
             };
@@ -701,7 +706,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                                 account.nonce = nonce.incr();
                             }
                         }
-                        account.balance = account.balance.sub_amount(*amount).unwrap();
+                        account.balance = account
+                            .balance
+                            .sub_amount(*amount)
+                            .unwrap_or(Balance::zero());
                     }
                 });
 
@@ -719,8 +727,16 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
             // sort the commadns by nonce
 
+            let Ok(commands) = commands
+                .into_iter()
+                .map(|c| c.try_into())
+                .collect::<Result<_, _>>()
+            else {
+                return;
+            };
+
             store.dispatch(TransactionPoolAction::StartVerify {
-                commands: commands.into_iter().map(|c| c.into()).collect(),
+                commands,
                 from_rpc: Some(rpc_id),
             });
         }

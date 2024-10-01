@@ -1,7 +1,6 @@
-#![cfg(feature = "hashing")]
 use std::{fmt, io};
 
-use ark_ff::FromBytes;
+use ark_ff::{fields::arithmetic::InvalidBigInt, FromBytes};
 use binprot::BinProtWrite;
 use binprot_derive::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
@@ -29,18 +28,19 @@ use super::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerHash,
-    MinaBaseAccountBinableArgStableV2, MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
-    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
-    MinaBasePendingCoinbaseStateStackStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
-    MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
-    MinaBaseStateBodyHashStableV1, MinaBaseVerificationKeyWireStableV1,
+    MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1, MinaBaseLedgerHash0StableV1,
+    MinaBasePendingCoinbaseHashBuilderStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
+    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
+    MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
+    MinaBaseStagedLedgerHashStableV1, MinaBaseStateBodyHashStableV1,
     MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
     MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     MinaStateBlockchainStateValueStableV2SignedAmount, MinaStateProtocolStateBodyValueStableV2,
     MinaStateProtocolStateValueStableV2,
     MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
-    NonZeroCurvePointUncompressedStableV1, SgnStableV1, SignedAmount, StateHash, TokenFeeExcess,
+    NonZeroCurvePointUncompressedStableV1, PendingCoinbaseHash, SgnStableV1, SignedAmount,
+    StateHash, TokenFeeExcess,
 };
 
 impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
@@ -320,14 +320,14 @@ impl StateHash {
         DataHashLibStateHashStableV1(fp.into()).into()
     }
 
-    pub fn from_hashes(
+    pub fn try_from_hashes(
         pred_state_hash: &StateHash,
         body_hash: &MinaBaseStateBodyHashStableV1,
-    ) -> Self {
-        Self::from_fp(fp_state_hash_from_fp_hashes(
-            pred_state_hash.to_field(),
-            body_hash.to_field(),
-        ))
+    ) -> Result<Self, InvalidBigInt> {
+        Ok(Self::from_fp(fp_state_hash_from_fp_hashes(
+            pred_state_hash.to_field()?,
+            body_hash.to_field()?,
+        )))
     }
 }
 
@@ -335,64 +335,61 @@ impl LedgerHash {
     pub fn from_fp(fp: Fp) -> Self {
         MinaBaseLedgerHash0StableV1(fp.into()).into()
     }
+
+    pub fn zero() -> Self {
+        MinaBaseLedgerHash0StableV1(BigInt::zero()).into()
+    }
+}
+
+impl PendingCoinbaseHash {
+    pub fn from_fp(fp: Fp) -> Self {
+        MinaBasePendingCoinbaseHashVersionedStableV1(MinaBasePendingCoinbaseHashBuilderStableV1(
+            fp.into(),
+        ))
+        .into()
+    }
 }
 
 impl generated::MinaStateProtocolStateBodyValueStableV2 {
     // TODO(binier): change return type to `StateBodyHash`
-    pub fn hash(&self) -> MinaBaseStateBodyHashStableV1 {
-        let fp = MinaHash::hash(self);
-        MinaBaseStateBodyHashStableV1(fp.into())
+    pub fn try_hash(&self) -> Result<MinaBaseStateBodyHashStableV1, InvalidBigInt> {
+        let fp = MinaHash::try_hash(self)?;
+        Ok(MinaBaseStateBodyHashStableV1(fp.into()))
     }
 }
 
 impl generated::MinaStateProtocolStateValueStableV2 {
-    pub fn hash(&self) -> StateHash {
-        StateHash::from_fp(MinaHash::hash(self))
+    pub fn try_hash(&self) -> Result<StateHash, InvalidBigInt> {
+        Ok(StateHash::from_fp(MinaHash::try_hash(self)?))
     }
 }
 
 impl generated::MinaBlockHeaderStableV2 {
-    pub fn hash(&self) -> StateHash {
-        self.protocol_state.hash()
+    pub fn try_hash(&self) -> Result<StateHash, InvalidBigInt> {
+        self.protocol_state.try_hash()
     }
 }
 
 impl generated::MinaBlockBlockStableV2 {
-    pub fn hash(&self) -> StateHash {
-        self.header.protocol_state.hash()
+    pub fn try_hash(&self) -> Result<StateHash, InvalidBigInt> {
+        self.header.protocol_state.try_hash()
     }
 }
 
 impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
-    fn hash(&self) -> mina_hasher::Fp {
+    fn try_hash(&self) -> Result<mina_hasher::Fp, InvalidBigInt> {
         let mut inputs = Inputs::new();
-        self.to_input(&mut inputs);
-        hash_with_kimchi("MinaProtoStateBody", &inputs.to_fields())
+        self.to_input(&mut inputs)?;
+        Ok(hash_with_kimchi("MinaProtoStateBody", &inputs.to_fields()))
     }
 }
 
 impl MinaHash for MinaStateProtocolStateValueStableV2 {
-    fn hash(&self) -> mina_hasher::Fp {
-        fp_state_hash_from_fp_hashes(
-            self.previous_state_hash.to_field(),
-            MinaHash::hash(&self.body),
-        )
-    }
-}
-
-impl MinaHash for MinaBaseAccountBinableArgStableV2 {
-    fn hash(&self) -> Fp {
-        let mut inputs = Inputs::new();
-        self.to_input(&mut inputs);
-        hash_with_kimchi("MinaAccount", &inputs.to_fields())
-    }
-}
-
-impl MinaHash for MinaBaseVerificationKeyWireStableV1 {
-    fn hash(&self) -> Fp {
-        let mut inputs = Inputs::new();
-        self.to_input(&mut inputs);
-        hash_with_kimchi("MinaSideLoadedVk", &inputs.to_fields())
+    fn try_hash(&self) -> Result<mina_hasher::Fp, InvalidBigInt> {
+        Ok(fp_state_hash_from_fp_hashes(
+            self.previous_state_hash.to_field()?,
+            MinaHash::try_hash(&self.body)?,
+        ))
     }
 }
 
@@ -434,16 +431,8 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
     sponge.squeeze()
 }
 
-macro_rules! to_input_fields {
-    ( $inputs:expr, $( $field:expr ),* $(,)?) => {
-        $(
-            $field.to_input($inputs);
-        )*
-    };
-}
-
 impl ToInput for MinaStateProtocolStateBodyValueStableV2 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash,
             blockchain_state,
@@ -451,22 +440,16 @@ impl ToInput for MinaStateProtocolStateBodyValueStableV2 {
             constants,
         } = self;
 
-        to_input_fields!(
-            inputs,
-            constants,
-            genesis_state_hash,
-            blockchain_state,
-            consensus_state
-        );
-        //     constants.to_input(inputs);
-        //     genesis_state_hash.to_input(inputs);
-        //     blockchain_state.to_input(inputs);
-        //     consensus_state.to_input(inputs);
+        constants.to_input(inputs)?;
+        genesis_state_hash.to_input(inputs)?;
+        blockchain_state.to_input(inputs)?;
+        consensus_state.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseProtocolConstantsCheckedValueStableV1 {
             k,
             slots_per_epoch,
@@ -476,20 +459,18 @@ impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
             genesis_state_timestamp,
         } = self;
 
-        to_input_fields!(
-            inputs,
-            k,
-            delta,
-            slots_per_epoch,
-            slots_per_sub_window,
-            grace_period_slots,
-            genesis_state_timestamp
-        );
+        k.to_input(inputs)?;
+        delta.to_input(inputs)?;
+        slots_per_epoch.to_input(inputs)?;
+        slots_per_sub_window.to_input(inputs)?;
+        grace_period_slots.to_input(inputs)?;
+        genesis_state_timestamp.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaStateBlockchainStateValueStableV2 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2 {
             staged_ledger_hash,
             genesis_ledger_hash,
@@ -498,19 +479,18 @@ impl ToInput for MinaStateBlockchainStateValueStableV2 {
             body_reference,
         } = self;
 
-        to_input_fields!(
-            inputs,
-            staged_ledger_hash,
-            genesis_ledger_hash,
-            ledger_proof_statement,
-            timestamp,
-            body_reference
-        );
+        staged_ledger_hash.to_input(inputs)?;
+        genesis_ledger_hash.to_input(inputs)?;
+        ledger_proof_statement.to_input(inputs)?;
+        timestamp.to_input(inputs)?;
+        body_reference.to_input(inputs)?;
+
+        Ok(())
     }
 }
 
 impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             blockchain_length,
             epoch_count,
@@ -528,45 +508,46 @@ impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             coinbase_receiver,
             supercharge_coinbase,
         } = self;
-        to_input_fields!(
-            inputs,
-            blockchain_length,
-            epoch_count,
-            min_window_density,
-            sub_window_densities,
-            last_vrf_output,
-            total_currency,
-            curr_global_slot_since_hard_fork,
-            global_slot_since_genesis,
-            has_ancestor_in_same_checkpoint_window,
-            supercharge_coinbase,
-            staking_epoch_data,
-            next_epoch_data,
-            block_stake_winner,
-            block_creator,
-            coinbase_receiver,
-        );
+        blockchain_length.to_input(inputs)?;
+        epoch_count.to_input(inputs)?;
+        min_window_density.to_input(inputs)?;
+        sub_window_densities.to_input(inputs)?;
+        last_vrf_output.to_input(inputs)?;
+        total_currency.to_input(inputs)?;
+        curr_global_slot_since_hard_fork.to_input(inputs)?;
+        global_slot_since_genesis.to_input(inputs)?;
+        has_ancestor_in_same_checkpoint_window.to_input(inputs)?;
+        supercharge_coinbase.to_input(inputs)?;
+        staking_epoch_data.to_input(inputs)?;
+        next_epoch_data.to_input(inputs)?;
+        block_stake_winner.to_input(inputs)?;
+        block_creator.to_input(inputs)?;
+        coinbase_receiver.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaBaseStagedLedgerHashStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseStagedLedgerHashStableV1 {
             non_snark,
             pending_coinbase_hash,
         } = self;
-        to_input_fields!(inputs, non_snark, pending_coinbase_hash);
+        non_snark.to_input(inputs)?;
+        pending_coinbase_hash.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaBaseStagedLedgerHashNonSnarkStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         inputs.append_bytes(self.sha256().as_ref());
+        Ok(())
     }
 }
 
 impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatement {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2LedgerProofStatement {
             source,
             target,
@@ -576,26 +557,25 @@ impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatement {
             fee_excess,
             sok_digest: _,
         } = self;
-        to_input_fields!(
-            inputs,
-            source,
-            target,
-            connecting_ledger_left,
-            connecting_ledger_right,
-            supply_increase,
-            fee_excess
-        );
+        source.to_input(inputs)?;
+        target.to_input(inputs)?;
+        connecting_ledger_left.to_input(inputs)?;
+        connecting_ledger_right.to_input(inputs)?;
+        supply_increase.to_input(inputs)?;
+        fee_excess.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for ConsensusBodyReferenceStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         inputs.append_bytes(self.as_ref());
+        Ok(())
     }
 }
 
 impl ToInput for ConsensusVrfOutputTruncatedStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let vrf: &[u8] = self.as_ref();
         inputs.append_bytes(&vrf[..31]);
         // Ignore the last 3 bits
@@ -603,21 +583,24 @@ impl ToInput for ConsensusVrfOutputTruncatedStableV1 {
         for bit in [1, 2, 4, 8, 16] {
             inputs.append_bool(last_byte & bit != 0);
         }
+        Ok(())
     }
 }
 
 impl ToInput for ConsensusGlobalSlotStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusGlobalSlotStableV1 {
             slot_number,
             slots_per_epoch,
         } = self;
-        to_input_fields!(inputs, slot_number, slots_per_epoch);
+        slot_number.to_input(inputs)?;
+        slots_per_epoch.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
             ledger,
             seed,
@@ -625,19 +608,17 @@ impl ToInput for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueSta
             lock_checkpoint,
             epoch_length,
         } = self;
-        to_input_fields!(
-            inputs,
-            seed,
-            start_checkpoint,
-            epoch_length,
-            ledger,
-            lock_checkpoint
-        );
+        seed.to_input(inputs)?;
+        start_checkpoint.to_input(inputs)?;
+        epoch_length.to_input(inputs)?;
+        ledger.to_input(inputs)?;
+        lock_checkpoint.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
             ledger,
             seed,
@@ -645,89 +626,99 @@ impl ToInput for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStable
             lock_checkpoint,
             epoch_length,
         } = self;
-        to_input_fields!(
-            inputs,
-            seed,
-            start_checkpoint,
-            epoch_length,
-            ledger,
-            lock_checkpoint
-        );
+        seed.to_input(inputs)?;
+        start_checkpoint.to_input(inputs)?;
+        epoch_length.to_input(inputs)?;
+        ledger.to_input(inputs)?;
+        lock_checkpoint.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for NonZeroCurvePointUncompressedStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let NonZeroCurvePointUncompressedStableV1 { x, is_odd } = self;
-        to_input_fields!(inputs, x, is_odd);
+        x.to_input(inputs)?;
+        is_odd.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
             first_pass_ledger,
             second_pass_ledger,
             pending_coinbase_stack,
             local_state,
         } = self;
-        to_input_fields!(
-            inputs,
-            first_pass_ledger,
-            second_pass_ledger,
-            pending_coinbase_stack,
-            local_state
-        );
+        first_pass_ledger.to_input(inputs)?;
+        second_pass_ledger.to_input(inputs)?;
+        pending_coinbase_stack.to_input(inputs)?;
+        local_state.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for SignedAmount {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let SignedAmount { magnitude, sgn } = self;
-        to_input_fields!(inputs, magnitude, sgn);
+        magnitude.to_input(inputs)?;
+        sgn.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaBaseFeeExcessStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseFeeExcessStableV1(left, right) = self;
-        to_input_fields!(inputs, left, right);
+        left.to_input(inputs)?;
+        right.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for TokenFeeExcess {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let TokenFeeExcess { token, amount } = self;
-        to_input_fields!(inputs, token, amount);
+        token.to_input(inputs)?;
+        amount.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaBaseEpochLedgerValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseEpochLedgerValueStableV1 {
             hash,
             total_currency,
         } = self;
-        to_input_fields!(inputs, hash, total_currency);
+        hash.to_input(inputs)?;
+        total_currency.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaBasePendingCoinbaseStackVersionedStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBasePendingCoinbaseStackVersionedStableV1 { data, state } = self;
-        to_input_fields!(inputs, data, state);
+        data.to_input(inputs)?;
+        state.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaBasePendingCoinbaseStateStackStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBasePendingCoinbaseStateStackStableV1 { init, curr } = self;
-        to_input_fields!(inputs, init, curr);
+        init.to_input(inputs)?;
+        curr.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
             stack_frame,
             call_stack,
@@ -741,30 +732,29 @@ impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
             failure_status_tbl: _,
             will_succeed,
         } = self;
-        to_input_fields!(
-            inputs,
-            stack_frame,
-            call_stack,
-            transaction_commitment,
-            full_transaction_commitment,
-            excess,
-            supply_increase,
-            ledger,
-            account_update_index,
-            success,
-            will_succeed,
-        );
+        stack_frame.to_input(inputs)?;
+        call_stack.to_input(inputs)?;
+        transaction_commitment.to_input(inputs)?;
+        full_transaction_commitment.to_input(inputs)?;
+        excess.to_input(inputs)?;
+        supply_increase.to_input(inputs)?;
+        ledger.to_input(inputs)?;
+        account_update_index.to_input(inputs)?;
+        success.to_input(inputs)?;
+        will_succeed.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for SgnStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         inputs.append_bool(self == &SgnStableV1::Pos);
+        Ok(())
     }
 }
 
 impl ToInput for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(v) => v.to_input(inputs),
         }
@@ -772,15 +762,16 @@ impl ToInput for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
 }
 
 impl ToInput for MinaStateBlockchainStateValueStableV2SignedAmount {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2SignedAmount { magnitude, sgn } = self;
-        magnitude.to_input(inputs);
-        sgn.to_input(inputs);
+        magnitude.to_input(inputs)?;
+        sgn.to_input(inputs)?;
+        Ok(())
     }
 }
 
 impl ToInput for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(v) => v.to_input(inputs),
         }
@@ -788,15 +779,12 @@ impl ToInput for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
 }
 
 impl ToInput for MinaNumbersGlobalSlotSpanStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSpanStableV1::GlobalSlotSpan(v) => v.to_input(inputs),
         }
     }
 }
-
-mod account;
-mod verification_key;
 
 #[cfg(test)]
 mod hash_tests {
@@ -809,7 +797,7 @@ mod hash_tests {
         const JSON: &str = include_str!("../../tests/files/v2/state/617-3NKpXp2SXWGC3XHnAJYjGtNcbq8tzossqj6kK4eGr6mSyJoFmpxR.json");
 
         let state: MinaStateProtocolStateValueStableV2 = serde_json::from_str(JSON).unwrap();
-        let hash = state.hash();
+        let hash = state.try_hash().unwrap();
         let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
         assert_eq!(hash, expected_hash)
     }

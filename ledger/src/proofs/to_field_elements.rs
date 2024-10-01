@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use crate::proofs::public_input::plonk_checks::ShiftingValue;
+use crate::proofs::{public_input::plonk_checks::ShiftingValue, util::four_u64_to_field};
 use ark_ff::{Field, One, Zero};
-use kimchi::proof::{ProofEvaluations, ProverCommitments, ProverProof};
+use kimchi::proof::{PointEvaluations, ProofEvaluations, ProverCommitments, ProverProof};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::{string::ByteString, v2};
@@ -13,7 +13,7 @@ use crate::{
     proofs::{
         public_input::prepared_statement::{DeferredValues, Plonk, ProofState},
         step::OptFlag,
-        util::u64_to_field,
+        util::two_u64_to_field,
     },
     scan_state::{
         currency::{self, Sgn},
@@ -171,86 +171,6 @@ impl<T: ToFieldElements<Fp>> ToFieldElements<Fp> for Statement<T> {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F>
-    for v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement
-{
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let Self {
-            source,
-            target,
-            connecting_ledger_left,
-            connecting_ledger_right,
-            supply_increase,
-            fee_excess,
-            sok_digest,
-        } = self;
-
-        let sign_to_field = |sgn: &v2::SgnStableV1| -> F {
-            match sgn {
-                v2::SgnStableV1::Pos => 1i64,
-                v2::SgnStableV1::Neg => -1,
-            }
-            .into()
-        };
-
-        let mut add_register =
-            |registers: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource| {
-                let v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
-                    first_pass_ledger,
-                    second_pass_ledger,
-                    pending_coinbase_stack,
-                    local_state,
-                } = registers;
-
-                fields.push(first_pass_ledger.to_field());
-                fields.push(second_pass_ledger.to_field());
-                fields.push(pending_coinbase_stack.data.0.to_field());
-                fields.push(pending_coinbase_stack.state.init.to_field());
-                fields.push(pending_coinbase_stack.state.curr.to_field());
-                fields.push(local_state.stack_frame.to_field());
-                fields.push(local_state.call_stack.to_field());
-                fields.push(local_state.transaction_commitment.to_field());
-                fields.push(local_state.full_transaction_commitment.to_field());
-                fields.push(local_state.excess.magnitude.as_u64().into());
-                fields.push(sign_to_field(&local_state.excess.sgn));
-                fields.push(local_state.supply_increase.magnitude.as_u64().into());
-                fields.push(sign_to_field(&local_state.supply_increase.sgn));
-                fields.push(local_state.ledger.to_field());
-                fields.push((local_state.success as u64).into());
-                fields.push(local_state.account_update_index.as_u32().into());
-                fields.push((local_state.will_succeed as u64).into());
-            };
-
-        add_register(source);
-        add_register(target);
-        fields.push(connecting_ledger_left.to_field());
-        fields.push(connecting_ledger_right.to_field());
-        fields.push(supply_increase.magnitude.as_u64().into());
-        fields.push(sign_to_field(&supply_increase.sgn));
-
-        let v2::MinaBaseFeeExcessStableV1(
-            v2::TokenFeeExcess {
-                token: fee_token_l,
-                amount: fee_excess_l,
-            },
-            v2::TokenFeeExcess {
-                token: fee_token_r,
-                amount: fee_excess_r,
-            },
-        ) = fee_excess;
-
-        fields.push(fee_token_l.to_field());
-        fields.push(fee_excess_l.magnitude.as_u64().into());
-        fields.push(sign_to_field(&fee_excess_l.sgn));
-
-        fields.push(fee_token_r.to_field());
-        fields.push(fee_excess_r.magnitude.as_u64().into());
-        fields.push(sign_to_field(&fee_excess_r.sgn));
-
-        sok_digest.to_field_elements(fields)
-    }
-}
-
 impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for Vec<T> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         self.iter().for_each(|v| v.to_field_elements(fields));
@@ -389,9 +309,18 @@ impl<F: FieldWitness> ToFieldElements<F> for u32 {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[F; 2]> {
+impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for PointEvaluations<T> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self { zeta, zeta_omega } = self;
+        zeta.to_field_elements(fields);
+        zeta_omega.to_field_elements(fields);
+    }
+}
+
+impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for ProofEvaluations<T> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
+            public: _,
             w,
             z,
             s,
@@ -419,9 +348,8 @@ impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[F; 2]> {
             foreign_field_mul_lookup_selector,
         } = self;
 
-        let mut push = |[a, b]: &[F; 2]| {
-            a.to_field_elements(fields);
-            b.to_field_elements(fields);
+        let mut push = |value: &T| {
+            value.to_field_elements(fields);
         };
 
         w.iter().for_each(&mut push);
@@ -500,73 +428,6 @@ impl<F: FieldWitness> ToFieldElements<F> for EpochData<F> {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for v2::NonZeroCurvePoint {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let v2::NonZeroCurvePointUncompressedStableV1 { x, is_odd } = self.inner();
-
-        x.to_field::<F>().to_field_elements(fields);
-        is_odd.to_field_elements(fields);
-    }
-}
-
-impl<F: FieldWitness> ToFieldElements<F>
-    for v2::ConsensusProofOfStakeDataConsensusStateValueStableV2
-{
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-            blockchain_length,
-            epoch_count,
-            min_window_density,
-            sub_window_densities,
-            last_vrf_output,
-            total_currency,
-            curr_global_slot_since_hard_fork:
-                v2::ConsensusGlobalSlotStableV1 {
-                    slot_number,
-                    slots_per_epoch,
-                },
-            global_slot_since_genesis,
-            staking_epoch_data,
-            next_epoch_data,
-            has_ancestor_in_same_checkpoint_window,
-            block_stake_winner,
-            block_creator,
-            coinbase_receiver,
-            supercharge_coinbase,
-        } = self;
-
-        let staking_epoch_data: EpochData<F> = staking_epoch_data.into();
-        let next_epoch_data: EpochData<F> = next_epoch_data.into();
-
-        blockchain_length.as_u32().to_field_elements(fields);
-        epoch_count.as_u32().to_field_elements(fields);
-        min_window_density.as_u32().to_field_elements(fields);
-        fields.extend(sub_window_densities.iter().map(|w| F::from(w.as_u32())));
-
-        {
-            let vrf: &[u8] = last_vrf_output.as_ref();
-            (&vrf[..31]).to_field_elements(fields);
-            // Ignore the last 3 bits
-            let last_byte = vrf[31];
-            for bit in [1, 2, 4, 8, 16] {
-                F::from(last_byte & bit != 0).to_field_elements(fields);
-            }
-        }
-
-        total_currency.as_u64().to_field_elements(fields);
-        slot_number.as_u32().to_field_elements(fields);
-        slots_per_epoch.as_u32().to_field_elements(fields);
-        global_slot_since_genesis.as_u32().to_field_elements(fields);
-        staking_epoch_data.to_field_elements(fields);
-        next_epoch_data.to_field_elements(fields);
-        has_ancestor_in_same_checkpoint_window.to_field_elements(fields);
-        block_stake_winner.to_field_elements(fields);
-        block_creator.to_field_elements(fields);
-        coinbase_receiver.to_field_elements(fields);
-        supercharge_coinbase.to_field_elements(fields);
-    }
-}
-
 impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBaseProtocolConstantsCheckedValueStableV1 {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
@@ -587,8 +448,8 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBaseProtocolConstantsChecke
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for v2::MinaStateBlockchainStateValueStableV2 {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
+impl ToFieldElements<Fp> for super::block::BlockchainState {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self {
             staged_ledger_hash,
             genesis_ledger_hash,
@@ -597,32 +458,67 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaStateBlockchainStateValueSt
             body_reference,
         } = self;
 
-        let staged_ledger_hash: StagedLedgerHash<F> = staged_ledger_hash.into();
-
         staged_ledger_hash.to_field_elements(fields);
-        genesis_ledger_hash
-            .inner()
-            .to_field::<F>()
-            .to_field_elements(fields);
+        genesis_ledger_hash.to_field_elements(fields);
         ledger_proof_statement.to_field_elements(fields);
         timestamp.as_u64().to_field_elements(fields);
         body_reference.to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for v2::MinaStateProtocolStateBodyValueStableV2 {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let v2::MinaStateProtocolStateBodyValueStableV2 {
+impl ToFieldElements<Fp> for super::block::consensus::ConsensusState {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let super::block::consensus::ConsensusState {
+            blockchain_length,
+            epoch_count,
+            min_window_density,
+            sub_window_densities,
+            last_vrf_output,
+            total_currency,
+            curr_global_slot_since_hard_fork:
+                super::block::consensus::GlobalSlot {
+                    slot_number,
+                    slots_per_epoch,
+                },
+            global_slot_since_genesis,
+            staking_epoch_data,
+            next_epoch_data,
+            has_ancestor_in_same_checkpoint_window,
+            block_stake_winner,
+            block_creator,
+            coinbase_receiver,
+            supercharge_coinbase,
+        } = self;
+
+        blockchain_length.as_u32().to_field_elements(fields);
+        epoch_count.as_u32().to_field_elements(fields);
+        min_window_density.as_u32().to_field_elements(fields);
+        fields.extend(sub_window_densities.iter().map(|w| Fp::from(w.as_u32())));
+        last_vrf_output.to_field_elements(fields);
+        total_currency.as_u64().to_field_elements(fields);
+        slot_number.to_field_elements(fields);
+        slots_per_epoch.to_field_elements(fields);
+        global_slot_since_genesis.as_u32().to_field_elements(fields);
+        staking_epoch_data.to_field_elements(fields);
+        next_epoch_data.to_field_elements(fields);
+        has_ancestor_in_same_checkpoint_window.to_field_elements(fields);
+        block_stake_winner.to_field_elements(fields);
+        block_creator.to_field_elements(fields);
+        coinbase_receiver.to_field_elements(fields);
+        supercharge_coinbase.to_field_elements(fields);
+    }
+}
+
+impl ToFieldElements<Fp> for super::block::ProtocolStateBody {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
             genesis_state_hash,
             blockchain_state,
             consensus_state,
             constants,
         } = self;
 
-        genesis_state_hash
-            .inner()
-            .to_field::<F>()
-            .to_field_elements(fields);
+        genesis_state_hash.to_field_elements(fields);
         blockchain_state.to_field_elements(fields);
         consensus_state.to_field_elements(fields);
         constants.to_field_elements(fields);
@@ -704,25 +600,6 @@ impl ToFieldElements<Fp> for transaction_union_payload::TransactionUnion {
         amount.to_field_elements(fields);
         signer.to_field_elements(fields);
         signature.to_field_elements(fields);
-    }
-}
-
-impl<F: FieldWitness> ToFieldElements<F> for v2::MinaNumbersGlobalSlotSinceGenesisMStableV1 {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        self.as_u32().to_field_elements(fields);
-    }
-}
-
-impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBasePendingCoinbaseStackVersionedStableV1 {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let Self {
-            data,
-            state: v2::MinaBasePendingCoinbaseStateStackStableV1 { init, curr },
-        } = self;
-
-        data.to_field::<F>().to_field_elements(fields);
-        init.to_field::<F>().to_field_elements(fields);
-        curr.to_field::<F>().to_field_elements(fields);
     }
 }
 
@@ -1012,11 +889,11 @@ impl ToFieldElements<Fp> for PerProofWitness {
         } = wrap_proof;
 
         for w in w_comm {
-            push_affines(&w.unshifted, fields);
+            push_affines(&w.elems, fields);
         }
 
-        push_affines(&z_comm.unshifted, fields);
-        push_affines(&t_comm.unshifted, fields);
+        push_affines(&z_comm.elems, fields);
+        push_affines(&t_comm.elems, fields);
 
         for (a, b) in lr {
             push_affine(*a, fields);
@@ -1055,10 +932,10 @@ impl ToFieldElements<Fp> for PerProofWitness {
             messages_for_next_wrap_proof: _,
         } = proof_state;
 
-        u64_to_field::<Fp, 2>(alpha).to_field_elements(fields);
-        u64_to_field::<Fp, 2>(beta).to_field_elements(fields);
-        u64_to_field::<Fp, 2>(gamma).to_field_elements(fields);
-        u64_to_field::<Fp, 2>(zeta).to_field_elements(fields);
+        two_u64_to_field::<Fp>(alpha).to_field_elements(fields);
+        two_u64_to_field::<Fp>(beta).to_field_elements(fields);
+        two_u64_to_field::<Fp>(gamma).to_field_elements(fields);
+        two_u64_to_field::<Fp>(zeta).to_field_elements(fields);
 
         zeta_to_srs_length.to_field_elements(fields);
         zeta_to_domain_size.to_field_elements(fields);
@@ -1084,7 +961,7 @@ impl ToFieldElements<Fp> for PerProofWitness {
 
         combined_inner_product.to_field_elements(fields);
         b.to_field_elements(fields);
-        u64_to_field::<Fp, 2>(xi).to_field_elements(fields);
+        two_u64_to_field::<Fp>(xi).to_field_elements(fields);
         bulletproof_challenges.to_field_elements(fields);
 
         // Index
@@ -1105,7 +982,9 @@ impl ToFieldElements<Fp> for PerProofWitness {
             Fp::from(domain_log2).to_field_elements(fields);
         }
 
-        u64_to_field::<Fp, 4>(sponge_digest_before_evaluations).to_field_elements(fields);
+        four_u64_to_field::<Fp>(sponge_digest_before_evaluations)
+            .unwrap() // Never fail, `sponge_digest_before_evaluations` was previously a `Fp`
+            .to_field_elements(fields);
 
         let AllEvals {
             ft_eval1,

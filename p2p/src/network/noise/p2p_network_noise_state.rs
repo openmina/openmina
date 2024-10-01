@@ -37,6 +37,47 @@ impl P2pNetworkNoiseState {
             }
         })
     }
+
+    pub fn handshake_done(&self, action: &P2pNetworkNoiseAction) -> Option<(PeerId, bool)> {
+        if let Some(P2pNetworkNoiseStateInner::Done {
+            remote_peer_id,
+            incoming,
+            send_nonce,
+            recv_nonce,
+            ..
+        }) = &self.inner
+        {
+            if ((matches!(action, P2pNetworkNoiseAction::IncomingChunk { .. }) && *incoming)
+                || (matches!(action, P2pNetworkNoiseAction::OutgoingChunk { .. }) && !*incoming))
+                && *send_nonce == 0
+                && *recv_nonce == 0
+            {
+                Some((*remote_peer_id, *incoming))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn remote_peer_id(&self) -> Option<PeerId> {
+        match &self.inner {
+            Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => Some(*remote_peer_id),
+            Some(P2pNetworkNoiseStateInner::Initiator(P2pNetworkNoiseStateInitiator {
+                remote_pk: Some(pk),
+                ..
+            })) => Some(pk.peer_id()),
+            _ => None,
+        }
+    }
+
+    pub fn as_error(&self) -> Option<NoiseError> {
+        match &self.inner {
+            Some(P2pNetworkNoiseStateInner::Error(error)) => Some(*error),
+            _ => None,
+        }
+    }
 }
 
 impl P2pNetworkNoiseState {
@@ -183,7 +224,7 @@ impl NoiseState {
     }
 }
 
-#[derive(Debug, Error, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum NoiseError {
     #[error("chunk too short")]
     ChunkTooShort,

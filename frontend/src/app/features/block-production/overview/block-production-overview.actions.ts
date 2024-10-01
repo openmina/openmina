@@ -37,6 +37,7 @@ const getRewardsStatsSuccess = createAction(type('Get Rewards Stats Success'), p
 }>());
 const changeFilters = createAction(type('Change Filters'), props<{ filters: BlockProductionOverviewFilters }>());
 const changeScale = createAction(type('Change Scale'), props<{ scale: 'linear' | 'adaptive' }>());
+const setActiveSlot = createAction(type('Set Active Slot'), props<{ slot: number }>());
 
 export const BlockProductionOverviewActions = {
   init,
@@ -51,4 +52,5 @@ export const BlockProductionOverviewActions = {
   getRewardsStatsSuccess,
   changeFilters,
   changeScale,
+  setActiveSlot,
 };

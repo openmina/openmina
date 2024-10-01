@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::AppliedBlock;
 use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,7 @@ pub enum RpcRequestStatus {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequestExtraData {
     None,
-    FullBlockOpt(Option<ArcBlockWithHash>),
+    FullBlockOpt(Option<AppliedBlock>),
 }
 
 impl RpcRequestStatus {
@@ -64,7 +64,13 @@ impl RpcState {
 
     pub fn scan_state_summary_rpc_ids(
         &self,
-    ) -> impl Iterator<Item = (RpcId, &v2::LedgerHash, &RpcRequestStatus)> {
+    ) -> impl Iterator<
+        Item = (
+            RpcId,
+            &v2::MinaBaseStagedLedgerHashStableV1,
+            &RpcRequestStatus,
+        ),
+    > {
         self.requests
             .iter()
             .filter(|(_, req)| matches!(req.req, RpcRequest::ScanStateSummaryGet(_)))
@@ -73,7 +79,7 @@ impl RpcState {
                     RpcRequestExtraData::FullBlockOpt(block) => block.as_ref()?,
                     _ => return None,
                 };
-                Some((*id, block.staged_ledger_hash(), &req.status))
+                Some((*id, block.staged_ledger_hashes(), &req.status))
             })
     }
 

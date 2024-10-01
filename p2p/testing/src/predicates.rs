@@ -122,7 +122,7 @@ where
                 id,
                 event: Libp2pEvent::ConnectionEstablished { peer_id, .. },
             } => {
-                nodes_peers.remove(&(id.into(), peer_id.try_into().unwrap()))
+                nodes_peers.remove(&(id.into(), peer_id.try_into().expect("Conversion failed")))
                     && nodes_peers.is_empty()
             }
             _ => false,

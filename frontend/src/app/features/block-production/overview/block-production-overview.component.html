@@ -1,19 +1,32 @@
-<mina-horizontal-resizable-container [leftTemplate]="left"
-                                     [rightTemplate]="right"
-                                     [show]="showSidePanel"
-                                     [minWidth]="360"
-                                     [maxWidthElement]="el.nativeElement"
-                                     localStorageKey="bp-overview-spw">
-</mina-horizontal-resizable-container>
-
-<ng-template #left>
-  <mina-block-production-overview-toolbar></mina-block-production-overview-toolbar>
-  <div class="h-minus-xl flex-column">
-    <mina-block-production-overview-epoch-graphs></mina-block-production-overview-epoch-graphs>
-    <mina-block-production-overview-slots></mina-block-production-overview-slots>
+<ng-container *ngIf="isLoading || isCalculatingVRF; else normalView">
+  <div class="w-100 h-100 fx-col-full-cent">
+    <mina-loading-spinner [size]="50" [borderWidth]="2"></mina-loading-spinner>
+    <div [class.opacity-0]="!isCalculatingVRF" class="fx-col-full-cent">
+      <div class="f-600 f-18 mt-16 mb-10">Calculating Block Producing Rights</div>
+      <div class="tertiary f-16" [class.opacity-0]="!epoch">
+        Epoch {{ epoch?.epochNumber }} - Slot {{ epoch?.slots?.length }}/{{ SLOTS_PER_EPOCH }}
+      </div>
+    </div>
   </div>
-</ng-template>
+</ng-container>
+<ng-template #normalView>
+  <mina-horizontal-resizable-container [leftTemplate]="left"
+                                       [rightTemplate]="right"
+                                       [show]="showSidePanel"
+                                       [minWidth]="360"
+                                       [maxWidthElement]="el.nativeElement"
+                                       localStorageKey="bp-overview-spw">
+  </mina-horizontal-resizable-container>
 
-<ng-template #right>
-  <mina-block-production-overview-side-panel></mina-block-production-overview-side-panel>
+  <ng-template #left>
+    <mina-block-production-overview-toolbar></mina-block-production-overview-toolbar>
+    <div class="h-minus-xl flex-column">
+      <mina-block-production-overview-epoch-graphs></mina-block-production-overview-epoch-graphs>
+      <mina-block-production-overview-slots></mina-block-production-overview-slots>
+    </div>
+  </ng-template>
+
+  <ng-template #right>
+    <mina-block-production-overview-side-panel></mina-block-production-overview-side-panel>
+  </ng-template>
 </ng-template>

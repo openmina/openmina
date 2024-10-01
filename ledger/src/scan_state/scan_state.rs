@@ -527,6 +527,8 @@ pub mod transaction_snark {
     }
 
     pub mod work {
+        use ark_ff::fields::arithmetic::InvalidBigInt;
+
         use super::*;
 
         pub type Statement = OneOrTwo<super::Statement<()>>;
@@ -542,13 +544,15 @@ pub mod transaction_snark {
 
         pub type Checked = Work;
 
-        impl From<&openmina_core::snark::Snark> for Work {
-            fn from(value: &openmina_core::snark::Snark) -> Self {
-                Self {
-                    prover: (&value.snarker).into(),
+        impl TryFrom<&openmina_core::snark::Snark> for Work {
+            type Error = InvalidBigInt;
+
+            fn try_from(value: &openmina_core::snark::Snark) -> Result<Self, Self::Error> {
+                Ok(Self {
+                    prover: (&value.snarker).try_into()?,
                     fee: (&value.fee).into(),
-                    proofs: (&*value.proofs).into(),
-                }
+                    proofs: (&*value.proofs).try_into()?,
+                })
             }
         }
 
@@ -923,7 +927,7 @@ where
     } = transaction_with_info.transaction();
 
     let protocol_state = get_state(state_hash.0);
-    let state_view = protocol_state_view(&protocol_state);
+    let state_view = protocol_state_view(&protocol_state).map_err(|e| format!("{:?}", e))?;
 
     let empty_local_state = LocalState::empty();
 
@@ -1476,7 +1480,8 @@ impl ScanState {
         {
             match get_protocol_state(state_hash) {
                 Ok(state) => {
-                    let txn_state_view = protocol_state_view(&state);
+                    let txn_state_view =
+                        protocol_state_view(&state).map_err(|e| format!("{:?}", e))?;
                     apply(block_global_slot, &txn_state_view, ledger, tx)
                 }
                 Err(e) => Err(format!(
@@ -1584,71 +1589,72 @@ impl ScanState {
             // from witnesses stored in the scan state and then use it to apply to the
             // ledger here
 
-            let inject_ledger_info = |partially_applied_txn: TransactionPartiallyApplied<
-                SparseLedger,
-            >| {
-                use TransactionPartiallyApplied as P;
+            let inject_ledger_info =
+                |partially_applied_txn: TransactionPartiallyApplied<SparseLedger>| {
+                    use TransactionPartiallyApplied as P;
 
-                match partially_applied_txn {
-                    P::ZkappCommand(zkapp) => {
-                        let original_first_pass_account_states = zkapp
-                            .original_first_pass_account_states
-                            .into_iter()
-                            .map(|(id, loc_opt)| match loc_opt {
-                                None => Ok((id, None)),
-                                Some((_sparse_ledger_loc, account)) => {
-                                    match ledger.location_of_account(&id) {
-                                        Some(loc) => Ok((id, Some((loc, account)))),
-                                        None => {
-                                            Err("Original accounts states from partially applied \
-                                                         transactions don't exist in the ledger")
+                    match partially_applied_txn {
+                        P::ZkappCommand(zkapp) => {
+                            let original_first_pass_account_states = zkapp
+                                .original_first_pass_account_states
+                                .into_iter()
+                                .map(|(id, loc_opt)| match loc_opt {
+                                    None => Ok((id, None)),
+                                    Some((_sparse_ledger_loc, account)) => {
+                                        match ledger.location_of_account(&id) {
+                                            Some(loc) => Ok((id, Some((loc, account)))),
+                                            None => Err(
+                                                "Original accounts states from partially applied \
+                                                         transactions don't exist in the ledger",
+                                            ),
                                         }
                                     }
-                                }
-                            })
-                            .collect::<Result<Vec<_>, &'static str>>()
-                            .unwrap(); // TODO
+                                })
+                                .collect::<Result<Vec<_>, &'static str>>()
+                                .unwrap(); // TODO
 
-                        let global_state = GlobalState {
-                            first_pass_ledger: ledger.clone(),
-                            second_pass_ledger: ledger.clone(),
-                            fee_excess: zkapp.global_state.fee_excess,
-                            supply_increase: zkapp.global_state.supply_increase,
-                            protocol_state: zkapp.global_state.protocol_state,
-                            block_global_slot: zkapp.global_state.block_global_slot,
-                        };
+                            let global_state = GlobalState {
+                                first_pass_ledger: ledger.clone(),
+                                second_pass_ledger: ledger.clone(),
+                                fee_excess: zkapp.global_state.fee_excess,
+                                supply_increase: zkapp.global_state.supply_increase,
+                                protocol_state: zkapp.global_state.protocol_state,
+                                block_global_slot: zkapp.global_state.block_global_slot,
+                            };
 
-                        let local_state = LocalStateEnv {
-                            stack_frame: zkapp.local_state.stack_frame,
-                            call_stack: zkapp.local_state.call_stack,
-                            transaction_commitment: zkapp.local_state.transaction_commitment,
-                            full_transaction_commitment: zkapp
-                                .local_state
-                                .full_transaction_commitment,
-                            excess: zkapp.local_state.excess,
-                            supply_increase: zkapp.local_state.supply_increase,
-                            ledger: ledger.clone(),
-                            success: zkapp.local_state.success,
-                            account_update_index: zkapp.local_state.account_update_index,
-                            failure_status_tbl: zkapp.local_state.failure_status_tbl,
-                            will_succeed: zkapp.local_state.will_succeed,
-                        };
+                            let local_state = LocalStateEnv {
+                                stack_frame: zkapp.local_state.stack_frame,
+                                call_stack: zkapp.local_state.call_stack,
+                                transaction_commitment: zkapp.local_state.transaction_commitment,
+                                full_transaction_commitment: zkapp
+                                    .local_state
+                                    .full_transaction_commitment,
+                                excess: zkapp.local_state.excess,
+                                supply_increase: zkapp.local_state.supply_increase,
+                                ledger: ledger.clone(),
+                                success: zkapp.local_state.success,
+                                account_update_index: zkapp.local_state.account_update_index,
+                                failure_status_tbl: zkapp.local_state.failure_status_tbl,
+                                will_succeed: zkapp.local_state.will_succeed,
+                            };
 
-                        TransactionPartiallyApplied::ZkappCommand(ZkappCommandPartiallyApplied {
-                            command: zkapp.command,
-                            previous_hash: zkapp.previous_hash,
-                            original_first_pass_account_states,
-                            constraint_constants: zkapp.constraint_constants,
-                            state_view: zkapp.state_view,
-                            global_state,
-                            local_state,
-                        })
+                            TransactionPartiallyApplied::ZkappCommand(Box::new(
+                                ZkappCommandPartiallyApplied {
+                                    command: zkapp.command,
+                                    previous_hash: zkapp.previous_hash,
+                                    original_first_pass_account_states,
+                                    constraint_constants: zkapp.constraint_constants,
+                                    state_view: zkapp.state_view,
+                                    global_state,
+                                    local_state,
+                                },
+                            ))
+                        }
+                        P::SignedCommand(c) => P::SignedCommand(c),
+                        P::FeeTransfer(ft) => P::FeeTransfer(ft),
+                        P::Coinbase(cb) => P::Coinbase(cb),
                     }
-                    P::SignedCommand(c) => P::SignedCommand(c),
-                    P::FeeTransfer(ft) => P::FeeTransfer(ft),
-                    P::Coinbase(cb) => P::Coinbase(cb),
-                }
-            };
+                };
 
             let apply_txns_to_witnesses_first_pass = |txns: Vec<Arc<TransactionWithWitness>>| {
                 let acc = txns
@@ -2006,12 +2012,12 @@ impl ScanState {
 
         match job {
             Base(d) => Extracted::First {
-                transaction_with_info: d.transaction_with_info.to_owned(),
+                transaction_with_info: Box::new(d.transaction_with_info.to_owned()),
                 statement: Box::new(d.statement.to_owned()),
-                state_hash: d.state_hash,
+                state_hash: Box::new(d.state_hash),
                 first_pass_ledger_witness: d.first_pass_ledger_witness.to_owned(),
                 second_pass_ledger_witness: d.second_pass_ledger_witness.to_owned(),
-                init_stack: d.init_stack.to_owned(),
+                init_stack: Box::new(d.init_stack.to_owned()),
                 block_global_slot: d.block_global_slot,
             },
             Merge { left, right } => {
@@ -2117,7 +2123,7 @@ impl ScanState {
                         state.body.clone()
                     };
 
-                    let init_stack = match init_stack {
+                    let init_stack = match *init_stack {
                         InitStack::Base(x) => x,
                         InitStack::Merge => return Err("init_stack was Merge".to_string()),
                     };
@@ -2171,7 +2177,7 @@ impl ScanState {
                         state.body.clone()
                     };
 
-                    let init_stack = match init_stack {
+                    let init_stack = match *init_stack {
                         InitStack::Base(x) => x,
                         InitStack::Merge => return None,
                     };
@@ -2370,12 +2376,12 @@ where
 
 pub enum Extracted {
     First {
-        transaction_with_info: TransactionApplied,
+        transaction_with_info: Box<TransactionApplied>,
         statement: Box<Statement<()>>,
-        state_hash: (Fp, Fp),
+        state_hash: Box<(Fp, Fp)>,
         first_pass_ledger_witness: SparseLedger,
         second_pass_ledger_witness: SparseLedger,
-        init_stack: InitStack,
+        init_stack: Box<InitStack>,
         block_global_slot: Slot,
     },
     Second(Box<(LedgerProof, LedgerProof)>),

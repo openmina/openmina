@@ -1,5 +1,5 @@
 use mina_p2p_messages::v2::LedgerHash;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
 use p2p::PeerId;
 use redux::ActionMeta;
@@ -7,12 +7,12 @@ use redux::ActionMeta;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
-use crate::{p2p_ready, Service, Store};
+use crate::{p2p_ready, Service, Store, TransitionFrontierAction};
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::ledger::{SyncLedgerTarget, TransitionFrontierSyncLedgerAction};
-use super::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
+use super::{SyncError, TransitionFrontierSyncAction, TransitionFrontierSyncState};
 
 impl TransitionFrontierSyncAction {
     pub fn effects<S>(&self, meta: &ActionMeta, store: &mut Store<S>)
@@ -265,7 +265,27 @@ impl TransitionFrontierSyncAction {
                 });
             }
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
-            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
+            TransitionFrontierSyncAction::BlocksNextApplyError { hash, error } => {
+                let Some((best_tip, failed_block)) = None.or_else(|| {
+                    Some((
+                        store.state().transition_frontier.sync.best_tip()?.clone(),
+                        store
+                            .state()
+                            .transition_frontier
+                            .sync
+                            .block_state(hash)?
+                            .block()?,
+                    ))
+                }) else {
+                    return;
+                };
+                let error = SyncError::BlockApplyFailed(failed_block.clone(), error.clone());
+                store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
+            }
+            TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                hash,
+                just_emitted_a_proof: _,
+            } => {
                 if let Some(stats) = store.service.stats() {
                     stats.block_producer().block_apply_end(meta.time(), hash);
                 }
@@ -302,7 +322,7 @@ impl TransitionFrontierSyncAction {
                     .flat_map(|b| {
                         [
                             b.snarked_ledger_hash(),
-                            b.staged_ledger_hash(),
+                            b.merkle_root_hash(),
                             b.staking_epoch_ledger_hash(),
                             b.next_epoch_ledger_hash(),
                         ]
@@ -315,8 +335,12 @@ impl TransitionFrontierSyncAction {
                     .iter()
                     .any(|b| b.hash() == new_root.hash())
                 {
+                    let old_chain = transition_frontier
+                        .best_chain
+                        .iter()
+                        .map(AppliedBlock::block_with_hash);
                     root_snarked_ledger_updates
-                        .extend_with_needed(new_root, &transition_frontier.best_chain);
+                        .extend_with_needed(new_root.block_with_hash(), old_chain);
                 }
 
                 let needed_protocol_states = if root_snarked_ledger_updates.is_empty() {

@@ -1,11 +1,19 @@
 @import 'openmina';
 
+.live-button {
+  width: 110px;
+}
+
 .mina-input[formcontrolname='batch'] {
-  width: 60px;
+  width: 55px;
+}
+
+.mina-input[formcontrolname='amount'] {
+  width: 55px;
 }
 
 .mina-input[formcontrolname='fee'] {
-  width: 60px;
+  width: 55px;
 }
 
 .button-group {
@@ -24,7 +32,7 @@
 .dropdown {
   box-sizing: border-box;
   max-height: 300px;
-  min-width: 315px;
+  min-width: 325px;
 
   .dropdown-item {
     display: grid;

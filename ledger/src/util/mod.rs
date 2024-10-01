@@ -45,7 +45,7 @@ impl FpExt for Fq {
 
 pub fn gen_keypair() -> Keypair {
     let mut rng = rand::thread_rng();
-    Keypair::rand(&mut rng)
+    Keypair::rand(&mut rng).unwrap()
 }
 
 pub fn gen_compressed() -> CompressedPubKey {

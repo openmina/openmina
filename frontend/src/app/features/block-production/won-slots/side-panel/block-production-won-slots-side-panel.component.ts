@@ -19,6 +19,7 @@ import { any, hasValue, noMillisFormat, ONE_THOUSAND, SecDurationConfig, toReada
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
+import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
 
 @Component({
   selector: 'mina-block-production-won-slots-side-panel',
@@ -67,9 +68,9 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   }
 
   private listenToActiveNode(): void {
-    this.select(AppSelectors.activeNode, (node) => {
-      this.minaExplorer = node.minaExplorerNetwork;
-    });
+    this.select(AppSelectors.activeNodeDetails, (node: AppNodeDetails) => {
+      this.minaExplorer = node.network?.toLowerCase();
+    }, filter(Boolean));
   }
 
   private listenToActiveSlot(): void {
@@ -107,8 +108,8 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   }
 
   viewInMinaExplorer(): void {
-    const network = this.minaExplorer !== 'mainnet' ? this.minaExplorer : '';
-    const url = `https://${network}.minaexplorer.com/block/${this.slot.hash}`;
+    const network = this.minaExplorer !== 'mainnet' ? (this.minaExplorer + '.') : '';
+    const url = `https://${network}minaexplorer.com/block/${this.slot.hash}`;
     window.open(url, '_blank');
   }
 

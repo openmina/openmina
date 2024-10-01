@@ -5,6 +5,7 @@ use base64::Engine;
 use crypto_secretbox::aead::{Aead, OsRng};
 use crypto_secretbox::{AeadCore, KeyInit, XSalsa20Poly1305};
 use mina_p2p_messages::{bigint::BigInt, v2::SignatureLibPrivateKeyStableV1};
+use mina_signer::seckey::SecKeyError;
 use mina_signer::{keypair::KeypairError, CompressedPubKey, Keypair};
 use openmina_core::constants::GENESIS_PRODUCER_SK;
 use rand::{rngs::StdRng, CryptoRng, Rng, SeedableRng};
@@ -51,11 +52,19 @@ impl AccountSecretKey {
     }
 
     pub fn rand_with(mut rng: impl Rng + CryptoRng) -> Self {
-        Self(Keypair::rand(&mut rng))
+        Self(Keypair::rand(&mut rng).unwrap())
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, KeypairError> {
-        Ok(Self(Keypair::from_bytes(bytes)?))
+        let mut bytes: [u8; 32] = match bytes.try_into() {
+            Ok(bytes) => bytes,
+            Err(_) => return Err(KeypairError::SecretKey(SecKeyError::SecretKeyLength)),
+        };
+
+        // For some reason, `mina_signer::SecKey::from_bytes` reverse the bytes
+        bytes.reverse();
+
+        Ok(Self(Keypair::from_bytes(&bytes[..])?))
     }
 
     pub fn to_bytes(&self) -> [u8; 32] {

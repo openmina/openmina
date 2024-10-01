@@ -3,7 +3,6 @@ pub use ::p2p::*;
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
-pub mod discovery;
 pub mod network;
 pub mod peer;
 
@@ -83,11 +82,10 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingAction);
 
 impl_into_global_action!(disconnection::P2pDisconnectionAction);
 
-impl_into_global_action!(discovery::P2pDiscoveryAction);
-
 impl_into_global_action!(network::P2pNetworkSchedulerAction);
 impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
 impl_into_global_action!(network::pubsub::P2pNetworkPubsubAction);
+impl_into_global_action!(network::pubsub::P2pNetworkPubsubEffectfulAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
@@ -96,3 +94,25 @@ impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
 impl_into_global_action!(channels::rpc::P2pChannelsRpcAction);
 impl_into_global_action!(channels::streaming_rpc::P2pChannelsStreamingRpcAction);
+
+impl_into_global_action!(p2p::P2pNetworkKademliaStreamAction);
+impl_into_global_action!(p2p::P2pNetworkKadRequestAction);
+impl_into_global_action!(p2p::P2pNetworkKadBootstrapAction);
+impl_into_global_action!(p2p::P2pNetworkYamuxAction);
+impl_into_global_action!(p2p::peer::P2pPeerAction);
+impl_into_global_action!(p2p::network::identify::stream::P2pNetworkIdentifyStreamAction);
+impl_into_global_action!(
+    p2p::network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction
+);
+impl_into_global_action!(p2p::identify::P2pIdentifyAction);
+impl_into_global_action!(p2p::P2pNetworkSelectAction);
+impl_into_global_action!(p2p::P2pNetworkPnetAction);
+impl_into_global_action!(p2p::P2pNetworkNoiseAction);
+impl_into_global_action!(p2p::P2pNetworkRpcAction);
+impl_into_global_action!(p2p::P2pNetworkSchedulerEffectfulAction);
+impl_into_global_action!(p2p::P2pNetworkPnetEffectfulAction);
+impl_into_global_action!(connection::incoming_effectful::P2pConnectionIncomingEffectfulAction);
+impl_into_global_action!(connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction);
+impl_into_global_action!(p2p::disconnection_effectful::P2pDisconnectionEffectfulAction);
+
+impl p2p::P2pActionTrait<crate::State> for crate::Action {}

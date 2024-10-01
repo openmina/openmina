@@ -64,6 +64,17 @@ impl P2pNetworkSchedulerState {
         self.rpc_incoming_streams.remove(peer_id);
         self.rpc_outgoing_streams.remove(peer_id);
     }
+
+    pub fn connection_state_mut(
+        &mut self,
+        addr: &ConnectionAddr,
+    ) -> Option<&mut P2pNetworkConnectionState> {
+        self.connections.get_mut(addr)
+    }
+
+    pub fn connection_state(&self, addr: &ConnectionAddr) -> Option<&P2pNetworkConnectionState> {
+        self.connections.get(addr)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -100,6 +111,50 @@ impl P2pNetworkConnectionState {
             mux.consume(len);
         } else {
             self.limit = self.limit.saturating_sub(len);
+        }
+    }
+
+    pub fn noise_state(&self) -> Option<&P2pNetworkNoiseState> {
+        self.auth
+            .as_ref()
+            .map(|P2pNetworkAuthState::Noise(state)| state)
+    }
+
+    pub fn noise_state_mut(&mut self) -> Option<&mut P2pNetworkNoiseState> {
+        self.auth
+            .as_mut()
+            .map(|P2pNetworkAuthState::Noise(state)| state)
+    }
+
+    pub fn yamux_state_mut(&mut self) -> Option<&mut P2pNetworkYamuxState> {
+        self.mux
+            .as_mut()
+            .map(|P2pNetworkConnectionMuxState::Yamux(state)| state)
+    }
+
+    pub fn yamux_state(&self) -> Option<&P2pNetworkYamuxState> {
+        self.mux
+            .as_ref()
+            .map(|P2pNetworkConnectionMuxState::Yamux(state)| state)
+    }
+
+    pub fn select_state_mut(&mut self, kind: &SelectKind) -> Option<&mut P2pNetworkSelectState> {
+        match kind {
+            SelectKind::Authentication => Some(&mut self.select_auth),
+            SelectKind::MultiplexingNoPeerId | SelectKind::Multiplexing(_) => {
+                Some(&mut self.select_mux)
+            }
+            SelectKind::Stream(_, stream_id) => Some(&mut self.streams.get_mut(stream_id)?.select),
+        }
+    }
+
+    pub fn select_state(&self, kind: &SelectKind) -> Option<&P2pNetworkSelectState> {
+        match kind {
+            SelectKind::Authentication => Some(&self.select_auth),
+            SelectKind::MultiplexingNoPeerId | SelectKind::Multiplexing(_) => {
+                Some(&self.select_mux)
+            }
+            SelectKind::Stream(_, stream_id) => Some(&self.streams.get(stream_id)?.select),
         }
     }
 }
@@ -139,6 +194,8 @@ pub enum P2pNetworkConnectionError {
     KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
     #[error("peer reset yamux stream")]
     StreamReset(StreamId),
+    #[error("pubsub error: {0}")]
+    PubSubError(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

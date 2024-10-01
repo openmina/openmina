@@ -9,6 +9,15 @@ import { noMillisFormat, ONE_THOUSAND, toReadableDate } from '@openmina/shared';
 import {
   BlockProductionOverviewAllStats,
 } from '@shared/types/block-production/overview/block-production-overview-all-stats.type';
+import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
+import {
+  BlockProductionOverviewSlot,
+} from '@shared/types/block-production/overview/block-production-overview-slot.type';
+import { Routes } from '@shared/enums/routes.enum';
+import { Router } from '@angular/router';
+import {
+  BlockProductionOverviewSlotsComponent,
+} from '@block-production/overview/slots/block-production-overview-slots.component';
 
 @Component({
   selector: 'mina-block-production-overview-side-panel',
@@ -18,8 +27,12 @@ import {
 })
 export class BlockProductionOverviewSidePanelComponent extends StoreDispatcher implements OnInit {
 
+  activeScreen: number = 0;
   activeTab: number = 1;
   activeEpoch: BlockProductionOverviewEpoch;
+  activeSlot: BlockProductionOverviewSlot;
+  activeSlotStatus: string;
+  activeSlotColor: string;
 
   extras: any = {
     balanceProducer: undefined,
@@ -41,9 +54,12 @@ export class BlockProductionOverviewSidePanelComponent extends StoreDispatcher i
   };
   allTimeStats: BlockProductionOverviewAllStats;
 
+  constructor(private router: Router) {super();}
+
   ngOnInit(): void {
     this.listenToActiveEpoch();
     this.listenToAllTimeStats();
+    this.listenToActiveSlot();
   }
 
   private listenToActiveEpoch(): void {
@@ -82,7 +98,31 @@ export class BlockProductionOverviewSidePanelComponent extends StoreDispatcher i
     }, filter(Boolean));
   }
 
+  private listenToActiveSlot(): void {
+    this.select(BlockProductionOverviewSelectors.activeSlot, slot => {
+      this.activeSlot = slot;
+      if (slot) {
+        this.activeScreen = 1;
+        this.activeSlotStatus = BlockProductionOverviewSlotsComponent.getSlotText(this.activeSlot);
+        this.activeSlotColor = BlockProductionOverviewSlotsComponent.getSlotColor(this.activeSlot, {
+          canonical: true,
+          orphaned: true,
+          future: true,
+          missed: true,
+        });
+      } else {
+        this.activeScreen = 0;
+      }
+      this.detect();
+    });
+  }
+
   selectTab(tab: number): void {
     this.activeTab = tab;
+  }
+
+  removeActiveSlot(): void {
+    this.dispatch2(BlockProductionOverviewActions.setActiveSlot({ slot: undefined }));
+    this.router.navigate([Routes.BLOCK_PRODUCTION, Routes.OVERVIEW, this.activeEpoch.epochNumber], { queryParamsHandling: 'merge' });
   }
 }

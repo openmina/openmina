@@ -5,6 +5,7 @@ use std::{
 };
 
 use ark_ec::{short_weierstrass_jacobian::GroupAffine, AffineCurve, ModelParameters};
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_poly::{univariate::DensePolynomial, Radix2EvaluationDomain};
 use kimchi::{
     alphas::Alphas,
@@ -16,7 +17,7 @@ use kimchi::{
         wires::{COLUMNS, PERMUTS},
     },
     mina_curves::pasta::Pallas,
-    verifier_index::{LookupVerifierIndex, VerifierIndex},
+    verifier_index::LookupVerifierIndex,
 };
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::bigint::BigInt;
@@ -24,11 +25,20 @@ use once_cell::sync::OnceCell;
 use poly_commitment::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 use serde::{Deserialize, Serialize};
 
+use super::VerifierIndex;
+
 fn into<'a, U, T>(slice: &'a [U]) -> Vec<T>
 where
     T: From<&'a U>,
 {
     slice.iter().map(T::from).collect()
+}
+
+fn try_into<'a, U, T>(slice: &'a [U]) -> Result<Vec<T>, InvalidBigInt>
+where
+    T: TryFrom<&'a U, Error = InvalidBigInt>,
+{
+    slice.iter().map(T::try_from).collect()
 }
 
 // Make it works with other containers, and non-From types
@@ -57,11 +67,11 @@ impl From<&Radix2EvaluationDomainCached> for Radix2EvaluationDomain<Fq> {
         Self {
             size: domain.size,
             log_size_of_group: domain.log_size_of_group,
-            size_as_field_element: domain.size_as_field_element.to_field(),
-            size_inv: domain.size_inv.to_field(),
-            group_gen: domain.group_gen.to_field(),
-            group_gen_inv: domain.group_gen_inv.to_field(),
-            generator_inv: domain.generator_inv.to_field(),
+            size_as_field_element: domain.size_as_field_element.to_field().unwrap(), // We trust cached data
+            size_inv: domain.size_inv.to_field().unwrap(), // We trust cached data
+            group_gen: domain.group_gen.to_field().unwrap(), // We trust cached data
+            group_gen_inv: domain.group_gen_inv.to_field().unwrap(), // We trust cached data
+            generator_inv: domain.generator_inv.to_field().unwrap(), // We trust cached data
         }
     }
 }
@@ -105,17 +115,20 @@ where
 impl<T> From<&GroupAffineCached> for GroupAffine<T>
 where
     T: ark_ec::SWModelParameters,
-    <T as ModelParameters>::BaseField: From<ark_ff::BigInteger256>,
+    <T as ModelParameters>::BaseField: TryFrom<ark_ff::BigInteger256, Error = InvalidBigInt>,
 {
     fn from(pallas: &GroupAffineCached) -> Self {
-        Self::new(pallas.x.to_field(), pallas.y.to_field(), pallas.infinity)
+        Self::new(
+            pallas.x.to_field().unwrap(), // We trust cached data
+            pallas.y.to_field().unwrap(), // We trust cached data
+            pallas.infinity,
+        )
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PolyCommCached {
-    unshifted: Vec<GroupAffineCached>,
-    shifted: Option<GroupAffineCached>,
+    elems: Vec<GroupAffineCached>,
 }
 
 impl<'a, A> From<&'a PolyComm<A>> for PolyCommCached
@@ -123,12 +136,9 @@ where
     GroupAffineCached: From<&'a A>,
 {
     fn from(value: &'a PolyComm<A>) -> Self {
-        let PolyComm { unshifted, shifted } = value;
+        let PolyComm { elems } = value;
 
-        Self {
-            unshifted: into(unshifted),
-            shifted: shifted.as_ref().map(Into::into),
-        }
+        Self { elems: into(elems) }
     }
 }
 
@@ -137,12 +147,9 @@ where
     A: From<&'a GroupAffineCached>,
 {
     fn from(value: &'a PolyCommCached) -> Self {
-        let PolyCommCached { unshifted, shifted } = value;
+        let PolyCommCached { elems } = value;
 
-        Self {
-            unshifted: into(unshifted),
-            shifted: shifted.as_ref().map(Into::into),
-        }
+        Self { elems: into(elems) }
     }
 }
 
@@ -191,7 +198,7 @@ struct DensePolynomialCached {
 impl From<&DensePolynomialCached> for DensePolynomial<Fq> {
     fn from(value: &DensePolynomialCached) -> Self {
         Self {
-            coeffs: into(&value.coeffs),
+            coeffs: try_into(&value.coeffs).unwrap(), // We trust cached data
         }
     }
 }
@@ -226,17 +233,18 @@ struct VerifierIndexCached {
     xor_comm: Option<PolyComm<Pallas>>,
     rot_comm: Option<PolyComm<Pallas>>,
     shift: [BigInt; PERMUTS], // Fq
-    zkpm: DensePolynomialCached,
+    permutation_vanishing_polynomial_m: DensePolynomialCached,
     w: BigInt,    // Fq
     endo: BigInt, // Fq
     lookup_index: Option<LookupVerifierIndex<Pallas>>,
     linearization: Linearization<Vec<PolishToken<BigInt>>>, // Fq
+    zk_rows: u64,
 }
 
-fn conv_token<'a, T, U>(token: &'a PolishToken<T>) -> PolishToken<U>
+fn conv_token<'a, T, U, F>(token: &'a PolishToken<T>, fun: F) -> PolishToken<U>
 where
     T: 'a,
-    U: From<&'a T>,
+    F: Fn(&T) -> U,
 {
     match token {
         PolishToken::Alpha => PolishToken::Alpha,
@@ -248,14 +256,16 @@ where
             row: *row,
             col: *col,
         },
-        PolishToken::Literal(f) => PolishToken::Literal(f.into()),
+        PolishToken::Literal(f) => PolishToken::Literal(fun(f)),
         PolishToken::Cell(var) => PolishToken::Cell(*var),
         PolishToken::Dup => PolishToken::Dup,
         PolishToken::Pow(int) => PolishToken::Pow(*int),
         PolishToken::Add => PolishToken::Add,
         PolishToken::Mul => PolishToken::Mul,
         PolishToken::Sub => PolishToken::Sub,
-        PolishToken::VanishesOnLast4Rows => PolishToken::VanishesOnLast4Rows,
+        PolishToken::VanishesOnZeroKnowledgeAndPreviousRows => {
+            PolishToken::VanishesOnZeroKnowledgeAndPreviousRows
+        }
         PolishToken::UnnormalizedLagrangeBasis(int) => PolishToken::UnnormalizedLagrangeBasis(*int),
         PolishToken::Store => PolishToken::Store,
         PolishToken::Load(int) => PolishToken::Load(*int),
@@ -264,15 +274,18 @@ where
     }
 }
 
-fn conv_linearization<'a, T, U>(
+fn conv_linearization<'a, T, U, F>(
     linearization: &'a Linearization<Vec<PolishToken<T>>>,
+    fun: F,
 ) -> Linearization<Vec<PolishToken<U>>>
 where
     T: 'a,
-    U: From<&'a T>,
+    F: Fn(&T) -> U,
 {
     let constant_term = &linearization.constant_term;
     let index_terms = &linearization.index_terms;
+
+    let conv_token = |token: &PolishToken<T>| conv_token(token, &fun);
 
     Linearization {
         constant_term: into_with(constant_term, conv_token),
@@ -282,9 +295,9 @@ where
     }
 }
 
-impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
-    fn from(v: &VerifierIndex<Pallas>) -> Self {
-        let VerifierIndex {
+impl From<&VerifierIndex<Fq>> for VerifierIndexCached {
+    fn from(v: &VerifierIndex<Fq>) -> Self {
+        let VerifierIndex::<Fq> {
             domain,
             max_poly_size,
             srs,
@@ -305,18 +318,19 @@ impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
             xor_comm,
             rot_comm,
             shift,
-            zkpm,
             w,
             endo,
             lookup_index,
             linearization,
+            zk_rows,
+            permutation_vanishing_polynomial_m,
             powers_of_alpha: _, // ignored
         } = v;
 
         Self {
             domain: domain.into(),
             max_poly_size: *max_poly_size,
-            srs: (&**srs.get().unwrap()).into(),
+            srs: (&**srs).into(),
             public: *public,
             prev_challenges: *prev_challenges,
             sigma_comm: sigma_comm.clone(),
@@ -334,16 +348,20 @@ impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
             xor_comm: xor_comm.clone(),
             rot_comm: rot_comm.clone(),
             shift: shift.each_ref().map(|s| s.into()),
-            zkpm: zkpm.get().unwrap().into(),
+            permutation_vanishing_polynomial_m: permutation_vanishing_polynomial_m
+                .get()
+                .unwrap()
+                .into(),
             w: (*w.get().unwrap()).into(),
             endo: endo.into(),
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(linearization),
+            linearization: conv_linearization(linearization, |v| v.into()),
+            zk_rows: *zk_rows,
         }
     }
 }
 
-impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
+impl From<&VerifierIndexCached> for VerifierIndex<Fq> {
     fn from(v: &VerifierIndexCached) -> Self {
         let VerifierIndexCached {
             domain,
@@ -366,17 +384,18 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
             xor_comm,
             rot_comm,
             shift,
-            zkpm,
+            permutation_vanishing_polynomial_m,
             w,
             endo,
             lookup_index,
             linearization,
+            zk_rows,
         } = v;
 
         Self {
             domain: domain.into(),
             max_poly_size: *max_poly_size,
-            srs: OnceCell::with_value(Arc::new(srs.into())),
+            srs: Arc::new(srs.into()),
             public: *public,
             prev_challenges: *prev_challenges,
             sigma_comm: sigma_comm.clone(),
@@ -389,12 +408,14 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
             endomul_scalar_comm: endomul_scalar_comm.clone(),
             foreign_field_add_comm: foreign_field_add_comm.clone(),
             xor_comm: xor_comm.clone(),
-            shift: shift.each_ref().map(|s| s.to_field()),
-            zkpm: OnceCell::with_value(zkpm.into()),
-            w: OnceCell::with_value(w.to_field()),
-            endo: endo.to_field(),
+            shift: shift.each_ref().map(|s| s.to_field().unwrap()), // We trust cached data
+            permutation_vanishing_polynomial_m: OnceCell::with_value(
+                permutation_vanishing_polynomial_m.into(),
+            ),
+            w: OnceCell::with_value(w.to_field().unwrap()), // We trust cached data
+            endo: endo.to_field().unwrap(),                 // We trust cached data
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(linearization),
+            linearization: conv_linearization(linearization, |v| v.try_into().unwrap()),
             powers_of_alpha: {
                 // `Alphas` contains private data, so we can't de/serialize it.
                 // Initializing an `Alphas` is cheap anyway (for block verification).
@@ -413,6 +434,7 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
             range_check1_comm: range_check1_comm.clone(),
             foreign_field_mul_comm: foreign_field_mul_comm.clone(),
             rot_comm: rot_comm.clone(),
+            zk_rows: *zk_rows,
         }
     }
 }
@@ -422,7 +444,7 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
 pub struct VerifierIndexToBytesError(#[from] postcard::Error);
 
 pub fn verifier_index_to_bytes(
-    verifier: &VerifierIndex<Pallas>,
+    verifier: &VerifierIndex<Fq>,
 ) -> Result<Vec<u8>, VerifierIndexToBytesError> {
     let verifier: VerifierIndexCached = verifier.into();
     Ok(postcard::to_stdvec(&verifier)?)
@@ -434,7 +456,7 @@ pub struct VerifierIndexFromBytesError(#[from] postcard::Error);
 
 pub fn verifier_index_from_bytes(
     bytes: &[u8],
-) -> Result<VerifierIndex<Pallas>, VerifierIndexFromBytesError> {
+) -> Result<VerifierIndex<Fq>, VerifierIndexFromBytesError> {
     let verifier: VerifierIndexCached = postcard::from_bytes(bytes)?;
     Ok((&verifier).into())
 }

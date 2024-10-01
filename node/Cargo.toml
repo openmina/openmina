@@ -1,6 +1,6 @@
 [package]
 name = "node"
-version = "0.8.2"
+version = "0.8.14"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -23,13 +23,14 @@ mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
+ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
 
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
 p2p = { path = "../p2p" }
 openmina-node-account = { workspace = true }
 tokio = { version = "1.26.0" }
-postcard = { version = "1.0.8", features = ["use-std"] }
+postcard = { version = "1.0.9", features = ["use-std"] }
 static_assertions.workspace = true
 
 [build-dependencies]

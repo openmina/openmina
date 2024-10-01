@@ -16,6 +16,7 @@ import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { filter, map, tap } from 'rxjs';
 import { CONFIG, getAvailableFeatures } from '@shared/constants/config';
 import { NavigationEnd, Router } from '@angular/router';
+import { MinaNetwork } from '@shared/types/core/mina/mina.type';
 
 interface MenuItem {
   name: string;
@@ -54,6 +55,8 @@ export class MenuComponent extends ManualDetection implements OnInit {
   appIdentifier: string = CONFIG.identifier;
   activeNode: MinaNode;
   activeRoute: string;
+  network?: MinaNetwork;
+  chainId?: string;
 
   constructor(private router: Router,
               private store: Store<MinaState>,
@@ -100,6 +103,17 @@ export class MenuComponent extends ManualDetection implements OnInit {
       .subscribe((node: MinaNode) => {
         this.activeNode = node;
         this.menuItems = this.allowedMenuItems;
+        this.detect();
+      });
+
+    this.store.select(AppSelectors.activeNodeDetails)
+      .pipe(
+        filter(Boolean),
+        untilDestroyed(this),
+      )
+      .subscribe(({ chainId, network }) => {
+        this.chainId = chainId;
+        this.network = network as MinaNetwork;
         this.detect();
       });
   }

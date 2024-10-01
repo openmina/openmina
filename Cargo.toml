@@ -35,15 +35,15 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-mina-p2p-messages = { path = "mina-p2p-messages", features = ["hashing"] }
+mina-p2p-messages = { path = "mina-p2p-messages" }
 ledger = { path = "ledger", package = "mina-tree" }
-mina-hasher = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
-kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
+mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "2fdb5a7" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "2fdb5a7" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "2fdb5a7" }
+o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "2fdb5a7" }
+kimchi = { git = "https://github.com/openmina/proof-systems", rev = "2fdb5a7" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "2fdb5a7"}
+poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "2fdb5a7"}
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
 openmina-node-account = { path = "node/account" }
@@ -66,13 +66,12 @@ incremental = false
 codegen-units = 1
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
-ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+ark-ff = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
+ark-ec = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
+ark-poly = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
+ark-serialize = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
 
 [profile.test.package."*"]
 opt-level = 3
 debug-assertions = true
 overflow-checks = false
-

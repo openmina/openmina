@@ -242,7 +242,7 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=33a1de2#33a1de22d36af53bd9169475195d9a6ea809bd5b"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -256,7 +256,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=33a1de2#33a1de22d36af53bd9169475195d9a6ea809bd5b"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
@@ -274,7 +274,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=33a1de2#33a1de22d36af53bd9169475195d9a6ea809bd5b"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -283,7 +283,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=33a1de2#33a1de22d36af53bd9169475195d9a6ea809bd5b"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -294,7 +294,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=33a1de2#33a1de22d36af53bd9169475195d9a6ea809bd5b"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -307,7 +307,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=33a1de2#33a1de22d36af53bd9169475195d9a6ea809bd5b"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -317,7 +317,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?branch=openmina#017531e7aaa15a2c856532b0843876e371b01122"
+source = "git+https://github.com/openmina/algebra?rev=33a1de2#33a1de22d36af53bd9169475195d9a6ea809bd5b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1013,7 +1013,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "cli"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1759,6 +1759,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
 
 [[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
 name = "encode_unicode"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2384,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2412,7 +2418,7 @@ dependencies = [
 
 [[package]]
 name = "hash-tool"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "bs58 0.5.0",
  "hex",
@@ -2544,6 +2550,9 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "hex_fmt"
@@ -2820,6 +2829,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "internal-tracing"
+version = "0.1.0"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2967,7 +2981,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2977,6 +2991,7 @@ dependencies = [
  "disjoint-set",
  "groupmap",
  "hex",
+ "internal-tracing",
  "itertools 0.10.5",
  "mina-curves",
  "mina-poseidon",
@@ -3010,7 +3025,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-tool"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "mina-curves",
@@ -3336,7 +3351,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-rpc-behaviour"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "libp2p",
  "log",
@@ -3624,7 +3639,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3633,7 +3648,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3650,7 +3665,7 @@ dependencies = [
  "alloc-test",
  "anyhow",
  "ark-ff",
- "base64 0.13.1",
+ "base64 0.22.0",
  "binprot",
  "binprot_derive",
  "blake2",
@@ -3665,8 +3680,11 @@ dependencies = [
  "mina-signer",
  "num-bigint",
  "o1-utils",
+ "openmina-macros",
  "rsexp",
+ "rsexp-derive",
  "serde",
+ "serde_bytes",
  "serde_json",
  "sha2 0.10.8",
  "thiserror",
@@ -3680,7 +3698,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3697,7 +3715,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3715,7 +3733,7 @@ dependencies = [
 
 [[package]]
 name = "mina-transport"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "blake2",
  "hex",
@@ -3726,7 +3744,7 @@ dependencies = [
 
 [[package]]
 name = "mina-tree"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -3744,6 +3762,7 @@ dependencies = [
  "getrandom 0.2.15",
  "hex",
  "itertools 0.10.5",
+ "js-sys",
  "kimchi",
  "lazy_static",
  "libc",
@@ -3757,6 +3776,7 @@ dependencies = [
  "ocaml-interop",
  "once_cell",
  "openmina-core",
+ "openmina-macros",
  "poly-commitment",
  "postcard",
  "rand 0.8.5",
@@ -3764,6 +3784,7 @@ dependencies = [
  "rand_seeder",
  "rayon",
  "redux",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_with 3.7.0",
@@ -3772,6 +3793,7 @@ dependencies = [
  "tuple-map",
  "uuid 1.5.0",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "web-sys",
  "zstd",
@@ -4059,9 +4081,10 @@ dependencies = [
 
 [[package]]
 name = "node"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
+ "ark-ff",
  "derive_more",
  "lazy_static",
  "linkme",
@@ -4306,7 +4329,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4404,7 +4427,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openmina-bootstrap-sandbox"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "base64 0.21.7",
  "binprot",
@@ -4429,7 +4452,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-core"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "ark-ff",
  "binprot",
@@ -4451,12 +4474,14 @@ dependencies = [
  "time",
  "tokio",
  "tracing",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm_thread",
 ]
 
 [[package]]
 name = "openmina-fuzzer"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "lazy_static",
  "rand 0.8.5",
@@ -4467,7 +4492,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-gossipsub-sandbox"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "bs58 0.5.0",
  "env_logger",
@@ -4481,7 +4506,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-macros"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "openmina-core",
@@ -4494,7 +4519,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-account"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "argon2",
@@ -4515,8 +4540,9 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-common"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
+ "ark-ff",
  "gloo-timers",
  "gloo-utils",
  "jsonpath-rust",
@@ -4525,6 +4551,7 @@ dependencies = [
  "mina-signer",
  "mina-tree",
  "node",
+ "openmina-core",
  "rand 0.8.5",
  "rayon",
  "redux",
@@ -4543,7 +4570,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-invariants"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "documented",
  "lazy_static",
@@ -4557,7 +4584,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-native"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4591,7 +4618,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-testing"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "axum",
@@ -4635,7 +4662,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-web"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4661,7 +4688,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-producer-dashboard"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "bincode",
  "clap 4.5.2",
@@ -4753,7 +4780,7 @@ dependencies = [
 
 [[package]]
 name = "p2p"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "binprot",
@@ -4816,7 +4843,7 @@ dependencies = [
 
 [[package]]
 name = "p2p-testing"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "derive_more",
  "futures",
@@ -5094,7 +5121,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5110,6 +5137,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rayon",
+ "rmp-serde",
  "serde",
  "serde_with 1.14.0",
  "thiserror",
@@ -5169,12 +5197,13 @@ checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 
 [[package]]
 name = "postcard"
-version = "1.0.8"
+version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a55c51ee6c0db07e68448e336cf8ea4131a620edefebf9893e759b2d793420f8"
+checksum = "5f7f0a8d620d71c457dd1d47df76bb18960378da56af4527aaa10f515eee732e"
 dependencies = [
  "cobs",
- "embedded-io",
+ "embedded-io 0.4.0",
+ "embedded-io 0.6.1",
  "heapless",
  "serde",
 ]
@@ -5671,7 +5700,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "replay_dynamic_effects"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "node",
  "openmina-node-invariants",
@@ -5815,6 +5844,17 @@ name = "rsexp"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3df9a9b6491d42c0fc527e92a87525c17e45c6b9c22345702a6dc0400320bf1"
+
+[[package]]
+name = "rsexp-derive"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0726130f64c2f613129d9870fa803071173f317f92bfe924d2d21252c4b3403"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "rtcp"
@@ -6015,7 +6055,7 @@ checksum = "1ad4cc8da4ef723ed60bced201181d83791ad433213d8c24efffda1eec85d741"
 
 [[package]]
 name = "salsa-simple"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "generic-array",
  "hex",
@@ -6146,6 +6186,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91d3c334ca1ee894a2c6f6ad698fe8c435b76d504b13d436f0685d648d6d96f7"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "387cc504cb06bb40a96c8e04e951fe01854cf6bc921053c954e4a606d9675c6a"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -6408,7 +6457,7 @@ dependencies = [
 
 [[package]]
 name = "snark"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -7361,7 +7410,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?branch=ledger-newtypes-rampup4-vrf#44e0d3b98b8747de54e595f53d97c035ff43167c"
+source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
 dependencies = [
  "ark-ff",
  "hex",
@@ -7591,7 +7640,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "vrf"
-version = "0.8.2"
+version = "0.8.14"
 dependencies = [
  "anyhow",
  "ark-ec",

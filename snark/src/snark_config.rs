@@ -1,13 +1,13 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkConfig {
-    pub block_verifier_index: Arc<crate::VerifierIndex>,
-    pub block_verifier_srs: Arc<Mutex<crate::VerifierSRS>>,
-    pub work_verifier_index: Arc<crate::VerifierIndex>,
-    pub work_verifier_srs: Arc<Mutex<crate::VerifierSRS>>,
+    pub block_verifier_index: crate::BlockVerifier,
+    pub block_verifier_srs: Arc<crate::VerifierSRS>,
+    pub work_verifier_index: crate::TransactionVerifier,
+    pub work_verifier_srs: Arc<crate::VerifierSRS>,
 }
 
 impl std::fmt::Debug for SnarkConfig {

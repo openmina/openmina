@@ -5,6 +5,8 @@ import { NodesOverviewResync } from '@shared/types/nodes/dashboard/nodes-overvie
 export interface NodesOverviewNode {
   name: string;
   kind: NodesOverviewNodeKindType;
+  snarks: number;
+  transactions: number;
   bestTipReceived: string;
   bestTipReceivedTimestamp: number;
   bestTip: string;

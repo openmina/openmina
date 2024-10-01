@@ -6,12 +6,13 @@ use crate::proofs::{
     util::sha256_sum,
     wrap::{wrap, WrapParams},
 };
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::{
-    proofs::{transaction::transaction_snark::assert_equal_local_state, util::u64_to_field},
+    proofs::transaction::transaction_snark::assert_equal_local_state,
     scan_state::{
         fee_excess::FeeExcess,
         pending_coinbase,
@@ -29,6 +30,7 @@ use super::{
         extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement, StepProof,
     },
     transaction::{PlonkVerificationKeyEvals, ProofError, Prover},
+    util::two_u64_to_field,
     witness::Witness,
     wrap::WrapProof,
 };
@@ -37,12 +39,12 @@ fn merge_main(
     statement: &Statement<SokDigest>,
     proofs: &[v2::LedgerProofProdStableV2; 2],
     w: &mut Witness<Fp>,
-) -> (Statement<SokDigest>, Statement<SokDigest>) {
+) -> Result<(Statement<SokDigest>, Statement<SokDigest>), InvalidBigInt> {
     let (s1, s2) = w.exists({
         let [p1, p2] = proofs;
         let (s1, s2) = (&p1.0.statement, &p2.0.statement);
-        let s1: Statement<SokDigest> = s1.into();
-        let s2: Statement<SokDigest> = s2.into();
+        let s1: Statement<SokDigest> = s1.try_into()?;
+        let s2: Statement<SokDigest> = s2.try_into()?;
         (s1, s2)
     });
 
@@ -90,11 +92,11 @@ fn merge_main(
         supply_increase.to_checked::<Fp>().value(w);
     }
 
-    (s1, s2)
+    Ok((s1, s2))
 }
 
 pub fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
-    PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
+    PlonkVerificationKeyEvals::from(&**wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
 impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags> for crate::proofs::step::FeatureFlags::<bool> {
@@ -150,12 +152,14 @@ impl From<&crate::proofs::step::FeatureFlags::<bool>> for v2::PicklesProofProofs
 }
 
 impl<F: FieldWitness>
-    From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk>
+    TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk>
     for PlonkMinimal<F>
 {
-    fn from(
+    type Error = InvalidBigInt;
+
+    fn try_from(
         value: &v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk,
-    ) -> Self {
+    ) -> Result<Self, Self::Error> {
         let v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk {
             alpha,
             beta,
@@ -172,14 +176,14 @@ impl<F: FieldWitness>
         let gamma_bytes = gamma.each_ref().map(to_bytes);
         let zeta_bytes = zeta.inner.each_ref().map(to_bytes);
 
-        PlonkMinimal::<F, 2> {
-            alpha: u64_to_field(&alpha_bytes),
-            beta: u64_to_field(&beta_bytes),
-            gamma: u64_to_field(&gamma_bytes),
-            zeta: u64_to_field(&zeta_bytes),
+        Ok(PlonkMinimal::<F, 2> {
+            alpha: two_u64_to_field(&alpha_bytes),
+            beta: two_u64_to_field(&beta_bytes),
+            gamma: two_u64_to_field(&gamma_bytes),
+            zeta: two_u64_to_field(&zeta_bytes),
             joint_combiner: joint_combiner
                 .as_ref()
-                .map(|f| u64_to_field(&f.inner.each_ref().map(to_bytes))),
+                .map(|f| two_u64_to_field(&f.inner.each_ref().map(to_bytes))),
             alpha_bytes,
             beta_bytes,
             gamma_bytes,
@@ -188,7 +192,7 @@ impl<F: FieldWitness>
                 .as_ref()
                 .map(|f| f.inner.each_ref().map(to_bytes)),
             feature_flags: feature_flags.into(),
-        }
+        })
     }
 }
 
@@ -229,14 +233,14 @@ pub(super) fn generate_merge_proof(
 
     w.exists(&*statement_with_sok);
 
-    let (s1, s2) = merge_main(&statement_with_sok, proofs, w);
+    let (s1, s2) = merge_main(&statement_with_sok, proofs, w)?;
 
     let [p1, p2]: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] = {
         let [p1, p2] = proofs;
         [&p1.0.proof, &p2.0.proof]
     };
 
-    let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[p1, p2]);
+    let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[p1, p2])?;
 
     let rule = InductiveRule {
         previous_proof_statements: [
@@ -257,7 +261,7 @@ pub(super) fn generate_merge_proof(
 
     let dlog_plonk_index = dlog_plonk_index(wrap_prover);
     let dlog_plonk_index_cvar = dlog_plonk_index.to_cvar(CircuitVar::Var);
-    let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
+    let verifier_index = &**wrap_prover.index.verifier_index.as_ref().unwrap();
 
     let tx_data = make_step_transaction_data(&dlog_plonk_index_cvar);
     let for_step_datas = [&tx_data, &tx_data];
@@ -270,7 +274,7 @@ pub(super) fn generate_merge_proof(
     let StepProof {
         statement,
         prev_evals,
-        proof,
+        proof_with_public: proof,
     } = step::<StepMergeProof, MERGE_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::clone(&statement_with_sok) as _,
@@ -287,7 +291,7 @@ pub(super) fn generate_merge_proof(
     )?;
 
     if let Some(expected) = expected_step_proof {
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         assert_eq!(sha256_sum(&proof_json), expected);
     };
 
@@ -300,7 +304,7 @@ pub(super) fn generate_merge_proof(
     wrap::<WrapMergeProof>(
         WrapParams {
             app_state: statement_with_sok,
-            proof: &proof,
+            proof_with_public: &proof,
             step_statement: statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,

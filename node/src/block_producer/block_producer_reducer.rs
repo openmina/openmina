@@ -12,12 +12,14 @@ use mina_p2p_messages::{
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
     },
 };
-use openmina_core::block::ArcBlockWithHash;
-use openmina_core::consensus::{
-    global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
-    relative_sub_window,
-};
 use openmina_core::constants::constraint_constants;
+use openmina_core::{
+    block::AppliedBlock,
+    consensus::{
+        global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
+        relative_sub_window,
+    },
+};
 
 use super::{
     calc_epoch_seed, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMetaRef,
@@ -28,7 +30,7 @@ impl BlockProducerState {
     pub fn reducer(
         &mut self,
         action: BlockProducerActionWithMetaRef<'_>,
-        best_chain: &[ArcBlockWithHash],
+        best_chain: &[AppliedBlock],
     ) {
         self.with_mut((), move |state| state.reducer(action, best_chain))
     }
@@ -38,7 +40,7 @@ impl BlockProducerEnabled {
     pub fn reducer(
         &mut self,
         action: BlockProducerActionWithMetaRef<'_>,
-        best_chain: &[ArcBlockWithHash],
+        best_chain: &[AppliedBlock],
     ) {
         let (action, meta) = action.split();
         match action {
@@ -425,7 +427,7 @@ impl BlockProducerEnabled {
                         if let Some(first_block) = iter.next() {
                             let first_hash = first_block.hash().clone();
                             let body_hashes = iter
-                                .map(|b| b.header().protocol_state.body.hash())
+                                .filter_map(|b| b.header().protocol_state.body.try_hash().ok()) // TODO: Handle error ?
                                 .map(StateBodyHash::from)
                                 .collect();
                             (first_hash, body_hashes)
@@ -446,7 +448,10 @@ impl BlockProducerEnabled {
                         staged_ledger_diff: diff.clone(),
                     },
                 };
-                let block_hash = block.protocol_state.hash();
+                let Ok(block_hash) = block.protocol_state.try_hash() else {
+                    openmina_core::log::inner::error!("Invalid protocol state");
+                    return;
+                };
 
                 self.current = BlockProducerCurrentState::BlockUnprovenBuilt {
                     time: meta.time(),

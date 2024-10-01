@@ -1,6 +1,9 @@
 pub mod incoming;
 pub mod outgoing;
 
+pub mod incoming_effectful;
+pub mod outgoing_effectful;
+
 mod p2p_connection_state;
 pub use p2p_connection_state::*;
 
@@ -8,7 +11,6 @@ mod p2p_connection_actions;
 pub use p2p_connection_actions::*;
 
 mod p2p_connection_reducer;
-pub use p2p_connection_reducer::*;
 
 mod p2p_connection_service;
 pub use p2p_connection_service::*;
@@ -17,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::webrtc;
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, thiserror::Error)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy, thiserror::Error)]
 pub enum RejectionReason {
     #[error("peer_id does not match peer's public key")]
     PeerIdAndPublicKeyMismatch,

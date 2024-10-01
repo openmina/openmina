@@ -1,3 +1,4 @@
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{self, StateHash};
 
 use crate::constants::{constraint_constants, slots_per_window};
@@ -19,10 +20,14 @@ pub fn genesis_and_negative_one_protocol_states(
     staking_epoch_seed: v2::EpochSeed,
     next_epoch_seed: v2::EpochSeed,
     updated_next_epoch_seed: v2::EpochSeed,
-) -> (
-    v2::MinaStateProtocolStateValueStableV2,
-    v2::MinaStateProtocolStateValueStableV2,
-) {
+) -> Result<
+    (
+        v2::MinaStateProtocolStateValueStableV2,
+        v2::MinaStateProtocolStateValueStableV2,
+        StateHash,
+    ),
+    InvalidBigInt,
+> {
     let negative_one = protocol_state(
         constants.clone(),
         genesis_ledger_hash.clone(),
@@ -39,7 +44,7 @@ pub fn genesis_and_negative_one_protocol_states(
         next_epoch_seed.clone(),
         true,
     );
-    let negative_one_hash = negative_one.hash();
+    let negative_one_hash = negative_one.try_hash()?;
     let mut genesis = protocol_state(
         constants,
         genesis_ledger_hash,
@@ -68,8 +73,9 @@ pub fn genesis_and_negative_one_protocol_states(
             epoch_length: 2.into(),
             ..genesis.body.consensus_state.next_epoch_data
         };
+    let genesis_hash = genesis.try_hash()?;
 
-    (negative_one, genesis)
+    Ok((negative_one, genesis, genesis_hash))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -137,7 +143,7 @@ fn blockchain_state(
     let empty_fee_excess = v2::TokenFeeExcess {
         token: v2::TokenIdKeyHash::default(),
         amount: v2::SignedAmount {
-            magnitude: v2::CurrencyAmountStableV1(0u64.into()),
+            magnitude: v2::CurrencyFeeStableV1(0u64.into()),
             sgn: v2::SgnStableV1::Pos,
         },
     };

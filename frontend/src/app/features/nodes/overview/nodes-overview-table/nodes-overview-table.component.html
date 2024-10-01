@@ -2,7 +2,7 @@
 
 <ng-template #thGroupsTemplate>
   <div class="th-group h-lg lh-lg tertiary f-600 d-none-sm">
-    <span class="pl-12">Snarker Details</span>
+    <span class="pl-12">Node Details</span>
     <span class="pl-12">Chain</span>
     <span class="pl-12">Frontier</span>
   </div>
@@ -16,13 +16,15 @@
   <span [tooltip]="row.name"
         [showDelay]="500"
         class="secondary">{{ row.name | truncateMid: 28: 0 }}</span>
+  <span class="secondary">{{ row.snarks }}</span>
+  <span class="secondary">{{ row.transactions }}</span>
   <span class="secondary">{{ row.height || '-' }}</span>
   <span>
     <mina-copy [display]="(row.bestTip || '-') | truncateMid" [value]="row.bestTip"></mina-copy>
   </span>
   <span class="secondary">{{ row.bestTipReceived || '-' }}</span>
   <span>{{ row.appliedBlocks || 0 }} / {{ row.blocks.length }}</span>
-  <span>{{ row.applyingBlocks || 0 }} / {{ row.blocks.length }}</span>
+  <!--  <span>{{ row.applyingBlocks || 0 }} / {{ row.blocks.length }}</span>-->
   <span>{{ row.fetchingBlocks || 0 }} / {{ row.blocks.length }}</span>
   <span>{{ row.fetchedBlocks || 0 }} / {{ row.blocks.length }}</span>
   <span>{{ row.missingBlocks || 0 }} / {{ row.blocks.length }}</span>

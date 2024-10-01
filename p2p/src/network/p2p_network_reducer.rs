@@ -1,87 +1,73 @@
-use openmina_core::log::error;
-
 use crate::P2pLimits;
+use identify::P2pNetworkIdentifyState;
+use openmina_core::Substate;
 
 use super::*;
 
 impl P2pNetworkState {
-    pub fn reducer(
-        &mut self,
+    pub fn reducer<State, Action>(
+        state_context: Substate<Action, State, Self>,
         action: redux::ActionWithMeta<&P2pNetworkAction>,
         limits: &P2pLimits,
-    ) {
+    ) -> Result<(), String>
+    where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(meta.with_action(a)),
-            P2pNetworkAction::Pnet(a) => {
-                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
-                    cn.pnet.reducer(meta.with_action(a))
-                }
-            }
-            P2pNetworkAction::Select(a) => {
-                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
-                    match a.select_kind() {
-                        SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(a)),
-                        SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                            cn.select_mux.reducer(meta.with_action(a))
-                        }
-                        SelectKind::Stream(_, stream_id) => {
-                            if let Some(stream) = cn.streams.get_mut(&stream_id) {
-                                stream.select.reducer(meta.with_action(a))
-                            }
-                        }
-                    }
-                }
-            }
-            P2pNetworkAction::Noise(a) => {
-                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
-                    if let Some(P2pNetworkAuthState::Noise(state)) = &mut cn.auth {
-                        state.reducer(meta.with_action(a))
-                    }
-                }
-            }
-            P2pNetworkAction::Yamux(a) => {
-                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
-                    if let Some(P2pNetworkConnectionMuxState::Yamux(state)) = &mut cn.mux {
-                        state.reducer(&mut cn.streams, meta.with_action(a))
-                    }
-                }
-            }
-            P2pNetworkAction::Identify(a) => {
-                let time = meta.time();
-                // println!("======= identify reducer for {state:?}");
-                if let Err(err) = self
-                    .scheduler
-                    .identify_state
-                    .reducer(meta.with_action(a), limits)
-                {
-                    error!(time; "{err}");
-                }
-                // println!("======= identify reducer result {state:?}");
-            }
-            P2pNetworkAction::Kad(a) => {
-                let Some(state) = &mut self.scheduler.discovery_state else {
-                    error!(meta.time(); "kademlia is not configured");
-                    return;
-                };
-                let time = meta.time();
-                if let Err(err) = state.reducer(meta.with_action(a), limits) {
-                    let self_id = self.scheduler.local_pk.peer_id();
-                    error!(time; "node_id: {self_id}, {err}");
-                }
-            }
-            P2pNetworkAction::Pubsub(a) => {
-                self.scheduler.broadcast_state.reducer(meta.with_action(a))
-            }
-            P2pNetworkAction::Rpc(a) => {
-                if let Some(state) = self.find_rpc_state_mut(a) {
-                    state.reducer(meta.with_action(a), limits)
-                }
+            P2pNetworkAction::Pnet(a) => P2pNetworkPnetState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
+            P2pNetworkAction::Scheduler(a) => P2pNetworkSchedulerState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
+            P2pNetworkAction::Select(a) => P2pNetworkSelectState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
+            P2pNetworkAction::Noise(a) => P2pNetworkNoiseState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
+            P2pNetworkAction::Yamux(a) => P2pNetworkYamuxState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
+            P2pNetworkAction::Identify(a) => P2pNetworkIdentifyState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+                limits,
+            ),
+            P2pNetworkAction::Kad(a) => P2pNetworkKadState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+                limits,
+            ),
+            P2pNetworkAction::Pubsub(a) => P2pNetworkPubsubState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+            ),
+            P2pNetworkAction::Rpc(a) => P2pNetworkRpcState::reducer(
+                Substate::from_compatible_substate(state_context),
+                meta.with_action(a),
+                limits,
+            ),
+            P2pNetworkAction::PubsubEffectful(_)
+            | P2pNetworkAction::SchedulerEffectful(_)
+            | P2pNetworkAction::PnetEffectful(_) => {
+                // Effectful action; no reducer
+                Ok(())
             }
         }
     }
 
-    fn find_rpc_state_mut(&mut self, a: &P2pNetworkRpcAction) -> Option<&mut P2pNetworkRpcState> {
+    pub fn find_rpc_state_mut(
+        &mut self,
+        a: &P2pNetworkRpcAction,
+    ) -> Option<&mut P2pNetworkRpcState> {
         match a.stream_id() {
             RpcStreamId::Exact(stream_id) => self
                 .scheduler

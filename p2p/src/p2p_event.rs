@@ -150,7 +150,10 @@ impl fmt::Display for P2pChannelEvent {
                             BestTipPropagationChannelMsg::GetNext => write!(f, "GetNext"),
                             // TODO(binier): avoid rehashing.
                             BestTipPropagationChannelMsg::BestTip(block) => {
-                                write!(f, "{}", block.hash())
+                                match block.try_hash() {
+                                    Ok(block_hash) => write!(f, "{}", block_hash),
+                                    Err(_) => write!(f, "[Block_with_invalid_field]"),
+                                }
                             }
                         }
                     }

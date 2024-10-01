@@ -1,7 +1,9 @@
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::ConsensusConstants;
 use openmina_core::{constants::constraint_constants, error, ChainId};
-use p2p::{P2pConfig, P2pPeerState, P2pPeerStatusReady, PeerId};
+use p2p::bootstrap::P2pNetworkKadBootstrapState;
+use p2p::network::identify::P2pNetworkIdentifyState;
+use p2p::{P2pConfig, P2pNetworkSchedulerState, P2pPeerState, P2pPeerStatusReady, PeerId};
 use redux::{ActionMeta, EnablingCondition, Timestamp};
 use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyState;
@@ -92,22 +94,6 @@ impl openmina_core::SubstateAccess<P2pState> for State {
     }
 }
 
-impl openmina_core::SubstateAccess<p2p::P2pNetworkState> for State {
-    fn substate(&self) -> openmina_core::SubstateResult<&p2p::P2pNetworkState> {
-        self.p2p
-            .ready()
-            .ok_or_else(|| "Network state unavailable. P2P layer is not ready".to_owned())
-            .map(|p2p| &p2p.network)
-    }
-
-    fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut p2p::P2pNetworkState> {
-        self.p2p
-            .ready_mut()
-            .ok_or_else(|| "Network state unavailable. P2P layer is not ready".to_owned())
-            .map(|p2p| &mut p2p.network)
-    }
-}
-
 impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerState> for State {
     fn substate(&self) -> openmina_core::SubstateResult<&TransitionFrontierSyncLedgerState> {
         self.transition_frontier
@@ -178,6 +164,33 @@ impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerStagedState> for 
     }
 }
 
+macro_rules! impl_p2p_state_access {
+    ($state:ty, $substate_type:ty) => {
+        impl openmina_core::SubstateAccess<$substate_type> for $state {
+            fn substate(&self) -> openmina_core::SubstateResult<&$substate_type> {
+                let substate: &P2pState = self.substate()?;
+                substate.substate()
+            }
+
+            fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut $substate_type> {
+                let substate: &mut P2pState = self.substate_mut()?;
+                substate.substate_mut()
+            }
+        }
+    };
+}
+
+impl_p2p_state_access!(State, P2pNetworkIdentifyState);
+impl_p2p_state_access!(State, p2p::P2pNetworkState);
+impl_p2p_state_access!(State, P2pNetworkKadBootstrapState);
+impl_p2p_state_access!(State, p2p::P2pNetworkKadState);
+impl_p2p_state_access!(State, P2pNetworkSchedulerState);
+impl_p2p_state_access!(State, p2p::P2pLimits);
+impl_p2p_state_access!(State, p2p::P2pNetworkPubsubState);
+impl_p2p_state_access!(State, p2p::P2pConfig);
+
+impl p2p::P2pStateTrait for State {}
+
 pub type Substate<'a, S> = openmina_core::Substate<'a, crate::Action, State, S>;
 
 impl State {
@@ -221,6 +234,12 @@ impl State {
         self.applied_actions_count += 1;
     }
 
+    pub fn genesis_block(&self) -> Option<ArcBlockWithHash> {
+        self.transition_frontier
+            .genesis
+            .block_with_real_or_dummy_proof()
+    }
+
     fn cur_slot(&self, initial_slot: impl FnOnce(&ArcBlockWithHash) -> u32) -> Option<u32> {
         let best_tip = self.transition_frontier.best_tip()?;
         let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
@@ -242,10 +261,17 @@ impl State {
     }
 
     pub fn current_epoch(&self) -> Option<u32> {
-        // TODO: Should not be hardcoded
-        const SLOTS_PER_EPOCH: u32 = 7140;
-        let current_global_slot = self.cur_global_slot()?;
-        Some(current_global_slot / SLOTS_PER_EPOCH)
+        let slots_per_epoch = self.genesis_block()?.constants().slots_per_epoch.as_u32();
+        Some(self.cur_global_slot()? / slots_per_epoch)
+    }
+
+    pub fn should_produce_blocks_after_genesis(&self) -> bool {
+        self.block_producer.is_enabled()
+            && self.genesis_block().map_or(false, |b| {
+                let slot = &b.consensus_state().curr_global_slot_since_hard_fork;
+                let epoch = slot.slot_number.as_u32() / slot.slots_per_epoch.as_u32();
+                self.current_epoch() <= Some(epoch)
+            })
     }
 }
 

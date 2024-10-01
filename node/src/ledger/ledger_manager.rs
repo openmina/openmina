@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use ledger::staged_ledger::staged_ledger::StagedLedger;
-use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
+use mina_p2p_messages::v2::{self, LedgerHash, MinaBaseAccountBinableArgStableV2};
 use openmina_core::channels::mpsc;
 use openmina_core::thread;
 
@@ -99,11 +99,24 @@ impl LedgerRequest {
                                 result,
                             })
                         };
-                        ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb);
+                        if let Err(e) =
+                            ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb)
+                        {
+                            openmina_core::log::inner::error!(
+                                "Failed to reconstruct staged ledger: {:?}",
+                                e
+                            );
+                            // TODO: Handle the error in the state machine
+                        }
                         return LedgerResponse::Success;
                     } else {
-                        let (staged_ledger_hash, result) =
-                            ledger_ctx.staged_ledger_reconstruct_sync(snarked_ledger_hash, parts);
+                        let (staged_ledger_hash, result) = match ledger_ctx
+                            .staged_ledger_reconstruct_sync(snarked_ledger_hash, parts)
+                        {
+                            Ok(result) => result,
+                            Err(e) => (v2::LedgerHash::zero(), Err(String::from(e))),
+                        };
+
                         LedgerWriteResponse::StagedLedgerReconstruct {
                             staged_ledger_hash,
                             result,
@@ -113,6 +126,7 @@ impl LedgerRequest {
                 LedgerWriteRequest::StagedLedgerDiffCreate {
                     pred_block,
                     global_slot_since_genesis: global_slot,
+                    is_new_epoch,
                     producer,
                     delegator,
                     coinbase_receiver,
@@ -125,6 +139,7 @@ impl LedgerRequest {
                     let result = ledger_ctx.staged_ledger_diff_create(
                         pred_block,
                         global_slot,
+                        is_new_epoch,
                         producer,
                         delegator,
                         coinbase_receiver,
@@ -196,13 +211,13 @@ impl LedgerRequest {
                     }
                     LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(data) => {
                         let res = ledger_ctx.staged_ledger_aux_and_pending_coinbase(
-                            data.ledger_hash,
+                            &data.ledger_hash,
                             data.protocol_states,
                         );
                         LedgerReadResponse::GetStagedLedgerAuxAndPendingCoinbases(res)
                     }
                     LedgerReadRequest::ScanStateSummary(ledger_hash) => {
-                        let res = ledger_ctx.scan_state_summary(ledger_hash);
+                        let res = ledger_ctx.scan_state_summary(&ledger_hash);
                         LedgerReadResponse::ScanStateSummary(res)
                     }
                     LedgerReadRequest::GetAccounts(ledger_hash, account_ids) => {
@@ -383,6 +398,21 @@ impl LedgerManager {
         }) {
             Ok(LedgerResponse::LedgerMask(mask)) => mask,
             _ => panic!("get_mask failed"),
+        }
+    }
+
+    pub fn get_accounts(
+        &self,
+        ledger_hash: &LedgerHash,
+        account_ids: Vec<AccountId>,
+    ) -> Result<Vec<Account>, String> {
+        // TODO: this should be asynchronous
+        match self.call_sync(LedgerRequest::AccountsGet {
+            ledger_hash: ledger_hash.clone(),
+            account_ids,
+        }) {
+            Ok(LedgerResponse::AccountsGet(result)) => result,
+            _ => panic!("get_accounts failed"),
         }
     }
 

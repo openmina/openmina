@@ -2,9 +2,12 @@ export interface MinaEnv {
   production: boolean;
   configs: MinaNode[];
   identifier?: string;
+  hideToolbar?: boolean;
+  hideNodeStats?: boolean;
   globalConfig?: {
     features?: FeaturesConfig;
     canAddNodes?: boolean;
+    graphQL?: string;
   };
 }
 
@@ -14,7 +17,6 @@ export interface MinaNode {
   memoryProfiler?: string;
   debugger?: string;
   features?: FeaturesConfig;
-  minaExplorerNetwork?: 'mainnet' | 'devnet';
   isCustom?: boolean;
   isWebNode?: boolean;
 }
@@ -30,6 +32,7 @@ export type FeaturesConfig = Partial<{
   'block-production': string[];
   'mempool': string[];
   'benchmarks': string[];
+  'zk': string[];
 }>;
 
 export type FeatureType = keyof FeaturesConfig;

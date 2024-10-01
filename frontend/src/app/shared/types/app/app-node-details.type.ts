@@ -1,3 +1,5 @@
+import { MinaNetwork } from '@shared/types/core/mina/mina.type';
+
 export interface AppNodeDetails {
   status: AppNodeStatus;
   blockHeight: number;
@@ -9,6 +11,9 @@ export interface AppNodeDetails {
 
   transactions: number;
   snarks: number;
+
+  chainId?: string;
+  network?: MinaNetwork;
 }
 
 export enum AppNodeStatus {

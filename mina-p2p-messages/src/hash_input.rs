@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use ark_ff::{BigInteger, BigInteger256, FromBytes};
+use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger, BigInteger256, FromBytes};
 use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
@@ -15,54 +15,63 @@ use crate::{
 };
 
 pub trait ToInput {
-    fn to_input(&self, inputs: &mut Inputs);
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt>;
 }
 
 impl ToInput for bool {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         inputs.append_bool(*self);
+        Ok(())
     }
 }
 
 impl ToInput for BigInt {
-    fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_field(self.to_field());
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        let field = self.to_field()?;
+        inputs.append_field(field);
+        Ok(())
     }
 }
 
 impl ToInput for Int32 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_u32(self.as_u32())
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        inputs.append_u32(self.as_u32());
+        Ok(())
     }
 }
 
 impl ToInput for Int64 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_u64(self.as_u64())
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        inputs.append_u64(self.as_u64());
+        Ok(())
     }
 }
 
 impl ToInput for UInt32 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_u32(self.as_u32())
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        inputs.append_u32(self.as_u32());
+        Ok(())
     }
 }
 
 impl ToInput for UInt64 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_u64(self.as_u64())
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        inputs.append_u64(self.as_u64());
+        Ok(())
     }
 }
 
 impl ToInput for ByteString {
-    fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_bytes(self.as_ref())
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        inputs.append_bytes(self.as_ref());
+        Ok(())
     }
 }
 
 impl ToInput for ZkAppUri {
-    fn to_input(&self, inputs: &mut Inputs) {
-        inputs.append_bytes(self.as_ref())
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        inputs.append_bytes(self.as_ref());
+        Ok(())
     }
 }
 
@@ -71,8 +80,11 @@ where
     D: Deref<Target = T>,
     T: ToInput,
 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        self.iter().for_each(|v| v.to_input(inputs));
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        for v in self.iter() {
+            v.to_input(inputs)?;
+        }
+        Ok(())
     }
 }
 
@@ -81,8 +93,11 @@ where
     D: Deref<Target = T>,
     T: ToInput,
 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        self.deref().iter().for_each(|v| v.to_input(inputs));
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        for v in self.deref().iter() {
+            v.to_input(inputs)?;
+        }
+        Ok(())
     }
 }
 
@@ -90,9 +105,10 @@ impl<T> ToInput for (T, T)
 where
     T: ToInput,
 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        self.0.to_input(inputs);
-        self.1.to_input(inputs);
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        self.0.to_input(inputs)?;
+        self.1.to_input(inputs)?;
+        Ok(())
     }
 }
 
@@ -100,7 +116,7 @@ impl<T> ToInput for Option<T>
 where
     T: ToInput + Default,
 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         match self.as_ref() {
             Some(v) => v.to_input(inputs),
             None => T::default().to_input(inputs),
@@ -112,10 +128,11 @@ impl<T, const N: usize> ToInput for PaddedSeq<T, N>
 where
     T: ToInput,
 {
-    fn to_input(&self, inputs: &mut Inputs) {
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         for v in &self.0 {
-            v.to_input(inputs);
+            v.to_input(inputs)?;
         }
+        Ok(())
     }
 }
 
@@ -123,8 +140,8 @@ impl<T, U, const V: u8> ToInput for Base58CheckOfBinProt<T, U, V>
 where
     T: ToInput,
 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        self.inner().to_input(inputs);
+    fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
+        self.inner().to_input(inputs)
     }
 }
 
@@ -279,14 +296,14 @@ impl Inputs {
                     current.0[3] | item.0[3],
                 ]);
             } else {
-                self.fields.push(current.into());
+                self.fields.push(current.try_into().unwrap()); // Never fail
                 current = item;
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            self.fields.push(current.into());
+            self.fields.push(current.try_into().unwrap()); // Never fail
         }
 
         self.fields

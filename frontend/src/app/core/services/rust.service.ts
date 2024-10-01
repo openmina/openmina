@@ -57,7 +57,7 @@ export class RustService {
       case '/stats/block_producer':
         return this.webNodeService.blockProducerStats$;
       default:
-        throw new Error('Unknown path for web node');
+        throw new Error(`Web node doesn't support "${path}" path!`);
     }
   }
 }

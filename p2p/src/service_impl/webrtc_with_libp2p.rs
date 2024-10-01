@@ -1,7 +1,7 @@
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
-    disconnection::P2pDisconnectionService,
+    disconnection_effectful::P2pDisconnectionService,
     identity::SecretKey,
     P2pChannelEvent, P2pEvent, PeerId,
 };
@@ -28,7 +28,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
         P2pServiceCtx {
             sec_key: sec_key.clone(),
             #[cfg(feature = "p2p-libp2p")]
-            mio: MioService::pending(sec_key.clone().into()),
+            mio: MioService::pending(sec_key.clone().try_into().expect("valid keypair")),
             webrtc: <Self as P2pServiceWebrtc>::init(sec_key, spawner),
         }
     }
@@ -68,7 +68,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
+    ) -> Option<P2pConnectionOutgoingInitOpts> {
         P2pServiceWebrtc::random_pick(self, list)
     }
 
@@ -174,7 +174,7 @@ impl P2pServiceCtx {
         Self {
             sec_key: sec_key.clone(),
             #[cfg(feature = "p2p-libp2p")]
-            mio: super::mio::MioService::mocked(sec_key.into()),
+            mio: super::mio::MioService::mocked(sec_key.try_into().expect("valid keypair")),
             webrtc: super::webrtc::P2pServiceCtx {
                 cmd_sender: mpsc::unbounded_channel().0,
                 peers: Default::default(),

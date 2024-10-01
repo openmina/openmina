@@ -299,7 +299,8 @@ pub async fn wait_for_identify(
                             action.action(),
                             node::Action::P2p(P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation {
                                 peer_id,
-                                info
+                                info,
+                                ..
                             })) if peer_id == &connecting_peer_id && info.agent_version == Some(agent_version.to_string())
                         )
                 }),

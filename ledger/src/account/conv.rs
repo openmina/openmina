@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
-use ark_ff::Field;
+use ark_ff::{fields::arithmetic::InvalidBigInt, Field};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt,
@@ -26,7 +26,7 @@ use crate::{
     TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
 };
 
-use super::{Account, AccountId, AuthRequired, TokenId};
+use super::{Account, AccountId, AuthRequired, TokenId, VerificationKeyWire};
 
 impl binprot::BinProtRead for TokenId {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
@@ -35,7 +35,9 @@ impl binprot::BinProtRead for TokenId {
     {
         let token_id = TokenIdKeyHash::binprot_read(r)?;
         let token_id: MinaBaseAccountIdDigestStableV1 = token_id.into_inner();
-        Ok(token_id.into())
+        token_id
+            .try_into()
+            .map_err(|e| binprot::Error::CustomError(Box::new(e)))
     }
 }
 
@@ -54,12 +56,17 @@ impl From<TokenId> for TokenIdKeyHash {
     }
 }
 
-impl<F: FieldWitness> From<(BigInt, BigInt)> for InnerCurve<F>
+impl<F: FieldWitness> TryFrom<(BigInt, BigInt)> for InnerCurve<F>
 where
     F: Field + From<BigInt>,
 {
-    fn from((x, y): (BigInt, BigInt)) -> Self {
-        Self::of_affine(make_group::<F>(x.to_field(), y.to_field()))
+    type Error = InvalidBigInt;
+
+    fn try_from((x, y): (BigInt, BigInt)) -> Result<Self, Self::Error> {
+        Ok(Self::of_affine(make_group::<F>(
+            x.to_field()?,
+            y.to_field()?,
+        )))
     }
 }
 
@@ -73,12 +80,17 @@ where
     }
 }
 
-impl<F: FieldWitness> From<&(BigInt, BigInt)> for InnerCurve<F>
+impl<F: FieldWitness> TryFrom<&(BigInt, BigInt)> for InnerCurve<F>
 where
-    F: Field + From<BigInt>,
+    F: Field,
 {
-    fn from((x, y): &(BigInt, BigInt)) -> Self {
-        Self::of_affine(make_group::<F>(x.to_field(), y.to_field()))
+    type Error = InvalidBigInt;
+
+    fn try_from((x, y): &(BigInt, BigInt)) -> Result<Self, Self::Error> {
+        Ok(Self::of_affine(make_group::<F>(
+            x.to_field()?,
+            y.to_field()?,
+        )))
     }
 }
 
@@ -98,7 +110,9 @@ impl binprot::BinProtRead for AccountId {
         Self: Sized,
     {
         let account_id = MinaBaseAccountIdStableV2::binprot_read(r)?;
-        Ok(account_id.into())
+        account_id
+            .try_into()
+            .map_err(|e| binprot::Error::CustomError(Box::new(e)))
     }
 }
 
@@ -126,15 +140,36 @@ where
     value.each_ref().map(fun)
 }
 
-impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
-    fn from(vk: &MinaBaseVerificationKeyWireStableV1) -> Self {
+/// Note: Refactor when `core::array::try_map` is stable
+/// https://github.com/rust-lang/rust/issues/79711
+pub fn try_array_into_with<'a, T, E, U, F, const N: usize>(
+    value: &'a [T; N],
+    fun: F,
+) -> Result<[U; N], E>
+where
+    T: 'a,
+    F: Fn(&T) -> Result<U, E>,
+    U: std::fmt::Debug,
+{
+    Ok(value
+        .iter()
+        .map(fun)
+        .collect::<Result<Vec<_>, _>>()?
+        .try_into()
+        .unwrap()) // Never fail: `value` contains `N` elements
+}
+
+impl TryFrom<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
+    type Error = InvalidBigInt;
+
+    fn try_from(vk: &MinaBaseVerificationKeyWireStableV1) -> Result<Self, Self::Error> {
         let MinaBaseVerificationKeyWireStableV1 {
             max_proofs_verified,
             actual_wrap_domain_size,
             wrap_index,
         } = vk;
 
-        VerificationKey {
+        Ok(VerificationKey {
             max_proofs_verified: match max_proofs_verified {
                 PicklesBaseProofsVerifiedStableV1::N0 => ProofVerified::N0,
                 PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
@@ -145,14 +180,16 @@ impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
                 PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
                 PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
             },
-            wrap_index: Box::new(wrap_index.into()),
+            wrap_index: Box::new(wrap_index.try_into()?),
             wrap_vk: None,
-        }
+        })
     }
 }
 
-impl From<&MinaBaseVerificationKeyWireStableV1WrapIndex> for PlonkVerificationKeyEvals<Fp> {
-    fn from(value: &MinaBaseVerificationKeyWireStableV1WrapIndex) -> Self {
+impl TryFrom<&MinaBaseVerificationKeyWireStableV1WrapIndex> for PlonkVerificationKeyEvals<Fp> {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: &MinaBaseVerificationKeyWireStableV1WrapIndex) -> Result<Self, Self::Error> {
         let MinaBaseVerificationKeyWireStableV1WrapIndex {
             sigma_comm,
             coefficients_comm,
@@ -164,24 +201,26 @@ impl From<&MinaBaseVerificationKeyWireStableV1WrapIndex> for PlonkVerificationKe
             endomul_scalar_comm,
         } = value;
 
-        let sigma = array_into(sigma_comm);
-        let coefficients = array_into(coefficients_comm);
+        let sigma = try_array_into_with(sigma_comm, |s| s.try_into())?;
+        let coefficients = try_array_into_with(coefficients_comm, |s| s.try_into())?;
 
-        PlonkVerificationKeyEvals {
+        Ok(PlonkVerificationKeyEvals {
             sigma,
             coefficients,
-            generic: generic_comm.into(),
-            psm: psm_comm.into(),
-            complete_add: complete_add_comm.into(),
-            mul: mul_comm.into(),
-            emul: emul_comm.into(),
-            endomul_scalar: endomul_scalar_comm.into(),
-        }
+            generic: generic_comm.try_into()?,
+            psm: psm_comm.try_into()?,
+            complete_add: complete_add_comm.try_into()?,
+            mul: mul_comm.try_into()?,
+            emul: emul_comm.try_into()?,
+            endomul_scalar: endomul_scalar_comm.try_into()?,
+        })
     }
 }
-impl From<MinaBaseVerificationKeyWireStableV1WrapIndex> for PlonkVerificationKeyEvals<Fp> {
-    fn from(value: MinaBaseVerificationKeyWireStableV1WrapIndex) -> Self {
-        (&value).into()
+impl TryFrom<MinaBaseVerificationKeyWireStableV1WrapIndex> for PlonkVerificationKeyEvals<Fp> {
+    type Error = InvalidBigInt;
+
+    fn try_from(value: MinaBaseVerificationKeyWireStableV1WrapIndex) -> Result<Self, Self::Error> {
+        (&value).try_into()
     }
 }
 
@@ -288,7 +327,7 @@ impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2
                 let s = zkapp.app_state;
                 let app_state = MinaBaseZkappStateValueStableV1(PaddedSeq(s.map(|v| v.into())));
 
-                let verification_key = zkapp.verification_key.as_ref().map(|vk| vk.into());
+                let verification_key = zkapp.verification_key.as_ref().map(|vk| vk.vk().into());
 
                 let seq = zkapp.action_state;
                 let action_state = PaddedSeq(seq.map(|v| v.into()));
@@ -302,7 +341,7 @@ impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2
                     action_state,
                     last_action_slot: (&zkapp.last_action_slot).into(),
                     proved_state: zkapp.proved_state,
-                    zkapp_uri: zkapp.zkapp_uri.as_bytes().into(),
+                    zkapp_uri: (&zkapp.zkapp_uri).into(),
                 }
             }),
         }
@@ -363,21 +402,29 @@ impl From<AccountId> for mina_p2p_messages::v2::MinaBaseAccountIdStableV2 {
     }
 }
 
-impl From<mina_p2p_messages::v2::MinaBaseAccountIdStableV2> for AccountId {
-    fn from(account_id: mina_p2p_messages::v2::MinaBaseAccountIdStableV2) -> Self {
-        Self {
-            public_key: account_id.0.into_inner().into(),
-            token_id: account_id.1.into(),
-        }
+impl TryFrom<mina_p2p_messages::v2::MinaBaseAccountIdStableV2> for AccountId {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        account_id: mina_p2p_messages::v2::MinaBaseAccountIdStableV2,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            public_key: account_id.0.into_inner().try_into()?,
+            token_id: account_id.1.try_into()?,
+        })
     }
 }
 
-impl From<&mina_p2p_messages::v2::MinaBaseAccountIdStableV2> for AccountId {
-    fn from(account_id: &mina_p2p_messages::v2::MinaBaseAccountIdStableV2) -> Self {
-        Self {
-            public_key: account_id.0.clone().into_inner().into(),
-            token_id: account_id.1.clone().into(),
-        }
+impl TryFrom<&mina_p2p_messages::v2::MinaBaseAccountIdStableV2> for AccountId {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        account_id: &mina_p2p_messages::v2::MinaBaseAccountIdStableV2,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            public_key: account_id.0.clone().into_inner().try_into()?,
+            token_id: account_id.1.clone().try_into()?,
+        })
     }
 }
 
@@ -387,15 +434,23 @@ impl From<TokenId> for mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1 {
     }
 }
 
-impl From<mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1> for TokenId {
-    fn from(token_id: mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1) -> Self {
-        Self(token_id.0.into())
+impl TryFrom<mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1> for TokenId {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        token_id: mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self(token_id.0.try_into()?))
     }
 }
 
-impl From<&mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1> for TokenId {
-    fn from(token_id: &mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1) -> Self {
-        Self(token_id.0.to_field())
+impl TryFrom<&mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1> for TokenId {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        token_id: &mina_p2p_messages::v2::MinaBaseAccountIdDigestStableV1,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self(token_id.0.to_field()?))
     }
 }
 
@@ -405,9 +460,13 @@ impl From<&TokenId> for mina_p2p_messages::v2::MinaBaseTokenIdStableV2 {
     }
 }
 
-impl From<&mina_p2p_messages::v2::MinaBaseTokenIdStableV2> for TokenId {
-    fn from(token_id: &mina_p2p_messages::v2::MinaBaseTokenIdStableV2) -> Self {
-        Self((&token_id.0 .0).into())
+impl TryFrom<&mina_p2p_messages::v2::MinaBaseTokenIdStableV2> for TokenId {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        token_id: &mina_p2p_messages::v2::MinaBaseTokenIdStableV2,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self(token_id.to_field()?))
     }
 }
 
@@ -417,7 +476,9 @@ impl binprot::BinProtRead for Account {
         Self: Sized,
     {
         let account = MinaBaseAccountBinableArgStableV2::binprot_read(r)?;
-        Ok((&account).into())
+        (&account)
+            .try_into()
+            .map_err(|e| binprot::Error::CustomError(Box::new(e)))
     }
 }
 
@@ -516,50 +577,62 @@ impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
     }
 }
 
-impl From<&MinaBaseAccountBinableArgStableV2> for Account {
-    fn from(acc: &MinaBaseAccountBinableArgStableV2) -> Self {
-        Self {
-            public_key: acc.public_key.inner().into(),
-            token_id: acc.token_id.inner().into(),
+impl TryFrom<&MinaBaseAccountBinableArgStableV2> for Account {
+    type Error = InvalidBigInt;
+
+    fn try_from(acc: &MinaBaseAccountBinableArgStableV2) -> Result<Self, Self::Error> {
+        Ok(Self {
+            public_key: acc.public_key.inner().try_into()?,
+            token_id: acc.token_id.inner().try_into()?,
             token_symbol: {
-                let s: String = (&acc.token_symbol).try_into().unwrap();
+                let s = acc.token_symbol.0.clone();
                 TokenSymbol::from(s)
             },
             balance: Balance::from_u64(acc.balance.0 .0 .0 .0),
             nonce: Nonce::from_u32(acc.nonce.0 .0),
-            receipt_chain_hash: ReceiptChainHash((&acc.receipt_chain_hash.0).into()),
-            delegate: acc.delegate.as_ref().map(|d| d.inner().into()),
-            voting_for: VotingFor(acc.voting_for.0.to_field()),
+            receipt_chain_hash: ReceiptChainHash(acc.receipt_chain_hash.to_field()?),
+            delegate: match acc.delegate.as_ref() {
+                Some(delegate) => Some(delegate.try_into()?),
+                None => None,
+            },
+            voting_for: VotingFor(acc.voting_for.to_field()?),
             timing: (&acc.timing).into(),
             permissions: (&acc.permissions).into(),
-            zkapp: acc.zkapp.as_ref().map(|zkapp| {
-                let v2::MinaBaseZkappAccountStableV2 {
-                    app_state,
-                    verification_key,
-                    zkapp_version,
-                    action_state,
-                    last_action_slot,
-                    proved_state,
-                    zkapp_uri,
-                } = zkapp;
+            zkapp: match acc.zkapp.as_ref() {
+                Some(zkapp) => {
+                    let v2::MinaBaseZkappAccountStableV2 {
+                        app_state,
+                        verification_key,
+                        zkapp_version,
+                        action_state,
+                        last_action_slot,
+                        proved_state,
+                        zkapp_uri,
+                    } = zkapp;
 
-                ZkAppAccount {
-                    app_state: app_state.each_ref().map(|s| s.to_field()),
-                    verification_key: verification_key.as_ref().map(Into::into),
-                    zkapp_version: zkapp_version.as_u32(),
-                    action_state: action_state.each_ref().map(|s| s.to_field()),
-                    last_action_slot: Slot::from_u32(last_action_slot.as_u32()),
-                    proved_state: *proved_state,
-                    zkapp_uri: zkapp_uri.try_into().unwrap(),
+                    Some(Box::new(ZkAppAccount {
+                        app_state: try_array_into_with(app_state, BigInt::to_field)?,
+                        verification_key: match verification_key.as_ref() {
+                            Some(vk) => Some(VerificationKeyWire::new(vk.try_into()?)),
+                            None => None,
+                        },
+                        zkapp_version: zkapp_version.as_u32(),
+                        action_state: try_array_into_with(action_state, BigInt::to_field)?,
+                        last_action_slot: Slot::from_u32(last_action_slot.as_u32()),
+                        proved_state: *proved_state,
+                        zkapp_uri: zkapp_uri.into(),
+                    }))
                 }
-                .into()
-            }),
-        }
+                None => None,
+            },
+        })
     }
 }
-impl From<MinaBaseAccountBinableArgStableV2> for Account {
-    fn from(account: MinaBaseAccountBinableArgStableV2) -> Self {
-        (&account).into()
+impl TryFrom<MinaBaseAccountBinableArgStableV2> for Account {
+    type Error = InvalidBigInt;
+
+    fn try_from(account: MinaBaseAccountBinableArgStableV2) -> Result<Self, Self::Error> {
+        (&account).try_into()
     }
 }
 
