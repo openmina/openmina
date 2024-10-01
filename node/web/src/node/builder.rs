@@ -211,12 +211,9 @@ impl NodeBuilder {
             .custom_initial_time
             .unwrap_or_else(redux::Timestamp::global_now);
 
-
         let transition_frontier = TransitionFrontierConfig::new(self.genesis_config);
 
-        let protocol_constants = transition_frontier
-            .genesis
-            .protocol_constants()?;
+        let protocol_constants = transition_frontier.genesis.protocol_constants()?;
         let consensus_consts =
             ConsensusConstants::create(constraint_constants(), &protocol_constants);
 
