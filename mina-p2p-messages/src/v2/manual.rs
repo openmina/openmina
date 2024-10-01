@@ -1018,15 +1018,15 @@ impl MinaBaseZkappCommandTStableV1WireStableV1 {
         let mut buffer: Vec<u8> = Vec::new();
         ZKAPP_VERSION_TAG.binprot_write(&mut buffer)?;
         self.binprot_write(&mut buffer)?;
-        use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
 
-        let base64_data = STANDARD_NO_PAD.encode(buffer);
+        let base64_data = STANDARD.encode(buffer);
         Ok(base64_data)
     }
 
     pub fn from_base64(base64_data: &str) -> Result<Self, conv::Error> {
-        use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
-        let decoded_data = STANDARD_NO_PAD.decode(&base64_data)?;
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let decoded_data = STANDARD.decode(&base64_data)?;
         let res = MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(
             &mut decoded_data[1..].as_ref(),
         )?;
