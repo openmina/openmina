@@ -7,7 +7,45 @@ use mina_p2p_messages::list::List;
 use mina_p2p_messages::pseq::PaddedSeq;
 use mina_p2p_messages::string::{TokenSymbol, ZkAppUri};
 use mina_p2p_messages::v2::{
-    CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1, MinaBaseAccountUpdateAccountPreconditionStableV1, MinaBaseAccountUpdateAuthorizationKindStableV1, MinaBaseAccountUpdateBodyEventsStableV1, MinaBaseAccountUpdateBodyFeePayerStableV1, MinaBaseAccountUpdateBodyStableV1, MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdateMayUseTokenStableV1, MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTStableV1, MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA, MinaBaseAccountUpdateUpdateStableV1Delegate, MinaBaseAccountUpdateUpdateStableV1Permissions, MinaBaseAccountUpdateUpdateStableV1Timing, MinaBaseAccountUpdateUpdateStableV1TokenSymbol, MinaBaseAccountUpdateUpdateStableV1VerificationKey, MinaBaseAccountUpdateUpdateStableV1VotingFor, MinaBaseAccountUpdateUpdateStableV1ZkappUri, MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseControlStableV2, MinaBasePermissionsStableV2, MinaBaseReceiptChainHashStableV1, MinaBaseSignedCommandMemoStableV1, MinaBaseUserCommandStableV2, MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA, MinaBaseZkappPreconditionAccountStableV2, MinaBaseZkappPreconditionAccountStableV2Balance, MinaBaseZkappPreconditionAccountStableV2BalanceA, MinaBaseZkappPreconditionAccountStableV2Delegate, MinaBaseZkappPreconditionAccountStableV2ProvedState, MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash, MinaBaseZkappPreconditionAccountStableV2StateA, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed, MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint, MinaBaseZkappPreconditionProtocolStateStableV1, MinaBaseZkappPreconditionProtocolStateStableV1Amount, MinaBaseZkappPreconditionProtocolStateStableV1AmountA, MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot, MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA, MinaBaseZkappPreconditionProtocolStateStableV1Length, MinaBaseZkappPreconditionProtocolStateStableV1LengthA, MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2SignedAmount, PicklesProofProofsVerifiedMaxStableV2, StateHash
+    CurrencyAmountStableV1, CurrencyBalanceStableV1, CurrencyFeeStableV1,
+    MinaBaseAccountUpdateAccountPreconditionStableV1,
+    MinaBaseAccountUpdateAuthorizationKindStableV1, MinaBaseAccountUpdateBodyEventsStableV1,
+    MinaBaseAccountUpdateBodyFeePayerStableV1, MinaBaseAccountUpdateBodyStableV1,
+    MinaBaseAccountUpdateFeePayerStableV1, MinaBaseAccountUpdateMayUseTokenStableV1,
+    MinaBaseAccountUpdatePreconditionsStableV1, MinaBaseAccountUpdateTStableV1,
+    MinaBaseAccountUpdateUpdateStableV1, MinaBaseAccountUpdateUpdateStableV1AppStateA,
+    MinaBaseAccountUpdateUpdateStableV1Delegate, MinaBaseAccountUpdateUpdateStableV1Permissions,
+    MinaBaseAccountUpdateUpdateStableV1Timing, MinaBaseAccountUpdateUpdateStableV1TokenSymbol,
+    MinaBaseAccountUpdateUpdateStableV1VerificationKey,
+    MinaBaseAccountUpdateUpdateStableV1VotingFor, MinaBaseAccountUpdateUpdateStableV1ZkappUri,
+    MinaBaseAccountUpdateUpdateTimingInfoStableV1, MinaBaseControlStableV2,
+    MinaBasePermissionsStableV2, MinaBaseReceiptChainHashStableV1,
+    MinaBaseSignedCommandMemoStableV1, MinaBaseUserCommandStableV2,
+    MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
+    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
+    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
+    MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
+    MinaBaseZkappPreconditionAccountStableV2, MinaBaseZkappPreconditionAccountStableV2Balance,
+    MinaBaseZkappPreconditionAccountStableV2BalanceA,
+    MinaBaseZkappPreconditionAccountStableV2Delegate,
+    MinaBaseZkappPreconditionAccountStableV2ProvedState,
+    MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash,
+    MinaBaseZkappPreconditionAccountStableV2StateA,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed,
+    MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint,
+    MinaBaseZkappPreconditionProtocolStateStableV1,
+    MinaBaseZkappPreconditionProtocolStateStableV1Amount,
+    MinaBaseZkappPreconditionProtocolStateStableV1AmountA,
+    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot,
+    MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA,
+    MinaBaseZkappPreconditionProtocolStateStableV1Length,
+    MinaBaseZkappPreconditionProtocolStateStableV1LengthA,
+    MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash,
+    MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSpanStableV1,
+    MinaStateBlockchainStateValueStableV2SignedAmount, PicklesProofProofsVerifiedMaxStableV2,
+    StateHash,
 };
 
 use node::account::AccountPublicKey;
@@ -100,21 +138,9 @@ impl TryFrom<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
         Ok(MinaBaseUserCommandStableV2::ZkappCommand(
             MinaBaseZkappCommandTStableV1WireStableV1 {
                 fee_payer: value.fee_payer.try_into()?,
-                account_updates: value
-                    .account_updates
-                    .into_iter()
-                    .map(|update| {
-                        Ok(MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
-                            elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
-                                account_update: update.try_into()?,
-                                account_update_digest: (),
-                                // TODO: look into this, in the body of the account update there are fields callData and callDepth, is it related?
-                                calls: List::new(),
-                            },
-                            stack_hash: (),
-                        })
-                    })
-                    .collect::<Result<List<_>, Self::Error>>()?,
+                account_updates: try_tree_from_account_updates(List::from_iter(
+                    value.account_updates,
+                ))?,
                 memo: if let Some(memo) = value.memo {
                     MinaBaseSignedCommandMemoStableV1::from_base58check(&memo)
                 } else {
@@ -124,6 +150,72 @@ impl TryFrom<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
             },
         ))
     }
+}
+
+/// Recursively builds a tree of account updates based on their depth.
+fn try_tree_from_account_updates(
+    updates: List<InputGraphQLAccountUpdate>,
+) -> Result<List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>, ConversionError> {
+    let result =
+        try_tree_from_account_updates_aux(updates)?
+            .into_iter()
+            .map(|update| {
+                let MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
+                    elt,
+                    stack_hash,
+                } = update;
+                let MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                    account_update,
+                    account_update_digest,
+                    calls,
+                } = *elt;
+                let elt = MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                    account_update,
+                    account_update_digest,
+                    calls,
+                };
+                MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA { elt, stack_hash }
+            })
+            .collect();
+
+    Ok(result)
+}
+
+fn try_tree_from_account_updates_aux(
+    updates: List<InputGraphQLAccountUpdate>,
+) -> Result<List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>, ConversionError>
+{
+    let mut result = List::new();
+    let mut iter = updates.into_iter().peekable();
+
+    while let Some(account_update) = iter.next() {
+        let depth = account_update.body.call_depth;
+        let mut children = List::new();
+
+        while let Some(next_p) = iter.peek() {
+            if next_p.body.call_depth > depth {
+                // unwrap cannot fail, we just peeked it
+                children.push_back(iter.next().unwrap());
+            } else {
+                break;
+            }
+        }
+
+        let calls = try_tree_from_account_updates_aux(children)?;
+
+        result.push_back(
+            MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
+                elt: Box::new(MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                    account_update: account_update.try_into()?, // FIXME: remove unwrap
+                    account_update_digest: (),
+                    calls,
+                }),
+                stack_hash: (),
+            },
+        );
+    }
+
+    Ok(result)
 }
 
 #[derive(GraphQLObject)]
@@ -215,10 +307,14 @@ impl TryFrom<InputGraphQLAuthorization> for MinaBaseControlStableV2 {
             }
             (None, Some(proof)) => {
                 // Handle proof case
-                let proof = PicklesProofProofsVerifiedMaxStableV2::deserialize(serde_json::Value::String(proof))?;
+                let proof = PicklesProofProofsVerifiedMaxStableV2::deserialize(
+                    serde_json::Value::String(proof),
+                )?;
                 Ok(MinaBaseControlStableV2::Proof(Box::new(proof)))
             }
-            _ => Err(ConversionError::Custom("Either signature or proof must be provided, but not both".into())),
+            _ => Err(ConversionError::Custom(
+                "Either signature or proof must be provided, but not both".into(),
+            )),
         }
     }
 }
@@ -1499,9 +1595,10 @@ mod test {
     fn test_authorization_proof() {
         let proof = InputGraphQLAuthorization {
             signature: None,
-            proof: Some(include_str!("../../../../tests/files/zkapps/proof_string.txt").to_string()),
+            proof: Some(
+                include_str!("../../../../tests/files/zkapps/proof_string.txt").to_string(),
+            ),
         };
-
         let converted: MinaBaseControlStableV2 = proof.try_into().unwrap();
         println!("{:?}", converted);
     }
