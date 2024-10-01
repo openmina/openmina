@@ -58,7 +58,7 @@ docker compose up --pull always
 
 This Alpha release is for testing purposes. Your feedback is essential. Follow these steps to report any issues:
 
-1. **Collect Logs**: Use the [commands above to save logs](#3-start-the-node-on-devnet-and-save-logs)
+1. **Collect Logs**: Use the [commands above to save logs](#2-download--start-the-node)
 2. **Visit Discord**: [Open Mina Discord Channel](https://discord.com/channels/484437221055922177/1290662938734231552/1290667779317305354)
 3. **Describe the Issue**: Briefly explain the problem and steps to reproduce it
 4. **Attach Logs**: Discord allows files up to 25MB. If your logs are larger, use Google Drive or similar
