@@ -53,10 +53,10 @@ export const environment: Readonly<MinaEnv> = {
       name: 'staging-devnet-bp-3',
       url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
     },
-    // {
-    //   name: 'Web Node 1',
-    //   isWebNode: true,
-    // },
+    {
+      name: 'Web Node 1',
+      isWebNode: true,
+    },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',

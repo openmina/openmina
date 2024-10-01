@@ -61,6 +61,11 @@ export class WebNodeService {
     return this.backendSubject$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).stats().block_producer())),
+      tap((peers: any) => {
+        console.log('----------------BLOCK PRODUCER----------------');
+        console.log(peers);
+        console.log('----------------BLOCK PRODUCER----------------');
+      }),
     );
   }
 
