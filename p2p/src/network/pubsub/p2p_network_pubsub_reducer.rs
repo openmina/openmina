@@ -446,8 +446,7 @@ impl P2pNetworkPubsubState {
                         }
                     }
                     Err(err) => {
-                        // TODO: add error handling
-                        dbg!(err);
+                        return Err(err.to_string());
                     }
                 }
             }
