@@ -296,7 +296,7 @@ pub struct GraphQLAuthorizationKind {
     pub verification_key_hash: Option<String>,
 }
 
-#[derive(GraphQLInputObject)]
+#[derive(GraphQLInputObject, Debug)]
 pub struct InputGraphQLAuthorizationKind {
     pub is_signed: bool,
     pub is_proved: bool,
@@ -330,20 +330,27 @@ impl From<MinaBaseAccountUpdateAuthorizationKindStableV1> for GraphQLAuthorizati
 impl TryFrom<InputGraphQLAuthorizationKind> for MinaBaseAccountUpdateAuthorizationKindStableV1 {
     type Error = ConversionError;
     fn try_from(value: InputGraphQLAuthorizationKind) -> Result<Self, Self::Error> {
-        let res = if value.is_signed {
-            MinaBaseAccountUpdateAuthorizationKindStableV1::Signature
-        } else if value.is_proved {
-            MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(BigInt::from_decimal(
-                &value
-                    .verification_key_hash
-                    .unwrap_or(Err(ConversionError::MissingField(
+        if value.is_signed {
+            return Ok(MinaBaseAccountUpdateAuthorizationKindStableV1::Signature);
+        }
+
+        if value.is_proved {
+            match &value.verification_key_hash {
+                Some(vk_hash) => {
+                    let big_int = BigInt::from_decimal(vk_hash)?;
+                    return Ok(MinaBaseAccountUpdateAuthorizationKindStableV1::Proof(
+                        big_int,
+                    ));
+                }
+                None => {
+                    return Err(ConversionError::MissingField(
                         "verification_key_hash".to_string(),
-                    ))?),
-            )?)
-        } else {
-            MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven
-        };
-        Ok(res)
+                    ));
+                }
+            }
+        }
+
+        Ok(MinaBaseAccountUpdateAuthorizationKindStableV1::NoneGiven)
     }
 }
 
@@ -1500,6 +1507,22 @@ mod test {
         } else {
             unreachable!()
         }
+    }
+
+    #[test]
+    fn test_authorization_kind() {
+        let kind = InputGraphQLAuthorizationKind {
+            is_signed: false,
+            is_proved: true,
+            verification_key_hash: Some(
+                "19951435866906059835892103359374709356309230417850637795098911039647240505427"
+                    .to_string(),
+            ),
+        };
+        let converted: Result<MinaBaseAccountUpdateAuthorizationKindStableV1, ConversionError> =
+            kind.try_into();
+
+        assert!(converted.is_ok());
     }
 
     fn create_input_graphql_zkapp() -> InputGraphQLZkapp {
