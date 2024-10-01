@@ -211,8 +211,10 @@ impl NodeBuilder {
             .custom_initial_time
             .unwrap_or_else(redux::Timestamp::global_now);
 
-        let protocol_constants = node_config
-            .transition_frontier
+
+        let transition_frontier = TransitionFrontierConfig::new(self.genesis_config);
+
+        let protocol_constants = transition_frontier
             .genesis
             .protocol_constants()?;
         let consensus_consts =
@@ -249,7 +251,7 @@ impl NodeBuilder {
                 work_verifier_index,
                 work_verifier_srs: srs,
             },
-            transition_frontier: TransitionFrontierConfig::new(self.genesis_config),
+            transition_frontier,
             block_producer: self.block_producer,
             tx_pool: ledger::transaction_pool::Config {
                 trust_system: (),
