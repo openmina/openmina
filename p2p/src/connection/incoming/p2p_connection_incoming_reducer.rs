@@ -1,6 +1,6 @@
+#[cfg(feature = "p2p-libp2p")]
 use std::net::{IpAddr, SocketAddr};
 
-use multiaddr::Protocol;
 use openmina_core::{bug_condition, debug, warn, Substate};
 use redux::{ActionWithMeta, Dispatcher, Timestamp};
 
@@ -140,7 +140,7 @@ impl P2pConnectionIncomingState {
                 dispatcher.push(P2pConnectionIncomingAction::AnswerReady { peer_id, answer });
                 Ok(())
             }
-            P2pConnectionIncomingAction::AnswerReady { answer, .. } => {
+            P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
                 let state = p2p_state
                     .incoming_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state for: {:?}", action))?;
@@ -164,6 +164,12 @@ impl P2pConnectionIncomingState {
                         state
                     );
                 }
+                state_context.into_dispatcher().push(
+                    P2pConnectionIncomingEffectfulAction::AnswerSend {
+                        peer_id: *peer_id,
+                        answer: answer.clone(),
+                    },
+                );
                 Ok(())
             }
             P2pConnectionIncomingAction::AnswerSendSuccess { .. } => {
@@ -498,12 +504,12 @@ impl P2pConnectionIncomingState {
                     close_duplicates.extend(identify.listen_addrs.iter().filter_map(|maddr| {
                         let mut iter = maddr.iter();
                         let ip: IpAddr = match iter.next()? {
-                            Protocol::Ip4(ip4) => ip4.into(),
-                            Protocol::Ip6(ip6) => ip6.into(),
+                            multiaddr::Protocol::Ip4(ip4) => ip4.into(),
+                            multiaddr::Protocol::Ip6(ip6) => ip6.into(),
                             _ => return None,
                         };
                         let port = match iter.next()? {
-                            Protocol::Tcp(port) => port,
+                            multiaddr::Protocol::Tcp(port) => port,
                             _ => return None,
                         };
                         Some(SocketAddr::from((ip, port)))

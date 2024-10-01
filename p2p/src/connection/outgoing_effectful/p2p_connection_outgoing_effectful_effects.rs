@@ -37,7 +37,7 @@ impl P2pConnectionOutgoingEffectfulAction {
                 store.service().outgoing_init(opts);
                 store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id });
             }
-            P2pConnectionOutgoingEffectfulAction::OfferReady { peer_id, offer } => {
+            P2pConnectionOutgoingEffectfulAction::OfferSend { peer_id, offer } => {
                 let (state, service) = store.state_and_service();
                 let Some(peer) = state.peers.get(&peer_id) else {
                     return;
@@ -63,7 +63,7 @@ impl P2pConnectionOutgoingEffectfulAction {
                 }
                 store.dispatch(P2pConnectionOutgoingAction::OfferSendSuccess { peer_id });
             }
-            P2pConnectionOutgoingEffectfulAction::AnswerRecvSuccess { peer_id, answer } => {
+            P2pConnectionOutgoingEffectfulAction::AnswerSet { peer_id, answer } => {
                 store.service().set_answer(peer_id, *answer);
                 store.dispatch(P2pConnectionOutgoingAction::FinalizePending { peer_id });
             }

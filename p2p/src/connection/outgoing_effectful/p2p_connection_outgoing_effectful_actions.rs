@@ -20,11 +20,11 @@ pub enum P2pConnectionOutgoingEffectfulAction {
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
-    OfferReady {
+    OfferSend {
         peer_id: PeerId,
         offer: Box<webrtc::Offer>,
     },
-    AnswerRecvSuccess {
+    AnswerSet {
         peer_id: PeerId,
         answer: Box<webrtc::Answer>,
     },

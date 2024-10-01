@@ -267,7 +267,7 @@ pub enum ActionKind {
     P2pConnectionIncomingLibp2pReceived,
     P2pConnectionIncomingSuccess,
     P2pConnectionIncomingTimeout,
-    P2pConnectionIncomingEffectfulAnswerReady,
+    P2pConnectionIncomingEffectfulAnswerSend,
     P2pConnectionIncomingEffectfulInit,
     P2pConnectionOutgoingAnswerRecvError,
     P2pConnectionOutgoingAnswerRecvPending,
@@ -286,9 +286,9 @@ pub enum ActionKind {
     P2pConnectionOutgoingReconnect,
     P2pConnectionOutgoingSuccess,
     P2pConnectionOutgoingTimeout,
-    P2pConnectionOutgoingEffectfulAnswerRecvSuccess,
+    P2pConnectionOutgoingEffectfulAnswerSet,
     P2pConnectionOutgoingEffectfulInit,
-    P2pConnectionOutgoingEffectfulOfferReady,
+    P2pConnectionOutgoingEffectfulOfferSend,
     P2pConnectionOutgoingEffectfulRandomInit,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
@@ -1324,10 +1324,8 @@ impl ActionKindGet for P2pConnectionOutgoingEffectfulAction {
         match self {
             Self::RandomInit => ActionKind::P2pConnectionOutgoingEffectfulRandomInit,
             Self::Init { .. } => ActionKind::P2pConnectionOutgoingEffectfulInit,
-            Self::OfferReady { .. } => ActionKind::P2pConnectionOutgoingEffectfulOfferReady,
-            Self::AnswerRecvSuccess { .. } => {
-                ActionKind::P2pConnectionOutgoingEffectfulAnswerRecvSuccess
-            }
+            Self::OfferSend { .. } => ActionKind::P2pConnectionOutgoingEffectfulOfferSend,
+            Self::AnswerSet { .. } => ActionKind::P2pConnectionOutgoingEffectfulAnswerSet,
         }
     }
 }
@@ -1336,7 +1334,7 @@ impl ActionKindGet for P2pConnectionIncomingEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Init { .. } => ActionKind::P2pConnectionIncomingEffectfulInit,
-            Self::AnswerReady { .. } => ActionKind::P2pConnectionIncomingEffectfulAnswerReady,
+            Self::AnswerSend { .. } => ActionKind::P2pConnectionIncomingEffectfulAnswerSend,
         }
     }
 }
