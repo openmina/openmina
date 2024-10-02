@@ -41,36 +41,38 @@ impl P2pNetworkPubsubEffectfulAction {
                 };
                 let messages = state.incoming_messages.clone();
 
-                for mut message in messages {
-                    let mut error = None;
-
-                    let originator = originator(&message);
-
-                    if let Some(signature) = message.signature.take() {
-                        if let Ok(Some(pk)) = originator {
-                            message.key = None;
-                            let mut data = vec![];
-
-                            if prost::Message::encode(&message, &mut data).is_err() {
+                for message in messages {
+                    let result = if let Some(signature) = message.signature.clone() {
+                        if let Ok(Some(pk)) = originator(&message) {
+                            // the message is mutable only in this function
+                            let mut message = message;
+                            let Ok(data) = encode_without_signature_and_key(&mut message) else {
                                 // should never happen;
                                 // we just decode this message, so it should encode without error
                                 bug_condition!("serialization error");
                                 return;
                             };
+                            // keep the binding immutable
+                            let message = message;
 
-                            if !store.service().verify_publication(&pk, &data, &signature) {
-                                error = Some("invalid signature");
+                            if store.service().verify_publication(&pk, &data, &signature) {
+                                store.dispatch(P2pNetworkPubsubAction::IncomingMessage {
+                                    peer_id,
+                                    message,
+                                    seen_limit,
+                                });
+                                Ok(())
+                            } else {
+                                Err("invalid signature")
                             }
                         } else {
-                            error = Some("message doesn't contain verifying key");
+                            Err("message doesn't contain verifying key")
                         }
-
-                        message.signature = Some(signature);
                     } else {
-                        error = Some("message doesn't contain signature");
-                    }
+                        Err("message doesn't contain signature")
+                    };
 
-                    if let Some(error) = error {
+                    if let Err(error) = result {
                         let Some((addr, _)) = store.state().network.scheduler.find_peer(&peer_id)
                         else {
                             bug_condition!("{:?} not found in scheduler state", peer_id);
@@ -84,12 +86,6 @@ impl P2pNetworkPubsubEffectfulAction {
 
                         return;
                     }
-
-                    store.dispatch(P2pNetworkPubsubAction::IncomingMessage {
-                        peer_id,
-                        message,
-                        seen_limit,
-                    });
                 }
             }
         }
@@ -103,4 +99,23 @@ pub fn originator(message: &pb::Message) -> Result<Option<PublicKey>, DecodingEr
         .or_else(|| message.from.as_deref().and_then(|f| f.get(2..)))
         .map(PublicKey::try_decode_protobuf)
         .transpose()
+}
+
+/// The reference to the message is mutable, but it is very important to keep the message the same
+/// after this function is done.
+pub fn encode_without_signature_and_key(
+    message: &mut pb::Message,
+) -> Result<Vec<u8>, prost::EncodeError> {
+    // take the fields
+    let signature = message.signature.take();
+    let key = message.key.take();
+
+    let mut data = vec![];
+    let result = prost::Message::encode(&*message, &mut data);
+
+    // put the fields back
+    message.signature = signature;
+    message.key = key;
+
+    result.map(|()| data)
 }
