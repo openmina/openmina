@@ -7,10 +7,12 @@ mod common;
 scenario_test!(
     accept_connection,
     AcceptIncomingConnection,
-    AcceptIncomingConnection
+    AcceptIncomingConnection,
+    true
 );
 scenario_test!(
     accept_multiple_connections,
     AcceptMultipleIncomingConnections,
-    AcceptMultipleIncomingConnections
+    AcceptMultipleIncomingConnections,
+    true
 );

@@ -9,23 +9,27 @@ mod common;
 scenario_test!(
     make_connection,
     MakeOutgoingConnection,
-    MakeOutgoingConnection
+    MakeOutgoingConnection,
+    true
 );
 scenario_test!(
     make_multiple_connections,
     MakeMultipleOutgoingConnections,
-    MakeMultipleOutgoingConnections
+    MakeMultipleOutgoingConnections,
+    true
 );
 
 scenario_test!(
     dont_connect_to_node_same_id,
     DontConnectToNodeWithSameId,
-    DontConnectToNodeWithSameId
+    DontConnectToNodeWithSameId,
+    true
 );
 scenario_test!(
     dont_connect_to_initial_peer_same_id,
     DontConnectToInitialPeerWithSameId,
-    DontConnectToInitialPeerWithSameId
+    DontConnectToInitialPeerWithSameId,
+    true
 );
 scenario_test!(
     dont_connect_to_self_initial_peer,
@@ -36,15 +40,18 @@ scenario_test!(
 scenario_test!(
     connect_to_all_initial_peers,
     ConnectToInitialPeers,
-    ConnectToInitialPeers
+    ConnectToInitialPeers,
+    true
 );
 scenario_test!(
     connect_to_offline_initial_peers,
     ConnectToUnavailableInitialPeers,
-    ConnectToUnavailableInitialPeers
+    ConnectToUnavailableInitialPeers,
+    true
 );
 scenario_test!(
     connect_to_all_initial_peers_become_ready,
     ConnectToInitialPeersBecomeReady,
-    ConnectToInitialPeersBecomeReady
+    ConnectToInitialPeersBecomeReady,
+    true
 );

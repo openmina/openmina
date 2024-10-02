@@ -7,11 +7,13 @@ mod common;
 scenario_test!(
     record_replay_bootstrap,
     RecordReplayBootstrap,
-    RecordReplayBootstrap
+    RecordReplayBootstrap,
+    true
 );
 
 scenario_test!(
     record_replay_block_production,
     RecordReplayBlockProduction,
-    RecordReplayBlockProduction
+    RecordReplayBlockProduction,
+    true
 );

@@ -10,8 +10,10 @@ macro_rules! scenario_doc {
 
 #[macro_export]
 macro_rules! scenario_test {
-
     ($(#[$meta:meta])? $name:ident, $scenario:ty, $scenario_instance:expr) => {
+        scenario_test!($(#[$meta])? $name, $scenario, $scenario_instance, false);
+    };
+    ($(#[$meta:meta])? $name:ident, $scenario:ty, $scenario_instance:expr, $can_test_webrtc:expr) => {
         #[tokio::test]
         $(#[$meta])?
         async fn $name() {
@@ -55,7 +57,13 @@ macro_rules! scenario_test {
                 }));
             }
 
-            let config = ClusterConfig::new(None).unwrap();
+            #[allow(unused_mut)]
+            let mut config = ClusterConfig::new(None).unwrap();
+            #[cfg(feature = "p2p-webrtc")]
+            if $can_test_webrtc {
+                eprintln!("All rust to rust connections will be over webrtc transport");
+                config = config.set_all_rust_to_rust_use_webrtc();
+            }
             let mut cluster = Cluster::new(config);
             let runner = ClusterRunner::new(&mut cluster, |_| {});
             let scenario = $scenario_instance;
