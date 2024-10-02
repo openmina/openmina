@@ -38,9 +38,12 @@ impl VotingFor {
     }
 
     pub fn to_base58check(&self) -> String {
-        // let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
-        // state_hash.to_string()
-        // TODO(adonagy): is this correct?
+        let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
+        state_hash.to_string()
+    }
+
+    pub fn to_base58check_graphql(&self) -> String {
+        // NOTE: See https://github.com/MinaProtocol/mina/blob/fb1c3c0a408c344810140bdbcedacc532a11be91/src/lib/mina_graphql/types.ml#L1528
         let receipt_chain_hash = ReceiptChainHash(self.0);
         let receipt_chain_hash = mina_p2p_messages::v2::ReceiptChainHash::from(receipt_chain_hash);
         receipt_chain_hash.to_string()

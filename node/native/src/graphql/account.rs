@@ -214,7 +214,7 @@ impl TryFrom<ledger::Account> for GraphQLAccount {
             delegate_account: value.delegate.map(|d| GraphQLDelegateAccount {
                 public_key: d.into_address(),
             }),
-            voting_for: value.voting_for.to_base58check(),
+            voting_for: value.voting_for.to_base58check_graphql(),
             timing: GraphQLTiming::from(value.timing),
             permissions: GraphQLPermissions::from(value.permissions),
             // zkapp: value.zkapp.map(GraphQLZkAppAccount::from),
