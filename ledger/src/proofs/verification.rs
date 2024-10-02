@@ -758,6 +758,9 @@ pub fn verify_zkapp(
 
     let ok = accum_check && verified;
 
+    dbg!(accum_check);
+    dbg!(verified);
+
     eprintln!("verify_zkapp OK={:?}", ok);
 
     if !ok {

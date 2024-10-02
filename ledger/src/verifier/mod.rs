@@ -183,7 +183,7 @@ impl Verifier {
             })
             .flatten();
 
-        let all_verified = if skip_verification.is_some() {
+        let all_verified = if false && skip_verification.is_some() {
             true
         } else {
             let srs = get_srs::<Fp>();
