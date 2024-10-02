@@ -1,9 +1,11 @@
 use super::pb;
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
+
+use std::collections::{BTreeMap, VecDeque};
+
 use mina_p2p_messages::v2;
 use openmina_core::{snark::Snark, transaction::Transaction};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, VecDeque};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubState {

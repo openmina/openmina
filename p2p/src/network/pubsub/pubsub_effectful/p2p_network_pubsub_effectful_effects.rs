@@ -1,6 +1,8 @@
 use openmina_core::bug_condition;
 
-use libp2p_identity::PublicKey;
+use libp2p_identity::{DecodingError, PublicKey};
+
+use super::super::pb;
 
 use crate::{
     P2pCryptoService, P2pNetworkConnectionError, P2pNetworkPubsubAction, P2pNetworkSchedulerAction,
@@ -42,14 +44,10 @@ impl P2pNetworkPubsubEffectfulAction {
                 for mut message in messages {
                     let mut error = None;
 
-                    let originator =
-                        match message.key.as_deref().map(PublicKey::try_decode_protobuf) {
-                            Some(Ok(v)) => Some(v),
-                            _ => PublicKey::try_decode_protobuf(&message.from()[2..]).ok(),
-                        };
+                    let originator = originator(&message);
 
                     if let Some(signature) = message.signature.take() {
-                        if let Some(pk) = originator {
+                        if let Ok(Some(pk)) = originator {
                             message.key = None;
                             let mut data = vec![];
 
@@ -66,6 +64,8 @@ impl P2pNetworkPubsubEffectfulAction {
                         } else {
                             error = Some("message doesn't contain verifying key");
                         }
+
+                        message.signature = Some(signature);
                     } else {
                         error = Some("message doesn't contain signature");
                     }
@@ -94,4 +94,13 @@ impl P2pNetworkPubsubEffectfulAction {
             }
         }
     }
+}
+
+pub fn originator(message: &pb::Message) -> Result<Option<PublicKey>, DecodingError> {
+    message
+        .key
+        .as_deref()
+        .or_else(|| message.from.as_deref().and_then(|f| f.get(2..)))
+        .map(PublicKey::try_decode_protobuf)
+        .transpose()
 }
