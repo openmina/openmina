@@ -48,6 +48,12 @@ impl P2pPeerState {
                     &p2p_state.config.enabled_channels,
                 ));
 
+                if !peer.is_libp2p {
+                    let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                    let state: &P2pState = state.substate()?;
+                    state.channels_init(dispatcher, *peer_id);
+                }
+
                 Ok(())
             }
             P2pPeerAction::BestTipUpdate { peer_id, best_tip } => {

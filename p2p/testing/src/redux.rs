@@ -12,9 +12,15 @@ use openmina_core::{
 use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
-        best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction,
-        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-        streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
+        best_tip::P2pChannelsBestTipAction, best_tip_effectful::P2pChannelsBestTipEffectfulAction,
+        rpc::P2pChannelsRpcAction, rpc_effectful::P2pChannelsRpcEffectfulAction,
+        snark::P2pChannelsSnarkAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
+        snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+        snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
+        streaming_rpc::P2pChannelsStreamingRpcAction,
+        streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
+        transaction::P2pChannelsTransactionAction,
+        transaction_effectful::P2pChannelsTransactionEffectfulAction,
     },
     connection::{
         incoming_effectful::P2pConnectionIncomingEffectfulAction,
@@ -233,6 +239,9 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
                     )
                 }
             }
+            MioEvent::ConnectionDidCloseOnDemand(addr) => {
+                SubStore::dispatch(store, P2pNetworkSchedulerAction::Prune { addr })
+            }
         },
         _ => false,
     }
@@ -278,5 +287,11 @@ impl_from_p2p!(P2pChannelsStreamingRpcAction);
 impl_from_p2p!(P2pConnectionIncomingEffectfulAction);
 impl_from_p2p!(P2pConnectionOutgoingEffectfulAction);
 impl_from_p2p!(P2pDisconnectionEffectfulAction);
+impl_from_p2p!(P2pChannelsBestTipEffectfulAction);
+impl_from_p2p!(P2pChannelsStreamingRpcEffectfulAction);
+impl_from_p2p!(P2pChannelsTransactionEffectfulAction);
+impl_from_p2p!(P2pChannelsSnarkJobCommitmentEffectfulAction);
+impl_from_p2p!(P2pChannelsRpcEffectfulAction);
+impl_from_p2p!(P2pChannelsSnarkEffectfulAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

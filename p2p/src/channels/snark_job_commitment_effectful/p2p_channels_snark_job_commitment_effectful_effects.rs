@@ -1,40 +1,36 @@
 use redux::ActionMeta;
 
-use crate::channels::{ChannelId, MsgId, P2pChannelsService};
+use crate::channels::{
+    snark_job_commitment::{
+        P2pChannelsSnarkJobCommitmentAction, SnarkJobCommitmentPropagationChannelMsg,
+    },
+    ChannelId, MsgId, P2pChannelsService,
+};
 
-use super::{P2pChannelsSnarkJobCommitmentAction, SnarkJobCommitmentPropagationChannelMsg};
+use super::p2p_channels_snark_job_commitment_effectful_actions::P2pChannelsSnarkJobCommitmentEffectfulAction;
 
-impl P2pChannelsSnarkJobCommitmentAction {
+impl P2pChannelsSnarkJobCommitmentEffectfulAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
     {
         match self {
-            P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
+            P2pChannelsSnarkJobCommitmentEffectfulAction::Init { peer_id } => {
                 store
                     .service()
                     .channel_open(peer_id, ChannelId::SnarkJobCommitmentPropagation);
                 store.dispatch(P2pChannelsSnarkJobCommitmentAction::Pending { peer_id });
             }
-            P2pChannelsSnarkJobCommitmentAction::Ready { peer_id } => {
-                let limit = 16;
-                store.dispatch(P2pChannelsSnarkJobCommitmentAction::RequestSend { peer_id, limit });
-            }
-            P2pChannelsSnarkJobCommitmentAction::RequestSend { peer_id, limit } => {
+            P2pChannelsSnarkJobCommitmentEffectfulAction::RequestSend { peer_id, limit } => {
                 let msg = SnarkJobCommitmentPropagationChannelMsg::GetNext { limit };
                 store
                     .service()
                     .channel_send(peer_id, MsgId::first(), msg.into());
             }
-            P2pChannelsSnarkJobCommitmentAction::Received { peer_id, .. } => {
-                let limit = 16;
-                store.dispatch(P2pChannelsSnarkJobCommitmentAction::RequestSend { peer_id, limit });
-            }
-            P2pChannelsSnarkJobCommitmentAction::ResponseSend {
+            P2pChannelsSnarkJobCommitmentEffectfulAction::ResponseSend {
                 peer_id,
                 commitments,
-                ..
             } => {
                 if commitments.is_empty() {
                     return;
@@ -54,9 +50,6 @@ impl P2pChannelsSnarkJobCommitmentAction {
                         .channel_send(peer_id, MsgId::first(), msg.into());
                 }
             }
-            P2pChannelsSnarkJobCommitmentAction::Pending { .. } => {}
-            P2pChannelsSnarkJobCommitmentAction::PromiseReceived { .. } => {}
-            P2pChannelsSnarkJobCommitmentAction::RequestReceived { .. } => {}
         }
     }
 }

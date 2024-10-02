@@ -9,8 +9,6 @@ pub use p2p_channels_streaming_rpc_actions::*;
 
 mod p2p_channels_streaming_rpc_reducer;
 
-mod p2p_channels_streaming_rpc_effects;
-
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 

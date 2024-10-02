@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub enum P2pConnectionIncomingEffectfulAction {
     /// Incoming connection is initialized.
     Init { opts: P2pConnectionIncomingInitOpts },
-    AnswerReady {
+    AnswerSend {
         peer_id: PeerId,
         answer: Box<webrtc::Answer>,
     },

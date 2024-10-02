@@ -1,6 +1,7 @@
 use crate::{
-    connection::P2pConnectionState, disconnection::P2pDisconnectedState, P2pAction,
-    P2pActionWithMetaRef, P2pNetworkState, P2pPeerState, P2pState,
+    channels::P2pChannelsState, connection::P2pConnectionState,
+    disconnection::P2pDisconnectedState, P2pAction, P2pActionWithMetaRef, P2pNetworkState,
+    P2pPeerState, P2pState,
 };
 use openmina_core::{bug_condition, Substate};
 
@@ -35,15 +36,7 @@ impl P2pState {
                 meta.with_action(action),
             ),
             P2pAction::Channels(action) => {
-                let Some(peer_id) = action.peer_id() else {
-                    return Ok(());
-                };
-                let is_libp2p = state.is_libp2p_peer(peer_id);
-                let Some(peer) = state.get_ready_peer_mut(peer_id) else {
-                    return Ok(());
-                };
-                peer.channels.reducer(meta.with_action(action), is_libp2p);
-                Ok(())
+                P2pChannelsState::reducer(state_context, meta.with_action(action))
             }
             P2pAction::Identify(_action) => {
                 #[cfg(feature = "p2p-libp2p")]
@@ -62,7 +55,9 @@ impl P2pState {
                 }
                 Ok(())
             }
-            P2pAction::ConnectionEffectful(_) | P2pAction::DisconnectionEffectful(_) => {
+            P2pAction::ConnectionEffectful(_)
+            | P2pAction::DisconnectionEffectful(_)
+            | P2pAction::ChannelsEffectful(_) => {
                 // effectful
                 Ok(())
             }

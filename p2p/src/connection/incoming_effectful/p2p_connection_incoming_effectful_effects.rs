@@ -15,7 +15,7 @@ impl P2pConnectionIncomingEffectfulAction {
                 store.service().incoming_init(peer_id, *opts.offer);
                 store.dispatch(P2pConnectionIncomingAction::AnswerSdpCreatePending { peer_id });
             }
-            P2pConnectionIncomingEffectfulAction::AnswerReady { peer_id, answer } => {
+            P2pConnectionIncomingEffectfulAction::AnswerSend { peer_id, answer } => {
                 store.service().set_answer(peer_id, *answer);
             }
         }

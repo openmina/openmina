@@ -1,9 +1,15 @@
 pub mod best_tip;
+pub mod best_tip_effectful;
 pub mod rpc;
+pub mod rpc_effectful;
 pub mod snark;
+pub mod snark_effectful;
 pub mod snark_job_commitment;
+pub mod snark_job_commitment_effectful;
 pub mod streaming_rpc;
+pub mod streaming_rpc_effectful;
 pub mod transaction;
+pub mod transaction_effectful;
 
 mod p2p_channels_state;
 pub use p2p_channels_state::*;
@@ -12,8 +18,6 @@ mod p2p_channels_actions;
 pub use p2p_channels_actions::*;
 
 mod p2p_channels_reducer;
-
-mod p2p_channels_effects;
 
 mod p2p_channels_service;
 pub use p2p_channels_service::*;
@@ -172,6 +176,45 @@ impl ChannelMsg {
             }
             ChannelId::Rpc => RpcChannelMsg::binprot_read(r).map(|v| v.into()),
             ChannelId::StreamingRpc => StreamingRpcChannelMsg::binprot_read(r).map(|v| v.into()),
+        }
+    }
+}
+
+impl crate::P2pState {
+    /// Initializes enabled channels.
+    pub fn channels_init<Action, State>(
+        &self,
+        dispatcher: &mut redux::Dispatcher<Action, State>,
+        peer_id: crate::PeerId,
+    ) where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
+        // Dispatches can be done without a loop, but inside we do
+        // exhaustive matching so that we don't miss any channels.
+        for id in self.config.enabled_channels.iter().copied() {
+            match id {
+                ChannelId::BestTipPropagation => {
+                    dispatcher.push(best_tip::P2pChannelsBestTipAction::Init { peer_id });
+                }
+                ChannelId::TransactionPropagation => {
+                    dispatcher.push(transaction::P2pChannelsTransactionAction::Init { peer_id });
+                }
+                ChannelId::SnarkPropagation => {
+                    dispatcher.push(snark::P2pChannelsSnarkAction::Init { peer_id });
+                }
+                ChannelId::SnarkJobCommitmentPropagation => {
+                    dispatcher.push(
+                        snark_job_commitment::P2pChannelsSnarkJobCommitmentAction::Init { peer_id },
+                    );
+                }
+                ChannelId::Rpc => {
+                    dispatcher.push(rpc::P2pChannelsRpcAction::Init { peer_id });
+                }
+                ChannelId::StreamingRpc => {
+                    dispatcher.push(streaming_rpc::P2pChannelsStreamingRpcAction::Init { peer_id });
+                }
+            }
         }
     }
 }

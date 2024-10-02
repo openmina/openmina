@@ -133,14 +133,15 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                     !state.network.scheduler.connections.contains_key(addr)
                 })
             }
-            P2pNetworkSchedulerAction::OutgoingConnect { addr } => !state
+            P2pNetworkSchedulerAction::OutgoingConnect { addr } => state
                 .network
                 .scheduler
                 .connections
-                .contains_key(&ConnectionAddr {
+                .get(&ConnectionAddr {
                     sock_addr: *addr,
                     incoming: false,
-                }),
+                })
+                .map_or(true, |v| v.closed.is_some()),
             P2pNetworkSchedulerAction::OutgoingDidConnect { addr, .. } => state
                 .network
                 .scheduler

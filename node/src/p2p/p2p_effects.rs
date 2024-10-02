@@ -6,6 +6,7 @@ use p2p::channels::streaming_rpc::{
     P2pChannelsStreamingRpcAction, P2pStreamingRpcRequest, P2pStreamingRpcResponseFull,
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
+use p2p::channels::P2pChannelsEffectfulAction;
 use p2p::connection::P2pConnectionEffectfulAction;
 use p2p::P2pInitializeAction;
 
@@ -193,8 +194,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
         },
         P2pAction::DisconnectionEffectful(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
-            P2pChannelsAction::MessageReceived(action) => {
-                action.effects(&meta, store);
+            P2pChannelsAction::MessageReceived(_) => {
+                // handled by reducer
             }
             P2pChannelsAction::BestTip(action) => {
                 if let P2pChannelsBestTipAction::RequestReceived { peer_id } = action {
@@ -205,11 +206,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         });
                     }
                 }
-                action.effects(&meta, store);
             }
             P2pChannelsAction::Transaction(action) => {
-                // TODO: does the order matter here? if not this clone can be removed
-                action.clone().effects(&meta, store);
                 match action {
                     P2pChannelsTransactionAction::Received {
                         peer_id: _,
@@ -231,28 +229,22 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     _ => {}
                 }
             }
-            P2pChannelsAction::Snark(action) => {
-                // TODO: does the order matter here? if not this clone can be removed
-                action.clone().effects(&meta, store);
-                match action {
-                    P2pChannelsSnarkAction::Received { peer_id, snark } => {
-                        store.dispatch(SnarkPoolCandidateAction::InfoReceived {
-                            peer_id,
-                            info: *snark,
-                        });
-                    }
-                    P2pChannelsSnarkAction::Libp2pReceived { peer_id, snark, .. } => {
-                        store.dispatch(SnarkPoolCandidateAction::WorkReceived {
-                            peer_id,
-                            work: *snark,
-                        });
-                    }
-                    _ => {}
+            P2pChannelsAction::Snark(action) => match action {
+                P2pChannelsSnarkAction::Received { peer_id, snark } => {
+                    store.dispatch(SnarkPoolCandidateAction::InfoReceived {
+                        peer_id,
+                        info: *snark,
+                    });
                 }
-            }
+                P2pChannelsSnarkAction::Libp2pReceived { peer_id, snark, .. } => {
+                    store.dispatch(SnarkPoolCandidateAction::WorkReceived {
+                        peer_id,
+                        work: *snark,
+                    });
+                }
+                _ => {}
+            },
             P2pChannelsAction::SnarkJobCommitment(action) => {
-                // TODO: does the order matter here? if not this clone can be removed
-                action.clone().effects(&meta, store);
                 if let P2pChannelsSnarkJobCommitmentAction::Received {
                     peer_id,
                     commitment,
@@ -265,8 +257,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 }
             }
             P2pChannelsAction::Rpc(action) => {
-                // TODO: does the order matter here? if not this clone can be removed
-                action.clone().effects(&meta, store);
                 match action {
                     P2pChannelsRpcAction::Ready { peer_id } => {
                         store.dispatch(P2pChannelsRpcAction::RequestSend {
@@ -568,8 +558,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 }
             }
             P2pChannelsAction::StreamingRpc(action) => {
-                // TODO: does the order matter here? if not this clone can be removed
-                action.clone().effects(&meta, store);
                 match action {
                     P2pChannelsStreamingRpcAction::Ready { .. } => {
                         store
@@ -646,6 +634,14 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     _ => {}
                 }
             }
+        },
+        P2pAction::ChannelsEffectful(action) => match action {
+            P2pChannelsEffectfulAction::BestTip(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::Transaction(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::StreamingRpc(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::Snark(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::Rpc(action) => action.effects(&meta, store),
+            P2pChannelsEffectfulAction::SnarkJobCommitment(action) => action.effects(&meta, store),
         },
         P2pAction::Peer(action) => match action {
             P2pPeerAction::Discovered { .. }
