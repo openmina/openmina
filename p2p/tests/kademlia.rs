@@ -1,6 +1,6 @@
 use p2p::{
-    identity::SecretKey, p2p_effects, p2p_timeout_effects, P2pAction, P2pNetworkAction,
-    P2pNetworkKadAction, P2pNetworkKadBucket, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
+    identity::SecretKey, p2p_effects, P2pAction, P2pNetworkAction, P2pNetworkKadAction,
+    P2pNetworkKadBucket, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
     P2pNetworkKademliaStreamAction, PeerId,
 };
 use p2p_testing::{
@@ -402,7 +402,7 @@ fn bad_node_effects(
                 event_mapper_effect(store, a);
             }
             Action::Idle(_) => {
-                p2p_timeout_effects(store, &meta);
+                // p2p_timeout_effects(store, &meta);
             }
         };
     }

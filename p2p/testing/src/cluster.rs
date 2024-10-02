@@ -15,7 +15,7 @@ use p2p::{
         P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingInitOptsParseError,
     },
     identity::SecretKey,
-    p2p_effects, p2p_timeout_effects, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
+    p2p_effects, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
 };
 use redux::SystemTime;
 use tokio::sync::mpsc;
@@ -382,17 +382,22 @@ impl Cluster {
 
         let store = crate::redux::Store::new(
             |state, action, dispatcher| {
-                log_action(action.action(), action.meta(), state.0.my_id());
-                if let Action::P2p(p2p_action) = action.action() {
-                    let time = action.meta().time();
-                    let result = P2pState::reducer(
-                        Substate::new(state, dispatcher),
-                        action.meta().clone().with_action(p2p_action),
-                    );
+                let meta = action.meta().clone();
+                let action = action.action();
 
-                    if let Err(error) = result {
-                        openmina_core::warn!(time; "error = {error}");
+                log_action(action, &meta, state.0.my_id());
+
+                let time = meta.time();
+                let state_context = Substate::new(state, dispatcher);
+                let result = match action {
+                    Action::P2p(action) => {
+                        P2pState::reducer(state_context, meta.with_action(action))
                     }
+                    Action::Idle(_) => P2pState::p2p_timeout_dispatch(state_context, &meta),
+                };
+
+                if let Err(error) = result {
+                    openmina_core::warn!(time; "error = {error}");
                 }
             },
             override_fn.unwrap_or(|store, action| {
@@ -402,7 +407,9 @@ impl Cluster {
                         p2p_effects(store, meta.with_action(a.clone()));
                         event_mapper_effect(store, a);
                     }
-                    Action::Idle(_) => p2p_timeout_effects(store, &meta),
+                    Action::Idle(_) => {
+                        // handled by reducer
+                    }
                 }
             }),
             service,

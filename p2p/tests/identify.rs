@@ -10,7 +10,7 @@ use p2p::{
         stream::P2pNetworkIdentifyStreamState, P2pNetworkIdentify, P2pNetworkIdentifyAction,
         P2pNetworkIdentifyStreamAction,
     },
-    p2p_effects, p2p_timeout_effects,
+    p2p_effects,
     token::{self, DiscoveryAlgorithm},
     Data, P2pAction, P2pNetworkAction, P2pNetworkYamuxAction, PeerId,
 };
@@ -268,7 +268,7 @@ fn bad_node_effects(
                 event_mapper_effect(store, a);
             }
             Action::Idle(_) => {
-                p2p_timeout_effects(store, &meta);
+                // p2p_timeout_effects(store, &meta);
             }
         };
     }
