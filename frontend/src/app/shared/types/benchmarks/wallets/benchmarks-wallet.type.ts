@@ -16,5 +16,6 @@ export enum BenchmarksWalletTransactionStatus {
   SENDING = 'sending',
   GENERATED = 'generated',
   ERROR = 'error',
+  REJECTED = 'rejected',
   INCLUDED = 'included',
 }

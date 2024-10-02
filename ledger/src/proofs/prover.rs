@@ -3,16 +3,14 @@ use std::{borrow::Cow, str::FromStr};
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use kimchi::{
     poly_commitment::PolyComm,
-    proof::{
-        PointEvaluations, ProofEvaluations, ProverCommitments, ProverProof, RecursionChallenge,
-    },
+    proof::{PointEvaluations, ProofEvaluations, ProverCommitments, RecursionChallenge},
 };
 use mina_curves::pasta::Pallas;
 use mina_hasher::Fp;
 use once_cell::sync::Lazy;
 use poly_commitment::{commitment::CommitmentCurve, evaluation_proof::OpeningProof};
 
-use super::util::extract_bulletproof;
+use super::{util::extract_bulletproof, ProverProof};
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 
@@ -39,14 +37,13 @@ pub fn make_padded_proof_from_p2p(
         prev_evals: _, // unused
         proof,
     }: &PicklesProofProofsVerified2ReprStableV2,
-) -> Result<ProverProof<Pallas>, InvalidBigInt> {
+) -> Result<ProverProof<Fq>, InvalidBigInt> {
     let of_coord =
         |(a, b): &(BigInt, BigInt)| Ok(Pallas::of_coordinates(a.to_field()?, b.to_field()?));
 
     let make_poly = |poly: &(BigInt, BigInt)| {
         Ok(PolyComm {
-            unshifted: vec![of_coord(poly)?],
-            shifted: None,
+            elems: vec![of_coord(poly)?],
         })
     };
 
@@ -54,16 +51,13 @@ pub fn make_padded_proof_from_p2p(
         crate::try_array_into_with(&proof.commitments.w_comm, make_poly)?;
     let z_comm: PolyComm<Pallas> = make_poly(&proof.commitments.z_comm)?;
     let t_comm: PolyComm<Pallas> = {
-        let unshifted = proof
+        let elems = proof
             .commitments
             .t_comm
             .iter()
             .map(of_coord)
             .collect::<Result<_, _>>()?;
-        PolyComm {
-            unshifted,
-            shifted: None,
-        }
+        PolyComm { elems }
     };
 
     let bulletproof = &proof.bulletproof;
@@ -122,6 +116,7 @@ pub fn make_padded_proof_from_p2p(
         lookup_gate_lookup_selector: None,
         range_check_lookup_selector: None,
         foreign_field_mul_lookup_selector: None,
+        public: None,
     };
 
     let ft_eval1: Fq = proof.ft_eval1.to_field()?;
@@ -137,10 +132,7 @@ pub fn make_padded_proof_from_p2p(
 
     let make_poly = |poly: &(BigInt, BigInt)| {
         let point = of_coord(poly)?;
-        Ok(PolyComm {
-            unshifted: vec![point],
-            shifted: None,
-        })
+        Ok(PolyComm { elems: vec![point] })
     };
 
     let mut challenge_polynomial_commitments = Cow::Borrowed(
@@ -172,7 +164,7 @@ pub fn make_padded_proof_from_p2p(
         .map(|(chals, comm)| RecursionChallenge::new(chals.to_vec(), comm))
         .collect();
 
-    Ok(ProverProof {
+    Ok(ProverProof::<Fq> {
         commitments: ProverCommitments {
             w_comm,
             z_comm,

@@ -1,3 +1,5 @@
+use openmina_core::block::AppliedBlock;
+
 use super::sync::{SyncError, TransitionFrontierSyncState};
 use super::{
     TransitionFrontierAction, TransitionFrontierActionWithMetaRef, TransitionFrontierState,
@@ -29,6 +31,10 @@ impl TransitionFrontierState {
                 let Some(genesis) = state.genesis.block_with_real_or_dummy_proof() else {
                     return;
                 };
+                let genesis = AppliedBlock {
+                    block: genesis,
+                    just_emitted_a_proof: true,
+                };
                 let new_chain = vec![genesis];
                 state.chain_diff = state.maybe_make_chain_diff(&new_chain);
                 state.best_chain = new_chain;
@@ -55,7 +61,6 @@ impl TransitionFrontierState {
                 else {
                     return;
                 };
-
                 let mut needed_protocol_state_hashes = needed_protocol_state_hashes.clone();
                 let new_chain = std::mem::take(chain);
                 let needed_protocol_states = std::mem::take(needed_protocol_states);
@@ -69,8 +74,8 @@ impl TransitionFrontierState {
                     let block = state
                         .best_chain
                         .iter()
-                        .find(|b| b.hash == hash)
-                        .or_else(|| new_chain.iter().find(|b| b.hash == hash));
+                        .find(|b| b.hash() == &hash)
+                        .or_else(|| new_chain.iter().find(|b| b.hash() == &hash));
                     // TODO(binier): error log instead.
                     let block = block.expect("we lack needed block!");
                     let protocol_state = block.header().protocol_state.clone();

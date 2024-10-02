@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2::{self, LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use strum_macros::Display;
@@ -61,19 +61,19 @@ pub enum TransitionFrontierSyncState {
     },
     BlocksSuccess {
         time: Timestamp,
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     CommitPending {
         time: Timestamp,
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     CommitSuccess {
         time: Timestamp,
-        chain: Vec<ArcBlockWithHash>,
+        chain: Vec<AppliedBlock>,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
@@ -129,7 +129,7 @@ pub enum TransitionFrontierSyncBlockState {
     },
     ApplySuccess {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        block: AppliedBlock,
     },
 }
 
@@ -204,9 +204,9 @@ impl TransitionFrontierSyncState {
             Self::RootLedgerPending(s) => Some(&s.root_block),
             Self::RootLedgerSuccess { root_block, .. } => Some(root_block),
             Self::BlocksPending { chain, .. } => chain.first().and_then(|b| b.block()),
-            Self::BlocksSuccess { chain, .. } => chain.first(),
-            Self::CommitPending { chain, .. } => chain.first(),
-            Self::CommitSuccess { chain, .. } => chain.first(),
+            Self::BlocksSuccess { chain, .. } => chain.first().map(AppliedBlock::block_with_hash),
+            Self::CommitPending { chain, .. } => chain.first().map(AppliedBlock::block_with_hash),
+            Self::CommitSuccess { chain, .. } => chain.first().map(AppliedBlock::block_with_hash),
             Self::Synced { .. } => None,
         }
     }
@@ -222,9 +222,9 @@ impl TransitionFrontierSyncState {
             Self::RootLedgerPending(s) => Some(&s.best_tip),
             Self::RootLedgerSuccess { best_tip, .. } => Some(best_tip),
             Self::BlocksPending { chain, .. } => chain.last().and_then(|b| b.block()),
-            Self::BlocksSuccess { chain, .. } => chain.last(),
-            Self::CommitPending { chain, .. } => chain.last(),
-            Self::CommitSuccess { chain, .. } => chain.last(),
+            Self::BlocksSuccess { chain, .. } => chain.last().map(AppliedBlock::block_with_hash),
+            Self::CommitPending { chain, .. } => chain.last().map(AppliedBlock::block_with_hash),
+            Self::CommitSuccess { chain, .. } => chain.last().map(AppliedBlock::block_with_hash),
             Self::Synced { .. } => None,
         }
     }
@@ -330,11 +330,11 @@ impl TransitionFrontierSyncState {
             .and_then(|s| s.block())
     }
 
-    pub fn blocks_apply_next(&self) -> Option<(&ArcBlockWithHash, &ArcBlockWithHash)> {
+    pub fn blocks_apply_next(&self) -> Option<(&ArcBlockWithHash, &AppliedBlock)> {
         let mut last_applied = None;
         for s in self.blocks_iter() {
             if s.is_apply_success() {
-                last_applied = s.block();
+                last_applied = s.applied_block();
             } else if s.is_fetch_success() {
                 return Some((s.block()?, last_applied?));
             } else {
@@ -385,8 +385,8 @@ impl TransitionFrontierSyncBlockState {
             Self::FetchPending { block_hash, .. } => block_hash,
             Self::FetchSuccess { block, .. }
             | Self::ApplyPending { block, .. }
-            | Self::ApplyError { block, .. }
-            | Self::ApplySuccess { block, .. } => &block.hash,
+            | Self::ApplyError { block, .. } => &block.hash,
+            Self::ApplySuccess { block, .. } => block.hash(),
         }
     }
 
@@ -395,8 +395,18 @@ impl TransitionFrontierSyncBlockState {
             Self::FetchPending { .. } => None,
             Self::FetchSuccess { block, .. }
             | Self::ApplyPending { block, .. }
-            | Self::ApplyError { block, .. }
-            | Self::ApplySuccess { block, .. } => Some(block),
+            | Self::ApplyError { block, .. } => Some(block),
+            Self::ApplySuccess { block, .. } => Some(block.block_with_hash()),
+        }
+    }
+
+    pub fn applied_block(&self) -> Option<&AppliedBlock> {
+        match self {
+            Self::FetchPending { .. }
+            | Self::FetchSuccess { .. }
+            | Self::ApplyPending { .. }
+            | Self::ApplyError { .. } => None,
+            Self::ApplySuccess { block, .. } => Some(block),
         }
     }
 
@@ -405,8 +415,18 @@ impl TransitionFrontierSyncBlockState {
             Self::FetchPending { .. } => None,
             Self::FetchSuccess { block, .. }
             | Self::ApplyPending { block, .. }
-            | Self::ApplyError { block, .. }
-            | Self::ApplySuccess { block, .. } => Some(block),
+            | Self::ApplyError { block, .. } => Some(block),
+            Self::ApplySuccess { block, .. } => Some(block.block),
+        }
+    }
+
+    pub fn take_applied_block(self) -> Option<AppliedBlock> {
+        match self {
+            Self::FetchPending { .. }
+            | Self::FetchSuccess { .. }
+            | Self::ApplyPending { .. }
+            | Self::ApplyError { .. } => None,
+            Self::ApplySuccess { block, .. } => Some(block),
         }
     }
 

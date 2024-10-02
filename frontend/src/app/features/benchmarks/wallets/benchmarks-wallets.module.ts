@@ -13,6 +13,10 @@ import {
 } from '@benchmarks/wallets/benchmarks-wallets-toolbar/benchmarks-wallets-toolbar.component';
 import { BenchmarksWalletsRouting } from '@benchmarks/wallets/benchmarks-wallets.routing';
 import { CopyComponent, HorizontalMenuComponent } from '@openmina/shared';
+import {
+  BenchmarksWalletsZkappToolbarComponent,
+} from './benchmarks-wallets-zkapp-toolbar/benchmarks-wallets-zkapp-toolbar.component';
+import { BenchmarksWalletsZkService } from '@benchmarks/wallets/benchmarks-wallets-zk.service';
 
 
 @NgModule({
@@ -20,6 +24,7 @@ import { CopyComponent, HorizontalMenuComponent } from '@openmina/shared';
     BenchmarksWalletsComponent,
     BenchmarksWalletsTableComponent,
     BenchmarksWalletsToolbarComponent,
+    BenchmarksWalletsZkappToolbarComponent,
   ],
   imports: [
     CommonModule,
@@ -29,5 +34,6 @@ import { CopyComponent, HorizontalMenuComponent } from '@openmina/shared';
     EffectsModule.forFeature([BenchmarksWalletsEffects]),
     HorizontalMenuComponent,
   ],
+  providers: [BenchmarksWalletsZkService],
 })
 export class BenchmarksWalletsModule {}

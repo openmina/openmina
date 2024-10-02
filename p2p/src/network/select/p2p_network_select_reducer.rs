@@ -1,4 +1,4 @@
-use openmina_core::{bug_condition, error, fuzz_maybe, fuzzed_maybe, Substate};
+use openmina_core::{bug_condition, error, fuzz_maybe, fuzzed_maybe, warn, Substate};
 use redux::Timestamp;
 use token::{
     AuthKind, DiscoveryAlgorithm, IdentifyAlgorithm, MuxKind, Protocol, RpcAlgorithm, StreamKind,
@@ -243,7 +243,7 @@ impl P2pNetworkSelectState {
             P2pNetworkSelectAction::Timeout { addr, kind } => {
                 let error = "timeout".to_owned();
                 select_state.inner = P2pNetworkSelectStateInner::Error(error.clone());
-                openmina_core::warn!(meta.time(); "timeout");
+                warn!(meta.time(); "timeout");
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkSchedulerAction::SelectError {

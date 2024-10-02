@@ -2,6 +2,7 @@ use mina_p2p_messages::v2::{
     BlockchainSnarkBlockchainStableV2, ConsensusStakeProofStableV2,
     MinaStateSnarkTransitionValueStableV2, ProverExtendBlockchainInputStableV2,
 };
+use openmina_core::bug_condition;
 
 use crate::account::AccountSecretKey;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -44,6 +45,15 @@ pub fn block_producer_effects<S: crate::Service>(
                 .clone();
 
             let (best_tip_epoch, best_tip_slot) = to_epoch_and_slot(&global_slot);
+            let root_block_epoch = if let Some(root_block) =
+                store.state().transition_frontier.root()
+            {
+                let root_block_global_slot = root_block.curr_global_slot_since_hard_fork();
+                to_epoch_and_slot(root_block_global_slot).0
+            } else {
+                bug_condition!("Expected to find a block at the root of the transition frontier but there was none");
+                best_tip_epoch.saturating_sub(1)
+            };
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
             let current_epoch = store.state().current_epoch();
 
@@ -67,23 +77,15 @@ pub fn block_producer_effects<S: crate::Service>(
                 }
             }
 
-            store.dispatch(
-                BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch {
-                    epoch_number: best_tip_epoch,
-                    last_block_height: best_tip.height(),
-                },
-            );
-
             store.dispatch(BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
                 current_epoch,
+                root_block_epoch,
                 best_tip_epoch,
-                best_tip_height: best_tip.height(),
                 best_tip_slot,
                 best_tip_global_slot: best_tip.global_slot(),
                 next_epoch_first_slot,
                 staking_epoch_data: Box::new(best_tip.consensus_state().staking_epoch_data.clone()),
                 next_epoch_data: Box::new(best_tip.consensus_state().next_epoch_data.clone()),
-                transition_frontier_size: best_tip.constants().k.as_u32(),
             });
 
             if let Some(reason) = store
@@ -151,6 +153,16 @@ pub fn block_producer_effects<S: crate::Service>(
                 .collect();
             // TODO(binier)
             let supercharge_coinbase = true;
+            // We want to know if this is a new epoch to decide which staking ledger to use
+            // (staking epoch ledger or next epoch ledger).
+            let is_new_epoch = won_slot.epoch()
+                > pred_block
+                    .header()
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .epoch_count
+                    .as_u32();
 
             let transactions_by_fee = state.block_producer.pending_transactions();
 
@@ -159,6 +171,7 @@ pub fn block_producer_effects<S: crate::Service>(
                     pred_block: pred_block.clone(),
                     global_slot_since_genesis: won_slot
                         .global_slot_since_genesis(pred_block.global_slot_diff()),
+                    is_new_epoch,
                     producer: producer.clone(),
                     delegator: won_slot.delegator.0.clone(),
                     coinbase_receiver: coinbase_receiver.clone(),
@@ -232,8 +245,8 @@ pub fn block_producer_effects<S: crate::Service>(
 
                 let input = Box::new(ProverExtendBlockchainInputStableV2 {
                     chain: BlockchainSnarkBlockchainStableV2 {
-                        state: pred_block.block.header.protocol_state.clone(),
-                        proof: pred_block.block.header.protocol_state_proof.clone(),
+                        state: pred_block.header().protocol_state.clone(),
+                        proof: pred_block.header().protocol_state_proof.clone(),
                     },
                     next_state: block.protocol_state.clone(),
                     block: MinaStateSnarkTransitionValueStableV2 {
@@ -285,7 +298,7 @@ pub fn block_producer_effects<S: crate::Service>(
             let Some((best_tip, root_block, blocks_inbetween)) = None.or_else(|| {
                 let (best_tip, chain) = store.state().block_producer.produced_block_with_chain()?;
                 let mut iter = chain.iter();
-                let root_block = iter.next()?;
+                let root_block = iter.next()?.block_with_hash();
                 let blocks_inbetween = iter.map(|b| b.hash().clone()).collect();
                 Some((best_tip.clone(), root_block.clone(), blocks_inbetween))
             }) else {

@@ -19,8 +19,8 @@ impl webrtc::P2pServiceWebrtc for NodeService {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
-        list.choose(&mut self.rng).unwrap().clone()
+    ) -> Option<P2pConnectionOutgoingInitOpts> {
+        list.choose(&mut self.rng).cloned()
     }
 
     fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event> {

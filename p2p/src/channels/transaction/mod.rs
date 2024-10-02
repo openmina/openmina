@@ -6,8 +6,6 @@ pub use p2p_channels_transaction_actions::*;
 
 mod p2p_channels_transaction_reducer;
 
-mod p2p_channels_transaction_effects;
-
 use binprot_derive::{BinProtRead, BinProtWrite};
 pub use openmina_core::transaction::{Transaction, TransactionHash, TransactionInfo};
 use serde::{Deserialize, Serialize};

@@ -109,7 +109,6 @@ impl P2pNetworkKadIncomingStreamState {
                         });
                     }
                     P2pNetworkKadIncomingStreamState::Error(error) => {
-                        warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
                         dispatcher.push(P2pNetworkSchedulerAction::Error {
                             addr: *addr,
                             error: P2pNetworkConnectionError::from(

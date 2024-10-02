@@ -119,7 +119,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
                 })
             }
             WatchedAccountsAction::TransactionsIncludedInBlock { pub_key, block } => {
-                let diff = &block.block.body.staged_ledger_diff.diff;
+                let diff = &block.body().staged_ledger_diff.diff;
                 state
                     .watched_accounts
                     .get(pub_key)

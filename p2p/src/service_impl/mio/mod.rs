@@ -523,11 +523,6 @@ where
                         }
                         self.connections.insert(addr, connection);
                     }
-                } else {
-                    self.send(MioEvent::IncomingDataDidReceive(
-                        addr,
-                        Err("not connected".to_string()),
-                    ));
                 }
             }
             Send(addr, buf) => {
@@ -563,16 +558,17 @@ where
                             self.send(MioEvent::ConnectionDidClose(addr, Err(err.to_string())));
                         }
                     }
-                } else {
-                    self.send(MioEvent::OutgoingDataDidSend(
-                        addr,
-                        Err("not connected".to_string()),
-                    ));
                 }
             }
             Disconnect(addr) => {
                 // drop the connection and destructor will close it
-                self.connections.remove(&addr);
+                if let Some(mut cn) = self.connections.remove(&addr) {
+                    self.poll
+                        .registry()
+                        .deregister(&mut cn.stream)
+                        .unwrap_or_default();
+                }
+                self.send(MioEvent::ConnectionDidCloseOnDemand(addr));
             }
         }
     }

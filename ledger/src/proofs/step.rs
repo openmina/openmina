@@ -8,9 +8,11 @@ use crate::{
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
         unfinalized::dummy_ipa_step_challenges_computed,
-        verifier_index::wrap_domains,
+        util::proof_evaluation_to_list,
+        verifiers::wrap_domains,
         wrap::{
-            create_oracle, dummy_ipa_wrap_sg, wrap_verifier, Domain, COMMON_MAX_DEGREE_WRAP_LOG2,
+            create_oracle_with_public_input, dummy_ipa_wrap_sg, wrap_verifier, Domain,
+            COMMON_MAX_DEGREE_WRAP_LOG2,
         },
     },
     verifier::{get_srs, get_srs_mut},
@@ -20,10 +22,7 @@ use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Radix2EvaluationDomain, UVPolynomial,
 };
-use kimchi::{
-    proof::{PointEvaluations, ProverCommitments, ProverProof, RecursionChallenge},
-    verifier_index::VerifierIndex,
-};
+use kimchi::proof::{PointEvaluations, ProverCommitments, RecursionChallenge};
 use mina_curves::pasta::Fq;
 use mina_curves::pasta::Pallas;
 use mina_hasher::Fp;
@@ -36,7 +35,7 @@ use crate::proofs::{
         prepared_statement::Plonk,
     },
     transaction::endos,
-    util::{challenge_polynomial, four_u64_to_field, to_absorption_sequence2},
+    util::{challenge_polynomial, four_u64_to_field},
     verification::{make_scalars_env, prev_evals_from_p2p},
     wrap::{
         combined_inner_product, evals_of_split_evals, CombinedInnerProductParams,
@@ -54,12 +53,13 @@ use super::{
         create_proof, make_group, messages_for_next_wrap_proof_padding,
         scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals,
         CreateProofParams, InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals,
-        ProofError, Prover, ReducedMessagesForNextStepProof, StepStatement,
+        ProofError, ProofWithPublic, Prover, ReducedMessagesForNextStepProof, StepStatement,
     },
     unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
     util::{extract_bulletproof, two_u64_to_field},
     witness::Witness,
     wrap::Domains,
+    ProverProof, VerifierIndex,
 };
 
 #[derive(Clone)]
@@ -92,7 +92,7 @@ pub enum OptFlag {
     Maybe,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Opt<T> {
     Some(T),
     No,
@@ -229,6 +229,8 @@ pub struct ForStep {
     pub wrap_domain: ForStepKind<Domain, Box<[Boolean]>>,
     pub step_domains: ForStepKind<Box<[Domains]>>,
     pub feature_flags: FeatureFlags<OptFlag>,
+    pub num_chunks: u64,
+    pub zk_rows: u64,
 }
 
 pub enum Packed {
@@ -525,6 +527,7 @@ pub mod step_verifier {
         pub(super) deferred_values: &'a DeferredValues<Fp>,
         pub(super) evals: &'a AllEvals<Fp>,
         pub(super) hack_feature_flags: OptFlag,
+        pub(super) zk_rows: u64,
     }
 
     pub(super) fn finalize_other_proof(
@@ -540,6 +543,7 @@ pub mod step_verifier {
             deferred_values,
             evals,
             hack_feature_flags,
+            zk_rows,
         } = params;
 
         let DeferredValues {
@@ -660,20 +664,22 @@ pub mod step_verifier {
 
             sponge.absorb2(&[challenge_digest], w);
             sponge.absorb(&[*ft_eval1], w);
-            sponge.absorb(&[evals.public_input.0], w);
-            sponge.absorb(&[evals.public_input.1], w);
+            sponge.absorb(&evals.public_input.0, w);
+            sponge.absorb(&evals.public_input.1, w);
 
             for eval in &to_absorption_sequence_opt(&evals.evals, hack_feature_flags) {
                 match eval {
                     Opt::No => {}
-                    Opt::Some([x1, x2]) => {
-                        sponge.absorb(&[*x1, *x2], w);
+                    Opt::Some(PointEvaluations { zeta, zeta_omega }) => {
+                        sponge.absorb(zeta, w);
+                        sponge.absorb(zeta_omega, w);
                     }
-                    Opt::Maybe(b, [x1, x2]) => {
+                    Opt::Maybe(b, PointEvaluations { zeta, zeta_omega }) => {
                         let sponge_state_before = sponge.sponge_state.clone();
                         let state_before = sponge.state;
 
-                        sponge.absorb(&[*x1, *x2], w);
+                        sponge.absorb(zeta, w);
+                        sponge.absorb(zeta_omega, w);
 
                         // TODO: Does it panic in OCaml ?
                         use mina_poseidon::poseidon::SpongeState::{Absorbed, Squeezed};
@@ -733,11 +739,13 @@ pub mod step_verifier {
             let zeta_n = pow2pow(plonk.zeta);
             let zetaw_n = pow2pow(zetaw);
 
-            evals.evals.map_ref(&|[x0, x1]| {
-                let a = actual_evaluation(&[*x0], zeta_n);
-                let b = actual_evaluation(&[*x1], zetaw_n);
-                [a, b]
-            })
+            evals
+                .evals
+                .map_ref(&|PointEvaluations { zeta, zeta_omega }| {
+                    let zeta = actual_evaluation(zeta, zeta_n);
+                    let zeta_omega = actual_evaluation(zeta_omega, zetaw_n);
+                    PointEvaluations { zeta, zeta_omega }
+                })
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
@@ -747,11 +755,12 @@ pub mod step_verifier {
                 domain,
                 srs_length_log2,
                 hack_feature_flags,
+                zk_rows,
             },
             w,
         );
         let combined_inner_product_correct = {
-            let p_eval0 = evals.public_input.0;
+            let p_eval0 = &evals.public_input.0;
 
             let ft_eval0 = ft_eval0_checked(
                 &env,
@@ -765,7 +774,19 @@ pub mod step_verifier {
                 .into_iter()
                 .filter_map(|v| match v {
                     Opt::No => None,
-                    x => Some(x),
+                    Opt::Some(PointEvaluations { zeta, zeta_omega }) => Some([
+                        zeta.into_iter().map(Opt::Some).collect::<Vec<_>>(),
+                        zeta_omega.into_iter().map(Opt::Some).collect::<Vec<_>>(),
+                    ]),
+                    Opt::Maybe(boolean, PointEvaluations { zeta, zeta_omega }) => Some([
+                        zeta.into_iter()
+                            .map(|a| Opt::Maybe(boolean, a))
+                            .collect::<Vec<_>>(),
+                        zeta_omega
+                            .into_iter()
+                            .map(|a| Opt::Maybe(boolean, a))
+                            .collect::<Vec<_>>(),
+                    ]),
                 })
                 .collect::<Vec<_>>();
 
@@ -778,22 +799,21 @@ pub mod step_verifier {
                 let combine = |which_eval: WhichEval,
                                sg_evals: &[(Boolean, Fp)],
                                ft_eval: Fp,
-                               x_hat: Fp,
+                               x_hat: &[Fp],
                                w: &mut Witness<Fp>| {
-                    let f = |v: &Opt<[Fp; 2]>| match which_eval {
-                        WhichEval::First => v.map(|v| v[0]),
-                        WhichEval::Second => v.map(|v| v[1]),
+                    let f = |[a, b]: &[Vec<Opt<Fp>>; 2]| match which_eval {
+                        WhichEval::First => a.clone(),
+                        WhichEval::Second => b.clone(),
                     };
                     let v = sg_evals
                         .iter()
                         .copied()
                         .map(|(b, v)| Opt::Maybe(b, v))
-                        .chain([Opt::Some(x_hat)])
+                        .chain(x_hat.iter().copied().map(Opt::Some).collect::<Vec<_>>())
                         .chain([Opt::Some(ft_eval)])
-                        .chain(a.iter().map(f))
+                        .chain(a.iter().flat_map(f))
                         .rev()
                         .collect::<Vec<_>>();
-
                     let (init, rest) = v.split_at(1);
 
                     let init = match init[0] {
@@ -819,7 +839,7 @@ pub mod step_verifier {
                     WhichEval::Second,
                     &sg_evals2,
                     *ft_eval1,
-                    evals.public_input.1,
+                    &evals.public_input.1,
                     w,
                 );
                 let b = field::mul(b, r, w);
@@ -827,7 +847,7 @@ pub mod step_verifier {
                     WhichEval::First,
                     &sg_evals1,
                     ft_eval0,
-                    evals.public_input.0,
+                    &evals.public_input.0,
                     w,
                 );
                 a + b
@@ -1082,7 +1102,7 @@ pub mod step_verifier {
             .unwrap();
 
         let chunked_t_comm = t_comm
-            .unshifted
+            .elems
             .iter()
             .rev()
             .copied()
@@ -1117,9 +1137,9 @@ pub mod step_verifier {
         let lagrange_commitment =
             |d: &Domains, i: usize, srs: &mut poly_commitment::srs::SRS<Pallas>| {
                 let d = 2u64.pow(d.h.log2_size() as u32);
-                let unshifted = wrap_verifier::lagrange_commitment::<Fp>(srs, d, i).unshifted;
-                assert_eq!(unshifted.len(), 1);
-                InnerCurve::<Fp>::of_affine(unshifted[0])
+                let elems = wrap_verifier::lagrange_commitment::<Fp>(srs, d, i).elems;
+                assert_eq!(elems.len(), 1);
+                InnerCurve::<Fp>::of_affine(elems[0])
             };
 
         fn select_curve_points(
@@ -1321,10 +1341,10 @@ pub mod step_verifier {
         i: usize,
     ) -> InnerCurve<F> {
         let d = domain.size();
-        let unshifted = wrap_verifier::lagrange_commitment::<F>(srs, d, i).unshifted;
+        let elems = wrap_verifier::lagrange_commitment::<F>(srs, d, i).elems;
 
-        assert_eq!(unshifted.len(), 1);
-        InnerCurve::of_affine(unshifted[0])
+        assert_eq!(elems.len(), 1);
+        InnerCurve::of_affine(elems[0])
     }
 
     fn to_high_low(f: Fq) -> (Fp, Boolean) {
@@ -1523,7 +1543,7 @@ pub mod step_verifier {
         pub public_input: Vec<Packed>,
         pub sg_old: &'a Vec<GroupAffine<Fp>>,
         pub advice: &'a Advice<Fp>,
-        pub proof: &'a ProverProof<GroupAffine<Fp>>,
+        pub proof: &'a ProverProof<Fq>,
         pub plonk: &'a Plonk<Fq>,
     }
 
@@ -1546,7 +1566,7 @@ pub mod step_verifier {
             plonk,
         } = params;
 
-        let ProverProof {
+        let ProverProof::<Fq> {
             commitments: messages,
             proof: openings_proof,
             ..
@@ -1594,7 +1614,7 @@ pub mod step_verifier {
         absorb_curve(&x_hat, &mut sponge, w);
 
         let w_comm = &messages.w_comm;
-        for g in w_comm.iter().flat_map(|w| &w.unshifted) {
+        for g in w_comm.iter().flat_map(|w| &w.elems) {
             absorb_curve(g, &mut sponge, w);
         }
 
@@ -1602,14 +1622,14 @@ pub mod step_verifier {
         let _gamma = sample(&mut sponge, w);
 
         let z_comm = &messages.z_comm;
-        for z in z_comm.unshifted.iter() {
+        for z in z_comm.elems.iter() {
             absorb_curve(z, &mut sponge, w);
         }
 
         let _alpha = sample_scalar(&mut sponge, w);
 
         let t_comm = &messages.t_comm;
-        for t in t_comm.unshifted.iter() {
+        for t in t_comm.elems.iter() {
             absorb_curve(t, &mut sponge, w);
         }
 
@@ -1633,7 +1653,7 @@ pub mod step_verifier {
                 let sg_old = sg_old.iter().copied().map(cvar);
                 let rest = [cvar(x_hat), cvar(ft_comm)]
                     .into_iter()
-                    .chain(z_comm.unshifted.iter().cloned().map(cvar))
+                    .chain(z_comm.elems.iter().cloned().map(cvar))
                     .chain([
                         wrap_verification_key.generic,
                         wrap_verification_key.psm,
@@ -1645,7 +1665,7 @@ pub mod step_verifier {
                     .chain(
                         w_comm
                             .iter()
-                            .flat_map(|w| w.unshifted.iter().cloned().map(cvar)),
+                            .flat_map(|w| w.elems.iter().cloned().map(cvar)),
                     )
                     .chain(wrap_verification_key.coefficients)
                     .chain(sigma_comm_init.iter().cloned());
@@ -1680,7 +1700,7 @@ pub mod step_verifier {
         pub(super) is_base_case: CircuitVar<Boolean>,
         pub(super) sponge_after_index: Sponge<Fp>,
         pub(super) sg_old: &'a Vec<GroupAffine<Fp>>,
-        pub(super) proof: &'a ProverProof<GroupAffine<Fp>>,
+        pub(super) proof: &'a ProverProof<Fq>,
         pub(super) wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
         pub(super) statement: &'a PreparedStatement,
         pub(super) hack_feature_flags: OptFlag,
@@ -1824,6 +1844,7 @@ fn verify_one(
                 deferred_values,
                 evals: prev_proof_evals,
                 hack_feature_flags: *hack_feature_flags,
+                zk_rows: data.zk_rows,
             },
             w,
         )?
@@ -1907,6 +1928,7 @@ pub struct ExpandDeferredParams<'a> {
     pub evals: &'a AllEvals<Fp>,
     pub old_bulletproof_challenges: &'a Vec<[Fp; 16]>,
     pub proof_state: &'a StatementProofState,
+    pub zk_rows: u64,
 }
 
 pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp>, InvalidBigInt> {
@@ -1914,6 +1936,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         evals,
         old_bulletproof_challenges,
         proof_state,
+        zk_rows,
     } = params;
 
     use super::public_input::scalar_challenge::ScalarChallenge;
@@ -1947,14 +1970,11 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         feature_flags: plonk0.feature_flags.clone(),
     };
 
-    let es = evals.evals.evals.map_ref(&|[a, b]| PointEvaluations {
-        zeta: vec![*a],
-        zeta_omega: vec![*b],
-    });
-    let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
+    let combined_evals =
+        evals_of_split_evals(zeta, zetaw, &evals.evals.evals, BACKEND_TICK_ROUNDS_N);
 
     let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
-    let env = make_scalars_env(&plonk_minimal, step_domain, srs_length_log2);
+    let env = make_scalars_env(&plonk_minimal, step_domain, srs_length_log2, zk_rows);
 
     let plonk = {
         let InCircuit {
@@ -1982,7 +2002,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         }
     };
 
-    let xs = to_absorption_sequence2(&evals.evals.evals);
+    let xs = proof_evaluation_to_list(&evals.evals.evals);
     let (x1, x2) = &evals.evals.public_input;
 
     let old_bulletproof_challenges: Vec<_> = old_bulletproof_challenges
@@ -2009,10 +2029,11 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
     )?]);
     sponge.absorb_fq(&[challenges_digest]);
     sponge.absorb_fq(&[evals.ft_eval1]);
-    sponge.absorb_fq(&[*x1, *x2]);
-    xs.iter().for_each(|(x1, x2)| {
-        sponge.absorb_fq(x1);
-        sponge.absorb_fq(x2);
+    sponge.absorb_fq(x1);
+    sponge.absorb_fq(x2);
+    xs.iter().for_each(|PointEvaluations { zeta, zeta_omega }| {
+        sponge.absorb_fq(zeta);
+        sponge.absorb_fq(zeta_omega);
     });
     let xi_chal = sponge.squeeze_limbs(2);
     let r_chal = sponge.squeeze_limbs(2);
@@ -2021,11 +2042,20 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
     let r = ScalarChallenge::from(r_chal).to_field(&endo);
 
     let public_input = &evals.evals.public_input;
+
+    let es = &evals.evals.evals;
+    let tick_combined_evals = evals_of_split_evals(zeta, zetaw, es, super::BACKEND_TICK_ROUNDS_N);
+    let public = PointEvaluations {
+        zeta: public_input.0.clone(),
+        zeta_omega: public_input.1.clone(),
+    };
+
     let combined_inner_product_actual =
         combined_inner_product(CombinedInnerProductParams::<_, { Fp::NROUNDS }, 4> {
             env: &env,
-            evals: &evals.evals.evals,
-            public: [public_input.0, public_input.1],
+            evals: es,
+            combined_evals: &tick_combined_evals,
+            public: &public,
             minimal: &plonk_minimal,
             ft_eval1: evals.ft_eval1,
             r,
@@ -2071,14 +2101,16 @@ fn wrap_compute_sg(challenges: &[[u64; 2]]) -> GroupAffine<Fp> {
     let p = DensePolynomial::from_coefficients_vec(coeffs);
 
     let comm = {
+        use poly_commitment::SRS;
+
         let srs = get_srs::<Fq>();
-        srs.commit_non_hiding(&p, None)
+        srs.commit_non_hiding(&p, 1)
     };
-    comm.unshifted[0]
+    comm.elems[0]
 }
 
 struct ExpandProofParams<'a> {
-    dlog_vk: &'a VerifierIndex<Pallas>,
+    dlog_vk: &'a VerifierIndex<Fq>,
     dlog_plonk_index: &'a CircuitPlonkVerificationKeyEvals<Fp>,
     app_state: &'a Rc<dyn ToFieldElementsDebug>,
     t: &'a v2::PicklesProofProofsVerified2ReprStableV2,
@@ -2086,6 +2118,7 @@ struct ExpandProofParams<'a> {
     tag: (),
     must_verify: CircuitVar<Boolean>,
     hack_feature_flags: OptFlag,
+    zk_rows: u64,
 }
 
 fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigInt> {
@@ -2098,6 +2131,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
         tag: _,
         must_verify,
         hack_feature_flags,
+        zk_rows,
     } = params;
 
     use super::public_input::scalar_challenge::ScalarChallenge;
@@ -2139,7 +2173,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
-        let env = make_scalars_env(&plonk_minimal, domain, srs_length_log2);
+        let env = make_scalars_env(&plonk_minimal, domain, srs_length_log2, zk_rows);
 
         derive_plonk(&env, &combined_evals, &plonk_minimal)
     };
@@ -2175,6 +2209,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
             evals: &evals,
             old_bulletproof_challenges: &old_bulletproof_challenges,
             proof_state: &proof_state,
+            zk_rows,
         })?
     };
 
@@ -2258,10 +2293,13 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
     let mut proof = make_padded_proof_from_p2p(t)?;
     let oracle = {
         let public_input = prev_statement_with_hashes.to_public_input(public_input_length)?;
-        create_oracle(dlog_vk, &proof, &public_input)
+        create_oracle_with_public_input(dlog_vk, &proof, &public_input)
     };
 
-    let x_hat = (oracle.p_eval_1(), oracle.p_eval_2());
+    let x_hat = PointEvaluations {
+        zeta: oracle.p_eval_1(),
+        zeta_omega: oracle.p_eval_2(),
+    };
 
     let alpha = oracle.alpha();
     let beta = oracle.beta();
@@ -2297,10 +2335,8 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
 
     let w = dlog_vk.domain.group_gen;
 
-    let zetaw = {
-        let zeta = to_field(plonk0.zeta_bytes);
-        zeta * w
-    };
+    let zeta = to_field(plonk0.zeta_bytes);
+    let zetaw = { zeta * w };
 
     let (new_bulletproof_challenges, b) = {
         let chals = oracle
@@ -2310,7 +2346,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
             .collect::<Vec<_>>();
 
         let r = to_field(to_bytes(r.0));
-        let zeta = to_field(plonk0.zeta_bytes);
+        // let zeta = to_field(plonk0.zeta_bytes);
         let challenge_poly = challenge_polynomial(&chals);
         let b = challenge_poly(zeta) + (r * challenge_poly(zetaw));
 
@@ -2398,12 +2434,22 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
         &tock_plonk_minimal,
         domain_log2 as u8,
         srs_length_log2 as u64,
+        zk_rows,
     );
+
+    let public = {
+        let PointEvaluations { zeta, zeta_omega } = &x_hat;
+        PointEvaluations {
+            zeta: vec![*zeta],
+            zeta_omega: vec![*zeta_omega],
+        }
+    };
 
     let combined_inner_product = combined_inner_product(CombinedInnerProductParams {
         env: &tock_env,
-        evals: &tock_combined_evals,
-        public: [x_hat.0, x_hat.1],
+        evals: &proof.evals,
+        combined_evals: &tock_combined_evals,
+        public: &public,
         minimal: &tock_plonk_minimal,
         ft_eval1: proof.ft_eval1,
         r: to_field(to_bytes(r.0)),
@@ -2457,7 +2503,7 @@ struct ExpandedProof {
     sg: GroupAffine<Fp>,
     unfinalized: Unfinalized,
     prev_statement_with_hashes: PreparedStatement,
-    x_hat: (Fq, Fq),
+    x_hat: PointEvaluations<Fq>,
     witness: PerProofWitness,
     actual_wrap_domain: u32,
 }
@@ -2466,7 +2512,7 @@ struct ExpandedProof {
 pub struct PerProofWitness {
     pub app_state: Option<Rc<dyn ToFieldElementsDebug>>,
     // app_state: AppState,
-    pub wrap_proof: ProverProof<GroupAffine<Fp>>,
+    pub wrap_proof: ProverProof<Fq>,
     pub proof_state: ProofState,
     pub prev_proof_evals: AllEvals<Fp>,
     pub prev_challenges: Vec<[Fp; 16]>,
@@ -2516,7 +2562,7 @@ impl Check<Fp> for PerProofWitness {
 
         assert!(app_state.is_none());
 
-        let ProverProof {
+        let ProverProof::<Fq> {
             commitments:
                 ProverCommitments {
                     w_comm,
@@ -2538,10 +2584,10 @@ impl Check<Fp> for PerProofWitness {
         } = wrap_proof;
 
         for poly in w_comm {
-            poly.unshifted.check(w);
+            poly.elems.check(w);
         }
-        z_comm.unshifted.check(w);
-        t_comm.unshifted.check(w);
+        z_comm.elems.check(w);
+        t_comm.elems.check(w);
         lr.check(w);
 
         let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
@@ -2633,8 +2679,7 @@ pub fn extract_recursion_challenges<const N: usize>(
         .zip(comms)
         .map(|(chals, (x, y))| {
             let comm = PolyComm::<mina_curves::pasta::Vesta> {
-                unshifted: vec![make_group(x, y)],
-                shifted: None,
+                elems: vec![make_group(x, y)],
             };
             RecursionChallenge {
                 chals: chals.to_vec(),
@@ -2653,7 +2698,7 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
     pub rule: InductiveRule<'a, N_PREVIOUS>,
     pub for_step_datas: [&'a ForStep; N_PREVIOUS],
     pub indexes: [(
-        &'a VerifierIndex<GroupAffine<Fp>>,
+        &'a VerifierIndex<Fq>,
         &'a CircuitPlonkVerificationKeyEvals<Fp>,
     ); N_PREVIOUS],
     pub prev_challenge_polynomial_commitments: Vec<RecursionChallenge<GroupAffine<Fq>>>,
@@ -2667,7 +2712,7 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
 pub struct StepProof {
     pub statement: StepStatement,
     pub prev_evals: Vec<AllEvals<Fq>>,
-    pub proof: kimchi::proof::ProverProof<GroupAffine<Fq>>,
+    pub proof_with_public: ProofWithPublic<Fp>,
 }
 
 pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
@@ -2692,7 +2737,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         .previous_proof_statements
         .iter()
         .zip(indexes)
-        .map(|(statement, (verifier_index, dlog_plonk_index))| {
+        .zip(for_step_datas)
+        .map(|((statement, (verifier_index, dlog_plonk_index)), data)| {
             let PreviousProofStatement {
                 public_input,
                 proof,
@@ -2708,6 +2754,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 tag: (),
                 must_verify: *proof_must_verify,
                 hack_feature_flags,
+                zk_rows: data.zk_rows,
             })
         })
         .collect::<Result<Vec<_>, _>>()?
@@ -2861,12 +2908,13 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         .map(|(p, expanded)| {
             let evals = evals_from_p2p(&p.proof.evaluations)?;
             let ft_eval1 = p.proof.ft_eval1.to_field()?;
+            let PointEvaluations { zeta, zeta_omega } = expanded.x_hat;
 
             Ok(AllEvals {
                 ft_eval1,
                 evals: EvalsWithPublicInput {
                     evals,
-                    public_input: expanded.x_hat,
+                    public_input: (vec![zeta], vec![zeta_omega]),
                 },
             })
         })
@@ -2914,6 +2962,6 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     Ok(StepProof {
         statement: step_statement,
         prev_evals,
-        proof,
+        proof_with_public: proof,
     })
 }

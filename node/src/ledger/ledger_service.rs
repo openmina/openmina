@@ -4,7 +4,10 @@ use std::{
     sync::Arc,
 };
 
-use super::ledger_manager::{LedgerManager, LedgerRequest};
+use super::{
+    ledger_manager::{LedgerManager, LedgerRequest},
+    write::BlockApplyResult,
+};
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::{
     scan_state::{
@@ -39,9 +42,9 @@ use mina_p2p_messages::{
         StateHash,
     },
 };
-use openmina_core::constants::constraint_constants;
 use openmina_core::snark::{Snark, SnarkJobId};
 use openmina_core::thread;
+use openmina_core::{block::AppliedBlock, constants::constraint_constants};
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
@@ -634,8 +637,8 @@ impl LedgerCtx {
     pub fn block_apply(
         &mut self,
         block: ArcBlockWithHash,
-        pred_block: ArcBlockWithHash,
-    ) -> Result<(), String> {
+        pred_block: AppliedBlock,
+    ) -> Result<BlockApplyResult, String> {
         openmina_core::info!(openmina_core::log::system_time();
             kind = "LedgerService::block_apply",
             summary = format!("{}, {} <- {}", block.height(), block.hash(), block.pred_hash()),
@@ -662,7 +665,7 @@ impl LedgerCtx {
             .map_err(error_to_string)?;
         let supercharge_coinbase = consensus_state.supercharge_coinbase;
 
-        let diff: Diff = (&block.block.body.staged_ledger_diff)
+        let diff: Diff = (&block.body().staged_ledger_diff)
             .try_into()
             .map_err(error_to_string)?;
 
@@ -684,6 +687,7 @@ impl LedgerCtx {
                 supercharge_coinbase,
             )
             .map_err(|err| format!("{err:?}"))?;
+        let just_emitted_a_proof = result.ledger_proof.is_some();
         let ledger_hashes = MinaBaseStagedLedgerHashStableV1::from(&result.hash_after_applying);
 
         // TODO(binier): return error if not matching.
@@ -713,7 +717,9 @@ impl LedgerCtx {
             .staged_ledgers
             .insert(Arc::new(ledger_hashes), staged_ledger);
 
-        Ok(())
+        Ok(BlockApplyResult {
+            just_emitted_a_proof,
+        })
     }
 
     pub fn commit(
@@ -934,6 +940,9 @@ impl LedgerCtx {
             .map(|hash| protocol_states.get(&hash.into()).ok_or(()).cloned())
             .collect::<Result<_, _>>()
             .ok()?;
+        // Required so that we can perform the conversion bellow, which
+        // will not work if the hash is not available already.
+        ledger.pending_coinbase_collection_merkle_root();
         Some(
             StagedLedgerAuxAndPendingCoinbases {
                 scan_state: (ledger.scan_state()).into(),
@@ -948,8 +957,9 @@ impl LedgerCtx {
     #[allow(clippy::too_many_arguments)]
     pub fn staged_ledger_diff_create(
         &mut self,
-        pred_block: ArcBlockWithHash,
+        pred_block: AppliedBlock,
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        is_new_epoch: bool,
         producer: NonZeroCurvePoint,
         delegator: NonZeroCurvePoint,
         coinbase_receiver: NonZeroCurvePoint,
@@ -1024,6 +1034,11 @@ impl LedgerCtx {
             .map_err(|err| format!("{err:?}"))?;
 
         let diff_hash = block_body_hash(&diff).map_err(|err| format!("{err:?}"))?;
+        let staking_ledger_hash = if is_new_epoch {
+            pred_block.next_epoch_ledger_hash()
+        } else {
+            pred_block.staking_epoch_ledger_hash()
+        };
 
         Ok(StagedLedgerDiffCreateOutput {
             diff,
@@ -1039,11 +1054,7 @@ impl LedgerCtx {
                 is_new_stack: res.pending_coinbase_update.0,
             },
             stake_proof_sparse_ledger: self
-                .stake_proof_sparse_ledger(
-                    pred_block.staking_epoch_ledger_hash(),
-                    &producer,
-                    &delegator,
-                )
+                .stake_proof_sparse_ledger(staking_ledger_hash, &producer, &delegator)
                 .map_err(error_to_string)?,
         })
     }
@@ -1151,7 +1162,7 @@ impl LedgerCtx {
                         .as_ref()
                         .map_or_else(|| job_id.clone(), |(id, _)| id.clone());
 
-                    res.push(if is_done {
+                    if is_done {
                         let is_left =
                             bundle.map_or_else(|| true, |(_, is_sibling_left)| !is_sibling_left);
                         let parent = job.parent().ok_or_else(|| format!("job(depth: {}, index: {}) has no parent", job.depth(), job.index()))?;
@@ -1168,12 +1179,17 @@ impl LedgerCtx {
                                             (&job.right.sok_message).into()
                                         }
                                     }
-                                    state => {
-                                        return Err(format!("parent of a `Done` job can't be in this state: {:?}", state));
+                                    _state => {
+                                        // Parent of a `Done` job can't be in this state.
+                                        // But we are bug-compatible with the OCaml node here, in which sometimes for
+                                        // some reason there is an empty row in the scan state trees, so Empty
+                                        // is used instead.
+                                        res.push(RpcScanStateSummaryScanStateJob::Empty);
+                                        continue;
                                     }
                                 }
                         };
-                        RpcScanStateSummaryScanStateJob::Done {
+                        res.push(RpcScanStateSummaryScanStateJob::Done {
                             job_id,
                             bundle_job_id,
                             job: Box::new(job_kind),
@@ -1182,15 +1198,15 @@ impl LedgerCtx {
                                 snarker: sok_message.prover,
                                 fee: sok_message.fee,
                             }),
-                        }
+                        });
                     } else {
-                        RpcScanStateSummaryScanStateJob::Todo {
+                        res.push(RpcScanStateSummaryScanStateJob::Todo {
                             job_id,
                             bundle_job_id,
                             job: job_kind,
                             seq_no,
-                        }
-                    })
+                        });
+                    }
                 }
                 Ok(res)
             })
@@ -1381,7 +1397,7 @@ fn dump_reconstruct_to_file(
 fn dump_application_to_file(
     staged_ledger: &StagedLedger,
     block: ArcBlockWithHash,
-    pred_block: ArcBlockWithHash,
+    pred_block: AppliedBlock,
 ) -> std::io::Result<String> {
     use mina_p2p_messages::binprot::{
         self,
@@ -1409,7 +1425,7 @@ fn dump_application_to_file(
             .collect::<Vec<_>>(),
         scan_state: staged_ledger.scan_state().into(),
         pending_coinbase: staged_ledger.pending_coinbase_collection().into(),
-        pred_block: (*pred_block.block).clone(),
+        pred_block: (**pred_block.block()).clone(),
         blocks: vec![(*block.block).clone()],
     };
 

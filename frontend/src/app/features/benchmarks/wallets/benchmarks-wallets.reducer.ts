@@ -1,7 +1,9 @@
 import {
   BENCHMARKS_WALLETS_CHANGE_AMOUNT,
   BENCHMARKS_WALLETS_CHANGE_FEE,
+  BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS,
   BENCHMARKS_WALLETS_CHANGE_TRANSACTION_BATCH,
+  BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH,
   BENCHMARKS_WALLETS_CLOSE,
   BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
   BENCHMARKS_WALLETS_GET_WALLETS,
@@ -9,6 +11,7 @@ import {
   BENCHMARKS_WALLETS_SELECT_WALLET,
   BENCHMARKS_WALLETS_SEND_TX_SUCCESS,
   BENCHMARKS_WALLETS_SEND_TXS,
+  BENCHMARKS_WALLETS_SEND_ZKAPPS, BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS,
   BENCHMARKS_WALLETS_TOGGLE_RANDOM_WALLET,
   BENCHMARKS_WALLETS_UPDATE_WALLETS_SUCCESS,
   BenchmarksWalletsActions,
@@ -21,6 +24,7 @@ import { BenchmarksWalletTransaction } from '@shared/types/benchmarks/wallets/be
 import { hasValue, lastItem, ONE_BILLION } from '@openmina/shared';
 import { BenchmarksWalletsState } from '@benchmarks/wallets/benchmarks-wallets.state';
 import { getTimeFromMemo } from '@shared/helpers/transaction.helper';
+import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';
 
 const initialState: BenchmarksWalletsState = {
   wallets: [],
@@ -36,6 +40,9 @@ const initialState: BenchmarksWalletsState = {
   activeWallet: undefined,
   sendingFee: 0.001,
   sendingAmount: 1,
+  zkAppsToSend: [],
+  sendingFeeZkapps: 0.001,
+  zkAppsSendingBatch: 1,
 };
 
 export function reducer(state: BenchmarksWalletsState = initialState, action: BenchmarksWalletsActions): BenchmarksWalletsState {
@@ -53,7 +60,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
         wallets,
         blockSending: false,
         txSendingBatch: !hasValue(state.txSendingBatch) ? action.payload.length : state.txSendingBatch,
-        activeWallet: wallets[0],
+        activeWallet: state.activeWallet ?? wallets[0],
       };
     }
 
@@ -71,6 +78,13 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
       return {
         ...state,
         txSendingBatch: action.payload,
+      };
+    }
+
+    case BENCHMARKS_WALLETS_CHANGE_ZKAPPS_BATCH: {
+      return {
+        ...state,
+        zkAppsSendingBatch: action.payload,
       };
     }
 
@@ -134,6 +148,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
           return {
             ...payment,
             privateKey: wallet.privateKey,
+            blockSending: true,
           };
         });
       }
@@ -169,16 +184,43 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             ...w,
             lastTxCount: lastItem(transactionsFromThisWallet).memo.split(',')[1],
             lastTxStatus: action.payload.error ? BenchmarksWalletTransactionStatus.ERROR : BenchmarksWalletTransactionStatus.GENERATED,
-            successTx: w.successTx + (!action.payload.error ? transactionsFromThisWallet.length : 0),
-            failedTx: w.failedTx + (action.payload.error ? transactionsFromThisWallet.length : 0),
             lastTxTime: lastItem(transactionsFromThisWallet).dateTime,
             lastTxMemo: lastItem(transactionsFromThisWallet).memo.replace('S.T.', ''),
+            successTx: w.successTx + (!action.payload.error ? transactionsFromThisWallet.length : 0),
+            failedTx: w.failedTx + (action.payload.error ? transactionsFromThisWallet.length : 0),
             errorReason: action.payload.error?.message,
           };
         }),
         sentTransactions: {
           success: state.sentTransactions.success + (!action.payload.error ? action.payload.transactions.length : 0),
           fail: state.sentTransactions.fail + (action.payload.error ? action.payload.transactions.length : 0),
+        },
+      };
+    }
+
+    case BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS: {
+      return {
+        ...state,
+        zkAppsToSend: [],
+        wallets: state.wallets.map((w: BenchmarksWallet) => {
+          const zkAppsFromThisWallet = action.payload.zkApps.filter(tx => tx.payerPublicKey === w.publicKey);
+          if (!zkAppsFromThisWallet.length) {
+            return w;
+          }
+          return {
+            ...w,
+            lastTxCount: lastItem(zkAppsFromThisWallet).memo.split(',')[1],
+            lastTxStatus: action.payload.error?.name ?? BenchmarksWalletTransactionStatus.GENERATED,
+            lastTxTime: getTimeFromMemo(lastItem(zkAppsFromThisWallet).memo),
+            lastTxMemo: lastItem(zkAppsFromThisWallet).memo,
+            successTx: w.successTx + (!action.payload.error ? zkAppsFromThisWallet.length : 0),
+            failedTx: w.failedTx + (action.payload.error ? zkAppsFromThisWallet.length : 0),
+            errorReason: action.payload.error?.message,
+          };
+        }),
+        sentTransactions: {
+          success: state.sentTransactions.success + (!action.payload.error ? action.payload.zkApps.length : 0),
+          fail: state.sentTransactions.fail + (action.payload.error ? action.payload.zkApps.length : 0),
         },
       };
     }
@@ -235,10 +277,75 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
       };
     }
 
+    case BENCHMARKS_WALLETS_CHANGE_FEE_ZKAPPS: {
+      return {
+        ...state,
+        sendingFeeZkapps: action.payload,
+      };
+    }
+
     case BENCHMARKS_WALLETS_CLOSE: {
       return {
         ...initialState,
         sentTxCount: state.sentTxCount,
+      };
+    }
+
+    case BENCHMARKS_WALLETS_SEND_ZKAPPS: {
+      let zkAppsToSend: BenchmarksZkapp[];
+      if (state.randomWallet) {
+        zkAppsToSend = state.wallets
+          .slice(0, state.zkAppsSendingBatch)
+          .map((wallet: BenchmarksWallet, i: number) => {
+            const nonce = getNonceForWallet(wallet, state).toString();
+            const counter = state.sentTxCount + i;
+            const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + localStorage.getItem('browserId');
+            return {
+              payerPublicKey: wallet.publicKey,
+              payerPrivateKey: wallet.privateKey,
+              fee: state.sendingFeeZkapps,
+              nonce,
+              memo,
+              accountUpdates: 8,
+            };
+          });
+      } else {
+        const wallet = state.activeWallet;
+        let nonce = getNonceForWallet(wallet, state);
+
+        zkAppsToSend = Array(state.zkAppsSendingBatch).fill(void 0).map((_, i: number) => {
+          const counter = state.sentTxCount + i;
+          const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + localStorage.getItem('browserId');
+          const payment = {
+            payerPublicKey: wallet.publicKey,
+            payerPrivateKey: wallet.privateKey,
+            fee: state.sendingFeeZkapps,
+            nonce: nonce.toString(),
+            memo,
+            accountUpdates: 8,
+          };
+          nonce++;
+
+          return payment;
+        });
+      }
+
+      return {
+        ...state,
+        zkAppsToSend: zkAppsToSend,
+        wallets: state.wallets.map((w: BenchmarksWallet) => {
+          const transactionFromThisWallet = zkAppsToSend.find(tx => tx.payerPublicKey === w.publicKey);
+          if (!transactionFromThisWallet) {
+            return w;
+          }
+          return {
+            ...w,
+            lastTxTime: getTimeFromMemo(transactionFromThisWallet.memo),
+            lastTxMemo: transactionFromThisWallet.memo,
+            lastTxStatus: BenchmarksWalletTransactionStatus.SENDING,
+          };
+        }),
+        blockSending: true,
       };
     }
 

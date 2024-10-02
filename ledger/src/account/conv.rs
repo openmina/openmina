@@ -26,7 +26,7 @@ use crate::{
     TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
 };
 
-use super::{Account, AccountId, AuthRequired, TokenId};
+use super::{Account, AccountId, AuthRequired, TokenId, VerificationKeyWire};
 
 impl binprot::BinProtRead for TokenId {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
@@ -327,7 +327,7 @@ impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2
                 let s = zkapp.app_state;
                 let app_state = MinaBaseZkappStateValueStableV1(PaddedSeq(s.map(|v| v.into())));
 
-                let verification_key = zkapp.verification_key.as_ref().map(|vk| vk.into());
+                let verification_key = zkapp.verification_key.as_ref().map(|vk| vk.vk().into());
 
                 let seq = zkapp.action_state;
                 let action_state = PaddedSeq(seq.map(|v| v.into()));
@@ -613,7 +613,7 @@ impl TryFrom<&MinaBaseAccountBinableArgStableV2> for Account {
                     Some(Box::new(ZkAppAccount {
                         app_state: try_array_into_with(app_state, BigInt::to_field)?,
                         verification_key: match verification_key.as_ref() {
-                            Some(vk) => Some(vk.try_into()?),
+                            Some(vk) => Some(VerificationKeyWire::new(vk.try_into()?)),
                             None => None,
                         },
                         zkapp_version: zkapp_version.as_u32(),

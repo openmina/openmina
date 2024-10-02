@@ -58,11 +58,7 @@ where
         + Clone
         + std::fmt::Debug;
     type Shifting: plonk_checks::ShiftingValue<Self> + Clone + std::fmt::Debug;
-    type OtherCurve: KimchiCurve<
-        ScalarField = Self,
-        BaseField = Self::Scalar,
-        OtherCurve = Self::Affine,
-    >;
+    type OtherCurve: KimchiCurve<ScalarField = Self, BaseField = Self::Scalar>;
     type FqSponge: Clone + mina_poseidon::FqSponge<Self::Scalar, Self::OtherCurve, Self>;
 
     const PARAMS: Params<Self>;
@@ -82,7 +78,7 @@ impl FieldWitness for Fp {
     type Affine = GroupAffine<Self>;
     type Projective = ProjectivePallas;
     type Shifting = ShiftedValue<Fp>;
-    type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
+    type OtherCurve = GroupAffine<Fq>;
     type FqSponge = DefaultFqSponge<VestaParameters, PlonkSpongeConstantsKimchi>;
 
     /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L107
@@ -101,7 +97,7 @@ impl FieldWitness for Fq {
     type Affine = GroupAffine<Self>;
     type Projective = ProjectiveVesta;
     type Shifting = ShiftedValue<Fq>;
-    type OtherCurve = <Self::Affine as KimchiCurve>::OtherCurve;
+    type OtherCurve = GroupAffine<Fp>;
     type FqSponge = DefaultFqSponge<PallasParameters, PlonkSpongeConstantsKimchi>;
 
     /// https://github.com/openmina/mina/blob/46b6403cb7f158b66a60fc472da2db043ace2910/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L95

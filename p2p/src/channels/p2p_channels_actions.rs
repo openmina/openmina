@@ -4,24 +4,36 @@ use serde::{Deserialize, Serialize};
 use crate::{P2pState, PeerId};
 
 use super::{
-    best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcAction, snark::P2pChannelsSnarkAction,
+    best_tip::P2pChannelsBestTipAction, best_tip_effectful::P2pChannelsBestTipEffectfulAction,
+    rpc::P2pChannelsRpcAction, rpc_effectful::P2pChannelsRpcEffectfulAction,
+    snark::P2pChannelsSnarkAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-    streaming_rpc::P2pChannelsStreamingRpcAction, transaction::P2pChannelsTransactionAction,
-    ChannelMsg,
+    snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
+    streaming_rpc::P2pChannelsStreamingRpcAction,
+    streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
+    transaction::P2pChannelsTransactionAction,
+    transaction_effectful::P2pChannelsTransactionEffectfulAction, ChannelMsg,
 };
-
-pub type P2pChannelsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChannelsAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, openmina_core::ActionEvent)]
 pub enum P2pChannelsAction {
     MessageReceived(P2pChannelsMessageReceivedAction),
-
     BestTip(P2pChannelsBestTipAction),
     Transaction(P2pChannelsTransactionAction),
     Snark(P2pChannelsSnarkAction),
     SnarkJobCommitment(P2pChannelsSnarkJobCommitmentAction),
     Rpc(P2pChannelsRpcAction),
     StreamingRpc(P2pChannelsStreamingRpcAction),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, openmina_core::ActionEvent)]
+pub enum P2pChannelsEffectfulAction {
+    BestTip(P2pChannelsBestTipEffectfulAction),
+    Rpc(P2pChannelsRpcEffectfulAction),
+    Snark(P2pChannelsSnarkEffectfulAction),
+    SnarkJobCommitment(P2pChannelsSnarkJobCommitmentEffectfulAction),
+    StreamingRpc(P2pChannelsStreamingRpcEffectfulAction),
+    Transaction(P2pChannelsTransactionEffectfulAction),
 }
 
 impl P2pChannelsAction {
@@ -48,6 +60,19 @@ impl redux::EnablingCondition<crate::P2pState> for P2pChannelsAction {
             P2pChannelsAction::SnarkJobCommitment(a) => a.is_enabled(state, time),
             P2pChannelsAction::Rpc(a) => a.is_enabled(state, time),
             P2pChannelsAction::StreamingRpc(a) => a.is_enabled(state, time),
+        }
+    }
+}
+
+impl redux::EnablingCondition<crate::P2pState> for P2pChannelsEffectfulAction {
+    fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
+        match self {
+            P2pChannelsEffectfulAction::BestTip(a) => a.is_enabled(state, time),
+            P2pChannelsEffectfulAction::Transaction(a) => a.is_enabled(state, time),
+            P2pChannelsEffectfulAction::StreamingRpc(a) => a.is_enabled(state, time),
+            P2pChannelsEffectfulAction::SnarkJobCommitment(a) => a.is_enabled(state, time),
+            P2pChannelsEffectfulAction::Rpc(a) => a.is_enabled(state, time),
+            P2pChannelsEffectfulAction::Snark(a) => a.is_enabled(state, time),
         }
     }
 }

@@ -3,9 +3,9 @@ use std::{borrow::Cow, ops::Neg, rc::Rc};
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, One, Zero};
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
 use kimchi::{
-    circuits::{scalars::RandomOracles, wires::COLUMNS},
+    circuits::{expr::RowOffset, scalars::RandomOracles, wires::COLUMNS},
     oracles::OraclesResult,
-    proof::{PointEvaluations, ProofEvaluations, ProverProof, RecursionChallenge},
+    proof::{PointEvaluations, ProofEvaluations, RecursionChallenge},
 };
 use mina_curves::pasta::{Fq, Pallas, Vesta};
 use mina_hasher::Fp;
@@ -26,7 +26,8 @@ use crate::{
         },
         step::OptFlag,
         transaction::{
-            create_proof, endos, make_group, CreateProofParams, InnerCurve, StepStatementWithHash,
+            create_proof, endos, make_group, CreateProofParams, InnerCurve, ProofWithPublic,
+            StepStatementWithHash,
         },
         unfinalized::{dummy_ipa_wrap_challenges, Unfinalized},
         util::{challenge_polynomial, proof_evaluation_to_list},
@@ -53,6 +54,7 @@ use super::{
     unfinalized::{AllEvals, EvalsWithPublicInput},
     util::{four_u64_to_field, two_u64_to_field},
     witness::Witness,
+    ProverIndex, ProverProof, VerifierIndex,
 };
 
 /// Common.Max_degree.wrap_log2
@@ -65,8 +67,9 @@ pub struct CombinedInnerProductParams<
     const NLIMB: usize = 2,
 > {
     pub env: &'a ScalarsEnv<F>,
-    pub evals: &'a ProofEvaluations<[F; 2]>,
-    pub public: [F; 2],
+    pub evals: &'a ProofEvaluations<PointEvaluations<Vec<F>>>,
+    pub combined_evals: &'a ProofEvaluations<PointEvaluations<F>>,
+    pub public: &'a PointEvaluations<Vec<F>>,
     pub minimal: &'a PlonkMinimal<F, NLIMB>,
     pub ft_eval1: F,
     pub r: F,
@@ -83,6 +86,7 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
         env,
         old_bulletproof_challenges,
         evals,
+        combined_evals,
         minimal,
         r,
         xi,
@@ -91,7 +95,7 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
         ft_eval1,
     } = params;
 
-    let ft_eval0 = ft_eval0::<F, NLIMB>(env, evals, minimal, public[0]);
+    let ft_eval0 = ft_eval0::<F, NLIMB>(env, combined_evals, minimal, &public.zeta);
 
     let challenge_polys: Vec<_> = old_bulletproof_challenges
         .iter()
@@ -106,16 +110,18 @@ pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB
     }
 
     let combine = |which_eval: WhichEval, ft: F, pt: F| {
-        let f = |[x, y]: &[F; 2]| match which_eval {
-            WhichEval::First => *x,
-            WhichEval::Second => *y,
+        let f = |PointEvaluations { zeta, zeta_omega }: &PointEvaluations<Vec<F>>| match which_eval
+        {
+            WhichEval::First => zeta.clone(),
+            WhichEval::Second => zeta_omega.clone(),
         };
 
         challenge_polys
             .iter()
             .map(|f| f(pt))
-            .chain([f(&public), ft])
-            .chain(a.iter().map(f))
+            .chain(f(public))
+            .chain([ft])
+            .chain(a.iter().flat_map(|a| f(a)))
             .rev()
             .reduce(|acc, fx| fx + (xi * acc))
             .unwrap()
@@ -174,28 +180,43 @@ impl<F: FieldWitness> Oracles<F> {
 }
 
 pub fn create_oracle<F: FieldWitness>(
-    verifier_index: &kimchi::verifier_index::VerifierIndex<F::OtherCurve>,
-    proof: &kimchi::proof::ProverProof<F::OtherCurve>,
-    public: &[F],
+    verifier_index: &VerifierIndex<F>,
+    proof_with_public: &ProofWithPublic<F>,
+) -> Oracles<F> {
+    let ProofWithPublic {
+        proof,
+        public_input,
+    } = proof_with_public;
+
+    create_oracle_with_public_input(verifier_index, proof, public_input)
+}
+
+pub fn create_oracle_with_public_input<F: FieldWitness>(
+    verifier_index: &VerifierIndex<F>,
+    proof: &ProverProof<F>,
+    public_input: &[F],
 ) -> Oracles<F> {
     use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
     use mina_poseidon::sponge::DefaultFrSponge;
     use poly_commitment::commitment::shift_scalar;
 
     // TODO: Don't clone the SRS here
-    let mut srs = (**verifier_index.srs.get().unwrap()).clone();
+    let mut srs = (*verifier_index.srs).clone();
     let log_size_of_group = verifier_index.domain.log_size_of_group;
     let lgr_comm = make_lagrange::<F>(&mut srs, log_size_of_group);
 
-    let lgr_comm: Vec<PolyComm<F::OtherCurve>> = lgr_comm.into_iter().take(public.len()).collect();
+    let lgr_comm: Vec<PolyComm<F::OtherCurve>> =
+        lgr_comm.into_iter().take(public_input.len()).collect();
     let lgr_comm_refs: Vec<_> = lgr_comm.iter().collect();
 
     let p_comm = PolyComm::<F::OtherCurve>::multi_scalar_mul(
         &lgr_comm_refs,
-        &public.iter().map(|s| -*s).collect::<Vec<_>>(),
+        &public_input.iter().map(|s| -*s).collect::<Vec<_>>(),
     );
 
     let p_comm = {
+        use poly_commitment::SRS;
+
         verifier_index
             .srs()
             .mask_custom(p_comm.clone(), &p_comm.map(|_| F::one()))
@@ -205,7 +226,7 @@ pub fn create_oracle<F: FieldWitness>(
 
     type EFrSponge<F> = DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
     let oracles_result = proof
-        .oracles::<F::FqSponge, EFrSponge<F>>(verifier_index, &p_comm, public)
+        .oracles::<F::FqSponge, EFrSponge<F>>(verifier_index, &p_comm, Some(public_input))
         .unwrap();
 
     let OraclesResult {
@@ -253,28 +274,26 @@ fn make_lagrange<F: FieldWitness>(
 }
 
 /// Defined in `plonk_checks.ml`
+/// Note: there are other `actual_evaluation`, but they're different
 fn actual_evaluation<F: FieldWitness>(pt: F, e: &[F], rounds: usize) -> F {
-    let [e, es @ ..] = e else {
+    let Some((e, es)) = e.split_last() else {
         return F::zero();
     };
 
     let pt_n = (0..rounds).fold(pt, |acc, _| acc * acc);
-    es.iter().fold(*e, |acc, fx| *fx + (pt_n * acc))
+    es.iter().rfold(*e, |acc, fx| *fx + (pt_n * acc))
 }
 
-pub fn evals_of_split_evals<F: FieldWitness>(
-    zeta: F,
-    zetaw: F,
-    es: &ProofEvaluations<PointEvaluations<Vec<F>>>,
+pub fn evals_of_split_evals<F: FieldWitness, S: AsRef<[F]>>(
+    point_zeta: F,
+    point_zetaw: F,
+    es: &ProofEvaluations<PointEvaluations<S>>,
     rounds: usize,
-) -> ProofEvaluations<[F; 2]> {
-    es.map_ref(&|PointEvaluations {
-                     zeta: x1,
-                     zeta_omega: x2,
-                 }| {
-        let zeta = actual_evaluation(zeta, x1, rounds);
-        let zeta_omega = actual_evaluation(zetaw, x2, rounds);
-        [zeta, zeta_omega]
+) -> ProofEvaluations<PointEvaluations<F>> {
+    es.map_ref(&|PointEvaluations { zeta, zeta_omega }| {
+        let zeta = actual_evaluation(point_zeta, zeta.as_ref(), rounds);
+        let zeta_omega = actual_evaluation(point_zetaw, zeta_omega.as_ref(), rounds);
+        PointEvaluations { zeta, zeta_omega }
     })
 }
 
@@ -285,9 +304,9 @@ struct DeferredValuesParams<'a> {
     _sgs: Vec<InnerCurve<Fp>>,
     prev_challenges: Vec<[Fp; 16]>,
     public_input: &'a [Fp],
-    proof: &'a kimchi::proof::ProverProof<Vesta>,
+    proof_with_public: &'a ProofWithPublic<Fp>,
     actual_proofs_verified: usize,
-    prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+    prover_index: &'a ProverIndex<Fp>,
 }
 
 fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
@@ -295,7 +314,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
         _sgs,
         prev_challenges,
         public_input,
-        proof,
+        proof_with_public,
         actual_proofs_verified,
         prover_index,
     } = params;
@@ -303,8 +322,16 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let step_vk = prover_index.verifier_index();
     let log_size_of_group = step_vk.domain.log_size_of_group;
 
-    let oracle = create_oracle(&step_vk, proof, public_input);
-    let x_hat = [oracle.p_eval.0, oracle.p_eval.1];
+    assert_eq!(public_input, &proof_with_public.public_input);
+    let oracle = create_oracle(&step_vk, proof_with_public);
+
+    let x_hat = match proof_with_public.public_evals() {
+        Some(x) => x.clone(),
+        None => PointEvaluations {
+            zeta: vec![oracle.p_eval.0],
+            zeta_omega: vec![oracle.p_eval.1],
+        },
+    };
 
     let alpha = oracle.alpha();
     let beta = oracle.beta();
@@ -341,24 +368,27 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     };
 
     let _domain = step_vk.domain.log_size_of_group;
-    let zetaw = {
-        let zeta = scalar_to_field(plonk0.zeta_bytes);
-        step_vk.domain.group_gen * zeta
-    };
+    let zeta = scalar_to_field(plonk0.zeta_bytes);
+    let zetaw = step_vk.domain.group_gen * zeta;
 
     let tick_plonk_minimal = PlonkMinimal {
-        zeta: scalar_to_field(plonk0.zeta_bytes),
+        zeta,
         alpha: scalar_to_field(plonk0.alpha_bytes),
         ..plonk0.clone()
     };
-    let tick_combined_evals =
-        evals_of_split_evals(zeta, zetaw, &proof.evals, BACKEND_TICK_ROUNDS_N);
+    let tick_combined_evals = evals_of_split_evals(
+        zeta,
+        zetaw,
+        &proof_with_public.proof.evals,
+        BACKEND_TICK_ROUNDS_N,
+    );
 
     let domain_log2: u8 = log_size_of_group.try_into().unwrap();
     let tick_env = make_scalars_env(
         &tick_plonk_minimal,
         domain_log2,
         COMMON_MAX_DEGREE_STEP_LOG2,
+        step_vk.zk_rows,
     );
     let plonk = derive_plonk(&tick_env, &tick_combined_evals, &tick_plonk_minimal);
 
@@ -379,25 +409,21 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
         (prechals, b)
     };
 
-    let evals = proof
-        .evals
-        .map_ref(&|PointEvaluations { zeta, zeta_omega }| {
-            assert_eq!(zeta.len(), 1);
-            assert_eq!(zeta_omega.len(), 1);
-            [zeta[0], zeta_omega[0]]
-        });
+    let evals = &proof_with_public.proof.evals;
+    let combined_evals = evals_of_split_evals(zeta, zetaw, evals, super::BACKEND_TICK_ROUNDS_N);
 
     let combined_inner_product =
         combined_inner_product(CombinedInnerProductParams::<_, { Fp::NROUNDS }, 2> {
             env: &tick_env,
-            evals: &evals,
+            evals,
+            combined_evals: &combined_evals,
             minimal: &tick_plonk_minimal,
             r: scalar_to_field(to_bytes(r.0)),
             old_bulletproof_challenges: &prev_challenges,
             xi: scalar_to_field(to_bytes(xi.0)),
             zetaw,
-            public: x_hat,
-            ft_eval1: proof.ft_eval1,
+            public: &x_hat,
+            ft_eval1: proof_with_public.proof.ft_eval1,
         });
 
     let shift = |f: Fp| <Fp as FieldWitness>::Shifting::of_field(f);
@@ -442,7 +468,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
 struct DeferredValuesAndHints {
     deferred_values: DeferredValues<Fp>,
     sponge_digest_before_evaluations: Fp,
-    x_hat_evals: [Fp; 2],
+    x_hat_evals: PointEvaluations<Vec<Fp>>,
 }
 
 fn pad_messages_for_next_wrap_proof(
@@ -538,10 +564,12 @@ pub fn dummy_ipa_wrap_sg() -> GroupAffine<Fp> {
         let p = DensePolynomial::from_coefficients_vec(coeffs);
 
         let comm = {
+            use poly_commitment::SRS;
+
             let srs = get_srs::<Fq>();
-            srs.commit_non_hiding(&p, None)
+            srs.commit_non_hiding(&p, 1)
         };
-        comm.unshifted[0]
+        comm.elems[0]
     })
 }
 
@@ -552,11 +580,11 @@ pub struct ChallengePolynomial {
 
 pub struct WrapParams<'a> {
     pub app_state: Rc<dyn ToFieldElementsDebug>,
-    pub proof: &'a kimchi::proof::ProverProof<Vesta>,
+    pub proof_with_public: &'a ProofWithPublic<Fp>,
     pub step_statement: StepStatement,
     pub prev_evals: &'a [AllEvals<Fq>],
     pub dlog_plonk_index: &'a PlonkVerificationKeyEvals<Fp>,
-    pub step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+    pub step_prover_index: &'a ProverIndex<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
 }
 
@@ -568,7 +596,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
 
     let WrapParams {
         app_state,
-        proof,
+        proof_with_public,
         step_statement,
         prev_evals,
         dlog_plonk_index,
@@ -624,6 +652,8 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         .map(MessagesForNextWrapProof::hash)
         .collect::<Vec<_>>();
 
+    // Note: This probably can be removed, because now we take
+    // the public_input from `ProofWithPublic`
     let public_input = make_public_input(
         &step_statement,
         messages_for_next_step_proof_hash,
@@ -648,7 +678,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         _sgs: vec![],
         prev_challenges,
         public_input: &public_input,
-        proof,
+        proof_with_public,
         actual_proofs_verified,
         prover_index: step_prover_index,
     });
@@ -657,7 +687,9 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
     let to_fqs = |v: &[[u64; 2]]| v.iter().copied().map(to_fq).collect::<Vec<_>>();
 
     let messages_for_next_wrap_proof = MessagesForNextWrapProof {
-        challenge_polynomial_commitment: { InnerCurve::of_affine(proof.proof.sg) },
+        challenge_polynomial_commitment: {
+            InnerCurve::of_affine(proof_with_public.proof.proof.sg)
+        },
         old_bulletproof_challenges: step_statement
             .proof_state
             .unfinalized_proofs
@@ -749,7 +781,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
             wrap_domain_indices,
             messages_for_next_step_proof_hash,
             prev_evals,
-            proof,
+            proof: proof_with_public,
             step_prover_index,
         },
         w,
@@ -760,8 +792,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         .iter()
         .map(|m| RecursionChallenge {
             comm: poly_commitment::PolyComm::<Pallas> {
-                unshifted: vec![m.commitment.to_affine()],
-                shifted: None,
+                elems: vec![m.commitment.to_affine()],
             },
             chals: m.challenges.to_vec(),
         })
@@ -780,19 +811,20 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         proof: next_proof,
         statement: next_statement,
         prev_evals: AllEvals {
-            ft_eval1: proof.ft_eval1,
+            ft_eval1: proof_with_public.proof.ft_eval1,
             evals: EvalsWithPublicInput {
-                public_input: (x_hat_evals[0], x_hat_evals[1]),
-                evals: proof
-                    .evals
-                    .map_ref(&|PointEvaluations { zeta, zeta_omega }| [zeta[0], zeta_omega[0]]),
+                public_input: {
+                    let PointEvaluations { zeta, zeta_omega } = x_hat_evals;
+                    (zeta, zeta_omega)
+                },
+                evals: proof_with_public.proof.evals.clone(),
             },
         },
     })
 }
 
 pub struct WrapProof {
-    pub proof: kimchi::proof::ProverProof<GroupAffine<Fp>>,
+    pub proof: ProofWithPublic<Fq>,
     pub statement: WrapStatement,
     pub prev_evals: AllEvals<Fp>,
 }
@@ -1175,6 +1207,7 @@ pub struct MakeScalarsEnvParams<'a, F: FieldWitness> {
     pub domain: Rc<dyn PlonkDomain<F>>,
     pub srs_length_log2: u64,
     pub hack_feature_flags: OptFlag,
+    pub zk_rows: u64,
 }
 
 pub fn make_scalars_env_checked<F: FieldWitness>(
@@ -1186,6 +1219,7 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         domain,
         srs_length_log2,
         hack_feature_flags,
+        zk_rows,
     } = params;
 
     let PlonkMinimal {
@@ -1207,30 +1241,58 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         alphas
     };
 
-    let (w4, w3, w2, w1) = {
+    let (
+        omega_to_zk_minus_1,
+        omega_to_zk,
+        omega_to_intermediate_powers,
+        omega_to_zk_plus_1,
+        omega_to_minus_1,
+    ) = {
         let gen = domain.generator();
-        let w1 = field::div(F::one(), gen, w);
-        let w2 = field::square(w1, w);
-        let w3 = field::mul(w2, w1, w);
-        let w4 = LazyValue::make(move |w: &mut Witness<F>| field::mul(w3, w1, w));
-
-        (w4, w3, w2, w1)
+        let omega_to_minus_1 = field::div(F::one(), gen, w);
+        let omega_to_minus_2 = field::square(omega_to_minus_1, w);
+        let (omega_to_intermediate_powers, omega_to_zk_plus_1) = {
+            let mut next_term = omega_to_minus_2;
+            let omega_to_intermediate_powers = (0..(zk_rows.checked_sub(3).unwrap()))
+                .map(|_| {
+                    let term = next_term;
+                    next_term = field::mul(term, omega_to_minus_1, w);
+                    term
+                })
+                .collect::<Vec<_>>();
+            (omega_to_intermediate_powers, next_term)
+        };
+        let omega_to_zk = field::mul(omega_to_zk_plus_1, omega_to_minus_1, w);
+        let omega_to_zk_minus_1 =
+            LazyValue::make(move |w: &mut Witness<F>| field::mul(omega_to_zk, omega_to_minus_1, w));
+        (
+            omega_to_zk_minus_1,
+            omega_to_zk,
+            omega_to_intermediate_powers,
+            omega_to_zk_plus_1,
+            omega_to_minus_1,
+        )
     };
 
     let zeta = *zeta;
     let zk_polynomial = {
-        let a = zeta - w1;
-        let b = zeta - w2;
-        let c = zeta - w3;
+        let a = zeta - omega_to_minus_1;
+        let b = zeta - omega_to_zk_plus_1;
+        let c = zeta - omega_to_zk;
 
         let res = field::mul(a, b, w);
         field::mul(res, c, w)
     };
 
-    let vanishes_on_last_4_rows = match hack_feature_flags {
+    let vanishes_on_zero_knowledge_and_previous_rows = match hack_feature_flags {
         OptFlag::Maybe => {
-            let w4 = *w4.get(w);
-            field::mul(zk_polynomial, zeta - w4, w)
+            let omega_to_zk_minus_1 = *omega_to_zk_minus_1.get(w);
+            omega_to_intermediate_powers.iter().fold(
+                // init
+                field::mul(zk_polynomial, zeta - omega_to_zk_minus_1, w),
+                // f
+                |acc, omega_pow| field::mul(acc, minimal.zeta - omega_pow, w),
+            )
         }
         _ => F::one(),
     };
@@ -1249,35 +1311,41 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
     let unnormalized_lagrange_basis = match hack_feature_flags {
         OptFlag::Maybe => {
             let generator = domain.generator();
-            let w4_clone = w4.clone();
-            let fun: Box<dyn Fn(i32, &mut Witness<F>) -> F> =
-                Box::new(move |i: i32, w: &mut Witness<F>| {
-                    let w_to_i = match i {
-                        0 => F::one(),
-                        1 => generator,
-                        -1 => w1,
-                        -2 => w2,
-                        -3 => w3,
-                        -4 => *w4_clone.get(w),
+            let omega_to_zk_minus_1_clone = omega_to_zk_minus_1.clone();
+            let fun: Box<dyn Fn(RowOffset, &mut Witness<F>) -> F> =
+                Box::new(move |i: RowOffset, w: &mut Witness<F>| {
+                    let w_to_i = match (i.zk_rows, i.offset) {
+                        (false, 0) => F::one(),
+                        (false, 1) => generator,
+                        (false, -1) => omega_to_minus_1,
+                        (false, -2) => omega_to_zk_plus_1,
+                        (false, -3) | (true, 0) => omega_to_zk,
+                        (true, -1) => *omega_to_zk_minus_1_clone.get(w),
                         _ => todo!(),
                     };
                     let zeta_to_n_minus_1 = *zeta_to_n_minus_1_lazy.get(w);
-                    field::div_by_inv(zeta_to_n_minus_1, zeta - w_to_i, w)
+                    crate::proofs::field::field::div_by_inv(zeta_to_n_minus_1, zeta - w_to_i, w)
                 });
+
             Some(fun)
         }
         _ => None,
     };
+
+    let zeta_to_srs_length = LazyValue::make(move |w: &mut Witness<F>| {
+        (0..srs_length_log2).fold(zeta, |acc, _| field::square(acc, w))
+    });
 
     ScalarsEnv {
         zk_polynomial,
         zeta_to_n_minus_1,
         srs_length_log2,
         domain,
-        omega_to_minus_3: w3,
+        omega_to_minus_zk_rows: omega_to_zk,
         feature_flags,
         unnormalized_lagrange_basis,
-        vanishes_on_last_4_rows,
+        vanishes_on_zero_knowledge_and_previous_rows,
+        zeta_to_srs_length,
     }
 }
 
@@ -1314,7 +1382,7 @@ where
         .unwrap();
 
     let chunked_t_comm = t_comm
-        .unshifted
+        .elems
         .iter()
         .rev()
         .copied()
@@ -1382,7 +1450,6 @@ pub mod wrap_verifier {
     use std::sync::Arc;
 
     use itertools::Itertools;
-    use kimchi::prover_index::ProverIndex;
     use poly_commitment::{evaluation_proof::OpeningProof, srs::SRS};
 
     use crate::proofs::{
@@ -1391,7 +1458,7 @@ pub mod wrap_verifier {
         transaction::scalar_challenge::{self, to_field_checked},
         unfinalized,
         util::{challenge_polynomial_checked, to_absorption_sequence_opt, two_u64_to_field},
-        verifier_index::wrap_domains,
+        verifiers::wrap_domains,
         wrap::pcs_batch::PcsBatch,
     };
 
@@ -1400,13 +1467,13 @@ pub mod wrap_verifier {
     // TODO: Here we pick the verifier index directly from the prover index
     //       but OCaml does it differently
     pub fn choose_key(
-        prover_index: &ProverIndex<Vesta>,
+        prover_index: &ProverIndex<Fp>,
         w: &mut Witness<Fq>,
     ) -> PlonkVerificationKeyEvals<Fq> {
         let vk = prover_index.verifier_index.as_ref().unwrap();
 
         let to_curve = |v: &PolyComm<Vesta>| {
-            let v = v.unshifted[0];
+            let v = v.elems[0];
             InnerCurve::<Fq>::of_affine(v)
         };
 
@@ -1579,16 +1646,17 @@ pub mod wrap_verifier {
 
             sponge.absorb2(&[challenge_digest], w);
             sponge.absorb(&[*ft_eval1], w);
-            sponge.absorb(&[evals.public_input.0], w);
-            sponge.absorb(&[evals.public_input.1], w);
+            sponge.absorb(&evals.public_input.0, w);
+            sponge.absorb(&evals.public_input.1, w);
 
             for eval in &to_absorption_sequence_opt(&evals.evals, OptFlag::No) {
                 match eval {
                     Opt::No => {}
-                    Opt::Some([x1, x2]) => {
-                        sponge.absorb(&[*x1, *x2], w);
+                    Opt::Some(PointEvaluations { zeta, zeta_omega }) => {
+                        sponge.absorb(zeta, w);
+                        sponge.absorb(zeta_omega, w);
                     }
-                    Opt::Maybe(_b, [_x1, _x2]) => todo!(),
+                    Opt::Maybe(_b, _pt) => todo!(),
                 }
             }
         };
@@ -1629,11 +1697,13 @@ pub mod wrap_verifier {
             let zeta_n = pow2pow(plonk.zeta);
             let zetaw_n = pow2pow(zetaw);
 
-            evals.evals.map_ref(&|[x0, x1]| {
-                let a = actual_evaluation(&[*x0], zeta_n);
-                let b = actual_evaluation(&[*x1], zetaw_n);
-                [a, b]
-            })
+            evals
+                .evals
+                .map_ref(&|PointEvaluations { zeta, zeta_omega }| {
+                    let zeta = actual_evaluation(zeta, zeta_n);
+                    let zeta_omega = actual_evaluation(zeta_omega, zetaw_n);
+                    PointEvaluations { zeta, zeta_omega }
+                })
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_WRAP_LOG2 as u64;
@@ -1643,12 +1713,13 @@ pub mod wrap_verifier {
                 domain: Rc::new(domain.clone()),
                 srs_length_log2,
                 hack_feature_flags: OptFlag::No,
+                zk_rows: 3,
             },
             w,
         );
 
         let combined_inner_product_correct = {
-            let p_eval0 = evals.public_input.0;
+            let p_eval0 = &evals.public_input.0;
             let ft_eval0 =
                 ft_eval0_checked(&env, &combined_evals, &plonk_mininal, None, p_eval0, w);
             let a = proof_evaluation_to_list(&evals.evals);
@@ -1662,18 +1733,20 @@ pub mod wrap_verifier {
                 let combine = |which_eval: WhichEval,
                                sg_evals: &[Fq],
                                ft_eval: Fq,
-                               x_hat: Fq,
+                               x_hat: &[Fq],
                                w: &mut Witness<Fq>| {
-                    let f = |[x, y]: &[Fq; 2]| match which_eval {
-                        WhichEval::First => *x,
-                        WhichEval::Second => *y,
+                    let f = |PointEvaluations { zeta, zeta_omega }: &PointEvaluations<Vec<Fq>>| {
+                        match which_eval {
+                            WhichEval::First => zeta.clone(),
+                            WhichEval::Second => zeta_omega.clone(),
+                        }
                     };
                     sg_evals
                         .iter()
                         .copied()
-                        .chain([x_hat])
+                        .chain(x_hat.iter().copied())
                         .chain([ft_eval])
-                        .chain(a.iter().map(f))
+                        .chain(a.iter().flat_map(|a| f(a)))
                         .rev()
                         .reduce(|acc, fx| fx + field::mul(xi, acc, w))
                         // OCaml panics too
@@ -1685,7 +1758,7 @@ pub mod wrap_verifier {
                     WhichEval::Second,
                     &sg_evals2,
                     *ft_eval1,
-                    evals.public_input.1,
+                    &evals.public_input.1,
                     w,
                 );
                 let b = field::mul(b, r, w);
@@ -1693,7 +1766,7 @@ pub mod wrap_verifier {
                     WhichEval::First,
                     &sg_evals1,
                     ft_eval0,
-                    evals.public_input.0,
+                    &evals.public_input.0,
                     w,
                 );
                 a + b
@@ -1759,7 +1832,7 @@ pub mod wrap_verifier {
             .filter(|(_, b)| b.as_bool())
             .map(|(d, _)| {
                 let d = 2u64.pow(d.h.log2_size() as u32);
-                match lagrange_commitment::<Fq>(srs, d, i).unshifted.as_slice() {
+                match lagrange_commitment::<Fq>(srs, d, i).elems.as_slice() {
                     &[GroupAffine::<Fq> { x, y, .. }] => (x, y),
                     _ => unreachable!(),
                 }
@@ -1793,7 +1866,7 @@ pub mod wrap_verifier {
 
         let mut base_and_correction = |h: Domain| {
             let d = 2u64.pow(h.log2_size() as u32);
-            match lagrange_commitment::<Fq>(srs, d, i).unshifted.as_slice() {
+            match lagrange_commitment::<Fq>(srs, d, i).elems.as_slice() {
                 &[g] => {
                     let g = InnerCurve::of_affine(g);
                     let b = pow2pow(g.clone(), actual_shift).neg();
@@ -2321,7 +2394,7 @@ pub mod wrap_verifier {
 
         let w_comm = &messages.w_comm;
 
-        for w in w_comm.iter().flat_map(|w| &w.unshifted) {
+        for w in w_comm.iter().flat_map(|w| &w.elems) {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
                 &InnerCurve::of_affine(*w),
@@ -2333,7 +2406,7 @@ pub mod wrap_verifier {
         let _gamma = sample(&mut sponge, w);
 
         let z_comm = &messages.z_comm;
-        for z in z_comm.unshifted.iter() {
+        for z in z_comm.elems.iter() {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
                 &InnerCurve::of_affine(*z),
@@ -2344,7 +2417,7 @@ pub mod wrap_verifier {
         let _alpha = sample_scalar(&mut sponge, w);
 
         let t_comm = &messages.t_comm;
-        for t in t_comm.unshifted.iter() {
+        for t in t_comm.elems.iter() {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
                 &InnerCurve::of_affine(*t),
@@ -2382,7 +2455,7 @@ pub mod wrap_verifier {
                 let sg_old = sg_old.iter().map(|(b, v)| (*b, v.to_affine()));
                 let rest = [x_hat, ft_comm]
                     .into_iter()
-                    .chain(z_comm.unshifted.iter().cloned())
+                    .chain(z_comm.elems.iter().cloned())
                     .chain([
                         verification_key.generic.to_affine(),
                         verification_key.psm.to_affine(),
@@ -2391,7 +2464,7 @@ pub mod wrap_verifier {
                         verification_key.emul.to_affine(),
                         verification_key.endomul_scalar.to_affine(),
                     ])
-                    .chain(w_comm.iter().flat_map(|w| w.unshifted.iter().cloned()))
+                    .chain(w_comm.iter().flat_map(|w| w.elems.iter().cloned()))
                     .chain(verification_key.coefficients.iter().map(|v| v.to_affine()))
                     .chain(sigma_comm_init.iter().map(|v| v.to_affine()))
                     .map(|v| (CircuitVar::Constant(Boolean::True), v));
@@ -2521,12 +2594,11 @@ impl ToFieldElements<Fq> for kimchi::proof::ProverCommitments<Vesta> {
         } = self;
 
         let mut push_poly = |poly: &PolyComm<Vesta>| {
-            let PolyComm { unshifted, shifted } = poly;
-            for GroupAffine::<Fq> { x, y, .. } in unshifted {
+            let PolyComm { elems } = poly;
+            for GroupAffine::<Fq> { x, y, .. } in elems {
                 x.to_field_elements(fields);
                 y.to_field_elements(fields);
             }
-            assert!(shifted.is_none());
         };
         for poly in w_comm.iter().chain([z_comm, t_comm]) {
             push_poly(poly);
@@ -2546,11 +2618,8 @@ impl Check<Fq> for kimchi::proof::ProverCommitments<Vesta> {
         assert!(lookup.is_none());
 
         let mut check_poly = |poly: &PolyComm<Vesta>| {
-            let PolyComm {
-                unshifted,
-                shifted: _,
-            } = poly;
-            for affine in unshifted {
+            let PolyComm { elems } = poly;
+            for affine in elems {
                 InnerCurve::of_affine(*affine).check(w);
             }
         };
@@ -2709,8 +2778,8 @@ struct WrapMainParams<'a> {
     wrap_domain_indices: Box<[Fq; 2]>,
     messages_for_next_step_proof_hash: [u64; 4],
     prev_evals: &'a [AllEvals<Fq>],
-    proof: &'a ProverProof<Vesta>,
-    step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+    proof: &'a ProofWithPublic<Fp>,
+    step_prover_index: &'a ProverIndex<Fp>,
 }
 
 fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) -> Result<(), InvalidBigInt> {
@@ -2862,8 +2931,8 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) -> Result<(), InvalidB
         }
     };
 
-    let openings_proof = w.exists(&proof.proof);
-    let messages = w.exists(&proof.commitments);
+    let openings_proof = w.exists(&proof.proof.proof);
+    let messages = w.exists(&proof.proof.commitments);
 
     let public_input = pack_statement(&prev_statement, &messages_for_next_step_proof_hash, w)?;
 

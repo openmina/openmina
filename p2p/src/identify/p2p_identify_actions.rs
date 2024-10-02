@@ -13,6 +13,7 @@ pub enum P2pIdentifyAction {
     /// Updates the P2P peer information based on the Identify message sent to us.
     UpdatePeerInformation {
         peer_id: PeerId,
+        addr: ConnectionAddr,
         info: Box<P2pNetworkIdentify>,
     },
 }

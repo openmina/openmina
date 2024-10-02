@@ -29,16 +29,15 @@ use crate::{
             zkapp_command::{
                 self, AccountPreconditions, AccountUpdateSimple, AuthorizationKind, CallForest,
                 ClosedInterval, Control, FeePayer, FeePayerBody, MayUseToken, Numeric, OrIgnore,
-                Preconditions, SetOrKeep, Update, WithHash, WithStackHash, ZkAppCommand,
-                ZkAppPreconditions,
+                Preconditions, SetOrKeep, Update, WithStackHash, ZkAppCommand, ZkAppPreconditions,
             },
             Memo,
         },
         zkapp_logic::{self, ZkAppCommandElt},
     },
-    Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions,
-    ReceiptChainHash, SetVerificationKey, TokenId, VerificationKey, VotingFor, ZkAppAccount,
-    TXN_VERSION_CURRENT,
+    Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MutableFp, MyCowMut,
+    Permissions, ReceiptChainHash, SetVerificationKey, TokenId, VerificationKeyWire, VotingFor,
+    ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 // use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
@@ -568,7 +567,7 @@ struct BodyComponentsParams<'a, A, B, C, D> {
     may_use_token: Option<MayUseToken>,
     account_ids_seen: Option<&'a mut HashSet<AccountId>>,
     account_state_tbl: &'a mut HashMap<AccountId, (Account, Role)>,
-    vk: Option<&'a WithHash<VerificationKey>>,
+    vk: Option<&'a VerificationKeyWire>,
     failure: Option<&'a Failure>,
     new_account: Option<bool>,
     zkapp_account: Option<bool>,
@@ -650,11 +649,7 @@ fn gen_account_update_body_components<A, B, C, D>(
 
     let verification_key = match vk {
         Some(vk) => vk.clone(),
-        None => {
-            let dummy = VerificationKey::dummy();
-            let hash = dummy.digest();
-            WithHash { data: dummy, hash }
-        }
+        None => VerificationKeyWire::dummy(),
     };
 
     let mut account = if new_account {
@@ -690,7 +685,7 @@ fn gen_account_update_body_components<A, B, C, D>(
         if zkapp_account {
             account_with_pk.zkapp = Some(
                 ZkAppAccount {
-                    verification_key: Some(verification_key.data.clone()),
+                    verification_key: Some(verification_key.clone()),
                     ..ZkAppAccount::default()
                 }
                 .into(),
@@ -846,7 +841,7 @@ fn gen_account_update_body_components<A, B, C, D>(
     let authorization_kind = match authorization_tag {
         ControlTag::NoneGiven => AuthorizationKind::NoneGiven,
         ControlTag::Signature => AuthorizationKind::Signature,
-        ControlTag::Proof => AuthorizationKind::Proof(verification_key.hash),
+        ControlTag::Proof => AuthorizationKind::Proof(verification_key.hash()),
     };
 
     // update account state table with all the changes
@@ -1110,7 +1105,7 @@ struct AccountUpdateParams<'a> {
     available_public_keys: &'a mut HashSet<HashableCompressedPubKey>,
     account_state_tbl: &'a mut HashMap<AccountId, (Account, Role)>,
     protocol_state_view: Option<&'a ProtocolStateView>,
-    vk: Option<&'a WithHash<VerificationKey>>,
+    vk: Option<&'a VerificationKeyWire>,
     // is_fee_payer: Option<bool>,
     // increment_nonce: (B, bool),
     // authorization_tag: ControlTag,
@@ -1233,7 +1228,7 @@ fn gen_account_update_body_fee_payer(
     failure: Option<&Failure>,
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
-    vk: Option<&WithHash<VerificationKey>>,
+    vk: Option<&VerificationKeyWire>,
     protocol_state_view: Option<&ProtocolStateView>,
     account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
 ) -> FeePayerBody {
@@ -1291,7 +1286,7 @@ fn gen_fee_payer(
     permissions_auth: Option<ControlTag>,
     account_id: AccountId,
     protocol_state_view: Option<&ProtocolStateView>,
-    vk: Option<&WithHash<VerificationKey>>,
+    vk: Option<&VerificationKeyWire>,
     account_state_tbl: &mut HashMap<AccountId, (Account, Role)>,
 ) -> FeePayer {
     let body = gen_account_update_body_fee_payer(
@@ -1323,7 +1318,7 @@ pub struct GenZkappCommandParams<'a> {
     pub account_state_tbl: Option<&'a mut HashMap<AccountId, (Account, Role)>>,
     pub ledger: Mask,
     pub protocol_state_view: Option<&'a ProtocolStateView>,
-    pub vk: Option<&'a WithHash<VerificationKey>>,
+    pub vk: Option<&'a VerificationKeyWire>,
 }
 
 /// `gen_zkapp_command_from` generates a zkapp_command and record the change of accounts accordingly
@@ -1455,7 +1450,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                 .map(|v| {
                     WithStackHash {
                         elt: v,
-                        stack_hash: Fp::zero(), // TODO: OCaml uses `()`
+                        stack_hash: MutableFp::new(Fp::zero()), // TODO: OCaml uses `()`
                     }
                 })
                 .collect(),
@@ -1468,7 +1463,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
     ) -> zkapp_command::Tree<AccountUpdateSimple> {
         zkapp_command::Tree {
             account_update: p,
-            account_update_digest: Fp::zero(), // TODO: OCaml uses `()`
+            account_update_digest: MutableFp::new(Fp::zero()), // TODO: OCaml uses `()`
             calls: mk_forest(calls),
         }
     }
@@ -1598,10 +1593,8 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                                         std::array::from_fn(|_| SetOrKeep::Set(Fp::rand(&mut rng)));
                                 }
                                 NotPermitedOf::VerificationKey => {
-                                    let data = VerificationKey::dummy();
-                                    let hash = data.digest();
-                                    update.verification_key =
-                                        SetOrKeep::Set(WithHash { data, hash });
+                                    let vk = VerificationKeyWire::dummy();
+                                    update.verification_key = SetOrKeep::Set(vk);
                                 }
                                 NotPermitedOf::ZkappUri => {
                                     update.zkapp_uri = SetOrKeep::Set(

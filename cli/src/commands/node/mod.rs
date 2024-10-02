@@ -1,7 +1,12 @@
 use std::{fs::File, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
-use node::{account::AccountSecretKey, transition_frontier::genesis::GenesisConfig};
+use ledger::proofs::provers::BlockProver;
+use node::{
+    account::AccountSecretKey,
+    snark::{BlockVerifier, TransactionVerifier},
+    transition_frontier::genesis::GenesisConfig,
+};
 
 use openmina_node_account::AccountPublicKey;
 use reqwest::Url;
@@ -198,13 +203,19 @@ impl Node {
             node_builder.initial_peers_from_url(url)?;
         }
 
+        let block_verifier_index = BlockVerifier::make();
+        let work_verifier_index = TransactionVerifier::make();
+        node_builder
+            .block_verifier_index(block_verifier_index.clone())
+            .work_verifier_index(work_verifier_index.clone());
+
         if let (Some(producer_key_path), Some(pasword)) =
             (self.producer_key, &self.producer_key_password)
         {
             node::core::info!(node::core::log::system_time(); summary = "loading provers index");
-            ledger::proofs::gates::get_provers();
+            let provers = BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
             node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
-            node_builder.block_producer_from_file(producer_key_path, pasword)?;
+            node_builder.block_producer_from_file(provers, producer_key_path, pasword)?;
 
             if let Some(pub_key) = self.coinbase_receiver {
                 node_builder

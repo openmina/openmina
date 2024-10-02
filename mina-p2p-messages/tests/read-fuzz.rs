@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 #![cfg(all(test, fuzzing))]
 
 fn try_decode<T>(mut buf: &[u8]) -> bool

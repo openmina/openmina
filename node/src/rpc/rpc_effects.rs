@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+use ledger::scan_state::currency::{Balance, Magnitude};
 use ledger::Account;
 use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
@@ -320,12 +321,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             };
 
             let block = match query {
-                RpcScanStateSummaryGetQuery::ForBestTip => transition_frontier.best_tip(),
+                RpcScanStateSummaryGetQuery::ForBestTip => {
+                    transition_frontier.best_tip_breadcrumb()
+                }
                 RpcScanStateSummaryGetQuery::ForBlockWithHash(hash) => transition_frontier
                     .best_chain
                     .iter()
                     .rev()
-                    .find(|b| &b.hash == hash),
+                    .find(|b| b.hash() == hash),
                 RpcScanStateSummaryGetQuery::ForBlockWithHeight(height) => transition_frontier
                     .best_chain
                     .iter()
@@ -703,7 +706,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                                 account.nonce = nonce.incr();
                             }
                         }
-                        account.balance = account.balance.sub_amount(*amount).unwrap();
+                        account.balance = account
+                            .balance
+                            .sub_amount(*amount)
+                            .unwrap_or(Balance::zero());
                     }
                 });
 
@@ -805,6 +811,9 @@ fn collect_rpc_peers_info(state: &crate::State) -> Vec<RpcPeerInfo> {
                             (PeerConnectionStatus::Connecting, i.time().into())
                         }
                     },
+                    p2p::P2pPeerStatus::Disconnecting { time } => {
+                        (PeerConnectionStatus::Disconnected, (*time).into())
+                    }
                     p2p::P2pPeerStatus::Disconnected { time } => {
                         (PeerConnectionStatus::Disconnected, (*time).into())
                     }

@@ -11,7 +11,7 @@ use node::{
     snark::{
         block_verify::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash},
         work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId},
-        SnarkEvent, VerifierIndex, VerifierSRS,
+        BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS,
     },
 };
 use rand::prelude::*;
@@ -22,7 +22,7 @@ impl node::service::SnarkBlockVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: BlockVerifier,
         verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
@@ -55,7 +55,7 @@ impl node::service::SnarkWorkVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: TransactionVerifier,
         verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {
@@ -105,7 +105,7 @@ impl node::service::SnarkUserCommandVerifyService for NodeService {
     fn verify_init(
         &mut self,
         _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
-        _verifier_index: Arc<VerifierIndex>,
+        _verifier_index: TransactionVerifier,
         _verifier_srs: Arc<VerifierSRS>,
         _commands: mina_p2p_messages::list::List<
             mina_p2p_messages::v2::MinaBaseUserCommandStableV2,

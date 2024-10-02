@@ -48,7 +48,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                     return false;
                 }
                 let genesis_state = &state.transition_frontier.genesis;
-                if state.block_producer.is_enabled() {
+                if state.should_produce_blocks_after_genesis() {
                     genesis_state.proven_block().is_some()
                 } else {
                     genesis_state.block_with_dummy_proof().is_some()

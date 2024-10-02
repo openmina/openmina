@@ -1,122 +1,30 @@
-use crate::{P2pPeerState, P2pPeerStatus, PeerId};
+use openmina_core::Substate;
+use redux::ActionWithMeta;
 
 use super::{
-    incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState},
-    outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingState},
-    P2pConnectionAction, P2pConnectionActionWithMetaRef, P2pConnectionState,
+    incoming::P2pConnectionIncomingState, outgoing::P2pConnectionOutgoingState,
+    P2pConnectionAction, P2pConnectionState,
 };
+use crate::P2pState;
 
-pub fn p2p_connection_reducer(
-    state: &mut P2pPeerState,
-    my_id: PeerId,
-    action: P2pConnectionActionWithMetaRef<'_>,
-) {
-    let (action, meta) = action.split();
-    match action {
-        P2pConnectionAction::Outgoing(action) => {
-            if let P2pConnectionOutgoingAction::Reconnect { opts, rpc_id }
-            | P2pConnectionOutgoingAction::Init { opts, rpc_id } = action
-            {
-                state.status = P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
-                    P2pConnectionOutgoingState::Init {
-                        time: meta.time(),
-                        opts: opts.clone(),
-                        rpc_id: *rpc_id,
-                    },
-                ));
-            }
-            let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(state)) = &mut state.status
-            else {
-                return;
-            };
-            state.reducer(meta.with_action(action));
-        }
-        P2pConnectionAction::Incoming(action) => {
-            if let P2pConnectionIncomingAction::Init { opts, rpc_id } = action {
-                state.status = P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                    P2pConnectionIncomingState::Init {
-                        time: meta.time(),
-                        signaling: opts.signaling.clone(),
-                        offer: opts.offer.clone(),
-                        rpc_id: *rpc_id,
-                    },
-                ))
-            }
-            #[cfg(feature = "p2p-libp2p")]
-            if let P2pConnectionIncomingAction::FinalizePendingLibp2p { peer_id, addr, .. } = action
-            {
-                use super::outgoing::P2pConnectionOutgoingInitOpts;
-                use multiaddr::Protocol;
-                use std::net::{IpAddr, SocketAddr};
+impl P2pConnectionState {
+    pub fn reducer<Action, State>(
+        state_context: Substate<Action, State, P2pState>,
+        action: ActionWithMeta<&P2pConnectionAction>,
+    ) -> Result<(), String>
+    where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
+        let (action, meta) = action.split();
 
-                let incoming_state = match &state.status {
-                    // No duplicate connection
-                    // Timeout connections should be already closed at this point
-                    P2pPeerStatus::Disconnected { .. }
-                    | P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::Error {
-                            error: super::incoming::P2pConnectionIncomingError::Timeout,
-                            ..
-                        },
-                    )) => Some(P2pConnectionIncomingState::FinalizePendingLibp2p {
-                        addr: *addr,
-                        close_duplicates: Vec::new(),
-                        time: meta.time(),
-                    }),
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(_))
-                        if &my_id < peer_id =>
-                    {
-                        // connection from lesser peer_id to greater one is kept in favour of the opposite one (incoming in this case)
-                        None
-                    }
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(_)) => {
-                        let mut close_duplicates = Vec::new();
-                        if let Some(identify) = state.identify.as_ref() {
-                            close_duplicates.extend(identify.listen_addrs.iter().filter_map(
-                                |maddr| {
-                                    let mut iter = maddr.iter();
-                                    let ip: IpAddr = match iter.next()? {
-                                        Protocol::Ip4(ip4) => ip4.into(),
-                                        Protocol::Ip6(ip6) => ip6.into(),
-                                        _ => return None,
-                                    };
-                                    let port = match iter.next()? {
-                                        Protocol::Tcp(port) => port,
-                                        _ => return None,
-                                    };
-                                    Some(SocketAddr::from((ip, port)))
-                                },
-                            ))
-                        }
-                        if let Some(P2pConnectionOutgoingInitOpts::LibP2P(libp2p)) =
-                            state.dial_opts.as_ref()
-                        {
-                            match libp2p.try_into() {
-                                Ok(addr) if !close_duplicates.contains(&addr) => {
-                                    close_duplicates.push(addr)
-                                }
-                                _ => {}
-                            }
-                        };
-                        Some(P2pConnectionIncomingState::FinalizePendingLibp2p {
-                            addr: *addr,
-                            close_duplicates,
-                            time: meta.time(),
-                        })
-                    }
-                    _ => None,
-                };
-                if let Some(incoming_state) = incoming_state {
-                    state.status =
-                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(incoming_state));
-                }
+        match action {
+            P2pConnectionAction::Outgoing(action) => {
+                P2pConnectionOutgoingState::reducer(state_context, meta.with_action(action))
             }
-            let P2pPeerStatus::Connecting(P2pConnectionState::Incoming(state)) = &mut state.status
-            else {
-                return;
-            };
-            state.reducer(meta.with_action(action));
+            P2pConnectionAction::Incoming(action) => {
+                P2pConnectionIncomingState::reducer(state_context, meta.with_action(action))
+            }
         }
     }
-    let _ = my_id;
 }

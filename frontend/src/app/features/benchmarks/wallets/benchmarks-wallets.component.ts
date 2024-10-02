@@ -3,6 +3,7 @@ import { BenchmarksWalletsClose, BenchmarksWalletsGetWallets } from '@benchmarks
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { AppSelectors } from '@app/app.state';
 import { filter, skip } from 'rxjs';
+import { BenchmarksWalletsZkService } from '@benchmarks/wallets/benchmarks-wallets-zk.service';
 
 @Component({
   selector: 'mina-benchmarks-wallets',
@@ -13,7 +14,10 @@ import { filter, skip } from 'rxjs';
 })
 export class BenchmarksWalletsComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
+  constructor(private zkService: BenchmarksWalletsZkService) {super();}
+
   ngOnInit(): void {
+    this.zkService.loadO1js();
     this.listenToActiveNodeChange();
     this.dispatch(BenchmarksWalletsGetWallets, { initialRequest: true });
   }

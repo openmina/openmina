@@ -96,7 +96,7 @@ fn merge_main(
 }
 
 pub fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<Fp> {
-    PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
+    PlonkVerificationKeyEvals::from(&**wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
 impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags> for crate::proofs::step::FeatureFlags::<bool> {
@@ -261,7 +261,7 @@ pub(super) fn generate_merge_proof(
 
     let dlog_plonk_index = dlog_plonk_index(wrap_prover);
     let dlog_plonk_index_cvar = dlog_plonk_index.to_cvar(CircuitVar::Var);
-    let verifier_index = wrap_prover.index.verifier_index.as_ref().unwrap();
+    let verifier_index = &**wrap_prover.index.verifier_index.as_ref().unwrap();
 
     let tx_data = make_step_transaction_data(&dlog_plonk_index_cvar);
     let for_step_datas = [&tx_data, &tx_data];
@@ -274,7 +274,7 @@ pub(super) fn generate_merge_proof(
     let StepProof {
         statement,
         prev_evals,
-        proof,
+        proof_with_public: proof,
     } = step::<StepMergeProof, MERGE_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::clone(&statement_with_sok) as _,
@@ -291,7 +291,7 @@ pub(super) fn generate_merge_proof(
     )?;
 
     if let Some(expected) = expected_step_proof {
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         assert_eq!(sha256_sum(&proof_json), expected);
     };
 
@@ -304,7 +304,7 @@ pub(super) fn generate_merge_proof(
     wrap::<WrapMergeProof>(
         WrapParams {
             app_state: statement_with_sok,
-            proof: &proof,
+            proof_with_public: &proof,
             step_statement: statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,

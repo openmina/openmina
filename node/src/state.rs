@@ -234,6 +234,12 @@ impl State {
         self.applied_actions_count += 1;
     }
 
+    pub fn genesis_block(&self) -> Option<ArcBlockWithHash> {
+        self.transition_frontier
+            .genesis
+            .block_with_real_or_dummy_proof()
+    }
+
     fn cur_slot(&self, initial_slot: impl FnOnce(&ArcBlockWithHash) -> u32) -> Option<u32> {
         let best_tip = self.transition_frontier.best_tip()?;
         let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
@@ -255,10 +261,17 @@ impl State {
     }
 
     pub fn current_epoch(&self) -> Option<u32> {
-        // TODO: Should not be hardcoded
-        const SLOTS_PER_EPOCH: u32 = 7140;
-        let current_global_slot = self.cur_global_slot()?;
-        Some(current_global_slot / SLOTS_PER_EPOCH)
+        let slots_per_epoch = self.genesis_block()?.constants().slots_per_epoch.as_u32();
+        Some(self.cur_global_slot()? / slots_per_epoch)
+    }
+
+    pub fn should_produce_blocks_after_genesis(&self) -> bool {
+        self.block_producer.is_enabled()
+            && self.genesis_block().map_or(false, |b| {
+                let slot = &b.consensus_state().curr_global_slot_since_hard_fork;
+                let epoch = slot.slot_number.as_u32() / slot.slots_per_epoch.as_u32();
+                self.current_epoch() <= Some(epoch)
+            })
     }
 }
 

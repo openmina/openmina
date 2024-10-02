@@ -33,7 +33,7 @@ impl P2pNetworkNoiseState {
             .get_substate_mut()?
             .connection_state_mut(action.addr())
             .and_then(|c| c.noise_state_mut())
-            .ok_or_else(|| "Invalid noise state".to_owned())?;
+            .ok_or_else(|| format!("Invalid noise state {}", action.addr()))?;
 
         match action {
             P2pNetworkNoiseAction::Init {
@@ -357,9 +357,9 @@ impl P2pNetworkNoiseState {
                                 if noise_state.expected_peer_id.is_some_and(|expected_per_id| {
                                     expected_per_id != remote_peer_id
                                 }) {
-                                    *state = P2pNetworkNoiseStateInner::Error(dbg!(
-                                        NoiseError::RemotePeerIdMismatch
-                                    ));
+                                    *state = P2pNetworkNoiseStateInner::Error(
+                                        NoiseError::RemotePeerIdMismatch,
+                                    );
                                 } else {
                                     *state = P2pNetworkNoiseStateInner::Done {
                                         incoming: false,

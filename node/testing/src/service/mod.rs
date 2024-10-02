@@ -34,7 +34,7 @@ use node::snark::block_verify::{
 use node::snark::user_command_verify::SnarkUserCommandVerifyId;
 use node::snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
-use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
+use node::snark::{BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS};
 use node::snark_pool::SnarkPoolService;
 use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
@@ -336,7 +336,7 @@ impl P2pServiceWebrtc for NodeTestingService {
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
+    ) -> Option<P2pConnectionOutgoingInitOpts> {
         self.real.random_pick(list)
     }
 
@@ -372,7 +372,7 @@ impl SnarkBlockVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: BlockVerifier,
         verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
@@ -398,7 +398,7 @@ impl SnarkUserCommandVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkUserCommandVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: TransactionVerifier,
         verifier_srs: Arc<VerifierSRS>,
         commands: List<v2::MinaBaseUserCommandStableV2>,
     ) {
@@ -416,7 +416,7 @@ impl SnarkWorkVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
-        verifier_index: Arc<VerifierIndex>,
+        verifier_index: TransactionVerifier,
         verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {
@@ -460,6 +460,10 @@ thread_local! {
 }
 
 impl BlockProducerService for NodeTestingService {
+    fn provers(&self) -> ledger::proofs::provers::BlockProver {
+        self.real.provers()
+    }
+
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
         fn dummy_proof_event(block_hash: StateHash) -> Event {
             let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
@@ -472,7 +476,12 @@ impl BlockProducerService for NodeTestingService {
                 let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
             }
             ProofKind::ConstraintsChecked => {
-                match openmina_node_native::block_producer::prove(input, keypair, true) {
+                match openmina_node_native::block_producer::prove(
+                    self.provers(),
+                    input,
+                    keypair,
+                    true,
+                ) {
                     Err(ProofError::ConstraintsOk) => {
                         let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
                     }
@@ -496,8 +505,13 @@ impl BlockProducerService for NodeTestingService {
                     {
                         Ok(proof.clone())
                     } else {
-                        openmina_node_native::block_producer::prove(input, keypair, false)
-                            .map_err(|err| format!("{err:?}"))
+                        openmina_node_native::block_producer::prove(
+                            self.provers(),
+                            input,
+                            keypair,
+                            false,
+                        )
+                        .map_err(|err| format!("{err:?}"))
                     }
                 });
                 if let Some(proof) = res.as_ref().ok().filter(|_| is_genesis) {

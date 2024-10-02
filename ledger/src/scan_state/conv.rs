@@ -111,7 +111,8 @@ use crate::{
         },
     },
     staged_ledger::hash::{AuxHash, NonStark, PendingCoinbaseAux, StagedLedgerHash},
-    Account, AccountId, Address, HashesMatrix, TokenId, VerificationKey, VotingFor,
+    Account, AccountId, Address, HashesMatrix, MutableFp, TokenId, VerificationKey,
+    VerificationKeyWire, VotingFor,
 };
 
 use super::{
@@ -133,7 +134,7 @@ use super::{
         signed_command::SignedCommand,
         transaction_applied::{self, TransactionApplied},
         zkapp_command::{
-            verifiable, AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
+            verifiable, AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithStackHash,
         },
         zkapp_statement::ZkappStatement,
         CoinbaseFeeTransfer, FeeTransfer, Memo, SingleFeeTransfer, Transaction, TransactionFailure,
@@ -1128,9 +1129,8 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
 }
 
 /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/verification_key_wire.ml#L37
-fn of_vk(data: VerificationKey) -> WithHash<VerificationKey> {
-    let hash = data.hash();
-    WithHash { data, hash }
+fn of_vk(data: VerificationKey) -> VerificationKeyWire {
+    VerificationKeyWire::new(data)
 }
 
 impl TryFrom<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
@@ -1243,8 +1243,6 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACall
     fn try_from(
         value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
     ) -> Result<Self, Self::Error> {
-        use ark_ff::Zero;
-
         Ok(Self(
             value
                 .iter()
@@ -1252,10 +1250,10 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACall
                     Ok(WithStackHash {
                         elt: zkapp_command::Tree {
                             account_update: (&update.elt.account_update).try_into()?,
-                            account_update_digest: Fp::zero(), // replaced later
+                            account_update_digest: MutableFp::empty(), // replaced later
                             calls: (&update.elt.calls).try_into()?,
                         },
-                        stack_hash: Fp::zero(), // replaced later
+                        stack_hash: MutableFp::empty(), // replaced later
                     })
                 })
                 .collect::<Result<_, _>>()?,
@@ -1271,26 +1269,27 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
     fn try_from(
         value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
     ) -> Result<Self, Self::Error> {
-        use ark_ff::Zero;
-
         let values = value
             .iter()
             .map(|update| {
                 Ok(WithStackHash {
                     elt: zkapp_command::Tree {
                         account_update: (&update.elt.account_update).try_into()?,
-                        account_update_digest: Fp::zero(), // replaced later in `of_wire`
+                        account_update_digest: MutableFp::empty(), // replaced later in `of_wire`
                         calls: (&update.elt.calls).try_into()?,
                     },
-                    stack_hash: Fp::zero(), // replaced later in `of_wire`
+                    stack_hash: MutableFp::empty(), // replaced later in `of_wire`
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1113-L1115
 
-        let mut call_forest = CallForest(values);
-        call_forest.of_wire(&[]);
+        let call_forest = CallForest(values);
+        // OCaml hashes the zkapp on deserialization:
+        // https://github.com/MinaProtocol/mina/blob/fb1c3c0a408c344810140bdbcedacc532a11be91/src/lib/mina_base/zkapp_command.ml#L805
+        // But we delay hashing until we need the hashes
+        // call_forest.of_wire(&[]);
         // call_forest.of_wire(value);
 
         Ok(call_forest)
@@ -1298,7 +1297,7 @@ impl TryFrom<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
 }
 
 impl TryFrom<&v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>
-    for WithHash<VerificationKey>
+    for VerificationKeyWire
 {
     type Error = InvalidBigInt;
 
@@ -1306,20 +1305,16 @@ impl TryFrom<&v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>
         value: &v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA,
     ) -> Result<Self, Self::Error> {
         let v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA { data, hash } = value;
-        Ok(Self {
-            data: data.try_into()?,
-            hash: hash.try_into()?,
-        })
+        Ok(Self::with_hash(data.try_into()?, hash.try_into()?))
     }
 }
 
-impl From<&WithHash<VerificationKey>>
-    for v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA
-{
-    fn from(value: &WithHash<VerificationKey>) -> Self {
-        let WithHash::<VerificationKey> { data, hash } = value;
+impl From<&VerificationKeyWire> for v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA {
+    fn from(value: &VerificationKeyWire) -> Self {
+        let vk = value.vk();
+        let hash = value.hash();
         Self {
-            data: data.into(),
+            data: vk.into(),
             hash: hash.into(),
         }
     }
@@ -1327,7 +1322,7 @@ impl From<&WithHash<VerificationKey>>
 
 /// Notes: childs for verifiable
 impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>>
-    for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
+    for CallForest<(AccountUpdate, Option<VerificationKeyWire>)>
 {
     type Error = InvalidBigInt;
 
@@ -1354,10 +1349,12 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACal
                     Ok(WithStackHash {
                         elt: zkapp_command::Tree {
                             account_update: (account.try_into()?, vk_opt),
-                            account_update_digest: account_update_digest.to_field()?,
+                            account_update_digest: MutableFp::new(
+                                account_update_digest.to_field()?,
+                            ),
                             calls: calls.try_into()?,
                         },
-                        stack_hash: stack_hash.to_field()?,
+                        stack_hash: MutableFp::new(stack_hash.to_field()?),
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?,
@@ -1366,7 +1363,7 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACal
 }
 /// Notes: root for verifiable
 impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
-    for CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>
+    for CallForest<(AccountUpdate, Option<VerificationKeyWire>)>
 {
     type Error = InvalidBigInt;
 
@@ -1390,10 +1387,10 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
                 Ok(WithStackHash {
                     elt: zkapp_command::Tree {
                         account_update: (account.try_into()?, vk_opt),
-                        account_update_digest: account_update_digest.to_field()?,
+                        account_update_digest: MutableFp::new(account_update_digest.to_field()?),
                         calls: calls.try_into()?,
                     },
-                    stack_hash: stack_hash.to_field()?,
+                    stack_hash: MutableFp::new(stack_hash.to_field()?),
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -1406,10 +1403,10 @@ impl TryFrom<&List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>>
 }
 
 /// Childs for verifiable
-impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
+impl From<&CallForest<(AccountUpdate, Option<VerificationKeyWire>)>>
     for List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>
 {
-    fn from(value: &CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>) -> Self {
+    fn from(value: &CallForest<(AccountUpdate, Option<VerificationKeyWire>)>) -> Self {
         value
             .0
             .iter()
@@ -1420,12 +1417,12 @@ impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
                         account_update: (acc.into(), opt.as_ref().map(Into::into)),
                         account_update_digest:
                             v2::MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1(
-                                update.elt.account_update_digest.into(),
+                                update.elt.account_update_digest.get().unwrap().into(), // Not fail, we must hash before serializing
                             ),
                         calls: (&update.elt.calls).into(),
                     }),
                     stack_hash: v2::MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(
-                        update.stack_hash.into(),
+                        update.stack_hash.get().unwrap().into(), // Not fail, we must hash before serializing
                     ),
                 }
             })
@@ -1433,10 +1430,10 @@ impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
     }
 }
 /// Root
-impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
+impl From<&CallForest<(AccountUpdate, Option<VerificationKeyWire>)>>
     for List<v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>
 {
-    fn from(value: &CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>) -> Self {
+    fn from(value: &CallForest<(AccountUpdate, Option<VerificationKeyWire>)>) -> Self {
         value
             .0
             .iter()
@@ -1447,12 +1444,12 @@ impl From<&CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>>
                         account_update: (acc.into(), opt.as_ref().map(Into::into)),
                         account_update_digest:
                             v2::MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1(
-                                update.elt.account_update_digest.into(),
+                                update.elt.account_update_digest.get().unwrap().into(), // Not fail, we must hash before serializing
                             ),
                         calls: (&update.elt.calls).into(),
                     },
                     stack_hash: v2::MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(
-                        update.stack_hash.into(),
+                        update.stack_hash.get().unwrap().into(), // Not fail, we must hash before serializing
                     ),
                 }
             })
@@ -1513,7 +1510,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                         SetOrKeep::Keep => Delegate::Keep,
                     },
                     verification_key: match &value.body.update.verification_key {
-                        SetOrKeep::Set(vk) => VK::Set(Box::new((&vk.data).into())),
+                        SetOrKeep::Set(vk) => VK::Set(Box::new((vk.vk()).into())),
                         SetOrKeep::Keep => VK::Keep,
                     },
                     permissions: match &value.body.update.permissions {

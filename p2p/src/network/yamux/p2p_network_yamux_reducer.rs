@@ -158,7 +158,7 @@ impl P2pNetworkYamuxState {
                 let yamux_state = yamux_state
                     .streams
                     .get(stream_id)
-                    .ok_or_else(|| format!("Stream with id {stream_id} not found"))?;
+                    .ok_or_else(|| format!("Stream with id {stream_id} not found for `P2pNetworkYamuxAction::OutgoingData`"))?;
 
                 let mut flags = *flags;
 
@@ -230,12 +230,12 @@ impl P2pNetworkYamuxState {
                 let connection_state =
                     <State as SubstateAccess<P2pNetworkSchedulerState>>::substate(state)?
                         .connection_state(&addr)
-                        .ok_or_else(|| "Connection not found".to_owned())?;
+                        .ok_or_else(|| format!("Connection not found {}", action.addr()))?;
 
                 let stream = connection_state
                     .yamux_state()
                     .and_then(|yamux_state| yamux_state.streams.get(&frame.stream_id))
-                    .ok_or_else(|| format!("Stream with id {} not found", frame.stream_id))?;
+                    .ok_or_else(|| format!("Stream with id {} not found for `P2pNetworkYamuxAction::IncomingFrame`", frame.stream_id))?;
 
                 let peer_id = match connection_state
                     .auth

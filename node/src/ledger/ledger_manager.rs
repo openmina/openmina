@@ -126,6 +126,7 @@ impl LedgerRequest {
                 LedgerWriteRequest::StagedLedgerDiffCreate {
                     pred_block,
                     global_slot_since_genesis: global_slot,
+                    is_new_epoch,
                     producer,
                     delegator,
                     coinbase_receiver,
@@ -138,6 +139,7 @@ impl LedgerRequest {
                     let result = ledger_ctx.staged_ledger_diff_create(
                         pred_block,
                         global_slot,
+                        is_new_epoch,
                         producer,
                         delegator,
                         coinbase_receiver,

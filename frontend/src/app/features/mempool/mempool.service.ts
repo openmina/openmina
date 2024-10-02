@@ -43,6 +43,7 @@ export class MempoolService {
           } as MempoolTransaction;
         case MempoolTransactionResponseKind.ZkappCommand:
           const zkapp = tx.data[1] as ZkappCommand;
+          const zkMemo = decodeMemo(zkapp.memo);
           return {
             kind: MempoolTransactionKind.ZK_APP,
             txHash: tx.hash.join(''),
@@ -50,10 +51,10 @@ export class MempoolService {
             fee: Number(zkapp.fee_payer.body.fee),
             amount: null,
             nonce: Number(zkapp.fee_payer.body.nonce),
-            memo: zkapp.memo,
+            memo: removeUnicodeEscapes(zkMemo),
             transactionData: tx.data[1],
-            sentFromStressingTool: false,
-            sentByMyBrowser: false,
+            sentFromStressingTool: zkMemo.includes('S.T.'),
+            sentByMyBrowser: zkMemo.includes(localStorage.getItem('browserId')),
           } as MempoolTransaction;
       }
     });

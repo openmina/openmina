@@ -276,6 +276,8 @@ pub fn make_step_transaction_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp
         wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
         step_domains: ForStepKind::Known(basic.step_domains),
         feature_flags: basic.feature_flags,
+        num_chunks: 1,
+        zk_rows: 3,
     };
 
     self_data
@@ -323,6 +325,8 @@ pub fn make_step_zkapp_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> 
         ])),
         step_domains: ForStepKind::SideLoaded(()),
         feature_flags: basic.feature_flags,
+        num_chunks: 1,
+        zk_rows: 3,
     };
 
     self_data
@@ -367,6 +371,8 @@ pub fn make_step_block_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> 
         wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
         step_domains: ForStepKind::Known(basic.step_domains),
         feature_flags: basic.feature_flags,
+        num_chunks: 1,
+        zk_rows: 3,
     };
 
     self_data

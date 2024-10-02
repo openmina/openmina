@@ -12,9 +12,9 @@ use crate::{
         },
     },
     zkapps::intefaces::*,
-    AuthRequired, MyCow, TokenId, VerificationKey,
+    AuthRequired, MyCow, TokenId,
 };
-use crate::{Permissions, SetVerificationKey};
+use crate::{Permissions, SetVerificationKey, VerificationKeyWire};
 
 use crate::proofs::{
     field::{Boolean, ToBoolean},
@@ -924,10 +924,12 @@ where
         );
         let zkapp = a.zkapp();
         w.exists_no_check(match verification_key {
-            SetOrKeep::Set(key) => key.hash,
-            SetOrKeep::Keep => {
-                MyCow::borrow_or_else(&zkapp.verification_key, VerificationKey::dummy).hash()
-            }
+            SetOrKeep::Set(key) => key.hash(),
+            SetOrKeep::Keep => zkapp
+                .verification_key
+                .as_ref()
+                .map(VerificationKeyWire::hash)
+                .unwrap_or_else(VerificationKeyWire::dummy_hash),
         });
         // Made here https://github.com/MinaProtocol/mina/blob/5c92fbdbf083a74a8b9530d3d727cc7b03dcce8a/src/lib/mina_base/zkapp_basic.ml#L82
         w.exists_no_check(match verification_key {
@@ -935,7 +937,7 @@ where
             SetOrKeep::Keep => zkapp.verification_key.is_some(),
         });
         let verification_key = match verification_key {
-            SetOrKeep::Set(vk) => Some(vk.data.clone()),
+            SetOrKeep::Set(vk) => Some(vk.clone()),
             SetOrKeep::Keep => zkapp.verification_key.clone(),
         };
         a.zkapp_mut().verification_key = verification_key;

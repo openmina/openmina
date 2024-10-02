@@ -1,3 +1,4 @@
+use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
     core::channels::mpsc,
@@ -77,8 +78,13 @@ impl NodeServiceCommonBuilder {
         self
     }
 
-    pub fn block_producer_init(&mut self, keypair: AccountSecretKey) -> &mut Self {
+    pub fn block_producer_init(
+        &mut self,
+        provers: BlockProver,
+        keypair: AccountSecretKey,
+    ) -> &mut Self {
         self.block_producer = Some(BlockProducerService::start(
+            provers,
             self.event_sender.clone(),
             keypair,
         ));

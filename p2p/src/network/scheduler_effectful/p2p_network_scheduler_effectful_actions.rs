@@ -53,6 +53,7 @@ pub enum P2pNetworkSchedulerEffectfulAction {
     },
 
     /// Fatal connection error.
+    #[action_event(level = debug)]
     Error {
         /// Connection address.
         addr: ConnectionAddr,

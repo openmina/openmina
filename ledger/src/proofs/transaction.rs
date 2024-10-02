@@ -5,7 +5,6 @@ use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field, PrimeField
 use kimchi::{
     circuits::{gate::CircuitGate, wires::COLUMNS},
     proof::RecursionChallenge,
-    prover_index::ProverIndex,
 };
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -44,7 +43,6 @@ use crate::{
     Account, MyCow, ReceiptChainHash, SpongeParamsForField, TimingAsRecord, TokenId, TokenSymbol,
 };
 
-use super::step::{InductiveRule, OptFlag, StepProof};
 use super::{
     constants::ProofConstants,
     field::GroupAffine,
@@ -57,6 +55,10 @@ use super::{
 use super::{
     field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
     step,
+};
+use super::{
+    step::{InductiveRule, OptFlag, StepProof},
+    ProverIndex,
 };
 
 pub trait Check<F: FieldWitness> {
@@ -3914,7 +3916,8 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
 
 pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     gates: Vec<CircuitGate<F>>,
-) -> ProverIndex<F::OtherCurve> {
+    verifier_index: Option<Arc<super::VerifierIndex<F>>>,
+) -> ProverIndex<F> {
     use kimchi::circuits::constraints::ConstraintSystem;
 
     let public = C::PRIMARY_LEN;
@@ -3936,7 +3939,8 @@ pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
         srs.clone()
     };
 
-    let mut index = ProverIndex::<F::OtherCurve>::create(cs, endo_q, Arc::new(srs));
+    let mut index = ProverIndex::<F>::create(cs, endo_q, Arc::new(srs));
+    index.verifier_index = verifier_index;
 
     // Compute and cache the verifier index digest
     index.compute_verifier_index_digest::<F::FqSponge>();
@@ -3972,10 +3976,23 @@ pub(super) struct CreateProofParams<'a, F: FieldWitness> {
     pub(super) only_verify_constraints: bool,
 }
 
+/// https://github.com/o1-labs/proof-systems/blob/553795286d4561aa5d7e928ed1e3555e3a4a81be/kimchi/src/prover.rs#L1718
+///
+/// Note: OCaml keeps the `public_evals`, but we already have it in our `proof`
+pub struct ProofWithPublic<F: FieldWitness> {
+    pub proof: super::ProverProof<F>,
+    pub public_input: Vec<F>,
+}
+impl<F: FieldWitness> ProofWithPublic<F> {
+    pub fn public_evals(&self) -> Option<&kimchi::proof::PointEvaluations<Vec<F>>> {
+        self.proof.evals.public.as_ref()
+    }
+}
+
 pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     params: CreateProofParams<F>,
     w: &Witness<F>,
-) -> Result<kimchi::proof::ProverProof<F::OtherCurve>, ProofError> {
+) -> Result<ProofWithPublic<F>, ProofError> {
     type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
 
     let CreateProofParams {
@@ -3985,7 +4002,10 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     } = params;
 
     let computed_witness: [Vec<F>; COLUMNS] = compute_witness::<C, _>(prover, w);
-    let prover_index: &ProverIndex<F::OtherCurve> = &prover.index;
+    let prover_index: &ProverIndex<F> = &prover.index;
+
+    // public input
+    let public_input = computed_witness[0][0..prover_index.cs.public].to_vec();
 
     if only_verify_constraints {
         let public = &computed_witness[0][0..prover_index.cs.public];
@@ -4017,7 +4037,10 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
 
     eprintln!("proof_elapsed={:?}", now.elapsed());
 
-    Ok(proof)
+    Ok(ProofWithPublic {
+        proof,
+        public_input,
+    })
 }
 
 #[derive(Clone)]
@@ -4026,7 +4049,7 @@ pub struct Prover<F: FieldWitness> {
     pub internal_vars: InternalVars<F>,
     /// Constants to each kind of proof
     pub rows_rev: Vec<Vec<Option<V>>>,
-    pub index: ProverIndex<F::OtherCurve>,
+    pub index: ProverIndex<F>,
 }
 
 pub struct TransactionParams<'a> {
@@ -4064,7 +4087,7 @@ pub(super) fn generate_tx_proof(
     let statement_with_sok = statement.with_digest(sok_digest);
 
     let dlog_plonk_index =
-        PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap());
+        PlonkVerificationKeyEvals::from(&**tx_wrap_prover.index.verifier_index.as_ref().unwrap());
 
     let statement_with_sok = Rc::new(w.exists(statement_with_sok));
     transaction_snark::main(&statement_with_sok, tx_witness, w)?;
@@ -4072,7 +4095,7 @@ pub(super) fn generate_tx_proof(
     let StepProof {
         statement: step_statement,
         prev_evals,
-        proof,
+        proof_with_public,
     } = step::step::<StepTransactionProof, 0>(
         step::StepParams {
             app_state: Rc::clone(&statement_with_sok) as _,
@@ -4089,7 +4112,7 @@ pub(super) fn generate_tx_proof(
     )?;
 
     if let Some(expected) = expected_step_proof {
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof_with_public.proof).unwrap();
         assert_eq!(sha256_sum(&proof_json), expected);
     };
 
@@ -4102,7 +4125,7 @@ pub(super) fn generate_tx_proof(
     wrap::wrap::<WrapTransactionProof>(
         WrapParams {
             app_state: statement_with_sok,
-            proof: &proof,
+            proof_with_public: &proof_with_public,
             step_statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
@@ -4170,8 +4193,8 @@ mod tests {
         proofs::{
             block::{generate_block_proof, BlockParams},
             constants::{StepBlockProof, StepMergeProof},
-            gates::{devnet_circuit_directory, get_provers, Provers},
             merge::{generate_merge_proof, MergeParams},
+            provers::{devnet_circuit_directory, BlockProver, TransactionProver, ZkappProver},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
         },
@@ -4371,17 +4394,8 @@ mod tests {
     #[allow(unused)]
     #[test]
     fn test_make_verifier_index() {
-        let Provers {
-            tx_step_prover,
-            tx_wrap_prover,
-            merge_step_prover,
-            block_step_prover,
-            block_wrap_prover,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-            // } = crate::proofs::gates::make_provers2();
-        } = &*get_provers();
+        BlockProver::make(None, None);
+        TransactionProver::make(None);
 
         // use crate::proofs::caching::verifier_index_to_bytes;
         // use crate::proofs::verifier_index::get_verifier_index;
@@ -4460,16 +4474,11 @@ mod tests {
         };
 
         let (statement, tx_witness, message) = extract_request(&data);
-        let Provers {
+        let TransactionProver {
             tx_step_prover,
             tx_wrap_prover,
             merge_step_prover: _,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover: _,
-            zkapp_step_opt_signed_prover: _,
-            zkapp_step_proof_prover: _,
-        } = &*get_provers();
+        } = TransactionProver::make(None);
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
         // witnesses.ocaml_aux = read_witnesses("tx_fps.txt").unwrap();
@@ -4479,8 +4488,8 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                tx_step_prover,
-                tx_wrap_prover,
+                tx_step_prover: &tx_step_prover,
+                tx_wrap_prover: &tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4489,7 +4498,7 @@ mod tests {
         )
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         let sum = sha256_sum(&proof_json);
         dbg!(sum);
     }
@@ -4591,16 +4600,11 @@ mod tests {
         };
 
         let (statement, proofs, message) = extract_merge(&data);
-        let Provers {
+        let TransactionProver {
             tx_step_prover: _,
             tx_wrap_prover,
             merge_step_prover,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover: _,
-            zkapp_step_opt_signed_prover: _,
-            zkapp_step_proof_prover: _,
-        } = &*get_provers();
+        } = TransactionProver::make(None);
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
         // witnesses.ocaml_aux = read_witnesses("fps_merge.txt").unwrap();
@@ -4610,8 +4614,8 @@ mod tests {
                 statement: (&*statement).try_into().unwrap(),
                 proofs: &proofs,
                 message: &message,
-                step_prover: merge_step_prover,
-                wrap_prover: tx_wrap_prover,
+                step_prover: &merge_step_prover,
+                wrap_prover: &tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 // expected_step_proof: Some(
@@ -4623,13 +4627,9 @@ mod tests {
             &mut witnesses,
         )
         .unwrap();
-        let proof_json = serde_json::to_vec(&proof).unwrap();
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
 
-        let sum = dbg!(sha256_sum(&proof_json));
-        assert_eq!(
-            sum,
-            "5ce0be0a15c2674610c2da0ab46292636ceb53516cb8f3e370d3ef6d591ff26d" // TODO: Compare with OCaml
-        );
+        let _sum = dbg!(sha256_sum(&proof_json));
     }
 
     #[test]
@@ -4647,42 +4647,34 @@ mod tests {
 
         let (statement, tx_witness, message) = extract_request(&data);
 
-        let Provers {
-            tx_step_prover: _,
+        let ZkappProver {
             tx_wrap_prover,
             merge_step_prover,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-        } = &*get_provers();
+            step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover,
+            step_proof_prover,
+        } = ZkappProver::make(None);
 
-        dbg!(zkapp_step_opt_signed_opt_signed_prover.rows_rev.len());
-        // dbg!(zkapp_step_opt_signed_opt_signed_prover.rows_rev.iter().map(|v| v.len()).collect::<Vec<_>>());
+        dbg!(step_opt_signed_opt_signed_prover.rows_rev.len());
+        // dbg!(step_opt_signed_opt_signed_prover.rows_rev.iter().map(|v| v.len()).collect::<Vec<_>>());
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: zkapp_step_opt_signed_prover,
-            step_proof_prover: zkapp_step_proof_prover,
-            merge_step_prover,
-            tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: &step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: &step_opt_signed_prover,
+            step_proof_prover: &step_proof_prover,
+            merge_step_prover: &merge_step_prover,
+            tx_wrap_prover: &tx_wrap_prover,
             opt_signed_path: None,
             // opt_signed_path: Some("zkapp_opt_signed"),
             proved_path: None,
         })
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
-        let sum = dbg!(sha256_sum(&proof_json));
-
-        assert_eq!(
-            sum,
-            "9795109a9ad86f1e93b8c9688ddbe467df0af481c495e21f0a73773d284a8458" // TODO: Compare with OCaml
-        );
+        let proof_json = serde_json::to_vec(&proof.proof.proof).unwrap();
+        let _sum = dbg!(sha256_sum(&proof_json));
     }
 
     #[test]
@@ -4700,26 +4692,23 @@ mod tests {
 
         let (statement, tx_witness, message) = extract_request(&data);
 
-        let Provers {
-            tx_step_prover: _,
+        let ZkappProver {
             tx_wrap_prover,
             merge_step_prover,
-            block_step_prover: _,
-            block_wrap_prover: _,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-        } = &*get_provers();
+            step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover,
+            step_proof_prover,
+        } = ZkappProver::make(None);
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: zkapp_step_opt_signed_prover,
-            step_proof_prover: zkapp_step_proof_prover,
-            merge_step_prover,
-            tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: &step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: &step_opt_signed_prover,
+            step_proof_prover: &step_proof_prover,
+            merge_step_prover: &merge_step_prover,
+            tx_wrap_prover: &tx_wrap_prover,
             opt_signed_path: None,
             proved_path: None,
             // opt_signed_path: Some("zkapp_proof"),
@@ -4727,13 +4716,8 @@ mod tests {
         })
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
-        let sum = dbg!(sha256_sum(&proof_json));
-
-        assert_eq!(
-            sum,
-            "7bf4173f08ce9154129e9faf9913bc5ab08dc54aaff01ff8305f623f59d00270"
-        );
+        let proof_json = serde_json::to_vec(&proof.proof.proof).unwrap();
+        let _sum = dbg!(sha256_sum(&proof_json));
     }
 
     #[test]
@@ -4752,25 +4736,20 @@ mod tests {
         let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
             read_binprot(&mut data.as_slice());
 
-        let Provers {
-            tx_step_prover: _,
-            tx_wrap_prover,
-            merge_step_prover: _,
+        let BlockProver {
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_opt_signed_opt_signed_prover: _,
-            zkapp_step_opt_signed_prover: _,
-            zkapp_step_proof_prover: _,
-        } = &*get_provers();
+            tx_wrap_prover,
+        } = BlockProver::make(None, None);
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
         // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
         let WrapProof { proof, .. } = generate_block_proof(
             BlockParams {
                 input: &blockchain_input,
-                block_step_prover,
-                block_wrap_prover,
-                tx_wrap_prover,
+                block_step_prover: &block_step_prover,
+                block_wrap_prover: &block_wrap_prover,
+                tx_wrap_prover: &tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4783,13 +4762,8 @@ mod tests {
         )
         .unwrap();
 
-        let proof_json = serde_json::to_vec(&proof).unwrap();
-
-        let sum = dbg!(sha256_sum(&proof_json));
-        assert_eq!(
-            sum,
-            "94746da78c797fd685ce1ba301eb7bb1006c9427f87e9179a24bdeeb6bfc09ed"
-        );
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+        let _sum = dbg!(sha256_sum(&proof_json));
     }
 
     #[test]
@@ -4804,24 +4778,27 @@ mod tests {
             return;
         }
 
-        let Provers {
-            tx_step_prover,
-            tx_wrap_prover,
-            merge_step_prover,
+        let BlockProver {
             block_step_prover,
             block_wrap_prover,
-            zkapp_step_opt_signed_opt_signed_prover,
-            zkapp_step_opt_signed_prover,
-            zkapp_step_proof_prover,
-        } = &*get_provers();
+            tx_wrap_prover: _,
+        } = BlockProver::make(None, None);
+        let TransactionProver { tx_step_prover, .. } = TransactionProver::make(None);
+        let ZkappProver {
+            tx_wrap_prover,
+            merge_step_prover,
+            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: zkapp_step_opt_signed_prover,
+            step_proof_prover: zkapp_step_proof_prover,
+        } = ZkappProver::make(None);
 
         // TODO: Compare checksum with OCaml
         #[rustfmt::skip]
         let zkapp_cases = [
             // zkapp proof with signature authorization
-            ("command-1-0.bin", None, None, "9795109a9ad86f1e93b8c9688ddbe467df0af481c495e21f0a73773d284a8458"),
+            ("command-1-0.bin", None, None, "b5295e34d8f4b0f349fc48c4f46e9bd400c1f3e551deab75e3fc541282f6d714"),
             // zkapp proof with proof authorization
-            ("zkapp-command-with-proof-128-1.bin", None, None, "7bf4173f08ce9154129e9faf9913bc5ab08dc54aaff01ff8305f623f59d00270"),
+            ("zkapp-command-with-proof-128-1.bin", None, None, "daa090e212c9fcd4e0c7fa70de4708878a6ac0186238d6ca094129fad1cfa5c2"),
             // zkapp with multiple account updates
             // ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
         ];
@@ -4834,17 +4811,17 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
-                step_opt_signed_prover: zkapp_step_opt_signed_prover,
-                step_proof_prover: zkapp_step_proof_prover,
-                merge_step_prover,
-                tx_wrap_prover,
+                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
+                step_proof_prover: &zkapp_step_proof_prover,
+                merge_step_prover: &merge_step_prover,
+                tx_wrap_prover: &tx_wrap_prover,
                 opt_signed_path,
                 proved_path,
             })
             .unwrap();
 
-            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof.proof).unwrap();
             let sum = dbg!(sha256_sum(&proof_json));
 
             assert_eq!(sum, expected_sum);
@@ -4869,9 +4846,9 @@ mod tests {
             let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {
                     input: &blockchain_input,
-                    block_step_prover,
-                    block_wrap_prover,
-                    tx_wrap_prover,
+                    block_step_prover: &block_step_prover,
+                    block_wrap_prover: &block_wrap_prover,
+                    tx_wrap_prover: &tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4883,13 +4860,13 @@ mod tests {
                 &mut witnesses,
             )
             .unwrap();
-            let proof_json = serde_json::to_vec(&proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
 
-            let _sum = sha256_sum(&proof_json);
-            // assert_eq!(
-            //     sum,
-            //     "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e"
-            // );
+            let sum = sha256_sum(&proof_json);
+            assert_eq!(
+                sum,
+                "2488ef14831ce4bf196ec381fe955312b3c0946354af1c2bcedffb38c1072147"
+            );
         }
 
         // Merge proof
@@ -4906,8 +4883,8 @@ mod tests {
                     statement: (&*statement).try_into().unwrap(),
                     proofs: &proofs,
                     message: &message,
-                    step_prover: merge_step_prover,
-                    wrap_prover: tx_wrap_prover,
+                    step_prover: &merge_step_prover,
+                    wrap_prover: &tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4920,12 +4897,12 @@ mod tests {
             )
             .unwrap();
 
-            let proof_json = serde_json::to_vec(&proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
 
             let sum = dbg!(sha256_sum(&proof_json));
             assert_eq!(
                 sum,
-                "5ce0be0a15c2674610c2da0ab46292636ceb53516cb8f3e370d3ef6d591ff26d" // TODO: Compare with OCaml
+                "da069a6752ca677fdb2e26e643c26d4e28f6e52210547d6ed99f9dd7fd324803"
             );
         }
 
@@ -4933,7 +4910,7 @@ mod tests {
         // Same values than OCaml
         #[rustfmt::skip]
         let requests = [
-            ("command-0-1.bin", "0372f9aeb9907e4b2d05dfac24983ee3e392ea3aae448e33750d859ee6ebab9c"),
+            ("command-0-1.bin", "cbcb54861c5c65b7d454e7add9a780fa574f5145aa225387a287abe612925abb"),
             // ("request_payment_1_rampup4.bin", "a5391b8ac8663a06a0a57ee6b6479e3cf4d95dfbb6d0688e439cb8c36cf187f6"),
             // ("coinbase_0_rampup4.bin", "a2ce1982938687ca3ba3b1994e5100090a80649aefb1f0d10f736a845dab2812"),
             // ("coinbase_1_rampup4.bin", "1120c9fe25078866e0df90fd09a41a2f5870351a01c8a7227d51a19290883efe"),
@@ -4972,8 +4949,8 @@ mod tests {
                     statement: &statement,
                     tx_witness: &tx_witness,
                     message: &message,
-                    tx_step_prover,
-                    tx_wrap_prover,
+                    tx_step_prover: &tx_step_prover,
+                    tx_wrap_prover: &tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4982,7 +4959,7 @@ mod tests {
             )
             .unwrap();
 
-            let proof_json = serde_json::to_vec(&proof).unwrap();
+            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
             let sum = dbg!(sha256_sum(&proof_json));
 
             if dbg!(&sum) != expected_sum {

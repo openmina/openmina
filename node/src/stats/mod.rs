@@ -16,7 +16,7 @@ pub mod block_producer {
 }
 use block_producer::BlockProducerStats;
 
-use openmina_core::block::{ArcBlockWithHash, Block, BlockWithHash};
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use redux::{ActionMeta, ActionWithMeta, Timestamp};
 
 use crate::transition_frontier::sync::ledger::staged::PeerStagedLedgerPartsFetchError;
@@ -79,12 +79,8 @@ impl Stats {
         self
     }
 
-    pub fn new_best_chain<T: AsRef<Block>>(
-        &mut self,
-        time: Timestamp,
-        chain: &[BlockWithHash<T>],
-    ) -> &mut Self {
-        let best_tip = chain.last().unwrap();
+    pub fn new_best_chain(&mut self, time: Timestamp, chain: &[AppliedBlock]) -> &mut Self {
+        let best_tip = chain.last().unwrap().block_with_hash();
         self.action_stats
             .new_best_tip(time, best_tip.height(), best_tip.hash().clone());
         self.sync_stats.synced(time);

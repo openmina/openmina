@@ -7,9 +7,9 @@ use crate::{
 };
 
 pub const DEVNET_SEEDS: &[&str] = &[
-    "/ip4/34.48.73.58/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-    "/ip4/35.245.82.250/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-    "/ip4/34.118.163.79/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+    "/ip4/34.45.167.81/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+    "/ip4/34.28.194.121/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+    "/ip4/34.44.189.148/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
 ];
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -248,6 +248,8 @@ impls!(std::time::Duration);
 #[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub struct P2pLimits {
     max_peers: Limit<usize>,
+    min_peers_in_state: Limit<usize>,
+    max_peers_in_state: Limit<usize>,
     max_streams: Limit<usize>,
     yamux_message_size: Limit<usize>,
 
@@ -296,6 +298,14 @@ impl P2pLimits {
         max_peers,
         /// Sets maximum number of peers.
         with_max_peers
+    );
+    limit!(
+        /// Minimum number of peers in state
+        min_peers_in_state
+    );
+    limit!(
+        /// Maximum number of peers in state
+        max_peers_in_state
     );
     limit!(
         /// Maximum number of streams from a peer.
@@ -366,6 +376,8 @@ impl P2pLimits {
 impl Default for P2pLimits {
     fn default() -> Self {
         let max_peers = Limit::Some(100);
+        let min_peers_in_state = Limit::Some(50);
+        let max_peers_in_state = Limit::Some(100);
         let max_streams = Limit::Some(10);
         // 256 MiB
         let yamux_message_size = Limit::Some(0x10000000);
@@ -381,8 +393,11 @@ impl Default for P2pLimits {
         let rpc_get_staged_ledger = Limit::Some(400_000_000); // 59286608 as observed, may go higher
         let rpc_get_transition_chain = Limit::Some(3_500_000); // 2979112 as observed
         let rpc_get_some_initial_peers = Limit::Some(32_000); // TODO: calculate
+
         Self {
             max_peers,
+            min_peers_in_state,
+            max_peers_in_state,
             max_streams,
             yamux_message_size,
 

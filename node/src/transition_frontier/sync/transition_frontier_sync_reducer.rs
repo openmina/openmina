@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use mina_p2p_messages::v2::StateHash;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 
 use super::{
     ledger::{
@@ -17,7 +17,7 @@ impl TransitionFrontierSyncState {
     pub fn reducer(
         mut state_context: crate::Substate<Self>,
         action: TransitionFrontierSyncActionWithMetaRef<'_>,
-        best_chain: &[ArcBlockWithHash],
+        best_chain: &[AppliedBlock],
     ) {
         let Ok(state) = state_context.get_substate_mut() else {
             // TODO: log or propagate
@@ -132,7 +132,7 @@ impl TransitionFrontierSyncState {
                     ..
                 } => {
                     let mut applied_blocks: BTreeMap<_, _> =
-                        best_chain.iter().map(|b| (&b.hash, b)).collect();
+                        best_chain.iter().map(|b| (b.hash(), b)).collect();
 
                     let old_chain = VecDeque::from(std::mem::take(chain));
                     let old_root = old_chain.front().and_then(|b| b.block()).unwrap().clone();
@@ -203,8 +203,8 @@ impl TransitionFrontierSyncState {
                         let cur_best_tip = best_chain.last();
                         *state = next_required_ledger_to_sync(
                             meta.time(),
-                            cur_best_tip,
-                            cur_best_root,
+                            cur_best_tip.map(AppliedBlock::block_with_hash),
+                            cur_best_root.map(AppliedBlock::block_with_hash),
                             &old_best_tip,
                             &old_root,
                             new_best_tip,
@@ -217,7 +217,7 @@ impl TransitionFrontierSyncState {
                 Self::CommitSuccess { .. } => {}
                 Self::Synced { time, .. } => {
                     let applied_blocks: BTreeMap<_, _> =
-                        best_chain.iter().map(|b| (&b.hash, b)).collect();
+                        best_chain.iter().map(|b| (b.hash(), b)).collect();
 
                     let old_best_tip = best_chain.last().unwrap();
                     let old_root = best_chain.first().unwrap();
@@ -257,8 +257,8 @@ impl TransitionFrontierSyncState {
                             meta.time(),
                             None,
                             None,
-                            old_best_tip,
-                            old_root,
+                            old_best_tip.block_with_hash(),
+                            old_root.block_with_hash(),
                             new_best_tip,
                             new_root,
                             blocks_inbetween,
@@ -435,7 +435,7 @@ impl TransitionFrontierSyncState {
                     .extend_with_needed(&root_block, root_block_updates.iter().rev().take(1));
 
                 let mut applied_blocks: BTreeMap<_, _> =
-                    best_chain.iter().map(|b| (&b.hash, b)).collect();
+                    best_chain.iter().map(|b| (b.hash(), b)).collect();
 
                 let k = best_tip.constants().k.as_u32() as usize;
                 let mut chain = Vec::with_capacity(k + root_block_updates.len());
@@ -446,10 +446,20 @@ impl TransitionFrontierSyncState {
                 // Root block is always applied since we have reconstructed it
                 // in previous steps.
                 let mut root_block_updates_iter = root_block_updates.into_iter();
+                // NOTE: flag for root block is always set to `false` because
+                // it is not possible to recover this info from the staging ledger reconstruction,
+                // so the value will not always be correct for the root block.
+                // The `false` value is used to be compatible with:
+                // https://github.com/MinaProtocol/mina/blob/e975835deab303c7f48b09ec2fd0e41ec649aef6/src/lib/transition_frontier/full_frontier/full_frontier.ml#L157-L160
+                let root_block_just_emitted_a_proof = false;
+
                 if let Some(reconstructed_root_block) = root_block_updates_iter.next() {
                     chain.push(TransitionFrontierSyncBlockState::ApplySuccess {
                         time: meta.time(),
-                        block: reconstructed_root_block.clone(),
+                        block: AppliedBlock {
+                            block: reconstructed_root_block.clone(),
+                            just_emitted_a_proof: root_block_just_emitted_a_proof,
+                        },
                     });
                     chain.extend(
                         root_block_updates_iter
@@ -462,7 +472,10 @@ impl TransitionFrontierSyncState {
                 } else {
                     chain.push(TransitionFrontierSyncBlockState::ApplySuccess {
                         time: meta.time(),
-                        block: root_block,
+                        block: AppliedBlock {
+                            block: root_block,
+                            just_emitted_a_proof: root_block_just_emitted_a_proof,
+                        },
                     });
                 }
 
@@ -603,7 +616,10 @@ impl TransitionFrontierSyncState {
                     error: error.clone(),
                 };
             }
-            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
+            TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                hash,
+                just_emitted_a_proof,
+            } => {
                 let Some(block_state) = state.block_state_mut(hash) else {
                     return;
                 };
@@ -613,7 +629,10 @@ impl TransitionFrontierSyncState {
 
                 *block_state = TransitionFrontierSyncBlockState::ApplySuccess {
                     time: meta.time(),
-                    block: block.clone(),
+                    block: AppliedBlock {
+                        block: block.clone(),
+                        just_emitted_a_proof: *just_emitted_a_proof,
+                    },
                 };
             }
             TransitionFrontierSyncAction::BlocksSuccess => {
@@ -637,12 +656,12 @@ impl TransitionFrontierSyncState {
                 let start_i = chain.len().saturating_sub(k + 1);
                 let mut iter = std::mem::take(chain)
                     .into_iter()
-                    .filter_map(|v| v.take_block());
+                    .filter_map(|v| v.take_applied_block());
 
                 for _ in 0..start_i {
                     if let Some(b) = iter.next() {
                         needed_protocol_states
-                            .insert(b.hash, b.block.header.protocol_state.clone());
+                            .insert(b.hash().clone(), b.header().protocol_state.clone());
                     }
                 }
 

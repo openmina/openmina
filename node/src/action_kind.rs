@@ -24,17 +24,27 @@ use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::ledger::LedgerAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
+use crate::p2p::channels::best_tip_effectful::P2pChannelsBestTipEffectfulAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
+use crate::p2p::channels::rpc_effectful::P2pChannelsRpcEffectfulAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
+use crate::p2p::channels::snark_effectful::P2pChannelsSnarkEffectfulAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
+use crate::p2p::channels::snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction;
 use crate::p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
+use crate::p2p::channels::streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction;
 use crate::p2p::channels::transaction::P2pChannelsTransactionAction;
-use crate::p2p::channels::{P2pChannelsAction, P2pChannelsMessageReceivedAction};
+use crate::p2p::channels::transaction_effectful::P2pChannelsTransactionEffectfulAction;
+use crate::p2p::channels::{
+    P2pChannelsAction, P2pChannelsEffectfulAction, P2pChannelsMessageReceivedAction,
+};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
+use crate::p2p::connection::incoming_effectful::P2pConnectionIncomingEffectfulAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
-use crate::p2p::connection::P2pConnectionAction;
+use crate::p2p::connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction;
+use crate::p2p::connection::{P2pConnectionAction, P2pConnectionEffectfulAction};
 use crate::p2p::disconnection::P2pDisconnectionAction;
-use crate::p2p::discovery::P2pDiscoveryAction;
+use crate::p2p::disconnection_effectful::P2pDisconnectionEffectfulAction;
 use crate::p2p::identify::P2pIdentifyAction;
 use crate::p2p::network::identify::stream::P2pNetworkIdentifyStreamAction;
 use crate::p2p::network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction;
@@ -126,7 +136,6 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorInitializeEvaluator,
     BlockProducerVrfEvaluatorInterruptEpochEvaluation,
     BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
-    BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
     BlockProducerVrfEvaluatorSelectInitialSlot,
     BlockProducerVrfEvaluatorWaitForNextEvaluation,
     CheckTimeouts,
@@ -172,6 +181,9 @@ pub enum ActionKind {
     P2pChannelsBestTipRequestReceived,
     P2pChannelsBestTipRequestSend,
     P2pChannelsBestTipResponseSend,
+    P2pChannelsBestTipEffectfulInit,
+    P2pChannelsBestTipEffectfulRequestSend,
+    P2pChannelsBestTipEffectfulResponseSend,
     P2pChannelsMessageReceived,
     P2pChannelsRpcInit,
     P2pChannelsRpcPending,
@@ -182,6 +194,9 @@ pub enum ActionKind {
     P2pChannelsRpcResponseReceived,
     P2pChannelsRpcResponseSend,
     P2pChannelsRpcTimeout,
+    P2pChannelsRpcEffectfulInit,
+    P2pChannelsRpcEffectfulRequestSend,
+    P2pChannelsRpcEffectfulResponseSend,
     P2pChannelsSnarkInit,
     P2pChannelsSnarkLibp2pBroadcast,
     P2pChannelsSnarkLibp2pReceived,
@@ -192,6 +207,9 @@ pub enum ActionKind {
     P2pChannelsSnarkRequestReceived,
     P2pChannelsSnarkRequestSend,
     P2pChannelsSnarkResponseSend,
+    P2pChannelsSnarkEffectfulInit,
+    P2pChannelsSnarkEffectfulRequestSend,
+    P2pChannelsSnarkEffectfulResponseSend,
     P2pChannelsSnarkJobCommitmentInit,
     P2pChannelsSnarkJobCommitmentPending,
     P2pChannelsSnarkJobCommitmentPromiseReceived,
@@ -200,6 +218,9 @@ pub enum ActionKind {
     P2pChannelsSnarkJobCommitmentRequestReceived,
     P2pChannelsSnarkJobCommitmentRequestSend,
     P2pChannelsSnarkJobCommitmentResponseSend,
+    P2pChannelsSnarkJobCommitmentEffectfulInit,
+    P2pChannelsSnarkJobCommitmentEffectfulRequestSend,
+    P2pChannelsSnarkJobCommitmentEffectfulResponseSend,
     P2pChannelsStreamingRpcInit,
     P2pChannelsStreamingRpcPending,
     P2pChannelsStreamingRpcReady,
@@ -214,6 +235,11 @@ pub enum ActionKind {
     P2pChannelsStreamingRpcResponseSendInit,
     P2pChannelsStreamingRpcResponseSent,
     P2pChannelsStreamingRpcTimeout,
+    P2pChannelsStreamingRpcEffectfulInit,
+    P2pChannelsStreamingRpcEffectfulRequestSend,
+    P2pChannelsStreamingRpcEffectfulResponseNextPartGet,
+    P2pChannelsStreamingRpcEffectfulResponsePartSend,
+    P2pChannelsStreamingRpcEffectfulResponseSendInit,
     P2pChannelsTransactionInit,
     P2pChannelsTransactionLibp2pBroadcast,
     P2pChannelsTransactionLibp2pReceived,
@@ -224,6 +250,9 @@ pub enum ActionKind {
     P2pChannelsTransactionRequestReceived,
     P2pChannelsTransactionRequestSend,
     P2pChannelsTransactionResponseSend,
+    P2pChannelsTransactionEffectfulInit,
+    P2pChannelsTransactionEffectfulRequestSend,
+    P2pChannelsTransactionEffectfulResponseSend,
     P2pConnectionIncomingAnswerReady,
     P2pConnectionIncomingAnswerSdpCreateError,
     P2pConnectionIncomingAnswerSdpCreatePending,
@@ -238,6 +267,8 @@ pub enum ActionKind {
     P2pConnectionIncomingLibp2pReceived,
     P2pConnectionIncomingSuccess,
     P2pConnectionIncomingTimeout,
+    P2pConnectionIncomingEffectfulAnswerSend,
+    P2pConnectionIncomingEffectfulInit,
     P2pConnectionOutgoingAnswerRecvError,
     P2pConnectionOutgoingAnswerRecvPending,
     P2pConnectionOutgoingAnswerRecvSuccess,
@@ -255,10 +286,13 @@ pub enum ActionKind {
     P2pConnectionOutgoingReconnect,
     P2pConnectionOutgoingSuccess,
     P2pConnectionOutgoingTimeout,
+    P2pConnectionOutgoingEffectfulAnswerSet,
+    P2pConnectionOutgoingEffectfulInit,
+    P2pConnectionOutgoingEffectfulOfferSend,
+    P2pConnectionOutgoingEffectfulRandomInit,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
-    P2pDiscoveryInit,
-    P2pDiscoverySuccess,
+    P2pDisconnectionEffectfulInit,
     P2pIdentifyNewRequest,
     P2pIdentifyUpdatePeerInformation,
     P2pInitializeInitialize,
@@ -379,6 +413,7 @@ pub enum ActionKind {
     P2pPeerBestTipUpdate,
     P2pPeerDiscovered,
     P2pPeerReady,
+    P2pPeerRemove,
     RpcActionStatsGet,
     RpcBlockProducerStatsGet,
     RpcDiscoveryBoostrapStats,
@@ -561,7 +596,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 465;
+    pub const COUNT: u16 = 490;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -614,10 +649,12 @@ impl ActionKindGet for P2pAction {
         match self {
             Self::Initialization(a) => a.kind(),
             Self::Connection(a) => a.kind(),
+            Self::ConnectionEffectful(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
-            Self::Discovery(a) => a.kind(),
+            Self::DisconnectionEffectful(a) => a.kind(),
             Self::Identify(a) => a.kind(),
             Self::Channels(a) => a.kind(),
+            Self::ChannelsEffectful(a) => a.kind(),
             Self::Peer(a) => a.kind(),
             Self::Network(a) => a.kind(),
         }
@@ -904,6 +941,15 @@ impl ActionKindGet for P2pConnectionAction {
     }
 }
 
+impl ActionKindGet for P2pConnectionEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Outgoing(a) => a.kind(),
+            Self::Incoming(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for P2pDisconnectionAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -913,11 +959,10 @@ impl ActionKindGet for P2pDisconnectionAction {
     }
 }
 
-impl ActionKindGet for P2pDiscoveryAction {
+impl ActionKindGet for P2pDisconnectionEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init { .. } => ActionKind::P2pDiscoveryInit,
-            Self::Success { .. } => ActionKind::P2pDiscoverySuccess,
+            Self::Init { .. } => ActionKind::P2pDisconnectionEffectfulInit,
         }
     }
 }
@@ -945,12 +990,26 @@ impl ActionKindGet for P2pChannelsAction {
     }
 }
 
+impl ActionKindGet for P2pChannelsEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::BestTip(a) => a.kind(),
+            Self::Rpc(a) => a.kind(),
+            Self::Snark(a) => a.kind(),
+            Self::SnarkJobCommitment(a) => a.kind(),
+            Self::StreamingRpc(a) => a.kind(),
+            Self::Transaction(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for P2pPeerAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Discovered { .. } => ActionKind::P2pPeerDiscovered,
             Self::Ready { .. } => ActionKind::P2pPeerReady,
             Self::BestTipUpdate { .. } => ActionKind::P2pPeerBestTipUpdate,
+            Self::Remove { .. } => ActionKind::P2pPeerRemove,
         }
     }
 }
@@ -1186,16 +1245,13 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             Self::InterruptEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorInterruptEpochEvaluation
             }
-            Self::RecordLastBlockHeightInEpoch { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch
-            }
             Self::ContinueEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorContinueEpochEvaluation
             }
             Self::FinishEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorFinishEpochEvaluation
             }
-            Self::WaitForNextEvaluation { .. } => {
+            Self::WaitForNextEvaluation => {
                 ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
             }
             Self::CheckEpochBounds { .. } => ActionKind::BlockProducerVrfEvaluatorCheckEpochBounds,
@@ -1259,6 +1315,26 @@ impl ActionKindGet for P2pConnectionIncomingAction {
                 ActionKind::P2pConnectionIncomingFinalizePendingLibp2p
             }
             Self::Libp2pReceived { .. } => ActionKind::P2pConnectionIncomingLibp2pReceived,
+        }
+    }
+}
+
+impl ActionKindGet for P2pConnectionOutgoingEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::RandomInit => ActionKind::P2pConnectionOutgoingEffectfulRandomInit,
+            Self::Init { .. } => ActionKind::P2pConnectionOutgoingEffectfulInit,
+            Self::OfferSend { .. } => ActionKind::P2pConnectionOutgoingEffectfulOfferSend,
+            Self::AnswerSet { .. } => ActionKind::P2pConnectionOutgoingEffectfulAnswerSet,
+        }
+    }
+}
+
+impl ActionKindGet for P2pConnectionIncomingEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pConnectionIncomingEffectfulInit,
+            Self::AnswerSend { .. } => ActionKind::P2pConnectionIncomingEffectfulAnswerSend,
         }
     }
 }
@@ -1375,6 +1451,78 @@ impl ActionKindGet for P2pChannelsStreamingRpcAction {
             }
             Self::ResponsePartSend { .. } => ActionKind::P2pChannelsStreamingRpcResponsePartSend,
             Self::ResponseSent { .. } => ActionKind::P2pChannelsStreamingRpcResponseSent,
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsBestTipEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsBestTipEffectfulInit,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsBestTipEffectfulRequestSend,
+            Self::ResponseSend { .. } => ActionKind::P2pChannelsBestTipEffectfulResponseSend,
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsRpcEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsRpcEffectfulInit,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsRpcEffectfulRequestSend,
+            Self::ResponseSend { .. } => ActionKind::P2pChannelsRpcEffectfulResponseSend,
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsSnarkEffectfulInit,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsSnarkEffectfulRequestSend,
+            Self::ResponseSend { .. } => ActionKind::P2pChannelsSnarkEffectfulResponseSend,
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsSnarkJobCommitmentEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsSnarkJobCommitmentEffectfulInit,
+            Self::RequestSend { .. } => {
+                ActionKind::P2pChannelsSnarkJobCommitmentEffectfulRequestSend
+            }
+            Self::ResponseSend { .. } => {
+                ActionKind::P2pChannelsSnarkJobCommitmentEffectfulResponseSend
+            }
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsStreamingRpcEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsStreamingRpcEffectfulInit,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsStreamingRpcEffectfulRequestSend,
+            Self::ResponseNextPartGet { .. } => {
+                ActionKind::P2pChannelsStreamingRpcEffectfulResponseNextPartGet
+            }
+            Self::ResponseSendInit { .. } => {
+                ActionKind::P2pChannelsStreamingRpcEffectfulResponseSendInit
+            }
+            Self::ResponsePartSend { .. } => {
+                ActionKind::P2pChannelsStreamingRpcEffectfulResponsePartSend
+            }
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsTransactionEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsTransactionEffectfulInit,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsTransactionEffectfulRequestSend,
+            Self::ResponseSend { .. } => ActionKind::P2pChannelsTransactionEffectfulResponseSend,
         }
     }
 }

@@ -48,6 +48,9 @@ pub enum MioEvent {
 
     /// The remote peer is disconnected gracefully or with an error.
     ConnectionDidClose(ConnectionAddr, Result<(), String>),
+
+    /// The remote peer is disconnected by our node.
+    ConnectionDidCloseOnDemand(ConnectionAddr),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -265,6 +268,9 @@ impl fmt::Display for MioEvent {
             }
             Self::ConnectionDidClose(addr, res) => {
                 write!(f, "ConnectionDidClose, {addr}, {}", res_kind(res))
+            }
+            Self::ConnectionDidCloseOnDemand(addr) => {
+                write!(f, "ConnectionDidCloseOnDemand, {addr}")
             }
         }
     }

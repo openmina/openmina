@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::proofs::{public_input::plonk_checks::ShiftingValue, util::four_u64_to_field};
 use ark_ff::{Field, One, Zero};
-use kimchi::proof::{ProofEvaluations, ProverCommitments, ProverProof};
+use kimchi::proof::{PointEvaluations, ProofEvaluations, ProverCommitments, ProverProof};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::{string::ByteString, v2};
@@ -309,9 +309,18 @@ impl<F: FieldWitness> ToFieldElements<F> for u32 {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[F; 2]> {
+impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for PointEvaluations<T> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self { zeta, zeta_omega } = self;
+        zeta.to_field_elements(fields);
+        zeta_omega.to_field_elements(fields);
+    }
+}
+
+impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for ProofEvaluations<T> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
+            public: _,
             w,
             z,
             s,
@@ -339,9 +348,8 @@ impl<F: FieldWitness> ToFieldElements<F> for ProofEvaluations<[F; 2]> {
             foreign_field_mul_lookup_selector,
         } = self;
 
-        let mut push = |[a, b]: &[F; 2]| {
-            a.to_field_elements(fields);
-            b.to_field_elements(fields);
+        let mut push = |value: &T| {
+            value.to_field_elements(fields);
         };
 
         w.iter().for_each(&mut push);
@@ -881,11 +889,11 @@ impl ToFieldElements<Fp> for PerProofWitness {
         } = wrap_proof;
 
         for w in w_comm {
-            push_affines(&w.unshifted, fields);
+            push_affines(&w.elems, fields);
         }
 
-        push_affines(&z_comm.unshifted, fields);
-        push_affines(&t_comm.unshifted, fields);
+        push_affines(&z_comm.elems, fields);
+        push_affines(&t_comm.elems, fields);
 
         for (a, b) in lr {
             push_affine(*a, fields);

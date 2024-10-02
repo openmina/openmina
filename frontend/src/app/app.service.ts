@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
-import { catchError, map, Observable, of } from 'rxjs';
+import { map, Observable, of } from 'rxjs';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { CONFIG } from '@shared/constants/config';
 import { RustService } from '@core/services/rust.service';
 import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-details.type';
+import { getNetwork } from '@shared/helpers/mina.helper';
 
 @Injectable({
   providedIn: 'root',
@@ -39,6 +40,7 @@ export class AppService {
           snarks: data.snark_pool.snarks,
           transactions: data.transaction_pool.transactions,
           chainId: data.chain_id,
+          network: getNetwork(data.chain_id),
         } as AppNodeDetails)),
       );
   }
