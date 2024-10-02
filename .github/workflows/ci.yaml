@@ -167,7 +167,6 @@ jobs:
 
   build-tests-webrtc:
     runs-on: ubuntu-20.04
-    if: false
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -199,11 +198,11 @@ jobs:
       - name: Upload tests
         uses: actions/upload-artifact@v4
         with:
-          name: tests-webrct
+          name: tests-webrtc
           path: target/release/tests
 
   p2p-scenario-tests:
-    needs: [ build-tests ]
+    needs: [ build-tests, build-tests-webrtc ]
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
@@ -212,7 +211,8 @@ jobs:
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
       matrix:
-        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub, p2p_kad]
+        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub, p2p_kad,
+               webrtc_p2p_basic_connections]
       fail-fast: false
 
     services:
@@ -231,7 +231,8 @@ jobs:
       - name: Download tests
         uses: actions/download-artifact@v4
         with:
-          name: tests
+          pattern: tests*
+          merge-multiple: true
 
       - name: Setup permissions
         run: |
@@ -355,7 +356,7 @@ jobs:
     needs:
       - k8s-peers
       - build-tests
-    #  - build-tests-webrtc
+      - build-tests-webrtc
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
@@ -365,7 +366,7 @@ jobs:
       OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
     strategy:
       matrix:
-        test: [record_replay]
+        test: [record_replay, webrtc_record_replay]
       fail-fast: false
 
     steps:

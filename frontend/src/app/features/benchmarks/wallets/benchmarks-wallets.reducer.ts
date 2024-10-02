@@ -227,6 +227,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
 
     case BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS: {
       const allTxs = [...action.payload.mempoolTxs, ...action.payload.includedTxs];
+      console.log(allTxs);
       return {
         ...state,
         wallets: state.wallets.map((w: BenchmarksWallet) => {
@@ -306,7 +307,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
               fee: state.sendingFeeZkapps,
               nonce,
               memo,
-              accountUpdates: 8,
+              accountUpdates: 2,
             };
           });
       } else {
@@ -322,7 +323,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
             fee: state.sendingFeeZkapps,
             nonce: nonce.toString(),
             memo,
-            accountUpdates: 8,
+            accountUpdates: 2,
           };
           nonce++;
 

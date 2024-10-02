@@ -11,7 +11,7 @@ export default {
       'benchmarks': ['wallets'],
     },
     canAddNodes: false,
-    graphQL: 'http://adonagy.hz.minaprotocol.network:3000/graphql'
+    graphQL: 'https://adonagy.com/graphql'
   },
   configs: [
     {
