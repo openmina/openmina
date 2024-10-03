@@ -227,7 +227,6 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
 
     case BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS: {
       const allTxs = [...action.payload.mempoolTxs, ...action.payload.includedTxs];
-      console.log(allTxs);
       return {
         ...state,
         wallets: state.wallets.map((w: BenchmarksWallet) => {
