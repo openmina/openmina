@@ -10,6 +10,7 @@ export const environment: Readonly<MinaEnv> = {
       'snarks': ['scan-state', 'work-pool'],
     },
     canAddNodes: true,
+    graphQL: 'http://localhost:11010/graphql',
   },
   configs: [
     {
