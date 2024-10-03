@@ -12,7 +12,7 @@ export const environment: Readonly<MinaEnv> = {
       snarks: ['scan-state', 'work-pool'],
       'testing-tool': ['scenarios'],
       resources: ['memory'],
-      'block-production': ['overview', 'won-slots'],
+      'block-production': ['won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
       zk: ['test'],

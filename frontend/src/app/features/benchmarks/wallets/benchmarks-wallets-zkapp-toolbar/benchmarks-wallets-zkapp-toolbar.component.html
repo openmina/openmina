@@ -41,7 +41,10 @@
         </div>
       </button>
       <div class="tertiary text-italic ml-10" *ngIf="updates$ | async as updates">
-        {{ updates.step }} <span class="secondary">{{ updates.duration }}<span *ngIf="updates.duration">s</span></span>
+        <ng-container *ngIf="updates.step">
+          {{ updates.step }} <span class="secondary">{{ updates.duration }}<span
+          *ngIf="updates.duration">s</span></span>
+        </ng-container>
       </div>
     </form>
   </div>
