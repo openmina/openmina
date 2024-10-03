@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, filter, map, Observable, switchMap } from 'rxjs';
+import { BehaviorSubject, catchError, filter, forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';
 import { fromPromise } from 'rxjs/internal/observable/innerFrom';
 import { CONFIG } from '@shared/constants/config';
@@ -24,16 +24,28 @@ export class BenchmarksWalletsZkService {
     return this.o1jsInterface.pipe(
       filter(Boolean),
       switchMap((o1js: any) => {
-        // return fromPromise(o1js.deployZkApp(CONFIG.globalConfig?.graphQL, zkApps[0], this.updates));
-        return fromPromise(o1js.updateZkApp(CONFIG.globalConfig?.graphQL, zkApps[0], this.updates));
+        const executeSequentially = async (): Promise<any[]> => {
+          const results: any[] = [];
+          for (const zkApp of zkApps) {
+            const response = await o1js.updateZkApp(CONFIG.globalConfig?.graphQL, zkApp, this.updates);
+            results.push(response);
+          }
+          return results;
+        };
+
+        return fromPromise(executeSequentially());
       }),
-      map((response: any) => {
-        if (response.errors[0]) {
-          let error = new Error(response.errors[0]);
-          error.name = response.status;
+      map((responses: any[]) => {
+        const errors = responses.filter(response => response.errors && response.errors[0]);
+        if (errors.length > 0) {
+          let error = new Error(errors[0].errors[0]);
+          error.name = errors[0].status;
           return { error, zkApps };
         }
         return { zkApps };
+      }),
+      catchError((error: Error) => {
+        return of({ error, zkApps });
       }),
     );
   }
