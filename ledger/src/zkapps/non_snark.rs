@@ -68,9 +68,18 @@ pub struct NonSnarkHandler<L>(PhantomData<L>);
 #[derive(Clone, Debug)]
 pub struct ZkappNonSnark<L>(PhantomData<L>);
 
-impl<L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>>
-    ZkappApplication for ZkappNonSnark<L>
+/// Helper trait to avoid typing the whole `LedgerInterface<..> everywhere`
+pub trait LedgerNonSnark
+where
+    Self: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>,
 {
+}
+impl<T> LedgerNonSnark for T where
+    T: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>
+{
+}
+
+impl<L: LedgerNonSnark> ZkappApplication for ZkappNonSnark<L> {
     type Ledger = L;
     type SignedAmount = Signed<Amount>;
     type Amount = Amount;
@@ -125,9 +134,7 @@ impl<F: FieldWitness> WitnessGenerator<F> for () {
     }
 }
 
-impl<L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>>
-    ZkappHandler for NonSnarkHandler<L>
-{
+impl<L: LedgerNonSnark> ZkappHandler for NonSnarkHandler<L> {
     type Z = ZkappNonSnark<L>;
     type AccountUpdate = AccountUpdate;
     type Account = Account;
@@ -334,9 +341,7 @@ impl TokenIdInterface for TokenId {
     }
 }
 
-impl<L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>>
-    LocalStateInterface for zkapp_logic::LocalState<ZkappNonSnark<L>>
-{
+impl<L: LedgerNonSnark> LocalStateInterface for zkapp_logic::LocalState<ZkappNonSnark<L>> {
     type Z = ZkappNonSnark<L>;
     type Bool = bool;
     type W = ();
@@ -1013,7 +1018,7 @@ pub fn step<L>(
     local_state: &mut zkapp_logic::LocalState<ZkappNonSnark<L>>,
 ) -> Result<(), String>
 where
-    L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>,
+    L: LedgerNonSnark,
 {
     zkapp_logic::apply(
         ApplyZkappParams {
@@ -1034,7 +1039,7 @@ pub fn start<L>(
     start_data: StartData,
 ) -> Result<(), String>
 where
-    L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>,
+    L: LedgerNonSnark,
 {
     zkapp_logic::apply(
         ApplyZkappParams {

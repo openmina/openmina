@@ -14,8 +14,7 @@ use openmina_macros::SerdeYojsonEnum;
 use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
-use crate::zkapps::intefaces::LedgerInterface;
-use crate::zkapps::non_snark::ZkappNonSnark;
+use crate::zkapps::non_snark::{LedgerNonSnark, ZkappNonSnark};
 use crate::{
     hash_with_kimchi, zkapps, AccountIdOrderable, BaseLedger, ControlTag, Inputs,
     VerificationKeyWire,
@@ -5624,7 +5623,7 @@ pub mod local_state {
 
     // impl<L> LocalStateEnv<L>
     // where
-    //     L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    //     L: LedgerNonSnark,
     // {
     //     pub fn add_new_failure_status_bucket(&self) -> Self {
     //         let mut failure_status_tbl = self.failure_status_tbl.clone();
@@ -5805,114 +5804,14 @@ pub mod local_state {
     }
 }
 
-// let equal' (t1 : t) (t2 : t) =
-//   let ( ! ) f x y = Impl.run_checked (f x y) in
-//   let f eq acc f = Core_kernel.Field.(eq (get f t1) (get f t2)) :: acc in
-//   Mina_transaction_logic.Zkapp_command_logic.Local_state.Fields.fold ~init:[]
-//     ~stack_frame:(f Stack_frame.Digest.Checked.equal)
-//     ~call_stack:(f Call_stack_digest.Checked.equal)
-//     ~transaction_commitment:(f Field.equal)
-//     ~full_transaction_commitment:(f Field.equal)
-//     ~excess:(f !Currency.Amount.Signed.Checked.equal)
-//     ~supply_increase:(f !Currency.Amount.Signed.Checked.equal)
-//     ~ledger:(f !Ledger_hash.equal_var) ~success:(f Impl.Boolean.equal)
-//     ~account_update_index:(f !Mina_numbers.Index.Checked.equal)
-//     ~failure_status_tbl:(f (fun () () -> Impl.Boolean.true_))
-//     ~will_succeed:(f Impl.Boolean.equal)
-
-pub enum Eff<
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
-> {
-    CheckValidWhilePrecondition(Numeric<Slot>, GlobalState<L>),
-    CheckAccountPrecondition(AccountUpdate, Account, bool, LocalStateEnv<L>),
-    CheckProtocolStatePrecondition(Box<ZkAppPreconditions>, GlobalState<L>),
-    InitAccount(AccountUpdate, Account),
-}
-
-pub struct Env<
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
-> {
-    account_update: AccountUpdate,
-    zkapp_command: ZkAppCommand,
-    account: Account,
-    ledger: L,
-    amount: Amount,
-    signed_amount: Signed<Amount>,
-    bool: bool,
-    token_id: TokenId,
-    global_state: GlobalState<L>,
-    local_state: LocalStateEnv<L>,
-    protocol_state_precondition: ZkAppPreconditions,
-    valid_while_precondition: Numeric<Slot>,
-    transaction_commitment: Fp,
-    full_transaction_commitment: Fp,
-    field: Fp,
-    failure: Option<TransactionFailure>,
-}
-
-pub enum PerformResult<
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
-> {
-    Bool(bool),
-    LocalState(Box<LocalStateEnv<L>>),
-    Account(Box<Account>),
-}
-
-impl<L> PerformResult<L>
-where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
-{
-    pub fn to_bool(self) -> bool {
-        match self {
-            PerformResult::Bool(v) => v,
-            _ => panic!("Not a bool"),
-        }
-    }
-}
-
-// impl<L> Env<L>
-// where
-//     L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
-// {
-//     pub fn perform(eff: Eff<L>) -> PerformResult<L> {
-//         match eff {
-//             Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
-//                 valid_while
-//                     .out_zcheck(
-//                         || "valid_while_precondition".to_string(),
-//                         &global_state.block_global_slot,
-//                     )
-//                     .is_ok(),
-//             ),
-//             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
-//                 PerformResult::Bool(pred.out_zcheck(&global_state.protocol_state).is_ok())
-//             }
-//             Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
-//                 let local_state = {
-//                     let precondition_account = &account_update.body.preconditions.account.0;
-//                     let mut _local_state = local_state;
-//                     let check = |failure, b| {
-//                         _local_state = _local_state.add_check(failure, b);
-//                     };
-//                     precondition_account.out_zcheck(new_account, check, &account);
-//                     _local_state
-//                 };
-//                 PerformResult::LocalState(Box::new(local_state))
-//             }
-//             Eff::InitAccount(_account_update, a) => PerformResult::Account(Box::new(a)),
-//         }
-//     }
-// }
-
 fn step_all<A, L>(
     _constraint_constants: &ConstraintConstants,
     f: &impl Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
-    // handler: &Handler<L>,
     mut user_acc: A,
     (g_state, l_state): (&mut GlobalState<L>, &mut LocalStateEnv<L>),
 ) -> Result<(A, Vec<Vec<TransactionFailure>>), String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
 {
     while !l_state.stack_frame.calls.is_empty() {
         zkapps::non_snark::step(g_state, l_state)?;
@@ -5936,7 +5835,7 @@ pub fn apply_zkapp_command_first_pass_aux<A, F, L>(
     command: &ZkAppCommand,
 ) -> Result<(ZkappCommandPartiallyApplied<L>, A), String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
     F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
 {
     let fee_excess = fee_excess.unwrap_or_else(Signed::zero);
@@ -6025,7 +5924,7 @@ fn apply_zkapp_command_first_pass<L>(
     command: &ZkAppCommand,
 ) -> Result<ZkappCommandPartiallyApplied<L>, String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
 {
     let (partial_stmt, _user_acc) = apply_zkapp_command_first_pass_aux(
         constraint_constants,
@@ -6050,7 +5949,7 @@ pub fn apply_zkapp_command_second_pass_aux<A, F, L>(
     c: ZkappCommandPartiallyApplied<L>,
 ) -> Result<(ZkappCommandApplied, A), String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
     F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
 {
     // let perform = |eff: Eff<L>| Env::perform(eff);
@@ -6236,7 +6135,7 @@ fn apply_zkapp_command_second_pass<L>(
     c: ZkappCommandPartiallyApplied<L>,
 ) -> Result<ZkappCommandApplied, String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
 {
     let (x, _) =
         apply_zkapp_command_second_pass_aux(constraint_constants, (), |a, _| a, ledger, c)?;
@@ -6255,7 +6154,7 @@ fn apply_zkapp_command_unchecked_aux<A, F, L>(
     command: &ZkAppCommand,
 ) -> Result<(ZkappCommandApplied, A), String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
     F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
 {
     let (partial_stmt, user_acc) = apply_zkapp_command_first_pass_aux(
@@ -6281,7 +6180,7 @@ fn apply_zkapp_command_unchecked<L>(
     command: &ZkAppCommand,
 ) -> Result<(ZkappCommandApplied, (LocalStateEnv<L>, Signed<Amount>)), String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
 {
     let zkapp_partially_applied: ZkappCommandPartiallyApplied<L> = apply_zkapp_command_first_pass(
         constraint_constants,
@@ -6312,9 +6211,7 @@ pub mod transaction_partially_applied {
     };
 
     #[derive(Clone, Debug)]
-    pub struct ZkappCommandPartiallyApplied<
-        L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
-    > {
+    pub struct ZkappCommandPartiallyApplied<L: LedgerNonSnark> {
         pub command: ZkAppCommand,
         pub previous_hash: Fp,
         pub original_first_pass_account_states:
@@ -6332,9 +6229,7 @@ pub mod transaction_partially_applied {
     }
 
     #[derive(Clone, Debug)]
-    pub enum TransactionPartiallyApplied<
-        L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
-    > {
+    pub enum TransactionPartiallyApplied<L: LedgerNonSnark> {
         SignedCommand(FullyApplied<SignedCommandApplied>),
         ZkappCommand(Box<ZkappCommandPartiallyApplied<L>>),
         FeeTransfer(FullyApplied<FeeTransferApplied>),
@@ -6343,7 +6238,7 @@ pub mod transaction_partially_applied {
 
     impl<L> TransactionPartiallyApplied<L>
     where
-        L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+        L: LedgerNonSnark,
     {
         pub fn command(self) -> Transaction {
             use Transaction as T;
@@ -6370,7 +6265,7 @@ pub fn apply_transaction_first_pass<L>(
     transaction: &Transaction,
 ) -> Result<TransactionPartiallyApplied<L>, String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
 {
     use Transaction::*;
     use UserCommand::*;
@@ -6430,7 +6325,7 @@ pub fn apply_transaction_second_pass<L>(
     partial_transaction: TransactionPartiallyApplied<L>,
 ) -> Result<TransactionApplied, String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
 {
     use TransactionPartiallyApplied as P;
 
@@ -6481,7 +6376,7 @@ pub fn apply_transactions<L>(
     txns: &[Transaction],
 ) -> Result<Vec<TransactionApplied>, String>
 where
-    L: LedgerInterface<W = (), Bool = bool, Account = Account, AccountUpdate = AccountUpdate>,
+    L: LedgerNonSnark,
 {
     let first_pass: Vec<_> = txns
         .iter()
