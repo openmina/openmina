@@ -40,9 +40,12 @@
           <span class="mina-icon">arrow_drop_down</span>
         </div>
       </button>
-      <!--      <div class="tertiary" *ngIf="updates$ | async as updates">-->
-      <!--        {{ updates.step }} {{ updates.duration }}s-->
-      <!--      </div>-->
+      <div class="tertiary text-italic ml-10" *ngIf="updates$ | async as updates">
+        <ng-container *ngIf="updates.step">
+          {{ updates.step }} <span class="secondary">{{ updates.duration }}<span
+          *ngIf="updates.duration">s</span></span>
+        </ng-container>
+      </div>
     </form>
   </div>
 </ng-template>

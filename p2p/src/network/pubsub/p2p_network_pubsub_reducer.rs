@@ -404,7 +404,6 @@ impl P2pNetworkPubsubState {
             }
         }
 
-        // TODO: verify signature
         self.clients
             .iter_mut()
             .filter(|(c, _)| {

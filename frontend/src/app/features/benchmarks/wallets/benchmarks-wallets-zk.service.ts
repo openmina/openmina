@@ -24,6 +24,7 @@ export class BenchmarksWalletsZkService {
     return this.o1jsInterface.pipe(
       filter(Boolean),
       switchMap((o1js: any) => {
+        // return fromPromise(o1js.deployZkApp(CONFIG.globalConfig?.graphQL, zkApps[0], this.updates));
         return fromPromise(o1js.updateZkApp(CONFIG.globalConfig?.graphQL, zkApps[0], this.updates));
       }),
       map((response: any) => {

@@ -12,13 +12,15 @@ export const environment: Readonly<MinaEnv> = {
       snarks: ['scan-state', 'work-pool'],
       'testing-tool': ['scenarios'],
       resources: ['memory'],
-      'block-production': ['overview', 'won-slots'],
+      'block-production': ['won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
       zk: ['test'],
     },
     canAddNodes: true,
-    graphQL: 'http://adonagy.hz.minaprotocol.network:3000/graphql',
+    graphQL: 'https://adonagy.com/graphql',
+    // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
+    // graphQL: 'http://65.109.105.40:5000/graphql',
   },
   configs: [
     // {
