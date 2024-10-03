@@ -41,12 +41,12 @@ use self::{
 
 use super::currency::SlotSpan;
 use super::fee_rate::FeeRate;
-use super::zkapp_logic::ZkAppCommandElt;
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
     fee_excess::FeeExcess,
     scan_state::transaction_snark::OneOrTwo,
 };
+use crate::zkapps::zkapp_logic::ZkAppCommandElt;
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]

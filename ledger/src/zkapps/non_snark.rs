@@ -6,6 +6,7 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{
+    check_permission,
     proofs::{
         field::{Boolean, FieldWitness, ToBoolean},
         to_field_elements::ToFieldElements,
@@ -27,11 +28,11 @@ use crate::{
             zkapp_statement::TransactionCommitment,
             ExistingOrNew, TimingValidation, TransactionFailure,
         },
-        zkapp_logic::controller_check,
     },
     sparse_ledger::{LedgerIntf, SparseLedger},
     zkapps::checks::ZkappCheck,
-    Account, AccountId, Mask, MyCow, TokenId, ZkAppAccount, TXN_VERSION_CURRENT,
+    Account, AccountId, AuthRequired, ControlTag, Mask, MyCow, TokenId, ZkAppAccount,
+    TXN_VERSION_CURRENT,
 };
 
 use super::{
@@ -47,7 +48,7 @@ use super::{
         TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
         ZkappHandler,
     },
-    zkapp_logic::{self, ApplyZkappParams},
+    zkapp_logic::{self, ApplyZkappParams, ZkAppCommandElt},
 };
 
 pub type GlobalStateForNonSnark<L> = GlobalStateSkeleton<
@@ -67,14 +68,8 @@ pub struct NonSnarkHandler<L>(PhantomData<L>);
 #[derive(Clone, Debug)]
 pub struct ZkappNonSnark<L>(PhantomData<L>);
 
-impl<
-        L: LedgerInterface<
-            W = (),
-            AccountUpdate = AccountUpdate,
-            Account = crate::Account,
-            Bool = bool,
-        >,
-    > ZkappApplication for ZkappNonSnark<L>
+impl<L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>>
+    ZkappApplication for ZkappNonSnark<L>
 {
     type Ledger = L;
     type SignedAmount = Signed<Amount>;
@@ -130,14 +125,8 @@ impl<F: FieldWitness> WitnessGenerator<F> for () {
     }
 }
 
-impl<
-        L: LedgerInterface<
-            W = (),
-            AccountUpdate = AccountUpdate,
-            Account = crate::Account,
-            Bool = bool,
-        >,
-    > ZkappHandler for NonSnarkHandler<L>
+impl<L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>>
+    ZkappHandler for NonSnarkHandler<L>
 {
     type Z = ZkappNonSnark<L>;
     type AccountUpdate = AccountUpdate;
@@ -227,7 +216,6 @@ impl ReceiptChainHashInterface for NonSnarkReceiptChainHash {
         w: &mut Self::W,
     ) -> crate::ReceiptChainHash {
         use crate::scan_state::transaction_logic::cons_zkapp_command_commitment;
-        use crate::scan_state::zkapp_logic::ZkAppCommandElt;
 
         cons_zkapp_command_commitment(
             index,
@@ -346,14 +334,8 @@ impl TokenIdInterface for TokenId {
     }
 }
 
-impl<
-        L: LedgerInterface<
-            W = (),
-            AccountUpdate = AccountUpdate,
-            Account = crate::Account,
-            Bool = bool,
-        >,
-    > LocalStateInterface for zkapp_logic::LocalState<ZkappNonSnark<L>>
+impl<L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>>
+    LocalStateInterface for zkapp_logic::LocalState<ZkappNonSnark<L>>
 {
     type Z = ZkappNonSnark<L>;
     type Bool = bool;
@@ -679,11 +661,11 @@ impl AccountInterface for Account {
         // Nothing
     }
 
-    fn get(&self) -> &crate::Account {
+    fn get(&self) -> &Account {
         self
     }
 
-    fn get_mut(&mut self) -> &mut crate::Account {
+    fn get_mut(&mut self) -> &mut Account {
         self
     }
 
@@ -839,6 +821,25 @@ impl AccountUpdateInterface for AccountUpdate {
     }
 }
 
+fn controller_check(
+    proof_verifies: bool,
+    signature_verifies: bool,
+    perm: AuthRequired,
+) -> Result<bool, String> {
+    // Invariant: We either have a proof, a signature, or neither.
+    if proof_verifies && signature_verifies {
+        return Err("We either have a proof, a signature, or neither.".to_string());
+    }
+    let tag = if proof_verifies {
+        ControlTag::Proof
+    } else if signature_verifies {
+        ControlTag::Signature
+    } else {
+        ControlTag::NoneGiven
+    };
+    Ok(check_permission(perm, tag))
+}
+
 impl ControllerInterface for NonSnarkController {
     type W = ();
     type Bool = bool;
@@ -847,7 +848,7 @@ impl ControllerInterface for NonSnarkController {
     fn check(
         proof_verifies: Self::Bool,
         signature_verifies: Self::Bool,
-        auth: &crate::AuthRequired,
+        auth: &AuthRequired,
         _single_data: &Self::SingleData,
         _w: &mut Self::W,
     ) -> Result<Self::Bool, String> {
@@ -855,9 +856,9 @@ impl ControllerInterface for NonSnarkController {
     }
 
     fn verification_key_perm_fallback_to_signature_with_older_version(
-        auth: &crate::AuthRequired,
+        auth: &AuthRequired,
         w: &mut Self::W,
-    ) -> crate::AuthRequired {
+    ) -> AuthRequired {
         auth.verification_key_perm_fallback_to_signature_with_older_version()
     }
 }
@@ -1012,12 +1013,7 @@ pub fn step<L>(
     local_state: &mut zkapp_logic::LocalState<ZkappNonSnark<L>>,
 ) -> Result<(), String>
 where
-    L: LedgerInterface<
-        W = (),
-        AccountUpdate = AccountUpdate,
-        Account = crate::Account,
-        Bool = bool,
-    >,
+    L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>,
 {
     zkapp_logic::apply(
         ApplyZkappParams {
@@ -1038,12 +1034,7 @@ pub fn start<L>(
     start_data: StartData,
 ) -> Result<(), String>
 where
-    L: LedgerInterface<
-        W = (),
-        AccountUpdate = AccountUpdate,
-        Account = crate::Account,
-        Bool = bool,
-    >,
+    L: LedgerInterface<W = (), AccountUpdate = AccountUpdate, Account = Account, Bool = bool>,
 {
     zkapp_logic::apply(
         ApplyZkappParams {

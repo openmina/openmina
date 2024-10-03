@@ -36,6 +36,11 @@ struct GetNextAccountUpdateResult<Z: ZkappApplication> {
     new_frame: Z::StackFrame,
 }
 
+#[derive(Clone)]
+pub enum ZkAppCommandElt {
+    ZkAppCommandCommitment(crate::ReceiptChainHash),
+}
+
 fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {
     // Used only for circuit generation (add constraints)
     // https://github.com/MinaProtocol/mina/blob/e44ddfe1ca54b3855e1ed336d89f6230d35aeb8c/src/lib/transaction_logic/zkapp_command_logic.ml#L929
@@ -251,7 +256,7 @@ fn get_next_account_update<Z: ZkappApplication>(
     }
 }
 
-fn update_action_state<Z: ZkappApplication>(
+pub fn update_action_state<Z: ZkappApplication>(
     action_state: &[Fp; 5],
     actions: &Actions,
     txn_global_slot: Z::GlobalSlotSinceGenesis,
