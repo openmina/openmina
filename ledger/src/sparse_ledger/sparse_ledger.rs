@@ -128,25 +128,20 @@ impl SparseLedger {
 
     pub fn apply_zkapp_first_pass_unchecked_with_states(
         &mut self,
+        states: &mut Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
         global_slot: Slot,
         state_view: &ProtocolStateView,
         fee_excess: Signed<Amount>,
         supply_increase: Signed<Amount>,
         second_pass_ledger: &Self,
         zkapp_command: &ZkAppCommand,
-    ) -> Result<
-        (
-            ZkappCommandPartiallyApplied<SparseLedger>,
-            Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
-        ),
-        String,
-    > {
+    ) -> Result<ZkappCommandPartiallyApplied<SparseLedger>, String> {
         apply_zkapp_command_first_pass_aux(
             constraint_constants(),
             global_slot,
             state_view,
-            Vec::with_capacity(16),
-            |mut acc, (global_state, local_state)| {
+            states,
+            |acc, global_state, local_state| {
                 let GlobalState {
                     first_pass_ledger,
                     second_pass_ledger: _,
@@ -173,7 +168,6 @@ impl SparseLedger {
                         local_state,
                     ),
                 );
-                acc
             },
             Some(fee_excess),
             Some(supply_increase),
@@ -184,19 +178,13 @@ impl SparseLedger {
 
     pub fn apply_zkapp_second_pass_unchecked_with_states(
         &mut self,
-        init: Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
+        init: &mut Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
         c: ZkappCommandPartiallyApplied<Self>,
-    ) -> Result<
-        (
-            ZkappCommandApplied,
-            Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
-        ),
-        String,
-    > {
-        let (account_update_applied, mut rev_states) = apply_zkapp_command_second_pass_aux(
+    ) -> Result<ZkappCommandApplied, String> {
+        let account_update_applied = apply_zkapp_command_second_pass_aux(
             constraint_constants(),
             init,
-            |mut acc, (global_state, local_state)| {
+            |acc, global_state, local_state| {
                 let GlobalState {
                     first_pass_ledger,
                     second_pass_ledger,
@@ -223,12 +211,13 @@ impl SparseLedger {
                         local_state,
                     ),
                 );
-                acc
+                // acc
             },
             self,
             c,
         )?;
 
+        let rev_states = init;
         let will_succeed = account_update_applied.command.status.is_applied();
 
         rev_states.reverse();
@@ -239,8 +228,8 @@ impl SparseLedger {
             local_state.will_succeed = will_succeed;
         }
 
-        let states = rev_states;
-        Ok((account_update_applied, states))
+        // let states = rev_states;
+        Ok(account_update_applied)
     }
 }
 

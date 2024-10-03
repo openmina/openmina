@@ -25,7 +25,7 @@ use crate::{
     Account, AccountId, ReceiptChainHash, Timing, TokenId,
 };
 
-use self::zkapp_command::{AccessedOrNot, Numeric};
+use self::zkapp_command::AccessedOrNot;
 use self::{
     local_state::{CallStack, LocalStateEnv, StackFrame},
     protocol_state::{GlobalState, ProtocolStateView},
@@ -35,7 +35,7 @@ use self::{
         TransactionApplied, ZkappCommandApplied,
     },
     transaction_union_payload::TransactionUnionPayload,
-    zkapp_command::{AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions},
+    zkapp_command::{AccountUpdate, WithHash, ZkAppCommand},
 };
 
 use super::currency::SlotSpan;
@@ -5806,18 +5806,18 @@ pub mod local_state {
 
 fn step_all<A, L>(
     _constraint_constants: &ConstraintConstants,
-    f: &impl Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
-    mut user_acc: A,
+    f: &impl Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
+    user_acc: &mut A,
     (g_state, l_state): (&mut GlobalState<L>, &mut LocalStateEnv<L>),
-) -> Result<(A, Vec<Vec<TransactionFailure>>), String>
+) -> Result<Vec<Vec<TransactionFailure>>, String>
 where
     L: LedgerNonSnark,
 {
     while !l_state.stack_frame.calls.is_empty() {
         zkapps::non_snark::step(g_state, l_state)?;
-        user_acc = f(user_acc, (g_state, l_state));
+        f(user_acc, g_state, l_state);
     }
-    Ok((user_acc, l_state.failure_status_tbl.clone()))
+    Ok(l_state.failure_status_tbl.clone())
 }
 
 /// apply zkapp command fee payer's while stubbing out the second pass ledger
@@ -5827,16 +5827,16 @@ pub fn apply_zkapp_command_first_pass_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
     global_slot: Slot,
     state_view: &ProtocolStateView,
-    init: A,
+    init: &mut A,
     f: F,
     fee_excess: Option<Signed<Amount>>,
     supply_increase: Option<Signed<Amount>>,
     ledger: &mut L,
     command: &ZkAppCommand,
-) -> Result<(ZkappCommandPartiallyApplied<L>, A), String>
+) -> Result<ZkappCommandPartiallyApplied<L>, String>
 where
     L: LedgerNonSnark,
-    F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
+    F: Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
 {
     let fee_excess = fee_excess.unwrap_or_else(Signed::zero);
     let supply_increase = supply_increase.unwrap_or_else(Signed::zero);
@@ -5882,7 +5882,7 @@ where
         },
     );
 
-    let user_acc = f(init, (&global_state, &local_state));
+    f(init, &global_state, &local_state);
     let account_updates = command.all_account_updates();
 
     zkapps::non_snark::start(
@@ -5911,7 +5911,7 @@ where
         local_state,
     };
 
-    Ok((res, user_acc))
+    Ok(res)
 }
 
 fn apply_zkapp_command_first_pass<L>(
@@ -5926,12 +5926,13 @@ fn apply_zkapp_command_first_pass<L>(
 where
     L: LedgerNonSnark,
 {
-    let (partial_stmt, _user_acc) = apply_zkapp_command_first_pass_aux(
+    let mut acc = ();
+    let partial_stmt = apply_zkapp_command_first_pass_aux(
         constraint_constants,
         global_slot,
         state_view,
-        None,
-        |_acc, (g, l)| Some((g.clone(), l.clone())),
+        &mut acc,
+        |_acc, _g, _l| {},
         fee_excess,
         supply_increase,
         ledger,
@@ -5943,14 +5944,14 @@ where
 
 pub fn apply_zkapp_command_second_pass_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
-    init: A,
+    init: &mut A,
     f: F,
     ledger: &mut L,
     c: ZkappCommandPartiallyApplied<L>,
-) -> Result<(ZkappCommandApplied, A), String>
+) -> Result<ZkappCommandApplied, String>
 where
     L: LedgerNonSnark,
-    F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
+    F: Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
 {
     // let perform = |eff: Eff<L>| Env::perform(eff);
 
@@ -6041,10 +6042,10 @@ where
         }
     };
 
-    let acc = f(init, (&global_state, &local_state));
+    f(init, &global_state, &local_state);
     let start = (&mut global_state, &mut local_state);
 
-    let (user_acc, reversed_failure_status_tbl) = step_all(constraint_constants, &f, acc, start)?;
+    let reversed_failure_status_tbl = step_all(constraint_constants, &f, init, start)?;
 
     let failure_status_tbl = reversed_failure_status_tbl
         .into_iter()
@@ -6091,21 +6092,18 @@ where
 
     let new_accounts_is_empty = new_accounts.is_empty();
 
-    let valid_result = Ok((
-        ZkappCommandApplied {
-            accounts: accounts(),
-            command: WithStatus {
-                data: c.command,
-                status: if successfully_applied {
-                    TransactionStatus::Applied
-                } else {
-                    TransactionStatus::Failed(failure_status_tbl)
-                },
+    let valid_result = Ok(ZkappCommandApplied {
+        accounts: accounts(),
+        command: WithStatus {
+            data: c.command,
+            status: if successfully_applied {
+                TransactionStatus::Applied
+            } else {
+                TransactionStatus::Failed(failure_status_tbl)
             },
-            new_accounts,
         },
-        user_acc,
-    ));
+        new_accounts,
+    });
 
     if successfully_applied {
         valid_result
@@ -6137,8 +6135,13 @@ fn apply_zkapp_command_second_pass<L>(
 where
     L: LedgerNonSnark,
 {
-    let (x, _) =
-        apply_zkapp_command_second_pass_aux(constraint_constants, (), |a, _| a, ledger, c)?;
+    let x = apply_zkapp_command_second_pass_aux(
+        constraint_constants,
+        &mut (),
+        |_, _, _| {},
+        ledger,
+        c,
+    )?;
     Ok(x)
 }
 
@@ -6146,18 +6149,18 @@ fn apply_zkapp_command_unchecked_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
     global_slot: Slot,
     state_view: &ProtocolStateView,
-    init: A,
+    init: &mut A,
     f: F,
     fee_excess: Option<Signed<Amount>>,
     supply_increase: Option<Signed<Amount>>,
     ledger: &mut L,
     command: &ZkAppCommand,
-) -> Result<(ZkappCommandApplied, A), String>
+) -> Result<ZkappCommandApplied, String>
 where
     L: LedgerNonSnark,
-    F: Fn(A, (&GlobalState<L>, &LocalStateEnv<L>)) -> A,
+    F: Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
 {
-    let (partial_stmt, user_acc) = apply_zkapp_command_first_pass_aux(
+    let partial_stmt = apply_zkapp_command_first_pass_aux(
         constraint_constants,
         global_slot,
         state_view,
@@ -6169,7 +6172,7 @@ where
         command,
     )?;
 
-    apply_zkapp_command_second_pass_aux(constraint_constants, user_acc, f, ledger, partial_stmt)
+    apply_zkapp_command_second_pass_aux(constraint_constants, init, &f, ledger, partial_stmt)
 }
 
 fn apply_zkapp_command_unchecked<L>(
@@ -6192,10 +6195,13 @@ where
         command,
     )?;
 
-    let (account_update_applied, state_res) = apply_zkapp_command_second_pass_aux(
+    let mut state_res = None;
+    let account_update_applied = apply_zkapp_command_second_pass_aux(
         constraint_constants,
-        None,
-        |_acc, (global_state, local_state)| Some((local_state.clone(), global_state.fee_excess)),
+        &mut state_res,
+        |acc, global_state, local_state| {
+            *acc = Some((local_state.clone(), global_state.fee_excess))
+        },
         ledger,
         zkapp_partially_applied,
     )?;

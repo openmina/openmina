@@ -488,10 +488,12 @@ pub fn zkapp_command_witnesses_exn(
                 zkapp_command,
             } = v;
 
-            let (txn_applied, states) = {
-                let (partial_txn, states) = first_pass_ledger
+            let mut states = Vec::with_capacity(16);
+            let txn_applied = {
+                let partial_txn = first_pass_ledger
                     .clone()
                     .apply_zkapp_first_pass_unchecked_with_states(
+                        &mut states,
                         global_slot,
                         &state_view,
                         fee_excess,
@@ -503,7 +505,7 @@ pub fn zkapp_command_witnesses_exn(
 
                 second_pass_ledger
                     .clone()
-                    .apply_zkapp_second_pass_unchecked_with_states(states, partial_txn)
+                    .apply_zkapp_second_pass_unchecked_with_states(&mut states, partial_txn)
                     .unwrap()
             };
 

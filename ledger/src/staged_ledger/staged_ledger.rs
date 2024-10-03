@@ -24,21 +24,19 @@ use crate::{
         },
         snark_work::spec,
         transaction_logic::{
-            apply_transaction_first_pass, apply_transaction_second_pass,
-            local_state::LocalState,
+            apply_transaction_first_pass, apply_transaction_second_pass, local_state::LocalState,
             protocol_state::ProtocolStateView,
-            transaction_partially_applied::TransactionPartiallyApplied,
-            valid,
-            zkapp_command::{AccountUpdate, MaybeWithStatus},
-            CoinbaseFeeTransfer, Transaction, TransactionStatus, UserCommand, WithStatus,
+            transaction_partially_applied::TransactionPartiallyApplied, valid,
+            zkapp_command::MaybeWithStatus, CoinbaseFeeTransfer, Transaction, TransactionStatus,
+            UserCommand, WithStatus,
         },
     },
     sparse_ledger::SparseLedger,
     split_at, split_at_vec,
     staged_ledger::{pre_diff_info, resources::IncreaseBy, transaction_validator},
     verifier::{Verifier, VerifierError},
-    zkapps::{intefaces::LedgerInterface, non_snark::LedgerNonSnark},
-    Account, AccountId, BaseLedger, Mask, TokenId,
+    zkapps::non_snark::LedgerNonSnark,
+    AccountId, BaseLedger, Mask, TokenId,
 };
 
 use super::{

@@ -32,15 +32,13 @@ use crate::{
             transaction_partially_applied::{
                 TransactionPartiallyApplied, ZkappCommandPartiallyApplied,
             },
-            zkapp_command::AccountUpdate,
             TransactionStatus,
         },
     },
     sparse_ledger::SparseLedger,
     staged_ledger::hash::AuxHash,
     verifier::Verifier,
-    zkapps::{intefaces::LedgerInterface, non_snark::LedgerNonSnark},
-    Account,
+    zkapps::non_snark::LedgerNonSnark,
 };
 
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
