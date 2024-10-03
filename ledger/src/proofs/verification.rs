@@ -760,6 +760,7 @@ pub fn verify_zkapp(
 
     eprintln!("verify_zkapp OK={:?}", ok);
 
+    #[cfg(not(test))]
     if !ok {
         if let Err(e) = dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
         {
@@ -868,8 +869,12 @@ fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::R
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use mina_hasher::Fp;
     use mina_p2p_messages::{binprot::BinProtRead, v2};
+
+    use crate::proofs::{provers::devnet_circuit_directory, transaction::tests::panic_in_ci};
 
     use super::*;
 
@@ -888,22 +893,36 @@ mod tests {
             proof: v2::PicklesProofProofsVerified2ReprStableV2,
         }
 
-        let Ok(file) = std::fs::read("/tmp/verify_zapp_4af39d1e141859c964fe32b4e80537d3bd8c32d75e2754c0b869738006d25251_0.binprot") else {
-            eprintln!("not found");
-            return;
-        };
+        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(devnet_circuit_directory())
+            .join("tests");
 
-        let VerifyZkapp {
-            vk,
-            zkapp_statement,
-            proof,
-        } = VerifyZkapp::binprot_read(&mut file.as_slice()).unwrap();
+        let cases = [
+            "verify_zapp_4af39d1e141859c964fe32b4e80537d3bd8c32d75e2754c0b869738006d25251_0.binprot",
+            "verify_zapp_dc518dc7e0859ea6ffa0cd42637cdcc9c79ab369dfb7ff44c8a89b1219f98728_0.binprot",
+            "verify_zapp_9db7255327f342f75d27b5c0f646988ee68c6338f6e26c4dc549675f811b4152_0.binprot",
+            "verify_zapp_f2bbc8088654c09314a58c96428f6828d3ee8096b6f34e3a027ad9b028ae22e0_0.binprot",
+        ];
 
-        let vk = (&vk).try_into().unwrap();
-        let zkapp_statement = (&zkapp_statement).try_into().unwrap();
-        let srs = crate::verifier::get_srs::<Fp>();
+        for filename in cases {
+            let Ok(file) = std::fs::read(base_dir.join(filename)) else {
+                panic_in_ci();
+                return;
+            };
 
-        verify_zkapp(&vk, &zkapp_statement, &proof, &*srs);
+            let VerifyZkapp {
+                vk,
+                zkapp_statement,
+                proof,
+            } = VerifyZkapp::binprot_read(&mut file.as_slice()).unwrap();
+
+            let vk = (&vk).try_into().unwrap();
+            let zkapp_statement = (&zkapp_statement).try_into().unwrap();
+            let srs = crate::verifier::get_srs::<Fp>();
+
+            let ok = verify_zkapp(&vk, &zkapp_statement, &proof, &srs);
+            assert!(ok);
+        }
     }
 
     // #[test]

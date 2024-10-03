@@ -287,6 +287,7 @@ pub fn proof_evaluation_to_absorption_sequence<F: FieldWitness>(
         .filter_map(|v| v.as_ref()),
     );
 
+    #[allow(clippy::iter_cloned_collect)]
     list.iter().cloned().collect()
 }
 
