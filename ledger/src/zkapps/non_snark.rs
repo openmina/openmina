@@ -165,11 +165,6 @@ impl<L: LedgerNonSnark> ZkappHandler for NonSnarkHandler<L> {
             check,
             &mut w,
         );
-        // let AccountPreconditions(precondition_account) = &account_update.body.preconditions.account;
-        // let check = |failure, b| {
-        //     zkapp_logic::LocalState::<ZkappNonSnark<L>>::add_check(local_state, failure, b, w);
-        // };
-        // precondition_account.out_zcheck(new_account, check, account);
     }
 
     fn check_protocol_state_precondition(
@@ -181,9 +176,6 @@ impl<L: LedgerNonSnark> ZkappHandler for NonSnarkHandler<L> {
         protocol_state_predicate
             .zcheck::<NonSnarkOps>(&global_state.protocol_state, &mut w)
             .as_bool()
-        // protocol_state_predicate
-        //     .out_zcheck(&global_state.protocol_state)
-        //     .is_ok()
     }
 
     fn check_valid_while_precondition(
@@ -196,12 +188,6 @@ impl<L: LedgerNonSnark> ZkappHandler for NonSnarkHandler<L> {
         (valid_while, ClosedInterval::min_max)
             .zcheck::<NonSnarkOps>(&global_state.block_global_slot, &mut w)
             .as_bool()
-        // valid_while
-        //     .out_zcheck(
-        //         || "valid_while_precondition".to_string(),
-        //         &global_state.block_global_slot,
-        //     )
-        //     .is_ok()
     }
 
     fn init_account(
