@@ -4391,11 +4391,36 @@ pub(super) mod tests {
         (statement, [p1, p2], message)
     }
 
+    #[cfg(not(target_family = "wasm"))]
+    fn get_block_prover() -> BlockProver {
+        BlockProver::make(None, None)
+    }
+    #[cfg(target_family = "wasm")]
+    fn get_block_prover() -> BlockProver {
+        BlockProver::make_blocking(None, None)
+    }
+    #[cfg(not(target_family = "wasm"))]
+    fn get_tx_prover() -> TransactionProver {
+        TransactionProver::make(None)
+    }
+    #[cfg(target_family = "wasm")]
+    fn get_tx_prover() -> TransactionProver {
+        TransactionProver::make_blocking(None)
+    }
+    #[cfg(not(target_family = "wasm"))]
+    fn get_zkapp_prover() -> ZkappProver {
+        ZkappProver::make(None)
+    }
+    #[cfg(target_family = "wasm")]
+    fn get_zkapp_prover() -> ZkappProver {
+        ZkappProver::make_blocking(None)
+    }
+
     #[allow(unused)]
     #[test]
     fn test_make_verifier_index() {
-        BlockProver::make(None, None);
-        TransactionProver::make(None);
+        get_block_prover();
+        get_tx_prover();
 
         // use crate::proofs::caching::verifier_index_to_bytes;
         // use crate::proofs::verifier_index::get_verifier_index;
@@ -4478,7 +4503,7 @@ pub(super) mod tests {
             tx_step_prover,
             tx_wrap_prover,
             merge_step_prover: _,
-        } = TransactionProver::make(None);
+        } = get_tx_prover();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
         // witnesses.ocaml_aux = read_witnesses("tx_fps.txt").unwrap();
@@ -4604,7 +4629,7 @@ pub(super) mod tests {
             tx_step_prover: _,
             tx_wrap_prover,
             merge_step_prover,
-        } = TransactionProver::make(None);
+        } = get_tx_prover();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
         // witnesses.ocaml_aux = read_witnesses("fps_merge.txt").unwrap();
@@ -4653,7 +4678,7 @@ pub(super) mod tests {
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
             step_proof_prover,
-        } = ZkappProver::make(None);
+        } = get_zkapp_prover();
 
         dbg!(step_opt_signed_opt_signed_prover.rows_rev.len());
         // dbg!(step_opt_signed_opt_signed_prover.rows_rev.iter().map(|v| v.len()).collect::<Vec<_>>());
@@ -4698,7 +4723,7 @@ pub(super) mod tests {
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
             step_proof_prover,
-        } = ZkappProver::make(None);
+        } = get_zkapp_prover();
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
@@ -4740,7 +4765,7 @@ pub(super) mod tests {
             block_step_prover,
             block_wrap_prover,
             tx_wrap_prover,
-        } = BlockProver::make(None, None);
+        } = get_block_prover();
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
         // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
@@ -4782,15 +4807,15 @@ pub(super) mod tests {
             block_step_prover,
             block_wrap_prover,
             tx_wrap_prover: _,
-        } = BlockProver::make(None, None);
-        let TransactionProver { tx_step_prover, .. } = TransactionProver::make(None);
+        } = get_block_prover();
+        let TransactionProver { tx_step_prover, .. } = get_tx_prover();
         let ZkappProver {
             tx_wrap_prover,
             merge_step_prover,
             step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
             step_opt_signed_prover: zkapp_step_opt_signed_prover,
             step_proof_prover: zkapp_step_proof_prover,
-        } = ZkappProver::make(None);
+        } = get_zkapp_prover();
 
         // TODO: Compare checksum with OCaml
         #[rustfmt::skip]
