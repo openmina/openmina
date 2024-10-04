@@ -74,7 +74,12 @@ jobs:
 
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
+      - name: Download circuits files
+        run: |
+          git clone --depth 1 https://github.com/openmina/circuit-blobs.git
+          rm -rf circuit-blobs/.git circuit-blobs/berkeley_rc1 circuit-blobs/3.0.0mainnet
+          zip -0 -r circuit-blobs circuit-blobs
+          mv circuit-blobs.zip ledger/
       - run: |
           cd ledger
           wasm-pack test --release ${{ matrix.driver }} --headless -- -Z build-std=std,panic_abort
