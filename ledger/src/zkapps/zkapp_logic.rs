@@ -3,6 +3,7 @@ use mina_signer::CompressedPubKey;
 use openmina_core::constants::constraint_constants;
 
 use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
+use crate::scan_state::transaction_logic::TimingValidation;
 use crate::{
     scan_state::{
         currency::{Fee, Magnitude, SlotSpan},
@@ -27,18 +28,17 @@ pub enum IsStart<T> {
     Compute(T),
 }
 
-enum PerformResult<Z: ZkappApplication> {
-    None,
-    Bool(Z::Bool),
-    Account(Z::Account),
-}
-
 struct GetNextAccountUpdateResult<Z: ZkappApplication> {
     account_update: Z::AccountUpdate,
     caller_id: TokenId,
     account_update_forest: Z::CallForest,
     new_call_stack: Z::CallStack,
     new_frame: Z::StackFrame,
+}
+
+#[derive(Clone)]
+pub enum ZkAppCommandElt {
+    ZkAppCommandCommitment(crate::ReceiptChainHash),
 }
 
 fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {
@@ -256,7 +256,7 @@ fn get_next_account_update<Z: ZkappApplication>(
     }
 }
 
-fn update_action_state<Z: ZkappApplication>(
+pub fn update_action_state<Z: ZkappApplication>(
     action_state: &[Fp; 5],
     actions: &Actions,
     txn_global_slot: Z::GlobalSlotSinceGenesis,
@@ -289,10 +289,11 @@ fn update_action_state<Z: ZkappApplication>(
         Boolean::True => s2,
         Boolean::False => s1,
     });
-    let last_action_slot = w.exists_no_check(match is_empty.as_boolean() {
+    let last_action_slot = match is_empty.as_boolean() {
         Boolean::True => last_action_slot,
         Boolean::False => txn_global_slot,
-    });
+    }
+    .exists_no_check(w);
     ([s1_new, s2, s3, s4, s5], last_action_slot)
 }
 
@@ -365,13 +366,11 @@ where
         IsStart::Yes(start_data) => start_data.will_succeed,
         IsStart::No => local_state.will_succeed,
     };
-    local_state.ledger = w.exists_no_check_on_bool(
-        is_start2,
-        match is_start2.as_boolean() {
-            Boolean::True => global_state.first_pass_ledger(),
-            Boolean::False => local_state.ledger.clone(),
-        },
-    );
+    local_state.ledger = match is_start2.as_boolean() {
+        Boolean::True => global_state.first_pass_ledger(),
+        Boolean::False => local_state.ledger.clone(),
+    }
+    .exists_no_check_on_bool(is_start2, w);
     local_state.will_succeed = will_succeed;
 
     let ((account_update, remaining, call_stack), account_update_forest, (mut a, inclusion_proof)) = {
@@ -438,7 +437,7 @@ where
             );
         };
 
-        let acct = local_state.ledger.get_account(&account_update, w);
+        let acct = local_state.ledger.get_account(&account_update, w)?;
         local_state.ledger.check_inclusion(&acct, w);
 
         let (transaction_commitment, full_transaction_commitment) = match is_start {
@@ -488,7 +487,7 @@ where
         &account_update.body().token_id,
         (&a, &inclusion_proof),
         w,
-    );
+    )?;
 
     {
         let self_delegate = {
@@ -512,8 +511,8 @@ where
     let matching_verification_key_hashes = {
         let is_not_proved = account_update.is_proved().neg();
         let is_same_vk = Z::VerificationKeyHash::equal(
-            a.verification_key_hash(),
-            account_update.verification_key_hash(),
+            &a.verification_key_hash(),
+            &account_update.verification_key_hash(),
             w,
         );
         Z::Bool::or(is_not_proved, is_same_vk, w)
@@ -635,7 +634,7 @@ where
                 set_timing,
                 &single_data,
                 w,
-            )
+            )?
         };
         let is_keep = Z::SetOrKeep::is_keep(timing);
         let v_and = Z::Bool::and(account_is_untimed, has_permission, w);
@@ -778,7 +777,7 @@ where
                 &controller,
                 &single_data,
                 w,
-            );
+            )?;
             let first = Z::SignedAmount::equal(&Z::SignedAmount::zero(), &actual_balance_change, w);
             Z::LocalState::add_check(
                 local_state,
@@ -794,7 +793,12 @@ where
     let txn_global_slot = global_state.block_global_slot();
     // Check timing with current balance
     let (_a, _local_state) = {
-        let (invalid_timing, timing) = Z::Account::check_timing(&a, &txn_global_slot, w);
+        let (invalid_timing, timing) = match Z::Account::check_timing(&a, &txn_global_slot, w) {
+            (TimingValidation::InsufficientBalance(_), _) => {
+                return Err("Did not propose a balance change at this timing check!".to_string())
+            }
+            (TimingValidation::InvalidTiming(invalid_timing), timing) => (invalid_timing, timing),
+        };
         Z::LocalState::add_check(
             local_state,
             TransactionFailure::SourceMinimumBalanceViolation,
@@ -810,7 +814,7 @@ where
     {
         let has_permission = {
             let access = &a.get().permissions.access;
-            Z::Controller::check(proof_verifies, signature_verifies, access, &single_data, w)
+            Z::Controller::check(proof_verifies, signature_verifies, access, &single_data, w)?
         };
         Z::LocalState::add_check(
             local_state,
@@ -861,7 +865,7 @@ where
                 edit_state,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -914,7 +918,7 @@ where
                 )
             };
 
-            Z::Controller::check(proof_verifies, signature_verifies, &auth, &single_data, w)
+            Z::Controller::check(proof_verifies, signature_verifies, &auth, &single_data, w)?
         };
         Z::LocalState::add_check(
             local_state,
@@ -960,7 +964,7 @@ where
                 edit_action_state,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -984,7 +988,7 @@ where
                 set_zkapp_uri,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1014,7 +1018,7 @@ where
                 set_token_symbol,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1043,7 +1047,7 @@ where
                 set_delegate,
                 &single_data,
                 w,
-            )
+            )?
         };
         let first = Z::Bool::and(has_permission, account_update_token_is_default, w);
         Z::LocalState::add_check(
@@ -1081,7 +1085,7 @@ where
                 increment_nonce,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1104,7 +1108,7 @@ where
                 set_voting_for,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1151,7 +1155,7 @@ where
                 set_permissions,
                 &single_data,
                 w,
-            )
+            )?
         };
         Z::LocalState::add_check(
             local_state,
@@ -1170,7 +1174,7 @@ where
         ((), ())
     };
 
-    let a = Z::Handler::init_account(&account_update, &a);
+    let a = Z::Handler::init_account(&account_update, a);
 
     let local_delta = account_update_balance_change.negate();
 
@@ -1204,7 +1208,7 @@ where
         overflowed.neg(),
         w,
     );
-    local_state.ledger.set_account((a, inclusion_proof), w);
+    local_state.ledger.set_account((a, inclusion_proof), w)?;
 
     let is_last_account_update = Z::CallForest::is_empty(Z::StackFrame::calls(&remaining), w);
     // We decompose this way because of OCaml evaluation order
@@ -1307,7 +1311,7 @@ where
             local_state.success.neg(),
         ],
         w,
-    );
+    )?;
 
     // global state
     {
@@ -1340,7 +1344,7 @@ where
             Boolean::False => local_state.success,
         });
         let ledger = match is_last_account_update.as_boolean() {
-            Boolean::True => Z::Ledger::empty(),
+            Boolean::True => Z::Ledger::empty(0),
             Boolean::False => local_state.ledger.clone(),
         }
         .exists_no_check(w);

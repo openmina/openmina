@@ -35,9 +35,10 @@ use crate::{
             TransactionStatus,
         },
     },
-    sparse_ledger::{LedgerIntf, SparseLedger},
+    sparse_ledger::SparseLedger,
     staged_ledger::hash::AuxHash,
     verifier::Verifier,
+    zkapps::non_snark::LedgerNonSnark,
 };
 
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
@@ -1434,7 +1435,7 @@ impl ScanState {
         apply_first_pass_sparse_ledger: ApplyFirstSparse,
     ) -> Result<Pass, String>
     where
-        L: LedgerIntf + Clone,
+        L: LedgerNonSnark,
         F: Fn(Fp) -> Result<MinaStateProtocolStateValueStableV2, String>,
         ApplyFirst: Fn(
             Slot,
@@ -1455,7 +1456,7 @@ impl ScanState {
         let stop_at_first_pass = stop_at_first_pass.unwrap_or(false);
 
         #[derive(Clone)]
-        enum PreviousIncompleteTxns<L: LedgerIntf + Clone> {
+        enum PreviousIncompleteTxns<L: LedgerNonSnark> {
             Unapplied(Vec<Arc<TransactionWithWitness>>),
             PartiallyApplied(Vec<(TransactionStatus, TransactionPartiallyApplied<L>)>),
         }
@@ -1469,7 +1470,7 @@ impl ScanState {
             get_protocol_state: F,
         ) -> Result<TransactionPartiallyApplied<L>, String>
         where
-            L: LedgerIntf + Clone,
+            L: LedgerNonSnark,
             F: Fn(Fp) -> Result<MinaStateProtocolStateValueStableV2, String>,
             Apply: Fn(
                 Slot,
@@ -1536,7 +1537,7 @@ impl ScanState {
             apply_second_pass: ApplySecond,
         ) -> Result<(), String>
         where
-            L: LedgerIntf + Clone,
+            L: LedgerNonSnark,
             ApplySecond:
                 Fn(&mut L, TransactionPartiallyApplied<L>) -> Result<TransactionApplied, String>,
         {
@@ -1568,7 +1569,7 @@ impl ScanState {
             apply_txns_second_pass: ApplySecondPass,
         ) -> Result<R, String>
         where
-            L: LedgerIntf + Clone,
+            L: LedgerNonSnark,
             F: Fn(Fp) -> Result<MinaStateProtocolStateValueStableV2, String>,
             ApplySecondPass: Fn(Acc<L>) -> Result<R, String>,
             ApplyFirstSparse: Fn(
@@ -1622,7 +1623,7 @@ impl ScanState {
                                 block_global_slot: zkapp.global_state.block_global_slot,
                             };
 
-                            let local_state = LocalStateEnv {
+                            let local_state = LocalStateEnv::<L> {
                                 stack_frame: zkapp.local_state.stack_frame,
                                 call_stack: zkapp.local_state.call_stack,
                                 transaction_commitment: zkapp.local_state.transaction_commitment,
@@ -1711,7 +1712,7 @@ impl ScanState {
             apply_txns_second_pass: &'a impl Fn(Acc<L>) -> Result<(), String>,
         ) -> Result<Pass, String>
         where
-            L: LedgerIntf + Clone + 'a,
+            L: LedgerNonSnark,
         {
             use PreviousIncompleteTxns::{PartiallyApplied, Unapplied};
 
@@ -1862,7 +1863,7 @@ impl ScanState {
         apply_first_pass_sparse_ledger: ApplyFirstSparse,
     ) -> Result<Pass, String>
     where
-        L: LedgerIntf + Clone,
+        L: LedgerNonSnark,
         F: Fn(Fp) -> Result<MinaStateProtocolStateValueStableV2, String>,
         ApplyFirst: Fn(
             Slot,
@@ -1899,7 +1900,7 @@ impl ScanState {
         apply_first_pass_sparse_ledger: ApplyFirstSparse,
     ) -> Result<Pass, String>
     where
-        L: LedgerIntf + Clone,
+        L: LedgerNonSnark,
         F: Fn(Fp) -> Result<MinaStateProtocolStateValueStableV2, String>,
         ApplyFirst: Fn(
             Slot,
@@ -1939,7 +1940,7 @@ impl ScanState {
         apply_first_pass_sparse_ledger: ApplyFirstSparse,
     ) -> Result<Pass, String>
     where
-        L: LedgerIntf + Clone,
+        L: LedgerNonSnark,
         F: Fn(Fp) -> Result<MinaStateProtocolStateValueStableV2, String>,
         ApplyFirst: Fn(
             Slot,

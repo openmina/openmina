@@ -9,7 +9,6 @@ pub mod protocol_state;
 pub mod scan_state;
 pub mod snark_work;
 pub mod transaction_logic;
-pub mod zkapp_logic;
 pub use parallel_scan::SpacePartition;
 
 pub struct GenesisConstant {

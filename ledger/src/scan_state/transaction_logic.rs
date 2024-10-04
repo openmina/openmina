@@ -14,9 +14,10 @@ use openmina_macros::SerdeYojsonEnum;
 use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
-use crate::scan_state::zkapp_logic;
+use crate::zkapps::non_snark::{LedgerNonSnark, ZkappNonSnark};
 use crate::{
-    hash_with_kimchi, AccountIdOrderable, BaseLedger, ControlTag, Inputs, VerificationKeyWire,
+    hash_with_kimchi, zkapps, AccountIdOrderable, BaseLedger, ControlTag, Inputs,
+    VerificationKeyWire,
 };
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
@@ -24,7 +25,7 @@ use crate::{
     Account, AccountId, ReceiptChainHash, Timing, TokenId,
 };
 
-use self::zkapp_command::{AccessedOrNot, Numeric};
+use self::zkapp_command::AccessedOrNot;
 use self::{
     local_state::{CallStack, LocalStateEnv, StackFrame},
     protocol_state::{GlobalState, ProtocolStateView},
@@ -34,18 +35,17 @@ use self::{
         TransactionApplied, ZkappCommandApplied,
     },
     transaction_union_payload::TransactionUnionPayload,
-    zkapp_command::{AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions},
+    zkapp_command::{AccountUpdate, WithHash, ZkAppCommand},
 };
 
 use super::currency::SlotSpan;
 use super::fee_rate::FeeRate;
-use super::zkapp_logic::ZkAppCommandElt;
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
     fee_excess::FeeExcess,
     scan_state::transaction_snark::OneOrTwo,
-    zkapp_logic::{Handler, StartData},
 };
+use crate::zkapps::zkapp_logic::ZkAppCommandElt;
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -926,7 +926,7 @@ pub mod zkapp_command {
     use rand::{seq::SliceRandom, Rng};
 
     use crate::{
-        account, dummy, gen_compressed, gen_keypair, hash_noinputs,
+        dummy, gen_compressed, gen_keypair, hash_noinputs,
         proofs::{
             field::{Boolean, ToBoolean},
             to_field_elements::ToFieldElements,
@@ -936,7 +936,7 @@ pub mod zkapp_command {
             currency::{MinMax, Sgn},
             GenesisConstant, GENESIS_CONSTANT,
         },
-        zkapps::snark::zkapp_check::InSnarkCheck,
+        zkapps::checks::{ZkappCheck, ZkappCheckOps},
         AuthRequired, MutableFp, MyCow, Permissions, SetVerificationKey, ToInputs, TokenSymbol,
         VerificationKey, VerificationKeyWire, VotingFor, ZkAppAccount, ZkAppUri,
     };
@@ -1536,31 +1536,6 @@ pub mod zkapp_command {
         }
     }
 
-    pub trait OutSnarkCheck {
-        type A;
-        type B;
-
-        /// zkapp check
-        fn zcheck(&self, label: String, x: Self::B) -> Result<(), String>;
-    }
-
-    impl<T> OutSnarkCheck for T
-    where
-        T: Eq,
-    {
-        type A = T;
-        type B = T;
-
-        /// zkapp check
-        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
-            if *self == rhs {
-                Ok(())
-            } else {
-                Err(format!("Equality check failed: {}", label))
-            }
-        }
-    }
-
     // TODO: This could be std::ops::Range ?
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L23
     #[derive(Debug, Clone, PartialEq)]
@@ -1614,27 +1589,6 @@ pub mod zkapp_command {
             let ClosedInterval { lower, upper } = self;
             lower.check(w);
             upper.check(w);
-        }
-    }
-
-    impl<T> OutSnarkCheck for ClosedInterval<T>
-    where
-        T: PartialOrd + std::fmt::Debug,
-    {
-        type A = ClosedInterval<T>;
-        type B = T;
-
-        /// zkapp check
-        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
-            /*println!(
-                "bounds check lower {:?} rhs {:?} upper {:?}",
-                self.lower, rhs, self.upper
-            );*/
-            if self.lower <= rhs && rhs <= self.upper {
-                Ok(())
-            } else {
-                Err(format!("Bounds check failed: {}", label))
-            }
         }
     }
 
@@ -1735,20 +1689,6 @@ pub mod zkapp_command {
         }
     }
 
-    impl<T> OrIgnore<T>
-    where
-        T: OutSnarkCheck<A = T>,
-    {
-        /// zkapp check
-        pub fn zcheck(&self, label: String, rhs: T::B) -> Result<(), String> {
-            // println!("[rust] check {}, {:?}", label, ret);
-            match self {
-                Self::Ignore => Ok(()),
-                Self::Check(t) => t.zcheck(label, rhs),
-            }
-        }
-    }
-
     impl<T> OrIgnore<T> {
         /// https://github.com/MinaProtocol/mina/blob/d7d4aa4d650eb34b45a42b29276554802683ce15/src/lib/mina_base/zkapp_basic.ml#L239
         pub fn gen<F>(mut fun: F) -> Self
@@ -1802,14 +1742,6 @@ pub mod zkapp_command {
     pub struct EpochLedger {
         pub hash: Hash<Fp>,
         pub total_currency: Numeric<Amount>,
-    }
-
-    impl EpochLedger {
-        pub fn epoch_ledger(&self, t: protocol_state::EpochLedger<Fp>) -> Result<(), String> {
-            self.hash.zcheck("epoch_ledger_hash".to_string(), t.hash)?;
-            self.total_currency
-                .zcheck("epoch_ledger_total_currency".to_string(), t.total_currency)
-        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/zkapp_precondition.ml#L797
@@ -1905,25 +1837,6 @@ pub mod zkapp_command {
     }
 
     impl EpochData {
-        pub fn epoch_data(
-            &self,
-            label: &str,
-            t: protocol_state::EpochData<Fp>,
-        ) -> Result<(), String> {
-            self.ledger.epoch_ledger(t.ledger)?;
-            // ignore seed
-            self.start_checkpoint.zcheck(
-                format!("{}_{}", label, "start_checkpoint"),
-                t.start_checkpoint,
-            )?;
-            self.lock_checkpoint.zcheck(
-                format!("{}_{}", label, "lock_checkpoint"),
-                t.lock_checkpoint,
-            )?;
-            self.epoch_length
-                .zcheck(format!("{}_{}", label, "epoch_length"), t.epoch_length)
-        }
-
         pub fn gen() -> Self {
             let mut rng = rand::thread_rng();
 
@@ -1953,27 +1866,11 @@ pub mod zkapp_command {
     }
 
     impl ZkAppPreconditions {
-        /// zkapp check
-        pub fn zcheck(&self, s: ProtocolStateView) -> Result<(), String> {
-            self.snarked_ledger_hash
-                .zcheck("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
-            self.blockchain_length
-                .zcheck("blockchain_length".to_string(), s.blockchain_length)?;
-            self.min_window_density
-                .zcheck("min_window_density".to_string(), s.min_window_density)?;
-            self.total_currency
-                .zcheck("total_currency".to_string(), s.total_currency)?;
-            self.global_slot_since_genesis.zcheck(
-                "global_slot_since_genesis".to_string(),
-                s.global_slot_since_genesis,
-            )?;
-            self.staking_epoch_data
-                .epoch_data("staking_epoch_data", s.staking_epoch_data)?;
-            self.next_epoch_data
-                .epoch_data("next_epoch_data", s.next_epoch_data)
-        }
-
-        pub fn checked_zcheck(&self, s: &ProtocolStateView, w: &mut Witness<Fp>) -> Boolean {
+        pub fn zcheck<Ops: ZkappCheckOps>(
+            &self,
+            s: &ProtocolStateView,
+            w: &mut Witness<Fp>,
+        ) -> Boolean {
             let Self {
                 snarked_ledger_hash,
                 blockchain_length,
@@ -2000,40 +1897,38 @@ pub mod zkapp_command {
                     lock_checkpoint,
                     epoch_length,
                 } = epoch_data;
-                // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+                // Reverse to match OCaml order of the list, while still executing `zcheck`
                 // in correct order
                 [
-                    (epoch_length, ClosedInterval::min_max).checked_zcheck(&view.epoch_length, w),
-                    (lock_checkpoint, Fp::zero).checked_zcheck(&view.lock_checkpoint, w),
-                    (start_checkpoint, Fp::zero).checked_zcheck(&view.start_checkpoint, w),
+                    (epoch_length, ClosedInterval::min_max).zcheck::<Ops>(&view.epoch_length, w),
+                    (lock_checkpoint, Fp::zero).zcheck::<Ops>(&view.lock_checkpoint, w),
+                    (start_checkpoint, Fp::zero).zcheck::<Ops>(&view.start_checkpoint, w),
                     (total_currency, ClosedInterval::min_max)
-                        .checked_zcheck(&view.ledger.total_currency, w),
-                    (hash, Fp::zero).checked_zcheck(&view.ledger.hash, w),
+                        .zcheck::<Ops>(&view.ledger.total_currency, w),
+                    (hash, Fp::zero).zcheck::<Ops>(&view.ledger.hash, w),
                 ]
             };
 
             let next_epoch_data = epoch_data(next_epoch_data, &s.next_epoch_data, w);
             let staking_epoch_data = epoch_data(staking_epoch_data, &s.staking_epoch_data, w);
 
-            // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+            // Reverse to match OCaml order of the list, while still executing `zcheck`
             // in correct order
             let bools = [
                 (global_slot_since_genesis, ClosedInterval::min_max)
-                    .checked_zcheck(&s.global_slot_since_genesis, w),
-                (total_currency, ClosedInterval::min_max).checked_zcheck(&s.total_currency, w),
+                    .zcheck::<Ops>(&s.global_slot_since_genesis, w),
+                (total_currency, ClosedInterval::min_max).zcheck::<Ops>(&s.total_currency, w),
                 (min_window_density, ClosedInterval::min_max)
-                    .checked_zcheck(&s.min_window_density, w),
-                (blockchain_length, ClosedInterval::min_max)
-                    .checked_zcheck(&s.blockchain_length, w),
-                (snarked_ledger_hash, Fp::zero).checked_zcheck(&s.snarked_ledger_hash, w),
+                    .zcheck::<Ops>(&s.min_window_density, w),
+                (blockchain_length, ClosedInterval::min_max).zcheck::<Ops>(&s.blockchain_length, w),
+                (snarked_ledger_hash, Fp::zero).zcheck::<Ops>(&s.snarked_ledger_hash, w),
             ]
             .into_iter()
             .rev()
             .chain(staking_epoch_data.into_iter().rev())
-            .chain(next_epoch_data.into_iter().rev())
-            .collect::<Vec<_>>();
+            .chain(next_epoch_data.into_iter().rev());
 
-            Boolean::all(&bools, w)
+            Ops::boolean_all(bools, w)
         }
 
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_precondition.ml#L1303
@@ -2166,80 +2061,7 @@ pub mod zkapp_command {
     }
 
     impl Account {
-        /// zkapp check
-        pub fn zcheck<F>(&self, new_account: bool, mut check: F, a: account::Account)
-        where
-            F: FnMut(TransactionFailure, bool),
-        {
-            self.zchecks(new_account, a)
-                .iter()
-                .for_each(|(failure, res)| check(failure.clone(), res.is_ok()))
-        }
-
-        fn zchecks(
-            &self,
-            new_account: bool,
-            a: account::Account,
-        ) -> Vec<(TransactionFailure, Result<(), String>)> {
-            let zkapp = a.zkapp.unwrap_or_default();
-            let mut ret = vec![
-                (
-                    TransactionFailure::AccountBalancePreconditionUnsatisfied,
-                    self.balance.zcheck("balance".to_string(), a.balance),
-                ),
-                (
-                    TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                    self.nonce.zcheck("nonce".to_string(), a.nonce),
-                ),
-                (
-                    TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
-                    self.receipt_chain_hash
-                        .zcheck("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
-                ),
-                (
-                    TransactionFailure::AccountDelegatePreconditionUnsatisfied,
-                    self.delegate.zcheck(
-                        "delegate".to_string(),
-                        a.delegate.unwrap_or_else(invalid_public_key),
-                    ),
-                ),
-                (
-                    TransactionFailure::AccountActionStatePreconditionUnsatisfied,
-                    match zkapp
-                        .action_state
-                        .iter()
-                        .find(|state| self.action_state.zcheck("".to_string(), **state).is_ok())
-                    {
-                        None => Err("Action state mismatch".to_string()),
-                        Some(_) => Ok(()),
-                    },
-                ),
-            ];
-
-            for (i, (c, v)) in self.state.iter().zip(zkapp.app_state.iter()).enumerate() {
-                ret.push((
-                    TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as u64),
-                    c.zcheck(format!("state[{}]", i), *v),
-                ));
-            }
-
-            let mut ret2 = vec![
-                (
-                    TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
-                    self.proved_state
-                        .zcheck("proved_state".to_string(), zkapp.proved_state),
-                ),
-                (
-                    TransactionFailure::AccountIsNewPreconditionUnsatisfied,
-                    self.is_new.zcheck("is_new".to_string(), new_account),
-                ),
-            ];
-
-            ret.append(&mut ret2);
-            ret
-        }
-
-        fn checked_zchecks(
+        fn zchecks<Ops: ZkappCheckOps>(
             &self,
             account: &crate::Account,
             new_account: Boolean,
@@ -2262,7 +2084,7 @@ pub mod zkapp_command {
             let is_new = is_new.map(ToBoolean::to_boolean);
             let proved_state = proved_state.map(ToBoolean::to_boolean);
 
-            // NOTE: Here we need to execute all `checked_zcheck` in the exact same order than OCaml
+            // NOTE: Here we need to execute all `zcheck` in the exact same order than OCaml
             // so we execute them in reverse order (compared to OCaml): OCaml evaluates from right
             // to left.
             // We then have to reverse the resulting vector, to match OCaml resulting list.
@@ -2271,12 +2093,12 @@ pub mod zkapp_command {
             let mut checks: Vec<(TransactionFailure, _)> = [
                 (
                     AccountIsNewPreconditionUnsatisfied,
-                    (&is_new, || Boolean::False).checked_zcheck(&new_account, w),
+                    (&is_new, || Boolean::False).zcheck::<Ops>(&new_account, w),
                 ),
                 (
                     AccountProvedStatePreconditionUnsatisfied,
                     (&proved_state, || Boolean::False)
-                        .checked_zcheck(&zkapp_account.proved_state.to_boolean(), w),
+                        .zcheck::<Ops>(&zkapp_account.proved_state.to_boolean(), w),
                 ),
             ]
             .into_iter()
@@ -2287,7 +2109,7 @@ pub mod zkapp_command {
                     .enumerate()
                     .rev()
                     .map(|(i, (s, account_s))| {
-                        let b = (s, Fp::zero).checked_zcheck(account_s, w);
+                        let b = (s, Fp::zero).zcheck::<Ops>(account_s, w);
                         (AccountAppStatePreconditionUnsatisfied(i as u64), b)
                     })
                     .collect::<Vec<_>>();
@@ -2301,30 +2123,30 @@ pub mod zkapp_command {
                         .iter()
                         .map(|account_s| {
                             (action_state, ZkAppAccount::empty_action_state)
-                                .checked_zcheck(account_s, w)
+                                .zcheck::<Ops>(account_s, w)
                         })
                         .collect();
                     (
                         AccountActionStatePreconditionUnsatisfied,
-                        Boolean::any(&bools, w),
+                        Ops::boolean_any(bools, w),
                     )
                 },
                 (
                     AccountDelegatePreconditionUnsatisfied,
                     (delegate, CompressedPubKey::empty)
-                        .checked_zcheck(&*account.delegate_or_empty(), w),
+                        .zcheck::<Ops>(&*account.delegate_or_empty(), w),
                 ),
                 (
                     AccountReceiptChainHashPreconditionUnsatisfied,
-                    (receipt_chain_hash, Fp::zero).checked_zcheck(&account.receipt_chain_hash.0, w),
+                    (receipt_chain_hash, Fp::zero).zcheck::<Ops>(&account.receipt_chain_hash.0, w),
                 ),
                 (
                     AccountNoncePreconditionUnsatisfied,
-                    (nonce, ClosedInterval::min_max).checked_zcheck(&account.nonce, w),
+                    (nonce, ClosedInterval::min_max).zcheck::<Ops>(&account.nonce, w),
                 ),
                 (
                     AccountBalancePreconditionUnsatisfied,
-                    (balance, ClosedInterval::min_max).checked_zcheck(&account.balance, w),
+                    (balance, ClosedInterval::min_max).zcheck::<Ops>(&account.balance, w),
                 ),
             ])
             .collect::<Vec<_>>();
@@ -2446,17 +2268,18 @@ pub mod zkapp_command {
             MyCow::Borrow(&self.0)
         }
 
-        pub fn checked_zcheck<Fun>(
+        pub fn zcheck<Ops, Fun>(
             &self,
             new_account: Boolean,
             account: &crate::Account,
             mut check: Fun,
             w: &mut Witness<Fp>,
         ) where
+            Ops: ZkappCheckOps,
             Fun: FnMut(TransactionFailure, Boolean, &mut Witness<Fp>),
         {
             let this = self.to_full();
-            for (failure, passed) in this.checked_zchecks(account, new_account, w) {
+            for (failure, passed) in this.zchecks::<Ops>(account, new_account, w) {
                 check(failure, passed, w);
             }
         }
@@ -5227,7 +5050,7 @@ pub mod protocol_state {
         }
 
         #[must_use]
-        fn set_fee_excess(&self, fee_excess: Signed<Amount>) -> Self {
+        pub fn set_fee_excess(&self, fee_excess: Signed<Amount>) -> Self {
             let mut this = self.clone();
             this.fee_excess = fee_excess;
             this
@@ -5244,7 +5067,7 @@ pub mod protocol_state {
             this
         }
 
-        fn block_global_slot(&self) -> Slot {
+        pub fn block_global_slot(&self) -> Slot {
             self.block_global_slot
         }
     }
@@ -5569,17 +5392,20 @@ pub mod local_state {
     /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
     /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
     /// Maybe a better solution is to keep the LocalState name and put it under a different module
-    pub type LocalStateEnv<L> = LocalStateSkeleton<
-        L,                            // ledger
-        StackFrame,                   // stack_frame
-        CallStack,                    // call_stack
-        ReceiptChainHash,             // commitments
-        Signed<Amount>,               // excess & supply_increase
-        Vec<Vec<TransactionFailure>>, // failure_status_tbl
-        bool,                         // success & will_succeed
-        Index,                        // account_update_index
-    >;
+    // pub type LocalStateEnv<L> = LocalStateSkeleton<
+    //     L,                            // ledger
+    //     StackFrame,                   // stack_frame
+    //     CallStack,                    // call_stack
+    //     ReceiptChainHash,             // commitments
+    //     Signed<Amount>,               // excess & supply_increase
+    //     Vec<Vec<TransactionFailure>>, // failure_status_tbl
+    //     bool,                         // success & will_succeed
+    //     Index,                        // account_update_index
+    // >;
 
+    pub type LocalStateEnv<L> = crate::zkapps::zkapp_logic::LocalState<ZkappNonSnark<L>>;
+
+    // TODO: Dedub this with `crate::zkapps::zkapp_logic::LocalState`
     #[derive(Debug, Clone)]
     pub struct LocalStateSkeleton<
         L: LedgerIntf + Clone,
@@ -5605,32 +5431,35 @@ pub mod local_state {
         pub will_succeed: Bool,
     }
 
-    impl<L: LedgerIntf + Clone> LocalStateEnv<L> {
-        pub fn add_new_failure_status_bucket(&self) -> Self {
-            let mut failure_status_tbl = self.failure_status_tbl.clone();
-            failure_status_tbl.insert(0, Vec::new());
-            Self {
-                failure_status_tbl,
-                ..self.clone()
-            }
-        }
+    // impl<L> LocalStateEnv<L>
+    // where
+    //     L: LedgerNonSnark,
+    // {
+    //     pub fn add_new_failure_status_bucket(&self) -> Self {
+    //         let mut failure_status_tbl = self.failure_status_tbl.clone();
+    //         failure_status_tbl.insert(0, Vec::new());
+    //         Self {
+    //             failure_status_tbl,
+    //             ..self.clone()
+    //         }
+    //     }
 
-        pub fn add_check(&self, failure: TransactionFailure, b: bool) -> Self {
-            let failure_status_tbl = if !b {
-                let mut failure_status_tbl = self.failure_status_tbl.clone();
-                failure_status_tbl[0].insert(0, failure);
-                failure_status_tbl
-            } else {
-                self.failure_status_tbl.clone()
-            };
+    //     pub fn add_check(&self, failure: TransactionFailure, b: bool) -> Self {
+    //         let failure_status_tbl = if !b {
+    //             let mut failure_status_tbl = self.failure_status_tbl.clone();
+    //             failure_status_tbl[0].insert(0, failure);
+    //             failure_status_tbl
+    //         } else {
+    //             self.failure_status_tbl.clone()
+    //         };
 
-            Self {
-                failure_status_tbl,
-                success: self.success && b,
-                ..self.clone()
-            }
-        }
-    }
+    //         Self {
+    //             failure_status_tbl,
+    //             success: self.success && b,
+    //             ..self.clone()
+    //         }
+    //     }
+    // }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct LocalState {
@@ -5785,156 +5614,20 @@ pub mod local_state {
     }
 }
 
-// let equal' (t1 : t) (t2 : t) =
-//   let ( ! ) f x y = Impl.run_checked (f x y) in
-//   let f eq acc f = Core_kernel.Field.(eq (get f t1) (get f t2)) :: acc in
-//   Mina_transaction_logic.Zkapp_command_logic.Local_state.Fields.fold ~init:[]
-//     ~stack_frame:(f Stack_frame.Digest.Checked.equal)
-//     ~call_stack:(f Call_stack_digest.Checked.equal)
-//     ~transaction_commitment:(f Field.equal)
-//     ~full_transaction_commitment:(f Field.equal)
-//     ~excess:(f !Currency.Amount.Signed.Checked.equal)
-//     ~supply_increase:(f !Currency.Amount.Signed.Checked.equal)
-//     ~ledger:(f !Ledger_hash.equal_var) ~success:(f Impl.Boolean.equal)
-//     ~account_update_index:(f !Mina_numbers.Index.Checked.equal)
-//     ~failure_status_tbl:(f (fun () () -> Impl.Boolean.true_))
-//     ~will_succeed:(f Impl.Boolean.equal)
-
-pub enum Eff<L: LedgerIntf + Clone> {
-    CheckValidWhilePrecondition(Numeric<Slot>, GlobalState<L>),
-    CheckAccountPrecondition(AccountUpdate, Account, bool, LocalStateEnv<L>),
-    CheckProtocolStatePrecondition(Box<ZkAppPreconditions>, GlobalState<L>),
-    InitAccount(AccountUpdate, Account),
-}
-
-pub struct Env<L: LedgerIntf + Clone> {
-    account_update: AccountUpdate,
-    zkapp_command: ZkAppCommand,
-    account: Account,
-    ledger: L,
-    amount: Amount,
-    signed_amount: Signed<Amount>,
-    bool: bool,
-    token_id: TokenId,
-    global_state: GlobalState<L>,
-    local_state: LocalStateEnv<L>,
-    protocol_state_precondition: ZkAppPreconditions,
-    valid_while_precondition: Numeric<Slot>,
-    transaction_commitment: Fp,
-    full_transaction_commitment: Fp,
-    field: Fp,
-    failure: Option<TransactionFailure>,
-}
-
-pub enum PerformResult<L: LedgerIntf + Clone> {
-    Bool(bool),
-    LocalState(Box<LocalStateEnv<L>>),
-    Account(Box<Account>),
-}
-
-impl<L: LedgerIntf + Clone> PerformResult<L> {
-    pub fn to_bool(self) -> bool {
-        match self {
-            PerformResult::Bool(v) => v,
-            _ => panic!("Not a bool"),
-        }
-    }
-}
-
-impl<L> Env<L>
-where
-    L: LedgerIntf + Clone,
-{
-    pub fn perform(eff: Eff<L>) -> PerformResult<L> {
-        match eff {
-            Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
-                valid_while
-                    .zcheck(
-                        "valid_while_precondition".to_string(),
-                        global_state.block_global_slot,
-                    )
-                    .is_ok(),
-            ),
-            Eff::CheckProtocolStatePrecondition(pred, global_state) => {
-                PerformResult::Bool(pred.zcheck(global_state.protocol_state).is_ok())
-            }
-            Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
-                let local_state = {
-                    let precondition_account = &account_update.body.preconditions.account.0;
-                    let mut _local_state = local_state;
-                    let check = |failure, b| {
-                        _local_state = _local_state.add_check(failure, b);
-                    };
-                    precondition_account.zcheck(new_account, check, account);
-                    _local_state
-                };
-                PerformResult::LocalState(Box::new(local_state))
-            }
-            Eff::InitAccount(_account_update, a) => PerformResult::Account(Box::new(a)),
-        }
-    }
-}
-
-// fn step_all<L>(
-//     constraint_constants: &ConstraintConstants,
-//     f: &impl Fn(
-//         Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//         (GlobalState<L>, LocalStateEnv<L>),
-//     ) -> Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//     h: fn(Eff<L>) -> PerformResult<L>,
-//     user_acc: Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//     (g_state, l_state): (GlobalState<L>, LocalStateEnv<L>),
-// ) -> Result<
-//     (
-//         Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//         Vec<Vec<TransactionFailure>>,
-//     ),
-//     String,
-// >
-// where
-//     L: LedgerIntf + Clone,
-// {
-//     if l_state.stack_frame.calls.is_empty() {
-//         Ok((user_acc, l_state.failure_status_tbl))
-//     } else {
-//         let states = apply(
-//             constraint_constants,
-//             IsStart::No,
-//             Handler { perform: h },
-//             (g_state, l_state),
-//         );
-//         step_all(
-//             constraint_constants,
-//             f,
-//             h,
-//             f(user_acc, states.clone()),
-//             states,
-//         )
-//     }
-// }
-
 fn step_all<A, L>(
-    constraint_constants: &ConstraintConstants,
-    f: &impl Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
-    handler: &Handler<L>,
-    user_acc: A,
-    (g_state, l_state): (GlobalState<L>, LocalStateEnv<L>),
-) -> Result<(A, Vec<Vec<TransactionFailure>>), String>
+    _constraint_constants: &ConstraintConstants,
+    f: &impl Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
+    user_acc: &mut A,
+    (g_state, l_state): (&mut GlobalState<L>, &mut LocalStateEnv<L>),
+) -> Result<Vec<Vec<TransactionFailure>>, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerNonSnark,
 {
-    if l_state.stack_frame.calls.is_empty() {
-        Ok((user_acc, l_state.failure_status_tbl))
-    } else {
-        let states = zkapp_logic::step(constraint_constants, handler, (g_state, l_state))?;
-        step_all(
-            constraint_constants,
-            f,
-            handler,
-            f(user_acc, states.clone()),
-            states,
-        )
+    while !l_state.stack_frame.calls.is_empty() {
+        zkapps::non_snark::step(g_state, l_state)?;
+        f(user_acc, g_state, l_state);
     }
+    Ok(l_state.failure_status_tbl.clone())
 }
 
 /// apply zkapp command fee payer's while stubbing out the second pass ledger
@@ -5944,16 +5637,16 @@ pub fn apply_zkapp_command_first_pass_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
     global_slot: Slot,
     state_view: &ProtocolStateView,
-    init: A,
+    init: &mut A,
     f: F,
     fee_excess: Option<Signed<Amount>>,
     supply_increase: Option<Signed<Amount>>,
     ledger: &mut L,
     command: &ZkAppCommand,
-) -> Result<(ZkappCommandPartiallyApplied<L>, A), String>
+) -> Result<ZkappCommandPartiallyApplied<L>, String>
 where
-    L: LedgerIntf + Clone,
-    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+    L: LedgerNonSnark,
+    F: Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
 {
     let fee_excess = fee_excess.unwrap_or_else(Signed::zero);
     let supply_increase = supply_increase.unwrap_or_else(Signed::zero);
@@ -5969,17 +5662,16 @@ where
 
         vec![(id, location)]
     };
+    // let perform = |eff: Eff<L>| Env::perform(eff);
 
-    let perform = |eff: Eff<L>| Env::perform(eff);
-
-    let initial_state = (
+    let (mut global_state, mut local_state) = (
         GlobalState {
             protocol_state: state_view.clone(),
             first_pass_ledger: ledger.clone(),
             second_pass_ledger: {
                 // We stub out the second_pass_ledger initially, and then poke the
                 // correct value in place after the first pass is finished.
-                L::empty(0)
+                <L as LedgerIntf>::empty(0)
             },
             fee_excess,
             supply_increase,
@@ -5988,11 +5680,11 @@ where
         LocalStateEnv {
             stack_frame: StackFrame::default(),
             call_stack: CallStack::new(),
-            transaction_commitment: ReceiptChainHash(Fp::zero()),
-            full_transaction_commitment: ReceiptChainHash(Fp::zero()),
+            transaction_commitment: Fp::zero(),
+            full_transaction_commitment: Fp::zero(),
             excess: Signed::<Amount>::zero(),
             supply_increase,
-            ledger: L::empty(0),
+            ledger: <L as LedgerIntf>::empty(0),
             success: true,
             account_update_index: Index::zero(),
             failure_status_tbl: Vec::new(),
@@ -6000,23 +5692,20 @@ where
         },
     );
 
-    let user_acc = f(init, initial_state.clone());
+    f(init, &global_state, &local_state);
     let account_updates = command.all_account_updates();
 
-    let (global_state, local_state) = {
-        zkapp_logic::start(
-            constraint_constants,
-            StartData {
-                account_updates,
-                memo_hash: command.memo.hash(),
-                // It's always valid to set this value to true, and it will
-                // have no effect outside of the snark.
-                will_succeed: true,
-            },
-            &Handler { perform },
-            initial_state,
-        )?
-    };
+    zkapps::non_snark::start(
+        &mut global_state,
+        &mut local_state,
+        zkapps::non_snark::StartData {
+            account_updates,
+            memo_hash: command.memo.hash(),
+            // It's always valid to set this value to true, and it will
+            // have no effect outside of the snark.
+            will_succeed: true,
+        },
+    )?;
 
     let command = command.clone();
     let constraint_constants = constraint_constants.clone();
@@ -6032,7 +5721,7 @@ where
         local_state,
     };
 
-    Ok((res, user_acc))
+    Ok(res)
 }
 
 fn apply_zkapp_command_first_pass<L>(
@@ -6045,14 +5734,15 @@ fn apply_zkapp_command_first_pass<L>(
     command: &ZkAppCommand,
 ) -> Result<ZkappCommandPartiallyApplied<L>, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerNonSnark,
 {
-    let (partial_stmt, _user_acc) = apply_zkapp_command_first_pass_aux(
+    let mut acc = ();
+    let partial_stmt = apply_zkapp_command_first_pass_aux(
         constraint_constants,
         global_slot,
         state_view,
-        None,
-        |_acc, state| Some(state),
+        &mut acc,
+        |_acc, _g, _l| {},
         fee_excess,
         supply_increase,
         ledger,
@@ -6064,16 +5754,16 @@ where
 
 pub fn apply_zkapp_command_second_pass_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
-    init: A,
+    init: &mut A,
     f: F,
     ledger: &mut L,
     c: ZkappCommandPartiallyApplied<L>,
-) -> Result<(ZkappCommandApplied, A), String>
+) -> Result<ZkappCommandApplied, String>
 where
-    L: LedgerIntf + Clone,
-    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+    L: LedgerNonSnark,
+    F: Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
 {
-    let perform = |eff: Eff<L>| Env::perform(eff);
+    // let perform = |eff: Eff<L>| Env::perform(eff);
 
     let original_account_states: Vec<(AccountId, Option<_>)> = {
         // get the original states of all the accounts in each pass.
@@ -6142,12 +5832,12 @@ where
 
     // TODO(OCaml): Remove this, and uplift the logic into the call in staged ledger.
 
-    let global_state = GlobalState {
+    let mut global_state = GlobalState {
         second_pass_ledger: ledger.clone(),
         ..c.global_state
     };
 
-    let local_state = {
+    let mut local_state = {
         if c.local_state.stack_frame.calls.is_empty() {
             // Don't mess with the local state; we've already finished the
             // transaction after the fee payer.
@@ -6162,15 +5852,10 @@ where
         }
     };
 
-    let start = (global_state, local_state);
+    f(init, &global_state, &local_state);
+    let start = (&mut global_state, &mut local_state);
 
-    let (user_acc, reversed_failure_status_tbl) = step_all(
-        constraint_constants,
-        &f,
-        &Handler { perform },
-        f(init, start.clone()),
-        start,
-    )?;
+    let reversed_failure_status_tbl = step_all(constraint_constants, &f, init, start)?;
 
     let failure_status_tbl = reversed_failure_status_tbl
         .into_iter()
@@ -6217,21 +5902,18 @@ where
 
     let new_accounts_is_empty = new_accounts.is_empty();
 
-    let valid_result = Ok((
-        ZkappCommandApplied {
-            accounts: accounts(),
-            command: WithStatus {
-                data: c.command,
-                status: if successfully_applied {
-                    TransactionStatus::Applied
-                } else {
-                    TransactionStatus::Failed(failure_status_tbl)
-                },
+    let valid_result = Ok(ZkappCommandApplied {
+        accounts: accounts(),
+        command: WithStatus {
+            data: c.command,
+            status: if successfully_applied {
+                TransactionStatus::Applied
+            } else {
+                TransactionStatus::Failed(failure_status_tbl)
             },
-            new_accounts,
         },
-        user_acc,
-    ));
+        new_accounts,
+    });
 
     if successfully_applied {
         valid_result
@@ -6261,10 +5943,15 @@ fn apply_zkapp_command_second_pass<L>(
     c: ZkappCommandPartiallyApplied<L>,
 ) -> Result<ZkappCommandApplied, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerNonSnark,
 {
-    let (x, _) =
-        apply_zkapp_command_second_pass_aux(constraint_constants, (), |a, _| a, ledger, c)?;
+    let x = apply_zkapp_command_second_pass_aux(
+        constraint_constants,
+        &mut (),
+        |_, _, _| {},
+        ledger,
+        c,
+    )?;
     Ok(x)
 }
 
@@ -6272,18 +5959,18 @@ fn apply_zkapp_command_unchecked_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
     global_slot: Slot,
     state_view: &ProtocolStateView,
-    init: A,
+    init: &mut A,
     f: F,
     fee_excess: Option<Signed<Amount>>,
     supply_increase: Option<Signed<Amount>>,
     ledger: &mut L,
     command: &ZkAppCommand,
-) -> Result<(ZkappCommandApplied, A), String>
+) -> Result<ZkappCommandApplied, String>
 where
-    L: LedgerIntf + Clone,
-    F: Fn(A, (GlobalState<L>, LocalStateEnv<L>)) -> A,
+    L: LedgerNonSnark,
+    F: Fn(&mut A, &GlobalState<L>, &LocalStateEnv<L>),
 {
-    let (partial_stmt, user_acc) = apply_zkapp_command_first_pass_aux(
+    let partial_stmt = apply_zkapp_command_first_pass_aux(
         constraint_constants,
         global_slot,
         state_view,
@@ -6295,7 +5982,7 @@ where
         command,
     )?;
 
-    apply_zkapp_command_second_pass_aux(constraint_constants, user_acc, f, ledger, partial_stmt)
+    apply_zkapp_command_second_pass_aux(constraint_constants, init, &f, ledger, partial_stmt)
 }
 
 fn apply_zkapp_command_unchecked<L>(
@@ -6306,7 +5993,7 @@ fn apply_zkapp_command_unchecked<L>(
     command: &ZkAppCommand,
 ) -> Result<(ZkappCommandApplied, (LocalStateEnv<L>, Signed<Amount>)), String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerNonSnark,
 {
     let zkapp_partially_applied: ZkappCommandPartiallyApplied<L> = apply_zkapp_command_first_pass(
         constraint_constants,
@@ -6318,15 +6005,19 @@ where
         command,
     )?;
 
-    let (account_update_applied, state_res) = apply_zkapp_command_second_pass_aux(
+    let mut state_res = None;
+    let account_update_applied = apply_zkapp_command_second_pass_aux(
         constraint_constants,
-        None,
-        |_acc, (global_state, local_state)| Some((local_state, global_state.fee_excess)),
+        &mut state_res,
+        |acc, global_state, local_state| {
+            *acc = Some((local_state.clone(), global_state.fee_excess))
+        },
         ledger,
         zkapp_partially_applied,
     )?;
+    let (state, amount) = state_res.unwrap();
 
-    Ok((account_update_applied, state_res.unwrap()))
+    Ok((account_update_applied, (state.clone(), amount)))
 }
 
 pub mod transaction_partially_applied {
@@ -6336,7 +6027,7 @@ pub mod transaction_partially_applied {
     };
 
     #[derive(Clone, Debug)]
-    pub struct ZkappCommandPartiallyApplied<L: LedgerIntf + Clone> {
+    pub struct ZkappCommandPartiallyApplied<L: LedgerNonSnark> {
         pub command: ZkAppCommand,
         pub previous_hash: Fp,
         pub original_first_pass_account_states:
@@ -6354,14 +6045,17 @@ pub mod transaction_partially_applied {
     }
 
     #[derive(Clone, Debug)]
-    pub enum TransactionPartiallyApplied<L: LedgerIntf + Clone> {
+    pub enum TransactionPartiallyApplied<L: LedgerNonSnark> {
         SignedCommand(FullyApplied<SignedCommandApplied>),
         ZkappCommand(Box<ZkappCommandPartiallyApplied<L>>),
         FeeTransfer(FullyApplied<FeeTransferApplied>),
         Coinbase(FullyApplied<CoinbaseApplied>),
     }
 
-    impl<L: LedgerIntf + Clone> TransactionPartiallyApplied<L> {
+    impl<L> TransactionPartiallyApplied<L>
+    where
+        L: LedgerNonSnark,
+    {
         pub fn command(self) -> Transaction {
             use Transaction as T;
 
@@ -6387,7 +6081,7 @@ pub fn apply_transaction_first_pass<L>(
     transaction: &Transaction,
 ) -> Result<TransactionPartiallyApplied<L>, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerNonSnark,
 {
     use Transaction::*;
     use UserCommand::*;
@@ -6447,7 +6141,7 @@ pub fn apply_transaction_second_pass<L>(
     partial_transaction: TransactionPartiallyApplied<L>,
 ) -> Result<TransactionApplied, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerNonSnark,
 {
     use TransactionPartiallyApplied as P;
 
@@ -6498,7 +6192,7 @@ pub fn apply_transactions<L>(
     txns: &[Transaction],
 ) -> Result<Vec<TransactionApplied>, String>
 where
-    L: LedgerIntf + Clone,
+    L: LedgerNonSnark,
 {
     let first_pass: Vec<_> = txns
         .iter()
@@ -7895,7 +7589,7 @@ pub fn validate_timing(
 pub fn account_check_timing(
     txn_global_slot: &Slot,
     account: &Account,
-) -> (TimingValidation, Timing) {
+) -> (TimingValidation<bool>, Timing) {
     let (invalid_timing, timing, _) =
         validate_timing_with_min_balance_impl(account, Amount::from_u64(0), txn_global_slot);
     // TODO: In OCaml the returned Timing is actually converted to None/Some(fields of Timing structure)
@@ -7958,9 +7652,9 @@ pub fn timing_error_to_user_command_status(
     }
 }
 
-pub enum TimingValidation {
-    InsufficientBalance(bool),
-    InvalidTiming(bool),
+pub enum TimingValidation<B> {
+    InsufficientBalance(B),
+    InvalidTiming(B),
 }
 
 #[derive(Debug)]
@@ -7970,7 +7664,7 @@ fn validate_timing_with_min_balance_impl(
     account: &Account,
     txn_amount: Amount,
     txn_global_slot: &Slot,
-) -> (TimingValidation, Timing, MinBalance) {
+) -> (TimingValidation<bool>, Timing, MinBalance) {
     use crate::Timing::*;
     use TimingValidation::*;
 

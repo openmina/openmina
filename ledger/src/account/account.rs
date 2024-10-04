@@ -884,6 +884,10 @@ impl ZkAppAccount {
     pub fn empty_action_state() -> Fp {
         cache_one!(Fp, { hash_noinputs("MinaZkappActionStateEmptyElt") })
     }
+
+    pub fn is_default(&self) -> bool {
+        self == &Self::default()
+    }
 }
 
 /// An `AccountId` implementing `Ord` & `PartialOrd`, reproducing OCaml ordering.
