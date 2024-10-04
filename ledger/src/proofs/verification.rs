@@ -969,6 +969,9 @@ fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::R
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     use std::path::Path;
 
     use mina_hasher::Fp;
@@ -977,9 +980,6 @@ mod tests {
     use crate::proofs::{provers::devnet_circuit_directory, transaction::tests::panic_in_ci};
 
     use super::*;
-
-    #[cfg(target_family = "wasm")]
-    use wasm_bindgen_test::wasm_bindgen_test as test;
 
     #[test]
     fn test_verify_zkapp() {

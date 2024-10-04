@@ -4182,6 +4182,9 @@ mod tests_with_wasm {
 
 #[cfg(test)]
 pub(super) mod tests {
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
     use std::path::Path;
 
     use mina_p2p_messages::binprot::{
