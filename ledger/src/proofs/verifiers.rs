@@ -231,7 +231,7 @@ impl BlockVerifier {
 
 #[cfg(target_family = "wasm")]
 impl BlockVerifier {
-    pub async fn make() -> Self {
+    async fn make_impl() -> Self {
         if let Some(v) = BLOCK_VERIFIER.get() {
             v.clone()
         } else {
@@ -240,6 +240,15 @@ impl BlockVerifier {
             ));
             BLOCK_VERIFIER.get_or_init(move || verifier).clone()
         }
+    }
+
+    #[cfg(not(test))]
+    pub async fn make() -> Self {
+        Self::make_impl().await
+    }
+    #[cfg(test)]
+    pub fn make() -> Self {
+        tokio::runtime::Handle::current().block_on(async { Self::make_impl().await })
     }
 }
 

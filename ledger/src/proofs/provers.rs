@@ -359,12 +359,13 @@ mod prover_makers {
             }
         }
 
+        #[cfg(test)]
         pub fn make_blocking(
             block_verifier_index: Option<BlockVerifier>,
             tx_verifier_index: Option<TransactionVerifier>,
         ) -> Self {
             tokio::runtime::Handle::current()
-                .block_on(async { Self::make(block_verifier_index, tx_verifier_index).await });
+                .block_on(async { Self::make(block_verifier_index, tx_verifier_index).await })
         }
     }
 
@@ -382,9 +383,10 @@ mod prover_makers {
             }
         }
 
+        #[cfg(test)]
         pub fn make_blocking(tx_verifier_index: Option<TransactionVerifier>) -> Self {
             tokio::runtime::Handle::current()
-                .block_on(async { Self::make(tx_verifier_index).await });
+                .block_on(async { Self::make(tx_verifier_index).await })
         }
     }
 
@@ -407,9 +409,10 @@ mod prover_makers {
             }
         }
 
+        #[cfg(test)]
         pub fn make_blocking(tx_verifier_index: Option<TransactionVerifier>) -> Self {
             tokio::runtime::Handle::current()
-                .block_on(async { Self::make(tx_verifier_index).await });
+                .block_on(async { Self::make(tx_verifier_index).await })
         }
     }
 }
