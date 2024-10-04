@@ -96,7 +96,7 @@ tuple-map = "0.4.0"
 wasm-bindgen = "=0.2.92"
 wasm-bindgen-test = "0.3"
 web-sys = { version = "0.3", features = ["Blob", "DedicatedWorkerGlobalScope", "MessageEvent", "Url", "Worker", "WorkerType", "WorkerOptions", "console", "Window", "Performance" ] }
-tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.37", features = ["macros"] }
 
 [features]
 # Put zstd behind a feature, cargo always re-compile it without touching the files
