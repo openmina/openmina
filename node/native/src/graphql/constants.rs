@@ -3,7 +3,7 @@ use openmina_core::{consensus::ConsensusConstants, constants::ConstraintConstant
 
 use super::ConversionError;
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLGenesisConstants {
     pub genesis_timestamp: String,
     pub coinbase: String,
@@ -25,12 +25,12 @@ impl GraphQLGenesisConstants {
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLDaemonStatus {
     pub consensus_configuration: GraphQLConsensusConfiguration,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLConsensusConfiguration {
     pub epoch_duration: i32,
     pub k: i32,

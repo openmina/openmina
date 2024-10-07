@@ -10,7 +10,7 @@ use mina_p2p_messages::{
 
 use super::ConversionError;
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 #[graphql(description = "A Mina account")]
 pub struct GraphQLAccount {
     pub public_key: String,
@@ -34,12 +34,12 @@ pub struct GraphQLAccount {
     pub zkapp_uri: Option<String>,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLDelegateAccount {
     pub public_key: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLTiming {
     // pub is_timed: bool,
     pub initial_minimum_balance: Option<String>,
@@ -70,7 +70,7 @@ impl From<MinaBaseAccountUpdateUpdateTimingInfoStableV1> for GraphQLTiming {
         }
     }
 }
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLPermissions {
     pub edit_state: String,
     pub access: String,
@@ -87,18 +87,18 @@ pub struct GraphQLPermissions {
     pub set_timing: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLSetVerificationKey {
     pub auth: String,
     pub txn_version: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLBalance {
     pub total: String,
 }
 
-// #[derive(GraphQLObject)]
+// #[derive(GraphQLObject, Debug)]
 // pub struct GraphQLZkAppAccount {
 //     pub app_state: Vec<String>,
 //     pub verification_key: Option<GraphQLVerificationKey>,
@@ -109,7 +109,7 @@ pub struct GraphQLBalance {
 //     pub zkapp_uri: String,
 // }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLVerificationKey {
     // pub max_proofs_verified: String,
     // pub actual_wrap_domain_size: String,

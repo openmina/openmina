@@ -6,7 +6,7 @@ use crate::graphql::zkapp::{GraphQLFailureReason, GraphQLFeePayer, GraphQLZkappC
 
 use super::{zkapp::GraphQLZkapp, ConversionError};
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 #[graphql(description = "A Mina block")]
 pub struct GraphQLBestChainBlock {
     pub protocol_state: GraphQLProtocolState,
@@ -14,7 +14,7 @@ pub struct GraphQLBestChainBlock {
     pub transactions: GraphQLTransactions,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLTransactions {
     pub zkapp_commands: Vec<GraphQLZkapp>,
 }
@@ -67,14 +67,14 @@ impl TryFrom<AppliedBlock> for GraphQLBestChainBlock {
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLProtocolState {
     pub previous_state_hash: String,
     pub blockchain_state: GraphQLBlockchainState,
     pub consensus_state: GraphQLConsensusState,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLBlockchainState {
     pub snarked_ledger_hash: String,
     pub staged_ledger_hash: String,
@@ -83,7 +83,7 @@ pub struct GraphQLBlockchainState {
     pub staged_ledger_proof_emitted: bool,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLConsensusState {
     pub block_height: String,
     pub slot_since_genesis: String,
@@ -96,7 +96,7 @@ pub struct GraphQLConsensusState {
     pub epoch: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLEpochData {
     pub ledger: GraphQLLedger,
     pub seed: String,
@@ -105,7 +105,7 @@ pub struct GraphQLEpochData {
     pub epoch_length: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLLedger {
     pub hash: String,
     pub total_currency: String,

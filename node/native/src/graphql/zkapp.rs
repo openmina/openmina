@@ -66,12 +66,12 @@ impl TryFrom<SendZkappInput> for MinaBaseUserCommandStableV2 {
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLSendZkappResponse {
     pub zkapp: GraphQLZkapp,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLZkapp {
     pub hash: String,
     pub failure_reason: Option<Vec<GraphQLFailureReason>>,
@@ -89,7 +89,7 @@ pub struct InputGraphQLZkapp {
     pub zkapp_command: InputGraphQLZkappCommand,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLZkappCommand {
     pub memo: String,
     pub account_updates: Vec<GraphQLAccountUpdate>,
@@ -156,7 +156,6 @@ impl TryFrom<InputGraphQLZkappCommand> for MinaBaseUserCommandStableV2 {
 fn try_tree_from_account_updates(
     updates: List<InputGraphQLAccountUpdate>,
 ) -> Result<List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>, ConversionError> {
-    println!("++++ Before the conversion {:?}", updates);
     let result =
         try_tree_from_account_updates_aux(updates)?
             .into_iter()
@@ -178,7 +177,6 @@ fn try_tree_from_account_updates(
                 MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA { elt, stack_hash }
             })
             .collect();
-    println!("+++ After the conversion: {:?}", result);
     Ok(result)
 }
 
@@ -219,7 +217,7 @@ fn try_tree_from_account_updates_aux(
     Ok(result)
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLFeePayer {
     pub body: GraphQLFeePayerBody,
     pub authorization: String,
@@ -231,7 +229,7 @@ pub struct InputGraphQLFeePayer {
     pub authorization: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLFeePayerBody {
     pub public_key: String,
     pub fee: String,
@@ -247,7 +245,7 @@ pub struct InputGraphQLFeePayerBody {
     pub nonce: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLAccountUpdate {
     pub body: GraphQLAccountUpdateBody,
     pub authorization: GraphQLAuthorization,
@@ -259,7 +257,7 @@ pub struct InputGraphQLAccountUpdate {
     pub authorization: InputGraphQLAuthorization,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLAuthorization {
     pub proof: Option<String>,
     pub signature: Option<String>,
@@ -320,7 +318,7 @@ impl TryFrom<InputGraphQLAuthorization> for MinaBaseControlStableV2 {
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLAccountUpdateBody {
     pub public_key: String,
     pub token_id: String,
@@ -356,7 +354,7 @@ pub struct InputGraphQLAccountUpdateBody {
     pub implicit_account_creation_fee: bool,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLAuthorizationKind {
     pub is_signed: bool,
     pub is_proved: bool,
@@ -421,7 +419,7 @@ impl TryFrom<InputGraphQLAuthorizationKind> for MinaBaseAccountUpdateAuthorizati
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLMayUseToken {
     pub parents_own_token: bool,
     pub inherit_from_parent: bool,
@@ -464,7 +462,7 @@ impl From<InputGraphQLMayUseToken> for MinaBaseAccountUpdateMayUseTokenStableV1 
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLEvent {
     pub event: String,
     pub data: String,
@@ -476,7 +474,7 @@ pub struct InputGraphQLEvent {
     pub data: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLAction {
     pub action: String,
     pub data: String,
@@ -488,7 +486,7 @@ pub struct InputGraphQLAction {
     pub data: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLPreconditions {
     pub network: GraphQLPreconditionsNetwork,
     pub account: GraphQLPreconditionsAccount,
@@ -502,7 +500,7 @@ pub struct InputGraphQLPreconditions {
     pub valid_while: Option<InputGraphQLPreconditionsNetworkBounds>,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLPreconditionsAccount {
     pub balance: Option<GraphQLPreconditionsNetworkBounds>,
     pub nonce: Option<GraphQLPreconditionsNetworkBounds>,
@@ -685,7 +683,7 @@ impl TryFrom<InputGraphQLPreconditionsAccount>
         }))
     }
 }
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLPreconditionsNetwork {
     pub snarked_ledger_hash: Option<String>,
     pub blockchain_length: Option<GraphQLPreconditionsNetworkBounds>,
@@ -707,7 +705,7 @@ pub struct InputGraphQLPreconditionsNetwork {
     pub next_epoch_data: InputGraphQLPreconditionsNetworkEpochData,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLPreconditionsNetworkEpochData {
     pub ledger: GraphQLPreconditionsNetworkLedger,
     pub seed: Option<String>,
@@ -725,7 +723,7 @@ pub struct InputGraphQLPreconditionsNetworkEpochData {
     pub epoch_length: Option<InputGraphQLPreconditionsNetworkBounds>,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLPreconditionsNetworkLedger {
     pub hash: Option<String>,
     pub total_currency: Option<GraphQLPreconditionsNetworkBounds>,
@@ -736,7 +734,7 @@ pub struct InputGraphQLPreconditionsNetworkLedger {
     pub hash: Option<String>,
     pub total_currency: Option<InputGraphQLPreconditionsNetworkBounds>,
 }
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLPreconditionsNetworkBounds {
     pub upper: String,
     pub lower: String,
@@ -1008,7 +1006,7 @@ impl TryFrom<InputGraphQLPreconditionsNetwork> for MinaBaseZkappPreconditionProt
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLAccountUpdateUpdate {
     pub app_state: Vec<Option<String>>,
     pub delegate: Option<String>,
@@ -1020,7 +1018,7 @@ pub struct GraphQLAccountUpdateUpdate {
     pub voting_for: Option<String>,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLVerificationKey {
     pub data: String,
     pub hash: String,
@@ -1044,7 +1042,7 @@ pub struct InputGraphQLVerificationKey {
     pub hash: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLAccountUpdateUpdatePermissions {
     pub edit_state: String,
     pub access: String,
@@ -1061,7 +1059,7 @@ pub struct GraphQLAccountUpdateUpdatePermissions {
     pub increment_nonce: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLSetVerificationKeyPermissions {
     pub auth: String,
     pub txn_version: String,
@@ -1141,7 +1139,7 @@ impl TryFrom<InputGraphQLAccountUpdateUpdatePermissions> for MinaBasePermissions
     }
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLBalanceChange {
     pub magnitude: String,
     pub sgn: String,
@@ -1153,7 +1151,7 @@ pub struct InputGraphQLBalanceChange {
     pub sgn: String,
 }
 
-#[derive(GraphQLObject)]
+#[derive(GraphQLObject, Debug)]
 pub struct GraphQLFailureReason {
     pub index: String,
     pub failures: Vec<String>,
@@ -1600,8 +1598,8 @@ mod test {
                 include_str!("../../../../tests/files/zkapps/proof_string.txt").to_string(),
             ),
         };
-        let converted: MinaBaseControlStableV2 = proof.try_into().unwrap();
-        println!("{:?}", converted);
+        let converted: Result<MinaBaseControlStableV2, _> = proof.try_into();
+        assert!(converted.is_ok());
     }
 
     fn create_input_graphql_zkapp() -> InputGraphQLZkapp {
