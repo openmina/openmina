@@ -110,7 +110,7 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
                 Ok(())
             }
-            P2pChannelsSnarkJobCommitmentAction::Received { .. } => {
+            P2pChannelsSnarkJobCommitmentAction::Received { commitment, .. } => {
                 let Self::Ready { local, .. } = snark_job_state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsSnarkJobCommitmentAction::Received`, state: {:?}",
@@ -140,11 +140,19 @@ impl P2pChannelsSnarkJobCommitmentState {
                     };
                 }
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
                 dispatcher.push(P2pChannelsSnarkJobCommitmentAction::RequestSend {
                     peer_id,
                     limit: LIMIT,
                 });
+
+                if let Some(callback) = &p2p_state
+                    .callbacks
+                    .on_p2p_channels_snark_job_commitment_received
+                {
+                    dispatcher.push_callback(callback.clone(), (peer_id, commitment.clone()));
+                }
                 Ok(())
             }
             P2pChannelsSnarkJobCommitmentAction::RequestReceived { limit, .. } => {

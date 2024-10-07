@@ -94,7 +94,7 @@ impl P2pChannelsSnarkState {
                 };
                 Ok(())
             }
-            P2pChannelsSnarkAction::Received { .. } => {
+            P2pChannelsSnarkAction::Received { peer_id, snark } => {
                 let state = state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
@@ -124,6 +124,14 @@ impl P2pChannelsSnarkState {
                         count: *current_count,
                     };
                 }
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_snark_received {
+                    dispatcher.push_callback(callback.clone(), (*peer_id, snark.clone()));
+                }
+
                 Ok(())
             }
             P2pChannelsSnarkAction::RequestReceived { limit, .. } => {
@@ -191,7 +199,16 @@ impl P2pChannelsSnarkState {
             }
             #[cfg(not(feature = "p2p-libp2p"))]
             P2pChannelsSnarkAction::Libp2pBroadcast { .. } => Ok(()),
-            P2pChannelsSnarkAction::Libp2pReceived { .. } => Ok(()),
+            P2pChannelsSnarkAction::Libp2pReceived { peer_id, snark, .. } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_snark_libp2p_received {
+                    dispatcher.push_callback(callback.clone(), (*peer_id, snark.clone()));
+                }
+
+                Ok(())
+            }
         }
     }
 }

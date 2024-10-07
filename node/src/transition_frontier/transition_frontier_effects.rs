@@ -266,6 +266,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
         TransitionFrontierAction::SyncFailed { .. } => {
             // TODO(SEC): disconnect/blacklist peers that caused this.
         }
+        TransitionFrontierAction::RpcRespondBestTip { .. } => {}
     }
 }
 

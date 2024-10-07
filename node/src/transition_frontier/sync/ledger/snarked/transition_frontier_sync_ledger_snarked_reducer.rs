@@ -11,11 +11,21 @@ use crate::{
     ledger::{
         ledger_empty_hash_at_depth, tree_height_for_num_accounts, LedgerAddress, LEDGER_DEPTH,
     },
-    Action, State,
+    snark_pool::candidate::SnarkPoolCandidateAction,
+    transition_frontier::sync::{
+        ledger::staged::{
+            PeerStagedLedgerPartsFetchError, TransitionFrontierSyncLedgerStagedAction,
+        },
+        PeerBlockFetchError, TransitionFrontierSyncAction,
+    },
+    watched_accounts::{
+        WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
+    },
+    Action, State, WatchedAccountsAction,
 };
 
 use super::{
-    LedgerAddressQueryPending, PeerLedgerQueryResponse, PeerRpcState,
+    LedgerAddressQueryPending, PeerLedgerQueryError, PeerLedgerQueryResponse, PeerRpcState,
     TransitionFrontierSyncLedgerSnarkedAction,
     TransitionFrontierSyncLedgerSnarkedActionWithMetaRef, TransitionFrontierSyncLedgerSnarkedState,
     ACCOUNT_SUBTREE_HEIGHT,
@@ -600,6 +610,88 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     time: meta.time(),
                     target: target.clone(),
                 };
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::P2pDisconnection { peer_id } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let peer_id = *peer_id;
+
+                if let Some(s) = state.transition_frontier.sync.ledger() {
+                    s.snarked()
+                        .map(|s| {
+                            s.peer_address_query_pending_rpc_ids(&peer_id)
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default()
+                        .into_iter()
+                        .for_each(|rpc_id| {
+                            dispatcher.push(
+                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
+                                    peer_id,
+                                    rpc_id,
+                                    error: PeerLedgerQueryError::Disconnected,
+                                },
+                            );
+                        });
+
+                    if let Some(rpc_id) = s
+                        .snarked()
+                        .and_then(|s| s.peer_num_accounts_rpc_id(&peer_id))
+                    {
+                        dispatcher.push(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
+                                peer_id,
+                                rpc_id,
+                                error: PeerLedgerQueryError::Disconnected,
+                            },
+                        );
+                    }
+
+                    if let Some(rpc_id) = s.staged().and_then(|s| s.parts_fetch_rpc_id(&peer_id)) {
+                        dispatcher.push(
+                            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
+                                peer_id,
+                                rpc_id,
+                                error: PeerStagedLedgerPartsFetchError::Disconnected,
+                            },
+                        )
+                    }
+                }
+
+                state
+                    .transition_frontier
+                    .sync
+                    .blocks_fetch_from_peer_pending_rpc_ids(&peer_id)
+                    .for_each(|rpc_id| {
+                        dispatcher.push(TransitionFrontierSyncAction::BlocksPeerQueryError {
+                            peer_id,
+                            rpc_id,
+                            error: PeerBlockFetchError::Disconnected,
+                        });
+                    });
+
+                state
+                    .watched_accounts
+                    .iter()
+                    .filter_map(|(pub_key, a)| match &a.initial_state {
+                        WatchedAccountLedgerInitialState::Pending {
+                            peer_id: account_peer_id,
+                            ..
+                        } => {
+                            if account_peer_id == &peer_id {
+                                Some(WatchedAccountsAction::LedgerInitialStateGetError {
+                                    pub_key: pub_key.clone(),
+                                    error:
+                                        WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
+                                })
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    })
+                    .for_each(|action| dispatcher.push(action));
+
+                dispatcher.push(SnarkPoolCandidateAction::PeerPrune { peer_id });
             }
         }
     }

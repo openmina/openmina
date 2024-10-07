@@ -92,6 +92,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::WatchedAccounts(_) => {
             // Handled by reducer
         }
+        Action::P2pCallbacks(_) => {
+            // Handled by reducer
+        }
     }
 }
 

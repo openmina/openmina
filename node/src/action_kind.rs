@@ -23,6 +23,7 @@ use crate::external_snark_worker::ExternalSnarkWorkerAction;
 use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::ledger::LedgerAction;
+use crate::p2p::callbacks::P2pCallbacksAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::best_tip_effectful::P2pChannelsBestTipEffectfulAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
@@ -147,6 +148,7 @@ pub enum ActionKind {
     ConsensusBlockSnarkVerifySuccess,
     ConsensusDetectForkRange,
     ConsensusLongRangeForkResolve,
+    ConsensusP2pBestTipUpdate,
     ConsensusPrune,
     ConsensusShortRangeForkResolve,
     EventSourceNewEvent,
@@ -174,6 +176,13 @@ pub enum ActionKind {
     LedgerWriteInit,
     LedgerWritePending,
     LedgerWriteSuccess,
+    P2pCallbacksP2pChannelsRpcReady,
+    P2pCallbacksP2pChannelsRpcRequestReceived,
+    P2pCallbacksP2pChannelsRpcResponseReceived,
+    P2pCallbacksP2pChannelsRpcTimeout,
+    P2pCallbacksP2pChannelsStreamingRpcReady,
+    P2pCallbacksP2pChannelsStreamingRpcResponseReceived,
+    P2pCallbacksP2pChannelsStreamingRpcTimeout,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
     P2pChannelsBestTipReady,
@@ -427,6 +436,7 @@ pub enum ActionKind {
     RpcLedgerAccountsGetPending,
     RpcLedgerAccountsGetSuccess,
     RpcMessageProgressGet,
+    RpcP2pConnectionIncomingAnswerReady,
     RpcP2pConnectionIncomingError,
     RpcP2pConnectionIncomingInit,
     RpcP2pConnectionIncomingPending,
@@ -510,6 +520,7 @@ pub enum ActionKind {
     TransactionPoolVerifyError,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
+    TransitionFrontierRpcRespondBestTip,
     TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -559,6 +570,7 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerSnarkedNumAccountsReceived,
     TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
     TransitionFrontierSyncLedgerSnarkedNumAccountsSuccess,
+    TransitionFrontierSyncLedgerSnarkedP2pDisconnection,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressError,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressPending,
@@ -599,7 +611,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 493;
+    pub const COUNT: u16 = 504;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -614,6 +626,7 @@ impl ActionKindGet for Action {
             Self::CheckTimeouts(a) => a.kind(),
             Self::EventSource(a) => a.kind(),
             Self::P2p(a) => a.kind(),
+            Self::P2pCallbacks(a) => a.kind(),
             Self::Ledger(a) => a.kind(),
             Self::Snark(a) => a.kind(),
             Self::Consensus(a) => a.kind(),
@@ -664,6 +677,30 @@ impl ActionKindGet for P2pAction {
     }
 }
 
+impl ActionKindGet for P2pCallbacksAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::P2pChannelsRpcReady { .. } => ActionKind::P2pCallbacksP2pChannelsRpcReady,
+            Self::P2pChannelsRpcTimeout { .. } => ActionKind::P2pCallbacksP2pChannelsRpcTimeout,
+            Self::P2pChannelsRpcResponseReceived { .. } => {
+                ActionKind::P2pCallbacksP2pChannelsRpcResponseReceived
+            }
+            Self::P2pChannelsRpcRequestReceived { .. } => {
+                ActionKind::P2pCallbacksP2pChannelsRpcRequestReceived
+            }
+            Self::P2pChannelsStreamingRpcReady => {
+                ActionKind::P2pCallbacksP2pChannelsStreamingRpcReady
+            }
+            Self::P2pChannelsStreamingRpcTimeout { .. } => {
+                ActionKind::P2pCallbacksP2pChannelsStreamingRpcTimeout
+            }
+            Self::P2pChannelsStreamingRpcResponseReceived { .. } => {
+                ActionKind::P2pCallbacksP2pChannelsStreamingRpcResponseReceived
+            }
+        }
+    }
+}
+
 impl ActionKindGet for LedgerAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -698,6 +735,7 @@ impl ActionKindGet for ConsensusAction {
             Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
             Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
             Self::BestTipUpdate { .. } => ActionKind::ConsensusBestTipUpdate,
+            Self::P2pBestTipUpdate { .. } => ActionKind::ConsensusP2pBestTipUpdate,
             Self::Prune => ActionKind::ConsensusPrune,
         }
     }
@@ -712,6 +750,7 @@ impl ActionKindGet for TransitionFrontierAction {
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
             Self::SyncFailed { .. } => ActionKind::TransitionFrontierSyncFailed,
+            Self::RpcRespondBestTip { .. } => ActionKind::TransitionFrontierRpcRespondBestTip,
         }
     }
 }
@@ -856,6 +895,9 @@ impl ActionKindGet for RpcAction {
             }
             Self::P2pConnectionIncomingRespond { .. } => {
                 ActionKind::RpcP2pConnectionIncomingRespond
+            }
+            Self::P2pConnectionIncomingAnswerReady { .. } => {
+                ActionKind::RpcP2pConnectionIncomingAnswerReady
             }
             Self::P2pConnectionIncomingError { .. } => ActionKind::RpcP2pConnectionIncomingError,
             Self::P2pConnectionIncomingSuccess { .. } => {
@@ -1880,6 +1922,9 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncSuccess
             }
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSnarkedSuccess,
+            Self::P2pDisconnection { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedP2pDisconnection
+            }
         }
     }
 }

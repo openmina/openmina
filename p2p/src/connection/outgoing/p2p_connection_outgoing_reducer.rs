@@ -417,11 +417,11 @@ impl P2pConnectionOutgoingState {
                     rpc_id,
                 };
 
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
                 #[cfg(feature = "p2p-libp2p")]
                 {
-                    let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                    let p2p_state: &P2pState = state.substate()?;
-
                     if p2p_state
                         .network
                         .scheduler
@@ -433,6 +433,12 @@ impl P2pConnectionOutgoingState {
                             peer_id: *peer_id,
                             error: error.to_string(),
                         });
+                    }
+                }
+
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
+                    if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_outgoing_error {
+                        dispatcher.push_callback(callback.clone(), (rpc_id, error.clone()));
                     }
                 }
                 Ok(())
@@ -463,11 +469,19 @@ impl P2pConnectionOutgoingState {
                     return Ok(());
                 }
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
                 dispatcher.push(P2pPeerAction::Ready {
                     peer_id: *peer_id,
                     incoming: false,
                 });
+
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
+                    if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_outgoing_success
+                    {
+                        dispatcher.push_callback(callback.clone(), rpc_id);
+                    }
+                }
                 Ok(())
             }
         }

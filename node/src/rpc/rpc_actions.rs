@@ -6,6 +6,7 @@ use openmina_core::block::AppliedBlock;
 use openmina_core::snark::SnarkJobId;
 use openmina_core::ActionEvent;
 use openmina_node_account::AccountPublicKey;
+use p2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 use crate::external_snark_worker::SnarkWorkId;
@@ -77,6 +78,11 @@ pub enum RpcAction {
     P2pConnectionIncomingRespond {
         rpc_id: RpcId,
         response: P2pConnectionResponse,
+    },
+    P2pConnectionIncomingAnswerReady {
+        rpc_id: RpcId,
+        peer_id: PeerId,
+        answer: P2pConnectionResponse,
     },
     P2pConnectionIncomingError {
         rpc_id: RpcId,
@@ -248,7 +254,8 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .requests
                 .get(rpc_id)
                 .map_or(false, |v| v.status.is_init()),
-            RpcAction::P2pConnectionIncomingRespond { rpc_id, .. } => state
+            RpcAction::P2pConnectionIncomingRespond { rpc_id, .. }
+            | RpcAction::P2pConnectionIncomingAnswerReady { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)

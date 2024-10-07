@@ -171,6 +171,7 @@ impl RpcState {
             RpcAction::BestChain { .. } => {}
             RpcAction::ConsensusConstantsGet { .. } => {}
             RpcAction::TransactionStatusGet { .. } => {}
+            RpcAction::P2pConnectionIncomingAnswerReady { .. } => {},
         }
     }
 }

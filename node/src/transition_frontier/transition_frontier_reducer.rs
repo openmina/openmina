@@ -1,4 +1,6 @@
 use openmina_core::block::AppliedBlock;
+use openmina_core::bug_condition;
+use p2p::channels::best_tip::P2pChannelsBestTipAction;
 
 use super::sync::{SyncError, TransitionFrontierSyncState};
 use super::{
@@ -100,6 +102,18 @@ impl TransitionFrontierState {
                     }
                 }
                 state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
+            }
+            TransitionFrontierAction::RpcRespondBestTip { peer_id } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let Some(best_tip) = state.transition_frontier.best_tip() else {
+                    bug_condition!("Best tip not found");
+                    return;
+                };
+
+                dispatcher.push(P2pChannelsBestTipAction::ResponseSend {
+                    peer_id: *peer_id,
+                    best_tip: best_tip.clone(),
+                });
             }
         }
     }

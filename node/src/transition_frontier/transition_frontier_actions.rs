@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
+use p2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisAction;
@@ -36,6 +37,10 @@ pub enum TransitionFrontierAction {
         best_tip: ArcBlockWithHash,
         error: SyncError,
     },
+
+    RpcRespondBestTip {
+        peer_id: PeerId,
+    },
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
@@ -68,6 +73,9 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                             .block_state(block.hash())
                             .map_or(false, |s| s.is_apply_error()),
                     }
+            }
+            TransitionFrontierAction::RpcRespondBestTip { .. } => {
+                state.transition_frontier.best_tip().is_some()
             }
         }
     }

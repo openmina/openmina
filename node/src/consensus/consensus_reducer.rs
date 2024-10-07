@@ -5,7 +5,7 @@ use openmina_core::{
 use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError};
 
 use crate::{
-    transition_frontier::sync::TransitionFrontierSyncAction, Action, State, WatchedAccountsAction,
+    transition_frontier::sync::{ledger::{snarked::TransitionFrontierSyncLedgerSnarkedAction, staged::TransitionFrontierSyncLedgerStagedAction}, TransitionFrontierSyncAction}, Action, State, WatchedAccountsAction,
 };
 
 use super::{
@@ -234,6 +234,18 @@ impl ConsensusState {
                 }
 
                 transition_frontier_new_best_tip_handler(global_state, dispatcher);
+            }
+            ConsensusAction::P2pBestTipUpdate { best_tip } => {
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(ConsensusAction::BlockReceived {
+                    hash: best_tip.hash.clone(),
+                    block: best_tip.block.clone(),
+                    chain_proof: None,
+                });
+
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
+                dispatcher.push(TransitionFrontierSyncAction::BlocksPeersQuery);
             }
             ConsensusAction::Prune => {
                 let Some(best_tip_hash) = state.best_tip.clone() else {

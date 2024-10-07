@@ -15,7 +15,7 @@ use p2p::{
         P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingInitOptsParseError,
     },
     identity::SecretKey,
-    p2p_effects, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
+    p2p_effects, P2pCallbacks, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
 };
 use redux::SystemTime;
 use tokio::sync::mpsc;
@@ -414,7 +414,11 @@ impl Cluster {
             }),
             service,
             SystemTime::now(),
-            State(P2pState::new(config, &self.chain_id)),
+            State(P2pState::new(
+                config,
+                P2pCallbacks::default(),
+                &self.chain_id,
+            )),
         );
 
         let node_id = RustNodeId(self.rust_nodes.len());

@@ -34,6 +34,8 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError { .. } => {}
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressSuccess { .. } => {}
 
+            TransitionFrontierSyncLedgerSnarkedAction::P2pDisconnection { .. } => {}
+
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived {
                 address,
                 hashes: (left_hash, right_hash),

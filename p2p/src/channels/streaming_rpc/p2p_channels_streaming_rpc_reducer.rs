@@ -50,6 +50,13 @@ impl P2pChannelsStreamingRpcState {
                     remote: P2pStreamingRpcRemoteState::WaitingForRequest { time: meta.time() },
                     remote_last_responded: redux::Timestamp::ZERO,
                 };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_streaming_rpc_ready {
+                    dispatcher.push_callback(callback.clone(), ());
+                }
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::RequestSend {
@@ -86,7 +93,16 @@ impl P2pChannelsStreamingRpcState {
                 });
                 Ok(())
             }
-            P2pChannelsStreamingRpcAction::Timeout { .. } => Ok(()),
+            P2pChannelsStreamingRpcAction::Timeout { id, .. } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_streaming_rpc_timeout {
+                    dispatcher.push_callback(callback.clone(), (peer_id, *id));
+                }
+
+                Ok(())
+            }
             P2pChannelsStreamingRpcAction::ResponseNextPartGet { id, .. } => {
                 let Self::Ready {
                     local: P2pStreamingRpcLocalState::Requested { progress, .. },
@@ -145,7 +161,11 @@ impl P2pChannelsStreamingRpcState {
                     .push(P2pChannelsStreamingRpcAction::ResponseNextPartGet { peer_id, id: *id });
                 Ok(())
             }
-            P2pChannelsStreamingRpcAction::ResponseReceived { .. } => {
+            P2pChannelsStreamingRpcAction::ResponseReceived {
+                id: rpc_id,
+                response,
+                ..
+            } => {
                 let Self::Ready { local, .. } = streaming_rpc_state else {
                     bug_condition!("{:?} with state {:?}", action, streaming_rpc_state);
                     return Ok(());
@@ -159,6 +179,17 @@ impl P2pChannelsStreamingRpcState {
                     id: *id,
                     request: std::mem::take(request),
                 };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state
+                    .callbacks
+                    .on_p2p_channels_streaming_rpc_response_received
+                {
+                    dispatcher.push_callback(callback.clone(), (peer_id, *rpc_id, response.clone()))
+                }
+
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::RequestReceived { id, request, .. } => {

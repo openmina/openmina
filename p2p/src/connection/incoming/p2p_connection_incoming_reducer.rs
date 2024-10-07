@@ -8,7 +8,7 @@ use crate::{
     connection::{
         incoming::P2pConnectionIncomingError,
         incoming_effectful::P2pConnectionIncomingEffectfulAction,
-        outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionState,
+        outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse, P2pConnectionState,
     },
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     webrtc::{HttpSignalingInfo, SignalingMethod},
@@ -164,12 +164,29 @@ impl P2pConnectionIncomingState {
                         state
                     );
                 }
-                state_context.into_dispatcher().push(
-                    P2pConnectionIncomingEffectfulAction::AnswerSend {
-                        peer_id: *peer_id,
-                        answer: answer.clone(),
-                    },
-                );
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                dispatcher.push(P2pConnectionIncomingEffectfulAction::AnswerSend {
+                    peer_id: *peer_id,
+                    answer: answer.clone(),
+                });
+
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
+                    if let Some(callback) =
+                        &p2p_state.callbacks.on_p2p_connection_incoming_answer_ready
+                    {
+                        dispatcher.push_callback(
+                            callback.clone(),
+                            (
+                                rpc_id,
+                                *peer_id,
+                                P2pConnectionResponse::Accepted(answer.clone()),
+                            ),
+                        );
+                    }
+                }
+
                 Ok(())
             }
             P2pConnectionIncomingAction::AnswerSendSuccess { .. } => {
@@ -307,6 +324,17 @@ impl P2pConnectionIncomingState {
                     error: error.clone(),
                     rpc_id,
                 };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
+                    if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_incoming_error {
+                        dispatcher
+                            .push_callback(callback.clone(), (rpc_id, format!("{:?}", error)));
+                    }
+                }
+
                 Ok(())
             }
             P2pConnectionIncomingAction::Success { .. } => {
@@ -337,11 +365,20 @@ impl P2pConnectionIncomingState {
                     return Ok(());
                 }
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
                 dispatcher.push(P2pPeerAction::Ready {
                     peer_id,
                     incoming: true,
                 });
+
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
+                    if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_incoming_success
+                    {
+                        dispatcher.push_callback(callback.clone(), rpc_id);
+                    }
+                }
                 Ok(())
             }
             P2pConnectionIncomingAction::FinalizePendingLibp2p { addr, .. } => {

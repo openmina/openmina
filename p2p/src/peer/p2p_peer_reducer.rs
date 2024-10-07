@@ -63,6 +63,12 @@ impl P2pPeerState {
                 };
                 peer.best_tip = Some(best_tip.clone());
 
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_peer_best_tip_update {
+                    dispatcher.push_callback(callback.clone(), best_tip.clone());
+                }
                 Ok(())
             }
             P2pPeerAction::Remove { peer_id } => {

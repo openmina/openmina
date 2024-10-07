@@ -94,6 +94,9 @@ pub fn reducer(
                 meta.with_action(a),
             );
         }
+        Action::P2pCallbacks(action) => {
+            State::p2p_callback_reducer(Substate::new(state, dispatcher), meta.with_action(action))
+        }
     }
 
     // must be the last.
