@@ -1,5 +1,4 @@
 use juniper::GraphQLObject;
-use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1Base64;
 use openmina_core::block::AppliedBlock;
 
 use crate::graphql::zkapp::{GraphQLFailureReason, GraphQLFeePayer, GraphQLZkappCommand};
@@ -172,15 +171,9 @@ impl TryFrom<mina_p2p_messages::v2::StagedLedgerDiffDiffDiffStableV2> for GraphQ
                     Ok(Some(GraphQLZkapp {
                         hash: zkapp.hash()?.to_string(),
                         failure_reason,
-                        id: serde_json::to_string_pretty(
-                            &MinaBaseZkappCommandTStableV1WireStableV1Base64::from(zkapp.clone()),
-                        )?
-                        .trim_matches('"')
-                        .to_string(),
+                        id: zkapp.to_base64()?,
                         zkapp_command: GraphQLZkappCommand {
-                            memo: serde_json::to_string_pretty(&zkapp.memo)?
-                                .trim_matches('"')
-                                .to_string(),
+                            memo: zkapp.memo.to_base58check(),
                             account_updates,
                             fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
                         },
