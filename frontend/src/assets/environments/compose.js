@@ -9,6 +9,7 @@ export default {
       network: ['node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state'],
       benchmarks: ['wallets'],
+      mempool: [],
     },
     canAddNodes: true,
     graphQL: '/openmina-node/graphql',
