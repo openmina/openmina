@@ -10,6 +10,7 @@ export const environment: Readonly<MinaEnv> = {
       state: ['actions'],
       network: ['node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state'],
+      benchmarks: ['wallets'],
     },
     canAddNodes: true,
   },

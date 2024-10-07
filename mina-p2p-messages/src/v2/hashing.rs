@@ -28,11 +28,12 @@ use super::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerHash,
-    MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1, MinaBaseLedgerHash0StableV1,
-    MinaBasePendingCoinbaseHashBuilderStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
-    MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
-    MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashNonSnarkStableV1,
-    MinaBaseStagedLedgerHashStableV1, MinaBaseStateBodyHashStableV1,
+    MinaBaseControlStableV2, MinaBaseEpochLedgerValueStableV1, MinaBaseFeeExcessStableV1,
+    MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseHashBuilderStableV1,
+    MinaBasePendingCoinbaseHashVersionedStableV1, MinaBasePendingCoinbaseStackVersionedStableV1,
+    MinaBasePendingCoinbaseStateStackStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
+    MinaBaseStagedLedgerHashNonSnarkStableV1, MinaBaseStagedLedgerHashStableV1,
+    MinaBaseStateBodyHashStableV1, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
     MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
     MinaNumbersGlobalSlotSpanStableV1, MinaStateBlockchainStateValueStableV2LedgerProofStatement,
     MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
@@ -184,12 +185,69 @@ impl generated::MinaBaseSignedCommandStableV2 {
     }
 }
 
+// TODO(adonagy): reduce duplication
 impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
+    fn binprot_write_with_default(&self) -> io::Result<Vec<u8>> {
+        let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
+
+        let mut encoded = vec![];
+
+        let mut modified = self.clone();
+
+        modified.fee_payer.authorization = default_signature.clone().into();
+
+        modified.account_updates.iter_mut().for_each(|u| {
+            Self::replace_auth_recursive(&mut u.elt);
+        });
+
+        modified.binprot_write(&mut encoded)?;
+        Ok(encoded)
+    }
+
+    fn replace_auth_recursive(
+        update_elt: &mut MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
+    ) {
+        Self::replace_auth(&mut update_elt.account_update.authorization);
+        // if update_elt.calls.is_empty() {
+        //     return;
+        // }
+
+        update_elt.calls.iter_mut().for_each(|call| {
+            Self::replace_auth_recursive(&mut call.elt);
+        });
+
+        // for call in update_elt.calls.iter_mut() {
+        //     Self::replace_auth_recursive(&mut call.elt);
+        // }
+    }
+
+    pub fn replace_auth(auth: &mut MinaBaseControlStableV2) {
+        let default_signature = generated::MinaBaseSignatureStableV1(BigInt::one(), BigInt::one());
+        let default_proof = super::dummy_transaction_proof();
+        *auth = match auth {
+            MinaBaseControlStableV2::Proof(_) => {
+                MinaBaseControlStableV2::Proof(Box::new(default_proof.0.clone().into()))
+            }
+            MinaBaseControlStableV2::Signature(_) => {
+                MinaBaseControlStableV2::Signature(default_signature.clone().into())
+            }
+            MinaBaseControlStableV2::NoneGiven => MinaBaseControlStableV2::NoneGiven,
+        };
+    }
+
     pub fn hash(&self) -> io::Result<TransactionHash> {
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "zkapp tx hashing is not yet supported",
-        ))
+        use blake2::{
+            digest::{Update, VariableOutput},
+            Blake2bVar,
+        };
+        let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
+
+        hasher.update(&self.binprot_write_with_default()?);
+        let mut hash = vec![0; 33];
+        hash[..1].copy_from_slice(&[32]);
+        hash[1..].copy_from_slice(&hasher.finalize_boxed());
+
+        Ok(TransactionHash(hash))
     }
 }
 
@@ -788,7 +846,11 @@ impl ToInput for MinaNumbersGlobalSlotSpanStableV1 {
 
 #[cfg(test)]
 mod hash_tests {
-    use crate::v2::MinaStateProtocolStateValueStableV2;
+    use binprot::BinProtRead;
+
+    use crate::v2::{
+        MinaBaseZkappCommandTStableV1WireStableV1, MinaStateProtocolStateValueStableV2,
+    };
 
     #[test]
     #[ignore = "fix expected hash/hasing"]
@@ -800,5 +862,31 @@ mod hash_tests {
         let hash = state.try_hash().unwrap();
         let expected_hash = serde_json::from_value(serde_json::json!(HASH)).unwrap();
         assert_eq!(hash, expected_hash)
+    }
+
+    #[test]
+    fn test_zkapp_with_proof_auth_hash() {
+        // expected: 5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o
+        // MinaBaseZkappCommandTStableV1WireStableV1
+        //
+        let expected_hash = "5JtkEP5AugQKKQAk3YKFxxUDggWf8AiAYyCQy49t2kLHRgPqcP8o".to_string();
+        let bytes = include_bytes!("../../../tests/files/zkapps/with_proof_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+        let hash = zkapp.hash().unwrap().to_string();
+
+        assert_eq!(expected_hash, hash);
+    }
+
+    #[test]
+
+    fn test_zkapp_with_sig_auth_hash() {
+        let expected_hash = "5JvQ6xQeGgCTe2d4KpCsJ97yK61mNRZHixJxPbKTppY1qSGgtj6t".to_string();
+        let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+        let hash = zkapp.hash().unwrap().to_string();
+
+        assert_eq!(expected_hash, hash);
     }
 }

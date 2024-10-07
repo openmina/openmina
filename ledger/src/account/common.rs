@@ -41,6 +41,13 @@ impl VotingFor {
         let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
         state_hash.to_string()
     }
+
+    pub fn to_base58check_graphql(&self) -> String {
+        // NOTE: See https://github.com/MinaProtocol/mina/blob/fb1c3c0a408c344810140bdbcedacc532a11be91/src/lib/mina_graphql/types.ml#L1528
+        let receipt_chain_hash = ReceiptChainHash(self.0);
+        let receipt_chain_hash = mina_p2p_messages::v2::ReceiptChainHash::from(receipt_chain_hash);
+        receipt_chain_hash.to_string()
+    }
 }
 
 #[test]
@@ -241,7 +248,7 @@ impl Default for TokenPermissions {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize, strum_macros::Display)]
 #[serde(rename_all = "lowercase")]
 pub enum AuthRequired {
     None,

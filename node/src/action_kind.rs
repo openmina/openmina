@@ -415,7 +415,9 @@ pub enum ActionKind {
     P2pPeerReady,
     P2pPeerRemove,
     RpcActionStatsGet,
+    RpcBestChain,
     RpcBlockProducerStatsGet,
+    RpcConsensusConstantsGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
@@ -454,6 +456,7 @@ pub enum ActionKind {
     RpcTransactionInjectRejected,
     RpcTransactionInjectSuccess,
     RpcTransactionPool,
+    RpcTransactionStatusGet,
     RpcTransitionFrontierUserCommandsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
@@ -596,7 +599,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 490;
+    pub const COUNT: u16 = 493;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -886,6 +889,9 @@ impl ActionKindGet for RpcAction {
             Self::TransitionFrontierUserCommandsGet { .. } => {
                 ActionKind::RpcTransitionFrontierUserCommandsGet
             }
+            Self::BestChain { .. } => ActionKind::RpcBestChain,
+            Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
+            Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

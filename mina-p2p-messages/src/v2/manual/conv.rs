@@ -4,6 +4,16 @@ use crate::v2::{
     MinaTransactionLogicTransactionAppliedVaryingStableV2, MinaTransactionTransactionStableV2,
 };
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Binprot error: {0}")]
+    BinProt(#[from] binprot::Error),
+    #[error("Base64 error: {0}")]
+    Base64(#[from] base64::DecodeError),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+}
+
 /// Extract transaction data and status required by proof generation
 impl From<MinaTransactionLogicTransactionAppliedVaryingStableV2>
     for (

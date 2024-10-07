@@ -5,7 +5,7 @@ use std::str::FromStr;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
-use ledger::scan_state::transaction_logic::{self, signed_command, Memo};
+use ledger::scan_state::transaction_logic::{self, signed_command, valid, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
 use mina_p2p_messages::bigint::BigInt;
@@ -14,6 +14,8 @@ use mina_p2p_messages::v2::{
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
+use openmina_core::block::AppliedBlock;
+use openmina_core::consensus::ConsensusConstants;
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
@@ -74,10 +76,15 @@ pub enum RpcRequest {
     DiscoveryRoutingTable,
     DiscoveryBoostrapStats,
     TransactionPoolGet,
-    LedgerAccountsGet(Option<AccountPublicKey>),
-    TransactionInject(Vec<RpcInjectPayment>),
+    LedgerAccountsGet(AccountQuery),
+    TransactionInject(Vec<MinaBaseUserCommandStableV2>),
     TransitionFrontierUserCommandsGet,
+    BestChain(MaxLength),
+    ConsensusConstantsGet,
+    TransactionStatusGet(MinaBaseUserCommandStableV2),
 }
+
+pub type MaxLength = u32;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcInjectPayment {
@@ -331,8 +338,20 @@ pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
-pub type RpcLedgerAccountsResponse = Vec<AccountSlim>;
+pub type RpcLedgerSlimAccountsResponse = Vec<AccountSlim>;
+pub type RpcLedgerAccountsResponse = Vec<Account>;
 pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
+pub type RpcBestChainResponse = Vec<AppliedBlock>;
+pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
+pub type RpcTransactionStatusGetResponse = TransactionStatus;
+
+#[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+pub enum TransactionStatus {
+    Pending,
+    Included,
+    Unknown,
+}
 
 // TODO(adonagy): rework this to handle all the possible user commands (enum..)
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -354,7 +373,7 @@ pub struct RpcTransactionInjectedPayment {
 pub enum RpcTransactionInjectedCommand {
     Payment(RpcTransactionInjectedPayment),
     Delegation,
-    Zkapp,
+    Zkapp(valid::UserCommand),
 }
 
 pub type RpcTransactionInjectSuccess = Vec<RpcTransactionInjectedCommand>;
@@ -394,7 +413,9 @@ impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
                     }
                 }
             }
-            transaction_logic::valid::UserCommand::ZkAppCommand(_) => todo!("inject zkapp"),
+            transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
+                Self::Zkapp(value.data.clone())
+            }
         }
     }
 }

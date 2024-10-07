@@ -109,9 +109,12 @@ impl RpcState {
                 self.requests.remove(rpc_id);
             }
             RpcAction::TransactionPool { .. } => {}
-            RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
+            RpcAction::LedgerAccountsGetInit {
+                rpc_id,
+                account_query,
+            } => {
                 let rpc_state = RpcRequestState {
-                    req: RpcRequest::LedgerAccountsGet(public_key.clone()),
+                    req: RpcRequest::LedgerAccountsGet(account_query.clone()),
                     status: RpcRequestStatus::Init { time: meta.time() },
                     data: Default::default(),
                 };
@@ -165,6 +168,9 @@ impl RpcState {
                 };
             }
             RpcAction::TransitionFrontierUserCommandsGet { .. } => {}
+            RpcAction::BestChain { .. } => {}
+            RpcAction::ConsensusConstantsGet { .. } => {}
+            RpcAction::TransactionStatusGet { .. } => {}
         }
     }
 }
