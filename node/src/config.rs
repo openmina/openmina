@@ -33,6 +33,7 @@ pub struct GlobalConfig {
     pub build: Box<BuildEnv>,
     pub snarker: Option<SnarkerConfig>,
     pub consensus_constants: ConsensusConstants,
+    pub testing_run: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

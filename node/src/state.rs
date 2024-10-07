@@ -273,6 +273,10 @@ impl State {
                 self.current_epoch() <= Some(epoch)
             })
     }
+
+    pub fn should_log_node_id(&self) -> bool {
+        self.config.testing_run
+    }
 }
 
 #[serde_with::serde_as]

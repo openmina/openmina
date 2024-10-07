@@ -78,12 +78,20 @@ pub const ACTION_TRACE_TARGET: &str = "openmina_core::log::action";
 #[macro_export]
 macro_rules! action_event {
     ($level:expr, $context:expr, $($tts:tt)*) => {
-        $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time(), node_id = $context.node_id(), $($tts)*)
+        if $context.log_node_id() {
+            $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time(), node_id = $context.node_id(), $($tts)*)
+        } else {
+            $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time(), $($tts)*)
+        }
     };
     ($level:expr, $context:expr) => {
-        $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time(), node_id = $context.node_id())
+        if $context.log_node_id() {
+            $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time(), node_id = $context.node_id())
+        } else {
+            $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time())
+        }
     };
- }
+}
 
 #[macro_export]
 macro_rules! action_error {
@@ -139,6 +147,7 @@ pub trait EventContext {
     fn timestamp(&self) -> redux::Timestamp;
     fn time(&self) -> &'_ dyn Value;
     fn node_id(&self) -> &'_ dyn Value;
+    fn log_node_id(&self) -> bool;
 }
 
 pub trait ActionEvent {

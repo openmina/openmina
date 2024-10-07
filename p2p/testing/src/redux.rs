@@ -172,6 +172,10 @@ impl EventContext for ActionLoggerContext {
     fn node_id(&self) -> &'_ dyn Value {
         &self.node_id
     }
+
+    fn log_node_id(&self) -> bool {
+        true
+    }
 }
 
 pub(super) fn log_action(action: &Action, meta: &ActionMeta, node_id: PeerId) {
