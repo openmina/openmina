@@ -1247,12 +1247,16 @@ impl StagedLedger {
         supercharge_coinbase: bool,
     ) -> Result<DiffResult, StagedLedgerError> {
         let work = witness.completed_works();
+        let works_count = work.len();
 
         let now = redux::Instant::now();
         if skip_verification.is_none() {
             Self::check_completed_works(logger, verifier, &self.scan_state, work)?;
         }
-        eprintln!("verification time={:?}", now.elapsed());
+        eprintln!(
+            "verification time={:?} ({works_count} completed works)",
+            now.elapsed()
+        );
 
         let prediff = witness.get(
             |cmd| Self::check_commands(self.ledger.clone(), verifier, cmd, skip_verification),
