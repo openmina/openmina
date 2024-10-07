@@ -18,14 +18,16 @@ struct ActionLoggerContext {
     time: redux::Timestamp,
     time_str: String,
     node_id: DisplayValue<PeerId>,
+    log_node_id: bool,
 }
 
 impl ActionLoggerContext {
-    fn new(time: redux::Timestamp, node_id: PeerId) -> Self {
+    fn new(time: redux::Timestamp, node_id: PeerId, log_node_id: bool) -> Self {
         ActionLoggerContext {
             time,
             time_str: time_to_str(time),
             node_id: display(node_id),
+            log_node_id,
         }
     }
 }
@@ -39,6 +41,10 @@ impl EventContext for ActionLoggerContext {
         &self.time_str
     }
 
+    fn log_node_id(&self) -> bool {
+        self.log_node_id
+    }
+
     fn node_id(&self) -> &'_ dyn Value {
         &self.node_id
     }
@@ -46,7 +52,11 @@ impl EventContext for ActionLoggerContext {
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
-    let context = ActionLoggerContext::new(meta.time(), store.state().p2p.my_id());
+    let context = ActionLoggerContext::new(
+        meta.time(),
+        store.state().p2p.my_id(),
+        store.state().should_log_node_id(),
+    );
 
     match action {
         Action::P2p(action) => match action {

@@ -223,6 +223,7 @@ impl NodeBuilder {
                 build: node::BuildEnv::get().into(),
                 snarker: self.snarker,
                 consensus_constants: consensus_consts.clone(),
+                testing_run: false,
             },
             p2p: P2pConfig {
                 libp2p_port: None,
