@@ -13,6 +13,7 @@ pub mod gates;
 // REVIEW(dw): STATUS: DONE
 pub mod group_map;
 pub mod merge;
+// REVIEW(dw): STATUS: DONE
 pub mod numbers;
 // REVIEW(dw): STATUS: DONE
 pub mod opt_sponge;
