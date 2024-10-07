@@ -256,6 +256,10 @@ fn make_lagrange<F: FieldWitness>(
     lagrange_bases[..domain_size].to_vec()
 }
 
+// REVIEW(dw): OK, it is simply evaluate the polynomial [e] at the point [pt^(2^rounds)]
+// REVIEW(dw): maps actual_evaluation in plonk_checks.ml
+// REVIEW(dw): as many other methods, if FieldWitness is in proof-systems, we
+// could reuse existing code.
 /// Defined in `plonk_checks.ml`
 fn actual_evaluation<F: FieldWitness>(pt: F, e: &[F], rounds: usize) -> F {
     let [e, es @ ..] = e else {
@@ -266,6 +270,11 @@ fn actual_evaluation<F: FieldWitness>(pt: F, e: &[F], rounds: usize) -> F {
     es.iter().fold(*e, |acc, fx| *fx + (pt_n * acc))
 }
 
+// REVIEW(dw): es are all polynomial evaluations, given as PointEvaluations
+// The output is simply all evaluations at zeta and zeta omega.
+// REVIEW(dw): as many other methods, if FieldWitness is in proof-systems, we
+// could reuse existing code.
+// REVIEW(dw): OK
 pub fn evals_of_split_evals<F: FieldWitness>(
     zeta: F,
     zetaw: F,
@@ -347,12 +356,15 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
 
     let _domain = step_vk.domain.log_size_of_group;
     let zetaw = {
+        // REVIEW(dw): why not zeta directly?
         let zeta = scalar_to_field(plonk0.zeta_bytes);
         step_vk.domain.group_gen * zeta
     };
 
     let tick_plonk_minimal = PlonkMinimal {
+        // REVIEW(dw): why not zeta directly?
         zeta: scalar_to_field(plonk0.zeta_bytes),
+        // REVIEW(dw): why not alpha directly?
         alpha: scalar_to_field(plonk0.alpha_bytes),
         ..plonk0.clone()
     };

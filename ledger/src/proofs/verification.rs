@@ -139,6 +139,11 @@ fn validate_feature_flags(
     .all(|b| *b)
 }
 
+// REVIEW(dw): it is mostly from Bigint to Fp. However, I would just check that
+// the conversion is correctly performed using decimal or Montgomery
+// representation
+// This method converts the evaluations of the polynomials into Fp elements,
+// from BigInt
 pub fn prev_evals_from_p2p<F: FieldWitness>(
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
 ) -> ProofEvaluations<PointEvaluations<Vec<F>>> {
@@ -212,6 +217,7 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
     }
 }
 
+// REVIEW(dw): same comment than above. Looks ok.
 pub fn prev_evals_to_p2p(
     evals: &ProofEvaluations<[Fp; 2]>,
 ) -> PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
@@ -300,6 +306,8 @@ impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
 }
 
 // TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one or the other
+// REVIEW(dw): it is not always the same. It is for now. But with chunking, it won't
+// Link to OCaml code?
 pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     minimal: &PlonkMinimal<F, NLIMB>,
     domain_log2: u8,
@@ -311,6 +319,7 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     let zk_polynomial = eval_zk_polynomial(domain, minimal.zeta);
     let zeta_to_n_minus_1 = domain.evaluate_vanishing_polynomial(minimal.zeta);
 
+    // Computing w^-1, w^-2, w^-3, w^-4
     let (w4, w3, w2, w1) = {
         let gen = domain.group_gen;
         let w1 = F::one() / gen;
@@ -324,11 +333,13 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     let shifts = make_shifts(&domain);
     let domain = Rc::new(LimitedDomain { domain, shifts });
 
+    // REVIEW(dw): ???
     let vanishes_on_last_4_rows = match minimal.joint_combiner {
         None => F::one(),
         Some(_) => zk_polynomial * (minimal.zeta - w4()),
     };
 
+    // REVIEW(dw): ???
     let feature_flags = minimal
         .joint_combiner
         .map(|_| expand_feature_flags::<F>(&minimal.feature_flags.to_boolean()));
@@ -792,6 +803,7 @@ fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::R
     Err(std::io::Error::other("no filename available"))
 }
 
+// REVIEW(dw): why commented?
 // #[cfg(test)]
 // mod tests {
 //     use std::{

@@ -1,4 +1,6 @@
 // REVIEW(dw): Source?
+// REVIEW(dw): is it from src/lib/pickles/plonk_checks?
+
 use ark_ff::{BigInteger256, Field, FromBytes};
 use kimchi::proof::ProofEvaluations;
 use mina_curves::pasta::Fq;

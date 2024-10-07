@@ -29,7 +29,9 @@ mod urs_utils;
 // REVIEW(dw): STATUS: DONE
 pub mod util;
 pub mod verification;
+// REVIEW(dw): STATUS: more or less OK, need tests, questions also on some parts
 pub mod verifier_index;
+// REVIEW(dw): STATUS: DONE -> should be in proof-systems
 pub mod witness;
 pub mod wrap;
 pub mod zkapp;

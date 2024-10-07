@@ -230,6 +230,7 @@ fn make_verifier_index(
     }
 }
 
+// REVIEW(dw): OK
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_verifier_index.rs#L213
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/common.ml#L16C1-L25C58
 pub fn make_shifts(
@@ -240,6 +241,7 @@ pub fn make_shifts(
     kimchi::circuits::polynomials::permutation::Shifts::new(domain)
 }
 
+// REVIEW(dw): OK
 // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/common.ml#L27
 pub fn wrap_domains(proofs_verified: usize) -> Domains {
     let h = match proofs_verified {
@@ -254,11 +256,13 @@ pub fn wrap_domains(proofs_verified: usize) -> Domains {
     }
 }
 
+// REVIEW(dw): relatively maps the method
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/side_loaded_verification_key.ml#L206
 pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> {
     let d = wrap_domains(vk.actual_wrap_domain_size.to_int());
     let log2_size = d.h.log2_size();
 
+    // REVIEW(dw): where does it come from??
     let public = 40; // Is that constant ?
 
     let domain: Radix2EvaluationDomain<Fq> =
@@ -272,6 +276,10 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> 
         srs
     };
 
+    // REVIEW(dw): not sure of this. Why do we build a PolyComm objects from the coordinates x, y?
+    // REVIEW(dw): PolyComm/unshifted contains chunks of commitments
+    // REVIEW(dw): not that now, unshifted is called "chunks"
+    // Test?
     let make_poly = |poly: &InnerCurve<Fp>| poly_commitment::PolyComm {
         unshifted: vec![poly.to_affine()],
         shifted: None,
