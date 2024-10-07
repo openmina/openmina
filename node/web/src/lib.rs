@@ -65,7 +65,7 @@ async fn setup_node(
 
     if let Some(bp_key) = block_producer {
         let provers =
-            BlockProver::make(Some(block_verifier_index), Some(work_verifier_index)).await;
+            BlockProver::make_async(Some(block_verifier_index), Some(work_verifier_index)).await;
         node_builder.block_producer(provers, bp_key);
     }
 

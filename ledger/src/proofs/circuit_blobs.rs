@@ -53,7 +53,7 @@ fn git_release_url(filename: &impl AsRef<Path>) -> String {
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+pub async fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
     use std::path::PathBuf;
 
     fn try_base_dir<P: Into<PathBuf>>(base_dir: P, filename: &impl AsRef<Path>) -> Option<PathBuf> {
