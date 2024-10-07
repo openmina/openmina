@@ -534,6 +534,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
             "Origin",
             "Access-Control-Request-Method",
             "Access-Control-Request-Headers",
+            "Access-Control-Allow-Origin",
             "Content-Type",
         ]);
     #[cfg(not(feature = "p2p-webrtc"))]
