@@ -208,7 +208,9 @@ impl P2pNetworkYamuxState {
                             if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
                                 // must not underflow
                                 // TODO: check it and disconnect peer that violates flow rules
-                                stream.window_ours -= data.len() as u32;
+                                if stream.window_ours >= data.len() as u32 {
+                                    stream.window_ours -= data.len() as u32;
+                                }
                             }
                         }
                         YamuxFrameInner::WindowUpdate { difference } => {
@@ -334,7 +336,9 @@ impl P2pNetworkYamuxState {
                         // must not underflow
                         // the action must not dispatch if it doesn't fit in the window
                         // TODO: add pending queue, where frames will wait for window increase
-                        stream.window_theirs -= data.len() as u32;
+                        if stream.window_theirs >= data.len() as u32 {
+                            stream.window_theirs -= data.len() as u32;
+                        }
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
                         stream.update_window(true, *difference);
