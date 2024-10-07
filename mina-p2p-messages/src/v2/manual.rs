@@ -1671,7 +1671,7 @@ mod test {
     use binprot::BinProtRead;
 
     use crate::v2::{
-        MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1
+        MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
     };
 
     #[test]
