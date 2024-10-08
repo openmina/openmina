@@ -102,7 +102,10 @@ impl fmt::Debug for TransactionHash {
 
 impl From<&[u8; 32]> for TransactionHash {
     fn from(value: &[u8; 32]) -> Self {
-        Self(value.to_vec())
+        let mut hash = vec![0; 33];
+        hash[..1].copy_from_slice(&[32]);
+        hash[1..].copy_from_slice(value);
+        Self(hash)
     }
 }
 
@@ -850,6 +853,7 @@ mod hash_tests {
 
     use crate::v2::{
         MinaBaseZkappCommandTStableV1WireStableV1, MinaStateProtocolStateValueStableV2,
+        TransactionHash,
     };
 
     #[test]
@@ -888,5 +892,19 @@ mod hash_tests {
         let hash = zkapp.hash().unwrap().to_string();
 
         assert_eq!(expected_hash, hash);
+    }
+
+    #[test]
+    fn test_transaction_hash_conversion() {
+        let hash_bytes: &[u8; 32] = &[
+            183, 59, 226, 83, 95, 39, 197, 207, 123, 0, 241, 2, 6, 92, 66, 156, 119, 48, 110, 232,
+            58, 69, 213, 254, 229, 41, 85, 125, 169, 205, 113, 210,
+        ];
+        let hash = TransactionHash::from(hash_bytes);
+        let hash_bs58 = hash.to_string();
+        assert_eq!(
+            hash_bs58,
+            "5Jut6npRQzzAETEfE1C2K4V13qNFik542qYHcYxgm25tcXUQqsAC".to_string()
+        );
     }
 }
