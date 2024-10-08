@@ -91,21 +91,21 @@ impl P2pState {
             Vec::new()
         };
 
-        let peers = initial_peers
-            .map(|peer| {
-                (
-                    *peer.peer_id(),
-                    P2pPeerState {
-                        dial_opts: Some(peer.clone()),
-                        is_libp2p: peer.is_libp2p(),
-                        status: P2pPeerStatus::Disconnected {
-                            time: Timestamp::ZERO,
-                        },
-                        identify: None,
-                    },
-                )
-            })
-            .collect();
+        // let peers = initial_peers
+        //     .map(|peer| {
+        //         (
+        //             *peer.peer_id(),
+        //             P2pPeerState {
+        //                 dial_opts: Some(peer.clone()),
+        //                 is_libp2p: peer.is_libp2p(),
+        //                 status: P2pPeerStatus::Disconnected {
+        //                     time: Timestamp::ZERO,
+        //                 },
+        //                 identify: None,
+        //             },
+        //         )
+        //     })
+        //     .collect();
 
         let network = P2pNetworkState::new(
             config.identity_pub_key.clone(),
@@ -118,7 +118,8 @@ impl P2pState {
             chain_id: chain_id.clone(),
             config,
             network,
-            peers,
+            // obtain peers only from kademlia
+            peers: BTreeMap::default(),
             callbacks,
         }
     }

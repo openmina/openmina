@@ -144,5 +144,6 @@ pub trait P2pActionTrait<State>:
     + From<P2pChannelsSnarkJobCommitmentEffectfulAction>
     + From<P2pChannelsRpcEffectfulAction>
     + From<P2pChannelsSnarkEffectfulAction>
+    + From<P2pNetworkKadEffectfulAction>
 {
 }

@@ -25,3 +25,6 @@ mod p2p_network_kad_internals;
 pub use self::p2p_network_kad_internals::*;
 
 const ALPHA: usize = 3;
+
+pub mod kad_effectful;
+pub use kad_effectful::P2pNetworkKadEffectfulAction;
