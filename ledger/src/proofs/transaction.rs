@@ -4765,7 +4765,7 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
-    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
+    // #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_block_proof() {
         let Ok(data) = fetch_file("block_input-2483246-0.bin") else {
@@ -4807,6 +4807,7 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_proofs() {
         let BlockProver {

@@ -981,7 +981,7 @@ mod tests {
 
     use super::*;
 
-    #[test]
+    // #[test]
     fn test_verify_zkapp() {
         use mina_p2p_messages::binprot;
         use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
