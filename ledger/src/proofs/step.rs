@@ -2659,18 +2659,22 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
     ); N_PREVIOUS],
     pub prev_challenge_polynomial_commitments: Vec<RecursionChallenge<GroupAffine<Fq>>>,
     /// TODO: Remove this. See documentation in `PerProofWitness` struct.
+    /// REVIEW(dw): still required?
     pub hack_feature_flags: OptFlag,
     pub step_prover: &'a Prover<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
     pub only_verify_constraints: bool,
 }
 
+// REVIEW(dw): Ok. Proof is the current proof, and prev_evals are from the previous proof.
+// The statement is the actual circuit
 pub struct StepProof {
     pub statement: StepStatement,
     pub prev_evals: Vec<AllEvals<Fq>>,
     pub proof: kimchi::proof::ProverProof<GroupAffine<Fq>>,
 }
 
+// REVIEW(dw): I suppose it generates a step proof from a given witness
 pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
@@ -2769,6 +2773,9 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     let srs = get_srs::<Fq>();
     let mut srs = srs.lock().unwrap();
 
+    // REVIEW(dw): Why 16? Because we do have a SRS of size 2^16 for step? Are
+    // we sure Pickles has a fixed value of 16 for step?
+    // REVIEW(dw): if 16 is because of the SRS, I would use a constant for that.
     let bulletproof_challenges = prevs
         .iter()
         .zip(messages_for_next_wrap_proof)
@@ -2843,6 +2850,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     w.primary = statement.to_field_elements_owned();
 
+    // REVIEW(dw): Actual proof generation. Contains the IVC part.
+    // Nothing more done here. Simply passing as the output.
     let proof = create_proof::<C, Fp>(
         CreateProofParams {
             prover: step_prover,
@@ -2852,11 +2861,13 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         w,
     )?;
 
+    // REVIEW(dw): Simply getting previous proofs
     let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; N_PREVIOUS] = rule
         .previous_proof_statements
         .each_ref()
         .map(|stmt| stmt.proof);
 
+    /// REVIEW(dw): getting evaluations of the previous proofs.
     let prev_evals = proofs
         .iter()
         .zip(&expanded_proofs)
@@ -2874,11 +2885,14 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         })
         .collect::<Vec<_>>();
 
+    // REVIEW(dw): getting the challenge polynomial commitments as affine coordinates, nothing more.
+    // REVIEW(dw): it is simply getting the permutation? Why?
     let challenge_polynomial_commitments = expanded_proofs
         .iter()
         .map(|v| InnerCurve::of_affine(v.sg))
         .collect();
 
+    // 
     let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs
         .iter()
         .map(|v| {
@@ -2894,6 +2908,9 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         })
         .unzip();
 
+    // REVIEW(dw): why 16? Ok for [u64; 2] as it is challenge on 128bits (not 256bits).
+    // REVIEW(dw): even though we gotta check the conversions is using
+    // montgomery representation or decimal.
     let old_bulletproof_challenges = old_bulletproof_challenges
         .into_iter()
         .map(|v: [[u64; 2]; 16]| v.each_ref().map(u64_to_field))
