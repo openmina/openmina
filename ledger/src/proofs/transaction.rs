@@ -4271,7 +4271,7 @@ pub(super) mod tests {
     //     std::fs::read(path)
     // }
     // #[cfg(target_family = "wasm")]
-    fn fetch_file(filename: &str) -> std::io::Result<Vec<u8>> {
+    pub fn fetch_file(filename: &str) -> std::io::Result<Vec<u8>> {
         use crate::proofs::circuit_blobs::CIRCUIT_BLOBS;
         use std::io::Read;
 
