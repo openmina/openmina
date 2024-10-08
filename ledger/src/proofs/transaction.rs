@@ -4436,6 +4436,7 @@ pub(super) mod tests {
         crate::proofs::provers::block_on(future)
     }
 
+    #[cfg(not(target_family = "wasm"))]
     #[allow(unused)]
     #[test]
     fn test_make_verifier_index() {
@@ -4505,6 +4506,7 @@ pub(super) mod tests {
         // assert_eq!(format!("{:?}", v.lookup_index), format!("{:?}", new_v.lookup_index));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_regular_tx() {
         let Ok(data) = fetch_file("command-0-1.bin")
@@ -4631,6 +4633,7 @@ pub(super) mod tests {
         }
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_merge_proof() {
         let Ok(data) =
@@ -4682,6 +4685,7 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_proof_zkapp_sig() {
         let Ok(data) = fetch_file("command-1-0.bin") else {
@@ -4722,6 +4726,7 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_proof_zkapp_proof() {
         let Ok(data) = fetch_file("zkapp-command-with-proof-128-1.bin") else {
@@ -4760,6 +4765,7 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_block_proof() {
         let Ok(data) = fetch_file("block_input-2483246-0.bin") else {
