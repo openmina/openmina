@@ -5949,13 +5949,8 @@ mod tests {
         assert_eq!(reference, serde_json::to_string(&hash).unwrap());
     }
 
-    #[cfg(not(target_family = "wasm"))]
     fn verifier_wrapper<F: std::future::Future>(future: F) -> F::Output {
         crate::proofs::provers::block_on(future)
-    }
-    #[cfg(target_family = "wasm")]
-    fn verifier_wrapper<F: std::future::Future>(future: F) -> F::Output {
-        futures::executor::block_on(future)
     }
 
     #[test]
