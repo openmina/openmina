@@ -94,7 +94,8 @@ impl TransitionFrontierState {
             }
             TransitionFrontierAction::SyncFailed { error, .. } => {
                 match error {
-                    SyncError::BlockApplyFailed(block, _) => {
+                    SyncError::BlockApplyFailed(block, _)
+                    | SyncError::BlockVerifyFailed(block, _) => {
                         state.blacklist.insert(block.hash().clone(), block.height());
                     }
                 }

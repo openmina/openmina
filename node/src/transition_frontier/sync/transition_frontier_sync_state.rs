@@ -118,6 +118,19 @@ pub enum TransitionFrontierSyncBlockState {
         time: Timestamp,
         block: ArcBlockWithHash,
     },
+    VerifyPending {
+        time: Timestamp,
+        block: ArcBlockWithHash,
+    },
+    VerifyError {
+        time: Timestamp,
+        block: ArcBlockWithHash,
+        error: String,
+    },
+    VerifySuccess {
+        time: Timestamp,
+        block: ArcBlockWithHash,
+    },
     ApplyPending {
         time: Timestamp,
         block: ArcBlockWithHash,
@@ -324,18 +337,34 @@ impl TransitionFrontierSyncState {
             .filter_map(|b| b.fetch_pending_from_peer_rpc_id(peer_id))
     }
 
+    pub fn blocks_verify_pending(&self) -> Option<&ArcBlockWithHash> {
+        self.blocks_iter()
+            .find(|s| s.is_verify_pending())
+            .and_then(|s| s.block())
+    }
+
+    pub fn blocks_verify_next(&self) -> Option<&ArcBlockWithHash> {
+        for s in self.blocks_iter() {
+            if s.is_fetch_success() {
+                return Some(s.block()?);
+            }
+        }
+        None
+    }
+
     pub fn blocks_apply_pending(&self) -> Option<&ArcBlockWithHash> {
         self.blocks_iter()
             .find(|s| s.is_apply_pending())
             .and_then(|s| s.block())
     }
 
+    // TODO(catchup): what happens if some verification fails?
     pub fn blocks_apply_next(&self) -> Option<(&ArcBlockWithHash, &AppliedBlock)> {
         let mut last_applied = None;
         for s in self.blocks_iter() {
             if s.is_apply_success() {
                 last_applied = s.applied_block();
-            } else if s.is_fetch_success() {
+            } else if s.is_verify_success() {
                 return Some((s.block()?, last_applied?));
             } else {
                 return None;
@@ -368,6 +397,18 @@ impl TransitionFrontierSyncBlockState {
         matches!(self, Self::FetchSuccess { .. })
     }
 
+    pub fn is_verify_pending(&self) -> bool {
+        matches!(self, Self::VerifyPending { .. })
+    }
+
+    pub fn is_verify_error(&self) -> bool {
+        matches!(self, Self::VerifyError { .. })
+    }
+
+    pub fn is_verify_success(&self) -> bool {
+        matches!(self, Self::VerifySuccess { .. })
+    }
+
     pub fn is_apply_pending(&self) -> bool {
         matches!(self, Self::ApplyPending { .. })
     }
@@ -384,6 +425,9 @@ impl TransitionFrontierSyncBlockState {
         match self {
             Self::FetchPending { block_hash, .. } => block_hash,
             Self::FetchSuccess { block, .. }
+            | Self::VerifyPending { block, .. }
+            | Self::VerifyError { block, .. }
+            | Self::VerifySuccess { block, .. }
             | Self::ApplyPending { block, .. }
             | Self::ApplyError { block, .. } => &block.hash,
             Self::ApplySuccess { block, .. } => block.hash(),
@@ -394,6 +438,9 @@ impl TransitionFrontierSyncBlockState {
         match self {
             Self::FetchPending { .. } => None,
             Self::FetchSuccess { block, .. }
+            | Self::VerifyPending { block, .. }
+            | Self::VerifyError { block, .. }
+            | Self::VerifySuccess { block, .. }
             | Self::ApplyPending { block, .. }
             | Self::ApplyError { block, .. } => Some(block),
             Self::ApplySuccess { block, .. } => Some(block.block_with_hash()),
@@ -404,6 +451,9 @@ impl TransitionFrontierSyncBlockState {
         match self {
             Self::FetchPending { .. }
             | Self::FetchSuccess { .. }
+            | Self::VerifyPending { .. }
+            | Self::VerifyError { .. }
+            | Self::VerifySuccess { .. }
             | Self::ApplyPending { .. }
             | Self::ApplyError { .. } => None,
             Self::ApplySuccess { block, .. } => Some(block),
@@ -414,6 +464,9 @@ impl TransitionFrontierSyncBlockState {
         match self {
             Self::FetchPending { .. } => None,
             Self::FetchSuccess { block, .. }
+            | Self::VerifyPending { block, .. }
+            | Self::VerifyError { block, .. }
+            | Self::VerifySuccess { block, .. }
             | Self::ApplyPending { block, .. }
             | Self::ApplyError { block, .. } => Some(block),
             Self::ApplySuccess { block, .. } => Some(block.block),
@@ -424,6 +477,9 @@ impl TransitionFrontierSyncBlockState {
         match self {
             Self::FetchPending { .. }
             | Self::FetchSuccess { .. }
+            | Self::VerifyPending { .. }
+            | Self::VerifyError { .. }
+            | Self::VerifySuccess { .. }
             | Self::ApplyPending { .. }
             | Self::ApplyError { .. } => None,
             Self::ApplySuccess { block, .. } => Some(block),

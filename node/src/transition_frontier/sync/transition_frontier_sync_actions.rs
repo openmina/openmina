@@ -92,6 +92,17 @@ pub enum TransitionFrontierSyncAction {
     BlocksFetchSuccess {
         hash: StateHash,
     },
+    BlocksNextVerifyInit,
+    BlocksNextVerifyPending {
+        hash: StateHash,
+    },
+    BlocksNextVerifyError {
+        hash: StateHash,
+        error: String,
+    },
+    BlocksNextVerifySuccess {
+        hash: StateHash,
+    },
     BlocksNextApplyInit,
     BlocksNextApplyPending {
         hash: StateHash,
@@ -328,6 +339,26 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .sync
                 .block_state(hash)
                 .map_or(false, |s| s.fetch_pending_fetched_block().is_some()),
+            TransitionFrontierSyncAction::BlocksNextVerifyInit => state
+                .transition_frontier
+                .sync
+                .blocks_verify_next()
+                .is_some(),
+            TransitionFrontierSyncAction::BlocksNextVerifyPending { hash } => state
+                .transition_frontier
+                .sync
+                .blocks_verify_next()
+                .map_or(false, |b| &b.hash == hash),
+            TransitionFrontierSyncAction::BlocksNextVerifyError { hash, .. } => state
+                .transition_frontier
+                .sync
+                .blocks_verify_pending()
+                .map_or(false, |b| &b.hash == hash),
+            TransitionFrontierSyncAction::BlocksNextVerifySuccess { hash } => state
+                .transition_frontier
+                .sync
+                .blocks_verify_pending()
+                .map_or(false, |b| &b.hash == hash),
             TransitionFrontierSyncAction::BlocksNextApplyInit => {
                 state.transition_frontier.sync.blocks_apply_next().is_some()
             }

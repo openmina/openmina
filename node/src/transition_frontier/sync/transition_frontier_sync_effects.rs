@@ -231,6 +231,29 @@ impl TransitionFrontierSyncAction {
                 let _ = store;
                 store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit {});
             }
+            // TODO(catchup)
+            TransitionFrontierSyncAction::BlocksNextVerifyInit => todo!(),
+            TransitionFrontierSyncAction::BlocksNextVerifyPending { .. } => {}
+            TransitionFrontierSyncAction::BlocksNextVerifyError { hash, error } => {
+                let Some((best_tip, failed_block)) = None.or_else(|| {
+                    Some((
+                        store.state().transition_frontier.sync.best_tip()?.clone(),
+                        store
+                            .state()
+                            .transition_frontier
+                            .sync
+                            .block_state(hash)?
+                            .block()?,
+                    ))
+                }) else {
+                    return;
+                };
+                let error = SyncError::BlockVerifyFailed(failed_block.clone(), error.clone());
+                store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
+            }
+            TransitionFrontierSyncAction::BlocksNextVerifySuccess { .. } => {
+                store.dispatch(TransitionFrontierSyncAction::BlocksNextVerifyInit);
+            }
             TransitionFrontierSyncAction::BlocksNextApplyInit => {
                 let Some((block, pred_block)) = store
                     .state()

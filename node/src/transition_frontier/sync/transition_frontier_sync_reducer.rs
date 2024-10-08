@@ -588,6 +588,47 @@ impl TransitionFrontierSyncState {
                     block: block.clone(),
                 };
             }
+            TransitionFrontierSyncAction::BlocksNextVerifyInit => {}
+            TransitionFrontierSyncAction::BlocksNextVerifyPending { hash } => {
+                let Some(block_state) = state.block_state_mut(hash) else {
+                    return;
+                };
+                let Some(block) = block_state.block() else {
+                    return;
+                };
+
+                *block_state = TransitionFrontierSyncBlockState::VerifyPending {
+                    time: meta.time(),
+                    block: block.clone(),
+                };
+            }
+            TransitionFrontierSyncAction::BlocksNextVerifyError { hash, error } => {
+                let Some(block_state) = state.block_state_mut(hash) else {
+                    return;
+                };
+                let Some(block) = block_state.block() else {
+                    return;
+                };
+
+                *block_state = TransitionFrontierSyncBlockState::VerifyError {
+                    time: meta.time(),
+                    block: block.clone(),
+                    error: error.clone(),
+                };
+            }
+            TransitionFrontierSyncAction::BlocksNextVerifySuccess { hash } => {
+                let Some(block_state) = state.block_state_mut(hash) else {
+                    return;
+                };
+                let Some(block) = block_state.block() else {
+                    return;
+                };
+
+                *block_state = TransitionFrontierSyncBlockState::VerifySuccess {
+                    time: meta.time(),
+                    block: block.clone(),
+                };
+            }
             TransitionFrontierSyncAction::BlocksNextApplyInit => {}
             TransitionFrontierSyncAction::BlocksNextApplyPending { hash } => {
                 let Some(block_state) = state.block_state_mut(hash) else {

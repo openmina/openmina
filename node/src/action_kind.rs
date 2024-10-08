@@ -539,6 +539,10 @@ pub enum ActionKind {
     TransitionFrontierSyncBlocksNextApplyInit,
     TransitionFrontierSyncBlocksNextApplyPending,
     TransitionFrontierSyncBlocksNextApplySuccess,
+    TransitionFrontierSyncBlocksNextVerifyError,
+    TransitionFrontierSyncBlocksNextVerifyInit,
+    TransitionFrontierSyncBlocksNextVerifyPending,
+    TransitionFrontierSyncBlocksNextVerifySuccess,
     TransitionFrontierSyncBlocksPeerQueryError,
     TransitionFrontierSyncBlocksPeerQueryInit,
     TransitionFrontierSyncBlocksPeerQueryPending,
@@ -611,7 +615,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 504;
+    pub const COUNT: u16 = 508;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1225,6 +1229,16 @@ impl ActionKindGet for TransitionFrontierSyncAction {
                 ActionKind::TransitionFrontierSyncBlocksPeerQuerySuccess
             }
             Self::BlocksFetchSuccess { .. } => ActionKind::TransitionFrontierSyncBlocksFetchSuccess,
+            Self::BlocksNextVerifyInit => ActionKind::TransitionFrontierSyncBlocksNextVerifyInit,
+            Self::BlocksNextVerifyPending { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksNextVerifyPending
+            }
+            Self::BlocksNextVerifyError { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksNextVerifyError
+            }
+            Self::BlocksNextVerifySuccess { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksNextVerifySuccess
+            }
             Self::BlocksNextApplyInit => ActionKind::TransitionFrontierSyncBlocksNextApplyInit,
             Self::BlocksNextApplyPending { .. } => {
                 ActionKind::TransitionFrontierSyncBlocksNextApplyPending

@@ -67,6 +67,9 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                         SyncError::BlockApplyFailed(block, _) => sync
                             .block_state(block.hash())
                             .map_or(false, |s| s.is_apply_error()),
+                        SyncError::BlockVerifyFailed(block, _) => sync
+                            .block_state(block.hash())
+                            .map_or(false, |s| s.is_verify_error()),
                     }
             }
         }

@@ -180,8 +180,10 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                     }
                 }
-                TransitionFrontierSyncAction::BlocksNextApplyInit => {}
-                TransitionFrontierSyncAction::BlocksNextApplyPending { ref hash } => {
+                TransitionFrontierSyncAction::BlocksNextVerifyInit
+                | TransitionFrontierSyncAction::BlocksNextApplyInit => {}
+                TransitionFrontierSyncAction::BlocksNextVerifyPending { ref hash }
+                | TransitionFrontierSyncAction::BlocksNextApplyPending { ref hash } => {
                     if let Some(stats) = store.service.stats() {
                         if let Some(state) =
                             store.state.get().transition_frontier.sync.block_state(hash)
@@ -190,8 +192,10 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                     }
                 }
-                TransitionFrontierSyncAction::BlocksNextApplyError { .. } => {}
-                TransitionFrontierSyncAction::BlocksNextApplySuccess {
+                TransitionFrontierSyncAction::BlocksNextVerifyError { .. }
+                | TransitionFrontierSyncAction::BlocksNextApplyError { .. } => {}
+                TransitionFrontierSyncAction::BlocksNextVerifySuccess { ref hash }
+                | TransitionFrontierSyncAction::BlocksNextApplySuccess {
                     ref hash,
                     just_emitted_a_proof: _,
                 } => {

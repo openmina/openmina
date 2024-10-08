@@ -134,6 +134,8 @@ pub struct SyncBlock {
     pub status: SyncBlockStatus,
     pub fetch_start: Option<Timestamp>,
     pub fetch_end: Option<Timestamp>,
+    pub verify_start: Option<Timestamp>,
+    pub verify_end: Option<Timestamp>,
     pub apply_start: Option<Timestamp>,
     pub apply_end: Option<Timestamp>,
 }
@@ -143,6 +145,9 @@ pub enum SyncBlockStatus {
     Missing,
     Fetching,
     Fetched,
+    Verifying,
+    VerifyFailed,
+    Verified,
     Applying,
     ApplyFailed,
     Applied,
@@ -192,6 +197,8 @@ impl SyncStats {
             status: SyncBlockStatus::Fetched,
             fetch_start: None,
             fetch_end: None,
+            verify_start: None,
+            verify_end: None,
             apply_start: None,
             apply_end: None,
         };
@@ -390,6 +397,8 @@ impl SyncBlock {
             status: SyncBlockStatus::Missing,
             fetch_start: None,
             fetch_end: None,
+            verify_start: None,
+            verify_end: None,
             apply_start: None,
             apply_end: None,
         }
@@ -413,6 +422,21 @@ impl SyncBlock {
                 self.global_slot.get_or_insert_with(|| block.global_slot());
                 self.status = SyncBlockStatus::Fetched;
                 self.fetch_end = Some(*time);
+            }
+            TransitionFrontierSyncBlockState::VerifyPending { time, block, .. } => {
+                self.global_slot.get_or_insert_with(|| block.global_slot());
+                self.status = SyncBlockStatus::Verifying;
+                self.verify_start = Some(*time);
+            }
+            TransitionFrontierSyncBlockState::VerifyError { time, block, .. } => {
+                self.global_slot.get_or_insert_with(|| block.global_slot());
+                self.status = SyncBlockStatus::VerifyFailed;
+                self.verify_end = Some(*time);
+            }
+            TransitionFrontierSyncBlockState::VerifySuccess { time, block, .. } => {
+                self.global_slot.get_or_insert_with(|| block.global_slot());
+                self.status = SyncBlockStatus::Verified;
+                self.verify_end = Some(*time);
             }
             TransitionFrontierSyncBlockState::ApplyPending { time, block, .. } => {
                 self.global_slot.get_or_insert_with(|| block.global_slot());

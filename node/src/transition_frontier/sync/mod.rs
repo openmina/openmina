@@ -22,6 +22,8 @@ pub enum PeerBlockFetchError {
 
 #[derive(thiserror::Error, Serialize, Deserialize, Debug, Clone)]
 pub enum SyncError {
+    #[error("sync failed due to block({}, {}) verification error: {1}", .0.height(), .0.hash())]
+    BlockVerifyFailed(ArcBlockWithHash, String),
     #[error("sync failed due to block({}, {}) application error: {1}", .0.height(), .0.hash())]
     BlockApplyFailed(ArcBlockWithHash, String),
 }
