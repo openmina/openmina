@@ -35,6 +35,9 @@ pub struct DeferredValues<F: FieldWitness> {
     pub branch_data: CompositionTypesBranchDataStableV1,
 }
 
+// REVIEW(dw): ProofState is the state of the previous proof.
+// REVIEW(dw): it is always Fp (i.e. scalar field of Vesta/Step)?
+// Should it not be parametrized by the field for the Wrap?
 #[derive(Clone, Debug)]
 pub struct ProofState {
     pub deferred_values: DeferredValues<Fp>,

@@ -112,6 +112,7 @@ impl<T> Opt<T> {
     }
 }
 
+// REVIEW(dw): ok
 #[derive(Clone, Debug)]
 pub struct FeatureFlags<Bool> {
     pub range_check0: Bool,
@@ -124,6 +125,7 @@ pub struct FeatureFlags<Bool> {
     pub runtime_tables: Bool,
 }
 
+// REVIEW(dw): ok
 impl FeatureFlags<Boolean> {
     pub fn empty() -> Self {
         Self {
@@ -139,6 +141,7 @@ impl FeatureFlags<Boolean> {
     }
 }
 
+// REVIEW(dw): ok
 impl<F: FieldWitness> ToFieldElements<F> for FeatureFlags<bool> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let Self {
@@ -166,6 +169,7 @@ impl<F: FieldWitness> ToFieldElements<F> for FeatureFlags<bool> {
     }
 }
 
+// REVIEW(dw): ok
 impl FeatureFlags<bool> {
     pub fn empty_bool() -> Self {
         Self {
@@ -180,6 +184,7 @@ impl FeatureFlags<bool> {
         }
     }
 
+// REVIEW(dw): ok
     pub fn to_boolean(&self) -> FeatureFlags<Boolean> {
         use super::field::ToBoolean;
 
@@ -239,6 +244,7 @@ pub enum Packed {
     PackedBits(CircuitVar<Fq>, usize),
 }
 
+// REVIEW(dw): ok
 impl std::fmt::Debug for Packed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -1882,11 +1888,15 @@ fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> (Vec<Fp>, Boolean
     (chals, b.as_boolean())
 }
 
+// REVIEW(dw): note that this will give the decimal representation of the field
+// element in u64, not montgomery.
+// Note endianness = little endian
 fn to_bytes(f: Fp) -> [u64; 4] {
     let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
     [a, b, c, d]
 }
 
+// REVIEW(dw): endianess = little endian
 fn to_4limbs(v: [u64; 2]) -> [u64; 4] {
     [v[0], v[1], 0, 0]
 }
@@ -1910,7 +1920,9 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
 
     let plonk0 = &proof_state.deferred_values.plonk;
 
+    // Why not zeta?
     let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
+    // Why not alpha?
     let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
     let step_domain: u8 = proof_state.deferred_values.branch_data.domain_log2.as_u8();
     let domain: Radix2EvaluationDomain<Fp> =
@@ -1922,6 +1934,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
         beta: plonk0.beta,
         gamma: plonk0.gamma,
         zeta,
+        // Review(dw):?
         // joint_combiner: plonk0.joint_combiner,
         joint_combiner: plonk0
             .joint_combiner_bytes
@@ -2100,8 +2113,12 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
             .domain_log2
             .as_u8();
 
+        // Review(dw): why not alpha directly?
         let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
+        // Review(dw): why not zeta directly?
         let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
+        // Review(dw) I suppose Radix2EvaluationDomain::new(1 << domain).unwrap().group_gen
+        // could be cached. We only have 13, 14, 15 or 16.
         let w: Fp = Radix2EvaluationDomain::new(1 << domain).unwrap().group_gen;
         let zetaw = zeta * w;
 
@@ -2434,6 +2451,7 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
 
 #[derive(Debug)]
 struct ExpandedProof {
+    // REVIEW(dw): permutation
     sg: GroupAffine<Fp>,
     unfinalized: Unfinalized,
     prev_statement_with_hashes: PreparedStatement,
@@ -2446,14 +2464,17 @@ struct ExpandedProof {
 pub struct PerProofWitness {
     pub app_state: Option<Rc<dyn ToFieldElementsDebug>>,
     // app_state: AppState,
+    // REVIEW(dw): ProverProof is simply a KimchiProof
     pub wrap_proof: ProverProof<GroupAffine<Fp>>,
     pub proof_state: ProofState,
     pub prev_proof_evals: AllEvals<Fp>,
+    // REVIEW(dw): why 16?
     pub prev_challenges: Vec<[Fp; 16]>,
     pub prev_challenge_polynomial_commitments: Vec<GroupAffine<Fp>>,
     /// Hack until I understand how feature flags are used.
     /// So far they are always `OptFlag::No`, except for zkapps using proof authorization, in that
     /// case they are `OptFlag::Maybe`.
+    /// REVIEW(dw): still a hack?
     pub hack_feature_flags: OptFlag,
 }
 
@@ -2684,6 +2705,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 dlog_plonk_index,
                 app_state: public_input,
                 t: proof,
+                // REVIEW(dw): ?? 
                 public_input_length: 40,
                 tag: (),
                 must_verify: *proof_must_verify,
