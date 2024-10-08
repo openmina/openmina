@@ -5,7 +5,14 @@ use openmina_core::{
 use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError};
 
 use crate::{
-    transition_frontier::sync::{ledger::{snarked::TransitionFrontierSyncLedgerSnarkedAction, staged::TransitionFrontierSyncLedgerStagedAction}, TransitionFrontierSyncAction}, Action, State, WatchedAccountsAction,
+    transition_frontier::sync::{
+        ledger::{
+            snarked::TransitionFrontierSyncLedgerSnarkedAction,
+            staged::TransitionFrontierSyncLedgerStagedAction,
+        },
+        TransitionFrontierSyncAction,
+    },
+    Action, State, WatchedAccountsAction,
 };
 
 use super::{

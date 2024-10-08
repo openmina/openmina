@@ -42,7 +42,15 @@ pub enum P2pCallbacksAction {
 }
 
 impl redux::EnablingCondition<crate::State> for P2pCallbacksAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        true
+    fn is_enabled(&self, _state: &crate::State, _time: redux::Timestamp) -> bool {
+        match self {
+            P2pCallbacksAction::P2pChannelsRpcReady { .. } => true,
+            P2pCallbacksAction::P2pChannelsRpcTimeout { .. } => true,
+            P2pCallbacksAction::P2pChannelsRpcResponseReceived { .. } => true,
+            P2pCallbacksAction::P2pChannelsRpcRequestReceived { .. } => true,
+            P2pCallbacksAction::P2pChannelsStreamingRpcReady => true,
+            P2pCallbacksAction::P2pChannelsStreamingRpcTimeout { .. } => true,
+            P2pCallbacksAction::P2pChannelsStreamingRpcResponseReceived { .. } => true,
+        }
     }
 }

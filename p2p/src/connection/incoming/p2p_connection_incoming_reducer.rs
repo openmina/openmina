@@ -172,7 +172,7 @@ impl P2pConnectionIncomingState {
                     answer: answer.clone(),
                 });
 
-                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
                     if let Some(callback) =
                         &p2p_state.callbacks.on_p2p_connection_incoming_answer_ready
                     {

@@ -39,9 +39,7 @@ use crate::transition_frontier::genesis::TransitionFrontierGenesisState;
 use crate::transition_frontier::sync::ledger::snarked::{
     TransitionFrontierSyncLedgerSnarkedAction, TransitionFrontierSyncLedgerSnarkedState,
 };
-use crate::transition_frontier::sync::ledger::staged::{
-    TransitionFrontierSyncLedgerStagedAction, TransitionFrontierSyncLedgerStagedState,
-};
+use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedState;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
 use crate::transition_frontier::sync::TransitionFrontierSyncState;
 pub use crate::transition_frontier::TransitionFrontierState;
@@ -354,7 +352,13 @@ impl P2p {
             return Err(P2pInitializationError::AlreadyInitialized);
         };
 
-        let callbacks = P2pCallbacks {
+        let callbacks = Self::p2p_callbacks();
+        *self = P2p::Ready(P2pState::new(config.clone(), callbacks, chain_id));
+        Ok(())
+    }
+
+    fn p2p_callbacks() -> P2pCallbacks {
+        P2pCallbacks {
             on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
                 on_p2p_channels_transaction_libp2p_received(transaction: Box<MinaBaseUserCommandStableV2>) -> crate::Action{
                     TransactionPoolAction::StartVerify { commands: std::iter::once(*transaction).collect(), from_rpc: None }
@@ -450,10 +454,7 @@ impl P2p {
                     P2pCallbacksAction::P2pChannelsStreamingRpcTimeout { peer_id, id }
                 }
             )),
-        };
-
-        *self = P2p::Ready(P2pState::new(config.clone(), callbacks, chain_id));
-        Ok(())
+        }
     }
 
     pub fn ready(&self) -> Option<&P2pState> {

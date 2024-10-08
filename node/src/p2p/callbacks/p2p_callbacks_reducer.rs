@@ -2,7 +2,10 @@ use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::{block::BlockWithHash, bug_condition};
 use p2p::{
-    channels::{rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse}, streaming_rpc::P2pStreamingRpcResponseFull},
+    channels::{
+        rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse},
+        streaming_rpc::P2pStreamingRpcResponseFull,
+    },
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
 };
 use redux::ActionWithMeta;
