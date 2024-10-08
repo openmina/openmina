@@ -183,6 +183,8 @@ pub enum ActionKind {
     P2pCallbacksP2pChannelsStreamingRpcReady,
     P2pCallbacksP2pChannelsStreamingRpcResponseReceived,
     P2pCallbacksP2pChannelsStreamingRpcTimeout,
+    P2pCallbacksP2pDisconnection,
+    P2pCallbacksRpcRespondBestTip,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
     P2pChannelsBestTipReady,
@@ -520,7 +522,6 @@ pub enum ActionKind {
     TransactionPoolVerifyError,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
-    TransitionFrontierRpcRespondBestTip,
     TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -570,7 +571,6 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerSnarkedNumAccountsReceived,
     TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
     TransitionFrontierSyncLedgerSnarkedNumAccountsSuccess,
-    TransitionFrontierSyncLedgerSnarkedP2pDisconnection,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressError,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressPending,
@@ -697,6 +697,8 @@ impl ActionKindGet for P2pCallbacksAction {
             Self::P2pChannelsStreamingRpcResponseReceived { .. } => {
                 ActionKind::P2pCallbacksP2pChannelsStreamingRpcResponseReceived
             }
+            Self::P2pDisconnection { .. } => ActionKind::P2pCallbacksP2pDisconnection,
+            Self::RpcRespondBestTip { .. } => ActionKind::P2pCallbacksRpcRespondBestTip,
         }
     }
 }
@@ -750,7 +752,6 @@ impl ActionKindGet for TransitionFrontierAction {
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
             Self::SyncFailed { .. } => ActionKind::TransitionFrontierSyncFailed,
-            Self::RpcRespondBestTip { .. } => ActionKind::TransitionFrontierRpcRespondBestTip,
         }
     }
 }
@@ -1922,9 +1923,6 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncSuccess
             }
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSnarkedSuccess,
-            Self::P2pDisconnection { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedP2pDisconnection
-            }
         }
     }
 }

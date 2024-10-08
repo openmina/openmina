@@ -39,10 +39,17 @@ pub enum P2pCallbacksAction {
         id: P2pRpcId,
         response: Option<P2pStreamingRpcResponseFull>,
     },
+
+    P2pDisconnection {
+        peer_id: PeerId,
+    },
+    RpcRespondBestTip {
+        peer_id: PeerId,
+    },
 }
 
 impl redux::EnablingCondition<crate::State> for P2pCallbacksAction {
-    fn is_enabled(&self, _state: &crate::State, _time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             P2pCallbacksAction::P2pChannelsRpcReady { .. } => true,
             P2pCallbacksAction::P2pChannelsRpcTimeout { .. } => true,
@@ -51,6 +58,11 @@ impl redux::EnablingCondition<crate::State> for P2pCallbacksAction {
             P2pCallbacksAction::P2pChannelsStreamingRpcReady => true,
             P2pCallbacksAction::P2pChannelsStreamingRpcTimeout { .. } => true,
             P2pCallbacksAction::P2pChannelsStreamingRpcResponseReceived { .. } => true,
+            P2pCallbacksAction::P2pDisconnection { .. } => true,
+            // TODO: what if we don't have best tip?
+            P2pCallbacksAction::RpcRespondBestTip { .. } => {
+                state.transition_frontier.best_tip().is_some()
+            }
         }
     }
 }

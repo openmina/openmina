@@ -130,10 +130,6 @@ pub enum TransitionFrontierSyncLedgerSnarkedAction {
     MerkleTreeSyncSuccess,
     #[action_event(level = info)]
     Success,
-
-    P2pDisconnection {
-        peer_id: PeerId,
-    },
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnarkedAction {
@@ -454,7 +450,6 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                         TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncSuccess { .. }
                     )
                 }),
-            TransitionFrontierSyncLedgerSnarkedAction::P2pDisconnection { .. } => true,
         }
     }
 }

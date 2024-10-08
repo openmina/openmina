@@ -3,7 +3,7 @@ use std::sync::Arc;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
 
 use openmina_core::block::BlockWithHash;
-use openmina_core::requests::{RequestId, RpcIdType};
+use openmina_core::requests::RpcId;
 use openmina_core::snark::{Snark, SnarkInfo};
 use openmina_core::{
     block::ArcBlockWithHash, consensus::ConsensusConstants, constants::constraint_constants, error,
@@ -36,9 +36,7 @@ pub use crate::snark_pool::candidate::SnarkPoolCandidatesState;
 pub use crate::snark_pool::SnarkPoolState;
 use crate::transaction_pool::TransactionPoolState;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisState;
-use crate::transition_frontier::sync::ledger::snarked::{
-    TransitionFrontierSyncLedgerSnarkedAction, TransitionFrontierSyncLedgerSnarkedState,
-};
+use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedState;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedState;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
 use crate::transition_frontier::sync::TransitionFrontierSyncState;
@@ -46,9 +44,7 @@ pub use crate::transition_frontier::TransitionFrontierState;
 pub use crate::watched_accounts::WatchedAccountsState;
 pub use crate::Config;
 use crate::{config::GlobalConfig, SnarkPoolAction};
-use crate::{
-    ActionWithMeta, ConsensusAction, RpcAction, TransactionPoolAction, TransitionFrontierAction,
-};
+use crate::{ActionWithMeta, ConsensusAction, RpcAction, TransactionPoolAction};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
@@ -386,36 +382,36 @@ impl P2p {
             )),
             on_p2p_channels_best_tip_request_received: Some(redux::callback!(
                 on_p2p_channels_best_tip_request_received(peer_id: PeerId) -> crate::Action{
-                    TransitionFrontierAction::RpcRespondBestTip{peer_id}
+                    P2pCallbacksAction::RpcRespondBestTip { peer_id }
                 }
             )),
             on_p2p_disconnection_finish: Some(redux::callback!(
                 on_p2p_disconnection_finish(peer_id: PeerId) -> crate::Action{
-                    TransitionFrontierSyncLedgerSnarkedAction::P2pDisconnection { peer_id }
+                    P2pCallbacksAction::P2pDisconnection { peer_id }
                 }
             )),
             on_p2p_connection_outgoing_error: Some(redux::callback!(
-                on_p2p_connection_outgoing_error((rpc_id: RequestId<RpcIdType>, error: P2pConnectionOutgoingError)) -> crate::Action{
+                on_p2p_connection_outgoing_error((rpc_id: RpcId, error: P2pConnectionOutgoingError)) -> crate::Action{
                     RpcAction::P2pConnectionOutgoingError { rpc_id, error }
                 }
             )),
             on_p2p_connection_outgoing_success: Some(redux::callback!(
-                on_p2p_connection_outgoing_success(rpc_id: RequestId<RpcIdType>) -> crate::Action{
+                on_p2p_connection_outgoing_success(rpc_id: RpcId) -> crate::Action{
                     RpcAction::P2pConnectionOutgoingSuccess { rpc_id }
                 }
             )),
             on_p2p_connection_incoming_error: Some(redux::callback!(
-                on_p2p_connection_incoming_error((rpc_id: RequestId<RpcIdType>, error: String)) -> crate::Action{
+                on_p2p_connection_incoming_error((rpc_id: RpcId, error: String)) -> crate::Action{
                     RpcAction::P2pConnectionIncomingError { rpc_id, error }
                 }
             )),
             on_p2p_connection_incoming_success: Some(redux::callback!(
-                on_p2p_connection_incoming_success(rpc_id: RequestId<RpcIdType>) -> crate::Action{
+                on_p2p_connection_incoming_success(rpc_id: RpcId) -> crate::Action{
                     RpcAction::P2pConnectionIncomingSuccess { rpc_id }
                 }
             )),
             on_p2p_connection_incoming_answer_ready: Some(redux::callback!(
-                on_p2p_connection_incoming_answer_ready((rpc_id: RequestId<RpcIdType>, peer_id: PeerId, answer: P2pConnectionResponse)) -> crate::Action{
+                on_p2p_connection_incoming_answer_ready((rpc_id: RpcId, peer_id: PeerId, answer: P2pConnectionResponse)) -> crate::Action{
                     RpcAction::P2pConnectionIncomingAnswerReady { rpc_id, answer, peer_id }
                 }
             )),
