@@ -95,6 +95,7 @@ impl_into_global_action!(network::P2pNetworkSchedulerAction);
 impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
 impl_into_global_action!(network::pubsub::P2pNetworkPubsubAction);
 impl_into_global_action!(network::pubsub::P2pNetworkPubsubEffectfulAction);
+impl_into_global_action!(network::kad_effectful::P2pNetworkKadEffectfulAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
