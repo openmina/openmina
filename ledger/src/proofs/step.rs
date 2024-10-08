@@ -112,7 +112,7 @@ impl<T> Opt<T> {
     }
 }
 
-// REVIEW(dw): ok
+// REVIEW(dw): OK
 #[derive(Clone, Debug)]
 pub struct FeatureFlags<Bool> {
     pub range_check0: Bool,
@@ -184,7 +184,7 @@ impl FeatureFlags<bool> {
         }
     }
 
-// REVIEW(dw): ok
+    // REVIEW(dw): ok
     pub fn to_boolean(&self) -> FeatureFlags<Boolean> {
         use super::field::ToBoolean;
 
@@ -214,13 +214,16 @@ impl FeatureFlags<bool> {
 
 #[derive(Debug)]
 pub struct Basic {
+    // REVIEW(dw): the code seems to not use it. Weird
     pub proof_verifieds: Vec<u64>,
     // branches: u64,
     pub wrap_domain: Domains,
+    // REVIEW(dw): Why box?
     pub step_domains: Box<[Domains]>,
     pub feature_flags: FeatureFlags<OptFlag>,
 }
 
+// REVIEW(dw): this is simply preloaded or computed. This is for the lagrange basis/SRS
 #[derive(Debug)]
 pub enum ForStepKind<T, T2 = ()> {
     Known(T),
@@ -231,6 +234,7 @@ pub enum ForStepKind<T, T2 = ()> {
 pub struct ForStep {
     pub branches: usize,
     pub max_proofs_verified: usize,
+    // REVIEW(dw): the code seems to not use it. Weird
     pub proof_verifieds: ForStepKind<Vec<Fp>>,
     pub public_input: (), // Typ
     pub wrap_key: CircuitPlonkVerificationKeyEvals<Fp>,
@@ -890,6 +894,8 @@ pub mod step_verifier {
         sponge
     }
 
+    // REVIEW(dw): _widths is unused?
+    // REVIEW(dw): _max_width is unused?
     pub(super) fn hash_messages_for_next_step_proof_opt(
         msg: ReducedMessagesForNextStepProof,
         sponge: Sponge<Fp>,
@@ -1315,6 +1321,8 @@ pub mod step_verifier {
         w.add_fast(acc, add_opt(constant_part, &correction).to_affine())
     }
 
+    // REVIEW(dw): simply taking the commitment to the i-th lagrange polynomial.
+    // Note that it is already in SRS. We should move it there.
     fn lagrange_commitment<F: FieldWitness>(
         srs: &mut SRS<GroupAffine<F>>,
         domain: &Domain,
@@ -1323,7 +1331,10 @@ pub mod step_verifier {
         let d = domain.size();
         let unshifted = wrap_verifier::lagrange_commitment::<F>(srs, d, i).unshifted;
 
+        // REVIEW(dw): ok, because we have one chunk only.
         assert_eq!(unshifted.len(), 1);
+        // REVIEW(dw): Be careful here, it is simply taking the first chunk. Ok
+        // for now. But we will change this.
         InnerCurve::of_affine(unshifted[0])
     }
 
@@ -1389,7 +1400,6 @@ pub mod step_verifier {
 
         let (high, low) = to_high_low(advice.combined_inner_product.shifted_raw());
         sponge.absorb2(&[high, low.to_field()], w);
-
         let u = {
             let t = sponge.squeeze(w);
             wrap_verifier::group_map(t, w)
@@ -1515,15 +1525,21 @@ pub mod step_verifier {
     struct IncrementallyVerifyProofParams<'a> {
         pub proofs_verified: usize,
         pub srs: &'a mut poly_commitment::srs::SRS<Pallas>,
+        // REVIEW(dw): known or side-loaded commitments to SRS
         pub wrap_domain: &'a ForStepKind<Domain, Box<[Boolean]>>,
         pub sponge: Sponge<Fp>,
+        // REVIEW(dw): sponge after PI
         pub sponge_after_index: Sponge<Fp>,
         pub wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
+        // REVIEW(dw): this is the challenge to combine polynomials.
         pub xi: [u64; 2],
         pub public_input: Vec<Packed>,
         pub sg_old: &'a Vec<GroupAffine<Fp>>,
+        // REVIEW(dw): This contains polynomials b and the combined polynomial.
         pub advice: &'a Advice<Fp>,
         pub proof: &'a ProverProof<GroupAffine<Fp>>,
+        // REVIEW(dw): this is the different challenges involved in the PlonK
+        // IOP + the configuration (i.e. feature flags)
         pub plonk: &'a Plonk<Fq>,
     }
 
@@ -1558,6 +1574,11 @@ pub mod step_verifier {
         let sample = squeeze_challenge;
         let sample_scalar = squeeze_scalar;
 
+        // ----------------------
+        // REVIEW(dw): We start the verification part. It means we will reabsorb
+        // all the commitments and coin all challenges.
+        // This is mostly PlonK protocol.
+        // This must map the verifier in Kimchi
         let index_digest = {
             let mut index_sponge = sponge_after_index.clone();
             index_sponge.squeeze(w)
@@ -1572,6 +1593,7 @@ pub mod step_verifier {
         }
 
         let x_hat = match wrap_domain {
+            // REVIEW(dw): computing the commitment, using a precomputed domain
             ForStepKind::Known(domain) => {
                 let ts = public_input
                     .iter()
@@ -1586,6 +1608,7 @@ pub mod step_verifier {
             }
         };
 
+        // REVIEW(dw): I didn't check
         let x_hat = {
             w.exists(x_hat.y); // Because of `.neg()` above
             w.add_fast(x_hat, srs.h)
@@ -1593,35 +1616,45 @@ pub mod step_verifier {
 
         absorb_curve(&x_hat, &mut sponge, w);
 
+        // REVIEW(dw): starting to absorb all commitments to columns, i.e 15.
         let w_comm = &messages.w_comm;
         for g in w_comm.iter().flat_map(|w| &w.unshifted) {
             absorb_curve(g, &mut sponge, w);
         }
 
+        // REVIEW(dw): sampling β and γ for the permutation argument.
         let _beta = sample(&mut sponge, w);
         let _gamma = sample(&mut sponge, w);
 
+        // REVIEW(dw): absorbing commitments to the permutation argument
         let z_comm = &messages.z_comm;
         for z in z_comm.unshifted.iter() {
             absorb_curve(z, &mut sponge, w);
         }
 
+        // REVIEW(dw): sampling
         let _alpha = sample_scalar(&mut sponge, w);
 
+        // REVIEW(dw): quotient polynomial
         let t_comm = &messages.t_comm;
         for t in t_comm.unshifted.iter() {
             absorb_curve(t, &mut sponge, w);
         }
 
+        // REVIEW(dw): coin evaluation point.
         let _zeta = sample_scalar(&mut sponge, w);
 
         let sponge_before_evaluations = sponge.clone();
         let sponge_digest_before_evaluations = sponge.squeeze(w);
 
+        // REVIEW(dw): why 6?
         let sigma_comm_init = &wrap_verification_key.sigma[..PERMUTS_MINUS_1_ADD_N1];
 
+        // REVIEW(dw): linearization polynomial, Round 5, this is r(X) in the
+        // PlonK paper.
         let ft_comm = ft_comm(plonk, t_comm, wrap_verification_key, scale_for_ft_comm, w);
 
+        // REVIEW(dw): now the IPA
         let bulletproof_challenges = {
             /// Wrap_hack.Padded_length
             const WRAP_HACK_PADDED_LENGTH: usize = 2;
@@ -1704,6 +1737,7 @@ pub mod step_verifier {
             unfinalized,
         } = params;
 
+        // REVIEW(dw): verify these values
         let public_input = {
             let npublic_input = match hack_feature_flags {
                 OptFlag::No => 39,
@@ -1897,6 +1931,7 @@ fn to_bytes(f: Fp) -> [u64; 4] {
 }
 
 // REVIEW(dw): endianess = little endian
+// REVIEW(dw): I would rename this. It is mostly "from_128bits".
 fn to_4limbs(v: [u64; 2]) -> [u64; 4] {
     [v[0], v[1], 0, 0]
 }
@@ -1934,7 +1969,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
         beta: plonk0.beta,
         gamma: plonk0.gamma,
         zeta,
-        // Review(dw):?
+        // REVIEW(dw): why not joint_combiner directly?
         // joint_combiner: plonk0.joint_combiner,
         joint_combiner: plonk0
             .joint_combiner_bytes
