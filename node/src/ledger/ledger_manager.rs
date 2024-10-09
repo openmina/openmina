@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ledger::staged_ledger::staged_ledger::StagedLedger;
+use ledger::staged_ledger::staged_ledger::{SkipVerification, StagedLedger};
 use mina_p2p_messages::v2::{self, LedgerHash, MinaBaseAccountBinableArgStableV2};
 use openmina_core::channels::mpsc;
 use openmina_core::thread;
@@ -154,9 +154,18 @@ impl LedgerRequest {
                         result: result.map(Into::into),
                     }
                 }
-                LedgerWriteRequest::BlockApply { block, pred_block } => {
+                LedgerWriteRequest::BlockApply {
+                    block,
+                    pred_block,
+                    skip_verification,
+                } => {
                     let block_hash = block.hash().clone();
-                    let result = ledger_ctx.block_apply(block, pred_block);
+                    let skip_verification = if skip_verification {
+                        Some(SkipVerification::All)
+                    } else {
+                        None
+                    };
+                    let result = ledger_ctx.block_apply(block, pred_block, skip_verification);
                     LedgerWriteResponse::BlockApply { block_hash, result }
                 }
                 LedgerWriteRequest::Commit {

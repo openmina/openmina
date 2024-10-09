@@ -243,17 +243,27 @@ impl TransitionFrontierSyncAction {
                 };
                 let hash = block.hash.clone();
 
+                // During catchup, we skip the verificationf of completed work and zkApp txn proofs
+                // until get closer to the best tip, at which point full verification is enabled.
+                let skip_verification = super::CATCHUP_BLOCK_VERIFY_TAIL_LENGTH
+                    < store.state().transition_frontier.sync.pending_count();
+
                 if let Some(stats) = store.service.stats() {
                     stats.block_producer().block_apply_start(meta.time(), &hash);
                 }
 
                 store.dispatch(LedgerWriteAction::Init {
-                    request: LedgerWriteRequest::BlockApply { block, pred_block },
+                    request: LedgerWriteRequest::BlockApply {
+                        block,
+                        pred_block,
+                        skip_verification,
+                    },
                     on_init: redux::callback!(
                         on_block_next_apply_init(request: LedgerWriteRequest) -> crate::Action {
                             let LedgerWriteRequest::BlockApply {
                                 block,
                                 pred_block: _,
+                                skip_verification: _,
                             } = request
                             else {
                                 unreachable!()
