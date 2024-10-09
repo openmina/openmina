@@ -26,16 +26,19 @@ impl TransactionPool {
         Self { sender }
     }
 
-    pub fn inject(&self) -> TransactionPoolInject {
-        TransactionPoolInject {
-            sender: self.sender.clone(),
-        }
-    }
-
     async fn _get(&self) -> Option<RpcTransactionPoolResponse> {
         self.sender
             .oneshot_request(RpcRequest::TransactionPoolGet)
             .await
+    }
+}
+
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
+impl TransactionPool {
+    pub fn inject(&self) -> TransactionPoolInject {
+        TransactionPoolInject {
+            sender: self.sender.clone(),
+        }
     }
 }
 

@@ -31,7 +31,10 @@ impl Ledger {
     pub fn new(sender: RpcSender) -> Self {
         Self { sender }
     }
+}
 
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
+impl Ledger {
     pub fn latest(&self) -> LedgerSelected {
         LedgerSelected {
             sender: self.sender.clone(),
@@ -39,6 +42,7 @@ impl Ledger {
     }
 }
 
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
 impl LedgerSelected {
     pub fn accounts(&self) -> LedgerAccounts {
         LedgerAccounts {

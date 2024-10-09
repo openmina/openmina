@@ -24,7 +24,10 @@ impl TransitionFrontier {
     pub fn new(sender: RpcSender) -> Self {
         Self { sender }
     }
+}
 
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
+impl TransitionFrontier {
     pub fn best_chain(&self) -> TransitionFrontierBestChain {
         TransitionFrontierBestChain {
             sender: self.sender.clone(),
