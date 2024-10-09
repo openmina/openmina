@@ -60,15 +60,7 @@ export class DashboardEffects extends MinaRustBaseEffect<DashboardActions> {
               name: state.app.activeNode.name,
             }),
             this.dashboardService.getRpcCalls(),
-          ]).pipe(
-            // tap((r) => {
-            //   console.log('RESPONSE FROM COMBINATION', r);
-            // }),
-            // catchError((err) => {
-            //   console.log('ERROR FROM COMBINATION', err);
-            //   return EMPTY;
-            // }),
-          ),
+          ]),
       ),
       map((payload: [DashboardPeer[], NodesOverviewNode[], DashboardRpcStats]) => ({
         type: DASHBOARD_GET_DATA_SUCCESS, payload: { peers: payload[0], ledger: payload[1], rpcStats: payload[2] },

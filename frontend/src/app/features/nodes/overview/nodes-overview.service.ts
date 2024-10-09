@@ -12,7 +12,6 @@ import {
   NodesOverviewLedgerEpochStep,
   NodesOverviewLedgerStepState,
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
-import { NodesOverviewResync } from '@shared/types/nodes/dashboard/nodes-overview-resync.type';
 import { NodeDetailsResponse } from '@app/app.service';
 
 @Injectable({
@@ -50,7 +49,6 @@ export class NodesOverviewService {
       fetchedBlocks: 0,
       fetchingBlocks: 0,
       ledgers: this.getLedgers({}),
-      resyncs: [],
       blocks: [],
     }]);
   }
@@ -96,7 +94,6 @@ export class NodesOverviewService {
           fetchedBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHED).length,
           fetchingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHING).length,
           ledgers: this.getLedgers(node.ledgers),
-          resyncs: this.getResyncs(node.resyncs),
           blocks,
         } as NodesOverviewNode;
       });
@@ -221,16 +218,5 @@ export class NodesOverviewService {
 
   private noneOfStepsCompleted(step: any): boolean {
     return !step.snarked.fetch_hashes_start && !step.snarked.fetch_accounts_start;
-  }
-
-  private getResyncs(resyncs: any[]): NodesOverviewResync[] {
-    return resyncs.map((resync: any) => {
-      const kind = typeof resync.kind === 'string' ? resync.kind : Object.keys(resync.kind)[0];
-      return {
-        kind: kind.replace(/([A-Z])/g, ' $1').trim(),
-        description: typeof resync.kind === 'string' ? undefined : Object.values(resync.kind)[0]?.toString(),
-        time: resync.time,
-      };
-    });
   }
 }

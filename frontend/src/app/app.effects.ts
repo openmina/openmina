@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { createNonDispatchableEffect, Effect, removeParamsFromURL } from '@openmina/shared';
+import { createNonDispatchableEffect, Effect, NonDispatchableEffect, removeParamsFromURL } from '@openmina/shared';
 import { filter, from, map, switchMap, tap } from 'rxjs';
 import { AppActions } from '@app/app.actions';
 import { Router } from '@angular/router';
@@ -25,6 +25,7 @@ export class AppEffects extends BaseEffect {
 
   readonly initEffects$: Effect;
   readonly init$: Effect;
+  readonly initSuccess$: NonDispatchableEffect;
   readonly onNodeChange$: Effect;
   readonly getNodeDetails$: Effect;
 
@@ -51,6 +52,19 @@ export class AppEffects extends BaseEffect {
         map((activeNode: MinaNode) => ({ activeNode, nodes })),
       )),
       map((payload: { activeNode: MinaNode, nodes: MinaNode[] }) => AppActions.initSuccess(payload)),
+    ));
+
+    this.initSuccess$ = createNonDispatchableEffect(() => this.actions$.pipe(
+      ofType(AppActions.initSuccess),
+      this.latestActionState(),
+      switchMap(({ state }) => {
+        if (state.app.activeNode.isWebNode) {
+          return this.webNodeService.loadWasm$().pipe(
+            switchMap(() => this.webNodeService.startWasm$()),
+          );
+        }
+        return from([]);
+      }),
     ));
 
     this.onNodeChange$ = createNonDispatchableEffect(() => this.actions$.pipe(

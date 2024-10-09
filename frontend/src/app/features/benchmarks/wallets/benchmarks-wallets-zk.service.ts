@@ -1,17 +1,20 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, catchError, filter, forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { inject, Injectable } from '@angular/core';
+import { BehaviorSubject, catchError, filter, map, Observable, of, switchMap } from 'rxjs';
 import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';
 import { fromPromise } from 'rxjs/internal/observable/innerFrom';
 import { CONFIG } from '@shared/constants/config';
 import { any } from '@openmina/shared';
+import { DOCUMENT } from '@angular/common';
 
 @Injectable()
 export class BenchmarksWalletsZkService {
 
   private readonly updates = new BehaviorSubject<{ step: string, duration: number }>(null);
   private readonly o1jsInterface: BehaviorSubject<any> = new BehaviorSubject<any>(null);
+  private readonly document: Document = inject(DOCUMENT);
 
   readonly updates$ = this.updates.asObservable();
+
 
   loadO1js(): void {
     this.loadScript();
@@ -54,11 +57,11 @@ export class BenchmarksWalletsZkService {
     if (any(window).o1jsWrapper) {
       return;
     }
-    const script = document.createElement('script');
-    script.src = 'assets/o1js/o1jsWrapper.js';
+    const script = this.document.createElement('script');
+    script.src = 'assets/o1js/dist/o1js-wrapper.js';
     script.onload = () => {
       this.o1jsInterface.next(any(window).o1jsWrapper.default);
     };
-    document.body.appendChild(script);
+    this.document.body.appendChild(script);
   }
 }

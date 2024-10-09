@@ -3,7 +3,7 @@
   <div class="fx-row-vert-cent flex-between w-100">
     <form [formGroup]="formGroup" class="h-xl fx-row-vert-cent pl-12 pr-12 secondary shrink-0">
       <button (click)="send()"
-              class="live-button active"
+              class="live-button active text-nowrap"
               [class.disabled]="streamSending">Send ZK App
       </button>
       <input type="number" class="mina-input border-rad-4 mr-8 ml-8 text-center" formControlName="batch">
