@@ -91,6 +91,7 @@ impl BlockProducerVrfEvaluatorState {
             best_tip_epoch,
             root_block_epoch,
             current_epoch,
+            is_next_epoch_seed_finalized,
             staking_epoch_data,
             next_epoch_data,
             ..
@@ -111,7 +112,7 @@ impl BlockProducerVrfEvaluatorState {
             if !self.is_epoch_evaluated(best_tip_epoch) {
                 self.epoch_context = EpochContext::Current((*staking_epoch_data).into())
             } else if !self.is_epoch_evaluated(best_tip_epoch + 1) {
-                if root_block_epoch == best_tip_epoch {
+                if root_block_epoch == best_tip_epoch && is_next_epoch_seed_finalized {
                     self.epoch_context = EpochContext::Next((*next_epoch_data).into())
                 } else {
                     self.epoch_context = EpochContext::Waiting
@@ -495,6 +496,7 @@ pub enum BlockProducerVrfEvaluatorStatus {
     ReadinessCheck {
         time: redux::Timestamp,
         current_epoch: Option<u32>,
+        is_next_epoch_seed_finalized: bool,
         best_tip_epoch: u32,
         root_block_epoch: u32,
         is_current_epoch_evaluated: bool,
@@ -658,6 +660,7 @@ mod test {
                     best_tip_epoch: 0,
                     is_current_epoch_evaluated: false,
                     is_next_epoch_evaluated: false,
+                    is_next_epoch_seed_finalized: false,
                     last_evaluated_epoch: None,
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
@@ -680,6 +683,7 @@ mod test {
                     best_tip_epoch: 0,
                     is_current_epoch_evaluated: true,
                     is_next_epoch_evaluated: false,
+                    is_next_epoch_seed_finalized: true,
                     last_evaluated_epoch: Some(0),
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
@@ -702,6 +706,7 @@ mod test {
                     best_tip_epoch: 0,
                     is_current_epoch_evaluated: true,
                     is_next_epoch_evaluated: true,
+                    is_next_epoch_seed_finalized: true,
                     last_evaluated_epoch: Some(1),
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
@@ -724,6 +729,7 @@ mod test {
                     best_tip_epoch: 2,
                     is_current_epoch_evaluated: false,
                     is_next_epoch_evaluated: false,
+                    is_next_epoch_seed_finalized: false,
                     last_evaluated_epoch: None,
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
@@ -747,6 +753,7 @@ mod test {
                     is_current_epoch_evaluated: true,
                     is_next_epoch_evaluated: false,
                     last_evaluated_epoch: Some(2),
+                    is_next_epoch_seed_finalized: false,
                     staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
                     next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
                 },
@@ -804,6 +811,7 @@ mod test {
     #[test]
     fn generic_epoch_correctly_switch_to_next_epoch() {
         // Staking ledger not yet materialized (wait k=290 blocks)
+        // The epoch seed is not finalized yet
         let mut vrf_evaluator_state = SECOND_EPOCH_CURRENT_EPOCH_EVALUATED_WAIT_FOR_NEXT
             .lock()
             .unwrap();
@@ -815,6 +823,7 @@ mod test {
 
         // Epoch has changed but the root is still from the previous epoch.
         // Next epoch must not be evaluated yet.
+        // The epoch seed is not finalized yet.
         vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
             time: redux::Timestamp::global_now(),
             current_epoch: Some(2), // TODO(adonagy)
@@ -822,6 +831,7 @@ mod test {
             best_tip_epoch: 2,
             is_current_epoch_evaluated: true,
             is_next_epoch_evaluated: false,
+            is_next_epoch_seed_finalized: false,
             last_evaluated_epoch: Some(2),
             staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
             next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
@@ -834,7 +844,7 @@ mod test {
         ));
 
         // Epoch has changed, and the root is already at that epoch too.
-        // Next epoch must be evaluated now.
+        // The epoch seed is still not finalized.
         vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
             time: redux::Timestamp::global_now(),
             current_epoch: Some(2), // TODO(adonagy)
@@ -842,6 +852,28 @@ mod test {
             best_tip_epoch: 2,
             is_current_epoch_evaluated: true,
             is_next_epoch_evaluated: false,
+            is_next_epoch_seed_finalized: false,
+            last_evaluated_epoch: Some(2),
+            staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
+            next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
+        };
+
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Waiting
+        ));
+
+        // Epoch has changed, and the root is already at that epoch too.
+        // The epoch seed is also finalized.
+        vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+            time: redux::Timestamp::global_now(),
+            current_epoch: Some(2), // TODO(adonagy)
+            root_block_epoch: 2,
+            best_tip_epoch: 2,
+            is_current_epoch_evaluated: true,
+            is_next_epoch_evaluated: false,
+            is_next_epoch_seed_finalized: true,
             last_evaluated_epoch: Some(2),
             staking_epoch_data: Box::new(DUMMY_STAKING_EPOCH_DATA.to_owned()),
             next_epoch_data: Box::new(DUMMY_NEXT_EPOCH_DATA.to_owned()),
