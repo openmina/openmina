@@ -453,14 +453,12 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
             let rpc_sender_clone = rpc_sender_clone.clone();
             async move {
                 rpc_sender_clone
-                    .oneshot_request(RpcRequest::TransactionPoolGet)
+                    .transaction_pool()
+                    .get()
                     .await
-                    .map_or_else(
-                        dropped_channel_response,
-                        |reply: node::rpc::RpcTransactionPoolResponse| {
-                            with_json_reply(&reply, StatusCode::OK)
-                        },
-                    )
+                    .map_or_else(dropped_channel_response, |reply| {
+                        with_json_reply(&reply, StatusCode::OK)
+                    })
             }
         });
 
@@ -489,19 +487,23 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
             let rpc_sender_clone = rpc_sender_clone.clone();
 
             async move {
-                rpc_sender_clone
-                    .oneshot_request(RpcRequest::TransactionInject(
-                        body.into_iter()
-                            .map(|cmd| cmd.try_into().unwrap())
-                            .collect(),
-                    ))
+                match rpc_sender_clone
+                    .transaction_pool()
+                    .inject()
+                    .payment(body)
                     .await
-                    .map_or_else(
+                {
+                    Err(err) => with_status(
+                        warp::reply::json(&serde_json::json!({"error": err})),
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ),
+                    Ok(res) => res.map_or_else(
                         dropped_channel_response,
                         |reply: node::rpc::RpcTransactionInjectResponse| {
                             with_json_reply(&reply, StatusCode::OK)
                         },
-                    )
+                    ),
+                }
             }
         });
 

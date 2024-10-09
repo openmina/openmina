@@ -10,6 +10,7 @@ use node::rpc::*;
 
 use super::state::State;
 use super::stats::Stats;
+use super::transaction_pool::TransactionPool;
 use super::NodeRpcRequest;
 
 #[derive(Clone)]
@@ -75,6 +76,10 @@ impl RpcSender {
 
     pub fn stats(&self) -> Stats {
         Stats::new(self.clone())
+    }
+
+    pub fn transaction_pool(&self) -> TransactionPool {
+        TransactionPool::new(self.clone())
     }
 }
 
