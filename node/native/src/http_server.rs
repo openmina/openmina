@@ -515,14 +515,13 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
 
             async move {
                 rpc_sender_clone
-                    .oneshot_request(RpcRequest::TransitionFrontierUserCommandsGet)
+                    .transition_frontier()
+                    .best_chain()
+                    .user_commands()
                     .await
-                    .map_or_else(
-                        dropped_channel_response,
-                        |reply: node::rpc::RpcTransitionFrontierUserCommandsResponse| {
-                            with_json_reply(&reply, StatusCode::OK)
-                        },
-                    )
+                    .map_or_else(dropped_channel_response, |reply| {
+                        with_json_reply(&reply, StatusCode::OK)
+                    })
             }
         });
 

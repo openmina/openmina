@@ -4,6 +4,7 @@ pub use sender::RpcSender;
 pub mod state;
 pub mod stats;
 pub mod transaction_pool;
+pub mod transition_frontier;
 
 use node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,

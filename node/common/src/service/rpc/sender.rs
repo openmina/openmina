@@ -11,6 +11,7 @@ use node::rpc::*;
 use super::state::State;
 use super::stats::Stats;
 use super::transaction_pool::TransactionPool;
+use super::transition_frontier::TransitionFrontier;
 use super::NodeRpcRequest;
 
 #[derive(Clone)]
@@ -80,6 +81,10 @@ impl RpcSender {
 
     pub fn transaction_pool(&self) -> TransactionPool {
         TransactionPool::new(self.clone())
+    }
+
+    pub fn transition_frontier(&self) -> TransitionFrontier {
+        TransitionFrontier::new(self.clone())
     }
 }
 
