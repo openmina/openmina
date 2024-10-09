@@ -29,6 +29,7 @@ pub enum P2pChannelsTransactionAction {
         peer_id: PeerId,
         promised_count: u8,
     },
+    // TODO(binier): propagate tx info received to pool
     Received {
         peer_id: PeerId,
         transaction: Box<TransactionInfo>,

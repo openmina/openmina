@@ -279,6 +279,17 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             }
         }
         RpcAction::P2pConnectionIncomingPending { .. } => {}
+        RpcAction::P2pConnectionIncomingAnswerReady {
+            rpc_id,
+            answer,
+            peer_id,
+        } => {
+            store.dispatch(RpcAction::P2pConnectionIncomingRespond {
+                rpc_id,
+                response: answer,
+            });
+            store.dispatch(P2pConnectionIncomingAction::AnswerSendSuccess { peer_id });
+        }
         RpcAction::P2pConnectionIncomingRespond { rpc_id, response } => {
             let error = match &response {
                 P2pConnectionResponse::Accepted(_) => None,

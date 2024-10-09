@@ -58,6 +58,13 @@ impl P2pChannelsRpcState {
                         last_responded: redux::Timestamp::ZERO,
                     },
                 };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_rpc_ready {
+                    dispatcher.push_callback(callback.clone(), peer_id);
+                }
                 Ok(())
             }
             P2pChannelsRpcAction::RequestSend {
@@ -108,8 +115,21 @@ impl P2pChannelsRpcState {
                 });
                 Ok(())
             }
-            P2pChannelsRpcAction::Timeout { .. } => Ok(()),
-            P2pChannelsRpcAction::ResponseReceived { response, .. } => {
+            P2pChannelsRpcAction::Timeout { id, .. } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_rpc_timeout {
+                    dispatcher.push_callback(callback.clone(), (peer_id, *id));
+                }
+
+                Ok(())
+            }
+            P2pChannelsRpcAction::ResponseReceived {
+                response,
+                id: rpc_id,
+                ..
+            } => {
                 let Self::Ready { local, .. } = rpc_state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsRpcAction::ResponseReceived`, state: {:?}",
@@ -130,7 +150,9 @@ impl P2pChannelsRpcState {
                     request: std::mem::take(request),
                 };
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
                 if let Some(P2pRpcResponse::BestTipWithProof(resp)) = response.as_deref() {
                     let Ok(best_tip) = BlockWithHash::try_new(resp.best_tip.clone()) else {
                         error!(meta.time(); "P2pChannelsRpcAction::ResponseReceived: Invalid bigint in block");
@@ -138,6 +160,11 @@ impl P2pChannelsRpcState {
                     };
 
                     dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
+                }
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_rpc_response_received {
+                    dispatcher
+                        .push_callback(callback.clone(), (peer_id, *rpc_id, response.clone()));
                 }
                 Ok(())
             }
@@ -157,6 +184,13 @@ impl P2pChannelsRpcState {
                         request: (**request).clone(),
                         is_pending: false,
                     });
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_rpc_request_received {
+                    dispatcher.push_callback(callback.clone(), (peer_id, *id, request.clone()));
+                }
                 Ok(())
             }
             P2pChannelsRpcAction::ResponsePending { id, .. } => {

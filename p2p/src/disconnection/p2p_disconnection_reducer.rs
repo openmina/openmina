@@ -59,8 +59,13 @@ impl P2pDisconnectedState {
                 };
                 peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
                 dispatcher.push(P2pPeerAction::Remove { peer_id: *peer_id });
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_disconnection_finish {
+                    dispatcher.push_callback(callback.clone(), *peer_id);
+                }
                 Ok(())
             }
             #[cfg(feature = "p2p-libp2p")]
@@ -83,8 +88,14 @@ impl P2pDisconnectedState {
                 };
                 peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
                 dispatcher.push(P2pPeerAction::Remove { peer_id: *peer_id });
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_disconnection_finish {
+                    dispatcher.push_callback(callback.clone(), *peer_id);
+                }
+
                 Ok(())
             }
         }

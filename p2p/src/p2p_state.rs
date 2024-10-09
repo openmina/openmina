@@ -1,26 +1,40 @@
-use openmina_core::{block::ArcBlockWithHash, ChainId};
-use openmina_core::{impl_substate_access, SubstateAccess};
-use redux::Timestamp;
+use openmina_core::{
+    block::{ArcBlockWithHash, BlockWithHash},
+    impl_substate_access,
+    requests::RpcId,
+    snark::{Snark, SnarkInfo, SnarkJobCommitment},
+    ChainId, SubstateAccess,
+};
+use redux::{Callback, Timestamp};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
-
-use openmina_core::requests::RpcId;
-
-use crate::bootstrap::P2pNetworkKadBootstrapState;
-use crate::channels::rpc::P2pRpcId;
-use crate::channels::streaming_rpc::P2pStreamingRpcId;
-use crate::channels::{ChannelId, P2pChannelsState};
-use crate::connection::incoming::P2pConnectionIncomingState;
-use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
-use crate::network::identify::{P2pNetworkIdentify, P2pNetworkIdentifyState};
-use crate::network::P2pNetworkState;
-use crate::{
-    is_time_passed, Limit, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
-    P2pNetworkSchedulerState, P2pTimeouts, PeerId,
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
 };
 
-use super::connection::P2pConnectionState;
-use super::P2pConfig;
+use crate::{
+    bootstrap::P2pNetworkKadBootstrapState,
+    channels::{
+        rpc::{P2pRpcId, P2pRpcRequest, P2pRpcResponse},
+        streaming_rpc::{P2pStreamingRpcId, P2pStreamingRpcResponseFull},
+        ChannelId, P2pChannelsState,
+    },
+    connection::{
+        incoming::P2pConnectionIncomingState,
+        outgoing::{
+            P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState,
+        },
+        P2pConnectionResponse, P2pConnectionState,
+    },
+    is_time_passed,
+    network::{
+        identify::{P2pNetworkIdentify, P2pNetworkIdentifyState},
+        P2pNetworkState,
+    },
+    Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
+    P2pNetworkSchedulerState, P2pTimeouts, PeerId,
+};
+use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pState {
@@ -28,10 +42,11 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
+    pub callbacks: P2pCallbacks,
 }
 
 impl P2pState {
-    pub fn new(config: P2pConfig, chain_id: &ChainId) -> Self {
+    pub fn new(config: P2pConfig, callbacks: P2pCallbacks, chain_id: &ChainId) -> Self {
         let addrs = if cfg!(feature = "p2p-libp2p") {
             config
                 .libp2p_port
@@ -104,6 +119,7 @@ impl P2pState {
             config,
             network,
             peers,
+            callbacks,
         }
     }
 
@@ -469,6 +485,66 @@ impl SubstateAccess<P2pState> for P2pState {
     fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut P2pState> {
         Ok(self)
     }
+}
+
+type OptionalCallback<T> = Option<Callback<T>>;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct P2pCallbacks {
+    /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
+    pub on_p2p_channels_transaction_libp2p_received:
+        OptionalCallback<Box<MinaBaseUserCommandStableV2>>,
+    /// Callback for [`P2pChannelsSnarkJobCommitmentAction::Received`]
+    pub on_p2p_channels_snark_job_commitment_received:
+        OptionalCallback<(PeerId, Box<SnarkJobCommitment>)>,
+
+    /// Callback for [`P2pChannelsSnarkAction::Received`]
+    pub on_p2p_channels_snark_received: OptionalCallback<(PeerId, Box<SnarkInfo>)>,
+    /// Callback for [`P2pChannelsSnarkAction::Libp2pReceived`]
+    pub on_p2p_channels_snark_libp2p_received: OptionalCallback<(PeerId, Box<Snark>)>,
+
+    /// Callback for [`P2pChannelsBestTipAction::RequestReceived`]
+    pub on_p2p_channels_best_tip_request_received: OptionalCallback<PeerId>,
+
+    /// Callback for [`P2pDisconnectionAction::Finish`]
+    pub on_p2p_disconnection_finish: OptionalCallback<PeerId>,
+
+    /// TODO: these 2 should be set by `P2pConnectionOutgoingAction::Init`
+    /// Callback for [`P2pConnectionOutgoingAction::Error`]
+    pub on_p2p_connection_outgoing_error: OptionalCallback<(RpcId, P2pConnectionOutgoingError)>,
+    /// Callback for [`P2pConnectionOutgoingAction::Success`]
+    pub on_p2p_connection_outgoing_success: OptionalCallback<RpcId>,
+
+    /// TODO: these 3 should be set by `P2pConnectionIncomingAction::Init`
+    /// Callback for [`P2pConnectionIncomingAction::Error`]
+    pub on_p2p_connection_incoming_error: OptionalCallback<(RpcId, String)>,
+    /// Callback for [`P2pConnectionIncomingAction::Success`]
+    pub on_p2p_connection_incoming_success: OptionalCallback<RpcId>,
+    /// Callback for [`P2pConnectionIncomingAction::AnswerReady`]
+    pub on_p2p_connection_incoming_answer_ready:
+        OptionalCallback<(RpcId, PeerId, P2pConnectionResponse)>,
+
+    /// Callback for [`P2pPeerAction::BestTipUpdate`]
+    pub on_p2p_peer_best_tip_update: OptionalCallback<BlockWithHash<Arc<MinaBlockBlockStableV2>>>,
+
+    /// Callback for [`P2pChannelsRpcAction::Ready`]
+    pub on_p2p_channels_rpc_ready: OptionalCallback<PeerId>,
+    /// Callback for [`P2pChannelsRpcAction::Timeout`]
+    pub on_p2p_channels_rpc_timeout: OptionalCallback<(PeerId, P2pRpcId)>,
+    /// Callback for [`P2pChannelsRpcAction::ResponseReceived`]
+    pub on_p2p_channels_rpc_response_received:
+        OptionalCallback<(PeerId, P2pRpcId, Option<Box<P2pRpcResponse>>)>,
+    /// Callback for [`P2pChannelsRpcAction::RequestReceived`]
+    pub on_p2p_channels_rpc_request_received:
+        OptionalCallback<(PeerId, P2pRpcId, Box<P2pRpcRequest>)>,
+
+    /// Callback for [`P2pChannelsStreamingRpcAction::Ready`]
+    pub on_p2p_channels_streaming_rpc_ready: OptionalCallback<()>,
+    /// Callback for [`P2pChannelsStreamingRpcAction::Timeout`]
+    pub on_p2p_channels_streaming_rpc_timeout: OptionalCallback<(PeerId, P2pRpcId)>,
+    /// Callback for [`P2pChannelsStreamingRpcAction::ResponseReceived`]
+    pub on_p2p_channels_streaming_rpc_response_received:
+        OptionalCallback<(PeerId, P2pRpcId, Option<P2pStreamingRpcResponseFull>)>,
 }
 
 impl_substate_access!(P2pState, P2pNetworkState, network);
