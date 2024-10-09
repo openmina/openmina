@@ -3,6 +3,7 @@ use std::rc::Rc;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_serialize::Write;
+use itertools::Itertools;
 use poly_commitment::srs::SRS;
 
 use crate::{
@@ -519,6 +520,38 @@ fn verify_with(
     )
 }
 
+pub struct VerificationContext<'a> {
+    pub verifier_index: &'a VerifierIndex<Fq>,
+    pub proof: &'a ProverProof<Fq>,
+    pub public_input: &'a [Fq],
+}
+
+fn batch_verify(proofs: &[VerificationContext]) -> Result<(), VerifyError> {
+    use kimchi::groupmap::GroupMap;
+    use kimchi::mina_curves::pasta::PallasParameters;
+    use kimchi::verifier::Context;
+    use mina_poseidon::sponge::{DefaultFqSponge, DefaultFrSponge};
+    use poly_commitment::evaluation_proof::OpeningProof;
+
+    type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
+    type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams>;
+    type EFrSponge = DefaultFrSponge<Fq, SpongeParams>;
+
+    let group_map = GroupMap::<Fp>::setup();
+    let proofs = proofs
+        .iter()
+        .map(|p| Context {
+            verifier_index: p.verifier_index,
+            proof: p.proof,
+            public_input: p.public_input,
+        })
+        .collect_vec();
+
+    kimchi::verifier::batch_verify::<Pallas, EFqSponge, EFrSponge, OpeningProof<Pallas>>(
+        &group_map, &proofs,
+    )
+}
+
 fn run_checks(
     proof: &PicklesProofProofsVerified2ReprStableV2,
     verifier_index: &VerifierIndex<Fq>,
@@ -713,7 +746,7 @@ pub fn verify_block(
     let protocol_state_hash = MinaHash::hash(&protocol_state);
 
     let accum_check =
-        accumulator_check::accumulator_check(srs, protocol_state_proof).unwrap_or(false);
+        accumulator_check::accumulator_check(srs, &[protocol_state_proof]).unwrap_or(false);
     let verified = verify_impl(&protocol_state_hash, protocol_state_proof, &vk).unwrap_or(false);
 
     accum_check && verified
@@ -730,12 +763,27 @@ pub fn verify_transaction<'a>(
         data: (),
     };
 
-    proofs.into_iter().all(|(statement, transaction_proof)| {
-        let accum_check =
-            accumulator_check::accumulator_check(srs, transaction_proof).unwrap_or(false);
-        let verified = verify_impl(statement, transaction_proof, &vk).unwrap_or(false);
-        accum_check && verified
-    })
+    let mut inputs: Vec<(
+        &Statement<SokDigest>,
+        &PicklesProofProofsVerified2ReprStableV2,
+        &VK,
+    )> = Vec::with_capacity(128);
+
+    let mut accum_check_proofs: Vec<&PicklesProofProofsVerified2ReprStableV2> =
+        Vec::with_capacity(128);
+
+    proofs
+        .into_iter()
+        .for_each(|(statement, transaction_proof)| {
+            accum_check_proofs.push(transaction_proof);
+            inputs.push((statement, transaction_proof, &vk));
+        });
+
+    let accum_check =
+        accumulator_check::accumulator_check(srs, &accum_check_proofs).unwrap_or(false);
+
+    let verified = batch_verify_impl(inputs.as_slice()).unwrap_or(false);
+    accum_check && verified
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_proof.rs#L116
@@ -753,7 +801,8 @@ pub fn verify_zkapp(
         data: (),
     };
 
-    let accum_check = accumulator_check::accumulator_check(srs, sideloaded_proof).unwrap_or(false);
+    let accum_check =
+        accumulator_check::accumulator_check(srs, &[sideloaded_proof]).unwrap_or(false);
     let verified = verify_impl(&zkapp_statement, sideloaded_proof, &vk).unwrap_or(false);
 
     let ok = accum_check && verified;
@@ -807,6 +856,57 @@ where
     if let Err(e) = result {
         eprintln!("verify error={:?}", e);
     };
+
+    Ok(result.is_ok() && checks)
+}
+
+fn batch_verify_impl<AppState>(
+    proofs: &[(&AppState, &PicklesProofProofsVerified2ReprStableV2, &VK)],
+) -> Result<bool, InvalidBigInt>
+where
+    AppState: ToFieldElements<Fp>,
+{
+    let mut verification_contexts = Vec::with_capacity(proofs.len());
+    let mut checks = true;
+
+    for (app_state, proof, vk) in proofs {
+        let deferred_values = compute_deferred_values(proof)?;
+        checks = checks && run_checks(proof, vk.index);
+
+        let message_for_next_step_proof = get_message_for_next_step_proof(
+            &proof.statement.messages_for_next_step_proof,
+            &vk.commitments,
+            app_state,
+        )?;
+
+        let message_for_next_wrap_proof = get_message_for_next_wrap_proof(
+            &proof.statement.proof_state.messages_for_next_wrap_proof,
+        )?;
+
+        let prepared_statement = get_prepared_statement(
+            &message_for_next_step_proof,
+            &message_for_next_wrap_proof,
+            deferred_values,
+            &proof.statement.proof_state.sponge_digest_before_evaluations,
+        );
+
+        let npublic_input = vk.index.public;
+        let public_inputs = prepared_statement.to_public_input(npublic_input)?;
+        let proof_padded = make_padded_proof_from_p2p(proof)?;
+
+        verification_contexts.push((vk.index, proof_padded, public_inputs));
+    }
+
+    let proofs: Vec<VerificationContext> = verification_contexts
+        .iter()
+        .map(|(vk, proof, public_input)| VerificationContext {
+            verifier_index: vk,
+            proof,
+            public_input,
+        })
+        .collect();
+
+    let result = batch_verify(&proofs);
 
     Ok(result.is_ok() && checks)
 }
