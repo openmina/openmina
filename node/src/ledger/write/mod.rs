@@ -50,6 +50,7 @@ pub enum LedgerWriteRequest {
     BlockApply {
         block: ArcBlockWithHash,
         pred_block: AppliedBlock,
+        skip_verification: bool,
     },
     Commit {
         ledgers_to_keep: BTreeSet<v2::LedgerHash>,
