@@ -337,7 +337,7 @@ pub type RpcScanStateSummaryGetResponse = Result<RpcScanStateSummary, String>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
-pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
+pub type RpcTransactionPoolResponse = Vec<RpcTransactionPoolCommand>;
 pub type RpcLedgerSlimAccountsResponse = Vec<AccountSlim>;
 pub type RpcLedgerAccountsResponse = Vec<Account>;
 pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
@@ -367,6 +367,28 @@ pub struct RpcTransactionInjectedPayment {
     pub memo: String, // TODO(adonagy)
     // pub memo: Memo, // TODO(adonagy)
     pub nonce: Nonce,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcTransactionPoolCommand {
+    #[serde(flatten)]
+    pub command: ValidCommandWithHash,
+    pub hash_bs58: String,
+}
+
+impl From<&ValidCommandWithHash> for RpcTransactionPoolCommand {
+    fn from(value: &ValidCommandWithHash) -> Self {
+        Self {
+            hash_bs58: TransactionHash::from(value.hash.as_ref()).to_string(),
+            command: value.clone(),
+        }
+    }
+}
+
+impl From<ValidCommandWithHash> for RpcTransactionPoolCommand {
+    fn from(value: ValidCommandWithHash) -> Self {
+        Self::from(&value)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

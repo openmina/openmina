@@ -17,7 +17,7 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{
     AccountSlim, PeerConnectionStatus, RpcPeerInfo, RpcTransactionInjectResponse,
-    RpcTransactionInjectSuccess, TransactionStatus,
+    RpcTransactionInjectSuccess, RpcTransactionPoolCommand, TransactionStatus,
 };
 use crate::snark_pool::SnarkPoolAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
@@ -667,7 +667,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             );
         }
         RpcAction::TransactionPool { rpc_id } => {
-            let response = store.state().transaction_pool.get_all_transactions();
+            let response = store
+                .state()
+                .transaction_pool
+                .get_all_transactions()
+                .iter()
+                .map(RpcTransactionPoolCommand::from)
+                .collect::<Vec<_>>();
 
             respond_or_log!(
                 store.service().respond_transaction_pool(rpc_id, response),
