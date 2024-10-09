@@ -468,7 +468,10 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
 
         async move {
             rpc_sender_clone
-                .oneshot_request(RpcRequest::LedgerAccountsGet(AccountQuery::All))
+                .ledger()
+                .latest()
+                .accounts()
+                .all()
                 .await
                 .map_or_else(
                     dropped_channel_response,

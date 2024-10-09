@@ -1,6 +1,7 @@
 mod sender;
 pub use sender::RpcSender;
 
+pub mod ledger;
 pub mod state;
 pub mod stats;
 pub mod transaction_pool;
