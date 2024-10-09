@@ -18,7 +18,6 @@ import {
   DashboardTransitionFrontierComponent,
 } from './dashboard-transition-frontier/dashboard-transition-frontier.component';
 import { DashboardBlocksSyncComponent } from './dashboard-blocks-sync/dashboard-blocks-sync.component';
-import { DashboardErrorsComponent } from './dashboard-errors/dashboard-errors.component';
 import {
   DashboardPeersMinimalTableComponent,
 } from './dashboard-peers-minimal-table/dashboard-peers-minimal-table.component';
@@ -36,7 +35,6 @@ import {
     DashboardLedgerComponent,
     DashboardTransitionFrontierComponent,
     DashboardBlocksSyncComponent,
-    DashboardErrorsComponent,
     DashboardPeersMinimalTableComponent,
   ],
   imports: [

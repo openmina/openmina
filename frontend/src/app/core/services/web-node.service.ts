@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, filter, from, fromEvent, map, Observable, of, switchMap, tap } from 'rxjs';
 import base from 'base-x';
 import { any, log } from '@openmina/shared';
+import { CONFIG } from '@shared/constants/config';
 
 @Injectable({
   providedIn: 'root',
@@ -21,8 +22,6 @@ export class WebNodeService {
   }
 
   loadWasm$(): Observable<void> {
-    console.log('loading WASM');
-    console.log((window as any).webnode);
     if ((window as any).webnode) {
       return of(void 0);
     }
@@ -30,19 +29,17 @@ export class WebNodeService {
   }
 
   startWasm$(): Observable<any> {
-    console.log('starting WASM');
     return of((window as any).webnode)
       .pipe(
         switchMap((wasm: any) => from(wasm.default('assets/webnode/pkg/openmina_node_web_bg.wasm')).pipe(map(() => wasm))),
         switchMap((wasm) => {
           console.log(wasm);
-          return from(wasm.run());
+          return from(wasm.run(CONFIG.webNodeKey));
         }),
         tap((jsHandle: any) => {
           this.backend = jsHandle;
-          console.log('----------------JS HANDLE----------------');
+          console.log('----------------WEBNODE----------------');
           console.log(jsHandle);
-          console.log('----------------JS HANDLE----------------');
           this.backendSubject$.next(jsHandle);
         }),
         switchMap(() => this.backendSubject$.asObservable()),
