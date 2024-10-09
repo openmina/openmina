@@ -64,7 +64,7 @@ impl TransactionPoolInject {
             .oneshot_request(RpcRequest::TransactionInject(
                 payments
                     .into_iter()
-                    .map(|cmd| v2::MinaBaseUserCommandStableV2::try_from(cmd))
+                    .map(v2::MinaBaseUserCommandStableV2::try_from)
                     .collect::<Result<_, _>>()
                     .map_err(|err| err.to_string())?,
             ))
