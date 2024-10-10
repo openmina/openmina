@@ -19,6 +19,9 @@ use crate::ledger::LedgerService;
 
 use super::PendingId;
 
+pub type TransactionPoolActionWithMeta = redux::ActionWithMeta<TransactionPoolAction>;
+pub type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a TransactionPoolAction>;
+
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = info)]
 pub enum TransactionPoolAction {
