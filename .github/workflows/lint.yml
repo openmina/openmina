@@ -17,7 +17,7 @@ jobs:
           sudo apt install -y protobuf-compiler
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.79
+          toolchain: 1.81
           components: rustfmt, clippy
           default: true
       - uses: actions-rs/cargo@v1
@@ -36,4 +36,4 @@ jobs:
         name: clippy
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets -- -D warnings
+          args: --all-targets -- -D warnings --allow clippy::mutable_key_type --allow clippy::result_unit_err

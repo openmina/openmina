@@ -2,6 +2,7 @@
 //! Initial Joining:
 //! * Ensure new nodes can discover peers and establish initial connections.
 //! * Test how nodes handle scenarios when they are overwhelmed with too many connections or data requests.
+//!
 //! TODO(vlad9486):
 //! Reconnection: Validate that nodes can reconnect after both intentional and unintentional disconnections.
 //! Handling Latency: Nodes should remain connected and synchronize even under high latency conditions.
