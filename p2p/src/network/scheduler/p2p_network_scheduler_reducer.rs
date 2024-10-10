@@ -431,6 +431,15 @@ impl P2pNetworkSchedulerState {
 
                 Ok(())
             }
+            P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => {
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(
+                    P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady {
+                        listener: *listener,
+                    },
+                );
+                Ok(())
+            }
         }
     }
 

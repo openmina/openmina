@@ -11,7 +11,7 @@ mod p2p_network_identify_protocol;
 pub use self::p2p_network_identify_protocol::*;
 
 mod p2p_network_identify_actions;
-pub use self::p2p_network_identify_actions::P2pNetworkIdentifyAction;
+pub use self::p2p_network_identify_actions::*;
 
 mod p2p_network_identify_state;
 pub use self::p2p_network_identify_state::*;

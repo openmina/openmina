@@ -55,13 +55,6 @@ impl P2pNetworkState {
                 meta.with_action(a),
                 limits,
             ),
-            P2pNetworkAction::PubsubEffectful(_)
-            | P2pNetworkAction::SchedulerEffectful(_)
-            | P2pNetworkAction::PnetEffectful(_)
-            | P2pNetworkAction::KadEffectful(_) => {
-                // Effectful action; no reducer
-                Ok(())
-            }
         }
     }
 

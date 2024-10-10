@@ -24,8 +24,8 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkEffectfulAction {
     }
 }
 
-impl From<P2pChannelsSnarkEffectfulAction> for crate::P2pAction {
-    fn from(action: P2pChannelsSnarkEffectfulAction) -> crate::P2pAction {
-        crate::P2pAction::ChannelsEffectful(P2pChannelsEffectfulAction::Snark(action))
+impl From<P2pChannelsSnarkEffectfulAction> for crate::P2pEffectfulAction {
+    fn from(action: P2pChannelsSnarkEffectfulAction) -> crate::P2pEffectfulAction {
+        crate::P2pEffectfulAction::Channels(P2pChannelsEffectfulAction::Snark(action))
     }
 }

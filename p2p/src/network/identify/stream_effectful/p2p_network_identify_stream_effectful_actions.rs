@@ -1,4 +1,4 @@
-use crate::{ConnectionAddr, P2pAction, P2pState, PeerId, StreamId};
+use crate::{ConnectionAddr, P2pState, PeerId, StreamId};
 use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
@@ -37,8 +37,10 @@ impl EnablingCondition<P2pState> for P2pNetworkIdentifyStreamEffectfulAction {
     }
 }
 
-impl From<P2pNetworkIdentifyStreamEffectfulAction> for P2pAction {
-    fn from(value: P2pNetworkIdentifyStreamEffectfulAction) -> Self {
-        P2pAction::Network(super::super::P2pNetworkIdentifyAction::StreamEffectful(value).into())
+impl From<P2pNetworkIdentifyStreamEffectfulAction> for crate::P2pEffectfulAction {
+    fn from(value: P2pNetworkIdentifyStreamEffectfulAction) -> crate::P2pEffectfulAction {
+        crate::P2pEffectfulAction::Network(crate::P2pNetworkEffectfulAction::Identify(
+            crate::network::identify::P2pNetworkIdentifyEffectfulAction::Stream(value),
+        ))
     }
 }

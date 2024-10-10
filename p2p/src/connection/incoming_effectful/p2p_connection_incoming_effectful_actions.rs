@@ -1,6 +1,6 @@
 use crate::{
     connection::{incoming::P2pConnectionIncomingInitOpts, P2pConnectionEffectfulAction},
-    webrtc, P2pAction, P2pState, PeerId,
+    webrtc, P2pState, PeerId,
 };
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
@@ -22,8 +22,8 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingEffectfulAction
     }
 }
 
-impl From<P2pConnectionIncomingEffectfulAction> for P2pAction {
-    fn from(a: P2pConnectionIncomingEffectfulAction) -> Self {
-        Self::ConnectionEffectful(P2pConnectionEffectfulAction::Incoming(a))
+impl From<P2pConnectionIncomingEffectfulAction> for crate::P2pEffectfulAction {
+    fn from(a: P2pConnectionIncomingEffectfulAction) -> crate::P2pEffectfulAction {
+        crate::P2pEffectfulAction::Connection(P2pConnectionEffectfulAction::Incoming(a))
     }
 }

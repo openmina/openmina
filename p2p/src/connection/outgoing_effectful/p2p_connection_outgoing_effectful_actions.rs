@@ -36,8 +36,8 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingEffectfulAction
     }
 }
 
-impl From<P2pConnectionOutgoingEffectfulAction> for crate::P2pAction {
-    fn from(a: P2pConnectionOutgoingEffectfulAction) -> Self {
-        Self::ConnectionEffectful(P2pConnectionEffectfulAction::Outgoing(a))
+impl From<P2pConnectionOutgoingEffectfulAction> for crate::P2pEffectfulAction {
+    fn from(a: P2pConnectionOutgoingEffectfulAction) -> crate::P2pEffectfulAction {
+        crate::P2pEffectfulAction::Connection(P2pConnectionEffectfulAction::Outgoing(a))
     }
 }

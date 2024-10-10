@@ -1,7 +1,6 @@
 use p2p::channels::snark::P2pChannelsSnarkAction;
 use p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
 use p2p::channels::transaction::P2pChannelsTransactionAction;
-use p2p::P2pNetworkSchedulerEffectfulAction;
 use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
 
 use crate::action::CheckTimeoutsAction;
@@ -74,11 +73,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             .dispatch(P2pNetworkSchedulerAction::ListenerError { listener, error });
                     }
                     MioEvent::IncomingConnectionIsReady { listener } => {
-                        store.dispatch(
-                            P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady {
-                                listener,
-                            },
-                        );
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingConnectionIsReady {
+                            listener,
+                        });
                     }
                     MioEvent::IncomingConnectionDidAccept(addr, result) => {
                         store.dispatch(P2pNetworkSchedulerAction::IncomingDidAccept {

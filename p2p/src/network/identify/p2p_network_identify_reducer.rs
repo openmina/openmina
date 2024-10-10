@@ -20,10 +20,6 @@ impl super::P2pNetworkIdentifyState {
                 meta.with_action(action),
                 limits,
             ),
-            P2pNetworkIdentifyAction::StreamEffectful(_) => {
-                // no reducer effectful action
-                Ok(())
-            }
         }
     }
 }

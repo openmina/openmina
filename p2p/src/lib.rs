@@ -56,7 +56,6 @@ pub use p2p_state::*;
 mod p2p_reducer;
 
 mod p2p_effects;
-pub use self::p2p_effects::*;
 
 mod p2p_service;
 pub use p2p_service::*;
@@ -108,6 +107,7 @@ pub trait P2pActionTrait<State>:
     EnablingCondition<State>
     + From<AnyAction>
     + From<P2pAction>
+    + From<P2pEffectfulAction>
     + From<P2pNetworkKademliaStreamAction>
     + From<P2pNetworkKadRequestAction>
     + From<P2pNetworkKadBootstrapAction>

@@ -19,9 +19,9 @@ pub enum P2pNetworkKadEffectfulAction {
     },
 }
 
-impl From<P2pNetworkKadEffectfulAction> for crate::P2pAction {
+impl From<P2pNetworkKadEffectfulAction> for crate::P2pEffectfulAction {
     fn from(value: P2pNetworkKadEffectfulAction) -> Self {
-        crate::P2pAction::Network(value.into())
+        crate::P2pEffectfulAction::Network(value.into())
     }
 }
 
