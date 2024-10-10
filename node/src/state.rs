@@ -281,6 +281,10 @@ impl State {
         self.cur_slot(|b| b.global_slot())
     }
 
+    pub fn current_slot(&self) -> Option<u32> {
+        self.cur_slot(|b| b.global_slot() % b.constants().slots_per_epoch.as_u32())
+    }
+
     pub fn cur_global_slot_since_genesis(&self) -> Option<u32> {
         self.cur_slot(|b| b.global_slot_since_genesis())
     }

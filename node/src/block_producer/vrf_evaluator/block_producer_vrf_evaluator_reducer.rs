@@ -65,6 +65,7 @@ impl BlockProducerVrfEvaluatorState {
             }
             BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
                 current_epoch,
+                is_next_epoch_seed_finalized,
                 best_tip_epoch,
                 root_block_epoch,
                 staking_epoch_data,
@@ -76,6 +77,7 @@ impl BlockProducerVrfEvaluatorState {
                 self.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
                     time: meta.time(),
                     current_epoch: *current_epoch,
+                    is_next_epoch_seed_finalized: *is_next_epoch_seed_finalized,
                     best_tip_epoch: *best_tip_epoch,
                     root_block_epoch: *root_block_epoch,
                     is_current_epoch_evaluated: self.is_epoch_evaluated(*best_tip_epoch),

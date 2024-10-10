@@ -110,6 +110,7 @@ impl BlockProducerVrfEvaluatorAction {
                 best_tip_slot,
                 next_epoch_first_slot,
                 current_epoch: _,
+                is_next_epoch_seed_finalized: _,
                 staking_epoch_data: _,
                 next_epoch_data: _,
             } => {
