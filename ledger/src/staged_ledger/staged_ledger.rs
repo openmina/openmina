@@ -5949,6 +5949,10 @@ mod tests {
         assert_eq!(reference, serde_json::to_string(&hash).unwrap());
     }
 
+    fn verifier_wrapper<F: std::future::Future>(future: F) -> F::Output {
+        crate::proofs::provers::block_on(future)
+    }
+
     #[test]
     fn apply_berkeleynet() {
         #[allow(unused)]
@@ -6013,7 +6017,8 @@ mod tests {
             pending_coinbase_collection: pending_coinbase,
         };
 
-        let block_verifier = crate::proofs::verifiers::BlockVerifier::make();
+        let block_verifier =
+            verifier_wrapper(crate::proofs::verifiers::BlockVerifier::make_async());
 
         println!("initialized in {:?}", now.elapsed());
 

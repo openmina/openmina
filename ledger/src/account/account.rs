@@ -1759,9 +1759,8 @@ mod tests {
         #[cfg(not(target_family = "wasm"))]
         const SIZE: usize = 280;
 
-        // FIXME: was 2496bytes before zkapp got boxed, what should be the size now?
         #[cfg(target_family = "wasm")]
-        const SIZE: usize = 280;
+        const SIZE: usize = 264;
 
         assert_eq!(std::mem::size_of::<Account>(), SIZE);
     }

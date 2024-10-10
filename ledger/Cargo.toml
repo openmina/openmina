@@ -72,6 +72,7 @@ serde_with = "3.6.1"
 anyhow = "1.0.75"
 thiserror = "1.0.60"
 fraction = { version = "=0.15.1", default-features = false, features = ["with-serde-support"] }
+zip = { version = "2.2", default-features = false }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -93,7 +94,8 @@ rand_seeder = "0.2"
 tuple-map = "0.4.0"
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
-wasm-bindgen-test = "0.3.0"
+wasm-bindgen = "=0.2.92"
+wasm-bindgen-test = "0.3"
 web-sys = { version = "0.3", features = ["Blob", "DedicatedWorkerGlobalScope", "MessageEvent", "Url", "Worker", "WorkerType", "WorkerOptions", "console", "Window", "Performance" ] }
 
 [features]
