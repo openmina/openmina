@@ -1599,54 +1599,13 @@ pub enum ApplyDecision {
     Reject,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct Time {
-    nanoseconds_since_unix_epoch: u64,
-}
-
-impl Time {
-    #[cfg(target_family = "wasm")]
-    fn now() -> Self {
-        // TODO:
-        // https://github.com/janestreet/time_now/blob/d7e3801d2f120b6723c28429de0dd63b669d47b8/src/time_now_stubs.c#L16
-        todo!()
-    }
-
-    #[cfg(not(target_family = "wasm"))]
-    fn now() -> Self {
-        const NANOS_PER_SECOND: u64 = 1000000000;
-
-        let mut tp = libc::timeval {
-            tv_sec: 0,
-            tv_usec: 0,
-        };
-
-        let result = unsafe {
-            // Use same syscall than OCaml:
-            // https://github.com/janestreet/time_now/blob/d7e3801d2f120b6723c28429de0dd63b669d47b8/src/time_now_stubs.c#L30
-            libc::gettimeofday(&mut tp, std::ptr::null_mut())
-        };
-        if result == -1 {
-            return Self {
-                nanoseconds_since_unix_epoch: 0,
-            };
-        }
-
-        Self {
-            nanoseconds_since_unix_epoch: NANOS_PER_SECOND
-                .wrapping_mul(tp.tv_sec as u64)
-                .wrapping_add((tp.tv_usec as u64).wrapping_mul(1000)),
-        }
-    }
-}
-
 const MAX_PER_15_SECONDS: usize = 10;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionPool {
     pub pool: IndexedPool,
-    locally_generated_uncommitted: HashMap<ValidCommandWithHash, (Time, Batch)>,
-    locally_generated_committed: HashMap<ValidCommandWithHash, (Time, Batch)>,
+    locally_generated_uncommitted: HashMap<ValidCommandWithHash, (redux::Timestamp, Batch)>,
+    locally_generated_committed: HashMap<ValidCommandWithHash, (redux::Timestamp, Batch)>,
     current_batch: usize,
     remaining_in_batch: usize,
     pub config: Config,
@@ -1964,6 +1923,7 @@ impl TransactionPool {
 
     fn apply(
         &mut self,
+        time: redux::Timestamp,
         global_slot_since_genesis: Slot,
         current_global_slot: Slot,
         diff: &diff::DiffVerified,
@@ -2079,7 +2039,7 @@ impl TransactionPool {
                     continue;
                 };
                 if !all_dropped_cmd_hashes.contains(&cmd.hash) {
-                    self.register_locally_generated(cmd);
+                    self.register_locally_generated(time, cmd);
                 }
             }
         }
@@ -2117,6 +2077,7 @@ impl TransactionPool {
 
     pub fn unsafe_apply(
         &mut self,
+        time: redux::Timestamp,
         global_slot_since_genesis: Slot,
         current_global_slot: Slot,
         diff: &diff::DiffVerified,
@@ -2131,6 +2092,7 @@ impl TransactionPool {
         String,
     > {
         let (decision, accepted, rejected) = self.apply(
+            time,
             global_slot_since_genesis,
             current_global_slot,
             diff,
@@ -2140,11 +2102,11 @@ impl TransactionPool {
         Ok((decision, accepted, rejected))
     }
 
-    fn register_locally_generated(&mut self, cmd: &ValidCommandWithHash) {
+    fn register_locally_generated(&mut self, time: redux::Timestamp, cmd: &ValidCommandWithHash) {
         match self.locally_generated_uncommitted.entry(cmd.clone()) {
             Entry::Occupied(mut entry) => {
-                let (time, _batch_num) = entry.get_mut();
-                *time = Time::now();
+                let (entry_time, _batch_num) = entry.get_mut();
+                *entry_time = redux::Timestamp::global_now();
             }
             Entry::Vacant(entry) => {
                 let batch_num = if self.remaining_in_batch > 0 {
@@ -2155,7 +2117,7 @@ impl TransactionPool {
                     self.current_batch += 1;
                     self.current_batch
                 };
-                entry.insert((Time::now(), Batch::Of(batch_num)));
+                entry.insert((time, Batch::Of(batch_num)));
             }
         }
     }
@@ -2259,7 +2221,7 @@ impl TransactionPool {
 
     fn get_rebroadcastable<F>(&mut self, has_timed_out: F) -> Vec<Vec<UserCommand>>
     where
-        F: Fn(&Time) -> bool,
+        F: Fn(&redux::Timestamp) -> bool,
     {
         let log = |has_timed_out: bool, s: &str, cmd: &ValidCommandWithHash| -> bool {
             if has_timed_out {

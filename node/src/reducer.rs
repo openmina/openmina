@@ -73,7 +73,7 @@ pub fn reducer(
         Action::TransactionPool(a) => {
             crate::transaction_pool::TransactionPoolState::reducer(
                 Substate::new(state, dispatcher),
-                a,
+                meta.with_action(a),
             );
         }
         Action::TransactionPoolEffect(_) => {}
