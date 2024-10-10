@@ -105,6 +105,9 @@ impl fmt::Display for P2pConnectionEvent {
                 P2pConnectionResponse::Rejected(reason) => {
                     write!(f, "AnswerReceived, {peer_id}, Rejected, {reason:?}")
                 }
+                P2pConnectionResponse::SignalDecryptionFailed => {
+                    write!(f, "SignalDecryptionFailed, {peer_id}")
+                }
                 P2pConnectionResponse::InternalError => {
                     write!(f, "AnswerReceived, {peer_id}, InternalError")
                 }

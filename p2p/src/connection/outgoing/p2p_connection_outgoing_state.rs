@@ -125,6 +125,8 @@ pub enum P2pConnectionOutgoingError {
     SdpCreateError(String),
     #[error("rejected: {0}")]
     Rejected(RejectionReason),
+    #[error("remote signal decryption failed")]
+    RemoteSignalDecryptionFailed,
     #[error("remote internal error")]
     RemoteInternalError,
     #[error("finalization error: {0}")]

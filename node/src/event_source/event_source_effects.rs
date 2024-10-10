@@ -158,6 +158,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 error: P2pConnectionErrorResponse::Rejected(reason),
                             });
                         }
+                        P2pConnectionResponse::SignalDecryptionFailed => {
+                            store.dispatch(P2pConnectionOutgoingAction::AnswerRecvError {
+                                peer_id,
+                                error: P2pConnectionErrorResponse::SignalDecryptionFailed,
+                            });
+                        }
                         P2pConnectionResponse::InternalError => {
                             store.dispatch(P2pConnectionOutgoingAction::AnswerRecvError {
                                 peer_id,
