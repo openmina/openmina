@@ -20,6 +20,7 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
 };
+use transaction_pool_actions::TransactionPoolActionWithMetaRef;
 
 pub mod transaction_pool_actions;
 
@@ -106,13 +107,13 @@ impl TransactionPoolState {
         }
     }
 
-    pub fn reducer(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
+    pub fn reducer(mut state: crate::Substate<Self>, action: TransactionPoolActionWithMetaRef<'_>) {
         // Uncoment following line to save actions to `/tmp/pool.bin`
         // Self::save_actions(&mut state);
 
         let substate = state.get_substate_mut().unwrap();
         if let Some(file) = substate.file.as_mut() {
-            postcard::to_io(action, file).unwrap();
+            postcard::to_io(&action, file).unwrap();
         };
 
         Self::handle_action(state, action)
@@ -125,7 +126,11 @@ impl TransactionPoolState {
         ))
     }
 
-    fn handle_action(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
+    fn handle_action(
+        mut state: crate::Substate<Self>,
+        action: TransactionPoolActionWithMetaRef<'_>,
+    ) {
+        let (action, meta) = action.split();
         let Some((global_slot, global_slot_from_genesis)) =
             // TODO: remove usage of `unsafe_get_state`
             Self::global_slots(state.unsafe_get_state())
@@ -293,6 +298,7 @@ impl TransactionPoolState {
 
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
                 match substate.pool.unsafe_apply(
+                    meta.time(),
                     global_slot_from_genesis,
                     global_slot,
                     &diff,
@@ -444,6 +450,7 @@ mod tests {
     use super::*;
     use crate::State;
     use redux::Dispatcher;
+    use transaction_pool_actions::TransactionPoolActionWithMeta;
 
     #[allow(unused)]
     #[test]
@@ -454,13 +461,16 @@ mod tests {
         let (mut state, rest) = postcard::take_from_bytes::<State>(slice).unwrap();
         let mut slice = rest;
 
-        while let Ok((action, rest)) = postcard::take_from_bytes::<TransactionPoolAction>(slice) {
+        while let Ok((action, rest)) =
+            postcard::take_from_bytes::<TransactionPoolActionWithMeta>(slice)
+        {
             slice = rest;
 
             let mut dispatcher = Dispatcher::new();
             let state = crate::Substate::<TransactionPoolState>::new(&mut state, &mut dispatcher);
+            let (action, meta) = action.split();
 
-            TransactionPoolState::handle_action(state, &action);
+            TransactionPoolState::handle_action(state, meta.with_action(&action));
         }
     }
 }

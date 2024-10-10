@@ -31,10 +31,11 @@ use crate::{
             UserCommand, WithStatus,
         },
     },
-    sparse_ledger::{self, SparseLedger},
+    sparse_ledger::SparseLedger,
     split_at, split_at_vec,
     staged_ledger::{pre_diff_info, resources::IncreaseBy, transaction_validator},
     verifier::{Verifier, VerifierError},
+    zkapps::non_snark::LedgerNonSnark,
     AccountId, BaseLedger, Mask, TokenId,
 };
 
@@ -77,7 +78,7 @@ pub enum StagedLedgerError {
 
 const ZKAPP_LIMIT_PER_BLOCK: Option<usize> = None;
 
-pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
+pub struct PreStatement<L: LedgerNonSnark> {
     partially_applied_transaction: TransactionPartiallyApplied<L>,
     expected_status: TransactionStatus,
     accounts_accessed: Vec<AccountId>,
@@ -1246,12 +1247,16 @@ impl StagedLedger {
         supercharge_coinbase: bool,
     ) -> Result<DiffResult, StagedLedgerError> {
         let work = witness.completed_works();
+        let works_count = work.len();
 
         let now = redux::Instant::now();
         if skip_verification.is_none() {
             Self::check_completed_works(logger, verifier, &self.scan_state, work)?;
         }
-        eprintln!("verification time={:?}", now.elapsed());
+        eprintln!(
+            "verification time={:?} ({works_count} completed works)",
+            now.elapsed()
+        );
 
         let prediff = witness.get(
             |cmd| Self::check_commands(self.ledger.clone(), verifier, cmd, skip_verification),

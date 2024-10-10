@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use ledger::staged_ledger::staged_ledger::StagedLedger;
+use ledger::staged_ledger::staged_ledger::{SkipVerification, StagedLedger};
 use mina_p2p_messages::v2::{self, LedgerHash, MinaBaseAccountBinableArgStableV2};
 use openmina_core::channels::mpsc;
 use openmina_core::thread;
@@ -11,6 +11,7 @@ use super::write::{LedgerWriteRequest, LedgerWriteResponse};
 use super::LedgerService;
 use crate::account::AccountPublicKey;
 use crate::ledger::LedgerAddress;
+use crate::rpc::AccountQuery;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 use ledger::{Account, AccountId, Mask};
 use mina_signer::CompressedPubKey;
@@ -153,9 +154,18 @@ impl LedgerRequest {
                         result: result.map(Into::into),
                     }
                 }
-                LedgerWriteRequest::BlockApply { block, pred_block } => {
+                LedgerWriteRequest::BlockApply {
+                    block,
+                    pred_block,
+                    skip_verification,
+                } => {
                     let block_hash = block.hash().clone();
-                    let result = ledger_ctx.block_apply(block, pred_block);
+                    let skip_verification = if skip_verification {
+                        Some(SkipVerification::All)
+                    } else {
+                        None
+                    };
+                    let result = ledger_ctx.block_apply(block, pred_block, skip_verification);
                     LedgerWriteResponse::BlockApply { block_hash, result }
                 }
                 LedgerWriteRequest::Commit {
@@ -220,13 +230,25 @@ impl LedgerRequest {
                         let res = ledger_ctx.scan_state_summary(&ledger_hash);
                         LedgerReadResponse::ScanStateSummary(res)
                     }
-                    LedgerReadRequest::GetAccounts(ledger_hash, account_ids) => {
+                    LedgerReadRequest::GetAccounts(ledger_hash, account_ids, rpc_id) => {
                         let res = ledger_ctx.get_accounts(ledger_hash, account_ids);
-                        LedgerReadResponse::GetAccounts(res)
+                        LedgerReadResponse::GetAccounts(res, rpc_id)
                     }
-                    LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash, public_key) => {
-                        let res = ledger_ctx.get_accounts_for_rpc(ledger_hash, public_key);
-                        LedgerReadResponse::AccountsForRpc(rpc_id, res)
+                    LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash, account_query) => {
+                        let res = match &account_query {
+                            AccountQuery::SinglePublicKey(public_key) => ledger_ctx
+                                .get_accounts_for_rpc(ledger_hash, Some(public_key.clone())),
+                            AccountQuery::All => ledger_ctx.get_accounts_for_rpc(ledger_hash, None),
+                            AccountQuery::PubKeyWithTokenId(public_key, token_id_key_hash) => {
+                                let id = AccountId {
+                                    public_key: public_key.clone().try_into().unwrap(),
+                                    token_id: token_id_key_hash.clone().into(),
+                                };
+                                ledger_ctx.get_accounts(ledger_hash, vec![id])
+                            }
+                        };
+
+                        LedgerReadResponse::AccountsForRpc(rpc_id, res, account_query)
                     }
                 },
             ),

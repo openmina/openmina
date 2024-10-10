@@ -8,8 +8,11 @@ use node::core::channels::{mpsc, oneshot};
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::rpc::*;
 
+use super::ledger::Ledger;
 use super::state::State;
 use super::stats::Stats;
+use super::transaction_pool::TransactionPool;
+use super::transition_frontier::TransitionFrontier;
 use super::NodeRpcRequest;
 
 #[derive(Clone)]
@@ -75,6 +78,18 @@ impl RpcSender {
 
     pub fn stats(&self) -> Stats {
         Stats::new(self.clone())
+    }
+
+    pub fn transaction_pool(&self) -> TransactionPool {
+        TransactionPool::new(self.clone())
+    }
+
+    pub fn transition_frontier(&self) -> TransitionFrontier {
+        TransitionFrontier::new(self.clone())
+    }
+
+    pub fn ledger(&self) -> Ledger {
+        Ledger::new(self.clone())
     }
 }
 

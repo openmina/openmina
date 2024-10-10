@@ -1,5 +1,5 @@
-use openmina_core::{error, Substate};
-use p2p::{P2pAction, P2pInitializeAction};
+use openmina_core::{bug_condition, error, Substate};
+use p2p::{P2pAction, P2pInitializeAction, P2pState};
 
 use crate::{Action, ActionWithMeta, EventSourceAction, P2p, State};
 
@@ -10,7 +10,15 @@ pub fn reducer(
 ) {
     let meta = action.meta().clone();
     match action.action() {
-        Action::CheckTimeouts(_) => {}
+        Action::CheckTimeouts(_) => {
+            if state.p2p.ready().is_some() {
+                if let Err(error) =
+                    P2pState::p2p_timeout_dispatch(Substate::new(state, dispatcher), &meta)
+                {
+                    bug_condition!("{}", error);
+                };
+            }
+        }
         Action::EventSource(EventSourceAction::NewEvent { .. }) => {}
         Action::EventSource(_) => {}
 
@@ -65,7 +73,7 @@ pub fn reducer(
         Action::TransactionPool(a) => {
             crate::transaction_pool::TransactionPoolState::reducer(
                 Substate::new(state, dispatcher),
-                a,
+                meta.with_action(a),
             );
         }
         Action::TransactionPoolEffect(_) => {}
@@ -85,6 +93,9 @@ pub fn reducer(
                 Substate::new(state, dispatcher),
                 meta.with_action(a),
             );
+        }
+        Action::P2pCallbacks(action) => {
+            State::p2p_callback_reducer(Substate::new(state, dispatcher), meta.with_action(action))
         }
     }
 

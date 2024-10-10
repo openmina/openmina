@@ -13,7 +13,7 @@ use crate::zkapps::zkapp_logic;
 use crate::scan_state::transaction_logic::zkapp_command::{
     self, CheckAuthorizationResult, SetOrKeep,
 };
-use crate::scan_state::transaction_logic::TransactionFailure;
+use crate::scan_state::transaction_logic::{TimingValidation, TransactionFailure};
 use crate::sparse_ledger::LedgerIntf;
 use crate::{AccountId, AuthRequired, MyCow, ReceiptChainHash, TokenId, ZkAppAccount};
 
@@ -81,13 +81,27 @@ pub trait ZkappHandler {
         global_state: &mut Self::GlobalState,
         w: &mut Self::W,
     ) -> Self::Bool;
-    fn init_account(account_update: &Self::AccountUpdate, account: &Self::Account)
-        -> Self::Account;
+    fn init_account(account_update: &Self::AccountUpdate, account: Self::Account) -> Self::Account;
 }
 
 pub struct Opt<T> {
     pub is_some: Boolean,
     pub data: T,
+}
+
+impl<T: Default> Opt<T> {
+    pub fn from_option(opt: Option<T>) -> Self {
+        match opt {
+            Some(data) => Self {
+                is_some: Boolean::True,
+                data,
+            },
+            None => Self {
+                is_some: Boolean::False,
+                data: T::default(),
+            },
+        }
+    }
 }
 
 impl<A, B> Opt<(A, B)> {
@@ -182,6 +196,7 @@ pub trait GlobalSlotSinceGenesisInterface {
     type Bool: BoolInterface;
 
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool;
+    fn exists_no_check(self, w: &mut Self::W) -> Self;
 }
 
 pub trait GlobalSlotSpanInterface {
@@ -320,11 +335,11 @@ where
     type CallForest: CallForestInterface;
     type Bool: BoolInterface;
     type SignedAmount: SignedAmountInterface;
+    type VerificationKeyHash: VerificationKeyHashInterface;
 
     // Only difference in our Rust code is the `WithHash`
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body;
-    fn set(&mut self, new: Self);
-    fn verification_key_hash(&self) -> Fp;
+    fn verification_key_hash(&self) -> Self::VerificationKeyHash;
     fn is_proved(&self) -> Self::Bool;
     fn is_signed(&self) -> Self::Bool;
     fn check_authorization(
@@ -372,7 +387,7 @@ pub trait ControllerInterface {
         auth: &AuthRequired,
         single_data: &Self::SingleData,
         w: &mut Self::W,
-    ) -> Self::Bool;
+    ) -> Result<Self::Bool, String>;
 
     fn verification_key_perm_fallback_to_signature_with_older_version(
         auth: &AuthRequired,
@@ -404,7 +419,7 @@ where
     fn and(a: Self, b: Self, w: &mut Self::W) -> Self;
     fn equal(a: Self, b: Self, w: &mut Self::W) -> Self;
     fn all(bs: &[Self], w: &mut Self::W) -> Self;
-    fn assert_any(bs: &[Self], w: &mut Self::W);
+    fn assert_any(bs: &[Self], w: &mut Self::W) -> Result<(), String>;
     fn assert_with_failure_status_tbl(
         b: Self,
         table: &Self::FailureStatusTable,
@@ -434,6 +449,7 @@ where
     type Bool: BoolInterface;
     type Balance: BalanceInterface;
     type GlobalSlot: GlobalSlotSinceGenesisInterface;
+    type VerificationKeyHash: VerificationKeyHashInterface;
     type D;
 
     fn register_verification_key(&self, data: &Self::D, w: &mut Self::W);
@@ -442,7 +458,7 @@ where
     fn set_delegate(&mut self, new: CompressedPubKey);
     fn zkapp(&self) -> MyCow<ZkAppAccount>;
     fn zkapp_mut(&mut self) -> &mut ZkAppAccount;
-    fn verification_key_hash(&self) -> Fp;
+    fn verification_key_hash(&self) -> Self::VerificationKeyHash;
     fn set_token_id(&mut self, token_id: TokenId);
     fn is_timed(&self) -> Self::Bool;
     fn balance(&self) -> Self::Balance;
@@ -451,7 +467,7 @@ where
         &self,
         txn_global_slot: &Self::GlobalSlot,
         w: &mut Self::W,
-    ) -> (Self::Bool, crate::Timing);
+    ) -> (TimingValidation<Self::Bool>, crate::Timing);
     fn make_zkapp(&mut self);
     fn unmake_zkapp(&mut self);
     fn proved_state(&self) -> Self::Bool;
@@ -461,36 +477,44 @@ where
     fn set_last_action_slot(&mut self, slot: Self::GlobalSlot);
 }
 
-pub trait LedgerInterface {
+pub trait LedgerInterface: LedgerIntf + Clone {
     type W: WitnessGenerator<Fp>;
     type AccountUpdate: AccountUpdateInterface;
     type Account: AccountInterface;
     type Bool: BoolInterface;
     type InclusionProof;
 
-    fn empty() -> Self;
+    fn empty(depth: usize) -> Self;
     fn get_account(
         &self,
         account_update: &Self::AccountUpdate,
         w: &mut Self::W,
-    ) -> (Self::Account, Self::InclusionProof);
-    fn set_account(&mut self, account: (Self::Account, Self::InclusionProof), w: &mut Self::W);
+    ) -> Result<(Self::Account, Self::InclusionProof), String>;
+    fn set_account(
+        &mut self,
+        account: (Self::Account, Self::InclusionProof),
+        w: &mut Self::W,
+    ) -> Result<(), String>;
     fn check_inclusion(&self, account: &(Self::Account, Self::InclusionProof), w: &mut Self::W);
     fn check_account(
         public_key: &CompressedPubKey,
         token_id: &TokenId,
         account: (&Self::Account, &Self::InclusionProof),
         w: &mut Self::W,
-    ) -> Self::Bool;
-    fn exists_no_check(self, w: &mut Self::W) -> Self;
-    fn exists_no_check_on_bool(self, b: Self::Bool, w: &mut Self::W) -> Self;
+    ) -> Result<Self::Bool, String>;
+    fn exists_no_check(self, _w: &mut Self::W) -> Self {
+        self
+    }
+    fn exists_no_check_on_bool(self, _b: Self::Bool, _w: &mut Self::W) -> Self {
+        self
+    }
 }
 
 pub trait VerificationKeyHashInterface {
     type W: WitnessGenerator<Fp>;
     type Bool: BoolInterface;
 
-    fn equal(a: Fp, b: Fp, w: &mut Self::W) -> Self::Bool;
+    fn equal(a: &Self, b: &Self, w: &mut Self::W) -> Self::Bool;
 }
 
 pub trait SetOrKeepInterface {
@@ -551,15 +575,12 @@ pub trait ZkappApplication
 where
     Self: Sized,
 {
-    type Ledger: LedgerIntf
-        + Clone
-        + ToFieldElements<Fp>
-        + LedgerInterface<
-            W = Self::WitnessGenerator,
-            AccountUpdate = Self::AccountUpdate,
-            Account = Self::Account,
-            Bool = Self::Bool,
-        >;
+    type Ledger: LedgerInterface<
+        W = Self::WitnessGenerator,
+        AccountUpdate = Self::AccountUpdate,
+        Account = Self::Account,
+        Bool = Self::Bool,
+    >;
     type SignedAmount: SignedAmountInterface<W = Self::WitnessGenerator, Bool = Self::Bool, Amount = Self::Amount>
         + std::fmt::Debug
         + Clone
@@ -572,10 +593,11 @@ where
         SignedAmount = Self::SignedAmount,
     >;
     type Index: IndexInterface + Clone + ToFieldElements<Fp>;
-    type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface<W = Self::WitnessGenerator, Bool = Self::Bool>
-        + ToFieldElements<Fp>;
+    type GlobalSlotSinceGenesis: GlobalSlotSinceGenesisInterface<
+        W = Self::WitnessGenerator,
+        Bool = Self::Bool,
+    >;
     type StackFrame: StackFrameInterface<W = Self::WitnessGenerator, Calls = Self::CallForest, Bool = Self::Bool>
-        + ToFieldElements<Fp>
         + std::fmt::Debug
         + Clone;
     type CallForest: CallForestInterface<
@@ -599,6 +621,7 @@ where
         SingleData = Self::SingleData,
         Bool = Self::Bool,
         SignedAmount = Self::SignedAmount,
+        VerificationKeyHash = Self::VerificationKeyHash,
     >;
     type AccountId: AccountIdInterface<W = Self::WitnessGenerator>;
     type TokenId: TokenIdInterface<W = Self::WitnessGenerator, Bool = Self::Bool>;
@@ -620,6 +643,7 @@ where
         Bool = Self::Bool,
         Balance = Self::Balance,
         GlobalSlot = Self::GlobalSlotSinceGenesis,
+        VerificationKeyHash = Self::VerificationKeyHash,
     >;
     type VerificationKeyHash: VerificationKeyHashInterface<
         W = Self::WitnessGenerator,

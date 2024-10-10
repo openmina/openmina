@@ -2,6 +2,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::CurrencyFeeStableV1;
+use openmina_core::consensus::ConsensusConstants;
 use serde::{Deserialize, Serialize};
 
 use crate::account::AccountPublicKey;
@@ -31,6 +32,8 @@ pub struct Config {
 pub struct GlobalConfig {
     pub build: Box<BuildEnv>,
     pub snarker: Option<SnarkerConfig>,
+    pub consensus_constants: ConsensusConstants,
+    pub testing_run: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

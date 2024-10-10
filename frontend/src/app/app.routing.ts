@@ -69,11 +69,6 @@ const routes: Routes = [
     title: BENCHMARKS_TITLE,
   },
   {
-    path: 'zk',
-    loadChildren: () => import('./features/zk/zk.module').then(m => m.ZkModule),
-    title: BENCHMARKS_TITLE,
-  },
-  {
     path: '**',
     redirectTo: getFirstFeature(),
     pathMatch: 'full',

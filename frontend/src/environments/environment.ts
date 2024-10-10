@@ -3,6 +3,7 @@ import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
+  webNodeKey: '',
   globalConfig: {
     features: {
       dashboard: [],
@@ -12,13 +13,15 @@ export const environment: Readonly<MinaEnv> = {
       snarks: ['scan-state', 'work-pool'],
       'testing-tool': ['scenarios'],
       resources: ['memory'],
-      'block-production': ['overview', 'won-slots'],
+      'block-production': ['won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
       zk: ['test'],
     },
     canAddNodes: true,
-    graphQL: 'http://adonagy.hz.minaprotocol.network:3000/graphql',
+    graphQL: 'https://adonagy.com/graphql',
+    // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
+    // graphQL: 'http://65.109.105.40:5000/graphql',
   },
   configs: [
     // {
@@ -53,10 +56,10 @@ export const environment: Readonly<MinaEnv> = {
       name: 'staging-devnet-bp-3',
       url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
     },
-    // {
-    //   name: 'Web Node 1',
-    //   isWebNode: true,
-    // },
+    {
+      name: 'Web Node 1',
+      isWebNode: true,
+    },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',

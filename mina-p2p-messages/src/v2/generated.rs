@@ -1225,7 +1225,16 @@ pub struct MinaBaseLedgerHash0StableV1(pub crate::bigint::BigInt);
 ///
 /// Gid: `706`
 /// Location: [src/lib/mina_base/permissions.ml:53:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/permissions.ml#L53)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    SerdeYojsonEnum,
+    BinProtRead,
+    BinProtWrite,
+    strum_macros::Display,
+    strum_macros::EnumString,
+)]
 pub enum MinaBasePermissionsAuthRequiredStableV2 {
     None,
     Either,
@@ -1276,7 +1285,9 @@ pub enum MinaBaseStakeDelegationStableV2 {
 ///
 /// Gid: `718`
 /// Location: [src/lib/mina_base/transaction_status.ml:9:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/transaction_status.ml#L9)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, strum_macros::Display,
+)]
 pub enum MinaBaseTransactionStatusFailureStableV2 {
     Predicate,
     SourceNotPresent,

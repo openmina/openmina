@@ -9,7 +9,6 @@ use crate::{
     proofs::{
         field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
         numbers::{
-            common::ForZkappCheck,
             currency::{CheckedAmount, CheckedBalance, CheckedCurrency, CheckedSigned},
             nat::{CheckedIndex, CheckedNat, CheckedSlot},
         },
@@ -32,7 +31,7 @@ use crate::{
                 ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
             zkapp_statement::ZkappStatement,
-            TransactionFailure,
+            TimingValidation, TransactionFailure,
         },
     },
     sparse_ledger::SparseLedger,
@@ -41,15 +40,19 @@ use crate::{
     ToInputs, TokenId, VerificationKey, VerificationKeyWire, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
-use super::intefaces::{
-    AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
-    AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
-    BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
-    GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
-    LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
-    SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
-    StackInterface, TokenIdInterface, TransactionCommitmentInterface, TxnVersionInterface,
-    VerificationKeyHashInterface, WitnessGenerator, ZkappApplication, ZkappHandler,
+use super::{
+    checks::{InSnarkOps, ZkappCheck},
+    intefaces::{
+        AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
+        AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
+        BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
+        GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface,
+        IndexInterface, LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface,
+        SetOrKeepInterface, SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface,
+        StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
+        TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
+        ZkappHandler,
+    },
 };
 
 pub struct ZkappSnark;
@@ -85,96 +88,6 @@ impl ZkappApplication for ZkappSnark {
     type Handler = super::snark::SnarkHandler;
     type Branch = SnarkBranch;
     type WitnessGenerator = Witness<Fp>;
-}
-
-pub mod zkapp_check {
-    use super::*;
-
-    pub trait InSnarkCheck {
-        type T;
-
-        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean;
-    }
-
-    impl<T> OrIgnore<T> {
-        fn make_zcheck<F, F2>(&self, default_fn: F, compare_fun: F2, w: &mut Witness<Fp>) -> Boolean
-        where
-            F: Fn() -> T,
-            F2: Fn(&T, &mut Witness<Fp>) -> Boolean,
-        {
-            let (is_some, value) = match self {
-                OrIgnore::Check(v) => (Boolean::True, MyCow::Borrow(v)),
-                OrIgnore::Ignore => (Boolean::False, MyCow::Own(default_fn())),
-            };
-            let is_good = compare_fun(&*value, w);
-            Boolean::any(&[is_some.neg(), is_good], w)
-        }
-    }
-
-    impl<Fun> InSnarkCheck for (&OrIgnore<Boolean>, Fun)
-    where
-        Fun: Fn() -> Boolean,
-    {
-        type T = Boolean;
-
-        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare = |value: &Self::T, w: &mut Witness<Fp>| Boolean::equal(x, value, w);
-            this.make_zcheck(default_fn, compare, w)
-        }
-    }
-
-    impl<Fun> InSnarkCheck for (&OrIgnore<Fp>, Fun)
-    where
-        Fun: Fn() -> Fp,
-    {
-        type T = Fp;
-
-        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare = |value: &Self::T, w: &mut Witness<Fp>| field::equal(*x, *value, w);
-            this.make_zcheck(default_fn, compare, w)
-        }
-    }
-
-    impl<Fun> InSnarkCheck for (&OrIgnore<CompressedPubKey>, Fun)
-    where
-        Fun: Fn() -> CompressedPubKey,
-    {
-        type T = CompressedPubKey;
-
-        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare = |value: &Self::T, w: &mut Witness<Fp>| {
-                checked_equal_compressed_key(x, value, w)
-                // checked_equal_compressed_key_const_and(x, value, w)
-            };
-            this.make_zcheck(default_fn, compare, w)
-        }
-    }
-
-    impl<T, Fun> InSnarkCheck for (&OrIgnore<ClosedInterval<T>>, Fun)
-    where
-        Fun: Fn() -> ClosedInterval<T>,
-        T: ForZkappCheck<Fp>,
-    {
-        type T = T;
-
-        fn checked_zcheck(&self, x: &Self::T, w: &mut Witness<Fp>) -> Boolean {
-            let (this, default_fn) = self;
-            let compare = |value: &ClosedInterval<T>, w: &mut Witness<Fp>| {
-                let ClosedInterval { lower, upper } = value;
-                let lower = lower.to_checked();
-                let upper = upper.to_checked();
-                let x = x.to_checked();
-                // We decompose this way because of OCaml evaluation order
-                let lower_than_upper = <T as ForZkappCheck<Fp>>::lte(&x, &upper, w);
-                let greater_than_lower = <T as ForZkappCheck<Fp>>::lte(&lower, &x, w);
-                Boolean::all(&[greater_than_lower, lower_than_upper], w)
-            };
-            this.make_zcheck(default_fn, compare, w)
-        }
-    }
 }
 
 impl<F: FieldWitness> WitnessGenerator<F> for Witness<F> {
@@ -223,12 +136,11 @@ impl ZkappHandler for SnarkHandler {
         let check = |failure: TransactionFailure, b: Boolean, w: &mut Witness<Fp>| {
             zkapp_logic::LocalState::<ZkappSnark>::add_check(local_state, failure, b.var(), w);
         };
-        account_update.body.preconditions.account.checked_zcheck(
-            new_account.as_boolean(),
-            &account.data,
-            check,
-            w,
-        );
+        account_update
+            .body
+            .preconditions
+            .account
+            .zcheck::<InSnarkOps, _>(new_account.as_boolean(), &account.data, check, w);
     }
 
     fn check_protocol_state_precondition(
@@ -237,7 +149,7 @@ impl ZkappHandler for SnarkHandler {
         w: &mut Self::W,
     ) -> Self::Bool {
         protocol_state_predicate
-            .checked_zcheck(&global_state.protocol_state, w)
+            .zcheck::<InSnarkOps>(&global_state.protocol_state, w)
             .var()
     }
 
@@ -246,17 +158,12 @@ impl ZkappHandler for SnarkHandler {
         global_state: &mut Self::GlobalState,
         w: &mut Self::W,
     ) -> Self::Bool {
-        use zkapp_check::InSnarkCheck;
-
         (valid_while, ClosedInterval::min_max)
-            .checked_zcheck(&global_state.block_global_slot.to_inner(), w)
+            .zcheck::<InSnarkOps>(&global_state.block_global_slot.to_inner(), w)
             .var()
     }
 
-    fn init_account(
-        account_update: &Self::AccountUpdate,
-        account: &Self::Account,
-    ) -> Self::Account {
+    fn init_account(account_update: &Self::AccountUpdate, account: Self::Account) -> Self::Account {
         let AccountUpdateSkeleton {
             body: account_update,
             authorization: _,
@@ -264,7 +171,7 @@ impl ZkappHandler for SnarkHandler {
         let account = Box::new(crate::Account {
             public_key: account_update.data.public_key.clone(),
             token_id: account_update.data.token_id.clone(),
-            ..(*account.data).clone()
+            ..*account.data
         });
         let account2 = account.clone();
         let account = WithLazyHash::new(account, move |w: &mut Witness<Fp>| {
@@ -655,6 +562,10 @@ impl GlobalSlotSinceGenesisInterface for SnarkGlobalSlot {
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
         <Self as CheckedNat<_, 32>>::equal(self, other, w).var()
     }
+
+    fn exists_no_check(self, w: &mut Self::W) -> Self {
+        w.exists_no_check(self)
+    }
 }
 
 fn signature_verifies(
@@ -678,6 +589,7 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
     type SingleData = ZkappSingleData;
     type Bool = SnarkBool;
     type SignedAmount = SnarkSignedAmount;
+    type VerificationKeyHash = SnarkVerificationKeyHash;
 
     fn body(&self) -> &crate::scan_state::transaction_logic::zkapp_command::Body {
         let Self {
@@ -686,12 +598,6 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
         } = self;
         let WithHash { data, hash: _ } = body;
         data
-    }
-    fn set(&mut self, new: Self) {
-        *self = new;
-    }
-    fn verification_key_hash(&self) -> Fp {
-        self.body().authorization_kind.vk_hash()
     }
     fn is_proved(&self) -> Self::Bool {
         self.body()
@@ -706,6 +612,10 @@ impl AccountUpdateInterface for SnarkAccountUpdate {
             .is_signed()
             .to_boolean()
             .var()
+    }
+    fn verification_key_hash(&self) -> Self::VerificationKeyHash {
+        let hash = self.body().authorization_kind.vk_hash();
+        SnarkVerificationKeyHash(hash)
     }
     fn check_authorization(
         &self,
@@ -937,6 +847,7 @@ impl AccountInterface for SnarkAccount {
     type Bool = SnarkBool;
     type Balance = SnarkBalance;
     type GlobalSlot = SnarkGlobalSlot;
+    type VerificationKeyHash = SnarkVerificationKeyHash;
 
     fn register_verification_key(&self, data: &Self::D, w: &mut Self::W) {
         use crate::ControlTag::*;
@@ -982,13 +893,14 @@ impl AccountInterface for SnarkAccount {
         // `unwrap`: `make_zkapp` is supposed to be called before `zkapp_mut`
         self.data.zkapp.as_mut().unwrap()
     }
-    fn verification_key_hash(&self) -> Fp {
+    fn verification_key_hash(&self) -> Self::VerificationKeyHash {
         let zkapp = self.zkapp();
-        zkapp
+        let hash = zkapp
             .verification_key
             .as_ref()
             .map(VerificationKeyWire::hash)
-            .unwrap_or_else(VerificationKeyWire::dummy_hash)
+            .unwrap_or_else(VerificationKeyWire::dummy_hash);
+        SnarkVerificationKeyHash(hash)
     }
     fn set_token_id(&mut self, token_id: TokenId) {
         let Self { data: account, .. } = self;
@@ -1009,7 +921,7 @@ impl AccountInterface for SnarkAccount {
         &self,
         txn_global_slot: &Self::GlobalSlot,
         w: &mut Self::W,
-    ) -> (Self::Bool, crate::Timing) {
+    ) -> (TimingValidation<Self::Bool>, crate::Timing) {
         let mut invalid_timing = Option::<Boolean>::None;
         let timed_balance_check = |b: Boolean, _w: &mut Witness<Fp>| {
             invalid_timing = Some(b.neg());
@@ -1017,7 +929,10 @@ impl AccountInterface for SnarkAccount {
         let account = self.get();
         let (_min_balance, timing) =
             check_timing(account, None, *txn_global_slot, timed_balance_check, w);
-        (invalid_timing.unwrap().var(), timing)
+        (
+            TimingValidation::InvalidTiming(invalid_timing.unwrap().var()),
+            timing,
+        )
     }
     fn make_zkapp(&mut self) {
         if self.data.zkapp.is_none() {
@@ -1077,8 +992,8 @@ impl LedgerInterface for LedgerWithHash {
     type Bool = SnarkBool;
     type InclusionProof = Vec<(Boolean, Fp)>;
 
-    fn empty() -> Self {
-        let mut ledger = <SparseLedger as crate::sparse_ledger::LedgerIntf>::empty(0);
+    fn empty(depth: usize) -> Self {
+        let mut ledger = <SparseLedger as crate::sparse_ledger::LedgerIntf>::empty(depth);
         let hash = ledger.merkle_root();
         Self { ledger, hash }
     }
@@ -1086,7 +1001,7 @@ impl LedgerInterface for LedgerWithHash {
         &self,
         account_update: &Self::AccountUpdate,
         w: &mut Self::W,
-    ) -> (Self::Account, Self::InclusionProof) {
+    ) -> Result<(Self::Account, Self::InclusionProof), String> {
         let Self {
             ledger,
             hash: _root,
@@ -1111,14 +1026,19 @@ impl LedgerInterface for LedgerWithHash {
                 })
                 .collect::<Vec<_>>(),
         );
-        (account, inclusion)
+        Ok((account, inclusion))
     }
-    fn set_account(&mut self, (a, incl): (Self::Account, Self::InclusionProof), w: &mut Self::W) {
+    fn set_account(
+        &mut self,
+        (a, incl): (Self::Account, Self::InclusionProof),
+        w: &mut Self::W,
+    ) -> Result<(), String> {
         let Self { ledger, hash } = self;
         let new_hash = implied_root(&a, &incl, w);
         let idx = ledger.find_index_exn(a.id());
         ledger.set_exn(idx, a.data);
         *hash = new_hash;
+        Ok(())
     }
     fn check_inclusion(
         &self,
@@ -1132,7 +1052,7 @@ impl LedgerInterface for LedgerWithHash {
         token_id: &TokenId,
         account: (&Self::Account, &Self::InclusionProof),
         w: &mut Self::W,
-    ) -> Self::Bool {
+    ) -> Result<Self::Bool, String> {
         let (WithLazyHash { data: account, .. }, _) = account;
         let is_new = checked_equal_compressed_key_const_and(
             &account.public_key,
@@ -1143,7 +1063,7 @@ impl LedgerInterface for LedgerWithHash {
         Boolean::assert_any(&[is_new, is_same], w);
         let is_same_token = field::equal(token_id.0, account.token_id.0, w);
         Boolean::assert_any(&[is_new, is_same_token], w);
-        is_new.var()
+        Ok(is_new.var())
     }
     fn exists_no_check(self, w: &mut Self::W) -> Self {
         w.exists_no_check(self.hash);
@@ -1162,7 +1082,7 @@ pub type SnarkAmount = CheckedAmount<Fp>;
 pub type SnarkSignedAmount = CheckedSigned<Fp, CheckedAmount<Fp>>;
 pub type SnarkBalance = CheckedBalance<Fp>;
 pub struct SnarkTransactionCommitment;
-pub struct SnarkVerificationKeyHash;
+pub struct SnarkVerificationKeyHash(Fp);
 pub struct SnarkController;
 pub struct SnarkTxnVersion;
 pub struct SnarkSetOrKeep;
@@ -1192,8 +1112,10 @@ impl VerificationKeyHashInterface for SnarkVerificationKeyHash {
     type W = Witness<Fp>;
     type Bool = SnarkBool;
 
-    fn equal(a: Fp, b: Fp, w: &mut Self::W) -> Self::Bool {
-        field::equal(a, b, w).var()
+    fn equal(a: &Self, b: &Self, w: &mut Self::W) -> Self::Bool {
+        let Self(a) = a;
+        let Self(b) = b;
+        field::equal(*a, *b, w).var()
     }
 }
 
@@ -1228,8 +1150,9 @@ impl BoolInterface for SnarkBool {
     fn all(bs: &[Self], w: &mut Self::W) -> Self {
         SnarkBool::all(bs, w)
     }
-    fn assert_any(bs: &[Self], w: &mut Self::W) {
+    fn assert_any(bs: &[Self], w: &mut Self::W) -> Result<(), String> {
         SnarkBool::assert_any::<Fp>(bs, w);
+        Ok(())
     }
     fn assert_with_failure_status_tbl(
         _b: Self,
@@ -1356,13 +1279,13 @@ impl ControllerInterface for SnarkController {
         auth: &AuthRequired,
         single_data: &Self::SingleData,
         w: &mut Self::W,
-    ) -> Self::Bool {
+    ) -> Result<Self::Bool, String> {
         use crate::ControlTag::{NoneGiven, Proof, Signature};
 
-        match single_data.spec().auth_type {
+        Ok(match single_data.spec().auth_type {
             Proof => eval_proof(auth, w),
             Signature | NoneGiven => eval_no_proof(auth, signature_verifies, w),
-        }
+        })
     }
 
     fn verification_key_perm_fallback_to_signature_with_older_version(

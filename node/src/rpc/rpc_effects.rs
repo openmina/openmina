@@ -4,7 +4,7 @@ use std::time::Duration;
 use ledger::scan_state::currency::{Balance, Magnitude};
 use ledger::Account;
 use mina_p2p_messages::rpc_kernel::QueryHeader;
-use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
+use mina_p2p_messages::v2::{MinaBaseTransactionStatusStableV2, TransactionHash};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::bug_condition;
@@ -17,7 +17,7 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{
     AccountSlim, PeerConnectionStatus, RpcPeerInfo, RpcTransactionInjectResponse,
-    RpcTransactionInjectSuccess,
+    RpcTransactionInjectSuccess, TransactionStatus,
 };
 use crate::snark_pool::SnarkPoolAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
@@ -279,6 +279,17 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             }
         }
         RpcAction::P2pConnectionIncomingPending { .. } => {}
+        RpcAction::P2pConnectionIncomingAnswerReady {
+            rpc_id,
+            answer,
+            peer_id,
+        } => {
+            store.dispatch(RpcAction::P2pConnectionIncomingRespond {
+                rpc_id,
+                response: answer,
+            });
+            store.dispatch(P2pConnectionIncomingAction::AnswerSendSuccess { peer_id });
+        }
         RpcAction::P2pConnectionIncomingRespond { rpc_id, response } => {
             let error = match &response {
                 P2pConnectionResponse::Accepted(_) => None,
@@ -656,7 +667,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .p2p
                 .ready()
                 .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                .and_then(|discovery_state| discovery_state.bootstrap_stats().cloned());
+                .and_then(|discovery_state: &p2p::P2pNetworkKadState| {
+                    discovery_state.bootstrap_stats().cloned()
+                });
             respond_or_log!(
                 store
                     .service()
@@ -672,71 +685,97 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             )
         }
-        RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
+        RpcAction::LedgerAccountsGetInit {
+            rpc_id,
+            account_query,
+        } => {
             let ledger_hash = if let Some(best_tip) = store.state().transition_frontier.best_tip() {
                 best_tip.merkle_root_hash()
             } else {
                 return;
             };
             if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash.clone(), public_key),
+                request: LedgerReadRequest::AccountsForRpc(
+                    rpc_id,
+                    ledger_hash.clone(),
+                    account_query,
+                ),
             }) {
                 store.dispatch(RpcAction::LedgerAccountsGetPending { rpc_id });
             }
         }
         RpcAction::LedgerAccountsGetPending { .. } => {}
-        RpcAction::LedgerAccountsGetSuccess { rpc_id, accounts } => {
+        RpcAction::LedgerAccountsGetSuccess {
+            rpc_id,
+            accounts,
+            account_query,
+        } => {
             // TODO(adonagy): maybe something more effective?
-            let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
-                .into_iter()
-                .map(|acc| (acc.public_key.clone(), acc))
-                .collect();
-            let nonces_and_amount = store
-                .state()
-                .transaction_pool
-                .get_pending_amount_and_nonce();
+            match account_query {
+                super::AccountQuery::SinglePublicKey(_pk) => todo!(),
+                // all the accounts for the FE in Slim form
+                super::AccountQuery::All => {
+                    let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
+                        .into_iter()
+                        .map(|acc| (acc.public_key.clone(), acc))
+                        .collect();
+                    let nonces_and_amount = store
+                        .state()
+                        .transaction_pool
+                        .get_pending_amount_and_nonce();
 
-            nonces_and_amount
-                .iter()
-                .for_each(|(account_id, (nonce, amount))| {
-                    if let Some(account) = accounts.get_mut(&account_id.public_key) {
-                        if let Some(nonce) = nonce {
-                            if nonce >= &account.nonce {
-                                // increment the last nonce in the pool
-                                account.nonce = nonce.incr();
+                    nonces_and_amount
+                        .iter()
+                        .for_each(|(account_id, (nonce, amount))| {
+                            if let Some(account) = accounts.get_mut(&account_id.public_key) {
+                                if let Some(nonce) = nonce {
+                                    if nonce >= &account.nonce {
+                                        // increment the last nonce in the pool
+                                        account.nonce = nonce.incr();
+                                    }
+                                }
+                                account.balance = account
+                                    .balance
+                                    .sub_amount(*amount)
+                                    .unwrap_or(Balance::zero());
                             }
-                        }
-                        account.balance = account
-                            .balance
-                            .sub_amount(*amount)
-                            .unwrap_or(Balance::zero());
-                    }
-                });
+                        });
 
-            let accounts = accounts
-                .into_values()
-                .map(|v| v.into())
-                .collect::<Vec<AccountSlim>>();
+                    let accounts = accounts
+                        .into_values()
+                        .map(|v| v.into())
+                        .collect::<Vec<AccountSlim>>();
 
-            respond_or_log!(
-                store.service().respond_ledger_accounts(rpc_id, accounts),
-                meta.time()
-            )
+                    respond_or_log!(
+                        store
+                            .service()
+                            .respond_ledger_slim_accounts(rpc_id, accounts),
+                        meta.time()
+                    )
+                }
+                // for the graphql endpoint
+                super::AccountQuery::PubKeyWithTokenId(..) => {
+                    respond_or_log!(
+                        store.service().respond_ledger_accounts(rpc_id, accounts),
+                        meta.time()
+                    )
+                }
+            }
         }
         RpcAction::TransactionInjectInit { rpc_id, commands } => {
             store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
             // sort the commadns by nonce
 
-            let Ok(commands) = commands
-                .into_iter()
-                .map(|c| c.try_into())
-                .collect::<Result<_, _>>()
-            else {
-                return;
-            };
+            // let Ok(commands) = commands
+            //     .into_iter()
+            //     .map(|c| c.try_into())
+            //     .collect::<Result<_, _>>()
+            // else {
+            //     return;
+            // };
 
             store.dispatch(TransactionPoolAction::StartVerify {
-                commands,
+                commands: commands.into_iter().collect(),
                 from_rpc: Some(rpc_id),
             });
         }
@@ -791,6 +830,82 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     .respond_transition_frontier_commands(rpc_id, commands),
                 meta.time()
             )
+        }
+        RpcAction::BestChain { rpc_id, max_length } => {
+            let best_chain = store
+                .state()
+                .transition_frontier
+                .best_chain
+                .iter()
+                .rev()
+                .take(max_length as usize)
+                .cloned()
+                .rev()
+                .collect();
+
+            respond_or_log!(
+                store.service().respond_best_chain(rpc_id, best_chain),
+                meta.time()
+            )
+        }
+        RpcAction::ConsensusConstantsGet { rpc_id } => {
+            let response = store.state().config.consensus_constants.clone();
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_consensus_constants(rpc_id, response),
+                meta.time()
+            )
+        }
+        RpcAction::TransactionStatusGet { rpc_id, tx } => {
+            // Check if the transaction is in the pool, if it is, return PENDING
+            let tx_hash = tx.hash().ok();
+
+            let in_tx_pool = store
+                .state()
+                .transaction_pool
+                .get_all_transactions()
+                .iter()
+                .any(|tx_with_hash| {
+                    Some(TransactionHash::from(tx_with_hash.hash.as_ref())) == tx_hash
+                });
+
+            if in_tx_pool {
+                respond_or_log!(
+                    store
+                        .service()
+                        .respond_transaction_status(rpc_id, TransactionStatus::Pending),
+                    meta.time()
+                );
+                return;
+            }
+
+            let in_transition_frontier = if let Some(hash) = tx_hash {
+                store
+                    .state()
+                    .transition_frontier
+                    .contains_transaction(&hash)
+            } else {
+                false
+            };
+
+            // Check whether the transaction is in the transition frontier, if it is, return INCLUDED
+            if in_transition_frontier {
+                respond_or_log!(
+                    store
+                        .service()
+                        .respond_transaction_status(rpc_id, TransactionStatus::Included),
+                    meta.time()
+                )
+            // Otherwise, return UNKNOWN
+            } else {
+                respond_or_log!(
+                    store
+                        .service()
+                        .respond_transaction_status(rpc_id, TransactionStatus::Unknown),
+                    meta.time()
+                )
+            }
         }
         RpcAction::Finish { .. } => {}
     }

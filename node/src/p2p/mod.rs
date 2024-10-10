@@ -13,6 +13,8 @@ pub mod disconnection;
 pub mod network;
 pub mod peer;
 
+pub mod callbacks;
+
 mod p2p_effects;
 pub use p2p_effects::*;
 use redux::EnablingCondition;

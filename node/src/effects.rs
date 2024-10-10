@@ -1,5 +1,4 @@
 use openmina_core::log::system_time;
-use p2p::p2p_timeout_effects;
 
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::event_source::event_source_effects;
@@ -37,8 +36,6 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             store.dispatch(ExternalSnarkWorkerAction::Start);
 
             if store.state().p2p.ready().is_some() {
-                p2p_timeout_effects(store, &meta);
-
                 p2p_request_best_tip_if_needed(store);
                 p2p_request_transactions_if_needed(store);
                 p2p_request_snarks_if_needed(store);
@@ -93,6 +90,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             rpc_effects(store, meta.with_action(action));
         }
         Action::WatchedAccounts(_) => {
+            // Handled by reducer
+        }
+        Action::P2pCallbacks(_) => {
             // Handled by reducer
         }
     }

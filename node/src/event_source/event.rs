@@ -61,13 +61,16 @@ impl std::fmt::Display for Event {
                     RpcRequest::DiscoveryRoutingTable => write!(f, "DiscoveryRoutingTable"),
                     RpcRequest::DiscoveryBoostrapStats => write!(f, "DiscoveryBoostrapStats"),
                     RpcRequest::TransactionPoolGet => write!(f, "TransactionPool"),
-                    RpcRequest::LedgerAccountsGet(pub_key) => {
-                        write!(f, "LedgerAccountsGet, {pub_key:?}")
+                    RpcRequest::LedgerAccountsGet(account_query) => {
+                        write!(f, "LedgerAccountsGet, {account_query:?}")
                     }
                     RpcRequest::TransactionInject(..) => write!(f, "TransactionInject"),
                     RpcRequest::TransitionFrontierUserCommandsGet => {
                         write!(f, "TransitionFrontierUserCommandsGet")
                     }
+                    RpcRequest::BestChain(..) => write!(f, "BestChain"),
+                    RpcRequest::ConsensusConstantsGet => write!(f, "ConsensusConstantsGet"),
+                    RpcRequest::TransactionStatusGet(..) => write!(f, "TransactionStatusGet"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {

@@ -1,0 +1,32 @@
+{
+  "name": "o1js-wrapper",
+  "version": "1.0.0",
+  "description": "This project is a JavaScript wrapper for interacting with O1JS in order to avoid integration issues between O1JS and Angular.",
+  "main": "dist/o1js-wrapper.js",
+  "scripts": {
+    "build-o1jswrapper": "webpack && node replace-assertion.js",
+    "serve": "webpack-dev-server --mode development"
+  },
+  "author": "Jolte Teofil",
+  "license": "MIT",
+  "dependencies": {
+    "bs58": "^5.0.0",
+    "byteify": "^4.1.4",
+    "css-loader": "^6.8.1",
+    "express": "^4.21.0",
+    "o1js": "1.8.0",
+    "script-loader": "^0.7.2",
+    "style-loader": "^3.3.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.4",
+    "babel-loader": "^9.2.1",
+    "copy-webpack-plugin": "^11.0.0",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.2.2",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  }
+}

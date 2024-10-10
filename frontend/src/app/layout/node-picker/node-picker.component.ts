@@ -82,7 +82,6 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
     }
     if (node.isWebNode) {
       this.webNodeService.webNodeState = 'loading';
-      this.router.navigate(['web-node']);
     }
   }
 

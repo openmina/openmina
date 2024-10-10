@@ -3,6 +3,7 @@ use mina_p2p_messages::v2::{
     MinaStateSnarkTransitionValueStableV2, ProverExtendBlockchainInputStableV2,
 };
 use openmina_core::bug_condition;
+use openmina_core::consensus::in_seed_update_range;
 
 use crate::account::AccountSecretKey;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -56,6 +57,7 @@ pub fn block_producer_effects<S: crate::Service>(
             };
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
             let current_epoch = store.state().current_epoch();
+            let current_slot = store.state().current_slot();
 
             store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
                 best_tip: best_tip.clone(),
@@ -77,8 +79,15 @@ pub fn block_producer_effects<S: crate::Service>(
                 }
             }
 
+            let is_next_epoch_seed_finalized = if let Some(current_slot) = current_slot {
+                !in_seed_update_range(current_slot, best_tip.constants())
+            } else {
+                false
+            };
+
             store.dispatch(BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
                 current_epoch,
+                is_next_epoch_seed_finalized,
                 root_block_epoch,
                 best_tip_epoch,
                 best_tip_slot,

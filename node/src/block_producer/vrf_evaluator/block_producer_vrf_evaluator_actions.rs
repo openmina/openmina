@@ -46,6 +46,7 @@ pub enum BlockProducerVrfEvaluatorAction {
     #[action_event(level = info, fields(current_epoch, best_tip_epoch, best_tip_slot, best_tip_global_slot))]
     CheckEpochEvaluability {
         current_epoch: Option<u32>,
+        is_next_epoch_seed_finalized: bool,
         best_tip_epoch: u32,
         root_block_epoch: u32,
         best_tip_slot: u32,

@@ -1,9 +1,8 @@
-use openmina_core::block::AppliedBlock;
-
 use super::sync::{SyncError, TransitionFrontierSyncState};
 use super::{
     TransitionFrontierAction, TransitionFrontierActionWithMetaRef, TransitionFrontierState,
 };
+use openmina_core::block::AppliedBlock;
 
 impl TransitionFrontierState {
     pub fn reducer(

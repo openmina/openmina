@@ -453,14 +453,12 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
             let rpc_sender_clone = rpc_sender_clone.clone();
             async move {
                 rpc_sender_clone
-                    .oneshot_request(RpcRequest::TransactionPoolGet)
+                    .transaction_pool()
+                    .get()
                     .await
-                    .map_or_else(
-                        dropped_channel_response,
-                        |reply: node::rpc::RpcTransactionPoolResponse| {
-                            with_json_reply(&reply, StatusCode::OK)
-                        },
-                    )
+                    .map_or_else(dropped_channel_response, |reply| {
+                        with_json_reply(&reply, StatusCode::OK)
+                    })
             }
         });
 
@@ -470,11 +468,14 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
 
         async move {
             rpc_sender_clone
-                .oneshot_request(RpcRequest::LedgerAccountsGet(None))
+                .ledger()
+                .latest()
+                .accounts()
+                .all()
                 .await
                 .map_or_else(
                     dropped_channel_response,
-                    |reply: node::rpc::RpcLedgerAccountsResponse| {
+                    |reply: node::rpc::RpcLedgerSlimAccountsResponse| {
                         with_json_reply(&reply, StatusCode::OK)
                     },
                 )
@@ -485,20 +486,27 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
     let transaction_post = warp::path("send-payment")
         .and(warp::post())
         .and(warp::filters::body::json())
-        .then(move |body: Vec<_>| {
+        .then(move |body: Vec<RpcInjectPayment>| {
             let rpc_sender_clone = rpc_sender_clone.clone();
 
             async move {
-                println!("Transaction inject post: {:#?}", body);
-                rpc_sender_clone
-                    .oneshot_request(RpcRequest::TransactionInject(body))
+                match rpc_sender_clone
+                    .transaction_pool()
+                    .inject()
+                    .payment(body)
                     .await
-                    .map_or_else(
+                {
+                    Err(err) => with_status(
+                        warp::reply::json(&serde_json::json!({"error": err})),
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    ),
+                    Ok(res) => res.map_or_else(
                         dropped_channel_response,
                         |reply: node::rpc::RpcTransactionInjectResponse| {
                             with_json_reply(&reply, StatusCode::OK)
                         },
-                    )
+                    ),
+                }
             }
         });
 
@@ -510,14 +518,13 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
 
             async move {
                 rpc_sender_clone
-                    .oneshot_request(RpcRequest::TransitionFrontierUserCommandsGet)
+                    .transition_frontier()
+                    .best_chain()
+                    .user_commands()
                     .await
-                    .map_or_else(
-                        dropped_channel_response,
-                        |reply: node::rpc::RpcTransitionFrontierUserCommandsResponse| {
-                            with_json_reply(&reply, StatusCode::OK)
-                        },
-                    )
+                    .map_or_else(dropped_channel_response, |reply| {
+                        with_json_reply(&reply, StatusCode::OK)
+                    })
             }
         });
 

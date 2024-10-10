@@ -638,6 +638,7 @@ impl LedgerCtx {
         &mut self,
         block: ArcBlockWithHash,
         pred_block: AppliedBlock,
+        skip_verification: Option<SkipVerification>,
     ) -> Result<BlockApplyResult, String> {
         openmina_core::info!(openmina_core::log::system_time();
             kind = "LedgerService::block_apply",
@@ -674,8 +675,7 @@ impl LedgerCtx {
 
         let result = staged_ledger
             .apply(
-                // TODO(binier): SEC
-                Some(SkipVerification::All),
+                skip_verification,
                 constraint_constants(),
                 Slot::from_u32(global_slot),
                 diff,

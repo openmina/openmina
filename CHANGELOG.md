@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2024-10-10
+
+### Added
+
+- GraphQL endpoints for o1js.
+- Support for batched verification of proofs.
+- Enabled full proof verification of completed works included in blocks.
+
+### Changed
+
+- Deduplication of zkApp logic.
+- Various internal improvements.
+
+### Fixed
+
+- Regression in the verification zkApp transactions with feature flags (introduced when upgrading proof-systems).
+- Potential overflow in yamux.
+- Added a missing check for next epoch seed finality
+
 ## [0.9.0] - 2024-10-02
 
 ### Fixes
@@ -260,7 +279,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.9.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.10.0...develop
+[0.10.0]: https://github.com/openmina/openmina/releases/tag/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openmina/openmina/releases/tag/v0.8.14...v0.9.0
 [0.8.14]: https://github.com/openmina/openmina/releases/tag/v0.8.13...v0.8.14
 [0.8.13]: https://github.com/openmina/openmina/releases/tag/v0.8.3...v0.8.13

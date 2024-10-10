@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StateHash};
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
 use openmina_core::{action_event, ActionEvent};
 use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyError;
@@ -52,6 +52,9 @@ pub enum ConsensusAction {
     #[action_event(level = info)]
     BestTipUpdate {
         hash: StateHash,
+    },
+    P2pBestTipUpdate {
+        best_tip: BlockWithHash<Arc<MinaBlockBlockStableV2>>,
     },
     Prune,
 }
@@ -146,6 +149,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     .consensus
                     .is_candidate_decided_to_use_as_tip(hash)
             },
+            ConsensusAction::P2pBestTipUpdate { .. } => true,
             ConsensusAction::Prune => {
                 state.consensus.best_tip().is_some()
             },

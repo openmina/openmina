@@ -25,3 +25,8 @@ pub enum SyncError {
     #[error("sync failed due to block({}, {}) application error: {1}", .0.height(), .0.hash())]
     BlockApplyFailed(ArcBlockWithHash, String),
 }
+
+/// How close to the best tip we have to be for the full
+/// verification of proofs contained in the block
+/// body (zkApp txns and completed works) to be enabled.
+const CATCHUP_BLOCK_VERIFY_TAIL_LENGTH: usize = 5;

@@ -3,6 +3,7 @@ use std::rc::Rc;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_serialize::Write;
+use itertools::Itertools;
 use poly_commitment::srs::SRS;
 
 use crate::{
@@ -519,6 +520,38 @@ fn verify_with(
     )
 }
 
+pub struct VerificationContext<'a> {
+    pub verifier_index: &'a VerifierIndex<Fq>,
+    pub proof: &'a ProverProof<Fq>,
+    pub public_input: &'a [Fq],
+}
+
+fn batch_verify(proofs: &[VerificationContext]) -> Result<(), VerifyError> {
+    use kimchi::groupmap::GroupMap;
+    use kimchi::mina_curves::pasta::PallasParameters;
+    use kimchi::verifier::Context;
+    use mina_poseidon::sponge::{DefaultFqSponge, DefaultFrSponge};
+    use poly_commitment::evaluation_proof::OpeningProof;
+
+    type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
+    type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams>;
+    type EFrSponge = DefaultFrSponge<Fq, SpongeParams>;
+
+    let group_map = GroupMap::<Fp>::setup();
+    let proofs = proofs
+        .iter()
+        .map(|p| Context {
+            verifier_index: p.verifier_index,
+            proof: p.proof,
+            public_input: p.public_input,
+        })
+        .collect_vec();
+
+    kimchi::verifier::batch_verify::<Pallas, EFqSponge, EFrSponge, OpeningProof<Pallas>>(
+        &group_map, &proofs,
+    )
+}
+
 fn run_checks(
     proof: &PicklesProofProofsVerified2ReprStableV2,
     verifier_index: &VerifierIndex<Fq>,
@@ -713,7 +746,7 @@ pub fn verify_block(
     let protocol_state_hash = MinaHash::hash(&protocol_state);
 
     let accum_check =
-        accumulator_check::accumulator_check(srs, protocol_state_proof).unwrap_or(false);
+        accumulator_check::accumulator_check(srs, &[protocol_state_proof]).unwrap_or(false);
     let verified = verify_impl(&protocol_state_hash, protocol_state_proof, &vk).unwrap_or(false);
 
     accum_check && verified
@@ -730,12 +763,27 @@ pub fn verify_transaction<'a>(
         data: (),
     };
 
-    proofs.into_iter().all(|(statement, transaction_proof)| {
-        let accum_check =
-            accumulator_check::accumulator_check(srs, transaction_proof).unwrap_or(false);
-        let verified = verify_impl(statement, transaction_proof, &vk).unwrap_or(false);
-        accum_check && verified
-    })
+    let mut inputs: Vec<(
+        &Statement<SokDigest>,
+        &PicklesProofProofsVerified2ReprStableV2,
+        &VK,
+    )> = Vec::with_capacity(128);
+
+    let mut accum_check_proofs: Vec<&PicklesProofProofsVerified2ReprStableV2> =
+        Vec::with_capacity(128);
+
+    proofs
+        .into_iter()
+        .for_each(|(statement, transaction_proof)| {
+            accum_check_proofs.push(transaction_proof);
+            inputs.push((statement, transaction_proof, &vk));
+        });
+
+    let accum_check =
+        accumulator_check::accumulator_check(srs, &accum_check_proofs).unwrap_or(false);
+
+    let verified = batch_verify_impl(inputs.as_slice()).unwrap_or(false);
+    accum_check && verified
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_proof.rs#L116
@@ -753,13 +801,15 @@ pub fn verify_zkapp(
         data: (),
     };
 
-    let accum_check = accumulator_check::accumulator_check(srs, sideloaded_proof).unwrap_or(false);
+    let accum_check =
+        accumulator_check::accumulator_check(srs, &[sideloaded_proof]).unwrap_or(false);
     let verified = verify_impl(&zkapp_statement, sideloaded_proof, &vk).unwrap_or(false);
 
     let ok = accum_check && verified;
 
     eprintln!("verify_zkapp OK={:?}", ok);
 
+    #[cfg(not(test))]
     if !ok {
         if let Err(e) = dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
         {
@@ -806,6 +856,57 @@ where
     if let Err(e) = result {
         eprintln!("verify error={:?}", e);
     };
+
+    Ok(result.is_ok() && checks)
+}
+
+fn batch_verify_impl<AppState>(
+    proofs: &[(&AppState, &PicklesProofProofsVerified2ReprStableV2, &VK)],
+) -> Result<bool, InvalidBigInt>
+where
+    AppState: ToFieldElements<Fp>,
+{
+    let mut verification_contexts = Vec::with_capacity(proofs.len());
+    let mut checks = true;
+
+    for (app_state, proof, vk) in proofs {
+        let deferred_values = compute_deferred_values(proof)?;
+        checks = checks && run_checks(proof, vk.index);
+
+        let message_for_next_step_proof = get_message_for_next_step_proof(
+            &proof.statement.messages_for_next_step_proof,
+            &vk.commitments,
+            app_state,
+        )?;
+
+        let message_for_next_wrap_proof = get_message_for_next_wrap_proof(
+            &proof.statement.proof_state.messages_for_next_wrap_proof,
+        )?;
+
+        let prepared_statement = get_prepared_statement(
+            &message_for_next_step_proof,
+            &message_for_next_wrap_proof,
+            deferred_values,
+            &proof.statement.proof_state.sponge_digest_before_evaluations,
+        );
+
+        let npublic_input = vk.index.public;
+        let public_inputs = prepared_statement.to_public_input(npublic_input)?;
+        let proof_padded = make_padded_proof_from_p2p(proof)?;
+
+        verification_contexts.push((vk.index, proof_padded, public_inputs));
+    }
+
+    let proofs: Vec<VerificationContext> = verification_contexts
+        .iter()
+        .map(|(vk, proof, public_input)| VerificationContext {
+            verifier_index: vk,
+            proof,
+            public_input,
+        })
+        .collect();
+
+    let result = batch_verify(&proofs);
 
     Ok(result.is_ok() && checks)
 }
@@ -866,110 +967,145 @@ fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::R
     Err(std::io::Error::other("no filename available"))
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::{
-//         collections::hash_map::DefaultHasher,
-//         hash::{Hash, Hasher},
-//     };
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
 
-//     // use binprot::BinProtRead;
-//     use mina_curves::pasta::{Vesta, Fq};
-//     use mina_hasher::Fp;
-//     use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
-//     use poly_commitment::srs::SRS;
+    use mina_hasher::Fp;
+    use mina_p2p_messages::{binprot::BinProtRead, v2};
 
-//     use crate::{
-//         proofs::{caching::{
-//             srs_from_bytes, srs_to_bytes, verifier_index_from_bytes, verifier_index_to_bytes,
-//         }, verifier_index::{get_verifier_index, VerifierKind}}, verifier::get_srs,
-//         // get_srs, get_verifier_index,
-//     };
+    use crate::proofs::{provers::devnet_circuit_directory, transaction::tests::panic_in_ci};
 
-//     #[cfg(target_family = "wasm")]
-//     use wasm_bindgen_test::wasm_bindgen_test as test;
+    use super::*;
 
-//     #[test]
-//     fn test_verification() {
-//         let now = redux::Instant::now();
-//         let verifier_index = get_verifier_index(VerifierKind::Blockchain);
-//         println!("get_verifier_index={:?}", now.elapsed());
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
 
-//         let now = redux::Instant::now();
-//         let srs = get_srs::<Fp>();
-//         let srs = srs.lock().unwrap();
-//         println!("get_srs={:?}\n", now.elapsed());
+    #[test]
+    fn test_verify_zkapp() {
+        use mina_p2p_messages::binprot;
+        use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
 
-//         // let now = redux::Instant::now();
-//         // let bytes = verifier_index_to_bytes(&verifier_index);
-//         // println!("verifier_elapsed={:?}", now.elapsed());
-//         // println!("verifier_length={:?}", bytes.len());
-//         // assert_eq!(bytes.len(), 5622520);
+        #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+        struct VerifyZkapp {
+            vk: v2::MinaBaseVerificationKeyWireStableV1,
+            zkapp_statement: v2::MinaBaseZkappStatementStableV2,
+            proof: v2::PicklesProofProofsVerified2ReprStableV2,
+        }
 
-//         // let now = redux::Instant::now();
-//         // let verifier_index = verifier_index_from_bytes(&bytes);
-//         // println!("verifier_deserialize_elapsed={:?}\n", now.elapsed());
+        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(devnet_circuit_directory())
+            .join("tests");
 
-//         // let now = redux::Instant::now();
-//         // let bytes = srs_to_bytes(&srs);
-//         // println!("srs_elapsed={:?}", now.elapsed());
-//         // println!("srs_length={:?}", bytes.len());
-//         // assert_eq!(bytes.len(), 5308513);
+        let cases = [
+            "verify_zapp_4af39d1e141859c964fe32b4e80537d3bd8c32d75e2754c0b869738006d25251_0.binprot",
+            "verify_zapp_dc518dc7e0859ea6ffa0cd42637cdcc9c79ab369dfb7ff44c8a89b1219f98728_0.binprot",
+            "verify_zapp_9db7255327f342f75d27b5c0f646988ee68c6338f6e26c4dc549675f811b4152_0.binprot",
+            "verify_zapp_f2bbc8088654c09314a58c96428f6828d3ee8096b6f34e3a027ad9b028ae22e0_0.binprot",
+        ];
 
-//         // let now = redux::Instant::now();
-//         // let srs: SRS<Vesta> = srs_from_bytes(&bytes);
-//         // println!("deserialize_elapsed={:?}\n", now.elapsed());
+        for filename in cases {
+            let Ok(file) = std::fs::read(base_dir.join(filename)) else {
+                panic_in_ci();
+                return;
+            };
 
-//         // Few blocks headers from berkeleynet
-//         let files = [
-//             include_bytes!("/tmp/block-rampup4.binprot"),
-//             // include_bytes!("../data/5573.binprot"),
-//             // include_bytes!("../data/5574.binprot"),
-//             // include_bytes!("../data/5575.binprot"),
-//             // include_bytes!("../data/5576.binprot"),
-//             // include_bytes!("../data/5577.binprot"),
-//             // include_bytes!("../data/5578.binprot"),
-//             // include_bytes!("../data/5579.binprot"),
-//             // include_bytes!("../data/5580.binprot"),
-//         ];
+            let VerifyZkapp {
+                vk,
+                zkapp_statement,
+                proof,
+            } = VerifyZkapp::binprot_read(&mut file.as_slice()).unwrap();
 
-//         use mina_p2p_messages::binprot::BinProtRead;
-//         use crate::proofs::accumulator_check::accumulator_check;
+            let vk = (&vk).try_into().unwrap();
+            let zkapp_statement = (&zkapp_statement).try_into().unwrap();
+            let srs = crate::verifier::get_srs::<Fp>();
 
-//         for file in files {
-//             let header = MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
+            let ok = verify_zkapp(&vk, &zkapp_statement, &proof, &srs);
+            assert!(ok);
+        }
+    }
 
-//             let now = redux::Instant::now();
-//             let accum_check = accumulator_check(&*srs, &header.protocol_state_proof.0);
-//             println!("accumulator_check={:?}", now.elapsed());
+    // #[test]
+    // fn test_verification() {
+    //     let now = redux::Instant::now();
+    //     let verifier_index = get_verifier_index(VerifierKind::Blockchain);
+    //     println!("get_verifier_index={:?}", now.elapsed());
 
-//             let now = redux::Instant::now();
-//             let verified = super::verify_block(&header, &verifier_index, &*srs);
+    //     let now = redux::Instant::now();
+    //     let srs = get_srs::<Fp>();
+    //     let srs = srs.lock().unwrap();
+    //     println!("get_srs={:?}\n", now.elapsed());
 
-//             // let verified = crate::verify(&header, &verifier_index);
-//             println!("snark::verify={:?}", now.elapsed());
+    //     // let now = redux::Instant::now();
+    //     // let bytes = verifier_index_to_bytes(&verifier_index);
+    //     // println!("verifier_elapsed={:?}", now.elapsed());
+    //     // println!("verifier_length={:?}", bytes.len());
+    //     // assert_eq!(bytes.len(), 5622520);
 
-//             assert!(accum_check);
-//             assert!(verified);
-//         }
-//     }
+    //     // let now = redux::Instant::now();
+    //     // let verifier_index = verifier_index_from_bytes(&bytes);
+    //     // println!("verifier_deserialize_elapsed={:?}\n", now.elapsed());
 
-//     #[test]
-//     fn test_verifier_index_deterministic() {
-//         let mut nruns = 0;
-//         let nruns = &mut nruns;
+    //     // let now = redux::Instant::now();
+    //     // let bytes = srs_to_bytes(&srs);
+    //     // println!("srs_elapsed={:?}", now.elapsed());
+    //     // println!("srs_length={:?}", bytes.len());
+    //     // assert_eq!(bytes.len(), 5308513);
 
-//         let mut hash_verifier_index = || {
-//             *nruns += 1;
-//             let verifier_index = get_verifier_index();
-//             let bytes = verifier_index_to_bytes(&verifier_index);
+    //     // let now = redux::Instant::now();
+    //     // let srs: SRS<Vesta> = srs_from_bytes(&bytes);
+    //     // println!("deserialize_elapsed={:?}\n", now.elapsed());
 
-//             let mut hasher = DefaultHasher::new();
-//             bytes.hash(&mut hasher);
-//             hasher.finish()
-//         };
+    //     // Few blocks headers from berkeleynet
+    //     let files = [
+    //         include_bytes!("/tmp/block-rampup4.binprot"),
+    //         // include_bytes!("../data/5573.binprot"),
+    //         // include_bytes!("../data/5574.binprot"),
+    //         // include_bytes!("../data/5575.binprot"),
+    //         // include_bytes!("../data/5576.binprot"),
+    //         // include_bytes!("../data/5577.binprot"),
+    //         // include_bytes!("../data/5578.binprot"),
+    //         // include_bytes!("../data/5579.binprot"),
+    //         // include_bytes!("../data/5580.binprot"),
+    //     ];
 
-//         assert_eq!(hash_verifier_index(), hash_verifier_index());
-//         assert_eq!(*nruns, 2);
-//     }
-// }
+    //     use mina_p2p_messages::binprot::BinProtRead;
+    //     use crate::proofs::accumulator_check::accumulator_check;
+
+    //     for file in files {
+    //         let header = MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
+
+    //         let now = redux::Instant::now();
+    //         let accum_check = accumulator_check(&*srs, &header.protocol_state_proof.0);
+    //         println!("accumulator_check={:?}", now.elapsed());
+
+    //         let now = redux::Instant::now();
+    //         let verified = super::verify_block(&header, &verifier_index, &*srs);
+
+    //         // let verified = crate::verify(&header, &verifier_index);
+    //         println!("snark::verify={:?}", now.elapsed());
+
+    //         assert!(accum_check);
+    //         assert!(verified);
+    //     }
+    // }
+
+    // #[test]
+    // fn test_verifier_index_deterministic() {
+    //     let mut nruns = 0;
+    //     let nruns = &mut nruns;
+
+    //     let mut hash_verifier_index = || {
+    //         *nruns += 1;
+    //         let verifier_index = get_verifier_index();
+    //         let bytes = verifier_index_to_bytes(&verifier_index);
+
+    //         let mut hasher = DefaultHasher::new();
+    //         bytes.hash(&mut hasher);
+    //         hasher.finish()
+    //     };
+
+    //     assert_eq!(hash_verifier_index(), hash_verifier_index());
+    //     assert_eq!(*nruns, 2);
+    // }
+}

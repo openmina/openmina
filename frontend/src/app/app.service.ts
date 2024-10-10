@@ -32,7 +32,7 @@ export class AppService {
       .pipe(
         map((data: NodeDetailsResponse) => ({
           status: this.getStatus(data),
-          blockHeight: data.transition_frontier.best_tip.height,
+          blockHeight: data.transition_frontier.best_tip?.height,
           blockTime: data.transition_frontier.sync.time,
           peers: data.peers.filter(p => p.connection_status === 'Connected').length,
           download: 0,

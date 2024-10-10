@@ -8,7 +8,7 @@ use crate::{
             prepared_statement::{DeferredValues, PreparedStatement, ProofState},
         },
         unfinalized::dummy_ipa_step_challenges_computed,
-        util::proof_evaluation_to_list,
+        util::proof_evaluation_to_absorption_sequence,
         verifiers::wrap_domains,
         wrap::{
             create_oracle_with_public_input, dummy_ipa_wrap_sg, wrap_verifier, Domain,
@@ -2002,7 +2002,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         }
     };
 
-    let xs = proof_evaluation_to_list(&evals.evals.evals);
+    let xs = proof_evaluation_to_absorption_sequence(&evals.evals.evals);
     let (x1, x2) = &evals.evals.public_input;
 
     let old_bulletproof_challenges: Vec<_> = old_bulletproof_challenges

@@ -419,6 +419,12 @@ pub struct VerificationKey {
     pub wrap_vk: Option<()>,
 }
 
+// impl From<VerificationKey> for MinaBaseVerificationKeyWireStableV1Base64 {
+//     fn from(value: VerificationKey) -> Self {
+//         MinaBaseVerificationKeyWireStableV1Base64((&value).into())
+//     }
+// }
+
 impl Check<Fp> for VerificationKey {
     fn check(&self, w: &mut Witness<Fp>) {
         let Self {
@@ -883,6 +889,10 @@ impl ZkAppAccount {
     /// empty_state_element
     pub fn empty_action_state() -> Fp {
         cache_one!(Fp, { hash_noinputs("MinaZkappActionStateEmptyElt") })
+    }
+
+    pub fn is_default(&self) -> bool {
+        self == &Self::default()
     }
 }
 

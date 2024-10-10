@@ -97,7 +97,7 @@ impl P2pChannelsBestTipState {
                 dispatcher.push(P2pChannelsBestTipAction::RequestSend { peer_id });
                 Ok(())
             }
-            P2pChannelsBestTipAction::RequestReceived { .. } => {
+            P2pChannelsBestTipAction::RequestReceived { peer_id, .. } => {
                 let Self::Ready { remote, .. } = best_tip_state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsBestTipAction::RequestReceived`, state: {:?}",
@@ -107,6 +107,16 @@ impl P2pChannelsBestTipState {
                 };
 
                 *remote = BestTipPropagationState::Requested { time: meta.time() };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state
+                    .callbacks
+                    .on_p2p_channels_best_tip_request_received
+                {
+                    dispatcher.push_callback(callback.clone(), *peer_id);
+                }
                 Ok(())
             }
             P2pChannelsBestTipAction::ResponseSend { best_tip, .. } => {

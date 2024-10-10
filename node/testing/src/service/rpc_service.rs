@@ -82,6 +82,10 @@ impl RpcService for super::NodeTestingService {
         node::rpc::RpcTransactionPoolResponse
     );
     to_real!(
+        respond_ledger_slim_accounts,
+        node::rpc::RpcLedgerSlimAccountsResponse
+    );
+    to_real!(
         respond_ledger_accounts,
         node::rpc::RpcLedgerAccountsResponse
     );
@@ -92,5 +96,14 @@ impl RpcService for super::NodeTestingService {
     to_real!(
         respond_transition_frontier_commands,
         node::rpc::RpcTransitionFrontierUserCommandsResponse,
+    );
+    to_real!(respond_best_chain, node::rpc::RpcBestChainResponse,);
+    to_real!(
+        respond_consensus_constants,
+        node::rpc::RpcConsensusConstantsGetResponse,
+    );
+    to_real!(
+        respond_transaction_status,
+        node::rpc::RpcTransactionStatusGetResponse,
     );
 }

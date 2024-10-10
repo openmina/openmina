@@ -1,3 +1,4 @@
+use openmina_core::consensus::ConsensusConstants;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -5,13 +6,14 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
-    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcId, RpcLedgerAccountsResponse,
-    RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
-    RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-    RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
-    RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
+    RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
+    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
+    RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
+    RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
+    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
 
@@ -150,6 +152,11 @@ pub trait RpcService {
         rpc_id: RpcId,
         response: RpcTransactionPoolResponse,
     ) -> Result<(), RespondError>;
+    fn respond_ledger_slim_accounts(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcLedgerSlimAccountsResponse,
+    ) -> Result<(), RespondError>;
     fn respond_ledger_accounts(
         &mut self,
         rpc_id: RpcId,
@@ -164,5 +171,20 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcTransitionFrontierUserCommandsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_best_chain(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcBestChainResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_consensus_constants(
+        &mut self,
+        rpc_id: RpcId,
+        response: ConsensusConstants,
+    ) -> Result<(), RespondError>;
+    fn respond_transaction_status(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcTransactionStatusGetResponse,
     ) -> Result<(), RespondError>;
 }

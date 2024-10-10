@@ -1,15 +1,19 @@
 mod sender;
 pub use sender::RpcSender;
 
+pub mod ledger;
 pub mod state;
 pub mod stats;
+pub mod transaction_pool;
+pub mod transition_frontier;
 
 use node::rpc::{
-    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
-    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
-    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest,
-    RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
-    RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
+    RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
+    RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
+    RpcStatusGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcTransactionStatusGetResponse, RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -286,12 +290,19 @@ impl node::rpc::RpcService for NodeService {
         RpcDiscoveryBoostrapStatsResponse
     );
     rpc_service_impl!(respond_transaction_pool, RpcTransactionPoolResponse);
+    rpc_service_impl!(respond_ledger_slim_accounts, RpcLedgerSlimAccountsResponse);
     rpc_service_impl!(respond_ledger_accounts, RpcLedgerAccountsResponse);
     rpc_service_impl!(respond_transaction_inject, RpcTransactionInjectResponse);
     rpc_service_impl!(
         respond_transition_frontier_commands,
         RpcTransitionFrontierUserCommandsResponse
     );
+    rpc_service_impl!(respond_best_chain, RpcBestChainResponse);
+    rpc_service_impl!(
+        respond_consensus_constants,
+        RpcConsensusConstantsGetResponse
+    );
+    rpc_service_impl!(respond_transaction_status, RpcTransactionStatusGetResponse);
 }
 
 #[cfg(test)]

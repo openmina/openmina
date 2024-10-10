@@ -43,6 +43,17 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
 
+impl MinaBaseSignedCommandMemoStableV1 {
+    pub fn to_base58check(&self) -> String {
+        b58::encode(self.0.as_ref(), USER_COMMAND_MEMO)
+    }
+
+    pub fn from_base58check(s: &str) -> Self {
+        let decoded = b58::decode(s, USER_COMMAND_MEMO).unwrap();
+        MinaBaseSignedCommandMemoStableV1(decoded[1..].into())
+    }
+}
+
 impl Serialize for MinaBaseSignedCommandMemoStableV1 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -489,6 +500,11 @@ base58check_of_binprot!(StateBodyHash, versioned MinaBaseStateBodyHashStableV1, 
 base58check_of_binprot!(
     PendingCoinbaseHash,
     versioned MinaBasePendingCoinbaseHashVersionedStableV1,
+    RECEIPT_CHAIN_HASH
+);
+base58check_of_binprot!(
+    ReceiptChainHash,
+    versioned MinaBaseReceiptChainHashStableV1,
     RECEIPT_CHAIN_HASH
 );
 base58check_of_binprot!(
@@ -946,6 +962,70 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
             Deserialize::deserialize(deserializer)
         }
         .map(Self)
+    }
+}
+
+impl MinaBaseVerificationKeyWireStableV1 {
+    pub fn to_base64(&self) -> Result<String, conv::Error> {
+        let mut buffer: Vec<u8> = Vec::new();
+        self.binprot_write(&mut buffer)?;
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let base64_data = STANDARD.encode(buffer);
+        Ok(base64_data)
+    }
+
+    pub fn from_base64(base64_data: &str) -> Result<Self, conv::Error> {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let decoded_data = STANDARD.decode(base64_data)?;
+        let res = MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded_data.as_slice())?;
+        Ok(res)
+    }
+}
+
+// TODO(adonagy): macro?
+impl MinaBaseSignedCommandStableV2 {
+    pub fn to_base64(&self) -> Result<String, conv::Error> {
+        const COMMAND_VERSION_TAG: u8 = 2;
+
+        let mut buffer: Vec<u8> = Vec::new();
+        COMMAND_VERSION_TAG.binprot_write(&mut buffer)?;
+        self.binprot_write(&mut buffer)?;
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let base64_data = STANDARD.encode(buffer);
+        Ok(base64_data)
+    }
+
+    pub fn from_base64(base64_data: &str) -> Result<Self, conv::Error> {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let decoded_data = STANDARD.decode(&base64_data)?;
+        let res = MinaBaseSignedCommandStableV2::binprot_read(&mut decoded_data[1..].as_ref())?;
+        Ok(res)
+    }
+}
+
+/// TODO(adonagy): implement the base64 conversions similarly to the base58check ones (versioned/not versioned)
+impl MinaBaseZkappCommandTStableV1WireStableV1 {
+    pub fn to_base64(&self) -> Result<String, conv::Error> {
+        const ZKAPP_VERSION_TAG: u8 = 1;
+
+        let mut buffer: Vec<u8> = Vec::new();
+        ZKAPP_VERSION_TAG.binprot_write(&mut buffer)?;
+        self.binprot_write(&mut buffer)?;
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+
+        let base64_data = STANDARD.encode(buffer);
+        Ok(base64_data)
+    }
+
+    pub fn from_base64(base64_data: &str) -> Result<Self, conv::Error> {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        let decoded_data = STANDARD.decode(&base64_data)?;
+        let res = MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(
+            &mut decoded_data[1..].as_ref(),
+        )?;
+        Ok(res)
     }
 }
 
@@ -1468,6 +1548,10 @@ impl StagedLedgerDiffBodyStableV1 {
         }
     }
 
+    pub fn transactions(&self) -> impl Iterator<Item = &MinaBaseUserCommandStableV2> {
+        self.commands_iter().map(|command| &command.data)
+    }
+
     // FIXME(tizoc): this is not correct, the coinbases are in the commands
     // what this is returning is the coinbase fee transfers, which is not the same.
     pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
@@ -1536,5 +1620,80 @@ impl StagedLedgerDiffBodyStableV1 {
 
     pub fn snark_fees_sum(&self) -> u64 {
         self.completed_works_iter().map(|v| v.fee.as_u64()).sum()
+    }
+}
+
+// PicklesProofProofsVerifiedMaxStableV2 PicklesProofProofsVerified2ReprStableV2
+
+impl From<PicklesProofProofsVerifiedMaxStableV2> for PicklesProofProofsVerified2ReprStableV2 {
+    fn from(value: PicklesProofProofsVerifiedMaxStableV2) -> Self {
+        Self {
+            statement: value.statement,
+            prev_evals: value.prev_evals,
+            proof: value.proof,
+        }
+    }
+}
+
+impl From<PicklesProofProofsVerified2ReprStableV2> for PicklesProofProofsVerifiedMaxStableV2 {
+    fn from(value: PicklesProofProofsVerified2ReprStableV2) -> Self {
+        Self {
+            statement: value.statement,
+            prev_evals: value.prev_evals,
+            proof: value.proof,
+        }
+    }
+}
+
+impl std::fmt::Display for SgnStableV1 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SgnStableV1::Pos => write!(f, "Positive"),
+            SgnStableV1::Neg => write!(f, "Negative"),
+        }
+    }
+}
+
+impl std::str::FromStr for SgnStableV1 {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Positive" => Ok(SgnStableV1::Pos),
+            "Negative" => Ok(SgnStableV1::Neg),
+            _ => Err("Invalid Sgn string, expected Positive or Negative".to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use binprot::BinProtRead;
+
+    use crate::v2::{
+        MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
+    };
+
+    #[test]
+    fn test_zkapp_with_sig_auth_hash() {
+        let expexcted = "AbliNXLg4Keq0ZJyxK/QNAx8SxrJeffYytk5lbcTF9s9Af0A4fUFAP2+oQMA48vntxcABLty3SXWjvuadrLtBjcsxT1oJ3C2hwS/LDh364LKUxrLe3uF/9lr8VlW/J+ctbiI+m9I61sb9BC/AAG5YjVy4OCnqtGScsSv0DQMfEsayXn32MrZOZW3ExfbPQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAAEBAQEBAQH9AJQ1dwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAEBAQEBAAAAAePL57cXAAS7ct0l1o77mnay7QY3LMU9aCdwtocEvyw4d+uCylMay3t7hf/Za/FZVvyfnLW4iPpvSOtbG/QQvwAAAcwXZjv4NJwWwlJhFZPh2AK+o0dKOpIy1a6CXlskW7gmAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEAAQEBAQEBAf0AlDV3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAQEBAQAAAAICAAAAACIBFlRlc3QgWktBcHAgdG8gUmVjZWl2ZXIAAAAAAAAAAAAA".to_string();
+        let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
+        let zkapp =
+            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+
+        let zkapp_id = zkapp.to_base64().unwrap();
+        assert_eq!(expexcted, zkapp_id);
+    }
+
+    #[test]
+    fn test_verification_key_base64_decode() {
+        use base64::{engine::general_purpose::STANDARD, Engine as _};
+        // let verification_key_encoded = "AACcenc1yLdGBm4xtUN1dpModROI0zovuy5rz2a94vfdBgG1C75BqviU4vw6JUYqODF8n9ivtfeU5s9PcpEGIP0htil2mfx8v2DB5RuNQ7VxJWkha0TSnJJsOl0FxhjldBbOY3tUZzZxHpPhHOKHz/ZAXRYFIsf2x+7boXC0iPurEX9VcnaJIq+YxxmnSfeYYxHkjxO9lrDBqjXzd5AHMnYyjTPC69B+5In7AOGS6R+A/g3/aR/MKDa4eDVrnsF9Oy/Ay8ahic2sSAZvtn08MdRyk/jm2cLlJbeAAad6Xyz/H9l7JrkbVwDMMPxvHVHs27tNoJCzIlrRzB7pg3ju9aQOu4h3thDr+WSgFQWKvcRPeL7f3TFjIr8WZ2457RgMcTwXwORKbqJCcyKVNOE+FlNwVkOKER+WIpC0OlgGuayPFwQQkbb91jaRlJvahfwkbF2+AJmDnavmNpop9T+/Xak1adXIrsRPeOjC+qIKxIbGimoMOoYzYlevKA80LnJ7HC0IxR+yNLvoSYxDDPNRD+OCCxk5lM2h8IDUiCNWH4FZNJ+doiigKjyZlu/xZ7jHcX7qibu/32KFTX85DPSkQM8dAEkH+vlkHmyXGLF4+xOVKeM0ihV5OEQrOABcgfTkbRsyxNInUBh0WiQyALE2ctjvkRCiE2P24bjFA8SgFmTM7gAKR89XcqLS/NP7lwCEej/L8q8R7sKGMCXmgFYluWH4JBSPDgvMxScfjFS33oBNb7po8cLnAORzohXoYTSgztklD0mKn6EegLbkLtwwr9ObsLz3m7fp/3wkNWFRkY5xzSZN1VybbQbmpyQNCpxd/kdDsvlszqlowkyC8HnKbhnvE0Mrz3ZIk4vSs/UGBSXAoESFCFCPcTq11TCOhE5rumMJErv5LusDHJgrBtQUMibLU9A1YbF7SPDAR2QZd0yx3waAC2F3xF+U682SOKF7oCZl2OICysRHqH+rZ604UfdGG0zWRuP2yg6kfGwcGQbO1ql40WrWTiFhbxxdKC7Gbz4y9Sb7q5EsPt6Z1AIn34/nXB/IWfC0gg/OgfPQTR7uxiTo2OOwjHni1f4KhT4rEmDAQn6ty6/ZRKHPWjUaAREbEw3tC36fI09hCYjjVTEmMAFTApk/tMUu0tC9Dt/vfDgXAlDJBwN5Y2Pt60qWY92skizVcWyWBxp5A8e4cVu3iToxOGUbSHzawovjubcH7qWjIZoghZJ16QB1c0ryiAfHB48OHhs2p/JZWz8Dp7kfcPkeg2Of2NbupJlNVMLIH4IGWaPAscBRkZ+F4oLqOhJ5as7fAzzU8PQdeZi0YgssGDJVmNEHP61I16KZNcxQqR0EUVwhyMmYmpVjvtfhHi/6I3TgYCmfnm6GL2sN144vMWg/gJ+p9a4GcEA0+gK3oCcKcwkq5rm+1Oxo9LWLp92Bdxq3iqfoIFmJ/ANGSbHF8StVmlVsP8zA+xuHylyiww/Lercce7cq0YA5PtYS3ge9IDYwXckBUXb5ikD3alrrv5mvMu6itB7ix2f8lbiF9Fkmc4Bk2ycIWXJDCuBN+2sTFqzUeoT6xY8XWaOcnDvqOgSm/CCSv38umiOE2jEpsKYxhRc6W70UJkrzd3hr2DiSF1I2B+krpUVK1GeOdCLC5sl7YPzk+pF8183uI9wse6UTlqiweZzB/ZVuZMnOUAmFHeq6Jb5mgW47a+FRWNXsjsA0KDFpNOoh5HYocETXS+LnAkAAADWhmIAAAADA==";
+        let verification_key_encoded = "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";
+
+        let decoded = STANDARD.decode(verification_key_encoded).unwrap();
+        let verification_key =
+            MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded.as_slice());
+        assert!(verification_key.is_ok());
     }
 }

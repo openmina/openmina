@@ -1,9 +1,12 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
+use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
+use mina_p2p_messages::v2::TokenIdKeyHash;
 use openmina_core::block::AppliedBlock;
 use openmina_core::snark::SnarkJobId;
 use openmina_core::ActionEvent;
 use openmina_node_account::AccountPublicKey;
+use p2p::PeerId;
 use serde::{Deserialize, Serialize};
 
 use crate::external_snark_worker::SnarkWorkId;
@@ -12,8 +15,8 @@ use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnection
 use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
-    ActionStatsQuery, RpcId, RpcInjectPayment, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryScanStateJob, SyncStatsQuery,
+    ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob,
+    SyncStatsQuery,
 };
 
 pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
@@ -75,6 +78,11 @@ pub enum RpcAction {
     P2pConnectionIncomingRespond {
         rpc_id: RpcId,
         response: P2pConnectionResponse,
+    },
+    P2pConnectionIncomingAnswerReady {
+        rpc_id: RpcId,
+        peer_id: PeerId,
+        answer: P2pConnectionResponse,
     },
     P2pConnectionIncomingError {
         rpc_id: RpcId,
@@ -144,7 +152,7 @@ pub enum RpcAction {
     #[action_event(level = info)]
     LedgerAccountsGetInit {
         rpc_id: RpcId,
-        public_key: Option<AccountPublicKey>,
+        account_query: AccountQuery,
     },
     #[action_event(level = info)]
     LedgerAccountsGetPending {
@@ -154,11 +162,12 @@ pub enum RpcAction {
     LedgerAccountsGetSuccess {
         rpc_id: RpcId,
         accounts: Vec<Account>,
+        account_query: AccountQuery,
     },
     #[action_event(level = info)]
     TransactionInjectInit {
         rpc_id: RpcId,
-        commands: Vec<RpcInjectPayment>,
+        commands: Vec<MinaBaseUserCommandStableV2>,
     },
     #[action_event(level = info)]
     TransactionInjectPending {
@@ -184,9 +193,29 @@ pub enum RpcAction {
         rpc_id: RpcId,
     },
 
+    BestChain {
+        rpc_id: RpcId,
+        max_length: u32,
+    },
+    ConsensusConstantsGet {
+        rpc_id: RpcId,
+    },
+
+    TransactionStatusGet {
+        rpc_id: RpcId,
+        tx: MinaBaseUserCommandStableV2,
+    },
+
     Finish {
         rpc_id: RpcId,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AccountQuery {
+    SinglePublicKey(AccountPublicKey),
+    All,
+    PubKeyWithTokenId(AccountPublicKey, TokenIdKeyHash),
 }
 
 impl redux::EnablingCondition<crate::State> for RpcAction {
@@ -225,7 +254,8 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .requests
                 .get(rpc_id)
                 .map_or(false, |v| v.status.is_init()),
-            RpcAction::P2pConnectionIncomingRespond { rpc_id, .. } => state
+            RpcAction::P2pConnectionIncomingRespond { rpc_id, .. }
+            | RpcAction::P2pConnectionIncomingAnswerReady { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
@@ -267,6 +297,9 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::DiscoveryRoutingTable { .. } => true,
             RpcAction::DiscoveryBoostrapStats { .. } => true,
             RpcAction::TransactionPool { .. } => true,
+            RpcAction::ConsensusConstantsGet { .. } => true,
+            RpcAction::BestChain { .. } => state.transition_frontier.best_tip().is_some(),
+            RpcAction::TransactionStatusGet { .. } => true,
             RpcAction::LedgerAccountsGetInit { .. } => {
                 state.transition_frontier.best_tip().is_some()
             }

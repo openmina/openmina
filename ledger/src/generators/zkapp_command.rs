@@ -33,7 +33,10 @@ use crate::{
             },
             Memo,
         },
-        zkapp_logic::{self, ZkAppCommandElt},
+    },
+    zkapps::{
+        non_snark::ZkappNonSnark,
+        zkapp_logic::{update_action_state, ZkAppCommandElt},
     },
     Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MutableFp, MyCowMut,
     Permissions, ReceiptChainHash, SetVerificationKey, TokenId, VerificationKeyWire, VotingFor,
@@ -907,11 +910,12 @@ fn gen_account_update_body_components<A, B, C, D>(
                 Some(ps) => ps.global_slot_since_genesis,
             };
 
-            let (action_state, _last_action_slot) = zkapp_logic::update_action_state(
-                zk.action_state,
-                actions.clone(),
+            let (action_state, _last_action_slot) = update_action_state::<ZkappNonSnark<Mask>>(
+                &zk.action_state,
+                &actions,
                 txn_global_slot,
                 last_action_slot,
+                &mut (),
             );
 
             action_state

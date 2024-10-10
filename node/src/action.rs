@@ -8,6 +8,7 @@ pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
 pub use crate::external_snark_worker::ExternalSnarkWorkerAction;
 pub use crate::ledger::LedgerAction;
+use crate::p2p::callbacks::P2pCallbacksAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
@@ -32,6 +33,8 @@ pub enum Action {
     EventSource(EventSourceAction),
 
     P2p(P2pAction),
+    P2pCallbacks(P2pCallbacksAction),
+
     Ledger(LedgerAction),
     Snark(SnarkAction),
     Consensus(ConsensusAction),
@@ -85,6 +88,7 @@ impl redux::EnablingCondition<crate::State> for Action {
             Action::WatchedAccounts(a) => a.is_enabled(state, time),
             Action::TransactionPool(a) => a.is_enabled(state, time),
             Action::TransactionPoolEffect(a) => a.is_enabled(state, time),
+            Action::P2pCallbacks(a) => a.is_enabled(state, time),
         }
     }
 }

@@ -277,6 +277,12 @@ impl TransitionFrontierSyncState {
         }
     }
 
+    pub fn pending_count(&self) -> usize {
+        self.blocks_iter()
+            .filter(|b| !matches!(b, TransitionFrontierSyncBlockState::ApplySuccess { .. }))
+            .count()
+    }
+
     pub fn blocks_fetch_retry_iter(&self) -> impl '_ + Iterator<Item = StateHash> {
         self.blocks_iter().filter_map(|s| s.retry_hash()).cloned()
     }

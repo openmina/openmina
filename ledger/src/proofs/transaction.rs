@@ -4181,7 +4181,7 @@ mod tests_with_wasm {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use std::path::Path;
 
     use mina_p2p_messages::binprot::{
@@ -4215,7 +4215,7 @@ mod tests {
         PerformJob(mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse),
     }
 
-    fn panic_in_ci() {
+    pub fn panic_in_ci() {
         fn is_ci() -> bool {
             std::env::var("CI").is_ok()
         }
@@ -4633,7 +4633,7 @@ mod tests {
     }
 
     #[test]
-    fn test_zkapp_proof_sig() {
+    fn test_proof_zkapp_sig() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join(devnet_circuit_directory())

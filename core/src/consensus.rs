@@ -3,6 +3,7 @@ use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2 as MinaConsensusState, StateHash,
 };
 use serde::{Deserialize, Serialize};
+use time::{macros::format_description, OffsetDateTime};
 
 use crate::constants::constraint_constants;
 pub use crate::constants::{
@@ -300,6 +301,13 @@ impl ConsensusConstants {
         constants.checkpoint_window_size_in_slots = (slots_per_year / CHECKPOINTS_PER_YEAR) as u32;
         constants.assert_invariants();
         constants
+    }
+
+    pub fn human_readable_genesis_timestamp(&self) -> Result<String, String> {
+        let format = format_description!("[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:6][offset_hour sign:mandatory]:[offset_minute]");
+        OffsetDateTime::from_unix_timestamp((self.genesis_state_timestamp.as_u64() / 1000) as i64)
+            .map_err(|e| e.to_string())
+            .and_then(|dt| dt.format(&format).map_err(|e| e.to_string()))
     }
 }
 

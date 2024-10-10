@@ -180,7 +180,19 @@ impl P2pChannelsTransactionState {
                 });
                 Ok(())
             }
-            P2pChannelsTransactionAction::Libp2pReceived { .. } => Ok(()),
+            P2pChannelsTransactionAction::Libp2pReceived { transaction, .. } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state
+                    .callbacks
+                    .on_p2p_channels_transaction_libp2p_received
+                {
+                    dispatcher.push_callback(callback.clone(), transaction.clone());
+                }
+
+                Ok(())
+            }
             #[cfg(not(feature = "p2p-libp2p"))]
             P2pChannelsTransactionAction::Libp2pBroadcast { .. } => Ok(()),
             #[cfg(feature = "p2p-libp2p")]
