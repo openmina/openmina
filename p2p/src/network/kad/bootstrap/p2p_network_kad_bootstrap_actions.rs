@@ -47,7 +47,7 @@ impl EnablingCondition<P2pState> for P2pNetworkKadBootstrapAction {
                 }),
             P2pNetworkKadBootstrapAction::FinalizeRequests => state
                 .map_or(false, |bootstrap_state| {
-                    (1..=3).contains(&bootstrap_state.peer_id_req_vec.len())
+                    bootstrap_state.peer_id_req_vec.len() <= 3
                 }),
             P2pNetworkKadBootstrapAction::RequestDone { peer_id, .. }
             | P2pNetworkKadBootstrapAction::RequestError { peer_id, .. } => state

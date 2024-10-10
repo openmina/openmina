@@ -43,6 +43,7 @@ impl P2pNetworkKadBootstrapState {
                 let bootstrap_state: &mut Self =
                     state_context.get_substate_mut()?.substate_mut()?;
                 bootstrap_state.requests_number = to_request.len();
+                let empty = to_request.is_empty();
 
                 let dispatcher = state_context.into_dispatcher();
                 for entry in to_request {
@@ -51,6 +52,9 @@ impl P2pNetworkKadBootstrapState {
                         filter_local: filter_addrs,
                         peer_id: entry.peer_id,
                     });
+                }
+                if empty {
+                    dispatcher.push(P2pNetworkKadBootstrapAction::FinalizeRequests);
                 }
 
                 Ok(())
