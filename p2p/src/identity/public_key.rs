@@ -22,6 +22,10 @@ impl PublicKey {
     pub fn peer_id(&self) -> PeerId {
         PeerId::from_bytes(self.to_bytes())
     }
+
+    pub fn to_x25519(&self) -> x25519_dalek::PublicKey {
+        self.0.to_montgomery().to_bytes().into()
+    }
 }
 
 impl fmt::Display for PublicKey {

@@ -293,8 +293,11 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         RpcAction::P2pConnectionIncomingRespond { rpc_id, response } => {
             let error = match &response {
                 P2pConnectionResponse::Accepted(_) => None,
-                P2pConnectionResponse::InternalError => Some("RemoteInternalError".to_owned()),
                 P2pConnectionResponse::Rejected(reason) => Some(format!("Rejected({:?})", reason)),
+                P2pConnectionResponse::SignalDecryptionFailed => {
+                    Some("RemoteSignalDecryptionFailed".to_owned())
+                }
+                P2pConnectionResponse::InternalError => Some("RemoteInternalError".to_owned()),
             };
             let _ = store
                 .service

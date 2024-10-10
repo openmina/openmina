@@ -276,6 +276,9 @@ impl P2pConnectionOutgoingState {
                         P2pConnectionErrorResponse::Rejected(reason) => {
                             P2pConnectionOutgoingError::Rejected(*reason)
                         }
+                        P2pConnectionErrorResponse::SignalDecryptionFailed => {
+                            P2pConnectionOutgoingError::RemoteSignalDecryptionFailed
+                        }
                         P2pConnectionErrorResponse::InternalError => {
                             P2pConnectionOutgoingError::RemoteInternalError
                         }

@@ -65,6 +65,9 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                                     false => StatusCode::OK,
                                     true => StatusCode::BAD_REQUEST,
                                 },
+                                P2pConnectionResponse::SignalDecryptionFailed => {
+                                    StatusCode::BAD_REQUEST
+                                }
                                 P2pConnectionResponse::InternalError => {
                                     StatusCode::INTERNAL_SERVER_ERROR
                                 }
