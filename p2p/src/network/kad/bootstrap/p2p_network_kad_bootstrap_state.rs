@@ -27,6 +27,10 @@ pub struct P2pNetworkKadBootstrapState {
     pub successful_requests: usize,
     /// Bootstrap requests statistics.
     pub stats: P2pNetworkKadBootstrapStats,
+    /// Constructing request
+    pub peer_id_req_vec: Vec<(PeerId, P2pNetworkKadBoostrapRequestState)>,
+    /// Number of requests to construct
+    pub requests_number: usize,
 }
 
 impl P2pNetworkKadBootstrapState {
@@ -38,6 +42,8 @@ impl P2pNetworkKadBootstrapState {
             requests: BTreeMap::new(),
             successful_requests: 0,
             stats: Default::default(),
+            peer_id_req_vec: vec![],
+            requests_number: 0,
         })
     }
 

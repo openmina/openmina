@@ -1,13 +1,11 @@
 use openmina_core::{bug_condition, Substate, SubstateAccess};
 use redux::{ActionWithMeta, Dispatcher};
-use std::net::SocketAddr;
 
 use crate::{
-    connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts},
-    peer::P2pPeerAction,
-    socket_addr_try_from_multiaddr, ConnectionAddr, P2pNetworkConnectionMuxState,
-    P2pNetworkKadBootstrapAction, P2pNetworkKadState, P2pNetworkKademliaRpcRequest,
-    P2pNetworkKademliaStreamAction, P2pNetworkYamuxAction, P2pPeerState, P2pState,
+    connection::outgoing::P2pConnectionOutgoingAction, ConnectionAddr,
+    P2pNetworkConnectionMuxState, P2pNetworkKadBootstrapAction, P2pNetworkKadEffectfulAction,
+    P2pNetworkKadState, P2pNetworkKademliaRpcRequest, P2pNetworkKademliaStreamAction,
+    P2pNetworkYamuxAction, P2pPeerState, P2pState,
 };
 
 use super::{P2pNetworkKadRequestAction, P2pNetworkKadRequestState, P2pNetworkKadRequestStatus};
@@ -248,30 +246,17 @@ impl P2pNetworkKadRequestState {
                     });
                 }
 
-                let external_addr = |addr: &SocketAddr| {
-                    !filter_local_addrs
-                        || match addr.ip() {
-                            std::net::IpAddr::V4(v) => !(v.is_loopback() || v.is_private()),
-                            std::net::IpAddr::V6(v) => !(v.is_loopback()),
-                        }
-                };
                 for entry in data {
                     let peer_id = entry.peer_id;
-                    let to_opts = |addr| (peer_id, addr).into();
-                    let mut addresses = entry
-                        .addresses()
-                        .iter()
-                        .map(socket_addr_try_from_multiaddr)
-                        .filter_map(Result::ok)
-                        .filter(external_addr)
-                        .map(to_opts)
-                        .map(P2pConnectionOutgoingInitOpts::LibP2P);
 
-                    // TODO: use all addresses
-                    dispatcher.push(P2pPeerAction::Discovered {
-                        peer_id,
-                        dial_opts: addresses.next(),
-                    });
+                    for multiaddr in entry.addresses().iter() {
+                        let multiaddr = multiaddr.clone();
+                        dispatcher.push(P2pNetworkKadEffectfulAction::Discovered {
+                            multiaddr,
+                            filter_local: filter_local_addrs,
+                            peer_id,
+                        });
+                    }
                 }
                 dispatcher.push(P2pNetworkKademliaStreamAction::Close {
                     addr: ConnectionAddr {

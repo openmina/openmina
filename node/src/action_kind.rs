@@ -51,6 +51,7 @@ use crate::p2p::network::identify::stream::P2pNetworkIdentifyStreamAction;
 use crate::p2p::network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction;
 use crate::p2p::network::identify::P2pNetworkIdentifyAction;
 use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
+use crate::p2p::network::kad::kad_effectful::P2pNetworkKadEffectfulAction;
 use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
 use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
@@ -313,9 +314,13 @@ pub enum ActionKind {
     P2pNetworkIdentifyStreamPrune,
     P2pNetworkIdentifyStreamRemoteClose,
     P2pNetworkIdentifyStreamEffectfulSendIdentify,
+    P2pNetworkKadBootstrapAppendRequest,
     P2pNetworkKadBootstrapCreateRequests,
+    P2pNetworkKadBootstrapFinalizeRequests,
     P2pNetworkKadBootstrapRequestDone,
     P2pNetworkKadBootstrapRequestError,
+    P2pNetworkKadEffectfulDiscovered,
+    P2pNetworkKadEffectfulMakeRequest,
     P2pNetworkKadRequestError,
     P2pNetworkKadRequestMuxReady,
     P2pNetworkKadRequestNew,
@@ -611,7 +616,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 504;
+    pub const COUNT: u16 = 508;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1075,6 +1080,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Yamux(a) => a.kind(),
             Self::Identify(a) => a.kind(),
             Self::Kad(a) => a.kind(),
+            Self::KadEffectful(a) => a.kind(),
             Self::Pubsub(a) => a.kind(),
             Self::PubsubEffectful(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -1718,6 +1724,15 @@ impl ActionKindGet for P2pNetworkKadAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkKadEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Discovered { .. } => ActionKind::P2pNetworkKadEffectfulDiscovered,
+            Self::MakeRequest { .. } => ActionKind::P2pNetworkKadEffectfulMakeRequest,
+        }
+    }
+}
+
 impl ActionKindGet for P2pNetworkPubsubAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1812,6 +1827,8 @@ impl ActionKindGet for P2pNetworkKadBootstrapAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::CreateRequests => ActionKind::P2pNetworkKadBootstrapCreateRequests,
+            Self::AppendRequest { .. } => ActionKind::P2pNetworkKadBootstrapAppendRequest,
+            Self::FinalizeRequests => ActionKind::P2pNetworkKadBootstrapFinalizeRequests,
             Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
             Self::RequestError { .. } => ActionKind::P2pNetworkKadBootstrapRequestError,
         }

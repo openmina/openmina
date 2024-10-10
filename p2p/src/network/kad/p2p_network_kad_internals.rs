@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    socket_addr_try_from_multiaddr, ConnectionType, P2pNetworkKademliaMultiaddrError,
-    P2pNetworkKademliaPeerIdError, PeerId,
+    ConnectionType, P2pNetworkKademliaMultiaddrError, P2pNetworkKademliaPeerIdError, PeerId,
 };
 
 use super::CID;
@@ -264,9 +263,8 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
     /// Filters `entry.addrs` for supported addresses if non of addresses are supported returns `Err(_)`
     pub fn insert(
         &mut self,
-        mut entry: P2pNetworkKadEntry,
+        entry: P2pNetworkKadEntry,
     ) -> Result<bool, P2pNetworkKadRoutingTableInsertError> {
-        entry.filter_addrs();
         if entry.addrs.is_empty() {
             return Err(P2pNetworkKadRoutingTableInsertError);
         }
@@ -404,18 +402,6 @@ impl P2pNetworkKadEntry {
 
     pub fn addresses(&self) -> &Vec<Multiaddr> {
         &self.addrs
-    }
-
-    pub fn filter_addrs(&mut self) {
-        let addrs = std::mem::take(&mut self.addrs);
-        self.addrs = addrs
-            .into_iter()
-            .filter_map(|multiaddr| {
-                socket_addr_try_from_multiaddr(&multiaddr)
-                    .is_ok()
-                    .then_some(multiaddr)
-            })
-            .collect()
     }
 }
 

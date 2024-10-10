@@ -26,6 +26,7 @@ impl P2pNetworkAction {
             P2pNetworkAction::SchedulerEffectful(v) => v.effects(meta, store),
             P2pNetworkAction::PubsubEffectful(v) => v.effects(meta, store),
             P2pNetworkAction::PnetEffectful(v) => v.effects(meta, store),
+            P2pNetworkAction::KadEffectful(v) => v.effects(meta, store),
         }
     }
 }

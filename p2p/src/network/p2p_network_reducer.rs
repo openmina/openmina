@@ -57,7 +57,8 @@ impl P2pNetworkState {
             ),
             P2pNetworkAction::PubsubEffectful(_)
             | P2pNetworkAction::SchedulerEffectful(_)
-            | P2pNetworkAction::PnetEffectful(_) => {
+            | P2pNetworkAction::PnetEffectful(_)
+            | P2pNetworkAction::KadEffectful(_) => {
                 // Effectful action; no reducer
                 Ok(())
             }
