@@ -1,6 +1,10 @@
 use super::{
     best_tip::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction, P2pChannelsBestTipState},
     rpc::{P2pChannelsRpcAction, P2pChannelsRpcState, RpcChannelMsg},
+    signaling::exchange::{
+        P2pChannelsSignalingExchangeAction, P2pChannelsSignalingExchangeState,
+        SignalingExchangeChannelMsg,
+    },
     snark::{P2pChannelsSnarkAction, P2pChannelsSnarkState, SnarkPropagationChannelMsg},
     snark_job_commitment::{
         P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentState,
@@ -36,6 +40,9 @@ impl P2pChannelsState {
             P2pChannelsAction::MessageReceived(action) => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 Self::dispatch_message(meta.with_action(action), dispatcher, state)
+            }
+            P2pChannelsAction::SignalingExchange(action) => {
+                P2pChannelsSignalingExchangeState::reducer(state_context, meta.with_action(action))
             }
             P2pChannelsAction::BestTip(action) => {
                 P2pChannelsBestTipState::reducer(state_context, meta.with_action(action))
@@ -76,6 +83,25 @@ impl P2pChannelsState {
         let mut is_enabled = |action: Action| dispatcher.push_if_enabled(action, state, time);
 
         let was_expected = match *action.message.clone() {
+            ChannelMsg::SignalingExchange(msg) => match msg {
+                SignalingExchangeChannelMsg::GetNext => is_enabled(
+                    P2pChannelsSignalingExchangeAction::RequestReceived { peer_id }.into(),
+                ),
+                SignalingExchangeChannelMsg::OfferToYou {
+                    offerer_pub_key,
+                    offer,
+                } => is_enabled(
+                    P2pChannelsSignalingExchangeAction::OfferReceived {
+                        peer_id,
+                        offerer_pub_key,
+                        offer,
+                    }
+                    .into(),
+                ),
+                SignalingExchangeChannelMsg::Answer(answer) => is_enabled(
+                    P2pChannelsSignalingExchangeAction::AnswerReceived { peer_id, answer }.into(),
+                ),
+            },
             ChannelMsg::BestTipPropagation(msg) => match msg {
                 BestTipPropagationChannelMsg::GetNext => {
                     is_enabled(P2pChannelsBestTipAction::RequestReceived { peer_id }.into())

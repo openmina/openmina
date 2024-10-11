@@ -28,6 +28,8 @@ use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::best_tip_effectful::P2pChannelsBestTipEffectfulAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::rpc_effectful::P2pChannelsRpcEffectfulAction;
+use crate::p2p::channels::signaling::exchange::P2pChannelsSignalingExchangeAction;
+use crate::p2p::channels::signaling::exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_effectful::P2pChannelsSnarkEffectfulAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
@@ -209,6 +211,21 @@ pub enum ActionKind {
     P2pChannelsRpcEffectfulInit,
     P2pChannelsRpcEffectfulRequestSend,
     P2pChannelsRpcEffectfulResponseSend,
+    P2pChannelsSignalingExchangeAnswerReceived,
+    P2pChannelsSignalingExchangeAnswerSend,
+    P2pChannelsSignalingExchangeInit,
+    P2pChannelsSignalingExchangeOfferDecryptError,
+    P2pChannelsSignalingExchangeOfferDecryptSuccess,
+    P2pChannelsSignalingExchangeOfferReceived,
+    P2pChannelsSignalingExchangeOfferSend,
+    P2pChannelsSignalingExchangePending,
+    P2pChannelsSignalingExchangeReady,
+    P2pChannelsSignalingExchangeRequestReceived,
+    P2pChannelsSignalingExchangeRequestSend,
+    P2pChannelsSignalingExchangeEffectfulAnswerEncryptAndSend,
+    P2pChannelsSignalingExchangeEffectfulInit,
+    P2pChannelsSignalingExchangeEffectfulMessageSend,
+    P2pChannelsSignalingExchangeEffectfulOfferDecrypt,
     P2pChannelsSnarkInit,
     P2pChannelsSnarkLibp2pBroadcast,
     P2pChannelsSnarkLibp2pReceived,
@@ -618,7 +635,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 510;
+    pub const COUNT: u16 = 525;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1029,6 +1046,7 @@ impl ActionKindGet for P2pChannelsAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::MessageReceived(a) => a.kind(),
+            Self::SignalingExchange(a) => a.kind(),
             Self::BestTip(a) => a.kind(),
             Self::Transaction(a) => a.kind(),
             Self::Snark(a) => a.kind(),
@@ -1069,6 +1087,7 @@ impl ActionKindGet for P2pNetworkAction {
 impl ActionKindGet for P2pChannelsEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::SignalingExchange(a) => a.kind(),
             Self::BestTip(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
             Self::Snark(a) => a.kind(),
@@ -1400,6 +1419,28 @@ impl ActionKindGet for P2pChannelsMessageReceivedAction {
     }
 }
 
+impl ActionKindGet for P2pChannelsSignalingExchangeAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsSignalingExchangeInit,
+            Self::Pending { .. } => ActionKind::P2pChannelsSignalingExchangePending,
+            Self::Ready { .. } => ActionKind::P2pChannelsSignalingExchangeReady,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsSignalingExchangeRequestSend,
+            Self::OfferReceived { .. } => ActionKind::P2pChannelsSignalingExchangeOfferReceived,
+            Self::OfferDecryptError { .. } => {
+                ActionKind::P2pChannelsSignalingExchangeOfferDecryptError
+            }
+            Self::OfferDecryptSuccess { .. } => {
+                ActionKind::P2pChannelsSignalingExchangeOfferDecryptSuccess
+            }
+            Self::AnswerSend { .. } => ActionKind::P2pChannelsSignalingExchangeAnswerSend,
+            Self::RequestReceived { .. } => ActionKind::P2pChannelsSignalingExchangeRequestReceived,
+            Self::OfferSend { .. } => ActionKind::P2pChannelsSignalingExchangeOfferSend,
+            Self::AnswerReceived { .. } => ActionKind::P2pChannelsSignalingExchangeAnswerReceived,
+        }
+    }
+}
+
 impl ActionKindGet for P2pChannelsBestTipAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1648,6 +1689,23 @@ impl ActionKindGet for P2pNetworkRpcAction {
             Self::OutgoingQuery { .. } => ActionKind::P2pNetworkRpcOutgoingQuery,
             Self::OutgoingResponse { .. } => ActionKind::P2pNetworkRpcOutgoingResponse,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkRpcOutgoingData,
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsSignalingExchangeEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsSignalingExchangeEffectfulInit,
+            Self::MessageSend { .. } => {
+                ActionKind::P2pChannelsSignalingExchangeEffectfulMessageSend
+            }
+            Self::OfferDecrypt { .. } => {
+                ActionKind::P2pChannelsSignalingExchangeEffectfulOfferDecrypt
+            }
+            Self::AnswerEncryptAndSend { .. } => {
+                ActionKind::P2pChannelsSignalingExchangeEffectfulAnswerEncryptAndSend
+            }
         }
     }
 }

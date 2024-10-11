@@ -14,6 +14,7 @@ use p2p::{
     channels::{
         best_tip::P2pChannelsBestTipAction, best_tip_effectful::P2pChannelsBestTipEffectfulAction,
         rpc::P2pChannelsRpcAction, rpc_effectful::P2pChannelsRpcEffectfulAction,
+        signaling::exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
         snark::P2pChannelsSnarkAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
         snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
         snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
@@ -303,6 +304,7 @@ impl_from_p2p!(effectful p2p::P2pNetworkPubsubEffectfulAction);
 impl_from_p2p!(effectful P2pNetworkIdentifyStreamEffectfulAction);
 impl_from_p2p!(effectful P2pConnectionOutgoingEffectfulAction);
 impl_from_p2p!(effectful P2pDisconnectionEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsSignalingExchangeEffectfulAction);
 impl_from_p2p!(effectful P2pChannelsBestTipEffectfulAction);
 impl_from_p2p!(effectful P2pChannelsStreamingRpcEffectfulAction);
 impl_from_p2p!(effectful P2pChannelsTransactionEffectfulAction);

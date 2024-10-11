@@ -3,6 +3,7 @@ use p2p::{
     channels::{
         best_tip_effectful::P2pChannelsBestTipEffectfulAction,
         rpc_effectful::P2pChannelsRpcEffectfulAction,
+        signaling::exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
         snark_effectful::P2pChannelsSnarkEffectfulAction,
         snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
         streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
@@ -107,6 +108,7 @@ impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
 impl_into_global_action!(network::pubsub::P2pNetworkPubsubAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
+impl_into_global_action!(channels::signaling::exchange::P2pChannelsSignalingExchangeAction);
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
 impl_into_global_action!(channels::transaction::P2pChannelsTransactionAction);
 impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
@@ -132,6 +134,7 @@ impl_into_global_action!(effectful p2p::P2pNetworkPnetEffectfulAction);
 impl_into_global_action!(effectful connection::incoming_effectful::P2pConnectionIncomingEffectfulAction);
 impl_into_global_action!(effectful connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction);
 impl_into_global_action!(effectful p2p::disconnection_effectful::P2pDisconnectionEffectfulAction);
+impl_into_global_action!(effectful P2pChannelsSignalingExchangeEffectfulAction);
 impl_into_global_action!(effectful P2pChannelsBestTipEffectfulAction);
 impl_into_global_action!(effectful P2pChannelsStreamingRpcEffectfulAction);
 impl_into_global_action!(effectful P2pChannelsTransactionEffectfulAction);

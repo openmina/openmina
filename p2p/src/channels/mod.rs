@@ -2,6 +2,7 @@ pub mod best_tip;
 pub mod best_tip_effectful;
 pub mod rpc;
 pub mod rpc_effectful;
+pub mod signaling;
 pub mod snark;
 pub mod snark_effectful;
 pub mod snark_job_commitment;
@@ -26,6 +27,7 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
+use signaling::exchange::SignalingExchangeChannelMsg;
 use strum_macros::EnumIter;
 
 use self::best_tip::BestTipPropagationChannelMsg;
@@ -38,12 +40,13 @@ use self::transaction::TransactionPropagationChannelMsg;
 #[derive(Serialize, Deserialize, EnumIter, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum ChannelId {
+    SignalingExchange = 1,
     BestTipPropagation = 2,
     TransactionPropagation = 3,
     SnarkPropagation = 4,
     SnarkJobCommitmentPropagation = 5,
-    Rpc = 100,
-    StreamingRpc = 101,
+    Rpc = 6,
+    StreamingRpc = 7,
 }
 
 impl ChannelId {
@@ -59,6 +62,7 @@ impl ChannelId {
 
     pub fn name(self) -> &'static str {
         match self {
+            Self::SignalingExchange => "signaling/exchange",
             Self::BestTipPropagation => "best_tip/propagation",
             Self::TransactionPropagation => "transaction/propagation",
             Self::SnarkPropagation => "snark/propagation",
@@ -70,6 +74,7 @@ impl ChannelId {
 
     pub fn supported_by_libp2p(self) -> bool {
         match self {
+            Self::SignalingExchange => false,
             Self::BestTipPropagation => true,
             Self::TransactionPropagation => true,
             Self::SnarkPropagation => true,
@@ -81,6 +86,8 @@ impl ChannelId {
 
     pub fn max_msg_size(self) -> usize {
         match self {
+            // TODO(binier): measure signaling message sizes
+            Self::SignalingExchange => 16 * 1024, // 16KB
             // TODO(binier): reduce this value once we change message for best tip
             // propagation to just propagating consensus state with block hash.
             Self::BestTipPropagation => 32 * 1024 * 1024, // 32MB
@@ -122,6 +129,7 @@ impl MsgId {
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub enum ChannelMsg {
+    SignalingExchange(SignalingExchangeChannelMsg),
     BestTipPropagation(BestTipPropagationChannelMsg),
     TransactionPropagation(TransactionPropagationChannelMsg),
     SnarkPropagation(SnarkPropagationChannelMsg),
@@ -133,6 +141,7 @@ pub enum ChannelMsg {
 impl ChannelMsg {
     pub fn channel_id(&self) -> ChannelId {
         match self {
+            Self::SignalingExchange(_) => ChannelId::SignalingExchange,
             Self::BestTipPropagation(_) => ChannelId::BestTipPropagation,
             Self::TransactionPropagation(_) => ChannelId::TransactionPropagation,
             Self::SnarkPropagation(_) => ChannelId::SnarkPropagation,
@@ -147,6 +156,7 @@ impl ChannelMsg {
         W: std::io::Write,
     {
         match self {
+            Self::SignalingExchange(v) => v.binprot_write(w),
             Self::BestTipPropagation(v) => v.binprot_write(w),
             Self::TransactionPropagation(v) => v.binprot_write(w),
             Self::SnarkPropagation(v) => v.binprot_write(w),
@@ -162,6 +172,9 @@ impl ChannelMsg {
         R: std::io::Read + ?Sized,
     {
         match id {
+            ChannelId::SignalingExchange => {
+                SignalingExchangeChannelMsg::binprot_read(r).map(|v| v.into())
+            }
             ChannelId::BestTipPropagation => {
                 BestTipPropagationChannelMsg::binprot_read(r).map(|v| v.into())
             }
@@ -194,6 +207,11 @@ impl crate::P2pState {
         // exhaustive matching so that we don't miss any channels.
         for id in self.config.enabled_channels.iter().copied() {
             match id {
+                ChannelId::SignalingExchange => {
+                    dispatcher.push(
+                        signaling::exchange::P2pChannelsSignalingExchangeAction::Init { peer_id },
+                    );
+                }
                 ChannelId::BestTipPropagation => {
                     dispatcher.push(best_tip::P2pChannelsBestTipAction::Init { peer_id });
                 }

@@ -1,3 +1,4 @@
+use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
@@ -79,11 +80,11 @@ impl P2pConnectionResponse {
 }
 
 /// Encrypted `webrtc::Offer`.
-#[derive(Serialize, Deserialize, From, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub struct EncryptedOffer(Vec<u8>);
 
 /// Encrypted `P2pConnectionResponse`.
-#[derive(Serialize, Deserialize, From, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub struct EncryptedAnswer(Vec<u8>);
 
 impl AsRef<[u8]> for EncryptedOffer {

@@ -17,6 +17,7 @@ use wasm_bindgen_futures::spawn_local;
 
 use openmina_core::channels::{mpsc, oneshot};
 
+use crate::identity::{EncryptableType, PublicKey};
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::outgoing::P2pConnectionOutgoingInitOpts,
@@ -714,4 +715,16 @@ pub trait P2pServiceWebrtc: redux::Service {
             let _ = peer.cmd_sender.send(PeerCmd::ChannelSend(msg_id, msg));
         }
     }
+
+    fn encrypt<T: EncryptableType>(
+        &mut self,
+        other_pk: &PublicKey,
+        message: &T,
+    ) -> Result<T::Encrypted, ()>;
+
+    fn decrypt<T: EncryptableType>(
+        &mut self,
+        other_pub_key: &PublicKey,
+        encrypted: &T::Encrypted,
+    ) -> Result<T, ()>;
 }

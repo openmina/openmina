@@ -3,7 +3,11 @@ use std::collections::BTreeMap;
 use node::{
     core::channels::mpsc,
     event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, PeerId},
+    p2p::{
+        connection::outgoing::P2pConnectionOutgoingInitOpts,
+        identity::{EncryptableType, PublicKey},
+        PeerId,
+    },
 };
 use rand::prelude::*;
 #[cfg(feature = "p2p-libp2p")]
@@ -33,6 +37,23 @@ impl webrtc::P2pServiceWebrtc for NodeService {
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, webrtc::PeerState> {
         &mut self.p2p.webrtc.peers
+    }
+
+    fn encrypt<T: EncryptableType>(
+        &mut self,
+        other_pk: &PublicKey,
+        message: &T,
+    ) -> Result<T::Encrypted, ()> {
+        let rng = &mut self.rng;
+        self.p2p.sec_key.encrypt(other_pk, rng, message)
+    }
+
+    fn decrypt<T: EncryptableType>(
+        &mut self,
+        other_pk: &PublicKey,
+        encrypted: &T::Encrypted,
+    ) -> Result<T, ()> {
+        self.p2p.sec_key.decrypt(other_pk, encrypted)
     }
 }
 

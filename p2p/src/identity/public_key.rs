@@ -1,5 +1,10 @@
-use std::{fmt, str::FromStr};
+use std::{
+    fmt,
+    io::{Read, Write},
+    str::FromStr,
+};
 
+use binprot::{BinProtRead, BinProtWrite};
 use ed25519_dalek::VerifyingKey as Ed25519PublicKey;
 use serde::{Deserialize, Serialize};
 
@@ -100,5 +105,22 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
         } else {
             Ok(Self(Deserialize::deserialize(deserializer)?))
         }
+    }
+}
+
+impl BinProtWrite for PublicKey {
+    fn binprot_write<W: Write>(&self, w: &mut W) -> std::io::Result<()> {
+        w.write_all(&self.to_bytes())
+    }
+}
+
+impl BinProtRead for PublicKey {
+    fn binprot_read<R: Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let mut buf = [0; 32];
+        r.read_exact(&mut buf)?;
+        Self::from_bytes(buf).map_err(|err| binprot::Error::CustomError(Box::new(err)))
     }
 }

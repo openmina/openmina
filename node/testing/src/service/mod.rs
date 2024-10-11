@@ -359,6 +359,22 @@ impl P2pServiceWebrtc for NodeTestingService {
     fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer) {
         P2pServiceWebrtc::incoming_init(&mut self.real, peer_id, offer)
     }
+
+    fn encrypt<T: node::p2p::identity::EncryptableType>(
+        &mut self,
+        other_pk: &node::p2p::identity::PublicKey,
+        message: &T,
+    ) -> Result<T::Encrypted, ()> {
+        self.real.encrypt(other_pk, message)
+    }
+
+    fn decrypt<T: node::p2p::identity::EncryptableType>(
+        &mut self,
+        other_pub_key: &node::p2p::identity::PublicKey,
+        encrypted: &T::Encrypted,
+    ) -> Result<T, ()> {
+        self.real.decrypt(other_pub_key, encrypted)
+    }
 }
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
