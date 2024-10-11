@@ -271,6 +271,17 @@ impl NodeBuilder {
             self.initial_peers
         };
 
+        let initial_peers = initial_peers
+            .into_iter()
+            .filter_map(|opts| match opts {
+                P2pConnectionOutgoingInitOpts::LibP2P(mut opts) => {
+                    opts.host = opts.host.resolve()?;
+                    Some(P2pConnectionOutgoingInitOpts::LibP2P(opts))
+                }
+                x => Some(x),
+            })
+            .collect();
+
         let srs = self.verifier_srs.unwrap_or_else(get_srs);
         let block_verifier_index = self
             .block_verifier_index

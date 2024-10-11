@@ -5,7 +5,7 @@ use openmina_core::{bug_condition, fuzzed_maybe, Substate};
 use crate::connection::incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState};
 use crate::{
     Data, P2pNetworkConnectionError, P2pNetworkPnetAction, P2pNetworkSchedulerAction,
-    P2pNetworkSchedulerState, P2pNetworkSelectAction, P2pState, SelectKind,
+    P2pNetworkSchedulerState, P2pNetworkSelectAction, P2pState, PeerId, SelectKind,
 };
 
 use self::p2p_network_noise_state::ResponderConsumeOutput;
@@ -155,9 +155,13 @@ impl P2pNetworkNoiseState {
                                 if noise_state.expected_peer_id.is_some_and(|expected_per_id| {
                                     expected_per_id != remote_peer_id
                                 }) {
-                                    *state = P2pNetworkNoiseStateInner::Error(dbg!(
-                                        NoiseError::RemotePeerIdMismatch
-                                    ));
+                                    let lhs = noise_state
+                                        .expected_peer_id
+                                        .map_or("none".to_string(), PeerId::to_libp2p_string);
+                                    let rhs = remote_peer_id.to_libp2p_string();
+                                    *state = P2pNetworkNoiseStateInner::Error(
+                                        NoiseError::RemotePeerIdMismatch(format!("{lhs} != {rhs}")),
+                                    );
                                 } else {
                                     *state = P2pNetworkNoiseStateInner::Done {
                                         incoming: true,
@@ -357,8 +361,12 @@ impl P2pNetworkNoiseState {
                                 if noise_state.expected_peer_id.is_some_and(|expected_per_id| {
                                     expected_per_id != remote_peer_id
                                 }) {
+                                    let lhs = noise_state
+                                        .expected_peer_id
+                                        .map_or("none".to_string(), PeerId::to_libp2p_string);
+                                    let rhs = remote_peer_id.to_libp2p_string();
                                     *state = P2pNetworkNoiseStateInner::Error(
-                                        NoiseError::RemotePeerIdMismatch,
+                                        NoiseError::RemotePeerIdMismatch(format!("{lhs} != {rhs}")),
                                     );
                                 } else {
                                     *state = P2pNetworkNoiseStateInner::Done {

@@ -35,9 +35,10 @@ use p2p::{
         P2pNetworkIdentifyStreamAction,
     },
     peer::P2pPeerAction,
-    MioEvent, P2pAction, P2pEvent, P2pNetworkKadBootstrapAction, P2pNetworkKadRequestAction,
-    P2pNetworkKademliaAction, P2pNetworkKademliaStreamAction, P2pNetworkSchedulerAction,
-    P2pNetworkSchedulerEffectfulAction, P2pNetworkYamuxAction, P2pState, P2pStateTrait, PeerId,
+    MioEvent, P2pAction, P2pEvent, P2pNetworkKadBootstrapAction, P2pNetworkKadEffectfulAction,
+    P2pNetworkKadRequestAction, P2pNetworkKademliaAction, P2pNetworkKademliaStreamAction,
+    P2pNetworkSchedulerAction, P2pNetworkSchedulerEffectfulAction, P2pNetworkYamuxAction, P2pState,
+    P2pStateTrait, PeerId,
 };
 use redux::{ActionMeta, EnablingCondition, SubStore};
 
@@ -265,6 +266,7 @@ impl_from_p2p!(P2pNetworkKademliaAction);
 impl_from_p2p!(P2pNetworkKademliaStreamAction);
 impl_from_p2p!(P2pNetworkKadRequestAction);
 impl_from_p2p!(P2pNetworkKadBootstrapAction);
+impl_from_p2p!(P2pNetworkKadEffectfulAction);
 impl_from_p2p!(P2pPeerAction);
 impl_from_p2p!(P2pNetworkYamuxAction);
 impl_from_p2p!(P2pConnectionOutgoingAction);

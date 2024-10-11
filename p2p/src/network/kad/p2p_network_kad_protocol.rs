@@ -1,14 +1,11 @@
-use std::{
-    borrow::Cow,
-    net::{IpAddr, SocketAddr},
-};
+use std::borrow::Cow;
 
 use libp2p_identity::DecodingError;
 use multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 
 use super::{P2pNetworkKadEntry, P2pNetworkKadEntryTryFromError, P2pNetworkKadKeyError};
-use crate::{mod_Message::MessageType, PeerId};
+use crate::{mod_Message::MessageType, P2pNetworkServiceError, PeerId};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ConnectionType {
@@ -254,37 +251,8 @@ pub enum SocketAddrTryFromMultiaddrError {
     UnsupportedPort(String),
     #[error("extra protocol {0}")]
     ExtraProtocol(String),
-}
-
-pub fn socket_addr_try_from_multiaddr(
-    maddr: &Multiaddr,
-) -> Result<SocketAddr, SocketAddrTryFromMultiaddrError> {
-    let mut iter = maddr.iter();
-    let ip_addr = match iter.next() {
-        Some(multiaddr::Protocol::Ip4(ip4)) => IpAddr::V4(ip4),
-        Some(multiaddr::Protocol::Ip6(ip6)) => IpAddr::V6(ip6),
-        None => return Err(SocketAddrTryFromMultiaddrError::NoHost),
-        Some(p) => {
-            return Err(SocketAddrTryFromMultiaddrError::UnsupportedHost(
-                p.to_string(),
-            ))
-        }
-    };
-    let port = match iter.next() {
-        Some(multiaddr::Protocol::Tcp(port)) => port,
-        None => return Err(SocketAddrTryFromMultiaddrError::NoPort),
-        Some(p) => {
-            return Err(SocketAddrTryFromMultiaddrError::UnsupportedPort(
-                p.to_string(),
-            ))
-        }
-    };
-    if let Some(p) = iter.next() {
-        return Err(SocketAddrTryFromMultiaddrError::ExtraProtocol(
-            p.to_string(),
-        ));
-    }
-    Ok((ip_addr, port).into())
+    #[error("{0}")]
+    Service(#[from] P2pNetworkServiceError),
 }
 
 #[cfg(test)]

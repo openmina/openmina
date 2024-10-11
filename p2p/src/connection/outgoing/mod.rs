@@ -382,7 +382,11 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitLibp2pOpts {
             host: match iter.next() {
                 Some(Protocol::Ip4(v)) => Host::Ipv4(v),
                 Some(Protocol::Dns(v) | Protocol::Dns4(v) | Protocol::Dns6(v)) => {
-                    Host::Domain(v.into_owned())
+                    Host::Domain(v.to_string()).resolve().ok_or(
+                        P2pConnectionOutgoingInitOptsParseError::Other(format!(
+                            "cannot resolve host {v}"
+                        )),
+                    )?
                 }
                 Some(_) => {
                     return Err(P2pConnectionOutgoingInitOptsParseError::Other(

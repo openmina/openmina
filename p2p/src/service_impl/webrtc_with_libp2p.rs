@@ -36,10 +36,14 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
     #[cfg(feature = "p2p-libp2p")]
     fn resolve_name(
         &mut self,
-        _host: &str,
+        hostname: &str,
     ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
-        // TODO: resolve host
-        Ok(Vec::new())
+        use std::net::ToSocketAddrs;
+
+        let it = format!("{hostname}:0")
+            .to_socket_addrs()
+            .map_err(|err| P2pNetworkServiceError::Resolve(format!("{hostname}, {err}")))?;
+        Ok(it.map(|addr| addr.ip()).collect())
     }
 
     #[cfg(feature = "p2p-libp2p")]

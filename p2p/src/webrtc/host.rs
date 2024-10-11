@@ -1,5 +1,5 @@
 use std::{
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, ToSocketAddrs},
     str::FromStr,
 };
 
@@ -20,6 +20,21 @@ pub enum Host {
 
     /// An IPv6 address.
     Ipv6(Ipv6Addr),
+}
+
+impl Host {
+    pub fn resolve(self) -> Option<Self> {
+        if let Self::Domain(domain) = self {
+            let ip = format!("{domain}:0")
+                .to_socket_addrs()
+                .ok()
+                .and_then(|mut it| it.next())
+                .map(|a| a.ip())?;
+            Some(ip.into())
+        } else {
+            Some(self)
+        }
+    }
 }
 
 impl<'a> From<&'a Host> for multiaddr::Protocol<'a> {

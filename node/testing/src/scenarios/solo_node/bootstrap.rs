@@ -28,7 +28,7 @@ impl SoloNodeBootstrap {
         const TIMEOUT: Duration = Duration::from_secs(60 * 40);
 
         const REPLAYER_1: & str =
-            "/ip4/135.181.217.23/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv";
+            "/dns4/1.k8.openmina.com/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv";
         let replayer = (&REPLAYER_1.parse::<libp2p::Multiaddr>().unwrap())
             .try_into()
             .unwrap();
