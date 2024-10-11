@@ -74,7 +74,7 @@ impl P2pNetworkNoiseState {
 
     pub fn as_error(&self) -> Option<NoiseError> {
         match &self.inner {
-            Some(P2pNetworkNoiseStateInner::Error(error)) => Some(*error),
+            Some(P2pNetworkNoiseStateInner::Error(error)) => Some(error.clone()),
             _ => None,
         }
     }
@@ -224,7 +224,7 @@ impl NoiseState {
     }
 }
 
-#[derive(Debug, Error, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Error, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum NoiseError {
     #[error("chunk too short")]
     ChunkTooShort,
@@ -238,8 +238,8 @@ pub enum NoiseError {
     InvalidSignature,
     #[error("remote and local public keys are same")]
     SelfConnection,
-    #[error("remote peer id doesn't match expected peer id")]
-    RemotePeerIdMismatch,
+    #[error("remote peer id doesn't match expected peer id: {0}")]
+    RemotePeerIdMismatch(String),
     #[error("failed to encrypt data")]
     Encryption,
 }
