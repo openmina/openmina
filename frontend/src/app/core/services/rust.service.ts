@@ -37,6 +37,12 @@ export class RustService {
   }
 
   post<T, B = string | object>(path: string, body: B): Observable<T> {
+    if (this.node.isWebNode) {
+      return this.postToWebNode(path, body).pipe(map((response: any) => {
+        // console.log(path, response);
+        return response;
+      }));
+    }
     return this.http.post<T>(this.URL + path, body);
   }
 
@@ -56,6 +62,21 @@ export class RustService {
         return this.webNodeService.sync$;
       case '/stats/block_producer':
         return this.webNodeService.blockProducerStats$;
+      case '/transaction-pool':
+        return this.webNodeService.transactionPool$;
+      case '/accounts':
+        return this.webNodeService.accounts$;
+      case '/best-chain-user-commands':
+        return this.webNodeService.bestChainUserCommands$;
+      default:
+        throw new Error(`Web node doesn't support "${path}" path!`);
+    }
+  }
+
+  private postToWebNode<T, B>(path: string, body: B): Observable<T> {
+    switch (path) {
+      case '/send-payment':
+        return this.webNodeService.sendPayment$(body);
       default:
         throw new Error(`Web node doesn't support "${path}" path!`);
     }

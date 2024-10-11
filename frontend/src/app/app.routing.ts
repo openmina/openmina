@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
-import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
-import { getFirstFeature } from '@shared/constants/config';
+import { NoPreloading, PreloadAllModules, RouterModule, Routes } from '@angular/router';
+import { CONFIG, getFirstFeature } from '@shared/constants/config';
 
 const APP_TITLE: string = 'Open Mina';
 
@@ -79,7 +79,7 @@ const routes: Routes = [
   imports: [
     RouterModule.forRoot(routes, {
       // enableTracing: true,
-      preloadingStrategy: PreloadAllModules,
+      preloadingStrategy: CONFIG.configs.some(c => c.isWebNode) ? NoPreloading : PreloadAllModules,
       onSameUrlNavigation: 'ignore',
       initialNavigation: 'enabledNonBlocking',
     }),

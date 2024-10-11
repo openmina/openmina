@@ -15,7 +15,6 @@ export class BenchmarksWalletsZkService {
 
   readonly updates$ = this.updates.asObservable();
 
-
   loadO1js(): void {
     this.loadScript();
   }

@@ -2,7 +2,6 @@ export interface MinaEnv {
   production: boolean;
   configs: MinaNode[];
   identifier?: string;
-  webNodeKey?: string;
   hideToolbar?: boolean;
   hideNodeStats?: boolean;
   globalConfig?: {

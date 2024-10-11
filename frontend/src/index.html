@@ -29,17 +29,11 @@
 
 <body class="f-base">
 <script type="module">
-  function webNodeLoaded() {
+  import('./assets/webnode/pkg/openmina_node_web.js').then((v) => {
+    window.webnode = v;
     const event = new CustomEvent('webNodeLoaded');
     window.dispatchEvent(event);
-  }
-
-  if (window.env?.webNodeKey) {
-    import('./assets/webnode/pkg/openmina_node_web.js').then((v) => {
-      window.webnode = v;
-      webNodeLoaded();
-    });
-  }
+  });
 </script>
 <app-root class="h-100"></app-root>
 </body>
