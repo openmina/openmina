@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::channels::P2pChannelsEffectfulAction;
 use crate::connection::P2pConnectionEffectfulAction;
 use crate::disconnection_effectful::P2pDisconnectionEffectfulAction;
+use crate::P2pNetworkEffectfulAction;
 
 use super::channels::P2pChannelsAction;
 use super::connection::P2pConnectionAction;
@@ -14,21 +15,24 @@ use super::network::P2pNetworkAction;
 use super::peer::P2pPeerAction;
 use super::P2pState;
 
-pub type P2pActionWithMeta = redux::ActionWithMeta<P2pAction>;
-pub type P2pActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pAction>;
-
 #[derive(Serialize, Deserialize, Debug, Clone, derive_more::From, ActionEvent)]
 pub enum P2pAction {
     Initialization(P2pInitializeAction),
     Connection(P2pConnectionAction),
-    ConnectionEffectful(P2pConnectionEffectfulAction),
     Disconnection(P2pDisconnectionAction),
-    DisconnectionEffectful(P2pDisconnectionEffectfulAction),
     Identify(P2pIdentifyAction),
     Channels(P2pChannelsAction),
-    ChannelsEffectful(P2pChannelsEffectfulAction),
     Peer(P2pPeerAction),
     Network(P2pNetworkAction),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, derive_more::From, ActionEvent)]
+pub enum P2pEffectfulAction {
+    Initialize,
+    Channels(P2pChannelsEffectfulAction),
+    Connection(P2pConnectionEffectfulAction),
+    Disconnection(P2pDisconnectionEffectfulAction),
+    Network(P2pNetworkEffectfulAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, derive_more::From, ActionEvent)]
@@ -51,19 +55,34 @@ impl redux::EnablingCondition<crate::P2pState> for P2pAction {
         match self {
             P2pAction::Initialization(a) => a.is_enabled(state, time),
             P2pAction::Connection(a) => a.is_enabled(state, time),
-            P2pAction::ConnectionEffectful(a) => a.is_enabled(state, time),
             P2pAction::Disconnection(a) => a.is_enabled(state, time),
-            P2pAction::DisconnectionEffectful(a) => a.is_enabled(state, time),
             P2pAction::Channels(a) => a.is_enabled(state, time),
             P2pAction::Peer(a) => a.is_enabled(state, time),
             P2pAction::Identify(a) => a.is_enabled(state, time),
             P2pAction::Network(a) => a.is_enabled(state, time),
-            P2pAction::ChannelsEffectful(a) => a.is_enabled(state, time),
+        }
+    }
+}
+
+impl redux::EnablingCondition<crate::P2pState> for P2pEffectfulAction {
+    fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
+        match self {
+            P2pEffectfulAction::Channels(a) => a.is_enabled(state, time),
+            P2pEffectfulAction::Connection(a) => a.is_enabled(state, time),
+            P2pEffectfulAction::Disconnection(a) => a.is_enabled(state, time),
+            P2pEffectfulAction::Network(a) => a.is_enabled(state, time),
+            P2pEffectfulAction::Initialize => true,
         }
     }
 }
 
 impl From<redux::AnyAction> for P2pAction {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
+    }
+}
+
+impl From<redux::AnyAction> for P2pEffectfulAction {
     fn from(action: redux::AnyAction) -> Self {
         *action.0.downcast::<Self>().expect("Downcast failed")
     }

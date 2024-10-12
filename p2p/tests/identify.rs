@@ -10,7 +10,6 @@ use p2p::{
         stream::P2pNetworkIdentifyStreamState, P2pNetworkIdentify, P2pNetworkIdentifyAction,
         P2pNetworkIdentifyStreamAction,
     },
-    p2p_effects,
     token::{self, DiscoveryAlgorithm},
     Data, P2pAction, P2pNetworkAction, P2pNetworkYamuxAction, PeerId,
 };
@@ -172,7 +171,7 @@ fn bad_node_effects(
     action: ActionWithMeta<Action>,
 ) {
     {
-        let (action, meta) = action.split();
+        let (action, _meta) = action.split();
         match action {
             Action::P2p(a) => {
                 match a.clone() {
@@ -260,14 +259,13 @@ fn bad_node_effects(
                             ));
                         }
                     }
-
-                    a => {
-                        p2p_effects(store, meta.with_action(a.clone()));
+                    _ => {
+                        // p2p_effects(store, meta.with_action(a.clone()));
                     }
                 }
                 event_mapper_effect(store, a);
             }
-            Action::Idle(_) => {
+            Action::Idle(_) | Action::P2pEffectful(_) => {
                 // p2p_timeout_effects(store, &meta);
             }
         };

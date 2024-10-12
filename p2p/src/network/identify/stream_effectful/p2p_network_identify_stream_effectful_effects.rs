@@ -38,7 +38,7 @@ where
 }
 
 impl P2pNetworkIdentifyStreamEffectfulAction {
-    pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store) -> Result<(), String>
+    pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store)
     where
         Store::Service: P2pNetworkService,
         Store: crate::P2pStore<S>,
@@ -90,7 +90,7 @@ impl P2pNetworkIdentifyStreamEffectfulAction {
                     Ok(identify_msg_proto) => identify_msg_proto,
                     Err(err) => {
                         bug_condition!("error encoding message {:?}", err);
-                        return Err(err.to_string());
+                        return;
                     }
                 };
 
@@ -98,7 +98,7 @@ impl P2pNetworkIdentifyStreamEffectfulAction {
                     prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
                 {
                     bug_condition!("error serializing message {:?}", err);
-                    return Err(err.to_string());
+                    return;
                 }
 
                 let data = fuzzed_maybe!(
@@ -120,8 +120,6 @@ impl P2pNetworkIdentifyStreamEffectfulAction {
                     peer_id,
                     stream_id,
                 });
-
-                Ok(())
             }
         }
     }

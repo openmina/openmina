@@ -1,7 +1,6 @@
 use p2p::{
-    identity::SecretKey, p2p_effects, P2pAction, P2pNetworkAction, P2pNetworkKadAction,
-    P2pNetworkKadBucket, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
-    P2pNetworkKademliaStreamAction, PeerId,
+    identity::SecretKey, P2pAction, P2pNetworkAction, P2pNetworkKadAction, P2pNetworkKadBucket,
+    P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply, P2pNetworkKademliaStreamAction, PeerId,
 };
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, Listener},
@@ -358,7 +357,7 @@ fn bad_node_effects(
     action: ActionWithMeta<Action>,
 ) {
     {
-        let (action, meta) = action.split();
+        let (action, _meta) = action.split();
         match action {
             Action::P2p(a) => {
                 match a.clone() {
@@ -395,13 +394,13 @@ fn bad_node_effects(
                             .into(),
                         ));
                     }
-                    a => {
-                        p2p_effects(store, meta.with_action(a.clone()));
+                    _ => {
+                        // p2p_effects(store, meta.with_action(a.clone()));
                     }
                 }
                 event_mapper_effect(store, a);
             }
-            Action::Idle(_) => {
+            Action::Idle(_) | Action::P2pEffectful(_) => {
                 // p2p_timeout_effects(store, &meta);
             }
         };

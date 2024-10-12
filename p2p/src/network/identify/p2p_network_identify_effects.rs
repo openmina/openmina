@@ -1,20 +1,15 @@
+use super::p2p_network_identify_actions::P2pNetworkIdentifyEffectfulAction;
 use crate::P2pNetworkService;
-
-use super::P2pNetworkIdentifyAction;
 use redux::ActionMeta;
 
-impl P2pNetworkIdentifyAction {
-    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store) -> Result<(), String>
+impl P2pNetworkIdentifyEffectfulAction {
+    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pNetworkService,
     {
         match self {
-            P2pNetworkIdentifyAction::Stream(_) => {
-                // handled by reducer
-                Ok(())
-            }
-            P2pNetworkIdentifyAction::StreamEffectful(action) => action.effects(meta, store),
+            P2pNetworkIdentifyEffectfulAction::Stream(action) => action.effects(meta, store),
         }
     }
 }

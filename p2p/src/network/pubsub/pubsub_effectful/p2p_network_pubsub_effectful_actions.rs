@@ -8,9 +8,9 @@ pub enum P2pNetworkPubsubEffectfulAction {
     IncomingData { peer_id: PeerId, seen_limit: usize },
 }
 
-impl From<P2pNetworkPubsubEffectfulAction> for crate::P2pAction {
-    fn from(value: P2pNetworkPubsubEffectfulAction) -> Self {
-        crate::P2pAction::Network(value.into())
+impl From<P2pNetworkPubsubEffectfulAction> for crate::P2pEffectfulAction {
+    fn from(value: P2pNetworkPubsubEffectfulAction) -> crate::P2pEffectfulAction {
+        crate::P2pEffectfulAction::Network(crate::P2pNetworkEffectfulAction::Pubsub(value))
     }
 }
 

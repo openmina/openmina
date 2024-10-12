@@ -15,7 +15,7 @@ use p2p::{
         P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingInitOptsParseError,
     },
     identity::SecretKey,
-    p2p_effects, P2pCallbacks, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
+    P2pCallbacks, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
 };
 use redux::SystemTime;
 use tokio::sync::mpsc;
@@ -394,6 +394,7 @@ impl Cluster {
                         P2pState::reducer(state_context, meta.with_action(action))
                     }
                     Action::Idle(_) => P2pState::p2p_timeout_dispatch(state_context, &meta),
+                    Action::P2pEffectful(_) => Ok(()),
                 };
 
                 if let Err(error) = result {
@@ -404,9 +405,9 @@ impl Cluster {
                 let (action, meta) = action.split();
                 match action {
                     Action::P2p(a) => {
-                        p2p_effects(store, meta.with_action(a.clone()));
                         event_mapper_effect(store, a);
                     }
+                    Action::P2pEffectful(a) => a.effects(meta, store),
                     Action::Idle(_) => {
                         // handled by reducer
                     }

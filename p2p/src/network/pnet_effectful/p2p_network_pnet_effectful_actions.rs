@@ -26,9 +26,9 @@ impl P2pNetworkPnetEffectfulAction {
     }
 }
 
-impl From<P2pNetworkPnetEffectfulAction> for crate::P2pAction {
-    fn from(a: P2pNetworkPnetEffectfulAction) -> Self {
-        Self::Network(a.into())
+impl From<P2pNetworkPnetEffectfulAction> for crate::P2pEffectfulAction {
+    fn from(a: P2pNetworkPnetEffectfulAction) -> crate::P2pEffectfulAction {
+        crate::P2pEffectfulAction::Network(crate::P2pNetworkEffectfulAction::Pnet(a))
     }
 }
 

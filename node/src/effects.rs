@@ -70,7 +70,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::TransitionFrontier(action) => {
             transition_frontier_effects(store, meta.with_action(action));
         }
-        Action::P2p(action) => {
+        Action::P2pEffectful(action) => {
             node_p2p_effects(store, meta.with_action(action));
         }
         Action::Ledger(action) => {
@@ -93,6 +93,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             // Handled by reducer
         }
         Action::P2pCallbacks(_) => {
+            // Handled by reducer
+        }
+        Action::P2p(_) => {
             // Handled by reducer
         }
     }

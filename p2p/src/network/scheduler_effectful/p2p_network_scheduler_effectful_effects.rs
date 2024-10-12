@@ -17,7 +17,7 @@ impl P2pNetworkSchedulerEffectfulAction {
                     .service()
                     .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(ip, port)));
             }
-            P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener, .. } => {
+            P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener } => {
                 let state = store.state();
                 if state.network.scheduler.connections.len()
                     >= state.config.limits.max_connections()
