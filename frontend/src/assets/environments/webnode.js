@@ -4,7 +4,6 @@ export default {
     features: {
       'dashboard': [],
       'block-production': ['won-slots'],
-      'nodes': ['overview', 'live', 'bootstrap'],
       'mempool': [],
       'benchmarks': ['wallets'],
     },

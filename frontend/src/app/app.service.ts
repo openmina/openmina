@@ -46,16 +46,16 @@ export class AppService {
   }
 
   private getStatus(data: NodeDetailsResponse): AppNodeStatus {
-    if (data.transition_frontier.sync.phase === 'Bootstrap') {
-      return AppNodeStatus.BOOTSTRAP;
+    switch (data.transition_frontier.sync.phase) {
+      case 'Bootstrap':
+        return AppNodeStatus.BOOTSTRAP;
+      case 'Catchup':
+        return AppNodeStatus.CATCHUP;
+      case 'Synced':
+        return AppNodeStatus.SYNCED;
+      default:
+        return AppNodeStatus.PENDING;
     }
-    if (data.transition_frontier.sync.phase === 'Catchup') {
-      return AppNodeStatus.CATCHUP;
-    }
-    if (data.transition_frontier.sync.phase === 'Synced') {
-      return AppNodeStatus.SYNCED;
-    }
-    return AppNodeStatus.PENDING;
   }
 }
 

@@ -23,7 +23,7 @@ export class WebNodeService {
   }
 
   loadWasm$(): Observable<void> {
-    console.log('---LOADING WASM');
+    console.log('---LOADING WEBNODE---');
     return merge(
       of(any(window).webnode).pipe(filter(Boolean)),
       fromEvent(window, 'webNodeLoaded'),
@@ -35,7 +35,7 @@ export class WebNodeService {
   }
 
   startWasm$(): Observable<any> {
-    console.log('---STARTING WASM');
+    console.log('---STARTING WEBNODE---');
     return of(any(window).webnode)
       .pipe(
         switchMap((wasm: any) => from(wasm.default('assets/webnode/pkg/openmina_node_web_bg.wasm')).pipe(map(() => wasm))),
@@ -62,7 +62,6 @@ export class WebNodeService {
     return this.backendSubject$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).status())),
-      log(),
     );
   }
 
@@ -102,13 +101,9 @@ export class WebNodeService {
   }
 
   get bestChainUserCommands$(): Observable<any> {
-    console.log('---GETTING BEST CHAIN USER COMMANDS');
     return this.backendSubject$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).transition_frontier().best_chain().user_commands())),
-      tap((r) => {
-        console.log('response from GETTING BEST CHAIN USER COMMANDS', r);
-      }),
     );
   }
 
@@ -120,13 +115,9 @@ export class WebNodeService {
   }
 
   get transactionPool$(): Observable<any> {
-    console.log('---GETTING TRANSACTION POOL');
     return this.backendSubject$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).transaction_pool().get())),
-      tap((r) => {
-        console.log('response from GETTING TRANSACTION POOL', r);
-      }),
     );
   }
 }

@@ -35,10 +35,23 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
 
   private listenToNodesChanges(): void {
     this.select(selectDashboardNodesAndPeers, ([nodes, peers]: [NodesOverviewNode[], DashboardPeer[]]) => {
-      this.extractNodesData(nodes);
-      this.extractPeersData(peers);
+      if (nodes.length === 0) {
+        this.fetched = undefined;
+        this.fetchedPercentage = '-';
+        this.applied = undefined;
+        this.appliedPercentage = undefined;
+        this.root = undefined;
+        this.rootText = PENDING;
+        this.bestTipBlock = undefined;
+        this.bestTipBlockSyncedText = PENDING;
+        this.targetBlock = undefined;
+        this.syncProgress = undefined;
+      } else {
+        this.extractNodesData(nodes);
+        this.extractPeersData(peers);
+      }
       this.detect();
-    }, filter(n => n[0].length > 0));
+    });
   }
 
   private extractPeersData(peers: DashboardPeer[]): void {

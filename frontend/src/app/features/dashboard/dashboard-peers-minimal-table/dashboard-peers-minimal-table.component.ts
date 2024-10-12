@@ -39,7 +39,7 @@ export class DashboardPeersMinimalTableComponent extends MinaTableRustWrapper<Da
     this.select(selectDashboardPeers, (peers: DashboardPeer[]) => {
       this.table.rows = peers;
       this.table.detect();
-    }, filter(peers => peers.length > 0));
+    });
   }
 
   protected override onRowClick(row: DashboardPeer): void {
