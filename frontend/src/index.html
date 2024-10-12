@@ -29,11 +29,17 @@
 
 <body class="f-base">
 <script type="module">
-  import('./assets/webnode/pkg/openmina_node_web.js').then((v) => {
-    window.webnode = v;
-    const event = new CustomEvent('webNodeLoaded');
-    window.dispatchEvent(event);
-  });
+  import('./assets/webnode/pkg/openmina_node_web.js')
+    .then((v) => {
+      window.webnode = v;
+      const event = new CustomEvent('webNodeLoaded');
+      window.dispatchEvent(event);
+    })
+    .catch((error) => {
+      if (window.env?.configs.some(c => c.isWebNode)) {
+        console.error('Failed to load Web Node:', error);
+      }
+    });
 </script>
 <app-root class="h-100"></app-root>
 </body>

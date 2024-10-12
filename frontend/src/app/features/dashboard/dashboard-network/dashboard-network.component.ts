@@ -30,6 +30,4 @@ export class DashboardNetworkComponent extends StoreDispatcher implements OnInit
       this.detect();
     }, skip(1));
   }
-
-  protected readonly NodesOverviewLedgerStepState = NodesOverviewLedgerStepState;
 }
