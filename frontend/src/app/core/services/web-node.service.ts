@@ -12,7 +12,6 @@ export class WebNodeService {
   private readonly backendSubject$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private backend: any;
   private webNodeKeyPair: { publicKey: string, privateKey: string };
-  webNodeState: string = 'notLoaded';
 
   constructor(private http: HttpClient) {
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
@@ -102,13 +101,9 @@ export class WebNodeService {
   }
 
   get bestChainUserCommands$(): Observable<any> {
-    console.log('---GETTING BEST CHAIN USER COMMANDS');
     return this.backendSubject$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).transition_frontier().best_chain().user_commands())),
-      tap((r) => {
-        console.log('response from GETTING BEST CHAIN USER COMMANDS', r);
-      }),
     );
   }
 
@@ -120,13 +115,9 @@ export class WebNodeService {
   }
 
   get transactionPool$(): Observable<any> {
-    console.log('---GETTING TRANSACTION POOL');
     return this.backendSubject$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).transaction_pool().get())),
-      tap((r) => {
-        console.log('response from GETTING TRANSACTION POOL', r);
-      }),
     );
   }
 }

@@ -17,7 +17,7 @@ import {
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { filter } from 'rxjs';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { ONE_BILLION, ONE_MILLION, ONE_THOUSAND, SecDurationConfig } from '@openmina/shared';
+import { ONE_MILLION, SecDurationConfig } from '@openmina/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
@@ -67,8 +67,6 @@ const initialStaged: NodesOverviewRootStagedLedgerStep = {
 })
 export class DashboardLedgerComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
-  protected readonly NodesOverviewLedgerStepState = NodesOverviewLedgerStepState;
-
   ledgers: NodesOverviewLedger = {
     stakingEpoch: initialSnarked,
     nextEpoch: initialSnarked,
@@ -102,38 +100,59 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
 
   private listenToNodesChanges(): void {
     this.select(selectDashboardNodesAndRpcStats, ([nodes, rpcStats]: [NodesOverviewNode[], DashboardRpcStats]) => {
-      this.ledgers = nodes[0].ledgers;
+      if (nodes.length === 0) {
+        this.ledgers = {
+          stakingEpoch: initialSnarked,
+          nextEpoch: initialSnarked,
+          rootSnarked: initialSnarked,
+          rootStaged: initialStaged,
+        };
+        this.configMap = {
+          stakingEpoch: this.emptyConfig,
+          nextEpoch: this.emptyConfig,
+          rootSnarked: this.emptyConfig,
+          rootStaged: this.emptyConfig,
+        };
+        this.progress = undefined;
+        this.stakingProgress = 0;
+        this.nextProgress = 0;
+        this.rootSnarkedProgress = 0;
+        this.rootStagedProgress = 0;
+        this.totalProgress = 0;
+      } else {
+        this.ledgers = nodes[0].ledgers;
 
-      const getConfig = (state: NodesOverviewLedgerStepState): SecDurationConfig =>
-        state === NodesOverviewLedgerStepState.LOADING ? this.undefinedConfig : this.emptyConfig;
+        const getConfig = (state: NodesOverviewLedgerStepState): SecDurationConfig =>
+          state === NodesOverviewLedgerStepState.LOADING ? this.undefinedConfig : this.emptyConfig;
 
-      this.configMap = {
-        stakingEpoch: getConfig(this.ledgers.stakingEpoch.state),
-        nextEpoch: getConfig(this.ledgers.nextEpoch.state),
-        rootSnarked: getConfig(this.ledgers.rootSnarked.state),
-        rootStaged: getConfig(this.ledgers.rootStaged.state),
-      };
-      this.setProgressTime();
-      this.stakingProgress = rpcStats.stakingLedger?.fetched / rpcStats.stakingLedger?.estimation * 100 || 0;
-      this.nextProgress = rpcStats.nextLedger?.fetched / rpcStats.nextLedger?.estimation * 100 || 0;
-      this.rootSnarkedProgress = rpcStats.rootLedger?.fetched / rpcStats.rootLedger?.estimation * 100 || 0;
-      this.rootStagedProgress = this.ledgers.rootStaged.staged.fetchPartsEnd ? 50 : 0;
+        this.configMap = {
+          stakingEpoch: getConfig(this.ledgers.stakingEpoch.state),
+          nextEpoch: getConfig(this.ledgers.nextEpoch.state),
+          rootSnarked: getConfig(this.ledgers.rootSnarked.state),
+          rootStaged: getConfig(this.ledgers.rootStaged.state),
+        };
+        this.setProgressTime();
+        this.stakingProgress = rpcStats.stakingLedger?.fetched / rpcStats.stakingLedger?.estimation * 100 || 0;
+        this.nextProgress = rpcStats.nextLedger?.fetched / rpcStats.nextLedger?.estimation * 100 || 0;
+        this.rootSnarkedProgress = rpcStats.rootLedger?.fetched / rpcStats.rootLedger?.estimation * 100 || 0;
+        this.rootStagedProgress = this.ledgers.rootStaged.staged.fetchPartsEnd ? 50 : 0;
 
-      if (this.ledgers.stakingEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
-        this.stakingProgress = 100;
+        if (this.ledgers.stakingEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
+          this.stakingProgress = 100;
+        }
+        if (this.ledgers.nextEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
+          this.nextProgress = 100;
+        }
+        if (this.ledgers.rootSnarked.state === NodesOverviewLedgerStepState.SUCCESS) {
+          this.rootSnarkedProgress = 100;
+        }
+        if (this.ledgers.rootStaged.state === NodesOverviewLedgerStepState.SUCCESS) {
+          this.rootStagedProgress = 100;
+        }
+        this.totalProgress = (this.stakingProgress + this.nextProgress + this.rootSnarkedProgress + this.rootStagedProgress) / 4;
       }
-      if (this.ledgers.nextEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
-        this.nextProgress = 100;
-      }
-      if (this.ledgers.rootSnarked.state === NodesOverviewLedgerStepState.SUCCESS) {
-        this.rootSnarkedProgress = 100;
-      }
-      if (this.ledgers.rootStaged.state === NodesOverviewLedgerStepState.SUCCESS) {
-        this.rootStagedProgress = 100;
-      }
-      this.totalProgress = (this.stakingProgress + this.nextProgress + this.rootSnarkedProgress + this.rootStagedProgress) / 4;
       this.detect();
-    }, filter(n => n[0].length > 0));
+    });
   }
 
   show(event: MouseEvent, start: number, end: number): void {
