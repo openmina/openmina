@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::identity::PublicKey;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pChannelsSignalingDiscoveryState {
     Disabled,

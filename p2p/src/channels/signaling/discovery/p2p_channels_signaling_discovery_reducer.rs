@@ -366,7 +366,7 @@ impl P2pChannelsSignalingDiscoveryState {
                     P2pConnectionResponse::Rejected(reason) => {
                         dispatcher.push(P2pConnectionOutgoingAction::AnswerRecvError {
                             peer_id: target_public_key.peer_id(),
-                            error: P2pConnectionErrorResponse::Rejected(reason.clone()),
+                            error: P2pConnectionErrorResponse::Rejected(*reason),
                         })
                     }
                     P2pConnectionResponse::SignalDecryptionFailed => {

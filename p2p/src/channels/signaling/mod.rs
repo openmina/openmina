@@ -52,9 +52,7 @@ impl crate::P2pState {
 
         // TODO(binier): maybe randomize
         for requester in requests {
-            if let Some(target_peer_id) =
-                available_peers.iter().filter(|&&id| id != requester).next()
-            {
+            if let Some(target_peer_id) = available_peers.iter().find(|&&id| id != requester) {
                 let target_peer_id = *target_peer_id;
                 dispatcher.push(P2pChannelsSignalingDiscoveryAction::DiscoveredSend {
                     peer_id: *requester,

@@ -25,15 +25,16 @@ impl P2pChannelsSignalingState {
 
     pub fn received_discovered_peer_id(&self) -> Option<PeerId> {
         match &self.discovery {
-            P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => match remote {
-                SignalingDiscoveryState::Discovered {
-                    target_public_key, ..
-                }
-                | SignalingDiscoveryState::DiscoveredAccepted {
-                    target_public_key, ..
-                } => Some(target_public_key.peer_id()),
-                _ => None,
-            },
+            P2pChannelsSignalingDiscoveryState::Ready {
+                remote:
+                    SignalingDiscoveryState::Discovered {
+                        target_public_key, ..
+                    }
+                    | SignalingDiscoveryState::DiscoveredAccepted {
+                        target_public_key, ..
+                    },
+                ..
+            } => Some(target_public_key.peer_id()),
             _ => None,
         }
     }
@@ -49,25 +50,27 @@ impl P2pChannelsSignalingState {
 
     pub fn sent_discovered_peer_id(&self) -> Option<PeerId> {
         match &self.discovery {
-            P2pChannelsSignalingDiscoveryState::Ready { local, .. } => match local {
-                SignalingDiscoveryState::Discovered {
-                    target_public_key, ..
-                }
-                | SignalingDiscoveryState::DiscoveredAccepted {
-                    target_public_key, ..
-                } => Some(target_public_key.peer_id()),
-                _ => None,
-            },
+            P2pChannelsSignalingDiscoveryState::Ready {
+                local:
+                    SignalingDiscoveryState::Discovered {
+                        target_public_key, ..
+                    }
+                    | SignalingDiscoveryState::DiscoveredAccepted {
+                        target_public_key, ..
+                    },
+                ..
+            } => Some(target_public_key.peer_id()),
             _ => None,
         }
     }
 
     pub fn is_looking_for_incoming_peer(&self) -> bool {
-        match &self.exchange {
-            P2pChannelsSignalingExchangeState::Ready { remote, .. } => {
-                matches!(remote, SignalingExchangeState::Requested { .. })
+        matches!(
+            self.exchange,
+            P2pChannelsSignalingExchangeState::Ready {
+                remote: SignalingExchangeState::Requested { .. },
+                ..
             }
-            _ => false,
-        }
+        )
     }
 }

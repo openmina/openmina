@@ -12,10 +12,18 @@ use openmina_core::{
 use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
-        best_tip::P2pChannelsBestTipAction, best_tip_effectful::P2pChannelsBestTipEffectfulAction,
-        rpc::P2pChannelsRpcAction, rpc_effectful::P2pChannelsRpcEffectfulAction,
-        signaling::exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
-        snark::P2pChannelsSnarkAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
+        best_tip::P2pChannelsBestTipAction,
+        best_tip_effectful::P2pChannelsBestTipEffectfulAction,
+        rpc::P2pChannelsRpcAction,
+        rpc_effectful::P2pChannelsRpcEffectfulAction,
+        signaling::{
+            discovery::P2pChannelsSignalingDiscoveryAction,
+            discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
+            exchange::P2pChannelsSignalingExchangeAction,
+            exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
+        },
+        snark::P2pChannelsSnarkAction,
+        snark_effectful::P2pChannelsSnarkEffectfulAction,
         snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
         snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
         streaming_rpc::P2pChannelsStreamingRpcAction,
@@ -287,6 +295,8 @@ impl_from_p2p!(p2p::P2pNetworkPnetAction);
 impl_from_p2p!(p2p::P2pNetworkNoiseAction);
 impl_from_p2p!(p2p::connection::incoming::P2pConnectionIncomingAction);
 impl_from_p2p!(p2p::P2pNetworkPubsubAction);
+impl_from_p2p!(P2pChannelsSignalingDiscoveryAction);
+impl_from_p2p!(P2pChannelsSignalingExchangeAction);
 impl_from_p2p!(P2pChannelsTransactionAction);
 impl_from_p2p!(P2pChannelsSnarkAction);
 impl_from_p2p!(p2p::P2pNetworkRpcAction);
@@ -304,6 +314,7 @@ impl_from_p2p!(effectful p2p::P2pNetworkPubsubEffectfulAction);
 impl_from_p2p!(effectful P2pNetworkIdentifyStreamEffectfulAction);
 impl_from_p2p!(effectful P2pConnectionOutgoingEffectfulAction);
 impl_from_p2p!(effectful P2pDisconnectionEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsSignalingDiscoveryEffectfulAction);
 impl_from_p2p!(effectful P2pChannelsSignalingExchangeEffectfulAction);
 impl_from_p2p!(effectful P2pChannelsBestTipEffectfulAction);
 impl_from_p2p!(effectful P2pChannelsStreamingRpcEffectfulAction);

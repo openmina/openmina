@@ -144,7 +144,7 @@ impl P2pConnectionIncomingState {
             }
             P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
                 let state = p2p_state
-                    .incoming_peer_connection_mut(&peer_id)
+                    .incoming_peer_connection_mut(peer_id)
                     .ok_or_else(|| format!("Invalid state for: {:?}", action))?;
 
                 let Self::AnswerSdpCreateSuccess {
@@ -187,7 +187,7 @@ impl P2pConnectionIncomingState {
                     }
                 }
 
-                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
                     if let Some(callback) =
                         &p2p_state.callbacks.on_p2p_connection_incoming_answer_ready
                     {

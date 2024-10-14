@@ -155,6 +155,16 @@ impl TryFrom<SecretKey> for libp2p_identity::Keypair {
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
+impl TryFrom<libp2p_identity::Keypair> for SecretKey {
+    type Error = ();
+
+    fn try_from(value: libp2p_identity::Keypair) -> Result<Self, Self::Error> {
+        let bytes = value.try_into_ed25519().or(Err(()))?.to_bytes();
+        Ok(Self::from_bytes(bytes[0..32].try_into().or(Err(()))?))
+    }
+}
+
 impl Serialize for SecretKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
