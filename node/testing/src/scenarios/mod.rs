@@ -18,6 +18,7 @@ pub mod p2p;
 
 mod driver;
 pub use driver::*;
+use p2p::signaling::P2pSignaling;
 
 pub use crate::cluster::runner::*;
 
@@ -66,6 +67,7 @@ pub enum Scenarios {
     SimulationSmall(SimulationSmall),
     SimulationSmallForeverRealTime(SimulationSmallForeverRealTime),
     P2pReceiveBlock(P2pReceiveBlock),
+    P2pSignaling(P2pSignaling),
     MultiNodePubsubPropagateBlock(MultiNodePubsubPropagateBlock),
     RecordReplayBootstrap(RecordReplayBootstrap),
     RecordReplayBlockProduction(RecordReplayBlockProduction),
@@ -90,6 +92,7 @@ impl Scenarios {
             Self::SimulationSmall(_) => true,
             Self::SimulationSmallForeverRealTime(_) => true,
             Self::MultiNodePubsubPropagateBlock(_) => true, // in progress
+            Self::P2pSignaling(_) => cfg!(feature = "p2p-webrtc"),
             _ => false,
         }
     }
@@ -148,6 +151,7 @@ impl Scenarios {
             Self::SimulationSmall(_) => SimulationSmall::DOCS,
             Self::SimulationSmallForeverRealTime(_) => SimulationSmallForeverRealTime::DOCS,
             Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
+            Self::P2pSignaling(_) => P2pSignaling::DOCS,
             Self::MultiNodePubsubPropagateBlock(_) => MultiNodePubsubPropagateBlock::DOCS,
             Self::RecordReplayBootstrap(_) => RecordReplayBootstrap::DOCS,
             Self::RecordReplayBlockProduction(_) => RecordReplayBlockProduction::DOCS,
@@ -184,6 +188,7 @@ impl Scenarios {
             Self::SimulationSmall(v) => v.run(runner).await,
             Self::SimulationSmallForeverRealTime(v) => v.run(runner).await,
             Self::P2pReceiveBlock(v) => v.run(runner).await,
+            Self::P2pSignaling(v) => v.run(runner).await,
             Self::MultiNodePubsubPropagateBlock(v) => v.run(runner).await,
             Self::RecordReplayBootstrap(v) => v.run(runner).await,
             Self::RecordReplayBlockProduction(v) => v.run(runner).await,
