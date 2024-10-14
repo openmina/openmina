@@ -11,6 +11,8 @@ use channels::{
     rpc::P2pChannelsRpcAction,
     rpc_effectful::P2pChannelsRpcEffectfulAction,
     signaling::{
+        discovery::P2pChannelsSignalingDiscoveryAction,
+        discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
         exchange::P2pChannelsSignalingExchangeAction,
         exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
     },
@@ -135,6 +137,8 @@ pub trait P2pActionTrait<State>:
     + From<P2pNetworkPubsubEffectfulAction>
     + From<P2pChannelsSignalingExchangeAction>
     + From<P2pChannelsSignalingExchangeEffectfulAction>
+    + From<P2pChannelsSignalingDiscoveryAction>
+    + From<P2pChannelsSignalingDiscoveryEffectfulAction>
     + From<P2pChannelsTransactionAction>
     + From<P2pChannelsSnarkAction>
     + From<P2pNetworkRpcAction>

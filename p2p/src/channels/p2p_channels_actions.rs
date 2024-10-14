@@ -9,6 +9,8 @@ use super::{
     rpc::P2pChannelsRpcAction,
     rpc_effectful::P2pChannelsRpcEffectfulAction,
     signaling::{
+        discovery::P2pChannelsSignalingDiscoveryAction,
+        discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
         exchange::P2pChannelsSignalingExchangeAction,
         exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
     },
@@ -26,6 +28,7 @@ use super::{
 #[derive(Serialize, Deserialize, Debug, Clone, openmina_core::ActionEvent)]
 pub enum P2pChannelsAction {
     MessageReceived(P2pChannelsMessageReceivedAction),
+    SignalingDiscovery(P2pChannelsSignalingDiscoveryAction),
     SignalingExchange(P2pChannelsSignalingExchangeAction),
     BestTip(P2pChannelsBestTipAction),
     Transaction(P2pChannelsTransactionAction),
@@ -37,6 +40,7 @@ pub enum P2pChannelsAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, openmina_core::ActionEvent)]
 pub enum P2pChannelsEffectfulAction {
+    SignalingDiscovery(P2pChannelsSignalingDiscoveryEffectfulAction),
     SignalingExchange(P2pChannelsSignalingExchangeEffectfulAction),
     BestTip(P2pChannelsBestTipEffectfulAction),
     Rpc(P2pChannelsRpcEffectfulAction),
@@ -50,6 +54,7 @@ impl P2pChannelsAction {
     pub fn peer_id(&self) -> Option<&PeerId> {
         match self {
             Self::MessageReceived(v) => Some(&v.peer_id),
+            Self::SignalingDiscovery(v) => Some(v.peer_id()),
             Self::SignalingExchange(v) => Some(v.peer_id()),
             Self::BestTip(v) => Some(v.peer_id()),
             Self::Transaction(v) => v.peer_id(),
@@ -65,6 +70,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pChannelsAction {
     fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pChannelsAction::MessageReceived(a) => a.is_enabled(state, time),
+            P2pChannelsAction::SignalingDiscovery(a) => a.is_enabled(state, time),
             P2pChannelsAction::SignalingExchange(a) => a.is_enabled(state, time),
             P2pChannelsAction::Transaction(a) => a.is_enabled(state, time),
             P2pChannelsAction::BestTip(a) => a.is_enabled(state, time),
@@ -79,6 +85,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pChannelsAction {
 impl redux::EnablingCondition<crate::P2pState> for P2pChannelsEffectfulAction {
     fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
         match self {
+            P2pChannelsEffectfulAction::SignalingDiscovery(a) => a.is_enabled(state, time),
             P2pChannelsEffectfulAction::SignalingExchange(a) => a.is_enabled(state, time),
             P2pChannelsEffectfulAction::BestTip(a) => a.is_enabled(state, time),
             P2pChannelsEffectfulAction::Transaction(a) => a.is_enabled(state, time),

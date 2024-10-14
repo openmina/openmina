@@ -29,7 +29,7 @@ impl SecretKey {
     pub fn deterministic(i: usize) -> Self {
         let mut bytes = [0; 32];
         let bytes_len = bytes.len();
-        let i_bytes = i.to_be_bytes();
+        let i_bytes = (i + 1).to_be_bytes();
         let i = bytes_len - i_bytes.len();
         bytes[i..bytes_len].copy_from_slice(&i_bytes);
         Self::from_bytes(bytes)
@@ -53,7 +53,7 @@ impl SecretKey {
 }
 
 use aes_gcm::{
-    aead::{Aead, AeadCore, AeadInPlace},
+    aead::{Aead, AeadCore},
     Aes256Gcm, KeyInit,
 };
 impl SecretKey {
@@ -63,6 +63,7 @@ impl SecretKey {
             return Err(());
         }
         let key = key.to_bytes();
+        // eprintln!("[shared_key] {} & {} = {}", self.public_key(), other_pk, hex::encode(&key));
         let key: &aes_gcm::Key<Aes256Gcm> = (&key).into();
         Ok(Aes256Gcm::new(key))
     }
@@ -76,9 +77,7 @@ impl SecretKey {
         let shared_key = self.shared_key(other_pk)?;
         let nonce = Aes256Gcm::generate_nonce(rng);
         let mut buffer = Vec::from(AsRef::<[u8]>::as_ref(&nonce));
-        shared_key
-            .encrypt_in_place(&nonce, data, &mut buffer)
-            .or(Err(()))?;
+        buffer.extend(shared_key.encrypt(&nonce, data).or(Err(()))?);
         Ok(buffer)
     }
 

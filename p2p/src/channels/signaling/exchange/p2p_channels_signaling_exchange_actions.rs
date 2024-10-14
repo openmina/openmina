@@ -130,7 +130,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 .get_ready_peer(peer_id)
                 .map_or(false, |p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { local, .. } => {
-                        matches!(local, SignalingExchangeState::Requested { .. })
+                        matches!(local, SignalingExchangeState::Offered { .. })
                     }
                     _ => false,
                 }),
@@ -138,7 +138,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 .get_ready_peer(peer_id)
                 .map_or(false, |p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { local, .. } => {
-                        matches!(local, SignalingExchangeState::Requested { .. })
+                        matches!(local, SignalingExchangeState::Offered { .. })
                     }
                     _ => false,
                 }),

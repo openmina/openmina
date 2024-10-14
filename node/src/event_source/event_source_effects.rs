@@ -1,3 +1,4 @@
+use p2p::channels::signaling::discovery::P2pChannelsSignalingDiscoveryAction;
 use p2p::channels::signaling::exchange::P2pChannelsSignalingExchangeAction;
 use p2p::channels::snark::P2pChannelsSnarkAction;
 use p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
@@ -202,6 +203,11 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             // TODO(binier): dispatch error action.
                         }
                         Ok(_) => match chan_id {
+                            ChannelId::SignalingDiscovery => {
+                                store.dispatch(P2pChannelsSignalingDiscoveryAction::Ready {
+                                    peer_id,
+                                });
+                            }
                             ChannelId::SignalingExchange => {
                                 store.dispatch(P2pChannelsSignalingExchangeAction::Ready {
                                     peer_id,

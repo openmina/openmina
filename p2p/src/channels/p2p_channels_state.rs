@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 use super::{
     best_tip::P2pChannelsBestTipState,
     rpc::{P2pChannelsRpcState, P2pRpcId},
-    signaling::{exchange::P2pChannelsSignalingExchangeState, P2pChannelsSignalingState},
+    signaling::{
+        discovery::P2pChannelsSignalingDiscoveryState, exchange::P2pChannelsSignalingExchangeState,
+        P2pChannelsSignalingState,
+    },
     snark::P2pChannelsSnarkState,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentState,
     streaming_rpc::P2pChannelsStreamingRpcState,
@@ -30,6 +33,10 @@ impl P2pChannelsState {
     pub fn new(enabled_channels: &BTreeSet<ChannelId>) -> Self {
         Self {
             signaling: P2pChannelsSignalingState {
+                discovery: match enabled_channels.contains(&ChannelId::SignalingDiscovery) {
+                    false => P2pChannelsSignalingDiscoveryState::Disabled,
+                    true => P2pChannelsSignalingDiscoveryState::Enabled,
+                },
                 exchange: match enabled_channels.contains(&ChannelId::SignalingExchange) {
                     false => P2pChannelsSignalingExchangeState::Disabled,
                     true => P2pChannelsSignalingExchangeState::Enabled,
@@ -81,6 +88,7 @@ impl P2pChannelsState {
 impl P2pChannelsState {
     pub fn is_channel_ready(&self, chan_id: ChannelId) -> bool {
         match chan_id {
+            ChannelId::SignalingDiscovery => self.signaling.discovery.is_ready(),
             ChannelId::SignalingExchange => self.signaling.exchange.is_ready(),
             ChannelId::BestTipPropagation => self.best_tip.is_ready(),
             ChannelId::TransactionPropagation => self.transaction.is_ready(),

@@ -27,6 +27,7 @@ use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
+use signaling::discovery::SignalingDiscoveryChannelMsg;
 use signaling::exchange::SignalingExchangeChannelMsg;
 use strum_macros::EnumIter;
 
@@ -40,6 +41,7 @@ use self::transaction::TransactionPropagationChannelMsg;
 #[derive(Serialize, Deserialize, EnumIter, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum ChannelId {
+    SignalingDiscovery = 0,
     SignalingExchange = 1,
     BestTipPropagation = 2,
     TransactionPropagation = 3,
@@ -62,6 +64,7 @@ impl ChannelId {
 
     pub fn name(self) -> &'static str {
         match self {
+            Self::SignalingDiscovery => "signaling/discovery",
             Self::SignalingExchange => "signaling/exchange",
             Self::BestTipPropagation => "best_tip/propagation",
             Self::TransactionPropagation => "transaction/propagation",
@@ -74,6 +77,7 @@ impl ChannelId {
 
     pub fn supported_by_libp2p(self) -> bool {
         match self {
+            Self::SignalingDiscovery => false,
             Self::SignalingExchange => false,
             Self::BestTipPropagation => true,
             Self::TransactionPropagation => true,
@@ -87,7 +91,8 @@ impl ChannelId {
     pub fn max_msg_size(self) -> usize {
         match self {
             // TODO(binier): measure signaling message sizes
-            Self::SignalingExchange => 16 * 1024, // 16KB
+            Self::SignalingDiscovery => 16 * 1024, // 16KB
+            Self::SignalingExchange => 16 * 1024,  // 16KB
             // TODO(binier): reduce this value once we change message for best tip
             // propagation to just propagating consensus state with block hash.
             Self::BestTipPropagation => 32 * 1024 * 1024, // 32MB
@@ -129,6 +134,7 @@ impl MsgId {
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub enum ChannelMsg {
+    SignalingDiscovery(SignalingDiscoveryChannelMsg),
     SignalingExchange(SignalingExchangeChannelMsg),
     BestTipPropagation(BestTipPropagationChannelMsg),
     TransactionPropagation(TransactionPropagationChannelMsg),
@@ -141,6 +147,7 @@ pub enum ChannelMsg {
 impl ChannelMsg {
     pub fn channel_id(&self) -> ChannelId {
         match self {
+            Self::SignalingDiscovery(_) => ChannelId::SignalingDiscovery,
             Self::SignalingExchange(_) => ChannelId::SignalingExchange,
             Self::BestTipPropagation(_) => ChannelId::BestTipPropagation,
             Self::TransactionPropagation(_) => ChannelId::TransactionPropagation,
@@ -156,6 +163,7 @@ impl ChannelMsg {
         W: std::io::Write,
     {
         match self {
+            Self::SignalingDiscovery(v) => v.binprot_write(w),
             Self::SignalingExchange(v) => v.binprot_write(w),
             Self::BestTipPropagation(v) => v.binprot_write(w),
             Self::TransactionPropagation(v) => v.binprot_write(w),
@@ -172,6 +180,9 @@ impl ChannelMsg {
         R: std::io::Read + ?Sized,
     {
         match id {
+            ChannelId::SignalingDiscovery => {
+                SignalingDiscoveryChannelMsg::binprot_read(r).map(|v| v.into())
+            }
             ChannelId::SignalingExchange => {
                 SignalingExchangeChannelMsg::binprot_read(r).map(|v| v.into())
             }
@@ -207,6 +218,11 @@ impl crate::P2pState {
         // exhaustive matching so that we don't miss any channels.
         for id in self.config.enabled_channels.iter().copied() {
             match id {
+                ChannelId::SignalingDiscovery => {
+                    dispatcher.push(
+                        signaling::discovery::P2pChannelsSignalingDiscoveryAction::Init { peer_id },
+                    );
+                }
                 ChannelId::SignalingExchange => {
                     dispatcher.push(
                         signaling::exchange::P2pChannelsSignalingExchangeAction::Init { peer_id },

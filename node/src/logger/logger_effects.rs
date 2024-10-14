@@ -69,6 +69,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             P2pAction::Identify(action) => action.action_event(&context),
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(action) => action.action_event(&context),
+                P2pChannelsAction::SignalingDiscovery(action) => action.action_event(&context),
                 P2pChannelsAction::SignalingExchange(action) => action.action_event(&context),
                 P2pChannelsAction::BestTip(action) => action.action_event(&context),
                 P2pChannelsAction::Transaction(action) => action.action_event(&context),
@@ -106,6 +107,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         },
         Action::P2pEffectful(action) => match action {
             p2p::P2pEffectfulAction::Channels(action) => match action {
+                P2pChannelsEffectfulAction::SignalingDiscovery(action) => {
+                    action.action_event(&context)
+                }
                 P2pChannelsEffectfulAction::SignalingExchange(action) => {
                     action.action_event(&context)
                 }

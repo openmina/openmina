@@ -2,7 +2,10 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::signaling::exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
+    channels::signaling::{
+        discovery::P2pChannelsSignalingDiscoveryAction,
+        exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
+    },
     connection::{
         incoming::{
             IncomingSignalingMethod, P2pConnectionIncomingAction, P2pConnectionIncomingInitOpts,
@@ -179,6 +182,10 @@ impl P2pChannelsSignalingExchangeState {
                 };
 
                 *remote = SignalingExchangeState::Requested { time: meta.time() };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let state: &P2pState = state.substate()?;
+                state.webrtc_discovery_respond_with_availble_peers(dispatcher);
                 Ok(())
             }
             P2pChannelsSignalingExchangeAction::OfferSend {
@@ -208,7 +215,7 @@ impl P2pChannelsSignalingExchangeState {
                 });
                 Ok(())
             }
-            P2pChannelsSignalingExchangeAction::AnswerReceived { .. } => {
+            P2pChannelsSignalingExchangeAction::AnswerReceived { answer, .. } => {
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pChannelsSignalingExchangeAction::AnswerReceived`, state: {state:?}",
@@ -216,9 +223,23 @@ impl P2pChannelsSignalingExchangeState {
                     return Ok(());
                 };
 
+                let offerer_pub_key = match remote {
+                    SignalingExchangeState::Offered {
+                        offerer_pub_key, ..
+                    } => offerer_pub_key.clone(),
+                    state => {
+                        bug_condition!(
+                            "Invalid state for `P2pChannelsSignalingExchangeAction::AnswerReceived`, state: {state:?}",
+                        );
+                        return Ok(());
+                    }
+                };
                 *remote = SignalingExchangeState::Answered { time: meta.time() };
-                // TODO(binier): relay answer on signaling discovery
-                // channel to offerer peer.
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pChannelsSignalingDiscoveryAction::AnswerSend {
+                    peer_id: offerer_pub_key.peer_id(),
+                    answer: answer.clone(),
+                });
                 Ok(())
             }
         }
