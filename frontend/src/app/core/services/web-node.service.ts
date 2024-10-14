@@ -12,7 +12,6 @@ export class WebNodeService {
   private readonly backendSubject$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private backend: any;
   private webNodeKeyPair: { publicKey: string, privateKey: string };
-  webNodeState: string = 'notLoaded';
 
   constructor(private http: HttpClient) {
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
