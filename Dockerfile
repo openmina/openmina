@@ -1,5 +1,3 @@
-ARG MINA_SNARK_WORKER_TAG=0.0.9
-
 FROM rust:buster AS build
 RUN apt-get update && apt-get install -y protobuf-compiler && apt-get clean
 RUN rustup default 1.80 && rustup component add rustfmt
@@ -12,8 +10,6 @@ RUN cargo build --release --features scenario-generators --bin openmina-node-tes
 RUN git clone --depth 1 https://github.com/openmina/circuit-blobs.git \
     && rm -rf circuit-blobs/berkeley_rc1 circuit-blobs/*/tests
 
-FROM openmina/mina-snark-worker-prover:${MINA_SNARK_WORKER_TAG} AS prover
-
 FROM debian:buster
 RUN apt-get update && apt-get install -y libjemalloc2 libssl1.1 libpq5 curl jq procps && apt-get clean
 COPY --from=build /openmina/cli/bin/snark-worker /usr/local/bin/
@@ -21,5 +17,4 @@ COPY --from=build /openmina/target/release/openmina /usr/local/bin/
 COPY --from=build /openmina/target/release/openmina-node-testing /usr/local/bin/
 RUN mkdir -p /usr/local/lib/openmina/circuit-blobs
 COPY --from=build /openmina/circuit-blobs/ /usr/local/lib/openmina/circuit-blobs/
-COPY --from=prover /usr/local/bin/mina /usr/local/bin
 ENTRYPOINT [ "openmina" ]
