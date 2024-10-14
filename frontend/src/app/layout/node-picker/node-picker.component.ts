@@ -80,9 +80,6 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
     if (node !== this.activeNode) {
       this.dispatch2(AppActions.changeActiveNode({ node }));
     }
-    if (node.isWebNode) {
-      this.webNodeService.webNodeState = 'loading';
-    }
   }
 
   addNode(event: MouseEvent): void {

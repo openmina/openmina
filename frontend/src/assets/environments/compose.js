@@ -5,8 +5,8 @@ export default {
     features: {
       dashboard: [],
       nodes: ['overview', 'live', 'bootstrap'],
+      'block-production': ['won-slots'],
       state: ['actions'],
-      network: ['node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state'],
       benchmarks: ['wallets'],
     },
