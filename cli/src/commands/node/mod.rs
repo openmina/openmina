@@ -120,7 +120,10 @@ pub struct Node {
 
 impl Node {
     pub fn run(self) -> anyhow::Result<()> {
-        tracing::initialize(self.verbosity);
+        let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
+
+        let _guard =
+            tracing::initialize_with_filesystem_output(self.verbosity, work_dir.clone().into());
 
         rayon::ThreadPoolBuilder::new()
             .num_threads(num_cpus::get().max(2) - 1)
@@ -228,7 +231,6 @@ impl Node {
             node_builder.snarker(sec_key, self.snarker_fee, self.snarker_strategy);
         }
 
-        let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         openmina_core::set_work_dir(work_dir.clone().into());
 
         node_builder
