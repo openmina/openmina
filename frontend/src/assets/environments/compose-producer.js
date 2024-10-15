@@ -13,7 +13,6 @@ export default {
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
       snarks: ['scan-state'],
-      benchmarks: ['wallets'],
     },
     canAddNodes: true,
     graphQL: '/openmina-node/graphql',
