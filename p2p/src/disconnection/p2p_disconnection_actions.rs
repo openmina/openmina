@@ -10,7 +10,7 @@ pub type P2pDisconnectionActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDi
 #[action_event(fields(display(peer_id), display(reason)), level = info)]
 pub enum P2pDisconnectionAction {
     /// Initialize disconnection.
-#[action_event(fields(display(peer_id), display(reason)), level = info)]
+    #[action_event(fields(display(peer_id), display(reason)), level = info)]
     Init {
         peer_id: PeerId,
         reason: P2pDisconnectionReason,

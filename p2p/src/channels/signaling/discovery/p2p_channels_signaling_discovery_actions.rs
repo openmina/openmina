@@ -126,27 +126,24 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 })
             }
             P2pChannelsSignalingDiscoveryAction::RequestSend { peer_id } => {
-                !state.already_has_max_peers()
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
-                        match &p.channels.signaling.discovery {
-                            P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
-                                match local {
-                                    SignalingDiscoveryState::WaitingForRequest { .. } => true,
-                                    SignalingDiscoveryState::DiscoveredRejected {
-                                        time, ..
-                                    }
-                                    | SignalingDiscoveryState::Answered { time, .. } => {
-                                        // Allow one discovery request per minute.
-                                        // TODO(binier): make configurable
-                                        now.checked_sub(*time)
-                                            .map_or(false, |dur| dur.as_secs() >= 60)
-                                    }
-                                    _ => false,
+                state.get_ready_peer(peer_id).map_or(false, |p| {
+                    match &p.channels.signaling.discovery {
+                        P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
+                            match local {
+                                SignalingDiscoveryState::WaitingForRequest { .. } => true,
+                                SignalingDiscoveryState::DiscoveredRejected { time, .. }
+                                | SignalingDiscoveryState::Answered { time, .. } => {
+                                    // Allow one discovery request per minute.
+                                    // TODO(binier): make configurable
+                                    now.checked_sub(*time)
+                                        .map_or(false, |dur| dur.as_secs() >= 60)
                                 }
+                                _ => false,
                             }
-                            _ => false,
                         }
-                    })
+                        _ => false,
+                    }
+                })
             }
             P2pChannelsSignalingDiscoveryAction::DiscoveryRequestReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
@@ -218,14 +215,17 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             // TODO(binier): constrain interval between these requests
             // to handle malicious peers.
-            P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend { peer_id, .. } => state
-                .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
-                    P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
-                        matches!(remote, SignalingDiscoveryState::Requested { .. })
-                    }
-                    _ => false,
-                }),
+            P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend { peer_id, .. } => {
+                !state.already_has_min_peers()
+                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                        match &p.channels.signaling.discovery {
+                            P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
+                                matches!(remote, SignalingDiscoveryState::Requested { .. })
+                            }
+                            _ => false,
+                        }
+                    })
+            }
             P2pChannelsSignalingDiscoveryAction::DiscoveredReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
                 .map_or(false, |p| match &p.channels.signaling.discovery {
