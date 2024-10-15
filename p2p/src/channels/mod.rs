@@ -41,14 +41,14 @@ use self::transaction::TransactionPropagationChannelMsg;
 #[derive(Serialize, Deserialize, EnumIter, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum ChannelId {
-    SignalingDiscovery = 0,
-    SignalingExchange = 1,
-    BestTipPropagation = 2,
-    TransactionPropagation = 3,
-    SnarkPropagation = 4,
-    SnarkJobCommitmentPropagation = 5,
-    Rpc = 6,
-    StreamingRpc = 7,
+    SignalingDiscovery = 1,
+    SignalingExchange = 2,
+    BestTipPropagation = 3,
+    TransactionPropagation = 4,
+    SnarkPropagation = 5,
+    SnarkJobCommitmentPropagation = 6,
+    Rpc = 7,
+    StreamingRpc = 8,
 }
 
 impl ChannelId {
