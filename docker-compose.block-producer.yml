@@ -3,11 +3,8 @@ version: '3.8'
 services:
   openmina-node:
     image: openmina/openmina:${OPENMINA_TAG:-latest}
-    command: >
-      sh -c '
-      node --producer-key /root/.openmina/producer-key
-      ${COINBASE_RECEIVER:+--coinbase-receiver $COINBASE_RECEIVER}
-      '
+    entrypoint: >
+      sh -c 'openmina node --producer-key /root/.openmina/producer-key ${COINBASE_RECEIVER:+--coinbase-receiver $COINBASE_RECEIVER}'
     ports:
       - "3000:3000"
     volumes:
