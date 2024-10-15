@@ -1,4 +1,4 @@
-use openmina_core::{bug_condition, error, fuzz_maybe, fuzzed_maybe, warn, Substate};
+use openmina_core::{bug_condition, error, fuzz_maybe, fuzzed_maybe, Substate};
 use redux::Timestamp;
 use token::{
     AuthKind, DiscoveryAlgorithm, IdentifyAlgorithm, MuxKind, Protocol, RpcAlgorithm, StreamKind,
@@ -20,7 +20,7 @@ use super::*;
 impl P2pNetworkSelectState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
-        action: redux::ActionWithMeta<&P2pNetworkSelectAction>,
+        action: redux::ActionWithMeta<P2pNetworkSelectAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -61,8 +61,8 @@ impl P2pNetworkSelectState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let state: &P2pNetworkSchedulerState = state.substate()?;
                 let state = state
-                    .connection_state(addr)
-                    .and_then(|state| state.select_state(kind))
+                    .connection_state(&addr)
+                    .and_then(|state| state.select_state(&kind))
                     .ok_or_else(|| format!("Select state not found for {action:?}"))?;
 
                 if state.negotiated.is_none() && !incoming {
@@ -78,11 +78,7 @@ impl P2pNetworkSelectState {
                         }
                         _ => {}
                     };
-                    dispatcher.push(P2pNetworkSelectAction::OutgoingTokens {
-                        addr: *addr,
-                        kind: *kind,
-                        tokens,
-                    });
+                    dispatcher.push(P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens });
                 }
 
                 Ok(())
@@ -94,26 +90,24 @@ impl P2pNetworkSelectState {
             | P2pNetworkSelectAction::IncomingDataMux {
                 data, addr, fin, ..
             } => {
-                select_state.handle_incoming_data(data);
+                select_state.handle_incoming_data(&data);
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
 
                 let state: &P2pNetworkSchedulerState = state.substate()?;
                 let select_state = state
-                    .connection_state(action.addr())
+                    .connection_state(&addr)
                     .and_then(|conn| conn.select_state(&select_kind))
-                    .ok_or_else(|| format!("Select state not found for {action:?}"))?;
+                    .ok_or("Select state not found for incoming data")?;
 
                 if let P2pNetworkSelectStateInner::Error(error) = &select_state.inner {
                     dispatcher.push(P2pNetworkSchedulerAction::SelectError {
-                        addr: *addr,
+                        addr,
                         kind: select_kind,
                         error: error.to_owned(),
                     })
                 } else {
-                    for action in
-                        select_state.forward_incoming_data(select_kind, *addr, data.clone(), *fin)
-                    {
+                    for action in select_state.forward_incoming_data(select_kind, addr, data, fin) {
                         dispatcher.push(action)
                     }
                 }
@@ -134,7 +128,7 @@ impl P2pNetworkSelectState {
                     select_kind,
                     addr,
                     data,
-                    *fin,
+                    fin,
                     meta.time(),
                 )
             }
@@ -148,14 +142,14 @@ impl P2pNetworkSelectState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let scheduler: &P2pNetworkSchedulerState = state.substate()?;
                 let select_state = scheduler
-                    .connection_state(addr)
-                    .and_then(|stream| stream.select_state(kind))
+                    .connection_state(&addr)
+                    .and_then(|stream| stream.select_state(&kind))
                     .ok_or_else(|| format!("Select state not found for {action:?}"))?;
 
                 if let P2pNetworkSelectStateInner::Error(error) = &select_state.inner {
                     dispatcher.push(P2pNetworkSchedulerAction::SelectError {
-                        addr: *addr,
-                        kind: *kind,
+                        addr,
+                        kind,
                         error: error.to_owned(),
                     });
                     return Ok(());
@@ -163,8 +157,8 @@ impl P2pNetworkSelectState {
 
                 if let Some(token) = &select_state.to_send {
                     dispatcher.push(P2pNetworkSelectAction::OutgoingTokens {
-                        addr: *addr,
-                        kind: *kind,
+                        addr,
+                        kind,
                         tokens: vec![token.clone()],
                     })
                 }
@@ -173,7 +167,7 @@ impl P2pNetworkSelectState {
                     let p2p_state: &P2pState = state.substate()?;
 
                     let expected_peer_id = p2p_state
-                        .peer_with_connection(*addr)
+                        .peer_with_connection(addr)
                         .map(|(peer_id, _)| peer_id);
 
                     let incoming = matches!(
@@ -181,8 +175,8 @@ impl P2pNetworkSelectState {
                         P2pNetworkSelectStateInner::Responder { .. }
                     );
                     dispatcher.push(P2pNetworkSchedulerAction::SelectDone {
-                        addr: *addr,
-                        kind: *kind,
+                        addr,
+                        kind,
                         protocol,
                         incoming,
                         expected_peer_id,
@@ -196,13 +190,12 @@ impl P2pNetworkSelectState {
 
                 let mut data = {
                     let mut data = vec![];
-                    for token in tokens {
+                    for token in &tokens {
                         data.extend_from_slice(token.name())
                     }
                     data.into()
                 };
 
-                let addr = *addr;
                 match kind {
                     SelectKind::Authentication => {
                         fuzz_maybe!(&mut data, mutate_select_authentication);
@@ -217,7 +210,7 @@ impl P2pNetworkSelectState {
                         if let Some(na) = tokens.iter().find(|t| t.name() == Token::Na.name()) {
                             dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
                                 addr,
-                                stream_id: *stream_id,
+                                stream_id,
                                 data: na.name().to_vec().into(),
                                 flags: YamuxFlags::FIN,
                             });
@@ -229,7 +222,7 @@ impl P2pNetworkSelectState {
                                 );
                                 dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
                                     addr,
-                                    stream_id: *stream_id,
+                                    stream_id,
                                     data,
                                     flags: Default::default(),
                                 });
@@ -243,14 +236,8 @@ impl P2pNetworkSelectState {
             P2pNetworkSelectAction::Timeout { addr, kind } => {
                 let error = "timeout".to_owned();
                 select_state.inner = P2pNetworkSelectStateInner::Error(error.clone());
-                warn!(meta.time(); "timeout");
-
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerAction::SelectError {
-                    addr: *addr,
-                    kind: *kind,
-                    error,
-                });
+                dispatcher.push(P2pNetworkSchedulerAction::SelectError { addr, kind, error });
                 Ok(())
             }
         }
@@ -418,8 +405,8 @@ impl P2pNetworkSelectState {
     fn handle_negotiated_token<Action, State>(
         state_context: Substate<Action, State, P2pNetworkSchedulerState>,
         select_kind: SelectKind,
-        addr: &ConnectionAddr,
-        data: &Data,
+        addr: ConnectionAddr,
+        data: Data,
         fin: bool,
         time: Timestamp,
     ) -> Result<(), String>
@@ -431,7 +418,7 @@ impl P2pNetworkSelectState {
         let p2p_state: &P2pState = state.substate()?;
         let state: &P2pNetworkSchedulerState = state.substate()?;
         let state = state
-            .connection_state(addr)
+            .connection_state(&addr)
             .and_then(|state| state.select_state(&select_kind))
             .ok_or_else(|| "Select state not found incoming payload".to_owned())?;
 
@@ -442,8 +429,6 @@ impl P2pNetworkSelectState {
             );
             return Ok(());
         };
-        let addr = *addr;
-        let data = data.clone();
 
         match negotiated {
             Protocol::Auth(AuthKind::Noise) => {

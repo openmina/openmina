@@ -85,7 +85,7 @@ impl RpcMessage {
                     .unwrap_or_default();
             }
             Self::Query { header, bytes } => {
-                MessageHeader::Query(header.clone())
+                MessageHeader::Query(header)
                     .binprot_write(&mut v)
                     .unwrap_or_default();
                 v.extend_from_slice(&bytes);

@@ -18,7 +18,7 @@ use super::{P2pNetworkKadBootstrapAction, P2pNetworkKadBootstrapState};
 impl P2pNetworkKadBootstrapState {
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pNetworkKadBootstrapAction>,
+        action: ActionWithMeta<P2pNetworkKadBootstrapAction>,
         filter_addrs: bool,
     ) -> Result<(), String>
     where
@@ -63,7 +63,7 @@ impl P2pNetworkKadBootstrapState {
                 let state: &mut Self = state_context.get_substate_mut()?.substate_mut()?;
                 state.requests_number -= 1;
                 if let Some(request) = request {
-                    state.peer_id_req_vec.push((*peer_id, request.clone()));
+                    state.peer_id_req_vec.push((peer_id, request));
                 }
                 if state.peer_id_req_vec.len() == 3 || state.requests_number == 0 {
                     let dispatcher = state_context.into_dispatcher();
@@ -121,12 +121,12 @@ impl P2pNetworkKadBootstrapState {
             } => {
                 let state: &mut P2pNetworkKadBootstrapState =
                     state_context.get_substate_mut()?.substate_mut()?;
-                let Some(req) = state.requests.remove(peer_id) else {
+                let Some(req) = state.requests.remove(&peer_id) else {
                     bug_condition!("cannot find request for peer {peer_id}");
                     return Ok(());
                 };
                 state.successful_requests += 1;
-                let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());
+                let address = P2pConnectionOutgoingInitOpts::LibP2P((peer_id, req.addr).into());
 
                 if let Some(request_stats) =
                     state.stats.requests.iter_mut().rev().find(|req_stat| {
@@ -143,11 +143,11 @@ impl P2pNetworkKadBootstrapState {
                 {
                     *request_stats = P2pNetworkKadBootstrapRequestStat::Successful(
                         P2pNetworkKadBootstrapSuccessfulRequest {
-                            peer_id: *peer_id,
+                            peer_id,
                             address,
                             start: req.time,
                             finish: meta.time(),
-                            closest_peers: closest_peers.clone(),
+                            closest_peers,
                         },
                     );
                 } else {
@@ -165,12 +165,12 @@ impl P2pNetworkKadBootstrapState {
                 let bootstrap_state: &mut P2pNetworkKadBootstrapState =
                     state_context.get_substate_mut()?.substate_mut()?;
 
-                let Some(req) = bootstrap_state.requests.remove(peer_id) else {
+                let Some(req) = bootstrap_state.requests.remove(&peer_id) else {
                     bug_condition!("cannot find request for peer {peer_id}");
                     return Ok(());
                 };
 
-                let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());
+                let address = P2pConnectionOutgoingInitOpts::LibP2P((peer_id, req.addr).into());
                 if let Some(request_stats) =
                     bootstrap_state
                         .stats
@@ -191,11 +191,11 @@ impl P2pNetworkKadBootstrapState {
                 {
                     *request_stats = P2pNetworkKadBootstrapRequestStat::Failed(
                         P2pNetworkKadBootstrapFailedRequest {
-                            peer_id: *peer_id,
+                            peer_id,
                             address,
                             start: req.time,
                             finish: meta.time(),
-                            error: error.clone(),
+                            error,
                         },
                     );
                 } else {

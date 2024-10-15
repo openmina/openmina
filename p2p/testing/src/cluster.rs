@@ -391,7 +391,7 @@ impl Cluster {
                 let state_context = Substate::new(state, dispatcher);
                 let result = match action {
                     Action::P2p(action) => {
-                        P2pState::reducer(state_context, meta.with_action(action))
+                        P2pState::reducer(state_context, meta.with_action(action.clone()))
                     }
                     Action::Idle(_) => P2pState::p2p_timeout_dispatch(state_context, &meta),
                     Action::P2pEffectful(_) => Ok(()),

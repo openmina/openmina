@@ -43,7 +43,7 @@ impl P2pNetworkPnetState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
-        action: redux::ActionWithMeta<&P2pNetworkPnetAction>,
+        action: redux::ActionWithMeta<P2pNetworkPnetAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -58,13 +58,13 @@ impl P2pNetworkPnetState {
 
         match action {
             P2pNetworkPnetAction::IncomingData { data, addr } => {
-                pnet_state.incoming.reduce(&pnet_state.shared_secret, data);
+                pnet_state.incoming.reduce(&pnet_state.shared_secret, &data);
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let scheduler_state: &P2pNetworkSchedulerState = state.substate()?;
                 let pnet_state = &scheduler_state
-                    .connection_state(addr)
-                    .ok_or_else(|| format!("Missing connection for action: {:?}", action))?
+                    .connection_state(&addr)
+                    .ok_or("Missing connection for action: `P2pNetworkPnetAction::IncomingData`")?
                     .pnet;
 
                 let Half::Done { to_send, .. } = &pnet_state.incoming else {
@@ -75,7 +75,7 @@ impl P2pNetworkPnetState {
                 if !to_send.is_empty() {
                     let data = Data::from(to_send.clone());
                     dispatcher.push(P2pNetworkSelectAction::IncomingDataAuth {
-                        addr: *addr,
+                        addr,
                         data,
                         fin: false,
                     });
@@ -84,13 +84,13 @@ impl P2pNetworkPnetState {
                 Ok(())
             }
             P2pNetworkPnetAction::OutgoingData { data, addr } => {
-                pnet_state.outgoing.reduce(&pnet_state.shared_secret, data);
+                pnet_state.outgoing.reduce(&pnet_state.shared_secret, &data);
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let scheduler_state: &P2pNetworkSchedulerState = state.substate()?;
                 let pnet_state = &scheduler_state
-                    .connection_state(addr)
-                    .ok_or_else(|| format!("Missing connection for action: {:?}", action))?
+                    .connection_state(&addr)
+                    .ok_or("Missing connection for action: `P2pNetworkPnetAction::OutgoingData`")?
                     .pnet;
 
                 let Half::Done { to_send, .. } = &pnet_state.outgoing else {
@@ -100,7 +100,7 @@ impl P2pNetworkPnetState {
 
                 if !to_send.is_empty() {
                     dispatcher.push(P2pNetworkPnetEffectfulAction::OutgoingData {
-                        addr: *addr,
+                        addr,
                         data: to_send.clone(),
                     });
                 }
@@ -111,13 +111,15 @@ impl P2pNetworkPnetState {
                 addr,
                 incoming,
             } => {
-                pnet_state.outgoing.reduce(&pnet_state.shared_secret, nonce);
+                pnet_state
+                    .outgoing
+                    .reduce(&pnet_state.shared_secret, &nonce);
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let scheduler_state: &P2pNetworkSchedulerState = state.substate()?;
                 let pnet_state = &scheduler_state
-                    .connection_state(addr)
-                    .ok_or_else(|| format!("Missing connection for action: {:?}", action))?
+                    .connection_state(&addr)
+                    .ok_or("Missing connection for action: `P2pNetworkPnetAction::SetupNonce`")?
                     .pnet;
 
                 if !matches!(&pnet_state.outgoing, Half::Done { .. }) {
@@ -129,16 +131,16 @@ impl P2pNetworkPnetState {
                 };
 
                 dispatcher.push(P2pNetworkPnetEffectfulAction::SetupNonce {
-                    addr: *addr,
-                    nonce: nonce.clone(),
-                    incoming: *incoming,
+                    addr,
+                    nonce,
+                    incoming,
                 });
                 Ok(())
             }
             P2pNetworkPnetAction::Timeout { addr } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkSchedulerAction::Disconnect {
-                    addr: *addr,
+                    addr,
                     reason: P2pDisconnectionReason::Timeout,
                 });
                 Ok(())

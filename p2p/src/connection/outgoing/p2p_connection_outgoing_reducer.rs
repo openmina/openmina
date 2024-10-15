@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use openmina_core::{bug_condition, warn, Substate};
+use redux::ActionWithMeta;
 
 use crate::{
     channels::signaling::discovery::P2pChannelsSignalingDiscoveryAction,
@@ -15,21 +16,22 @@ use crate::{
 
 use super::{
     libp2p_opts::P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError,
-    P2pConnectionOutgoingAction, P2pConnectionOutgoingActionWithMetaRef,
-    P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState,
+    P2pConnectionOutgoingAction, P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts,
+    P2pConnectionOutgoingState,
 };
 
 impl P2pConnectionOutgoingState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: P2pConnectionOutgoingActionWithMetaRef<'_>,
+        action: ActionWithMeta<P2pConnectionOutgoingAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
         let (action, meta) = action.split();
+        let time = meta.time();
         let p2p_state = state_context.get_substate_mut()?;
 
         match action {
@@ -47,22 +49,22 @@ impl P2pConnectionOutgoingState {
                             is_libp2p: opts.is_libp2p(),
                             dial_opts: Some(opts.clone()).filter(|v| v.can_connect_directly()),
                             status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(
-                                opts,
+                                &opts,
                             )),
                             identify: None,
                         });
 
                 peer_state.status =
                     P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(Self::Init {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
-                        rpc_id: *rpc_id,
+                        rpc_id,
                     }));
 
                 let dispatcher = state_context.into_dispatcher();
 
                 #[cfg(feature = "p2p-libp2p")]
-                if let P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) = opts {
+                if let P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) = &opts {
                     match SocketAddr::try_from(libp2p_opts) {
                         Ok(addr) => {
                             dispatcher.push(P2pNetworkSchedulerAction::OutgoingConnect { addr });
@@ -82,29 +84,26 @@ impl P2pConnectionOutgoingState {
                     return Ok(());
                 }
 
-                dispatcher.push(P2pConnectionOutgoingEffectfulAction::Init {
-                    opts: opts.clone(),
-                    rpc_id: *rpc_id,
-                });
+                dispatcher.push(P2pConnectionOutgoingEffectfulAction::Init { opts, rpc_id });
                 Ok(())
             }
             P2pConnectionOutgoingAction::Reconnect { opts, rpc_id } => {
                 let peer_state = p2p_state
                     .peers
                     .get_mut(opts.peer_id())
-                    .ok_or_else(|| format!("Invalid state: {:?}", action))?;
+                    .ok_or("Missing peer state for: `P2pConnectionOutgoingAction::Reconnect`")?;
 
                 peer_state.status =
                     P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(Self::Init {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
-                        rpc_id: *rpc_id,
+                        rpc_id,
                     }));
 
                 let dispatcher = state_context.into_dispatcher();
 
                 #[cfg(feature = "p2p-libp2p")]
-                if let P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) = opts {
+                if let P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) = &opts {
                     match SocketAddr::try_from(libp2p_opts) {
                         Ok(addr) => {
                             dispatcher.push(P2pNetworkSchedulerAction::OutgoingConnect { addr });
@@ -124,20 +123,17 @@ impl P2pConnectionOutgoingState {
                     return Ok(());
                 }
 
-                dispatcher.push(P2pConnectionOutgoingEffectfulAction::Init {
-                    opts: opts.clone(),
-                    rpc_id: *rpc_id,
-                });
+                dispatcher.push(P2pConnectionOutgoingEffectfulAction::Init { opts, rpc_id });
                 Ok(())
             }
             P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id, .. } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
-                    .ok_or_else(|| format!("Invalid state: {:?}", action))?;
+                    .outgoing_peer_connection_mut(&peer_id)
+                    .ok_or("Missing connection state for: `P2pConnectionOutgoingAction::OfferSdpCreatePending`")?;
 
                 if let Self::Init { opts, rpc_id, .. } = state {
                     *state = Self::OfferSdpCreatePending {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
                         rpc_id: rpc_id.take(),
                     };
@@ -150,19 +146,19 @@ impl P2pConnectionOutgoingState {
             P2pConnectionOutgoingAction::OfferSdpCreateError { error, peer_id, .. } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pConnectionOutgoingAction::Error {
-                    peer_id: *peer_id,
+                    peer_id,
                     error: P2pConnectionOutgoingError::SdpCreateError(error.to_owned()),
                 });
                 Ok(())
             }
             P2pConnectionOutgoingAction::OfferSdpCreateSuccess { sdp, peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
-                    .ok_or_else(|| format!("Invalid state: {:?}", action))?;
+                    .outgoing_peer_connection_mut(&peer_id)
+                    .ok_or("Missing peer connection for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`")?;
 
                 if let Self::OfferSdpCreatePending { opts, rpc_id, .. } = state {
                     *state = Self::OfferSdpCreateSuccess {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
                         sdp: sdp.clone(),
                         rpc_id: rpc_id.take(),
@@ -173,24 +169,22 @@ impl P2pConnectionOutgoingState {
                 }
 
                 let offer = Box::new(crate::webrtc::Offer {
-                    sdp: sdp.to_owned(),
+                    sdp,
                     identity_pub_key: p2p_state.config.identity_pub_key.clone(),
-                    target_peer_id: *peer_id,
+                    target_peer_id: peer_id,
                     // TODO(vlad9486): put real address
                     host: Host::Ipv4([127, 0, 0, 1].into()),
                     listen_port: p2p_state.config.listen_port,
                 });
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionOutgoingAction::OfferReady {
-                    peer_id: *peer_id,
-                    offer,
-                });
+                dispatcher.push(P2pConnectionOutgoingAction::OfferReady { peer_id, offer });
                 Ok(())
             }
             P2pConnectionOutgoingAction::OfferReady { offer, peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
-                    .ok_or_else(|| format!("Invalid state: {:?}", action))?;
+                    .outgoing_peer_connection_mut(&peer_id)
+                    .ok_or("Invalid state for `P2pConnectionOutgoingAction::OfferReady`")?;
+
                 let Self::OfferSdpCreateSuccess { opts, rpc_id, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::OfferReady`: {:?}",
@@ -215,7 +209,7 @@ impl P2pConnectionOutgoingState {
                     });
                 } else {
                     dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferSend {
-                        peer_id: *peer_id,
+                        peer_id,
                         offer: offer.clone(),
                     });
                 }
@@ -223,7 +217,7 @@ impl P2pConnectionOutgoingState {
             }
             P2pConnectionOutgoingAction::OfferSendSuccess { peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
+                    .outgoing_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
                 if let Self::OfferReady {
                     opts,
@@ -233,7 +227,7 @@ impl P2pConnectionOutgoingState {
                 } = state
                 {
                     *state = Self::OfferSendSuccess {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
@@ -247,13 +241,12 @@ impl P2pConnectionOutgoingState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher
-                    .push(P2pConnectionOutgoingAction::AnswerRecvPending { peer_id: *peer_id });
+                dispatcher.push(P2pConnectionOutgoingAction::AnswerRecvPending { peer_id });
                 Ok(())
             }
             P2pConnectionOutgoingAction::AnswerRecvPending { peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
+                    .outgoing_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
                 if let Self::OfferSendSuccess {
                     opts,
@@ -263,7 +256,7 @@ impl P2pConnectionOutgoingState {
                 } = state
                 {
                     *state = Self::AnswerRecvPending {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
@@ -280,10 +273,10 @@ impl P2pConnectionOutgoingState {
                 let dispatcher = state_context.into_dispatcher();
 
                 dispatcher.push(P2pConnectionOutgoingAction::Error {
-                    peer_id: *peer_id,
+                    peer_id,
                     error: match error {
                         P2pConnectionErrorResponse::Rejected(reason) => {
-                            P2pConnectionOutgoingError::Rejected(*reason)
+                            P2pConnectionOutgoingError::Rejected(reason)
                         }
                         P2pConnectionErrorResponse::SignalDecryptionFailed => {
                             P2pConnectionOutgoingError::RemoteSignalDecryptionFailed
@@ -296,9 +289,9 @@ impl P2pConnectionOutgoingState {
                 Ok(())
             }
             P2pConnectionOutgoingAction::AnswerRecvSuccess { answer, peer_id } => {
-                let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
-                    .ok_or_else(|| format!("Invalid state: {:?}", action))?;
+                let state = p2p_state.outgoing_peer_connection_mut(&peer_id).ok_or(
+                    "Missing peer connection for `P2pConnectionOutgoingAction::AnswerRecvSuccess`",
+                )?;
 
                 if let Self::AnswerRecvPending {
                     opts,
@@ -308,7 +301,7 @@ impl P2pConnectionOutgoingState {
                 } = state
                 {
                     *state = Self::AnswerRecvSuccess {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
                         offer: offer.clone(),
                         answer: answer.clone(),
@@ -320,23 +313,20 @@ impl P2pConnectionOutgoingState {
                         state
                     );
                 }
-                state_context.into_dispatcher().push(
-                    P2pConnectionOutgoingEffectfulAction::AnswerSet {
-                        peer_id: *peer_id,
-                        answer: answer.clone(),
-                    },
-                );
+                state_context
+                    .into_dispatcher()
+                    .push(P2pConnectionOutgoingEffectfulAction::AnswerSet { peer_id, answer });
                 Ok(())
             }
             P2pConnectionOutgoingAction::FinalizePending { peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
+                    .outgoing_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
 
                 match state {
                     Self::Init { opts, rpc_id, .. } => {
                         *state = Self::FinalizePending {
-                            time: meta.time(),
+                            time,
                             opts: opts.clone(),
                             offer: None,
                             answer: None,
@@ -352,7 +342,7 @@ impl P2pConnectionOutgoingState {
                         ..
                     } => {
                         *state = Self::FinalizePending {
-                            time: meta.time(),
+                            time,
                             opts: opts.clone(),
                             offer: Some(offer.clone()),
                             answer: Some(answer.clone()),
@@ -372,14 +362,14 @@ impl P2pConnectionOutgoingState {
             P2pConnectionOutgoingAction::FinalizeError { error, peer_id } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pConnectionOutgoingAction::Error {
-                    peer_id: *peer_id,
+                    peer_id,
                     error: P2pConnectionOutgoingError::FinalizeError(error.to_owned()),
                 });
                 Ok(())
             }
             P2pConnectionOutgoingAction::FinalizeSuccess { peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
+                    .outgoing_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
 
                 if let Self::FinalizePending {
@@ -391,7 +381,7 @@ impl P2pConnectionOutgoingState {
                 } = state
                 {
                     *state = Self::FinalizeSuccess {
-                        time: meta.time(),
+                        time,
                         opts: opts.clone(),
                         offer: offer.clone(),
                         answer: answer.clone(),
@@ -406,25 +396,25 @@ impl P2pConnectionOutgoingState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionOutgoingAction::Success { peer_id: *peer_id });
+                dispatcher.push(P2pConnectionOutgoingAction::Success { peer_id });
                 Ok(())
             }
             P2pConnectionOutgoingAction::Timeout { peer_id } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pConnectionOutgoingAction::Error {
-                    peer_id: *peer_id,
+                    peer_id,
                     error: P2pConnectionOutgoingError::Timeout,
                 });
                 Ok(())
             }
             P2pConnectionOutgoingAction::Error { error, peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
-                    .ok_or_else(|| format!("Invalid state: {:?}", action))?;
+                    .outgoing_peer_connection_mut(&peer_id)
+                    .ok_or("Missing peer connection for `P2pConnectionOutgoingAction::Error`")?;
 
                 let rpc_id = state.rpc_id();
                 *state = Self::Error {
-                    time: meta.time(),
+                    time,
                     error: error.clone(),
                     rpc_id,
                 };
@@ -438,26 +428,26 @@ impl P2pConnectionOutgoingState {
                         .network
                         .scheduler
                         .discovery_state()
-                        .and_then(|discovery_state| discovery_state.request(peer_id))
+                        .and_then(|discovery_state| discovery_state.request(&peer_id))
                         .is_some()
                     {
                         dispatcher.push(P2pNetworkKadRequestAction::Error {
-                            peer_id: *peer_id,
+                            peer_id,
                             error: error.to_string(),
                         });
                     }
                 }
 
-                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
                     if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_outgoing_error {
-                        dispatcher.push_callback(callback.clone(), (rpc_id, error.clone()));
+                        dispatcher.push_callback(callback.clone(), (rpc_id, error));
                     }
                 }
                 Ok(())
             }
             P2pConnectionOutgoingAction::Success { peer_id } => {
                 let state = p2p_state
-                    .outgoing_peer_connection_mut(peer_id)
+                    .outgoing_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
 
                 if let Self::FinalizeSuccess {
@@ -468,7 +458,7 @@ impl P2pConnectionOutgoingState {
                 } = state
                 {
                     *state = Self::Success {
-                        time: meta.time(),
+                        time,
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
@@ -484,11 +474,11 @@ impl P2pConnectionOutgoingState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
                 dispatcher.push(P2pPeerAction::Ready {
-                    peer_id: *peer_id,
+                    peer_id,
                     incoming: false,
                 });
 
-                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
                     if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_outgoing_success
                     {
                         dispatcher.push_callback(callback.clone(), rpc_id);

@@ -14,7 +14,7 @@ impl P2pState {
     #[cfg(feature = "p2p-libp2p")]
     pub fn identify_reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pIdentifyAction>,
+        action: ActionWithMeta<P2pIdentifyAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -30,7 +30,7 @@ impl P2pState {
                 let scheduler = &p2p_state.network.scheduler;
                 let stream_id = scheduler
                     .connections
-                    .get(addr)
+                    .get(&addr)
                     .ok_or_else(|| format!("connection with {addr} not found"))
                     .and_then(|conn| {
                         conn.mux
@@ -45,7 +45,7 @@ impl P2pState {
                     })?;
 
                 dispatcher.push(P2pNetworkYamuxAction::OpenStream {
-                    addr: *addr,
+                    addr,
                     stream_id,
                     stream_kind: StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0),
                 });
@@ -57,8 +57,9 @@ impl P2pState {
                 info,
                 addr,
             } => {
-                if let Some(peer) = p2p_state.peers.get_mut(peer_id) {
-                    peer.identify = Some(*info.clone());
+                let info = *info;
+                if let Some(peer) = p2p_state.peers.get_mut(&peer_id) {
+                    peer.identify = Some(info.clone());
                 } else {
                     bug_condition!(
                         "Peer state not found for `P2pIdentifyAction::UpdatePeerInformation`"
@@ -67,11 +68,10 @@ impl P2pState {
                 }
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let peer_id = *peer_id;
 
                 dispatcher.push(P2pNetworkKademliaAction::UpdateRoutingTable {
                     peer_id,
-                    addrs: info.listen_addrs.clone(),
+                    addrs: info.listen_addrs,
                 });
 
                 let stream_id = YamuxStreamKind::Rpc.stream_id(addr.incoming);
@@ -91,7 +91,7 @@ impl P2pState {
                 }
 
                 dispatcher.push(P2pNetworkYamuxAction::OpenStream {
-                    addr: *addr,
+                    addr,
                     stream_id,
                     stream_kind,
                 });
@@ -99,7 +99,7 @@ impl P2pState {
                 let stream_kind = StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0);
                 if info.protocols.contains(&stream_kind) {
                     dispatcher.push(P2pNetworkYamuxAction::OpenStream {
-                        addr: *addr,
+                        addr,
                         stream_id: stream_id + 2,
                         stream_kind,
                     });
@@ -110,10 +110,7 @@ impl P2pState {
                 if kad_state.map_or(false, |state| state.request(&peer_id).is_some())
                     && info.protocols.contains(&protocol)
                 {
-                    dispatcher.push(P2pNetworkKadRequestAction::MuxReady {
-                        peer_id,
-                        addr: *addr,
-                    });
+                    dispatcher.push(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
                 }
 
                 Ok(())

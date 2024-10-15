@@ -23,7 +23,7 @@ impl P2pChannelsSignalingDiscoveryState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsSignalingDiscoveryAction>,
+        action: ActionWithMeta<P2pChannelsSignalingDiscoveryAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -405,7 +405,7 @@ impl P2pChannelsSignalingDiscoveryState {
                     P2pConnectionResponse::Rejected(reason) => {
                         dispatcher.push(P2pConnectionOutgoingAction::AnswerRecvError {
                             peer_id: target_public_key.peer_id(),
-                            error: P2pConnectionErrorResponse::Rejected(*reason),
+                            error: P2pConnectionErrorResponse::Rejected(reason),
                         })
                     }
                     P2pConnectionResponse::SignalDecryptionFailed => {

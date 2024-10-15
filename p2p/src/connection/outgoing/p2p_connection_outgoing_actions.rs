@@ -8,9 +8,6 @@ use crate::{webrtc, P2pState, PeerId};
 
 use super::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 
-pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
-    redux::ActionWithMeta<&'a P2pConnectionOutgoingAction>;
-
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(opts), display(peer_id), display(error)))]
 pub enum P2pConnectionOutgoingAction {

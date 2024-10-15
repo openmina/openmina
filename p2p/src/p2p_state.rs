@@ -296,7 +296,7 @@ impl P2pState {
     pub fn peer_with_connection(
         &self,
         conn_id: crate::ConnectionAddr,
-    ) -> Option<(PeerId, P2pPeerState)> {
+    ) -> Option<(PeerId, &P2pPeerState)> {
         let result = if let crate::ConnectionAddr {
             sock_addr,
             incoming: false,
@@ -326,7 +326,7 @@ impl P2pState {
                             .and_then(|peer_id| self.peers.iter().find(|(id, _)| *id == peer_id))
                     })
             })
-            .map(|(peer_id, peer_state)| (*peer_id, peer_state.clone()))
+            .map(|(peer_id, peer_state)| (*peer_id, peer_state))
     }
 
     pub fn incoming_peer_connection_mut(

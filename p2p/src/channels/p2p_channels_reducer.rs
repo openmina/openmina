@@ -34,7 +34,7 @@ use redux::{ActionWithMeta, Dispatcher};
 impl P2pChannelsState {
     pub fn reducer<Action, State>(
         state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsAction>,
+        action: ActionWithMeta<P2pChannelsAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -75,7 +75,7 @@ impl P2pChannelsState {
     }
 
     fn dispatch_message<Action, State>(
-        action: ActionWithMeta<&P2pChannelsMessageReceivedAction>,
+        action: ActionWithMeta<P2pChannelsMessageReceivedAction>,
         dispatcher: &mut Dispatcher<Action, State>,
         state: &State,
     ) -> Result<(), String>
@@ -91,7 +91,7 @@ impl P2pChannelsState {
 
         let mut is_enabled = |action: Action| dispatcher.push_if_enabled(action, state, time);
 
-        let was_expected = match *action.message.clone() {
+        let was_expected = match *action.message {
             ChannelMsg::SignalingDiscovery(msg) => match msg {
                 SignalingDiscoveryChannelMsg::GetNext => is_enabled(
                     P2pChannelsSignalingDiscoveryAction::RequestReceived { peer_id }.into(),

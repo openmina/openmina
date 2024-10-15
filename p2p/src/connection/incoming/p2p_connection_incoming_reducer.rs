@@ -26,7 +26,7 @@ impl P2pConnectionIncomingState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pConnectionIncomingAction>,
+        action: ActionWithMeta<P2pConnectionIncomingAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -57,20 +57,20 @@ impl P2pConnectionIncomingState {
                             };
                             Some(P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling })
                         }),
-                        status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
+                        status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(&opts)),
                         identify: None,
                     });
 
                 state.status =
                     P2pPeerStatus::Connecting(P2pConnectionState::Incoming(Self::Init {
                         time: meta.time(),
-                        signaling: opts.signaling.clone(),
+                        signaling: opts.signaling,
                         offer: opts.offer.clone(),
-                        rpc_id: *rpc_id,
+                        rpc_id,
                     }));
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionIncomingEffectfulAction::Init { opts: opts.clone() });
+                dispatcher.push(P2pConnectionIncomingEffectfulAction::Init { opts });
                 Ok(())
             }
             P2pConnectionIncomingAction::AnswerSdpCreatePending { .. } => {
@@ -86,7 +86,7 @@ impl P2pConnectionIncomingState {
                 {
                     *state = Self::AnswerSdpCreatePending {
                         time: meta.time(),
-                        signaling: signaling.clone(),
+                        signaling: *signaling,
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
                     };
@@ -101,15 +101,15 @@ impl P2pConnectionIncomingState {
             P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, error } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pConnectionIncomingAction::Error {
-                    peer_id: *peer_id,
+                    peer_id,
                     error: P2pConnectionIncomingError::SdpCreateError(error.to_owned()),
                 });
                 Ok(())
             }
             P2pConnectionIncomingAction::AnswerSdpCreateSuccess { sdp, .. } => {
-                let state = p2p_state
-                    .incoming_peer_connection_mut(&peer_id)
-                    .ok_or_else(|| format!("Invalid state for: {:?}", action))?;
+                let state = p2p_state.incoming_peer_connection_mut(&peer_id).ok_or(
+                    "Missing state for `P2pConnectionIncomingAction::AnswerSdpCreateSuccess`",
+                )?;
                 if let Self::AnswerSdpCreatePending {
                     signaling,
                     offer,
@@ -119,7 +119,7 @@ impl P2pConnectionIncomingState {
                 {
                     *state = Self::AnswerSdpCreateSuccess {
                         time: meta.time(),
-                        signaling: signaling.clone(),
+                        signaling: *signaling,
                         offer: offer.clone(),
                         sdp: sdp.clone(),
                         rpc_id: rpc_id.take(),
@@ -135,7 +135,7 @@ impl P2pConnectionIncomingState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
                 let answer = Box::new(crate::webrtc::Answer {
-                    sdp: sdp.to_owned(),
+                    sdp,
                     identity_pub_key: p2p_state.config.identity_pub_key.clone(),
                     target_peer_id: peer_id,
                 });
@@ -144,8 +144,8 @@ impl P2pConnectionIncomingState {
             }
             P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
                 let state = p2p_state
-                    .incoming_peer_connection_mut(peer_id)
-                    .ok_or_else(|| format!("Invalid state for: {:?}", action))?;
+                    .incoming_peer_connection_mut(&peer_id)
+                    .ok_or("Invalid state for: `P2pConnectionIncomingAction::AnswerReady`")?;
 
                 let Self::AnswerSdpCreateSuccess {
                     signaling,
@@ -175,7 +175,7 @@ impl P2pConnectionIncomingState {
                 match signaling {
                     IncomingSignalingMethod::Http => {
                         dispatcher.push(P2pConnectionIncomingEffectfulAction::AnswerSend {
-                            peer_id: *peer_id,
+                            peer_id,
                             answer: answer.clone(),
                         });
                     }
@@ -187,17 +187,13 @@ impl P2pConnectionIncomingState {
                     }
                 }
 
-                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
+                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
                     if let Some(callback) =
                         &p2p_state.callbacks.on_p2p_connection_incoming_answer_ready
                     {
                         dispatcher.push_callback(
                             callback.clone(),
-                            (
-                                rpc_id,
-                                *peer_id,
-                                P2pConnectionResponse::Accepted(answer.clone()),
-                            ),
+                            (rpc_id, peer_id, P2pConnectionResponse::Accepted(answer)),
                         );
                     }
                 }
@@ -218,7 +214,7 @@ impl P2pConnectionIncomingState {
                 {
                     *state = Self::AnswerSendSuccess {
                         time: meta.time(),
-                        signaling: signaling.clone(),
+                        signaling: *signaling,
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
@@ -249,7 +245,7 @@ impl P2pConnectionIncomingState {
                 {
                     *state = Self::FinalizePending {
                         time: meta.time(),
-                        signaling: signaling.clone(),
+                        signaling: *signaling,
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
@@ -284,7 +280,7 @@ impl P2pConnectionIncomingState {
                 {
                     *state = Self::FinalizeSuccess {
                         time: meta.time(),
-                        signaling: signaling.clone(),
+                        signaling: *signaling,
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
@@ -331,12 +327,13 @@ impl P2pConnectionIncomingState {
             P2pConnectionIncomingAction::Error { error, .. } => {
                 let state = p2p_state
                     .incoming_peer_connection_mut(&peer_id)
-                    .ok_or_else(|| format!("Invalid state for: {:?}", action))?;
+                    .ok_or("Missing state for `P2pConnectionIncomingAction::Error`")?;
 
                 let rpc_id = state.rpc_id();
+                let str_error = format!("{:?}", error);
                 *state = Self::Error {
                     time: meta.time(),
-                    error: error.clone(),
+                    error,
                     rpc_id,
                 };
 
@@ -345,8 +342,7 @@ impl P2pConnectionIncomingState {
 
                 if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
                     if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_incoming_error {
-                        dispatcher
-                            .push_callback(callback.clone(), (rpc_id, format!("{:?}", error)));
+                        dispatcher.push_callback(callback.clone(), (rpc_id, str_error));
                     }
                 }
 
@@ -367,7 +363,7 @@ impl P2pConnectionIncomingState {
                 {
                     *state = Self::Success {
                         time: meta.time(),
-                        signaling: signaling.clone(),
+                        signaling: *signaling,
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
@@ -409,7 +405,7 @@ impl P2pConnectionIncomingState {
                             identify: None,
                         });
 
-                    Self::reduce_finalize_libp2p_pending(state, *addr, time, my_id, peer_id);
+                    Self::reduce_finalize_libp2p_pending(state, addr, time, my_id, peer_id);
 
                     let (dispatcher, state) = state_context.into_dispatcher_and_state();
                     let p2p_state: &P2pState = state.substate()?;
@@ -455,7 +451,7 @@ impl P2pConnectionIncomingState {
         my_id: PeerId,
         peer_id: PeerId,
         time: Timestamp,
-        addr: &SocketAddr,
+        addr: SocketAddr,
     ) where
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
@@ -492,7 +488,7 @@ impl P2pConnectionIncomingState {
                                  incoming,
                              }| {
                                 *incoming
-                                    && sock_addr != addr
+                                    && sock_addr != &addr
                                     && close_duplicates.contains(sock_addr)
                             },
                         )
@@ -514,7 +510,7 @@ impl P2pConnectionIncomingState {
             warn!(time; node_id = display(my_id), summary = "rejecting incoming connection as duplicate", peer_id = display(peer_id));
             dispatcher.push(P2pNetworkSchedulerAction::Disconnect {
                 addr: ConnectionAddr {
-                    sock_addr: *addr,
+                    sock_addr: addr,
                     incoming: true,
                 },
                 reason: P2pDisconnectionReason::Libp2pIncomingRejected(

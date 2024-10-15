@@ -17,7 +17,7 @@ use super::{
 impl P2pNetworkKadIncomingStreamState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkKadState>,
-        action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
+        action: ActionWithMeta<P2pNetworkKademliaStreamAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
@@ -36,7 +36,7 @@ impl P2pNetworkKadIncomingStreamState {
             (
                 P2pNetworkKadIncomingStreamState::Default,
                 P2pNetworkKademliaStreamAction::New { incoming, .. },
-            ) if *incoming => {
+            ) if incoming => {
                 *state = P2pNetworkKadIncomingStreamState::WaitingForRequest {
                     expect_close: false,
                 };
@@ -97,20 +97,20 @@ impl P2pNetworkKadIncomingStreamState {
                     } => {
                         // TODO: add callback
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                         });
                         dispatcher.push(P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                             key,
                         });
                     }
                     P2pNetworkKadIncomingStreamState::Error(error) => {
                         dispatcher.push(P2pNetworkSchedulerAction::Error {
-                            addr: *addr,
+                            addr,
                             error: P2pNetworkConnectionError::from(
                                 P2pNetworkKadIncomingStreamError::from(error),
                             ),
@@ -151,21 +151,21 @@ impl P2pNetworkKadIncomingStreamState {
                     } => {
                         // TODO: add callbacks
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                         });
                         dispatcher.push(P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                             key,
                         });
                     }
                     P2pNetworkKadIncomingStreamState::Error(error) => {
                         warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
                         dispatcher.push(P2pNetworkSchedulerAction::Error {
-                            addr: *addr,
+                            addr,
                             error: P2pNetworkConnectionError::from(
                                 P2pNetworkKadIncomingStreamError::from(error),
                             ),
@@ -192,26 +192,26 @@ impl P2pNetworkKadIncomingStreamState {
                     stream_id,
                 },
             ) => {
-                let message = Message::try_from(data).map_err(|e| e.to_string())?;
+                let message = Message::try_from(&data).map_err(|e| e.to_string())?;
                 let bytes = serialize_into_vec(&message).map_err(|e| format!("{e}"))?;
                 *state = P2pNetworkKadIncomingStreamState::ResponseBytesAreReady {
                     bytes: bytes.clone(),
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                let data = fuzzed_maybe!(bytes.clone().into(), crate::fuzzer::mutate_kad_data);
+                let data = fuzzed_maybe!(Data::from(bytes), crate::fuzzer::mutate_kad_data);
                 let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
 
                 dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
-                    addr: *addr,
-                    stream_id: *stream_id,
+                    addr,
+                    stream_id,
                     data,
                     flags,
                 });
                 dispatcher.push(P2pNetworkKademliaStreamAction::WaitIncoming {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                 });
                 Ok(())
             }
@@ -234,19 +234,19 @@ impl P2pNetworkKadIncomingStreamState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
-                    addr: *addr,
-                    stream_id: *stream_id,
+                    addr,
+                    stream_id,
                     data: Data::empty(),
                     flags: YamuxFlags::FIN,
                 });
                 dispatcher.push(P2pNetworkKademliaStreamAction::Prune {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                 });
                 Ok(())
             }
-            _ => Err(format!(
+            action => Err(format!(
                 "kademlia incoming stream state {state:?} is incorrect for action {action:?}",
             )),
         }
@@ -265,7 +265,7 @@ impl P2pNetworkKadIncomingStreamState {
             }
         };
 
-        let data = match P2pNetworkKademliaRpcRequest::try_from(message.clone()) {
+        let data = match P2pNetworkKademliaRpcRequest::try_from(message) {
             Ok(v) => v,
             Err(e) => {
                 *self = P2pNetworkKadIncomingStreamState::Error(e.into());
@@ -281,7 +281,7 @@ impl P2pNetworkKadIncomingStreamState {
 impl P2pNetworkKadOutgoingStreamState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkKadState>,
-        action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
+        action: ActionWithMeta<P2pNetworkKademliaStreamAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
@@ -301,7 +301,7 @@ impl P2pNetworkKadOutgoingStreamState {
             (
                 P2pNetworkKadOutgoingStreamState::Default,
                 P2pNetworkKademliaStreamAction::New { incoming, .. },
-            ) if !*incoming => {
+            ) if !incoming => {
                 *state = P2pNetworkKadOutgoingStreamState::WaitingForRequest {
                     expect_close: false,
                 };
@@ -317,26 +317,26 @@ impl P2pNetworkKadOutgoingStreamState {
                     peer_id,
                 },
             ) => {
-                let message = Message::from(data);
+                let message = Message::from(&data);
                 let bytes = serialize_into_vec(&message).map_err(|e| format!("{e}"))?;
                 *state = P2pNetworkKadOutgoingStreamState::RequestBytesAreReady {
                     bytes: bytes.clone(),
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                let data = fuzzed_maybe!(bytes.clone().into(), crate::fuzzer::mutate_kad_data);
+                let data = fuzzed_maybe!(Data::from(bytes), crate::fuzzer::mutate_kad_data);
                 let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
 
                 dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
-                    addr: *addr,
-                    stream_id: *stream_id,
+                    addr,
+                    stream_id,
                     data,
                     flags,
                 });
                 dispatcher.push(P2pNetworkKademliaStreamAction::WaitIncoming {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                 });
                 Ok(())
             }
@@ -406,21 +406,21 @@ impl P2pNetworkKadOutgoingStreamState {
                             },
                     } => {
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                         });
                         dispatcher.push(P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                             closest_peers,
                         });
                     }
                     P2pNetworkKadOutgoingStreamState::Error(error) => {
                         warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
                         dispatcher.push(P2pNetworkSchedulerAction::Error {
-                            addr: *addr,
+                            addr,
                             error: P2pNetworkConnectionError::from(
                                 P2pNetworkKadOutgoingStreamError::from(error),
                             ),
@@ -443,7 +443,7 @@ impl P2pNetworkKadOutgoingStreamState {
                 },
             ) => {
                 let mut data = data.clone();
-                data.extend_from_slice(&new_data.0);
+                data.extend_from_slice(&new_data);
 
                 if *len > data.len() {
                     *state =
@@ -463,21 +463,21 @@ impl P2pNetworkKadOutgoingStreamState {
                             },
                     } => {
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                         });
                         dispatcher.push(P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                            addr: *addr,
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
+                            addr,
+                            peer_id,
+                            stream_id,
                             closest_peers,
                         });
                     }
                     P2pNetworkKadOutgoingStreamState::Error(error) => {
                         warn!(meta.time(); summary = "error handling kademlia action", error = display(&error));
                         dispatcher.push(P2pNetworkSchedulerAction::Error {
-                            addr: *addr,
+                            addr,
                             error: P2pNetworkConnectionError::from(
                                 P2pNetworkKadOutgoingStreamError::from(error),
                             ),
@@ -508,15 +508,15 @@ impl P2pNetworkKadOutgoingStreamState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
-                    addr: *addr,
-                    stream_id: *stream_id,
+                    addr,
+                    stream_id,
                     data: Data::empty(),
                     flags: YamuxFlags::FIN,
                 });
                 dispatcher.push(P2pNetworkKademliaStreamAction::Prune {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                 });
                 Ok(())
             }
@@ -531,13 +531,13 @@ impl P2pNetworkKadOutgoingStreamState {
                 *state = P2pNetworkKadOutgoingStreamState::Closed;
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkKademliaStreamAction::Prune {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                 });
                 Ok(())
             }
-            _ => Err(format!(
+            (state, action) => Err(format!(
                 "kademlia outgoing stream state {state:?} is incorrect for action {action:?}",
             )),
         }
@@ -556,7 +556,7 @@ impl P2pNetworkKadOutgoingStreamState {
             }
         };
 
-        let data = match P2pNetworkKademliaRpcReply::try_from(message.clone()) {
+        let data = match P2pNetworkKademliaRpcReply::try_from(message) {
             Ok(v) => v,
             Err(e) => {
                 *self = P2pNetworkKadOutgoingStreamState::Error(e.into());
@@ -572,7 +572,7 @@ impl P2pNetworkKadOutgoingStreamState {
 impl P2pNetworkKadStreamState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkKadState>,
-        action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
+        action: ActionWithMeta<P2pNetworkKademliaStreamAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
@@ -580,8 +580,8 @@ impl P2pNetworkKadStreamState {
         Action: crate::P2pActionTrait<State>,
     {
         let state = state_context.get_substate_mut()?;
-        let action_ = action.action();
-        let stream_state = match action_ {
+        let (action, meta) = action.split();
+        let stream_state = match &action {
             P2pNetworkKademliaStreamAction::New {
                 peer_id,
                 stream_id,
@@ -601,17 +601,21 @@ impl P2pNetworkKadStreamState {
                     .ok_or_else(|| format!("kademlia stream not found for action {action:?}"))
             }
             _ => state
-                .find_kad_stream_state(action_.peer_id(), action_.stream_id())
+                .find_kad_stream_state(action.peer_id(), action.stream_id())
                 .ok_or_else(|| format!("kademlia stream not found for action {action:?}"))?,
         };
 
         match stream_state {
-            P2pNetworkKadStreamState::Incoming(_) => {
-                P2pNetworkKadIncomingStreamState::reducer(state_context, action, limits)
-            }
-            P2pNetworkKadStreamState::Outgoing(_) => {
-                P2pNetworkKadOutgoingStreamState::reducer(state_context, action, limits)
-            }
+            P2pNetworkKadStreamState::Incoming(_) => P2pNetworkKadIncomingStreamState::reducer(
+                state_context,
+                meta.with_action(action),
+                limits,
+            ),
+            P2pNetworkKadStreamState::Outgoing(_) => P2pNetworkKadOutgoingStreamState::reducer(
+                state_context,
+                meta.with_action(action),
+                limits,
+            ),
         }
     }
 }

@@ -11,7 +11,7 @@ use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
 impl P2pChannelsSnarkState {
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsSnarkAction>,
+        action: ActionWithMeta<P2pChannelsSnarkAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -32,7 +32,7 @@ impl P2pChannelsSnarkState {
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkEffectfulAction::Init { peer_id: *peer_id });
+                dispatcher.push(P2pChannelsSnarkEffectfulAction::Init { peer_id });
                 Ok(())
             }
             P2pChannelsSnarkAction::Pending { .. } => {
@@ -61,14 +61,11 @@ impl P2pChannelsSnarkState {
                 };
                 *local = SnarkPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: *limit,
+                    requested_limit: limit,
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkEffectfulAction::RequestSend {
-                    peer_id: *peer_id,
-                    limit: *limit,
-                });
+                dispatcher.push(P2pChannelsSnarkEffectfulAction::RequestSend { peer_id, limit });
                 Ok(())
             }
             P2pChannelsSnarkAction::PromiseReceived { promised_count, .. } => {
@@ -89,7 +86,7 @@ impl P2pChannelsSnarkState {
                 *local = SnarkPropagationState::Responding {
                     time: meta.time(),
                     requested_limit: *requested_limit,
-                    promised_count: *promised_count,
+                    promised_count,
                     current_count: 0,
                 };
                 Ok(())
@@ -129,7 +126,7 @@ impl P2pChannelsSnarkState {
                 let p2p_state: &P2pState = state.substate()?;
 
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_snark_received {
-                    dispatcher.push_callback(callback.clone(), (*peer_id, snark.clone()));
+                    dispatcher.push_callback(callback.clone(), (peer_id, snark));
                 }
 
                 Ok(())
@@ -145,7 +142,7 @@ impl P2pChannelsSnarkState {
                 };
                 *remote = SnarkPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: *limit,
+                    requested_limit: limit,
                 };
                 Ok(())
             }
@@ -181,16 +178,13 @@ impl P2pChannelsSnarkState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkEffectfulAction::ResponseSend {
-                    peer_id: *peer_id,
-                    snarks: snarks.clone(),
-                });
+                dispatcher.push(P2pChannelsSnarkEffectfulAction::ResponseSend { peer_id, snarks });
                 Ok(())
             }
             #[cfg(feature = "p2p-libp2p")]
             P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce } => {
                 let dispatcher = state_context.into_dispatcher();
-                let message = Box::new((snark.statement(), (snark).into()));
+                let message = Box::new((snark.statement(), (&snark).into()));
                 let message = v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
                 let nonce = nonce.into();
                 let message = Box::new(GossipNetMessageV2::SnarkPoolDiff { message, nonce });
@@ -204,7 +198,7 @@ impl P2pChannelsSnarkState {
                 let p2p_state: &P2pState = state.substate()?;
 
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_snark_libp2p_received {
-                    dispatcher.push_callback(callback.clone(), (*peer_id, snark.clone()));
+                    dispatcher.push_callback(callback.clone(), (peer_id, snark));
                 }
 
                 Ok(())

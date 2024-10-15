@@ -21,7 +21,7 @@ impl P2pNetworkYamuxState {
     /// Substate is accessed
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
-        action: redux::ActionWithMeta<&P2pNetworkYamuxAction>,
+        action: redux::ActionWithMeta<P2pNetworkYamuxAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -45,7 +45,7 @@ impl P2pNetworkYamuxState {
 
         match action {
             P2pNetworkYamuxAction::IncomingData { data, addr } => {
-                yamux_state.buffer.extend_from_slice(data);
+                yamux_state.buffer.extend_from_slice(&data);
                 let mut offset = 0;
                 loop {
                     let buf = &yamux_state.buffer[offset..];
@@ -144,7 +144,7 @@ impl P2pNetworkYamuxState {
                 let incoming_data = yamux_state.incoming.clone();
                 let dispatcher = state_context.into_dispatcher();
                 incoming_data.into_iter().for_each(|frame| {
-                    dispatcher.push(P2pNetworkYamuxAction::IncomingFrame { addr: *addr, frame })
+                    dispatcher.push(P2pNetworkYamuxAction::IncomingFrame { addr, frame })
                 });
 
                 Ok(())
@@ -153,14 +153,12 @@ impl P2pNetworkYamuxState {
                 addr,
                 stream_id,
                 data,
-                flags,
+                mut flags,
             } => {
                 let yamux_state = yamux_state
                     .streams
-                    .get(stream_id)
+                    .get(&stream_id)
                     .ok_or_else(|| format!("Stream with id {stream_id} not found for `P2pNetworkYamuxAction::OutgoingData`"))?;
-
-                let mut flags = *flags;
 
                 if !yamux_state.incoming && !yamux_state.established && !yamux_state.syn_sent {
                     flags.insert(YamuxFlags::SYN);
@@ -172,12 +170,12 @@ impl P2pNetworkYamuxState {
 
                 let frame = YamuxFrame {
                     flags,
-                    stream_id: *stream_id,
-                    inner: YamuxFrameInner::Data(data.clone()),
+                    stream_id,
+                    inner: YamuxFrameInner::Data(data),
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame { addr: *addr, frame });
+                dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
 
                 Ok(())
             }
@@ -225,13 +223,12 @@ impl P2pNetworkYamuxState {
                 }
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let addr = *addr;
                 let limits: &P2pLimits = state.substate()?;
                 let max_streams = limits.max_streams();
                 let connection_state =
                     <State as SubstateAccess<P2pNetworkSchedulerState>>::substate(state)?
                         .connection_state(&addr)
-                        .ok_or_else(|| format!("Connection not found {}", action.addr()))?;
+                        .ok_or_else(|| format!("Connection not found {}", addr))?;
 
                 let stream = connection_state
                     .yamux_state()
@@ -357,16 +354,16 @@ impl P2pNetworkYamuxState {
 
                 let dispatcher = state_context.into_dispatcher();
                 let data = fuzzed_maybe!(
-                    Data::from(frame.clone().into_bytes()),
+                    Data::from(frame.into_bytes()),
                     crate::fuzzer::mutate_yamux_frame
                 );
-                dispatcher.push(P2pNetworkNoiseAction::OutgoingData { addr: *addr, data });
+                dispatcher.push(P2pNetworkNoiseAction::OutgoingData { addr, data });
                 Ok(())
             }
             P2pNetworkYamuxAction::PingStream { addr, ping } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame {
-                    addr: *addr,
+                    addr,
                     frame: ping.into_frame(),
                 });
 
@@ -379,10 +376,10 @@ impl P2pNetworkYamuxState {
             } => {
                 yamux_state
                     .streams
-                    .insert(*stream_id, YamuxStreamState::default());
+                    .insert(stream_id, YamuxStreamState::default());
                 connection_state.streams.insert(
-                    *stream_id,
-                    P2pNetworkStreamState::new(*stream_kind, meta.time()),
+                    stream_id,
+                    P2pNetworkStreamState::new(stream_kind, meta.time()),
                 );
 
                 let peer_id = match connection_state
@@ -396,8 +393,8 @@ impl P2pNetworkYamuxState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkSelectAction::Init {
-                    addr: *addr,
-                    kind: SelectKind::Stream(peer_id, *stream_id),
+                    addr,
+                    kind: SelectKind::Stream(peer_id, stream_id),
                     incoming: false,
                 });
                 Ok(())
