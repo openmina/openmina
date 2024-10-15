@@ -57,19 +57,22 @@ impl crate::P2pState {
         let mut available_peers_ordered = available_peers.iter().copied().collect::<Vec<_>>();
         available_peers_ordered.shuffle(&mut rng);
 
-        for requester in requests {
-            if let Some(target_peer_id) = available_peers_ordered
-                .iter()
-                .find(|&&id| id != requester && available_peers.contains(id))
-            {
-                let target_peer_id = *target_peer_id;
-                dispatcher.push(P2pChannelsSignalingDiscoveryAction::DiscoveredSend {
-                    peer_id: *requester,
-                    target_public_key: target_peer_id.to_public_key().unwrap(),
-                });
-                available_peers.remove(&target_peer_id);
-            } else {
+        for &requester in requests {
+            if available_peers.is_empty() {
                 break;
+            }
+            for &&target_peer_id in &available_peers_ordered {
+                if target_peer_id == requester || !available_peers.contains(&target_peer_id) {
+                    continue;
+                }
+                let action = P2pChannelsSignalingDiscoveryAction::DiscoveredSend {
+                    peer_id: requester,
+                    target_public_key: target_peer_id.to_public_key().unwrap(),
+                };
+                if redux::EnablingCondition::is_enabled(&action, self, time) {
+                    dispatcher.push(action);
+                    available_peers.remove(&target_peer_id);
+                }
             }
         }
     }

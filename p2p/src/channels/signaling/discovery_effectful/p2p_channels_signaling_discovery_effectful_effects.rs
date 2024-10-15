@@ -32,7 +32,9 @@ impl P2pChannelsSignalingDiscoveryEffectfulAction {
                 pub_key,
                 offer,
             } => match store.service().encrypt(&pub_key, &*offer) {
-                Err(()) => todo!("Failed to encrypt webrtc offer. Handle it."),
+                Err(()) => {
+                    // todo!("Failed to encrypt webrtc offer. Handle it.")
+                }
                 Ok(offer) => {
                     let message = SignalingDiscoveryChannelMsg::DiscoveredAccept(offer);
                     message_send(store.service(), peer_id, message);

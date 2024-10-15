@@ -83,7 +83,7 @@ impl P2pChannelsSignalingDiscoveryState {
             P2pChannelsSignalingDiscoveryAction::DiscoveryRequestReceived { .. } => {
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveryRequestReceived`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -92,7 +92,7 @@ impl P2pChannelsSignalingDiscoveryState {
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let state: &P2pState = state.substate()?;
-                state.webrtc_discovery_respond_with_availble_peers(dispatcher);
+                state.webrtc_discovery_respond_with_availble_peers(dispatcher, meta.time());
 
                 Ok(())
             }
@@ -101,7 +101,7 @@ impl P2pChannelsSignalingDiscoveryState {
             } => {
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredSend`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -123,7 +123,7 @@ impl P2pChannelsSignalingDiscoveryState {
             P2pChannelsSignalingDiscoveryAction::DiscoveredRejectReceived { .. } => {
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredRejectReceived`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -134,7 +134,7 @@ impl P2pChannelsSignalingDiscoveryState {
                     } => target_public_key.clone(),
                     state => {
                         bug_condition!(
-                            "Invalid local state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                            "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredRejectReceived`, state: {state:?}",
                         );
                         return Ok(());
                     }
@@ -145,12 +145,16 @@ impl P2pChannelsSignalingDiscoveryState {
                     target_public_key,
                 };
 
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let state: &P2pState = state.substate()?;
+                state.webrtc_discovery_respond_with_availble_peers(dispatcher, meta.time());
+
                 Ok(())
             }
             P2pChannelsSignalingDiscoveryAction::DiscoveredAcceptReceived { offer, .. } => {
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredAcceptReceived`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -161,7 +165,7 @@ impl P2pChannelsSignalingDiscoveryState {
                     } => target_public_key.clone(),
                     state => {
                         bug_condition!(
-                            "Invalid local state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                            "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredAcceptReceived`, state: {state:?}",
                         );
                         return Ok(());
                     }
@@ -183,7 +187,7 @@ impl P2pChannelsSignalingDiscoveryState {
             P2pChannelsSignalingDiscoveryAction::AnswerSend { answer, .. } => {
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::AnswerSend`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -212,7 +216,7 @@ impl P2pChannelsSignalingDiscoveryState {
             P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend { .. } => {
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferSend`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -231,7 +235,7 @@ impl P2pChannelsSignalingDiscoveryState {
             } => {
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferSend`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredReceived`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -240,10 +244,9 @@ impl P2pChannelsSignalingDiscoveryState {
                     time: meta.time(),
                     target_public_key: target_public_key.clone(),
                 };
-                let dispatcher = state_context.into_dispatcher();
-                // TODO(binier): this action might not be enabled, in
-                // which case we sshould be rejecting discovered peer.
-                dispatcher.push(P2pConnectionOutgoingAction::Init {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let state: &P2pState = state.substate()?;
+                let action = P2pConnectionOutgoingAction::Init {
                     opts: P2pConnectionOutgoingInitOpts::WebRTC {
                         peer_id: target_public_key.peer_id(),
                         signaling: SignalingMethod::P2p {
@@ -251,16 +254,20 @@ impl P2pChannelsSignalingDiscoveryState {
                         },
                     },
                     rpc_id: None,
-                });
+                };
+                let accepted = redux::EnablingCondition::is_enabled(&action, state, meta.time());
+                if accepted {
+                    dispatcher.push(action);
+                } else {
+                    dispatcher
+                        .push(P2pChannelsSignalingDiscoveryAction::DiscoveredReject { peer_id });
+                }
                 Ok(())
             }
             P2pChannelsSignalingDiscoveryAction::DiscoveredReject { .. } => {
-                todo!("handle peer rejection")
-            }
-            P2pChannelsSignalingDiscoveryAction::DiscoveredAccept { offer, .. } => {
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferSend`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredReject`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -271,7 +278,39 @@ impl P2pChannelsSignalingDiscoveryState {
                     } => target_public_key.clone(),
                     state => {
                         bug_condition!(
-                            "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferSend`, state: {state:?}",
+                            "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredReject`, state: {state:?}",
+                        );
+                        return Ok(());
+                    }
+                };
+
+                *remote = SignalingDiscoveryState::DiscoveredRejected {
+                    time: meta.time(),
+                    target_public_key,
+                };
+                let dispatcher = state_context.into_dispatcher();
+                let message = SignalingDiscoveryChannelMsg::DiscoveredReject;
+                dispatcher.push(P2pChannelsSignalingDiscoveryEffectfulAction::MessageSend {
+                    peer_id,
+                    message,
+                });
+                Ok(())
+            }
+            P2pChannelsSignalingDiscoveryAction::DiscoveredAccept { offer, .. } => {
+                let Self::Ready { remote, .. } = state else {
+                    bug_condition!(
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredAccept`, state: {state:?}",
+                    );
+                    return Ok(());
+                };
+
+                let target_public_key = match remote {
+                    SignalingDiscoveryState::Discovered {
+                        target_public_key, ..
+                    } => target_public_key.clone(),
+                    state => {
+                        bug_condition!(
+                            "Invalid state for `P2pChannelsSignalingDiscoveryAction::DiscoveredAccept`, state: {state:?}",
                         );
                         return Ok(());
                     }
@@ -299,7 +338,7 @@ impl P2pChannelsSignalingDiscoveryState {
             P2pChannelsSignalingDiscoveryAction::AnswerReceived { answer, .. } => {
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferSend`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::AnswerReceived`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -310,7 +349,7 @@ impl P2pChannelsSignalingDiscoveryState {
                     } => target_public_key.clone(),
                     state => {
                         bug_condition!(
-                        "Invalid remote state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::AnswerReceived`, state: {state:?}",
                     );
                         return Ok(());
                     }
@@ -336,7 +375,7 @@ impl P2pChannelsSignalingDiscoveryState {
             P2pChannelsSignalingDiscoveryAction::AnswerDecrypted { answer, .. } => {
                 let Self::Ready { remote, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::OfferSend`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingDiscoveryAction::AnswerDecrypted`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -347,7 +386,7 @@ impl P2pChannelsSignalingDiscoveryState {
                     } => target_public_key.clone(),
                     state => {
                         bug_condition!(
-                            "Invalid remote state for `P2pChannelsSignalingDiscoveryAction::OfferDecryptError`, state: {state:?}",
+                            "Invalid state for `P2pChannelsSignalingDiscoveryAction::AnswerDecrypted`, state: {state:?}",
                         );
                         return Ok(());
                     }
@@ -355,7 +394,7 @@ impl P2pChannelsSignalingDiscoveryState {
 
                 *remote = SignalingDiscoveryState::Answered { time: meta.time() };
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 match answer {
                     P2pConnectionResponse::Accepted(answer) => {
                         dispatcher.push(P2pConnectionOutgoingAction::AnswerRecvSuccess {
@@ -382,6 +421,9 @@ impl P2pChannelsSignalingDiscoveryState {
                         })
                     }
                 }
+
+                let state: &P2pState = state.substate()?;
+                state.webrtc_discovery_respond_with_availble_peers(dispatcher, meta.time());
                 Ok(())
             }
         }

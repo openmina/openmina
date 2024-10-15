@@ -88,7 +88,7 @@ impl P2pChannelsSignalingExchangeState {
             } => {
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
-                        "Invalid state for `P2pChannelsSignalingExchangeAction::OfferDecryptError`, state: {state:?}",
+                        "Invalid state for `P2pChannelsSignalingExchangeAction::OfferReceived`, state: {state:?}",
                     );
                     return Ok(());
                 };
@@ -185,7 +185,7 @@ impl P2pChannelsSignalingExchangeState {
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let state: &P2pState = state.substate()?;
-                state.webrtc_discovery_respond_with_availble_peers(dispatcher);
+                state.webrtc_discovery_respond_with_availble_peers(dispatcher, meta.time());
                 Ok(())
             }
             P2pChannelsSignalingExchangeAction::OfferSend {

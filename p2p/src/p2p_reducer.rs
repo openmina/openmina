@@ -190,19 +190,11 @@ impl P2pState {
             return Ok(());
         }
 
-        for peer_id in self
+        for (&peer_id, _) in self
             .ready_peers_iter()
-            .filter(|(_, peer)| {
-                peer.channels.signaling.discovery.is_ready()
-                    && !peer.channels.signaling.am_looking_for_peer()
-                    && peer
-                        .channels
-                        .signaling
-                        .received_discovered_peer_id()
-                        .is_none()
-            })
-            .map(|(peer_id, _)| *peer_id)
+            .filter(|(_, peer)| peer.channels.signaling.discovery.is_ready())
         {
+            dispatcher.push(P2pChannelsSignalingDiscoveryAction::RequestSend { peer_id });
             dispatcher.push(P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend { peer_id });
         }
 
