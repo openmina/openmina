@@ -149,6 +149,20 @@ impl P2pConnectionOutgoingInitOpts {
         }
     }
 
+    pub fn can_connect_directly(&self) -> bool {
+        match self {
+            Self::LibP2P(..) => true,
+            Self::WebRTC { signaling, .. } => signaling.can_connect_directly(),
+        }
+    }
+
+    pub fn webrtc_p2p_relay_peer_id(&self) -> Option<PeerId> {
+        match self {
+            Self::WebRTC { signaling, .. } => signaling.p2p_relay_peer_id(),
+            _ => None,
+        }
+    }
+
     /// The OCaml implementation of Mina uses the `get_some_initial_peers` RPC to exchange peer information.
     /// Try to convert this RPC response into our peer address representation.
     /// Recognize a hack for marking the webrtc signaling server.
@@ -226,6 +240,7 @@ impl P2pConnectionOutgoingInitOpts {
                         (*peer_id).to_string().into_bytes().into(),
                     ),
                 }),
+                SignalingMethod::P2p { .. } => None,
             },
         }
     }

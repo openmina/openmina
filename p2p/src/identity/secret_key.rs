@@ -1,7 +1,7 @@
 use std::{fmt, str::FromStr};
 
 use ed25519_dalek::SigningKey as Ed25519SecretKey;
-use rand::Rng;
+use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::identity::PublicKey;
@@ -29,7 +29,7 @@ impl SecretKey {
     pub fn deterministic(i: usize) -> Self {
         let mut bytes = [0; 32];
         let bytes_len = bytes.len();
-        let i_bytes = i.to_be_bytes();
+        let i_bytes = (i + 1).to_be_bytes();
         let i = bytes_len - i_bytes.len();
         bytes[i..bytes_len].copy_from_slice(&i_bytes);
         Self::from_bytes(bytes)
@@ -46,6 +46,69 @@ impl SecretKey {
     pub fn public_key(&self) -> PublicKey {
         PublicKey(self.0.verifying_key())
     }
+
+    pub fn to_x25519(&self) -> x25519_dalek::StaticSecret {
+        self.0.to_scalar_bytes().into()
+    }
+}
+
+use aes_gcm::{
+    aead::{Aead, AeadCore},
+    Aes256Gcm, KeyInit,
+};
+impl SecretKey {
+    fn shared_key(&self, other_pk: &PublicKey) -> Result<Aes256Gcm, ()> {
+        let key = self.to_x25519().diffie_hellman(&other_pk.to_x25519());
+        if !key.was_contributory() {
+            return Err(());
+        }
+        let key = key.to_bytes();
+        // eprintln!("[shared_key] {} & {} = {}", self.public_key(), other_pk, hex::encode(&key));
+        let key: &aes_gcm::Key<Aes256Gcm> = (&key).into();
+        Ok(Aes256Gcm::new(key))
+    }
+
+    pub fn encrypt_raw(
+        &self,
+        other_pk: &PublicKey,
+        rng: impl Rng + CryptoRng,
+        data: &[u8],
+    ) -> Result<Vec<u8>, ()> {
+        let shared_key = self.shared_key(other_pk)?;
+        let nonce = Aes256Gcm::generate_nonce(rng);
+        let mut buffer = Vec::from(AsRef::<[u8]>::as_ref(&nonce));
+        buffer.extend(shared_key.encrypt(&nonce, data).or(Err(()))?);
+        Ok(buffer)
+    }
+
+    pub fn encrypt<M: EncryptableType>(
+        &self,
+        other_pk: &PublicKey,
+        rng: impl Rng + CryptoRng,
+        data: &M,
+    ) -> Result<M::Encrypted, ()> {
+        let data = serde_json::to_vec(data).or(Err(()))?;
+        self.encrypt_raw(other_pk, rng, &data).map(Into::into)
+    }
+
+    pub fn decrypt_raw(&self, other_pk: &PublicKey, ciphertext: &[u8]) -> Result<Vec<u8>, ()> {
+        let shared_key = self.shared_key(other_pk)?;
+        let (nonce, ciphertext) = ciphertext.split_at_checked(12).ok_or(())?;
+        shared_key.decrypt(nonce.into(), ciphertext).or(Err(()))
+    }
+
+    pub fn decrypt<M: EncryptableType>(
+        &self,
+        other_pk: &PublicKey,
+        ciphertext: &M::Encrypted,
+    ) -> Result<M, ()> {
+        let data = self.decrypt_raw(other_pk, ciphertext.as_ref())?;
+        serde_json::from_slice(&data).or(Err(()))
+    }
+}
+
+pub trait EncryptableType: Serialize + for<'a> Deserialize<'a> {
+    type Encrypted: From<Vec<u8>> + AsRef<[u8]>;
 }
 
 impl fmt::Display for SecretKey {
@@ -89,6 +152,16 @@ impl TryFrom<SecretKey> for libp2p_identity::Keypair {
 
     fn try_from(value: SecretKey) -> Result<Self, Self::Error> {
         Self::ed25519_from_bytes(value.to_bytes())
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+impl TryFrom<libp2p_identity::Keypair> for SecretKey {
+    type Error = ();
+
+    fn try_from(value: libp2p_identity::Keypair) -> Result<Self, Self::Error> {
+        let bytes = value.try_into_ed25519().or(Err(()))?.to_bytes();
+        Ok(Self::from_bytes(bytes[0..32].try_into().or(Err(()))?))
     }
 }
 

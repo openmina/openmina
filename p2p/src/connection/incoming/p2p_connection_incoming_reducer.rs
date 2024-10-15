@@ -5,6 +5,7 @@ use openmina_core::{bug_condition, debug, warn, Substate};
 use redux::{ActionWithMeta, Dispatcher, Timestamp};
 
 use crate::{
+    channels::signaling::exchange::P2pChannelsSignalingExchangeAction,
     connection::{
         incoming::P2pConnectionIncomingError,
         incoming_effectful::P2pConnectionIncomingEffectfulAction,
@@ -44,7 +45,7 @@ impl P2pConnectionIncomingState {
                     .entry(peer_id)
                     .or_insert_with(|| P2pPeerState {
                         is_libp2p: false,
-                        dial_opts: opts.offer.listen_port.map(|listen_port| {
+                        dial_opts: opts.offer.listen_port.and_then(|listen_port| {
                             let signaling = match opts.signaling {
                                 IncomingSignalingMethod::Http => {
                                     SignalingMethod::Http(HttpSignalingInfo {
@@ -52,8 +53,9 @@ impl P2pConnectionIncomingState {
                                         port: listen_port,
                                     })
                                 }
+                                IncomingSignalingMethod::P2p { .. } => return None,
                             };
-                            P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
+                            Some(P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling })
                         }),
                         status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
                         identify: None,
@@ -144,33 +146,46 @@ impl P2pConnectionIncomingState {
                 let state = p2p_state
                     .incoming_peer_connection_mut(peer_id)
                     .ok_or_else(|| format!("Invalid state for: {:?}", action))?;
-                if let Self::AnswerSdpCreateSuccess {
+
+                let Self::AnswerSdpCreateSuccess {
                     signaling,
                     offer,
                     rpc_id,
                     ..
                 } = state
-                {
-                    *state = Self::AnswerReady {
-                        time: meta.time(),
-                        signaling: signaling.clone(),
-                        offer: offer.clone(),
-                        answer: answer.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                } else {
+                else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::AnswerReady`: {:?}",
                         state
                     );
-                }
+                    return Ok(());
+                };
+                let signaling = signaling.clone();
+                *state = Self::AnswerReady {
+                    time: meta.time(),
+                    signaling: signaling.clone(),
+                    offer: offer.clone(),
+                    answer: answer.clone(),
+                    rpc_id: rpc_id.take(),
+                };
+
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
 
-                dispatcher.push(P2pConnectionIncomingEffectfulAction::AnswerSend {
-                    peer_id: *peer_id,
-                    answer: answer.clone(),
-                });
+                match signaling {
+                    IncomingSignalingMethod::Http => {
+                        dispatcher.push(P2pConnectionIncomingEffectfulAction::AnswerSend {
+                            peer_id: *peer_id,
+                            answer: answer.clone(),
+                        });
+                    }
+                    IncomingSignalingMethod::P2p { relay_peer_id } => {
+                        dispatcher.push(P2pChannelsSignalingExchangeAction::AnswerSend {
+                            peer_id: relay_peer_id,
+                            answer: P2pConnectionResponse::Accepted(answer.clone()),
+                        });
+                    }
+                }
 
                 if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(peer_id) {
                     if let Some(callback) =

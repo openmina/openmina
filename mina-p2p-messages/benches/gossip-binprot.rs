@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 #![cfg(benchmarks)]
 #![feature(test)]
 

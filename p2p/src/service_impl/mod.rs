@@ -21,7 +21,7 @@ pub mod webrtc {
     use crate::{
         channels::{ChannelId, ChannelMsg, MsgId},
         connection::outgoing::P2pConnectionOutgoingInitOpts,
-        identity::SecretKey,
+        identity::{EncryptableType, PublicKey, SecretKey},
         webrtc, P2pEvent, PeerId,
     };
 
@@ -72,5 +72,17 @@ pub mod webrtc {
         fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {}
 
         fn channel_send(&mut self, peer_id: PeerId, msg_id: MsgId, msg: ChannelMsg) {}
+
+        fn encrypt<T: EncryptableType>(
+            &mut self,
+            other_pk: &PublicKey,
+            message: &T,
+        ) -> Result<T::Encrypted, ()>;
+
+        fn decrypt<T: EncryptableType>(
+            &mut self,
+            other_pub_key: &PublicKey,
+            encrypted: &T::Encrypted,
+        ) -> Result<T, ()>;
     }
 }

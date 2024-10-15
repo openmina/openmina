@@ -1,6 +1,7 @@
 use crate::{
     channels::{
-        rpc::P2pChannelsRpcAction, streaming_rpc::P2pChannelsStreamingRpcAction, P2pChannelsState,
+        rpc::P2pChannelsRpcAction, signaling::discovery::P2pChannelsSignalingDiscoveryAction,
+        streaming_rpc::P2pChannelsStreamingRpcAction, P2pChannelsState,
     },
     connection::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
@@ -187,6 +188,14 @@ impl P2pState {
 
         if !config.peer_discovery {
             return Ok(());
+        }
+
+        for (&peer_id, _) in self
+            .ready_peers_iter()
+            .filter(|(_, peer)| peer.channels.signaling.discovery.is_ready())
+        {
+            dispatcher.push(P2pChannelsSignalingDiscoveryAction::RequestSend { peer_id });
+            dispatcher.push(P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend { peer_id });
         }
 
         if let Some(_d) = config.timeouts.initial_peers {

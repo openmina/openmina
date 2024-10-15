@@ -17,6 +17,7 @@ use wasm_bindgen_futures::spawn_local;
 
 use openmina_core::channels::{mpsc, oneshot};
 
+use crate::identity::{EncryptableType, PublicKey};
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::outgoing::P2pConnectionOutgoingInitOpts,
@@ -183,13 +184,17 @@ impl Drop for RTCChannel {
     }
 }
 
-async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
-    let timeout = Duration::from_secs(3);
-
+async fn sleep(dur: Duration) {
     #[cfg(not(target_arch = "wasm32"))]
-    let timeout = tokio::time::sleep(timeout);
+    let fut = tokio::time::sleep(dur);
     #[cfg(target_arch = "wasm32")]
-    let timeout = gloo_timers::future::TimeoutFuture::new(timeout.as_millis() as u32);
+    let fut = gloo_timers::future::TimeoutFuture::new(dur.as_millis() as u32);
+    fut.await
+}
+
+async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
+    let timeout = sleep(Duration::from_secs(3));
+
     tokio::select! {
         _ = timeout => {}
         _ = pc.wait_for_ice_gathering_complete() => {}
@@ -512,6 +517,11 @@ async fn peer_loop(
                     let chan_clone = chan.clone();
                     let event_sender_clone = event_sender.clone();
                     spawn_local(async move {
+                        // Add a delay for sending messages after channel
+                        // was opened. Some initial messages get lost otherwise.
+                        // TODO(binier): find deeper cause and fix it.
+                        sleep(Duration::from_secs(3)).await;
+
                         while let Some((msg_id, encoded)) = sender_rx.recv().await {
                             let encoded = bytes::Bytes::from(encoded);
                             let mut chunks =
@@ -714,4 +724,16 @@ pub trait P2pServiceWebrtc: redux::Service {
             let _ = peer.cmd_sender.send(PeerCmd::ChannelSend(msg_id, msg));
         }
     }
+
+    fn encrypt<T: EncryptableType>(
+        &mut self,
+        other_pk: &PublicKey,
+        message: &T,
+    ) -> Result<T::Encrypted, ()>;
+
+    fn decrypt<T: EncryptableType>(
+        &mut self,
+        other_pub_key: &PublicKey,
+        encrypted: &T::Encrypted,
+    ) -> Result<T, ()>;
 }

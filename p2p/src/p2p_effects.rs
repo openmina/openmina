@@ -13,6 +13,12 @@ impl P2pEffectfulAction {
         match self {
             P2pEffectfulAction::Initialize => {}
             P2pEffectfulAction::Channels(action) => match action {
+                P2pChannelsEffectfulAction::SignalingDiscovery(action) => {
+                    action.effects(&meta, store)
+                }
+                P2pChannelsEffectfulAction::SignalingExchange(action) => {
+                    action.effects(&meta, store)
+                }
                 P2pChannelsEffectfulAction::BestTip(action) => action.effects(&meta, store),
                 P2pChannelsEffectfulAction::Transaction(action) => action.effects(&meta, store),
                 P2pChannelsEffectfulAction::StreamingRpc(action) => action.effects(&meta, store),

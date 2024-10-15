@@ -1,3 +1,5 @@
+use p2p::channels::signaling::discovery::P2pChannelsSignalingDiscoveryAction;
+use p2p::channels::signaling::exchange::P2pChannelsSignalingExchangeAction;
 use p2p::channels::snark::P2pChannelsSnarkAction;
 use p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
 use p2p::channels::transaction::P2pChannelsTransactionAction;
@@ -158,6 +160,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 error: P2pConnectionErrorResponse::Rejected(reason),
                             });
                         }
+                        P2pConnectionResponse::SignalDecryptionFailed => {
+                            store.dispatch(P2pConnectionOutgoingAction::AnswerRecvError {
+                                peer_id,
+                                error: P2pConnectionErrorResponse::SignalDecryptionFailed,
+                            });
+                        }
                         P2pConnectionResponse::InternalError => {
                             store.dispatch(P2pConnectionOutgoingAction::AnswerRecvError {
                                 peer_id,
@@ -194,8 +202,17 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             openmina_core::log::warn!(meta.time(); kind = "P2pChannelEvent::Opened", peer_id = peer_id.to_string(), error = err);
                             // TODO(binier): dispatch error action.
                         }
-                        // TODO(binier): maybe dispatch success and then ready.
                         Ok(_) => match chan_id {
+                            ChannelId::SignalingDiscovery => {
+                                store.dispatch(P2pChannelsSignalingDiscoveryAction::Ready {
+                                    peer_id,
+                                });
+                            }
+                            ChannelId::SignalingExchange => {
+                                store.dispatch(P2pChannelsSignalingExchangeAction::Ready {
+                                    peer_id,
+                                });
+                            }
                             ChannelId::BestTipPropagation => {
                                 store.dispatch(P2pChannelsBestTipAction::Ready { peer_id });
                             }

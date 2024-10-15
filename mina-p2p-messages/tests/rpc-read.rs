@@ -158,7 +158,7 @@ fn debugger_to_wire() {
         "v1/rpc/get-transition-knowledge",
         "v1/rpc/get-ancestry",
     ] {
-        for_all_with_path(&PathBuf::from(d).join("response"), |encoded, path| {
+        for_all_with_path(PathBuf::from(d).join("response"), |encoded, path| {
             let mut p = &encoded[1..];
             let tag = BinprotTag::binprot_read(&mut p).unwrap().to_string_lossy();
             let ver = Ver::binprot_read(&mut p).unwrap();

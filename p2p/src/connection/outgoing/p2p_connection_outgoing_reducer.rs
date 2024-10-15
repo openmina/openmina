@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use openmina_core::{bug_condition, warn, Substate};
 
 use crate::{
+    channels::signaling::discovery::P2pChannelsSignalingDiscoveryAction,
     connection::{
         outgoing_effectful::P2pConnectionOutgoingEffectfulAction, P2pConnectionErrorResponse,
         P2pConnectionState,
@@ -44,7 +45,7 @@ impl P2pConnectionOutgoingState {
                         .entry(*opts.peer_id())
                         .or_insert_with(|| P2pPeerState {
                             is_libp2p: opts.is_libp2p(),
-                            dial_opts: Some(opts.clone()),
+                            dial_opts: Some(opts.clone()).filter(|v| v.can_connect_directly()),
                             status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(
                                 opts,
                             )),
@@ -190,26 +191,34 @@ impl P2pConnectionOutgoingState {
                 let state = p2p_state
                     .outgoing_peer_connection_mut(peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
-                if let Self::OfferSdpCreateSuccess { opts, rpc_id, .. } = state {
-                    *state = Self::OfferReady {
-                        time: meta.time(),
-                        opts: opts.clone(),
-                        offer: offer.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                } else {
+                let Self::OfferSdpCreateSuccess { opts, rpc_id, .. } = state else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::OfferReady`: {:?}",
                         state
                     );
                     return Ok(());
-                }
+                };
+                let opts = opts.clone();
+                *state = Self::OfferReady {
+                    time: meta.time(),
+                    opts: opts.clone(),
+                    offer: offer.clone(),
+                    rpc_id: rpc_id.take(),
+                };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferSend {
-                    peer_id: *peer_id,
-                    offer: offer.clone(),
-                });
+
+                if let Some(relay_peer_id) = opts.webrtc_p2p_relay_peer_id() {
+                    dispatcher.push(P2pChannelsSignalingDiscoveryAction::DiscoveredAccept {
+                        peer_id: relay_peer_id,
+                        offer: offer.clone(),
+                    });
+                } else {
+                    dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferSend {
+                        peer_id: *peer_id,
+                        offer: offer.clone(),
+                    });
+                }
                 Ok(())
             }
             P2pConnectionOutgoingAction::OfferSendSuccess { peer_id } => {
@@ -275,6 +284,9 @@ impl P2pConnectionOutgoingState {
                     error: match error {
                         P2pConnectionErrorResponse::Rejected(reason) => {
                             P2pConnectionOutgoingError::Rejected(*reason)
+                        }
+                        P2pConnectionErrorResponse::SignalDecryptionFailed => {
+                            P2pConnectionOutgoingError::RemoteSignalDecryptionFailed
                         }
                         P2pConnectionErrorResponse::InternalError => {
                             P2pConnectionOutgoingError::RemoteInternalError

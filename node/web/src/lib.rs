@@ -24,7 +24,7 @@ fn main() {
     thread::main_thread_init();
     wasm_bindgen_futures::spawn_local(async {
         console_error_panic_hook::set_once();
-        tracing::initialize(tracing::Level::INFO);
+        tracing::initialize(tracing::Level::DEBUG);
 
         init_rayon().await.unwrap();
     });
@@ -70,7 +70,6 @@ async fn setup_node(
     }
 
     node_builder
-        .p2p_no_discovery()
         .p2p_custom_task_spawner(P2pTaskRemoteSpawner {})
         .unwrap();
     node_builder.gather_stats();

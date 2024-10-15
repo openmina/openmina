@@ -149,6 +149,22 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
             P2pServiceWebrtc::channel_send(self, peer_id, msg_id, msg)
         }
     }
+
+    fn encrypt<M: crate::identity::EncryptableType>(
+        &mut self,
+        other_pk: &crate::identity::PublicKey,
+        message: &M,
+    ) -> Result<M::Encrypted, ()> {
+        P2pServiceWebrtc::encrypt(self, other_pk, message)
+    }
+
+    fn decrypt<M: crate::identity::EncryptableType>(
+        &mut self,
+        other_pk: &crate::identity::PublicKey,
+        encrypted: &M::Encrypted,
+    ) -> Result<M, ()> {
+        P2pServiceWebrtc::decrypt(self, other_pk, encrypted)
+    }
 }
 
 #[cfg(feature = "p2p-libp2p")]

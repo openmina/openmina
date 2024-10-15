@@ -4,6 +4,8 @@ use std::net::{IpAddr, SocketAddr};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
+use crate::channels::signaling::discovery::SignalingDiscoveryChannelMsg;
+use crate::channels::signaling::exchange::SignalingExchangeChannelMsg;
 use crate::channels::streaming_rpc::StreamingRpcChannelMsg;
 use crate::ConnectionAddr;
 use crate::{
@@ -105,6 +107,9 @@ impl fmt::Display for P2pConnectionEvent {
                 P2pConnectionResponse::Rejected(reason) => {
                     write!(f, "AnswerReceived, {peer_id}, Rejected, {reason:?}")
                 }
+                P2pConnectionResponse::SignalDecryptionFailed => {
+                    write!(f, "SignalDecryptionFailed, {peer_id}")
+                }
                 P2pConnectionResponse::InternalError => {
                     write!(f, "AnswerReceived, {peer_id}, InternalError")
                 }
@@ -148,6 +153,27 @@ impl fmt::Display for P2pChannelEvent {
                 };
 
                 match msg {
+                    ChannelMsg::SignalingDiscovery(v) => match v {
+                        SignalingDiscoveryChannelMsg::GetNext => write!(f, "GetNext"),
+                        SignalingDiscoveryChannelMsg::Discover => write!(f, "Discover"),
+                        SignalingDiscoveryChannelMsg::Discovered { target_public_key } => {
+                            write!(f, "Discovered, {}", target_public_key.peer_id())
+                        }
+                        SignalingDiscoveryChannelMsg::DiscoveredReject => write!(f, "Discovered"),
+                        SignalingDiscoveryChannelMsg::DiscoveredAccept(_) => {
+                            write!(f, "DiscoveredAccept")
+                        }
+                        SignalingDiscoveryChannelMsg::Answer(_) => write!(f, "Answer"),
+                    },
+                    ChannelMsg::SignalingExchange(v) => match v {
+                        SignalingExchangeChannelMsg::GetNext => write!(f, "GetNext"),
+                        SignalingExchangeChannelMsg::OfferToYou {
+                            offerer_pub_key, ..
+                        } => {
+                            write!(f, "OfferToYou, {}", offerer_pub_key.peer_id())
+                        }
+                        SignalingExchangeChannelMsg::Answer(_) => write!(f, "Answer"),
+                    },
                     ChannelMsg::BestTipPropagation(v) => {
                         match v {
                             BestTipPropagationChannelMsg::GetNext => write!(f, "GetNext"),

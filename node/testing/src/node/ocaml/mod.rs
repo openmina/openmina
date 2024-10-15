@@ -106,7 +106,7 @@ impl OcamlNode {
 
         cmd.arg("daemon");
         cmd.arg("--config-dir").arg(&config_dir);
-        cmd.arg("--libp2p-keypair").arg(&Self::privkey_path(dir));
+        cmd.arg("--libp2p-keypair").arg(Self::privkey_path(dir));
         cmd.args(["--external-ip", "127.0.0.1"])
             .args(["--external-port", &config.libp2p_port.to_string()])
             .args(["--client-port", &config.client_port.to_string()])
