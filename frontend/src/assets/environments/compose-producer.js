@@ -1,18 +1,22 @@
-import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
+/**
+ * This configuration is used for lunching devnet rust nodes and user's own node to produce block. All inside a docker container.
+ * Todo: github documentation link
+ */
 
-export const environment: Readonly<MinaEnv> = {
+export default {
   production: true,
-  identifier: 'Running In Docker',
+  identifier: 'Running in Docker',
   globalConfig: {
     features: {
       dashboard: [],
-      nodes: ['overview', 'live', 'bootstrap'],
       'block-production': ['won-slots'],
+      nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
       snarks: ['scan-state'],
       benchmarks: ['wallets'],
     },
     canAddNodes: true,
+    graphQL: '/openmina-node/graphql',
   },
   configs: [
     {
@@ -21,4 +25,3 @@ export const environment: Readonly<MinaEnv> = {
     },
   ],
 };
-

@@ -1,6 +1,9 @@
-import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
+/**
+ * This configuration is used with the demo block producers inside a private network.
+ * https://github.com/openmina/openmina/blob/main/docs/producer-demo.md#launch
+ */
 
-export const environment: Readonly<MinaEnv> = {
+export default {
   production: true,
   globalConfig: {
     features: {
@@ -26,5 +29,4 @@ export const environment: Readonly<MinaEnv> = {
       url: 'http://localhost:11014',
     },
   ],
-};
-
+}

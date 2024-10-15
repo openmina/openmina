@@ -23,7 +23,7 @@ export class AppService {
   getNodes(): Observable<MinaNode[]> {
     return of([
       ...CONFIG.configs,
-      ...(localStorage.getItem('custom_nodes') ? JSON.parse(localStorage.getItem('custom_nodes')) : []),
+      ...JSON.parse(localStorage.getItem('custom_nodes') ?? '[]'),
     ]);
   }
 
