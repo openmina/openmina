@@ -44,9 +44,11 @@ impl NetworkConfig {
     pub fn global() -> &'static Self {
         CONFIG.get_or_init(|| {
             let config = Self::default_config();
-            eprintln!(
-                "WARNING: no network config initialized, using default config: {}",
-                config.name
+            crate::warn!(
+                crate::log::system_time();
+                kind = "network",
+                message = "no network config initialized, using default config",
+                config = config.name,
             );
             config
         })

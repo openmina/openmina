@@ -1422,7 +1422,9 @@ impl IndexedPool {
                     }
                 }
             } else {
-                eprintln!("Sender queue is malformed");
+                openmina_core::warn!(
+                    openmina_core::log::system_time();
+                    kind = "transaction pool", message = "Sender queue is malformed");
                 all_by_sender.remove(&sender);
             }
 
@@ -1484,7 +1486,9 @@ impl IndexedPool {
                     }
                 }
             } else {
-                eprintln!("Sender queue is malformed");
+                openmina_core::warn!(
+                    openmina_core::log::system_time();
+                    kind = "transaction pool", message = "Sender queue is malformed");
                 self.all_by_sender.remove(&sender);
             }
 
@@ -1683,10 +1687,12 @@ impl TransactionPool {
             .collect::<Vec<_>>();
 
         if !dropped_locally_generated.is_empty() {
-            eprintln!(
-                "Dropped locally generated commands $cmds from pool when transition frontier was recreated. {:?}",
-                dropped_locally_generated
-            )
+            openmina_core::info!(
+                openmina_core::log::system_time();
+                kind = "transaction pool",
+                message = "Dropped locally generated commands $cmds from pool when transition frontier was recreated.",
+                dropped = format!("{dropped_locally_generated:?}")
+            );
         }
 
         Ok(())

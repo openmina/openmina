@@ -120,7 +120,9 @@ impl node::service::BlockProducerService for crate::NodeService {
                 // IMPORTANT: Make sure that `input` here is a copy from before `prove` is called, we don't
                 // want to leak the private key.
                 if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
-                    eprintln!("ERROR when dumping failed block proof inputs: {}", error);
+                    openmina_core::error!(
+                        openmina_core::log::system_time();
+                        message = "Failure when dumping failed block proof inputs", error = format!("{error}"));
                 }
             }
             let _ = tx.send(BlockProducerEvent::BlockProve(block_hash, res).into());
@@ -137,7 +139,11 @@ fn dump_failed_block_proof_input(
         .join(format!("failed_block_proof_input_{block_hash}.binprot"))
         .to_string_lossy()
         .to_string();
-    println!("Dumping failed block proof to {filename}");
+    openmina_core::warn!(
+        openmina_core::log::system_time();
+        message = "Dumping failed block proof.",
+        filename = filename
+    );
     std::fs::create_dir_all(&debug_dir)?;
     let mut file = std::fs::File::create(&filename)?;
     input.binprot_write(&mut file)?;

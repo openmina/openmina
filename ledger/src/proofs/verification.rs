@@ -807,13 +807,17 @@ pub fn verify_zkapp(
 
     let ok = accum_check && verified;
 
-    eprintln!("verify_zkapp OK={:?}", ok);
+    openmina_core::info!(openmina_core::log::system_time(); message = format!("verify_zkapp OK={ok:?}"));
 
     #[cfg(not(test))]
     if !ok {
         if let Err(e) = dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
         {
-            eprintln!("Failed to dump zkapp verification: {:?}", e);
+            openmina_core::error!(
+                openmina_core::log::system_time();
+                message = "Failed to dump zkapp verification",
+                error = format!("{e:?}")
+            );
         }
     }
 
