@@ -1754,6 +1754,29 @@ pub mod zkapp_command {
         pub epoch_length: Numeric<Length>,
     }
 
+    #[cfg(feature = "fuzzing")]
+    impl EpochData {
+        pub fn new(
+            ledger: EpochLedger,
+            seed: Hash<Fp>,
+            start_checkpoint: Hash<Fp>,
+            lock_checkpoint: Hash<Fp>,
+            epoch_length: Numeric<Length>,
+        ) -> Self {
+            EpochData {
+                ledger,
+                seed,
+                start_checkpoint,
+                lock_checkpoint,
+                epoch_length,
+            }
+        }
+
+        pub fn ledger_mut(&mut self) -> &mut EpochLedger {
+            &mut self.ledger
+        }
+    }
+
     impl ToInputs for EpochData {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L875
         fn to_inputs(&self, inputs: &mut Inputs) {
@@ -2295,6 +2318,25 @@ pub mod zkapp_command {
         pub(crate) network: ZkAppPreconditions,
         pub account: AccountPreconditions,
         pub valid_while: Numeric<Slot>,
+    }
+
+    #[cfg(feature = "fuzzing")]
+    impl Preconditions {
+        pub fn new(
+            network: ZkAppPreconditions,
+            account: AccountPreconditions,
+            valid_while: Numeric<Slot>,
+        ) -> Self {
+            Self {
+                network,
+                account,
+                valid_while,
+            }
+        }
+
+        pub fn network_mut(&mut self) -> &mut ZkAppPreconditions {
+            &mut self.network
+        }
     }
 
     impl ToFieldElements<Fp> for Preconditions {
@@ -7847,7 +7889,7 @@ where
     l
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzzing"))]
 pub mod for_tests {
     use mina_signer::Keypair;
     use rand::Rng;

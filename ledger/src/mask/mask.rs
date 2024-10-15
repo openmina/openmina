@@ -289,6 +289,21 @@ impl Mask {
     fn test_matrix(&self) -> HashesMatrix {
         self.with(|this| this.test_matrix())
     }
+
+    /// Use for fuzzing only
+    #[cfg(feature = "fuzzing")]
+    pub fn fuzzing_to_root(&self) -> Mask {
+        let accounts = self.to_list();
+        let mut new_root = Self::create(self.depth() as usize);
+
+        for account in accounts {
+            new_root
+                .get_or_create_account(account.id(), account)
+                .unwrap();
+        }
+
+        new_root
+    }
 }
 
 impl BaseLedger for Mask {
