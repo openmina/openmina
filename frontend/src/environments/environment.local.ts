@@ -1,3 +1,7 @@
+/**
+ * This file is used for local starting of the app without any development intentions.
+ */
+
 import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 
 export const environment: Readonly<MinaEnv> = {

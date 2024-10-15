@@ -1,3 +1,7 @@
+/**
+ * This configuration is used for the staging-webnode environment.
+ */
+
 export default {
   production: true,
   globalConfig: {

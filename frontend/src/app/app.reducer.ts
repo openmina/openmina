@@ -40,12 +40,12 @@ export const appReducer = createReducer(
   })),
   on(AppActions.toggleMenuOpening, (state) => ({ ...state, menu: { ...state.menu, open: !state.menu.open } })),
   on(AppActions.addNode, (state, { node }) => {
-    const customNodes = localStorage.getItem('custom_nodes') ? JSON.parse(localStorage.getItem('custom_nodes')) : [];
+    const customNodes = JSON.parse(localStorage.getItem('custom_nodes') ?? '[]');
     localStorage.setItem('custom_nodes', JSON.stringify([node, ...customNodes]));
     return { ...state, nodes: [node, ...state.nodes] };
   }),
   on(AppActions.deleteNode, (state, { node }) => {
-    const customNodes = localStorage.getItem('custom_nodes') ? JSON.parse(localStorage.getItem('custom_nodes')) : [];
+    const customNodes = JSON.parse(localStorage.getItem('custom_nodes') ?? '[]');
     localStorage.setItem('custom_nodes', JSON.stringify(customNodes.filter((n: MinaNode) => n.name !== node.name)));
     const nodes = state.nodes.filter(n => n.name !== node.name);
     return { ...state, nodes, activeNode: state.activeNode?.name === node.name ? nodes[0] : state.activeNode };

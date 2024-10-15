@@ -12,13 +12,14 @@
   </div>
   <div class="p-5 flex-column border-top overflow-auto flex-1"
        *ngIf="filteredNodes.length">
-    <div class="node h-xl pl-12 pr-12 flex-row flex-between border-rad-4 pointer"
+    <div class="node h-xl pl-12 pr-12 flex-row border-rad-4 pointer"
          *ngFor="let node of filteredNodes; let i=index"
          (click)="selectNode(node)"
          [ngClass]="{
             'selected-primary bg-selected-container': activeNode === node,
             'secondary bg-container-hover primary-hover': activeNode !== node,
-            'mb-5': i < filteredNodes.length - 1
+            'mb-5': i < filteredNodes.length - 1,
+            'custom': node.isCustom
             }"
          [tabindex]="0"
          [tooltip]="node.url"
@@ -37,7 +38,7 @@
         <div class="h-md pr-5 fx-row-full-cent bg-container-hover primary-hover warn-primary"
              [tooltip]="'Delete from local storage'"
              [showDelay]="400"
-             (click)="deleteCustomNode(node)">
+             (click)="deleteCustomNode(node); $event.stopImmediatePropagation()">
           <span class="mina-icon icon-200">delete</span>
         </div>
       </div>

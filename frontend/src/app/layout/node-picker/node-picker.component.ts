@@ -5,8 +5,6 @@ import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { AppActions } from '@app/app.actions';
 import { animate, state, style, transition, trigger } from '@angular/animations';
-import { WebNodeService } from '@core/services/web-node.service';
-import { Router } from '@angular/router';
 import { CONFIG } from '@shared/constants/config';
 
 @Component({
@@ -42,9 +40,8 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   @ViewChild('searchNode') searchInput: ElementRef<HTMLInputElement>;
   readonly canAddNodes: boolean = CONFIG.globalConfig?.canAddNodes;
 
-  constructor(private elementRef: ElementRef<HTMLElement>,
-              private webNodeService: WebNodeService,
-              private router: Router) { super(); }
+
+  constructor(private elementRef: ElementRef<HTMLElement>) { super(); }
 
   ngAfterViewInit(): void {
     this.listenToNodeSearch();
@@ -89,6 +86,7 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   }
 
   deleteCustomNode(node: MinaNode): void {
+    this.filteredNodes = this.filteredNodes.filter(n => n !== node);
     this.dispatch2(AppActions.deleteNode({ node }));
   }
 }

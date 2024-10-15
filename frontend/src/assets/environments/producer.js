@@ -1,3 +1,9 @@
+/**
+ * This configuration is used for the producer dashboard that are based on archive node.
+ * Currently, there is no pipeline that this file is linked to, therefore it is not used anywhere right now.
+ * Check frontend/src/environments/environment.producer.ts file.
+ */
+
 export default {
   production: true,
   hideNodeStats: true,
