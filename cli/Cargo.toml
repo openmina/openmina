@@ -47,7 +47,7 @@ redux = { workspace = true, features=["serializable_callbacks"] }
 tempfile = "3.8.0"
 
 [features]
-default = ["p2p-libp2p"]
+default = ["p2p-libp2p", "p2p-webrtc"]
 unsafe-signal-handlers = []
 p2p-libp2p = ["openmina-node-native/p2p-libp2p"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
