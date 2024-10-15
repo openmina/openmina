@@ -34,6 +34,7 @@ tracing-wasm = "0.2"
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
+tracing-appender = "0.2.3"
 libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }
 
 [features]
