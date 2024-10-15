@@ -2,6 +2,26 @@
 
 OPENMINA_BASE_URL="https://github.com/openmina"
 
+replace_signaling_url() {
+    if [ -n "$OPENMINA_SIGNALING_URL" ]; then
+        HTTPD_CONF="/usr/local/apache2/conf/httpd.conf"
+        SIGNALING_URL="http://localhost:3000/mina/webrtc/signal"
+
+        echo "Replacing signaling URL in $HTTPD_CONF..."
+
+        sed -i "s|$SIGNALING_URL|$OPENMINA_SIGNALING_URL|g" "$HTTPD_CONF"
+
+        if [[ $? -ne 0 ]]; then
+            echo "Failed to replace the signaling URL, exiting."
+            exit 1
+        else
+            echo "Successfully replaced signaling URL with '$OPENMINA_SIGNALING_URL' in $HTTPD_CONF"
+        fi
+    else
+        echo "OPENMINA_SIGNALING_URL is not set. No replacement performed."
+    fi
+}
+
 download_circuit_files() {
     CIRCUITS_BASE_URL="$OPENMINA_BASE_URL/circuit-blobs/releases/download"
     CIRCUITS_VERSION="3.0.1devnet"
@@ -99,6 +119,8 @@ if [ -n "$OPENMINA_FRONTEND_ENVIRONMENT" ]; then
 else
   echo "No environment specified. Using default."
 fi
+
+replace_signaling_url
 
 echo "Starting Apache..."
 exec "$@"
