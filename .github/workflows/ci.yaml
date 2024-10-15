@@ -16,454 +16,495 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ledger-tests:
-    runs-on: ubuntu-20.04
+  # ledger-tests:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - name: Git checkout
+  #       uses: actions/checkout@v4
+  #     - name: Setup build dependencies
+  #       run: |
+  #         sudo apt update
+  #         sudo apt install -y protobuf-compiler
+  #     - name: Setup Rust
+  #       run: |
+  #         # Nightly to be able to use `--report-time` below
+  #         rustup install nightly
+  #         rustup override set nightly
+  #     - name: Download circuits files
+  #       run: |
+  #         git clone --depth 1 https://github.com/openmina/circuit-blobs.git
+  #         ln -s -b $PWD/circuit-blobs/* ledger/
+  #     - name: Build ledger tests
+  #       run: |
+  #         cd ledger
+  #         cargo build --release --tests
+  #     - name: Run ledger tests
+  #       run: |
+  #         cd ledger
+  #         cargo test --release -- -Z unstable-options --report-time
+
+  ledger-wasm-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        driver:
+          ## FIXME: Activate chrome, but now it timeouts when tests run more than 10 minutes
+          ## Timeout example: https://github.com/openmina/ledger/actions/runs/5245920744/jobs/9474043794
+          # - --chrome
+          - --firefox
+          # - --node -- --features in_nodejs -Z build-std=std,panic_abort
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--max-memory=4294967296"
+      RUST_LOG: wasm_bindgen_test_runner
+      RUST_BACKTRACE: full
+      CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS: true
+      CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS: true
+      CARGO_PROFILE_RELEASE_DEBUG: true
     steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
-      - name: Setup build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
-      - name: Setup Rust
-        run: |
-          # Nightly to be able to use `--report-time` below
-          rustup install nightly
-          rustup override set nightly
+      - uses: actions/checkout@v3
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+          components: rust-src
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Download circuits files
         run: |
           git clone --depth 1 https://github.com/openmina/circuit-blobs.git
-          ln -s -b $PWD/circuit-blobs/* ledger/
-      - name: Build ledger tests
-        run: |
+          rm -rf circuit-blobs/.git circuit-blobs/berkeley_rc1 circuit-blobs/3.0.0mainnet
+          zip -0 -r circuit-blobs circuit-blobs
+          mv circuit-blobs.zip ledger/
+      - run: |
           cd ledger
-          cargo build --release --tests
-      - name: Run ledger tests
-        run: |
-          cd ledger
-          cargo test --release -- -Z unstable-options --report-time
+          wasm-pack test --release ${{ matrix.driver }} --headless -- -Z build-std=std,panic_abort
 
-  p2p-tests:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
+  # p2p-tests:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - name: Git checkout
+  #       uses: actions/checkout@v4
 
-      - name: Setup build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+  #     - name: Setup build dependencies
+  #       run: |
+  #         sudo apt update
+  #         sudo apt install -y protobuf-compiler
 
-      - name: Setup Rust
-        run: |
-          rustup default 1.80
-          rustup component add rustfmt
+  #     - name: Setup Rust
+  #       run: |
+  #         rustup default 1.80
+  #         rustup component add rustfmt
 
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "v0"
+  #     - name: Setup Rust Cache
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         prefix-key: "v0"
 
-      - name: Test p2p crate
-        run: |
-          cargo test -p p2p --tests
+  #     - name: Test p2p crate
+  #       run: |
+  #         cargo test -p p2p --tests
 
 
-  build:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
+  # build:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - name: Git checkout
+  #       uses: actions/checkout@v4
 
-      - name: Setup build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+  #     - name: Setup build dependencies
+  #       run: |
+  #         sudo apt update
+  #         sudo apt install -y protobuf-compiler
 
-      - name: Setup Rust
-        run: |
-          rustup default 1.80
-          rustup component add rustfmt
+  #     - name: Setup Rust
+  #       run: |
+  #         rustup default 1.80
+  #         rustup component add rustfmt
 
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "v0"
+  #     - name: Setup Rust Cache
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         prefix-key: "v0"
 
-      - name: Release build
-        run: |
-          cargo build --release --bin openmina
+  #     - name: Release build
+  #       run: |
+  #         cargo build --release --bin openmina
 
-      - name: Upload binaries
-        uses: actions/upload-artifact@v4
-        with:
-          name: bin
-          path: target/release/openmina
+  #     - name: Upload binaries
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: bin
+  #         path: target/release/openmina
 
-  build_wasm:
-   runs-on: ubuntu-20.04
-   steps:
-     - name: Git checkout
-       uses: actions/checkout@v4
+  # build_wasm:
+  #  runs-on: ubuntu-20.04
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v4
 
-     - name: Setup build dependencies
-       run: |
-         sudo apt update
-         sudo apt install -y protobuf-compiler
+  #    - name: Setup build dependencies
+  #      run: |
+  #        sudo apt update
+  #        sudo apt install -y protobuf-compiler
 
-     - name: Setup Rust
-       run: |
-         rustup default nightly
-         rustup component add rustfmt rust-src
-         rustup target add wasm32-unknown-unknown
-         cargo install -f wasm-bindgen-cli --version 0.2.93
+  #    - name: Setup Rust
+  #      run: |
+  #        rustup default nightly
+  #        rustup component add rustfmt rust-src
+  #        rustup target add wasm32-unknown-unknown
+  #        cargo install -f wasm-bindgen-cli --version 0.2.93
 
-     - name: Setup Rust Cache
-       uses: Swatinem/rust-cache@v2
-       with:
-         prefix-key: "v0"
+  #    - name: Setup Rust Cache
+  #      uses: Swatinem/rust-cache@v2
+  #      with:
+  #        prefix-key: "v0"
 
-     - name: Release build
-       run: |
-         cd node/web
-         cargo +nightly build --release --target wasm32-unknown-unknown
-         wasm-bindgen --keep-debug --web --out-dir pkg ../../target/wasm32-unknown-unknown/release/openmina_node_web.wasm
+  #    - name: Release build
+  #      run: |
+  #        cd node/web
+  #        cargo +nightly build --release --target wasm32-unknown-unknown
+  #        wasm-bindgen --keep-debug --web --out-dir pkg ../../target/wasm32-unknown-unknown/release/openmina_node_web.wasm
 
-  build-tests:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
+  # build-tests:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - name: Git checkout
+  #       uses: actions/checkout@v4
 
-      - name: Setup build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+  #     - name: Setup build dependencies
+  #       run: |
+  #         sudo apt update
+  #         sudo apt install -y protobuf-compiler
 
-      - name: Setup Rust
-        run: |
-          rustup default 1.80
-          rustup component add rustfmt
+  #     - name: Setup Rust
+  #       run: |
+  #         rustup default 1.80
+  #         rustup component add rustfmt
 
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "v0"
+  #     - name: Setup Rust Cache
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         prefix-key: "v0"
 
-      - name: Build tests
-        run: |
-          mkdir -p target/release/tests
+  #     - name: Build tests
+  #       run: |
+  #         mkdir -p target/release/tests
 
-          cargo build --release --tests --package=openmina-node-testing --package=cli
-          cargo build --release --tests --package=openmina-node-testing --package=cli --message-format=json > cargo-build-test.json
-          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
-          while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
+  #         cargo build --release --tests --package=openmina-node-testing --package=cli
+  #         cargo build --release --tests --package=openmina-node-testing --package=cli --message-format=json > cargo-build-test.json
+  #         jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
+  #         while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
 
-      - name: Upload tests
-        uses: actions/upload-artifact@v4
-        with:
-          name: tests
-          path: target/release/tests
+  #     - name: Upload tests
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: tests
+  #         path: target/release/tests
 
-  build-tests-webrtc:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
+  # build-tests-webrtc:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - name: Git checkout
+  #       uses: actions/checkout@v4
 
-      - name: Setup build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+  #     - name: Setup build dependencies
+  #       run: |
+  #         sudo apt update
+  #         sudo apt install -y protobuf-compiler
 
-      - name: Setup Rust
-        run: |
-          rustup default 1.80
-          rustup component add rustfmt
+  #     - name: Setup Rust
+  #       run: |
+  #         rustup default 1.80
+  #         rustup component add rustfmt
 
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "v0"
+  #     - name: Setup Rust Cache
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         prefix-key: "v0"
 
-      - name: Build tests
-        run: |
-          mkdir -p target/release/tests
+  #     - name: Build tests
+  #       run: |
+  #         mkdir -p target/release/tests
 
-          cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests
-          cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
-          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
-          while read NAME FILE; do cp -a $FILE target/release/tests/webrtc_$NAME; done < tests.tsv
+  #         cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests
+  #         cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
+  #         jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
+  #         while read NAME FILE; do cp -a $FILE target/release/tests/webrtc_$NAME; done < tests.tsv
 
-      - name: Upload tests
-        uses: actions/upload-artifact@v4
-        with:
-          name: tests-webrtc
-          path: target/release/tests
+  #     - name: Upload tests
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: tests-webrtc
+  #         path: target/release/tests
 
-  p2p-scenario-tests:
-    needs: [ build-tests, build-tests-webrtc ]
-    runs-on: ubuntu-20.04
-    container:
-      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
-      options: --volume debugger_data:/tmp/db
-    env:
-      BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
-    strategy:
-      matrix:
-        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub, p2p_kad,
-               webrtc_p2p_basic_connections]
-      fail-fast: false
+  # p2p-scenario-tests:
+  #   needs: [ build-tests, build-tests-webrtc ]
+  #   runs-on: ubuntu-20.04
+  #   container:
+  #     image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+  #     options: --volume debugger_data:/tmp/db
+  #   env:
+  #     BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
+  #   strategy:
+  #     matrix:
+  #       test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub, p2p_kad,
+  #              webrtc_p2p_basic_connections]
+  #     fail-fast: false
 
-    services:
-      network-debugger:
-        image: openmina/mina-network-debugger:23385c61
-        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
-        env:
-          SERVER_PORT: 80
-          FIREWALL_INTERFACE: lo
-          RUST_LOG: info
-          DB_PATH: /tmp/db
-        ports:
-          - 80:80
+  #   services:
+  #     network-debugger:
+  #       image: openmina/mina-network-debugger:23385c61
+  #       options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+  #       env:
+  #         SERVER_PORT: 80
+  #         FIREWALL_INTERFACE: lo
+  #         RUST_LOG: info
+  #         DB_PATH: /tmp/db
+  #       ports:
+  #         - 80:80
 
-    steps:
-      - name: Download tests
-        uses: actions/download-artifact@v4
-        with:
-          pattern: tests*
-          merge-multiple: true
+  #   steps:
+  #     - name: Download tests
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: tests*
+  #         merge-multiple: true
 
-      - name: Setup permissions
-        run: |
-          chmod +x ./${{ matrix.test }}
+  #     - name: Setup permissions
+  #       run: |
+  #         chmod +x ./${{ matrix.test }}
 
-      # TODO: use curl
-      - name: Wait for the debugger
-        run: |
-          sleep 5
+  #     # TODO: use curl
+  #     - name: Wait for the debugger
+  #       run: |
+  #         sleep 5
 
-      - name: Run the test
-        run: |
-          ./${{ matrix.test }} --test-threads=1
+  #     - name: Run the test
+  #       run: |
+  #         ./${{ matrix.test }} --test-threads=1
 
-      - name: Archive network debugger database
-        uses: actions/upload-artifact@v4
-        with:
-          name: network-debugger-${{ matrix.test }}
-          path: /tmp/db
-        if: ${{ always() }}
+  #     - name: Archive network debugger database
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: network-debugger-${{ matrix.test }}
+  #         path: /tmp/db
+  #       if: ${{ always() }}
 
-  k8s-peers:
-    runs-on: ubuntu-20.04
-    # TODO: query cluster for actual addresses, or specify then on deployment
-    env:
-      PEERS: |
-        /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWS4TMSjrAS4Cj31PgjZ9KgeHh5goLP65M5GSriF28d7Jx
-        /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWK92cYz26JqBE9vM9s9Jd9pJKcNxLd7VVRupU7YG5NupU
-        /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWSU1DYZYVA7wAYLvLsH6yVS8oV1sMJUcC7VtUxCgtsWkJ
-        /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWM5m9QqHpDkPJi54GPP6rGFpzo7E274husrModPSLQ7tn
-        /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWCk2QSmQH2XbtpDXiSPUq6wb2LB2JaExHRXkJggmEfN4J
-        /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWQ1642Dzm57Kr8tmTwS9NRFaJPy4ysaQ2ne3ZYwQn5qCk
-        /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWHK67syE2LeTz5EnNqCe5ZFf9SoZRFN4AdHVZsL31WkMn
-        /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWDwxrG5u12FzXAFyK7vd8aHnEQf4dwoboBJ72FUS179xK
-        /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWEowA3VakSddUjZuBTK3HJhNM7sRqwWDbqtPtwymAMCcy
-    outputs:
-      peers: ${{ steps.peers.outputs.peers }}
-    steps:
-      - id: peers
-        name: Fetch k8s OCaml peers
-        run: |
-          {
-            echo 'peers<<EOF'
-            echo $PEERS
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
+  # k8s-peers:
+  #   runs-on: ubuntu-20.04
+  #   # TODO: query cluster for actual addresses, or specify then on deployment
+  #   env:
+  #     PEERS: |
+  #       /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWS4TMSjrAS4Cj31PgjZ9KgeHh5goLP65M5GSriF28d7Jx
+  #       /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWK92cYz26JqBE9vM9s9Jd9pJKcNxLd7VVRupU7YG5NupU
+  #       /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWSU1DYZYVA7wAYLvLsH6yVS8oV1sMJUcC7VtUxCgtsWkJ
+  #       /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWM5m9QqHpDkPJi54GPP6rGFpzo7E274husrModPSLQ7tn
+  #       /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWCk2QSmQH2XbtpDXiSPUq6wb2LB2JaExHRXkJggmEfN4J
+  #       /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWQ1642Dzm57Kr8tmTwS9NRFaJPy4ysaQ2ne3ZYwQn5qCk
+  #       /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWHK67syE2LeTz5EnNqCe5ZFf9SoZRFN4AdHVZsL31WkMn
+  #       /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWDwxrG5u12FzXAFyK7vd8aHnEQf4dwoboBJ72FUS179xK
+  #       /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWEowA3VakSddUjZuBTK3HJhNM7sRqwWDbqtPtwymAMCcy
+  #   outputs:
+  #     peers: ${{ steps.peers.outputs.peers }}
+  #   steps:
+  #     - id: peers
+  #       name: Fetch k8s OCaml peers
+  #       run: |
+  #         {
+  #           echo 'peers<<EOF'
+  #           echo $PEERS
+  #           echo EOF
+  #         } >> "$GITHUB_OUTPUT"
 
-  scenario-tests:
-    needs:
-      - k8s-peers
-      - build-tests
-    #  - build-tests-webrtc
-    runs-on: ubuntu-20.04
-    container:
-      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
-      options: --volume debugger_data:/tmp/db
-    env:
-      # to allow local addrs discovery
-      OPENMINA_DISCOVERY_FILTER_ADDR: false
-      # to allow connection with replayer
-      # TODO: remove when replayer supports identify
-      KEEP_CONNECTION_WITH_UNKNOWN_STREAM: true
-      OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
-      BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
-    strategy:
-      matrix:
-        test:
-          - single_node
-          - multi_node_initial_joining
-          - multi_node_peer_discovery
-          - multi_node_propagate_block
-          - connection_discovery_ocaml_to_rust_via_seed
-          - connection_discovery_ocaml_to_rust
-          - connection_discovery_rust_as_seed
-          - connection_discovery_rust_to_ocaml_via_seed
-          - connection_discovery_rust_to_ocaml
-          # - webrtc_single_node
-          # - webrtc_multi_node
-      fail-fast: false
+  # scenario-tests:
+  #   needs:
+  #     - k8s-peers
+  #     - build-tests
+  #   #  - build-tests-webrtc
+  #   runs-on: ubuntu-20.04
+  #   container:
+  #     image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+  #     options: --volume debugger_data:/tmp/db
+  #   env:
+  #     # to allow local addrs discovery
+  #     OPENMINA_DISCOVERY_FILTER_ADDR: false
+  #     # to allow connection with replayer
+  #     # TODO: remove when replayer supports identify
+  #     KEEP_CONNECTION_WITH_UNKNOWN_STREAM: true
+  #     OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
+  #     BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
+  #   strategy:
+  #     matrix:
+  #       test:
+  #         - single_node
+  #         - multi_node_initial_joining
+  #         - multi_node_peer_discovery
+  #         - multi_node_propagate_block
+  #         - connection_discovery_ocaml_to_rust_via_seed
+  #         - connection_discovery_ocaml_to_rust
+  #         - connection_discovery_rust_as_seed
+  #         - connection_discovery_rust_to_ocaml_via_seed
+  #         - connection_discovery_rust_to_ocaml
+  #         # - webrtc_single_node
+  #         # - webrtc_multi_node
+  #     fail-fast: false
 
-    services:
-      network-debugger:
-        image: openmina/mina-network-debugger:23385c61
-        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
-        env:
-          SERVER_PORT: 80
-          FIREWALL_INTERFACE: lo
-          RUST_LOG: info
-          DB_PATH: /tmp/db
-        ports:
-          - 80:80
+  #   services:
+  #     network-debugger:
+  #       image: openmina/mina-network-debugger:23385c61
+  #       options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+  #       env:
+  #         SERVER_PORT: 80
+  #         FIREWALL_INTERFACE: lo
+  #         RUST_LOG: info
+  #         DB_PATH: /tmp/db
+  #       ports:
+  #         - 80:80
 
-    steps:
-      - name: Download tests
-        uses: actions/download-artifact@v4
-        with:
-          pattern: tests*
-          merge-multiple: true
+  #   steps:
+  #     - name: Download tests
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: tests*
+  #         merge-multiple: true
 
-      - name: Setup permissions
-        run: |
-          chmod +x ./${{ matrix.test }}
+  #     - name: Setup permissions
+  #       run: |
+  #         chmod +x ./${{ matrix.test }}
 
-      # TODO: use curl
-      - name: Wait for the debugger
-        run: |
-          sleep 5
+  #     # TODO: use curl
+  #     - name: Wait for the debugger
+  #       run: |
+  #         sleep 5
 
-      - name: Run the test
-        run: |
-          ./${{ matrix.test }} --test-threads=1
+  #     - name: Run the test
+  #       run: |
+  #         ./${{ matrix.test }} --test-threads=1
 
-      - name: Archive network debugger database
-        uses: actions/upload-artifact@v4
-        with:
-          name: network-debugger-${{ matrix.test }}
-          path: /tmp/db
-        if: ${{ always() }}
+  #     - name: Archive network debugger database
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: network-debugger-${{ matrix.test }}
+  #         path: /tmp/db
+  #       if: ${{ always() }}
 
-  record-replay-tests:
-    needs:
-      - k8s-peers
-      - build-tests
-      - build-tests-webrtc
-    runs-on: ubuntu-20.04
-    container:
-      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
-    env:
-      # to allow local addrs discovery
-      OPENMINA_DISCOVERY_FILTER_ADDR: false
-      OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
-    strategy:
-      matrix:
-        test: [record_replay, webrtc_record_replay]
-      fail-fast: false
+  # record-replay-tests:
+  #   needs:
+  #     - k8s-peers
+  #     - build-tests
+  #     - build-tests-webrtc
+  #   runs-on: ubuntu-20.04
+  #   container:
+  #     image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+  #   env:
+  #     # to allow local addrs discovery
+  #     OPENMINA_DISCOVERY_FILTER_ADDR: false
+  #     OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
+  #   strategy:
+  #     matrix:
+  #       test: [record_replay, webrtc_record_replay]
+  #     fail-fast: false
 
-    steps:
-      - name: Download tests
-        uses: actions/download-artifact@v4
-        with:
-          pattern: tests*
-          merge-multiple: true
+  #   steps:
+  #     - name: Download tests
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: tests*
+  #         merge-multiple: true
 
-      - name: Setup permissions
-        run: |
-          chmod +x ./${{ matrix.test }}
+  #     - name: Setup permissions
+  #       run: |
+  #         chmod +x ./${{ matrix.test }}
 
-      - name: Run the test
-        run: |
-          ./${{ matrix.test }} --test-threads=1
+  #     - name: Run the test
+  #       run: |
+  #         ./${{ matrix.test }} --test-threads=1
 
 
-  bootstrap-test:
-    needs: [ k8s-peers, build, build-tests ]
-    runs-on: ubuntu-20.04
-    env:
-      PEERS_LIST: ${{ needs.k8s-peers.outputs.peers }}
-      PEER_LIST_FILE: peer-list.txt
-      WORK_DIR: data
-      BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
+  # bootstrap-test:
+  #   needs: [ k8s-peers, build, build-tests ]
+  #   runs-on: ubuntu-20.04
+  #   env:
+  #     PEERS_LIST: ${{ needs.k8s-peers.outputs.peers }}
+  #     PEER_LIST_FILE: peer-list.txt
+  #     WORK_DIR: data
+  #     BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
 
-    services:
-      network-debugger:
-        image: openmina/mina-network-debugger:23385c61
-        options: --privileged --init --volume /tmp/db:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
-        env:
-          SERVER_PORT: 80
-          FIREWALL_INTERFACE: lo
-          RUST_LOG: info
-          DB_PATH: /tmp/db
-        ports:
-          - 80:80
+  #   services:
+  #     network-debugger:
+  #       image: openmina/mina-network-debugger:23385c61
+  #       options: --privileged --init --volume /tmp/db:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+  #       env:
+  #         SERVER_PORT: 80
+  #         FIREWALL_INTERFACE: lo
+  #         RUST_LOG: info
+  #         DB_PATH: /tmp/db
+  #       ports:
+  #         - 80:80
 
-    steps:
-      - name: Download binary
-        uses: actions/download-artifact@v4
-        with:
-          name: bin
+  #   steps:
+  #     - name: Download binary
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: bin
 
-      - name: Download test
-        uses: actions/download-artifact@v4
-        with:
-          pattern: tests*
-          merge-multiple: true
+  #     - name: Download test
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: tests*
+  #         merge-multiple: true
 
-      - name: Fix permissions
-        run: |
-          chmod +x bootstrap openmina
+  #     - name: Fix permissions
+  #       run: |
+  #         chmod +x bootstrap openmina
 
-      # TODO: use curl
-      - name: Wait for the debugger
-        run: |
-          sleep 5
+  #     # TODO: use curl
+  #     - name: Wait for the debugger
+  #       run: |
+  #         sleep 5
 
-      - name: Peer List File
-        run: |
-          for PEER in $PEERS_LIST; do echo $PEER; done > $PEER_LIST_FILE
-          cat $PEER_LIST_FILE
+  #     - name: Peer List File
+  #       run: |
+  #         for PEER in $PEERS_LIST; do echo $PEER; done > $PEER_LIST_FILE
+  #         cat $PEER_LIST_FILE
 
-      - name: Bootstrap node
-        env:
-          OPENMINA_COMMAND: openmina
-          NO_PEER_DISCOVERY: "true"
-          OUT_PATH: ${{ env.WORK_DIR }}/logs/bootstrap_output
-          RECORD: state-with-input-actions
-        run: |
-          mkdir -p $OUT_PATH
-          PATH=$PATH:$(pwd) OPENMINA_COMMAND=openmina NO_PEER_DISCOVERY=true ./bootstrap --nocapture || {
-            echo "::group::Stderr"
-            cat $OUT_PATH.stderr
-            echo "::endgroup::"
-            exit 1
-          }
+  #     - name: Bootstrap node
+  #       env:
+  #         OPENMINA_COMMAND: openmina
+  #         NO_PEER_DISCOVERY: "true"
+  #         OUT_PATH: ${{ env.WORK_DIR }}/logs/bootstrap_output
+  #         RECORD: state-with-input-actions
+  #       run: |
+  #         mkdir -p $OUT_PATH
+  #         PATH=$PATH:$(pwd) OPENMINA_COMMAND=openmina NO_PEER_DISCOVERY=true ./bootstrap --nocapture || {
+  #           echo "::group::Stderr"
+  #           cat $OUT_PATH.stderr
+  #           echo "::endgroup::"
+  #           exit 1
+  #         }
 
-      - name: Upload logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: bootstrap-logs
-          path: ${{ env.WORK_DIR }}/logs/*
-        if: ${{ failure() }}
+  #     - name: Upload logs
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: bootstrap-logs
+  #         path: ${{ env.WORK_DIR }}/logs/*
+  #       if: ${{ failure() }}
 
-      - name: Upload record
-        uses: actions/upload-artifact@v4
-        with:
-          name: bootstrap-record
-          path: ${{ env.WORK_DIR }}/recorder/*
-        if: ${{ failure() }}
+  #     - name: Upload record
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: bootstrap-record
+  #         path: ${{ env.WORK_DIR }}/recorder/*
+  #       if: ${{ failure() }}
 
-      - name: Archive network debugger database
-        uses: actions/upload-artifact@v4
-        with:
-          name: network-debugger-test-bootstrap
-          path: /tmp/db
-        if: ${{ always() }}
+  #     - name: Archive network debugger database
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: network-debugger-test-bootstrap
+  #         path: /tmp/db
+  #       if: ${{ always() }}

@@ -68,44 +68,28 @@ fn cache_path(kind: Kind) -> Option<PathBuf> {
     super::circuit_blobs::home_base_dir().map(|p| p.join(cache_filename(kind)))
 }
 
-macro_rules! read_cache {
-    ($kind: expr, $digest: expr) => {{
-        #[cfg(not(target_family = "wasm"))]
-        let data = super::circuit_blobs::fetch(&cache_filename($kind))
-            .context("fetching verifier index failed")?;
-        #[cfg(target_family = "wasm")]
-        let data = super::circuit_blobs::fetch(&cache_filename($kind))
-            .await
-            .context("fetching verifier index failed")?;
-        let mut slice = data.as_slice();
-        let mut d = [0; 32];
-        // source digest
-        slice.read_exact(&mut d).context("reading source digest")?;
-        if d != $digest {
-            anyhow::bail!("source digest verification failed");
-        }
-
-        // index digest
-        slice.read_exact(&mut d).context("reading index digest")?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(slice);
-        let digest = hasher.finalize();
-        if d != digest.as_slice() {
-            anyhow::bail!("verifier index digest verification failed");
-        }
-        Ok(super::caching::verifier_index_from_bytes(slice)?)
-    }};
-}
-
-#[cfg(not(target_family = "wasm"))]
-fn read_cache(kind: Kind, digest: &[u8]) -> anyhow::Result<VerifierIndex<Fq>> {
-    read_cache!(kind, digest)
-}
-
-#[cfg(target_family = "wasm")]
 async fn read_cache(kind: Kind, digest: &[u8]) -> anyhow::Result<VerifierIndex<Fq>> {
-    read_cache!(kind, digest)
+    let data = super::circuit_blobs::fetch(&cache_filename(kind))
+        .await
+        .context("fetching verifier index failed")?;
+    let mut slice = data.as_slice();
+    let mut d = [0; 32];
+    // source digest
+    slice.read_exact(&mut d).context("reading source digest")?;
+    if d != digest {
+        anyhow::bail!("source digest verification failed");
+    }
+
+    // index digest
+    slice.read_exact(&mut d).context("reading index digest")?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(slice);
+    let digest = hasher.finalize();
+    if d != digest.as_slice() {
+        anyhow::bail!("verifier index digest verification failed");
+    }
+    Ok(super::caching::verifier_index_from_bytes(slice)?)
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -130,46 +114,31 @@ fn write_cache(kind: Kind, index: &VerifierIndex<Fq>, digest: &[u8]) -> anyhow::
     Ok(())
 }
 
-macro_rules! make_with_ext_cache {
-    ($kind: expr, $data: expr) => {{
-        let verifier_index: VerifierIndex<Fq> = serde_json::from_str($data).unwrap();
-        let mut hasher = Sha256::new();
-        hasher.update($data);
-        let src_index_digest = hasher.finalize();
-
-        #[cfg(not(target_family = "wasm"))]
-        let cache = read_cache($kind, &src_index_digest);
-        #[cfg(target_family = "wasm")]
-        let cache = read_cache($kind, &src_index_digest).await;
-
-        match cache {
-            Ok(verifier_index) => {
-                info!(system_time(); "Verifier index is loaded");
-                verifier_index
-            }
-            Err(err) => {
-                warn!(system_time(); "Cannot load verifier index: {err}");
-                let index = make_verifier_index(verifier_index);
-                #[cfg(not(target_family = "wasm"))]
-                if let Err(err) = write_cache($kind, &index, &src_index_digest) {
-                    warn!(system_time(); "Cannot store verifier index to cache file: {err}");
-                } else {
-                    info!(system_time(); "Stored verifier index to cache file");
-                }
-                index
-            }
-        }
-    }}
-}
-
-#[cfg(not(target_family = "wasm"))]
-fn make_with_ext_cache(kind: Kind, data: &str) -> VerifierIndex<Fq> {
-    make_with_ext_cache!(kind, data)
-}
-
-#[cfg(target_family = "wasm")]
 async fn make_with_ext_cache(kind: Kind, data: &str) -> VerifierIndex<Fq> {
-    make_with_ext_cache!(kind, data)
+    let verifier_index: VerifierIndex<Fq> = serde_json::from_str(data).unwrap();
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let src_index_digest = hasher.finalize();
+
+    let cache = read_cache(kind, &src_index_digest).await;
+
+    match cache {
+        Ok(verifier_index) => {
+            info!(system_time(); "Verifier index is loaded");
+            verifier_index
+        }
+        Err(err) => {
+            warn!(system_time(); "Cannot load verifier index: {err}");
+            let index = make_verifier_index(verifier_index);
+            #[cfg(not(target_family = "wasm"))]
+            if let Err(err) = write_cache(kind, &index, &src_index_digest) {
+                warn!(system_time(); "Cannot store verifier index to cache file: {err}");
+            } else {
+                info!(system_time(); "Stored verifier index to cache file");
+            }
+            index
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -215,23 +184,8 @@ impl TransactionVerifier {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
 impl BlockVerifier {
-    pub fn make() -> Self {
-        BLOCK_VERIFIER
-            .get_or_init(|| {
-                Self(Arc::new(make_with_ext_cache(
-                    Self::kind(),
-                    Self::src_json(),
-                )))
-            })
-            .clone()
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl BlockVerifier {
-    pub async fn make() -> Self {
+    pub async fn make_async() -> Self {
         if let Some(v) = BLOCK_VERIFIER.get() {
             v.clone()
         } else {
@@ -241,25 +195,15 @@ impl BlockVerifier {
             BLOCK_VERIFIER.get_or_init(move || verifier).clone()
         }
     }
-}
 
-#[cfg(not(target_family = "wasm"))]
-impl TransactionVerifier {
+    #[cfg(not(target_family = "wasm"))]
     pub fn make() -> Self {
-        TX_VERIFIER
-            .get_or_init(|| {
-                Self(Arc::new(make_with_ext_cache(
-                    Self::kind(),
-                    Self::src_json(),
-                )))
-            })
-            .clone()
+        super::provers::block_on(Self::make_async())
     }
 }
 
-#[cfg(target_family = "wasm")]
 impl TransactionVerifier {
-    pub async fn make() -> Self {
+    pub async fn make_async() -> Self {
         if let Some(v) = TX_VERIFIER.get() {
             v.clone()
         } else {
@@ -268,6 +212,11 @@ impl TransactionVerifier {
             ));
             TX_VERIFIER.get_or_init(move || verifier).clone()
         }
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub fn make() -> Self {
+        super::provers::block_on(Self::make_async())
     }
 }
 

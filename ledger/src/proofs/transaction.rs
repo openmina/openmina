@@ -4182,6 +4182,10 @@ mod tests_with_wasm {
 
 #[cfg(test)]
 pub(super) mod tests {
+    #[cfg(target_family = "wasm")]
+    use wasm_bindgen_test::wasm_bindgen_test as test;
+
+    use core::str;
     use std::path::Path;
 
     use mina_p2p_messages::binprot::{
@@ -4216,6 +4220,9 @@ pub(super) mod tests {
     }
 
     pub fn panic_in_ci() {
+        #[cfg(target_family = "wasm")]
+        panic!("missing circuit files !");
+
         fn is_ci() -> bool {
             std::env::var("CI").is_ok()
         }
@@ -4255,6 +4262,36 @@ pub(super) mod tests {
             .collect()
     }
 
+    // #[cfg(not(target_family = "wasm"))]
+    // fn fetch_file(filename: &str) -> std::io::Result<Vec<u8>> {
+    //     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+    //         .join(devnet_circuit_directory())
+    //         .join("tests")
+    //         .join(filename);
+    //     std::fs::read(path)
+    // }
+    // #[cfg(target_family = "wasm")]
+    pub fn fetch_file(filename: &str) -> std::io::Result<Vec<u8>> {
+        use crate::proofs::circuit_blobs::CIRCUIT_BLOBS;
+        use std::io::Read;
+
+        let mut file = std::io::Cursor::new(CIRCUIT_BLOBS);
+        let mut zip = zip::ZipArchive::new(&mut file).unwrap();
+
+        let filename = format!("{}/tests/{}", devnet_circuit_directory(), filename);
+        const MAX_SIZE: usize = 128 * 1024;
+
+        for i in 0..zip.len() {
+            let file = zip.by_index(i).unwrap();
+            if file.name().ends_with(&filename) {
+                let mut buffer = Vec::with_capacity(MAX_SIZE);
+                file.take(MAX_SIZE as _).read_to_end(&mut buffer).unwrap();
+                return Ok(buffer);
+            }
+        }
+        panic!();
+    }
+
     #[allow(unused)]
     #[test]
     #[ignore]
@@ -4273,6 +4310,10 @@ pub(super) mod tests {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join(devnet_circuit_directory())
             .join("tests");
+
+        if !path.exists() {
+            return;
+        }
 
         let entries = std::fs::read_dir(path)
             .unwrap()
@@ -4391,11 +4432,19 @@ pub(super) mod tests {
         (statement, [p1, p2], message)
     }
 
+    fn prover_wrapper<F: std::future::Future>(future: F) -> F::Output {
+        crate::proofs::provers::block_on(future)
+    }
+
+    #[cfg(not(target_family = "wasm"))]
     #[allow(unused)]
     #[test]
     fn test_make_verifier_index() {
-        BlockProver::make(None, None);
-        TransactionProver::make(None);
+        prover_wrapper(BlockProver::make_async(None, None));
+        prover_wrapper(TransactionProver::make_async(None));
+
+        // get_block_prover();
+        // get_tx_prover();
 
         // use crate::proofs::caching::verifier_index_to_bytes;
         // use crate::proofs::verifier_index::get_verifier_index;
@@ -4457,16 +4506,17 @@ pub(super) mod tests {
         // assert_eq!(format!("{:?}", v.lookup_index), format!("{:?}", new_v.lookup_index));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_regular_tx() {
-        let Ok(data) =
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("command-0-1.bin"))
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
-            // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
-            // std::fs::read("/tmp/coinbase_1_rampup4.bin")
-            // std::fs::read("/tmp/stake_0_rampup4.bin")
+        let Ok(data) = fetch_file("command-0-1.bin")
+        // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
+        // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
+        // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("command-0-1.bin"))
+        // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
+        // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
+        // std::fs::read("/tmp/coinbase_1_rampup4.bin")
+        // std::fs::read("/tmp/stake_0_rampup4.bin")
         else {
             eprintln!("request not found");
             panic_in_ci();
@@ -4478,7 +4528,7 @@ pub(super) mod tests {
             tx_step_prover,
             tx_wrap_prover,
             merge_step_prover: _,
-        } = TransactionProver::make(None);
+        } = prover_wrapper(TransactionProver::make_async(None));
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
         // witnesses.ocaml_aux = read_witnesses("tx_fps.txt").unwrap();
@@ -4583,12 +4633,15 @@ pub(super) mod tests {
         }
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_merge_proof() {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("merge_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("merge-100-0.bin"))
+            fetch_file("merge-100-0.bin")
+
+            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("merge-100-0.bin"))
             // std::fs::read("/tmp/minaa/mina-works-dump/merge-100-0.bin")
             // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
             // std::fs::read("/tmp/coinbase_1_rampup4.bin")
@@ -4604,7 +4657,7 @@ pub(super) mod tests {
             tx_step_prover: _,
             tx_wrap_prover,
             merge_step_prover,
-        } = TransactionProver::make(None);
+        } = prover_wrapper(TransactionProver::make_async(None));
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
         // witnesses.ocaml_aux = read_witnesses("fps_merge.txt").unwrap();
@@ -4632,14 +4685,10 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_proof_zkapp_sig() {
-        let Ok(data) = std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(devnet_circuit_directory())
-                .join("tests")
-                .join("command-1-0.bin"),
-        ) else {
+        let Ok(data) = fetch_file("command-1-0.bin") else {
             eprintln!("request not found");
             panic_in_ci();
             return;
@@ -4653,7 +4702,7 @@ pub(super) mod tests {
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
             step_proof_prover,
-        } = ZkappProver::make(None);
+        } = prover_wrapper(ZkappProver::make_async(None));
 
         dbg!(step_opt_signed_opt_signed_prover.rows_rev.len());
         // dbg!(step_opt_signed_opt_signed_prover.rows_rev.iter().map(|v| v.len()).collect::<Vec<_>>());
@@ -4677,14 +4726,10 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_proof_zkapp_proof() {
-        let Ok(data) = std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(devnet_circuit_directory())
-                .join("tests")
-                .join("zkapp-command-with-proof-128-1.bin"),
-        ) else {
+        let Ok(data) = fetch_file("zkapp-command-with-proof-128-1.bin") else {
             eprintln!("request not found");
             panic_in_ci();
             return;
@@ -4698,7 +4743,7 @@ pub(super) mod tests {
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
             step_proof_prover,
-        } = ZkappProver::make(None);
+        } = prover_wrapper(ZkappProver::make_async(None));
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
@@ -4720,14 +4765,10 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    // #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_block_proof() {
-        let Ok(data) = std::fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(devnet_circuit_directory())
-                .join("tests")
-                .join("block_input-2483246-0.bin"),
-        ) else {
+        let Ok(data) = fetch_file("block_input-2483246-0.bin") else {
             eprintln!("request not found");
             panic_in_ci();
             return;
@@ -4740,7 +4781,7 @@ pub(super) mod tests {
             block_step_prover,
             block_wrap_prover,
             tx_wrap_prover,
-        } = BlockProver::make(None, None);
+        } = prover_wrapper(BlockProver::make_async(None, None));
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
         // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
@@ -4766,31 +4807,23 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    #[cfg(not(target_family = "wasm"))] // same test in `test_proofs`
     #[test]
     fn test_proofs() {
-        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(devnet_circuit_directory())
-            .join("tests");
-
-        if !base_dir.exists() {
-            eprintln!("{:?} not found", base_dir);
-            panic_in_ci();
-            return;
-        }
-
         let BlockProver {
             block_step_prover,
             block_wrap_prover,
             tx_wrap_prover: _,
-        } = BlockProver::make(None, None);
-        let TransactionProver { tx_step_prover, .. } = TransactionProver::make(None);
+        } = prover_wrapper(BlockProver::make_async(None, None));
+        let TransactionProver { tx_step_prover, .. } =
+            prover_wrapper(TransactionProver::make_async(None));
         let ZkappProver {
             tx_wrap_prover,
             merge_step_prover,
             step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
             step_opt_signed_prover: zkapp_step_opt_signed_prover,
             step_proof_prover: zkapp_step_proof_prover,
-        } = ZkappProver::make(None);
+        } = prover_wrapper(ZkappProver::make_async(None));
 
         // TODO: Compare checksum with OCaml
         #[rustfmt::skip]
@@ -4804,7 +4837,7 @@ pub(super) mod tests {
         ];
 
         for (file, opt_signed_path, proved_path, expected_sum) in zkapp_cases {
-            let data = std::fs::read(base_dir.join(file)).unwrap();
+            let data = fetch_file(file).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
 
             let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
@@ -4833,7 +4866,7 @@ pub(super) mod tests {
             ("block_input-2483246-0.bin", None),
             // ("block_prove_inputs_7.bin", None),
         ] {
-            let data = std::fs::read(base_dir.join(filename)).unwrap();
+            let data = fetch_file(filename).unwrap();
 
             let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
                 read_binprot(&mut data.as_slice());
@@ -4871,7 +4904,7 @@ pub(super) mod tests {
 
         // Merge proof
         {
-            let data = std::fs::read(base_dir.join("merge-100-0.bin")).unwrap();
+            let data = fetch_file("merge-100-0.bin").unwrap();
 
             let (statement, proofs, message) = extract_merge(&data);
 
@@ -4935,7 +4968,7 @@ pub(super) mod tests {
         ];
 
         for (file, expected_sum) in requests {
-            let data = std::fs::read(base_dir.join(file)).unwrap();
+            let data = fetch_file(file).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();

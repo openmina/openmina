@@ -41,11 +41,14 @@ pub enum ZkAppCommandElt {
     ZkAppCommandCommitment(crate::ReceiptChainHash),
 }
 
-fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {
+fn assert_<Z: ZkappApplication>(b: Z::Bool, s: &str) -> Result<(), String> {
     // Used only for circuit generation (add constraints)
     // https://github.com/MinaProtocol/mina/blob/e44ddfe1ca54b3855e1ed336d89f6230d35aeb8c/src/lib/transaction_logic/zkapp_command_logic.ml#L929
 
-    // TODO: In non-witness generation, we raise an exception
+    if let Boolean::False = b.as_boolean() {
+        return Err(s.to_string());
+    }
+
     Ok(())
 }
 
@@ -345,8 +348,8 @@ where
         let is_empty_call_forest = local_state.stack_frame.calls().is_empty(w);
         match is_start {
             IsStart::Compute(_) => (),
-            IsStart::Yes(_) => assert_::<Z>(is_empty_call_forest)?,
-            IsStart::No => assert_::<Z>(is_empty_call_forest.neg())?,
+            IsStart::Yes(_) => assert_::<Z>(is_empty_call_forest, "is_empty_call_forest")?,
+            IsStart::No => assert_::<Z>(is_empty_call_forest.neg(), "is_empty_call_forest.neg()")?,
         };
         match is_start {
             IsStart::Yes(_) => Z::Bool::true_(),
@@ -566,16 +569,14 @@ where
             w,
         )
     };
-    assert_::<Z>(Z::Bool::equal(
-        proof_verifies,
-        account_update.is_proved(),
-        w,
-    ))?;
-    assert_::<Z>(Z::Bool::equal(
-        signature_verifies,
-        account_update.is_signed(),
-        w,
-    ))?;
+    assert_::<Z>(
+        Z::Bool::equal(proof_verifies, account_update.is_proved(), w),
+        "not proved",
+    )?;
+    assert_::<Z>(
+        Z::Bool::equal(signature_verifies, account_update.is_signed(), w),
+        "not signed",
+    )?;
 
     Z::LocalState::add_check(
         local_state,
@@ -650,11 +651,14 @@ where
                 SetOrKeep::Keep => a.get().timing.clone(),
             }
         });
-        assert_::<Z>(Z::GlobalSlotSpan::greater_than(
-            &timing.to_record().vesting_period,
-            &SlotSpan::zero(),
-            w,
-        ))?;
+        assert_::<Z>(
+            Z::GlobalSlotSpan::greater_than(
+                &timing.to_record().vesting_period,
+                &SlotSpan::zero(),
+                w,
+            ),
+            "vesting_period zero",
+        )?;
         a.get_mut().timing = timing;
         ((), ())
     };
@@ -1184,7 +1188,7 @@ where
             Z::SignedAmount::is_non_neg(&local_delta),
             w,
         );
-        assert_::<Z>(Z::Bool::or(is_start2.neg(), first, w))?;
+        assert_::<Z>(Z::Bool::or(is_start2.neg(), first, w), "is_start2 or first")?;
         let (new_local_fee_excess, overflow) =
             Z::SignedAmount::add_flagged(&local_state.excess, &local_delta, w);
         // We decompose this way because of OCaml evaluation order

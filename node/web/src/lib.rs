@@ -54,8 +54,8 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
 ) -> openmina_node_common::Node<NodeService> {
-    let block_verifier_index = BlockVerifier::make().await;
-    let work_verifier_index = TransactionVerifier::make().await;
+    let block_verifier_index = BlockVerifier::make_async().await;
+    let work_verifier_index = TransactionVerifier::make_async().await;
 
     let genesis_config = ::node::config::DEVNET_CONFIG.clone();
     let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
@@ -65,7 +65,7 @@ async fn setup_node(
 
     if let Some(bp_key) = block_producer {
         let provers =
-            BlockProver::make(Some(block_verifier_index), Some(work_verifier_index)).await;
+            BlockProver::make_async(Some(block_verifier_index), Some(work_verifier_index)).await;
         node_builder.block_producer(provers, bp_key);
     }
 
