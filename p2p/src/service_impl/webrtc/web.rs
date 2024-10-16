@@ -234,12 +234,11 @@ pub async fn webrtc_signal_send(
     url: &str,
     offer: Offer,
 ) -> std::result::Result<P2pConnectionResponse, RTCSignalingError> {
-    use web_sys::{Request, RequestInit, Response};
+    use web_sys::{Request, Response};
 
-    let mut opts = RequestInit::new();
-    opts.method("POST");
-    opts.body(Some(&JsValue::from(serde_json::to_string(&offer)?)));
-    let request = Request::new_with_str_and_init(url, &opts)?;
+    let offer = bs58::encode(serde_json::to_string(&offer)?).into_string();
+    let url = format!("{url}/{offer}");
+    let request = Request::new_with_str(&url)?;
     request.headers().set("content-type", "application/json")?;
 
     let window = web_sys::window().unwrap();
