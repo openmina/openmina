@@ -14,7 +14,7 @@ use super::{
 impl super::P2pNetworkKadState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, Self>,
-        action: ActionWithMeta<&P2pNetworkKadAction>,
+        action: ActionWithMeta<P2pNetworkKadAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
@@ -47,7 +47,7 @@ impl super::P2pNetworkKadState {
 
     pub fn system_reducer<State, Action>(
         mut state_context: Substate<Action, State, Self>,
-        action: ActionWithMeta<&P2pNetworkKademliaAction>,
+        action: ActionWithMeta<P2pNetworkKademliaAction>,
     ) -> Result<(), String>
     where
         State: SubstateAccess<Self>,
@@ -66,7 +66,7 @@ impl super::P2pNetworkKadState {
                     key,
                 },
             ) => {
-                let kad_key = P2pNetworkKadKey::from(key.clone());
+                let kad_key = P2pNetworkKadKey::from(key);
                 let closer_peers: Vec<_> =
                     state.routing_table.find_node(&kad_key).cloned().collect();
                 debug!(meta.time(); "found {} peers", closer_peers.len());
@@ -74,9 +74,9 @@ impl super::P2pNetworkKadState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkKademliaStreamAction::SendResponse {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                     data: message,
                 });
                 Ok(())
@@ -91,7 +91,7 @@ impl super::P2pNetworkKadState {
                 },
             ) => {
                 let mut latest_request_peers = Vec::new();
-                for entry in closest_peers {
+                for entry in &closest_peers {
                     let kind = match state.routing_table.insert(entry.clone()) {
                         Ok(true) => P2pNetworkKadLatestRequestPeerKind::New,
                         Ok(false) => P2pNetworkKadLatestRequestPeerKind::Existing,
@@ -101,19 +101,18 @@ impl super::P2pNetworkKadState {
                 }
                 state.latest_request_peers = latest_request_peers.into();
 
-                let data = closest_peers.clone();
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkKadRequestAction::ReplyReceived {
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
-                    data,
+                    peer_id,
+                    stream_id,
+                    data: closest_peers,
                 });
 
                 Ok(())
             }
             (_, P2pNetworkKademliaAction::StartBootstrap { key }) => {
                 state.status = P2pNetworkKadStatus::Bootstrapping(
-                    P2pNetworkKadBootstrapState::new(*key).map_err(|k| k.to_string())?,
+                    P2pNetworkKadBootstrapState::new(key).map_err(|k| k.to_string())?,
                 );
 
                 if state.bootstrap_state().map_or(false, |bootstrap_state| {
@@ -137,7 +136,7 @@ impl super::P2pNetworkKadState {
             }
             (_, P2pNetworkKademliaAction::UpdateRoutingTable { peer_id, addrs }) => {
                 let _ = state.routing_table.insert(
-                    P2pNetworkKadEntry::new(*peer_id, addrs.clone()).map_err(|e| e.to_string())?,
+                    P2pNetworkKadEntry::new(peer_id, addrs.clone()).map_err(|e| e.to_string())?,
                 );
                 Ok(())
             }

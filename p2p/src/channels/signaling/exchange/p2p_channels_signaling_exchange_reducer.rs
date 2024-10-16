@@ -24,7 +24,7 @@ impl P2pChannelsSignalingExchangeState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsSignalingExchangeAction>,
+        action: ActionWithMeta<P2pChannelsSignalingExchangeAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,

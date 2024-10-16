@@ -22,13 +22,13 @@ const MAX_CHUNK_SIZE: usize = u16::MAX as usize - 19;
 impl P2pNetworkNoiseState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
-        action: redux::ActionWithMeta<&P2pNetworkNoiseAction>,
+        action: redux::ActionWithMeta<P2pNetworkNoiseAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
-        let action = action.action();
+        let (action, _meta) = action.split();
         let noise_state = state_context
             .get_substate_mut()?
             .connection_state_mut(action.addr())
@@ -38,18 +38,15 @@ impl P2pNetworkNoiseState {
         match action {
             P2pNetworkNoiseAction::Init {
                 incoming,
-                ephemeral_sk,
-                static_sk,
-                signature,
+                ephemeral_sk: esk,
+                static_sk: ssk,
+                signature: payload,
                 addr,
             } => {
-                let esk = ephemeral_sk.clone();
                 let epk = esk.pk();
-                let ssk = static_sk.clone();
                 let spk = ssk.pk();
-                let payload = signature.clone();
 
-                noise_state.inner = if *incoming {
+                noise_state.inner = if incoming {
                     // Luckily the name is 32 bytes long, if it were longer you would have to take a sha2_256 hash of it.
                     let mut noise = NoiseState::new(*b"Noise_XX_25519_ChaChaPoly_SHA256");
                     noise.mix_hash(b"");
@@ -90,13 +87,13 @@ impl P2pNetworkNoiseState {
                 let mut outgoing = noise_state.outgoing_chunks.clone();
                 let dispatcher = state_context.into_dispatcher();
                 while let Some(data) = outgoing.pop_front() {
-                    dispatcher.push(P2pNetworkNoiseAction::OutgoingChunk { addr: *addr, data });
+                    dispatcher.push(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                 }
 
                 Ok(())
             }
             P2pNetworkNoiseAction::IncomingData { data, addr } => {
-                noise_state.buffer.extend_from_slice(data);
+                noise_state.buffer.extend_from_slice(&data);
                 let mut offset = 0;
                 loop {
                     let buf = &noise_state.buffer[offset..];
@@ -123,11 +120,11 @@ impl P2pNetworkNoiseState {
                 let incoming_chunks = noise_state.incoming_chunks.len();
                 let dispatcher = state_context.into_dispatcher();
                 for _ in 0..incoming_chunks {
-                    dispatcher.push(P2pNetworkNoiseAction::IncomingChunk { addr: *addr });
+                    dispatcher.push(P2pNetworkNoiseAction::IncomingChunk { addr });
                 }
                 Ok(())
             }
-            action @ P2pNetworkNoiseAction::IncomingChunk { addr } => {
+            ref action @ P2pNetworkNoiseAction::IncomingChunk { addr } => {
                 let Some(state) = &mut noise_state.inner else {
                     bug_condition!("action {:?}: no inner state", action);
                     return Ok(());
@@ -230,7 +227,7 @@ impl P2pNetworkNoiseState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 if let Some(error) = error {
                     dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
+                        addr,
                         error: P2pNetworkConnectionError::Noise(error),
                     });
                 } else {
@@ -253,12 +250,12 @@ impl P2pNetworkNoiseState {
                     }
 
                     while let Some(data) = outgoing.pop_front() {
-                        dispatcher.push(P2pNetworkNoiseAction::OutgoingChunk { addr: *addr, data });
+                        dispatcher.push(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                     }
 
                     if let Some(data) = decrypted {
                         dispatcher.push(P2pNetworkNoiseAction::DecryptedData {
-                            addr: *addr,
+                            addr,
                             peer_id: remote_peer_id,
                             data,
                         });
@@ -266,7 +263,7 @@ impl P2pNetworkNoiseState {
 
                     if middle_initiator || middle_responder {
                         dispatcher.push(P2pNetworkNoiseAction::OutgoingData {
-                            addr: *addr,
+                            addr,
                             data: Data::empty(),
                         });
                     }
@@ -274,8 +271,8 @@ impl P2pNetworkNoiseState {
 
                 Ok(())
             }
-            action @ P2pNetworkNoiseAction::OutgoingChunk { addr, data }
-            | action @ P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr, data } => {
+            ref action @ P2pNetworkNoiseAction::OutgoingChunk { addr, ref data }
+            | ref action @ P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr, ref data } => {
                 noise_state.outgoing_chunks.pop_front();
 
                 let handshake_done = noise_state.handshake_done(action);
@@ -289,10 +286,10 @@ impl P2pNetworkNoiseState {
                         .into(),
                     crate::fuzzer::mutate_noise
                 );
-                dispatcher.push(P2pNetworkPnetAction::OutgoingData { addr: *addr, data });
+                dispatcher.push(P2pNetworkPnetAction::OutgoingData { addr, data });
                 if let Some((peer_id, incoming)) = handshake_done {
                     dispatcher.push(P2pNetworkNoiseAction::HandshakeDone {
-                        addr: *addr,
+                        addr,
                         peer_id,
                         incoming,
                     });
@@ -302,7 +299,7 @@ impl P2pNetworkNoiseState {
             }
             P2pNetworkNoiseAction::OutgoingData { data, addr } => {
                 let Some(state) = &mut noise_state.inner else {
-                    bug_condition!("action {:?}: no inner state", action);
+                    bug_condition!("action `P2pNetworkNoiseAction::OutgoingData`: no inner state");
                     return Ok(());
                 };
 
@@ -346,7 +343,7 @@ impl P2pNetworkNoiseState {
                         noise_state.outgoing_chunks.push_back(chunks);
                     }
                     P2pNetworkNoiseStateInner::Initiator(i) => {
-                        match (i.generate(data), i.remote_pk.clone()) {
+                        match (i.generate(&data), i.remote_pk.clone()) {
                             (
                                 Ok(Some(InitiatorOutput {
                                     send_key,
@@ -388,7 +385,7 @@ impl P2pNetworkNoiseState {
                         }
                     }
                     P2pNetworkNoiseStateInner::Responder(r) => {
-                        if let Some(chunk) = r.generate(data) {
+                        if let Some(chunk) = r.generate(&data) {
                             noise_state.outgoing_chunks.push_back(vec![chunk.into()]);
                         }
                     }
@@ -402,12 +399,12 @@ impl P2pNetworkNoiseState {
 
                 if let Some(error) = error {
                     dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
+                        addr,
                         error: P2pNetworkConnectionError::Noise(error),
                     });
                 } else {
                     while let Some(data) = outgoing.pop_front() {
-                        dispatcher.push(P2pNetworkNoiseAction::OutgoingChunk { addr: *addr, data });
+                        dispatcher.push(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                     }
                 }
                 Ok(())
@@ -419,7 +416,9 @@ impl P2pNetworkNoiseState {
                     ..
                 }) = &mut noise_state.inner
                 else {
-                    bug_condition!("action {:?}: no inner state", action);
+                    bug_condition!(
+                        "action `P2pNetworkNoiseAction::OutgoingDataSelectMux`: no inner state"
+                    );
                     return Ok(());
                 };
 
@@ -427,7 +426,7 @@ impl P2pNetworkNoiseState {
 
                 let mut chunk = Vec::with_capacity(18 + data.len());
                 chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
-                chunk.extend_from_slice(data);
+                chunk.extend_from_slice(&data);
 
                 let mut nonce = GenericArray::default();
                 nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
@@ -450,12 +449,11 @@ impl P2pNetworkNoiseState {
 
                 if let Some(error) = error {
                     dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
+                        addr,
                         error: P2pNetworkConnectionError::Noise(error),
                     });
                 } else if let Some(data) = outgoing {
-                    dispatcher
-                        .push(P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr: *addr, data })
+                    dispatcher.push(P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr, data })
                 }
 
                 Ok(())
@@ -470,9 +468,9 @@ impl P2pNetworkNoiseState {
                 let remote_peer_id = noise_state.remote_peer_id();
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkSelectAction::IncomingDataMux {
-                    addr: *addr,
-                    peer_id: (*peer_id).or(remote_peer_id),
-                    data: data.clone(),
+                    addr,
+                    peer_id: peer_id.or(remote_peer_id),
+                    data,
                     fin: false,
                 });
 
@@ -485,9 +483,9 @@ impl P2pNetworkNoiseState {
             } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkSelectAction::Init {
-                    addr: *addr,
-                    kind: SelectKind::Multiplexing(*peer_id),
-                    incoming: *incoming,
+                    addr,
+                    kind: SelectKind::Multiplexing(peer_id),
+                    incoming,
                 });
                 Ok(())
             }

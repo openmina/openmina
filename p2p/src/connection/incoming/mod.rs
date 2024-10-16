@@ -19,7 +19,7 @@ pub struct P2pConnectionIncomingInitOpts {
 }
 
 // TODO(binier): maybe move to `crate::webrtc`?
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy)]
 pub enum IncomingSignalingMethod {
     /// Http rpc is used for sending offer and getting answer as a response.
     Http,

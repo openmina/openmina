@@ -12,7 +12,7 @@ impl P2pChannelsBestTipState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsBestTipAction>,
+        action: ActionWithMeta<P2pChannelsBestTipAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -90,10 +90,7 @@ impl P2pChannelsBestTipState {
                 *last_received = Some(best_tip.clone());
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pPeerAction::BestTipUpdate {
-                    peer_id,
-                    best_tip: best_tip.clone(),
-                });
+                dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
                 dispatcher.push(P2pChannelsBestTipAction::RequestSend { peer_id });
                 Ok(())
             }
@@ -115,7 +112,7 @@ impl P2pChannelsBestTipState {
                     .callbacks
                     .on_p2p_channels_best_tip_request_received
                 {
-                    dispatcher.push_callback(callback.clone(), *peer_id);
+                    dispatcher.push_callback(callback.clone(), peer_id);
                 }
                 Ok(())
             }
@@ -141,7 +138,7 @@ impl P2pChannelsBestTipState {
                 if !is_libp2p {
                     dispatcher.push(P2pChannelsBestTipEffectfulAction::ResponseSend {
                         peer_id,
-                        best_tip: best_tip.clone(),
+                        best_tip,
                     });
                     return Ok(());
                 }

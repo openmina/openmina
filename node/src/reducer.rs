@@ -36,7 +36,7 @@ pub fn reducer(
                     let time = meta.time();
                     let result = p2p::P2pState::reducer(
                         Substate::new(state, dispatcher),
-                        meta.with_action(action),
+                        meta.with_action(action.clone()),
                     );
 
                     if let Err(error) = result {

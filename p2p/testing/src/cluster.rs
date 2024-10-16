@@ -367,6 +367,7 @@ impl Cluster {
 
     pub fn add_rust_node(&mut self, config: RustNodeConfig) -> Result<RustNodeId> {
         let override_fn = config.override_fn;
+        let reducer_override_fn = config.override_reducer;
         let node_idx = self.rust_nodes.len();
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         let (config, secret_key) = self.rust_node_config(config)?;
@@ -381,7 +382,7 @@ impl Cluster {
         );
 
         let store = crate::redux::Store::new(
-            |state, action, dispatcher| {
+            reducer_override_fn.unwrap_or(|state, action, dispatcher| {
                 let meta = action.meta().clone();
                 let action = action.action();
 
@@ -391,7 +392,7 @@ impl Cluster {
                 let state_context = Substate::new(state, dispatcher);
                 let result = match action {
                     Action::P2p(action) => {
-                        P2pState::reducer(state_context, meta.with_action(action))
+                        P2pState::reducer(state_context, meta.with_action(action.clone()))
                     }
                     Action::Idle(_) => P2pState::p2p_timeout_dispatch(state_context, &meta),
                     Action::P2pEffectful(_) => Ok(()),
@@ -400,7 +401,7 @@ impl Cluster {
                 if let Err(error) = result {
                     openmina_core::warn!(time; "error = {error}");
                 }
-            },
+            }),
             override_fn.unwrap_or(|store, action| {
                 let (action, meta) = action.split();
                 match action {

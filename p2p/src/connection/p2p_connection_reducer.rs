@@ -10,7 +10,7 @@ use crate::P2pState;
 impl P2pConnectionState {
     pub fn reducer<Action, State>(
         state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pConnectionAction>,
+        action: ActionWithMeta<P2pConnectionAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,

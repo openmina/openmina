@@ -17,7 +17,7 @@ use redux::{ActionMeta, ActionWithMeta, Dispatcher, Timestamp};
 impl P2pState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, Self>,
-        action: ActionWithMeta<&P2pAction>,
+        action: ActionWithMeta<P2pAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,

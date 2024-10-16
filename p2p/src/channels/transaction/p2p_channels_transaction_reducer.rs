@@ -12,7 +12,7 @@ use redux::ActionWithMeta;
 impl P2pChannelsTransactionState {
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsTransactionAction>,
+        action: ActionWithMeta<P2pChannelsTransactionAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -33,7 +33,7 @@ impl P2pChannelsTransactionState {
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsTransactionEffectfulAction::Init { peer_id: *peer_id });
+                dispatcher.push(P2pChannelsTransactionEffectfulAction::Init { peer_id });
                 Ok(())
             }
             P2pChannelsTransactionAction::Pending { .. } => {
@@ -62,14 +62,12 @@ impl P2pChannelsTransactionState {
                 };
                 *local = TransactionPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: *limit,
+                    requested_limit: limit,
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsTransactionEffectfulAction::RequestSend {
-                    peer_id: *peer_id,
-                    limit: *limit,
-                });
+                dispatcher
+                    .push(P2pChannelsTransactionEffectfulAction::RequestSend { peer_id, limit });
                 Ok(())
             }
             P2pChannelsTransactionAction::PromiseReceived { promised_count, .. } => {
@@ -94,7 +92,7 @@ impl P2pChannelsTransactionState {
                 *local = TransactionPropagationState::Responding {
                     time: meta.time(),
                     requested_limit: *requested_limit,
-                    promised_count: *promised_count,
+                    promised_count,
                     current_count: 0,
                 };
                 Ok(())
@@ -138,7 +136,7 @@ impl P2pChannelsTransactionState {
                 };
                 *remote = TransactionPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: *limit,
+                    requested_limit: limit,
                 };
                 Ok(())
             }
@@ -175,8 +173,8 @@ impl P2pChannelsTransactionState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pChannelsTransactionEffectfulAction::ResponseSend {
-                    peer_id: *peer_id,
-                    transactions: transactions.clone(),
+                    peer_id,
+                    transactions,
                 });
                 Ok(())
             }
@@ -188,7 +186,7 @@ impl P2pChannelsTransactionState {
                     .callbacks
                     .on_p2p_channels_transaction_libp2p_received
                 {
-                    dispatcher.push_callback(callback.clone(), transaction.clone());
+                    dispatcher.push_callback(callback.clone(), transaction);
                 }
 
                 Ok(())
@@ -199,7 +197,7 @@ impl P2pChannelsTransactionState {
             P2pChannelsTransactionAction::Libp2pBroadcast { transaction, nonce } => {
                 let dispatcher = state_context.into_dispatcher();
                 let message = v2::NetworkPoolTransactionPoolDiffVersionedStableV2(
-                    std::iter::once(*transaction.clone()).collect(),
+                    std::iter::once(*transaction).collect(),
                 );
                 let nonce = nonce.into();
                 let message = Box::new(GossipNetMessageV2::TransactionPoolDiff { message, nonce });

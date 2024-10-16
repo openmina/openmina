@@ -63,7 +63,7 @@ mod u256_serde {
 }
 
 /// Kademlia key, sha256 of the node's peer id.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
 
 #[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
@@ -244,7 +244,7 @@ pub struct P2pNetworkKadRoutingTableInsertError;
 
 impl<const K: usize> P2pNetworkKadRoutingTable<K> {
     pub fn new(this_entry: P2pNetworkKadEntry) -> Self {
-        let this_key = this_entry.key.clone();
+        let this_key = this_entry.key;
         let global_bucket = P2pNetworkKadBucket(vec![this_entry]);
         let buckets = vec![global_bucket];
         P2pNetworkKadRoutingTable { this_key, buckets }
@@ -269,7 +269,7 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
             return Err(P2pNetworkKadRoutingTableInsertError);
         }
         // distance to this node
-        let dist = &self.this_key - &entry.key;
+        let dist = self.this_key - entry.key;
 
         // index of the closest k-bucket that can contain this node.
         let index = dist.to_index();
@@ -291,7 +291,7 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
                 let Some((bucket1, bucket2)) = self
                     .buckets
                     .pop()
-                    .map(|b| b.split(|e| (&self.this_key - &e.key) >= split_dist))
+                    .map(|b| b.split(|e| (self.this_key - e.key) >= split_dist))
                 else {
                     bug_condition!("should be unreachable");
                     return Err(P2pNetworkKadRoutingTableInsertError);
@@ -304,7 +304,7 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
     /// Looks up a Kademlia entry with the specified `key`.
     pub fn look_up(&self, key: &P2pNetworkKadKey) -> Option<&P2pNetworkKadEntry> {
         // distance to this node
-        let dist = &self.this_key - key;
+        let dist = self.this_key - key;
 
         // index of the closest k-bucket that can contain this node.
         let index = dist.to_index().min(self.buckets.len() - 1);
@@ -338,18 +338,18 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
             let dist = P2pNetworkKadDist::from(i);
             for entry in &bucket.0 {
                 assert!(
-                    &self.this_key - &entry.key <= dist,
+                    self.this_key - entry.key <= dist,
                     "for {:#?} at {i} distance {:#?} is too big, expecting at most {dist:#?}\nrouting table:\n{self:+#?}",
                     entry.key,
-                    &self.this_key - &entry.key,
+                    self.this_key - entry.key,
                 );
                 if let Some(prev_dist) = &prev_dist {
                     assert!(
-                        &(&self.this_key - &entry.key) > prev_dist,
+                        &(self.this_key - entry.key) > prev_dist,
                         "distance too small: {:#?}\nrouting table:\n{:+#?}\ndist: {:#?}\nprev_dist: {:#?}",
                         entry.key,
                         self,
-                        &self.this_key - &entry.key,
+                        self.this_key - entry.key,
                         prev_dist,
                     );
                 }
@@ -397,7 +397,7 @@ impl P2pNetworkKadEntry {
     }
 
     pub fn dist(&self, other: &P2pNetworkKadEntry) -> P2pNetworkKadDist {
-        &self.key - &other.key
+        self.key - other.key
     }
 
     pub fn addresses(&self) -> &Vec<Multiaddr> {
@@ -462,7 +462,7 @@ pub struct ClosestPeers<'a, const K: usize> {
 
 impl<'a, const K: usize> ClosestPeers<'a, K> {
     fn new(table: &'a P2pNetworkKadRoutingTable<K>, key: &'a P2pNetworkKadKey) -> Self {
-        let dist = &table.this_key - key;
+        let dist = table.this_key - key;
         let mut index_iter = Self::bucket_index_iterator(dist, table.buckets.len());
         let bucket_index = index_iter
             .next()
@@ -500,7 +500,7 @@ impl<'a, const K: usize> ClosestPeers<'a, K> {
                 .into_iter()
                 .filter(|e| &e.key != key && &e.key != this_key),
         );
-        vec.sort_by_cached_key(|entry| key - &entry.key);
+        vec.sort_by_cached_key(|entry| key - entry.key);
         vec.into_iter()
     }
 }
@@ -637,7 +637,7 @@ mod tests {
     const THIS_KEY: P2pNetworkKadKey = P2pNetworkKadKey(U256::ZERO);
 
     fn this_key() -> P2pNetworkKadKey {
-        THIS_KEY.clone()
+        THIS_KEY
     }
 
     fn key_pow_2(pow: usize) -> P2pNetworkKadKey {

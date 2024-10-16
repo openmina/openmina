@@ -60,6 +60,9 @@ impl State {
     pub fn state(&self) -> &P2pState {
         &self.0
     }
+    pub fn state_mut(&mut self) -> &mut P2pState {
+        &mut self.0
+    }
 }
 
 impl EnablingCondition<State> for Action {

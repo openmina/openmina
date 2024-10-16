@@ -24,7 +24,7 @@ use super::{super::*, p2p_network_scheduler_state::P2pNetworkConnectionState, *}
 impl P2pNetworkSchedulerState {
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, Self>,
-        action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>,
+        action: redux::ActionWithMeta<P2pNetworkSchedulerAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -35,36 +35,34 @@ impl P2pNetworkSchedulerState {
 
         match action {
             P2pNetworkSchedulerAction::InterfaceDetected { ip, .. } => {
-                scheduler_state.interfaces.insert(*ip);
+                scheduler_state.interfaces.insert(ip);
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_config: &P2pConfig = state.substate()?;
 
                 if let Some(port) = p2p_config.libp2p_port {
-                    dispatcher.push(P2pNetworkSchedulerEffectfulAction::InterfaceDetected {
-                        ip: *ip,
-                        port,
-                    });
+                    dispatcher
+                        .push(P2pNetworkSchedulerEffectfulAction::InterfaceDetected { ip, port });
                 }
 
                 Ok(())
             }
             P2pNetworkSchedulerAction::InterfaceExpired { ip, .. } => {
-                scheduler_state.interfaces.remove(ip);
+                scheduler_state.interfaces.remove(&ip);
                 Ok(())
             }
             P2pNetworkSchedulerAction::ListenerReady { listener } => {
-                scheduler_state.listeners.insert(*listener);
+                scheduler_state.listeners.insert(listener);
                 Ok(())
             }
             P2pNetworkSchedulerAction::ListenerError { listener, .. } => {
-                scheduler_state.listeners.remove(listener);
+                scheduler_state.listeners.remove(&listener);
                 Ok(())
             }
             P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let scheduler: &Self = state.substate()?;
-                let Some(connection_state) = scheduler.connection_state(addr) else {
+                let Some(connection_state) = scheduler.connection_state(&addr) else {
                     bug_condition!(
                         "Invalid state for `P2pNetworkSchedulerAction::IncomingDataIsReady`"
                     );
@@ -74,7 +72,7 @@ impl P2pNetworkSchedulerState {
                 let limit = connection_state.limit();
                 if limit > 0 {
                     dispatcher.push(P2pNetworkSchedulerEffectfulAction::IncomingDataIsReady {
-                        addr: *addr,
+                        addr,
                         limit,
                     });
                 }
@@ -84,7 +82,7 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => {
                 if let Some(addr) = addr {
                     scheduler_state.connections.insert(
-                        *addr,
+                        addr,
                         P2pNetworkConnectionState {
                             incoming: true,
                             pnet: P2pNetworkPnetState::new(scheduler_state.pnet_key, meta.time()),
@@ -102,8 +100,8 @@ impl P2pNetworkSchedulerState {
                 let dispatcher = state_context.into_dispatcher();
                 if let Some(addr) = addr {
                     dispatcher.push(P2pNetworkSchedulerEffectfulAction::IncomingDidAccept {
-                        addr: *addr,
-                        result: result.clone(),
+                        addr,
+                        result,
                     });
                 }
 
@@ -112,7 +110,7 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
                 scheduler_state.connections.insert(
                     ConnectionAddr {
-                        sock_addr: *addr,
+                        sock_addr: addr,
                         incoming: false,
                     },
                     P2pNetworkConnectionState {
@@ -135,8 +133,7 @@ impl P2pNetworkSchedulerState {
                 );
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher
-                    .push(P2pNetworkSchedulerEffectfulAction::OutgoingConnect { addr: *addr });
+                dispatcher.push(P2pNetworkSchedulerEffectfulAction::OutgoingConnect { addr });
                 Ok(())
             }
             P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => {
@@ -147,12 +144,11 @@ impl P2pNetworkSchedulerState {
 
                 match result {
                     Ok(()) => {
-                        dispatcher.push(P2pNetworkSchedulerEffectfulAction::OutgoingDidConnect {
-                            addr: *addr,
-                        });
+                        dispatcher
+                            .push(P2pNetworkSchedulerEffectfulAction::OutgoingDidConnect { addr });
                     }
                     Err(error) => {
-                        let Some((peer_id, peer_state)) = p2p_state.peer_with_connection(*addr)
+                        let Some((peer_id, peer_state)) = p2p_state.peer_with_connection(addr)
                         else {
                             bug_condition!(
                                 "outgoing connection to {addr} failed, but there is no peer for it"
@@ -176,26 +172,23 @@ impl P2pNetworkSchedulerState {
             }
             P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr } => {
                 // since both actions dispatcher later require connection state, if we can't find it we shouldn't dispatcher them
-                let Some(state) = scheduler_state.connection_state_mut(addr) else {
+                let Some(state) = scheduler_state.connection_state_mut(&addr) else {
                     bug_condition!("Unable to find connection for `P2pNetworkSchedulerAction::IncomingDataDidReceive`");
                     return Ok(());
                 };
 
-                if let Ok(data) = result {
+                if let Ok(data) = &result {
                     state.consume(data.len());
                 };
 
                 let dispatcher = state_context.into_dispatcher();
                 match result {
                     Ok(data) => {
-                        dispatcher.push(P2pNetworkPnetAction::IncomingData {
-                            addr: *addr,
-                            data: data.clone(),
-                        });
+                        dispatcher.push(P2pNetworkPnetAction::IncomingData { addr, data });
                     }
                     Err(error) => dispatcher.push(P2pNetworkSchedulerAction::Error {
-                        addr: *addr,
-                        error: P2pNetworkConnectionError::MioError(error.clone()),
+                        addr,
+                        error: P2pNetworkConnectionError::MioError(error),
                     }),
                 }
                 Ok(())
@@ -208,18 +201,16 @@ impl P2pNetworkSchedulerState {
                 expected_peer_id,
             } => {
                 scheduler_state.reducer_select_done(
-                    *addr,
-                    *kind,
-                    *protocol,
-                    *incoming,
-                    *expected_peer_id,
+                    addr,
+                    kind,
+                    protocol,
+                    incoming,
+                    expected_peer_id,
                 );
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
-                Self::forward_select_done(
-                    dispatcher, p2p_state, *protocol, *addr, *incoming, *kind,
-                );
+                Self::forward_select_done(dispatcher, p2p_state, protocol, addr, incoming, kind);
                 Ok(())
             }
             P2pNetworkSchedulerAction::SelectError { addr, kind, error } => {
@@ -232,28 +223,26 @@ impl P2pNetworkSchedulerState {
                         warn!(meta.time(); summary="select error for stream", addr = display(addr), peer_id = display(peer_id));
                         // just close the stream
                         dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
-                            addr: *addr,
-                            stream_id: *stream_id,
+                            addr,
+                            stream_id,
                             data: Data::default(),
                             flags: YamuxFlags::RST,
                         });
-                        dispatcher.push(P2pNetworkSchedulerAction::PruneStream {
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
-                        });
+                        dispatcher
+                            .push(P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id });
                     }
                     _ => {
                         dispatcher.push(P2pNetworkSchedulerAction::Error {
-                            addr: *addr,
+                            addr,
                             error: P2pNetworkConnectionError::SelectError,
                         });
                     }
                 }
 
                 dispatcher.push(P2pNetworkSchedulerEffectfulAction::SelectError {
-                    addr: *addr,
-                    kind: *kind,
-                    error: error.to_owned(),
+                    addr,
+                    kind,
+                    error,
                 });
 
                 Ok(())
@@ -263,7 +252,7 @@ impl P2pNetworkSchedulerState {
                 message_size_limit,
                 peer_id,
             } => {
-                let Some(cn) = scheduler_state.connections.get_mut(addr) else {
+                let Some(cn) = scheduler_state.connections.get_mut(&addr) else {
                     bug_condition!(
                         "Missing connection state for `P2pNetworkSchedulerAction::YamuxDidInit`"
                     );
@@ -271,12 +260,11 @@ impl P2pNetworkSchedulerState {
                 };
                 if let Some(P2pNetworkConnectionMuxState::Yamux(yamux)) = &mut cn.mux {
                     yamux.init = true;
-                    yamux.message_size_limit = *message_size_limit;
+                    yamux.message_size_limit = message_size_limit;
                 }
 
                 let incoming = cn.incoming;
                 let dispatcher = state_context.into_dispatcher();
-                let peer_id = *peer_id;
 
                 if incoming {
                     dispatcher.push(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
@@ -284,14 +272,11 @@ impl P2pNetworkSchedulerState {
                     dispatcher.push(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
                 }
 
-                dispatcher.push(P2pIdentifyAction::NewRequest {
-                    peer_id,
-                    addr: *addr,
-                });
+                dispatcher.push(P2pIdentifyAction::NewRequest { peer_id, addr });
                 Ok(())
             }
             P2pNetworkSchedulerAction::Disconnect { addr, reason } => {
-                let Some(conn_state) = scheduler_state.connections.get_mut(addr) else {
+                let Some(conn_state) = scheduler_state.connections.get_mut(&addr) else {
                     bug_condition!(
                         "`P2pNetworkSchedulerAction::Disconnect`: connection {addr} does not exist"
                     );
@@ -306,15 +291,12 @@ impl P2pNetworkSchedulerState {
                 conn_state.closed = Some(reason.clone().into());
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Disconnect {
-                    addr: *addr,
-                    reason: reason.clone(),
-                });
+                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Disconnect { addr, reason });
 
                 Ok(())
             }
             P2pNetworkSchedulerAction::Error { addr, error } => {
-                let Some(conn_state) = scheduler_state.connections.get_mut(addr) else {
+                let Some(conn_state) = scheduler_state.connections.get_mut(&addr) else {
                     bug_condition!(
                         "`P2pNetworkSchedulerAction::Error`: connection {addr} does not exist"
                     );
@@ -329,14 +311,11 @@ impl P2pNetworkSchedulerState {
                 conn_state.closed = Some(error.clone().into());
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Error {
-                    addr: *addr,
-                    error: error.clone(),
-                });
+                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Error { addr, error });
                 Ok(())
             }
             P2pNetworkSchedulerAction::Disconnected { addr, reason } => {
-                let Some(cn) = scheduler_state.connections.get_mut(addr) else {
+                let Some(cn) = scheduler_state.connections.get_mut(&addr) else {
                     bug_condition!(
                         "P2pNetworkSchedulerAction::Disconnected: connection {addr} does not exist"
                     );
@@ -352,7 +331,7 @@ impl P2pNetworkSchedulerState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let state: &P2pState = state.substate()?;
 
-                let peer_with_state = state.peer_with_connection(*addr);
+                let peer_with_state = state.peer_with_connection(addr);
 
                 if reason.is_disconnected() {
                     // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
@@ -406,7 +385,7 @@ impl P2pNetworkSchedulerState {
                 Ok(())
             }
             P2pNetworkSchedulerAction::Prune { addr } => {
-                if let Some(old) = scheduler_state.connections.remove(addr) {
+                if let Some(old) = scheduler_state.connections.remove(&addr) {
                     if let Some(peer_id) = old.peer_id() {
                         scheduler_state.prune_peer_state(peer_id);
                     }
@@ -419,13 +398,13 @@ impl P2pNetworkSchedulerState {
                 let Some((_, conn_state)) = scheduler_state
                     .connections
                     .iter_mut()
-                    .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
+                    .find(|(_, conn_state)| conn_state.peer_id() == Some(&peer_id))
                 else {
                     bug_condition!("PruneStream: peer {peer_id} not found");
                     return Ok(());
                 };
 
-                if conn_state.streams.remove(stream_id).is_none() {
+                if conn_state.streams.remove(&stream_id).is_none() {
                     bug_condition!("PruneStream: peer {peer_id} does not have stream {stream_id}");
                 }
 
@@ -434,9 +413,7 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(
-                    P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady {
-                        listener: *listener,
-                    },
+                    P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener },
                 );
                 Ok(())
             }

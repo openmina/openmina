@@ -587,7 +587,7 @@ pub mod discovery {
             }
 
             Ok(RpcDiscoveryRoutingTable {
-                this_key: value.this_key.clone(),
+                this_key: value.this_key,
                 buckets,
             })
         }
@@ -643,8 +643,8 @@ pub mod discovery {
             Ok(RpcEntry {
                 peer_id: value.peer_id,
                 libp2p: value.peer_id.try_into()?,
-                key: value.key.clone(),
-                dist: this_key - &value.key,
+                key: value.key,
+                dist: this_key - value.key,
                 addrs: value.addresses().clone(),
                 connection: value.connection,
             })
