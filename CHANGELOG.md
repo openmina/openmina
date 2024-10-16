@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3] - 2024-10-16
+
+### Added
+
+- Support for name resolution in peer addresses.
+- Block producer docker compose setup.
+- WASM file containing the webnode is now included in the frontend image.
+- Logging output to the filesystem in addition to stdout.
+- Webnode: peer discovery and p2p based signaling.
+
 ## [0.10.0] - 2024-10-10
 
 ### Added
@@ -279,7 +289,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.10.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.10.3...develop
+[0.10.3]: https://github.com/openmina/openmina/releases/tag/v0.10.0...v0.10.3
 [0.10.0]: https://github.com/openmina/openmina/releases/tag/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openmina/openmina/releases/tag/v0.8.14...v0.9.0
 [0.8.14]: https://github.com/openmina/openmina/releases/tag/v0.8.13...v0.8.14
