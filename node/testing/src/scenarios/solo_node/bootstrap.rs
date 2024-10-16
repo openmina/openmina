@@ -1,12 +1,10 @@
 use std::time::Duration;
 
-use node::{
-    p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
-    transition_frontier::sync::TransitionFrontierSyncState,
-};
+use node::transition_frontier::sync::TransitionFrontierSyncState;
 use tokio::time::Instant;
 
 use crate::{
+    hosts,
     node::RustNodeTestingConfig,
     scenario::{ListenerNode, ScenarioStep},
     scenarios::ClusterRunner,
@@ -27,16 +25,12 @@ impl SoloNodeBootstrap {
 
         const TIMEOUT: Duration = Duration::from_secs(60 * 40);
 
-        const REPLAYER_1: & str =
-            "/dns4/1.k8.openmina.com/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv";
-        let replayer = (&REPLAYER_1.parse::<libp2p::Multiaddr>().unwrap())
-            .try_into()
-            .unwrap();
+        let replayer = hosts::replayer();
 
-        let node_id =
-            runner.add_rust_node(RustNodeTestingConfig::devnet_default().initial_peers(vec![
-                ListenerNode::Custom(P2pConnectionOutgoingInitOpts::LibP2P(replayer)),
-            ]));
+        let node_id = runner.add_rust_node(
+            RustNodeTestingConfig::devnet_default()
+                .initial_peers(vec![ListenerNode::Custom(replayer)]),
+        );
         eprintln!("launch Openmina node with default configuration, id: {node_id}");
 
         let mut timeout = TIMEOUT;
