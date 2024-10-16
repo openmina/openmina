@@ -1,6 +1,6 @@
 import { DashboardState } from '@dashboard/dashboard.state';
 import {
-  DASHBOARD_CLOSE,
+  DASHBOARD_CLOSE, DASHBOARD_GET_DATA,
   DASHBOARD_GET_DATA_SUCCESS,
   DASHBOARD_PEERS_SORT,
   DashboardActions,
@@ -38,6 +38,15 @@ const initialState: DashboardState = {
 export function dashboardReducer(state: DashboardState = initialState, action: DashboardActions): DashboardState {
   switch (action.type) {
 
+    case DASHBOARD_GET_DATA: {
+      if (action.payload?.force) {
+        return {
+          ...initialState,
+          peersSort: state.peersSort,
+        };
+      }
+      return state;
+    }
     case DASHBOARD_PEERS_SORT: {
       return {
         ...state,

@@ -7,25 +7,42 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::PeerId;
+
 #[derive(BinProtWrite, BinProtRead, Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
 pub enum SignalingMethod {
     Http(HttpSignalingInfo),
     Https(HttpSignalingInfo),
+    P2p { relay_peer_id: PeerId },
 }
 
 impl SignalingMethod {
+    pub fn can_connect_directly(&self) -> bool {
+        match self {
+            Self::Http(_) | Self::Https(_) => true,
+            Self::P2p { .. } => false,
+        }
+    }
+
     /// If method is http or https, it will return url to which an
     /// offer can be sent.
     pub fn http_url(&self) -> Option<String> {
         let (http, info) = match self {
             Self::Http(info) => ("http", info),
             Self::Https(info) => ("https", info),
-            // _ => return None,
+            _ => return None,
         };
         Some(format!(
             "{http}://{}:{}/mina/webrtc/signal",
             info.host, info.port,
         ))
+    }
+
+    pub fn p2p_relay_peer_id(&self) -> Option<PeerId> {
+        match self {
+            Self::P2p { relay_peer_id } => Some(*relay_peer_id),
+            _ => None,
+        }
     }
 }
 
@@ -39,6 +56,9 @@ impl fmt::Display for SignalingMethod {
             Self::Https(signaling) => {
                 write!(f, "/https")?;
                 signaling.fmt(f)
+            }
+            Self::P2p { relay_peer_id } => {
+                write!(f, "/p2p/{relay_peer_id}")
             }
         }
     }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{P2pPeerStatus, P2pState, PeerId};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(fields(display(peer_id), display(reason)), level = info)]
+#[action_event(fields(display(peer_id), display(reason)), level = debug)]
 pub enum P2pDisconnectionEffectfulAction {
     /// Initialize disconnection.
     Init { peer_id: PeerId },

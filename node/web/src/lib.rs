@@ -70,7 +70,6 @@ async fn setup_node(
     }
 
     node_builder
-        .p2p_no_discovery()
         .p2p_custom_task_spawner(P2pTaskRemoteSpawner {})
         .unwrap();
     node_builder.gather_stats();

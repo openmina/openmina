@@ -17,7 +17,7 @@ impl P2pChannelsRpcState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsRpcAction>,
+        action: ActionWithMeta<P2pChannelsRpcAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -83,7 +83,7 @@ impl P2pChannelsRpcState {
                 *next_local_rpc_id += 1;
                 *local = P2pRpcLocalState::Requested {
                     time: meta.time(),
-                    id: *id,
+                    id,
                     request: request.clone(),
                 };
 
@@ -92,7 +92,7 @@ impl P2pChannelsRpcState {
                 #[cfg(feature = "p2p-libp2p")]
                 if is_libp2p {
                     if let Some((query, data)) =
-                        super::libp2p::internal_request_into_libp2p(*request.clone(), *id)
+                        super::libp2p::internal_request_into_libp2p(*request.clone(), id)
                     {
                         dispatcher.push(P2pNetworkRpcAction::OutgoingQuery {
                             peer_id,
@@ -101,7 +101,7 @@ impl P2pChannelsRpcState {
                         });
                     }
                     if let Some(on_init) = on_init {
-                        dispatcher.push_callback(on_init.clone(), (peer_id, *id, *request.clone()));
+                        dispatcher.push_callback(on_init, (peer_id, id, *request));
                     }
 
                     return Ok(());
@@ -109,9 +109,9 @@ impl P2pChannelsRpcState {
 
                 dispatcher.push(P2pChannelsRpcEffectfulAction::RequestSend {
                     peer_id,
-                    id: *id,
-                    request: request.clone(),
-                    on_init: on_init.clone(),
+                    id,
+                    request,
+                    on_init,
                 });
                 Ok(())
             }
@@ -120,7 +120,7 @@ impl P2pChannelsRpcState {
                 let p2p_state: &P2pState = state.substate()?;
 
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_rpc_timeout {
-                    dispatcher.push_callback(callback.clone(), (peer_id, *id));
+                    dispatcher.push_callback(callback.clone(), (peer_id, id));
                 }
 
                 Ok(())
@@ -163,8 +163,7 @@ impl P2pChannelsRpcState {
                 }
 
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_rpc_response_received {
-                    dispatcher
-                        .push_callback(callback.clone(), (peer_id, *rpc_id, response.clone()));
+                    dispatcher.push_callback(callback.clone(), (peer_id, rpc_id, response));
                 }
                 Ok(())
             }
@@ -180,8 +179,8 @@ impl P2pChannelsRpcState {
                     .pending_requests
                     .push_back(P2pRpcRemotePendingRequestState {
                         time: meta.time(),
-                        id: *id,
-                        request: (**request).clone(),
+                        id,
+                        request: *request.clone(),
                         is_pending: false,
                     });
 
@@ -189,7 +188,7 @@ impl P2pChannelsRpcState {
                 let p2p_state: &P2pState = state.substate()?;
 
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_rpc_request_received {
-                    dispatcher.push_callback(callback.clone(), (peer_id, *id, request.clone()));
+                    dispatcher.push_callback(callback.clone(), (peer_id, id, request));
                 }
                 Ok(())
             }
@@ -201,7 +200,7 @@ impl P2pChannelsRpcState {
                     );
                     return Ok(());
                 };
-                if let Some(req) = remote.pending_requests.iter_mut().find(|r| r.id == *id) {
+                if let Some(req) = remote.pending_requests.iter_mut().find(|r| r.id == id) {
                     req.is_pending = true;
                 }
                 Ok(())
@@ -215,7 +214,7 @@ impl P2pChannelsRpcState {
                     return Ok(());
                 };
 
-                if let Some(pos) = remote.pending_requests.iter().position(|r| r.id == *id) {
+                if let Some(pos) = remote.pending_requests.iter().position(|r| r.id == id) {
                     remote.pending_requests.remove(pos);
                     remote.last_responded = meta.time();
                 }
@@ -226,7 +225,7 @@ impl P2pChannelsRpcState {
                 if is_libp2p {
                     if let Some(response) = response {
                         if let Some((response, data)) =
-                            super::libp2p::internal_response_into_libp2p(*response.clone(), *id)
+                            super::libp2p::internal_response_into_libp2p(*response, id)
                         {
                             dispatcher.push(P2pNetworkRpcAction::OutgoingResponse {
                                 peer_id,
@@ -241,8 +240,8 @@ impl P2pChannelsRpcState {
 
                 dispatcher.push(P2pChannelsRpcEffectfulAction::ResponseSend {
                     peer_id,
-                    id: *id,
-                    response: response.clone(),
+                    id,
+                    response,
                 });
                 Ok(())
             }

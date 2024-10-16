@@ -17,7 +17,7 @@ impl P2pChannelsSnarkJobCommitmentState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsSnarkJobCommitmentAction>,
+        action: ActionWithMeta<P2pChannelsSnarkJobCommitmentAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -73,14 +73,12 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
                 *local = SnarkJobCommitmentPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: *limit,
+                    requested_limit: limit,
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkJobCommitmentAction::RequestSend {
-                    peer_id,
-                    limit: *limit,
-                });
+                dispatcher
+                    .push(P2pChannelsSnarkJobCommitmentAction::RequestSend { peer_id, limit });
                 Ok(())
             }
             P2pChannelsSnarkJobCommitmentAction::PromiseReceived { promised_count, .. } => {
@@ -105,7 +103,7 @@ impl P2pChannelsSnarkJobCommitmentState {
                 *local = SnarkJobCommitmentPropagationState::Responding {
                     time: meta.time(),
                     requested_limit: *requested_limit,
-                    promised_count: *promised_count,
+                    promised_count,
                     current_count: 0,
                 };
                 Ok(())
@@ -151,7 +149,7 @@ impl P2pChannelsSnarkJobCommitmentState {
                     .callbacks
                     .on_p2p_channels_snark_job_commitment_received
                 {
-                    dispatcher.push_callback(callback.clone(), (peer_id, commitment.clone()));
+                    dispatcher.push_callback(callback.clone(), (peer_id, commitment));
                 }
                 Ok(())
             }
@@ -165,7 +163,7 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
                 *remote = SnarkJobCommitmentPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: *limit,
+                    requested_limit: limit,
                 };
                 Ok(())
             }
@@ -201,7 +199,7 @@ impl P2pChannelsSnarkJobCommitmentState {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pChannelsSnarkJobCommitmentEffectfulAction::ResponseSend {
                     peer_id,
-                    commitments: commitments.clone(),
+                    commitments,
                 });
                 Ok(())
             }

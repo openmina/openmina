@@ -7,7 +7,7 @@ use super::*;
 impl P2pNetworkState {
     pub fn reducer<State, Action>(
         state_context: Substate<Action, State, Self>,
-        action: redux::ActionWithMeta<&P2pNetworkAction>,
+        action: redux::ActionWithMeta<P2pNetworkAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
@@ -55,12 +55,6 @@ impl P2pNetworkState {
                 meta.with_action(a),
                 limits,
             ),
-            P2pNetworkAction::PubsubEffectful(_)
-            | P2pNetworkAction::SchedulerEffectful(_)
-            | P2pNetworkAction::PnetEffectful(_) => {
-                // Effectful action; no reducer
-                Ok(())
-            }
         }
     }
 

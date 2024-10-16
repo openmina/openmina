@@ -284,7 +284,7 @@ jobs:
     needs:
       - k8s-peers
       - build-tests
-    #  - build-tests-webrtc
+      - build-tests-webrtc
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
@@ -296,6 +296,7 @@ jobs:
       # TODO: remove when replayer supports identify
       KEEP_CONNECTION_WITH_UNKNOWN_STREAM: true
       OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
+      REPLAYER_MULTIADDR: "/dns4/1.k8.openmina.com/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv"
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
       matrix:
@@ -309,6 +310,7 @@ jobs:
           - connection_discovery_rust_as_seed
           - connection_discovery_rust_to_ocaml_via_seed
           - connection_discovery_rust_to_ocaml
+          - webrtc_p2p_signaling
           # - webrtc_single_node
           # - webrtc_multi_node
       fail-fast: false
@@ -330,6 +332,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: tests*
+          merge-multiple: true
+      
+      - name: Download tests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tests-webrtc*
           merge-multiple: true
 
       - name: Setup permissions

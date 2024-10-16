@@ -62,9 +62,9 @@ pub enum P2pNetworkSchedulerEffectfulAction {
     },
 }
 
-impl From<P2pNetworkSchedulerEffectfulAction> for crate::P2pAction {
-    fn from(value: P2pNetworkSchedulerEffectfulAction) -> Self {
-        crate::P2pAction::Network(value.into())
+impl From<P2pNetworkSchedulerEffectfulAction> for crate::P2pEffectfulAction {
+    fn from(value: P2pNetworkSchedulerEffectfulAction) -> crate::P2pEffectfulAction {
+        crate::P2pEffectfulAction::Network(crate::P2pNetworkEffectfulAction::Scheduler(value))
     }
 }
 

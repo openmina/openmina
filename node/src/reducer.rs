@@ -1,5 +1,5 @@
 use openmina_core::{bug_condition, error, Substate};
-use p2p::{P2pAction, P2pInitializeAction, P2pState};
+use p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 
 use crate::{Action, ActionWithMeta, EventSourceAction, P2p, State};
 
@@ -21,12 +21,12 @@ pub fn reducer(
         }
         Action::EventSource(EventSourceAction::NewEvent { .. }) => {}
         Action::EventSource(_) => {}
-
         Action::P2p(a) => match a {
             P2pAction::Initialization(P2pInitializeAction::Initialize { chain_id }) => {
                 if let Err(err) = state.p2p.initialize(chain_id) {
                     error!(meta.time(); summary = "error initializing p2p", error = display(err));
                 }
+                dispatcher.push(P2pEffectfulAction::Initialize);
             }
             action => match &mut state.p2p {
                 P2p::Pending(_) => {
@@ -36,7 +36,7 @@ pub fn reducer(
                     let time = meta.time();
                     let result = p2p::P2pState::reducer(
                         Substate::new(state, dispatcher),
-                        meta.with_action(action),
+                        meta.with_action(action.clone()),
                     );
 
                     if let Err(error) = result {
@@ -45,6 +45,7 @@ pub fn reducer(
                 }
             },
         },
+        Action::P2pEffectful(_) => {}
         Action::Ledger(a) => {
             state.ledger.reducer(meta.with_action(a));
         }

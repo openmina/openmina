@@ -1,13 +1,11 @@
 use openmina_core::{bug_condition, Substate, SubstateAccess};
 use redux::{ActionWithMeta, Dispatcher};
-use std::net::SocketAddr;
 
 use crate::{
-    connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts},
-    peer::P2pPeerAction,
-    socket_addr_try_from_multiaddr, ConnectionAddr, P2pNetworkConnectionMuxState,
-    P2pNetworkKadBootstrapAction, P2pNetworkKadState, P2pNetworkKademliaRpcRequest,
-    P2pNetworkKademliaStreamAction, P2pNetworkYamuxAction, P2pPeerState, P2pState,
+    connection::outgoing::P2pConnectionOutgoingAction, ConnectionAddr,
+    P2pNetworkConnectionMuxState, P2pNetworkKadBootstrapAction, P2pNetworkKadEffectfulAction,
+    P2pNetworkKadState, P2pNetworkKademliaRpcRequest, P2pNetworkKademliaStreamAction,
+    P2pNetworkYamuxAction, P2pPeerState, P2pState,
 };
 
 use super::{P2pNetworkKadRequestAction, P2pNetworkKadRequestState, P2pNetworkKadRequestStatus};
@@ -15,7 +13,7 @@ use super::{P2pNetworkKadRequestAction, P2pNetworkKadRequestState, P2pNetworkKad
 impl P2pNetworkKadRequestState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkKadState>,
-        action: ActionWithMeta<&P2pNetworkKadRequestAction>,
+        action: ActionWithMeta<P2pNetworkKadRequestAction>,
     ) -> Result<(), String>
     where
         State: SubstateAccess<P2pNetworkKadState> + SubstateAccess<P2pState>,
@@ -27,12 +25,12 @@ impl P2pNetworkKadRequestState {
 
         let request_state = match action {
             P2pNetworkKadRequestAction::New { peer_id, addr, key } => state
-                .create_request(*addr, *peer_id, *key)
+                .create_request(addr, peer_id, key)
                 .map_err(|_request| format!("kademlia request to {addr} is already in progress"))?,
             P2pNetworkKadRequestAction::Prune { peer_id } => {
                 return state
                     .requests
-                    .remove(peer_id)
+                    .remove(&peer_id)
                     .map(|_| ())
                     .ok_or_else(|| "kademlia request for {peer_id} is not found".to_owned());
             }
@@ -46,10 +44,7 @@ impl P2pNetworkKadRequestState {
             P2pNetworkKadRequestAction::New { peer_id, addr, .. } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
-                let peer_state = p2p_state.peers.get(peer_id);
-
-                let peer_id = *peer_id;
-                let addr = *addr;
+                let peer_state = p2p_state.peers.get(&peer_id);
 
                 let on_initialize_connection = |dispatcher: &mut Dispatcher<Action, State>| {
                     // initialize connection to the peer.
@@ -142,7 +137,7 @@ impl P2pNetworkKadRequestState {
                     .network
                     .scheduler
                     .connections
-                    .get(addr)
+                    .get(&addr)
                     .ok_or_else(|| format!("connection with {addr} not found"))
                     .and_then(|conn| {
                         conn.mux
@@ -158,20 +153,18 @@ impl P2pNetworkKadRequestState {
 
                 // TODO: add callbacks
                 dispatcher.push(P2pNetworkYamuxAction::OpenStream {
-                    addr: *addr,
+                    addr,
                     stream_id,
                     stream_kind: crate::token::StreamKind::Discovery(
                         crate::token::DiscoveryAlgorithm::Kademlia1_0_0,
                     ),
                 });
-                dispatcher.push(P2pNetworkKadRequestAction::StreamIsCreating {
-                    peer_id: *peer_id,
-                    stream_id,
-                });
+                dispatcher
+                    .push(P2pNetworkKadRequestAction::StreamIsCreating { peer_id, stream_id });
                 Ok(())
             }
             P2pNetworkKadRequestAction::StreamIsCreating { stream_id, .. } => {
-                request_state.status = P2pNetworkKadRequestStatus::WaitingForKadStream(*stream_id);
+                request_state.status = P2pNetworkKadRequestStatus::WaitingForKadStream(stream_id);
 
                 Ok(())
             }
@@ -199,9 +192,7 @@ impl P2pNetworkKadRequestState {
                     },
                     super::P2pNetworkKadRequestStatus::Request,
                 );
-                let peer_id = *peer_id;
-                let stream_id = *stream_id;
-                let addr = *addr;
+
                 let key = request_state.key;
 
                 let dispatcher = state_context.into_dispatcher();
@@ -232,7 +223,7 @@ impl P2pNetworkKadRequestState {
 
                 let bootstrap_request = state
                     .bootstrap_state()
-                    .and_then(|bootstrap_state| bootstrap_state.request(peer_id))
+                    .and_then(|bootstrap_state| bootstrap_state.request(&peer_id))
                     .is_some();
 
                 let closest_peers = bootstrap_request
@@ -243,45 +234,32 @@ impl P2pNetworkKadRequestState {
 
                 if bootstrap_request {
                     dispatcher.push(P2pNetworkKadBootstrapAction::RequestDone {
-                        peer_id: *peer_id,
+                        peer_id,
                         closest_peers,
                     });
                 }
 
-                let external_addr = |addr: &SocketAddr| {
-                    !filter_local_addrs
-                        || match addr.ip() {
-                            std::net::IpAddr::V4(v) => !(v.is_loopback() || v.is_private()),
-                            std::net::IpAddr::V6(v) => !(v.is_loopback()),
-                        }
-                };
                 for entry in data {
                     let peer_id = entry.peer_id;
-                    let to_opts = |addr| (peer_id, addr).into();
-                    let mut addresses = entry
-                        .addresses()
-                        .iter()
-                        .map(socket_addr_try_from_multiaddr)
-                        .filter_map(Result::ok)
-                        .filter(external_addr)
-                        .map(to_opts)
-                        .map(P2pConnectionOutgoingInitOpts::LibP2P);
 
-                    // TODO: use all addresses
-                    dispatcher.push(P2pPeerAction::Discovered {
-                        peer_id,
-                        dial_opts: addresses.next(),
-                    });
+                    for multiaddr in entry.addresses().iter() {
+                        let multiaddr = multiaddr.clone();
+                        dispatcher.push(P2pNetworkKadEffectfulAction::Discovered {
+                            multiaddr,
+                            filter_local: filter_local_addrs,
+                            peer_id,
+                        });
+                    }
                 }
                 dispatcher.push(P2pNetworkKademliaStreamAction::Close {
                     addr: ConnectionAddr {
                         sock_addr: addr,
                         incoming: false,
                     },
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    peer_id,
+                    stream_id,
                 });
-                dispatcher.push(P2pNetworkKadRequestAction::Prune { peer_id: *peer_id });
+                dispatcher.push(P2pNetworkKadRequestAction::Prune { peer_id });
                 Ok(())
             }
             P2pNetworkKadRequestAction::Prune { .. } => {
@@ -292,19 +270,16 @@ impl P2pNetworkKadRequestState {
                 request_state.status = P2pNetworkKadRequestStatus::Error(error.clone());
                 let bootstrap_request = state
                     .bootstrap_state()
-                    .and_then(|bootstrap_state| bootstrap_state.request(peer_id))
+                    .and_then(|bootstrap_state| bootstrap_state.request(&peer_id))
                     .is_some();
 
                 let dispatcher = state_context.into_dispatcher();
 
                 if bootstrap_request {
-                    dispatcher.push(P2pNetworkKadBootstrapAction::RequestError {
-                        peer_id: *peer_id,
-                        error: error.clone(),
-                    });
+                    dispatcher.push(P2pNetworkKadBootstrapAction::RequestError { peer_id, error });
                 }
 
-                dispatcher.push(P2pNetworkKadRequestAction::Prune { peer_id: *peer_id });
+                dispatcher.push(P2pNetworkKadRequestAction::Prune { peer_id });
                 Ok(())
             }
         }

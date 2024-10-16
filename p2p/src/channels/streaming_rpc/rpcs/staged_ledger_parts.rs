@@ -192,13 +192,10 @@ impl Default for StagedLedgerPartsSendProgress {
 }
 
 impl StagedLedgerPartsReceiveProgress {
-    pub fn update(&mut self, time: redux::Timestamp, resp: &StagedLedgerPartsResponse) -> bool {
+    pub fn update(&mut self, time: redux::Timestamp, resp: StagedLedgerPartsResponse) -> bool {
         match (std::mem::take(self), resp) {
             (Self::BasePending { .. }, StagedLedgerPartsResponse::Base(base)) => {
-                *self = Self::BaseSuccess {
-                    time,
-                    base: base.clone(),
-                };
+                *self = Self::BaseSuccess { time, base };
                 true
             }
             (
@@ -208,7 +205,7 @@ impl StagedLedgerPartsReceiveProgress {
                 *self = Self::ScanStateBaseSuccess {
                     time,
                     base,
-                    scan_state_base: data.clone(),
+                    scan_state_base: data,
                 };
                 true
             }
@@ -224,7 +221,7 @@ impl StagedLedgerPartsReceiveProgress {
                     time,
                     base,
                     scan_state_base,
-                    previous_incomplete_zkapp_updates: data.clone(),
+                    previous_incomplete_zkapp_updates: data,
                 };
                 true
             }
@@ -238,7 +235,7 @@ impl StagedLedgerPartsReceiveProgress {
                 },
                 StagedLedgerPartsResponse::ScanStateTree(tree),
             ) => {
-                trees.extend(std::iter::once(tree.clone()));
+                trees.extend(std::iter::once(tree));
 
                 *self = if trees.len() >= scan_state_base.trees.as_u32() as usize {
                     // base, scan_state_base, previous_incomplete_zkapp_updates, trees

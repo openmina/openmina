@@ -12,6 +12,7 @@ pub mod scenarios;
 pub mod service;
 pub mod simulator;
 
+pub mod hosts;
 pub mod network_debugger;
 
 mod server;

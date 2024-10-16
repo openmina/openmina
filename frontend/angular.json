@@ -94,24 +94,6 @@
                 }
               ],
               "outputHashing": "all"
-            },
-            "compose": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.compose.ts"
-                }
-              ],
-              "outputHashing": "all"
-            },
-            "block_producers": {
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.block_producers.ts"
-                }
-              ],
-              "outputHashing": "all"
             }
           },
           "defaultConfiguration": "production"

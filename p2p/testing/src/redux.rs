@@ -12,9 +12,18 @@ use openmina_core::{
 use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
-        best_tip::P2pChannelsBestTipAction, best_tip_effectful::P2pChannelsBestTipEffectfulAction,
-        rpc::P2pChannelsRpcAction, rpc_effectful::P2pChannelsRpcEffectfulAction,
-        snark::P2pChannelsSnarkAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
+        best_tip::P2pChannelsBestTipAction,
+        best_tip_effectful::P2pChannelsBestTipEffectfulAction,
+        rpc::P2pChannelsRpcAction,
+        rpc_effectful::P2pChannelsRpcEffectfulAction,
+        signaling::{
+            discovery::P2pChannelsSignalingDiscoveryAction,
+            discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
+            exchange::P2pChannelsSignalingExchangeAction,
+            exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
+        },
+        snark::P2pChannelsSnarkAction,
+        snark_effectful::P2pChannelsSnarkEffectfulAction,
         snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
         snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
         streaming_rpc::P2pChannelsStreamingRpcAction,
@@ -35,9 +44,10 @@ use p2p::{
         P2pNetworkIdentifyStreamAction,
     },
     peer::P2pPeerAction,
-    MioEvent, P2pAction, P2pEvent, P2pNetworkKadBootstrapAction, P2pNetworkKadRequestAction,
-    P2pNetworkKademliaAction, P2pNetworkKademliaStreamAction, P2pNetworkSchedulerAction,
-    P2pNetworkSchedulerEffectfulAction, P2pNetworkYamuxAction, P2pState, P2pStateTrait, PeerId,
+    MioEvent, P2pAction, P2pEffectfulAction, P2pEvent, P2pNetworkKadBootstrapAction,
+    P2pNetworkKadEffectfulAction, P2pNetworkKadRequestAction, P2pNetworkKademliaAction,
+    P2pNetworkKademliaStreamAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, P2pState,
+    P2pStateTrait, PeerId,
 };
 use redux::{ActionMeta, EnablingCondition, SubStore};
 
@@ -50,6 +60,9 @@ impl State {
     pub fn state(&self) -> &P2pState {
         &self.0
     }
+    pub fn state_mut(&mut self) -> &mut P2pState {
+        &mut self.0
+    }
 }
 
 impl EnablingCondition<State> for Action {
@@ -57,6 +70,7 @@ impl EnablingCondition<State> for Action {
         match self {
             Action::P2p(a) => a.is_enabled(&state.0, time),
             Action::Idle(a) => a.is_enabled(state, time),
+            Action::P2pEffectful(a) => a.is_enabled(state.state(), time),
         }
     }
 }
@@ -126,6 +140,7 @@ impl P2pStateTrait for State {}
 #[derive(Debug, derive_more::From)]
 pub enum Action {
     P2p(P2pAction),
+    P2pEffectful(P2pEffectfulAction),
     Idle(IdleAction),
 }
 
@@ -202,7 +217,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
             ),
             MioEvent::IncomingConnectionIsReady { listener } => SubStore::dispatch(
                 store,
-                P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener },
+                P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener },
             ),
             MioEvent::IncomingConnectionDidAccept(addr, result) => SubStore::dispatch(
                 store,
@@ -259,6 +274,13 @@ macro_rules! impl_from_p2p {
             }
         }
     };
+    (effectful $sub_action:ty) => {
+        impl From<$sub_action> for Action {
+            fn from(value: $sub_action) -> Self {
+                Self::P2pEffectful(P2pEffectfulAction::from(value))
+            }
+        }
+    };
 }
 
 impl_from_p2p!(P2pNetworkKademliaAction);
@@ -271,31 +293,37 @@ impl_from_p2p!(P2pConnectionOutgoingAction);
 impl_from_p2p!(P2pNetworkSchedulerAction);
 impl_from_p2p!(P2pNetworkIdentifyStreamAction);
 impl_from_p2p!(P2pIdentifyAction);
-impl_from_p2p!(P2pNetworkIdentifyStreamEffectfulAction);
 impl_from_p2p!(p2p::P2pNetworkSelectAction);
 impl_from_p2p!(p2p::P2pNetworkPnetAction);
 impl_from_p2p!(p2p::P2pNetworkNoiseAction);
 impl_from_p2p!(p2p::connection::incoming::P2pConnectionIncomingAction);
 impl_from_p2p!(p2p::P2pNetworkPubsubAction);
-impl_from_p2p!(p2p::P2pNetworkPubsubEffectfulAction);
+impl_from_p2p!(P2pChannelsSignalingDiscoveryAction);
+impl_from_p2p!(P2pChannelsSignalingExchangeAction);
 impl_from_p2p!(P2pChannelsTransactionAction);
 impl_from_p2p!(P2pChannelsSnarkAction);
 impl_from_p2p!(p2p::P2pNetworkRpcAction);
 impl_from_p2p!(P2pChannelsRpcAction);
 impl_from_p2p!(P2pDisconnectionAction);
-impl_from_p2p!(p2p::P2pNetworkSchedulerEffectfulAction);
-impl_from_p2p!(p2p::P2pNetworkPnetEffectfulAction);
 impl_from_p2p!(P2pChannelsBestTipAction);
 impl_from_p2p!(P2pChannelsSnarkJobCommitmentAction);
 impl_from_p2p!(P2pChannelsStreamingRpcAction);
-impl_from_p2p!(P2pConnectionIncomingEffectfulAction);
-impl_from_p2p!(P2pConnectionOutgoingEffectfulAction);
-impl_from_p2p!(P2pDisconnectionEffectfulAction);
-impl_from_p2p!(P2pChannelsBestTipEffectfulAction);
-impl_from_p2p!(P2pChannelsStreamingRpcEffectfulAction);
-impl_from_p2p!(P2pChannelsTransactionEffectfulAction);
-impl_from_p2p!(P2pChannelsSnarkJobCommitmentEffectfulAction);
-impl_from_p2p!(P2pChannelsRpcEffectfulAction);
-impl_from_p2p!(P2pChannelsSnarkEffectfulAction);
+
+impl_from_p2p!(effectful P2pNetworkKadEffectfulAction);
+impl_from_p2p!(effectful P2pConnectionIncomingEffectfulAction);
+impl_from_p2p!(effectful p2p::P2pNetworkSchedulerEffectfulAction);
+impl_from_p2p!(effectful p2p::P2pNetworkPnetEffectfulAction);
+impl_from_p2p!(effectful p2p::P2pNetworkPubsubEffectfulAction);
+impl_from_p2p!(effectful P2pNetworkIdentifyStreamEffectfulAction);
+impl_from_p2p!(effectful P2pConnectionOutgoingEffectfulAction);
+impl_from_p2p!(effectful P2pDisconnectionEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsSignalingDiscoveryEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsSignalingExchangeEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsBestTipEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsStreamingRpcEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsTransactionEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsSnarkJobCommitmentEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsRpcEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsSnarkEffectfulAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

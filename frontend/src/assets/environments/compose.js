@@ -1,3 +1,8 @@
+/**
+ * This configuration is used for lunching devnet rust nodes inside a docker container.
+ * https://github.com/openmina/openmina?tab=readme-ov-file#how-to-launch-the-node-with-docker-compose
+ */
+
 export default {
   production: true,
   identifier: 'Running in Docker',
@@ -6,9 +11,7 @@ export default {
       dashboard: [],
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
-      network: ['node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state'],
-      benchmarks: ['wallets'],
     },
     canAddNodes: true,
     graphQL: '/openmina-node/graphql',

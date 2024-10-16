@@ -26,7 +26,7 @@ impl P2pConnectionState {
     pub fn incoming_init(opts: &P2pConnectionIncomingInitOpts) -> Self {
         Self::Incoming(P2pConnectionIncomingState::Init {
             time: Timestamp::ZERO,
-            signaling: opts.signaling.clone(),
+            signaling: opts.signaling,
             offer: opts.offer.clone(),
             rpc_id: None,
         })

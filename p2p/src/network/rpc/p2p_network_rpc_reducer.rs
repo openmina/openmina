@@ -31,20 +31,20 @@ impl P2pNetworkRpcState {
     /// Substate is accessed
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, P2pNetworkState>,
-        action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
+        action: redux::ActionWithMeta<P2pNetworkRpcAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
+        let (action, meta) = action.split();
         let rpc_state = state_context
             .get_substate_mut()?
-            .find_rpc_state_mut(action.action())
-            .ok_or_else(|| format!("RPC state not found for action: {:?}", action.action()))
+            .find_rpc_state_mut(&action)
+            .ok_or_else(|| format!("RPC state not found for action: {:?}", action))
             .inspect_err(|e| bug_condition!("{}", e))?;
 
-        let (action, meta) = action.split();
         match action {
             P2pNetworkRpcAction::Init {
                 incoming,
@@ -52,13 +52,13 @@ impl P2pNetworkRpcState {
                 peer_id,
                 stream_id,
             } => {
-                rpc_state.is_incoming = *incoming;
+                rpc_state.is_incoming = incoming;
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkRpcAction::OutgoingData {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                     data: Data::from(RpcMessage::Handshake.into_bytes()),
                     fin: false,
                 });
@@ -70,7 +70,7 @@ impl P2pNetworkRpcState {
                 peer_id,
                 stream_id,
             } => {
-                rpc_state.buffer.extend_from_slice(data);
+                rpc_state.buffer.extend_from_slice(&data);
                 let mut offset = 0;
                 // TODO(akoptelov): there shouldn't be the case where we have multiple incoming messages at once (or at least other than heartbeat)
                 loop {
@@ -127,22 +127,22 @@ impl P2pNetworkRpcState {
 
                 if let Some(message) = incoming {
                     dispatcher.push(P2pNetworkRpcAction::IncomingMessage {
-                        addr: *addr,
-                        peer_id: *peer_id,
-                        stream_id: *stream_id,
+                        addr,
+                        peer_id,
+                        stream_id,
                         message,
                     })
                 }
 
                 Ok(())
             }
-            action @ P2pNetworkRpcAction::IncomingMessage {
-                message,
+            ref action @ P2pNetworkRpcAction::IncomingMessage {
+                ref message,
                 addr,
                 peer_id,
                 stream_id,
             } => {
-                if let RpcMessage::Response { header, .. } = message {
+                if let RpcMessage::Response { header, .. } = &message {
                     if let Some(QueryHeader { id, tag, version }) = &rpc_state.pending {
                         *rpc_state
                             .total_stats
@@ -154,7 +154,7 @@ impl P2pNetworkRpcState {
                     } else {
                         error!(meta.time(); "receiving response without query");
                     }
-                } else if let RpcMessage::Query { header, .. } = message {
+                } else if let RpcMessage::Query { header, .. } = &message {
                     if rpc_state.pending.is_none() {
                         rpc_state.pending = Some(header.clone());
                     } else {
@@ -173,14 +173,14 @@ impl P2pNetworkRpcState {
                 match &message {
                     RpcMessage::Handshake => {
                         if !state.is_incoming {
-                            dispatcher.push(P2pChannelsRpcAction::Ready { peer_id: *peer_id });
+                            dispatcher.push(P2pChannelsRpcAction::Ready { peer_id });
                         }
                     }
                     RpcMessage::Heartbeat => {}
                     RpcMessage::Query { header, bytes } => {
-                        if let Err(e) = dispatch_rpc_query(*peer_id, header, bytes, dispatcher) {
+                        if let Err(e) = dispatch_rpc_query(peer_id, header, bytes, dispatcher) {
                             dispatcher.push(P2pDisconnectionAction::Init {
-                                peer_id: *peer_id,
+                                peer_id,
                                 reason: P2pDisconnectionReason::P2pChannelReceiveFailed(
                                     e.to_string(),
                                 ),
@@ -203,16 +203,13 @@ impl P2pNetworkRpcState {
                             }
                         };
                         // unset pending
-                        dispatcher.push(P2pNetworkRpcAction::PrunePending {
-                            peer_id: *peer_id,
-                            stream_id: *stream_id,
-                        });
+                        dispatcher.push(P2pNetworkRpcAction::PrunePending { peer_id, stream_id });
 
                         if let Err(e) =
-                            dispatch_rpc_response(*peer_id, &query_header, bytes, dispatcher)
+                            dispatch_rpc_response(peer_id, &query_header, bytes, dispatcher)
                         {
                             dispatcher.push(P2pDisconnectionAction::Init {
-                                peer_id: *peer_id,
+                                peer_id,
                                 reason: P2pDisconnectionReason::P2pChannelReceiveFailed(
                                     e.to_string(),
                                 ),
@@ -223,9 +220,9 @@ impl P2pNetworkRpcState {
 
                 if let Some(message) = state.incoming.front().cloned() {
                     dispatcher.push(P2pNetworkRpcAction::IncomingMessage {
-                        addr: *addr,
-                        peer_id: *peer_id,
-                        stream_id: *stream_id,
+                        addr,
+                        peer_id,
+                        stream_id,
                         message,
                     });
                 }
@@ -245,9 +242,9 @@ impl P2pNetworkRpcState {
                 let dispatcher = state_context.into_dispatcher();
 
                 dispatcher.push(P2pNetworkRpcAction::OutgoingData {
-                    addr: *addr,
-                    peer_id: *peer_id,
-                    stream_id: *stream_id,
+                    addr,
+                    peer_id,
+                    stream_id,
                     data: Data::from(RpcMessage::Heartbeat.into_bytes()),
                     fin: false,
                 });
@@ -267,12 +264,12 @@ impl P2pNetworkRpcState {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkRpcAction::OutgoingData {
                     addr,
-                    peer_id: *peer_id,
+                    peer_id,
                     stream_id,
                     data: Data::from(
                         RpcMessage::Query {
-                            header: query.clone(),
-                            bytes: data.clone(),
+                            header: query,
+                            bytes: data,
                         }
                         .into_bytes(),
                     ),
@@ -284,17 +281,16 @@ impl P2pNetworkRpcState {
             P2pNetworkRpcAction::OutgoingData {
                 addr,
                 stream_id,
-                data,
+                mut data,
                 ..
             } => {
                 let dispatcher = state_context.into_dispatcher();
-                let mut data = data.clone();
                 fuzz_maybe!(&mut data, crate::fuzzer::mutate_rpc_data);
                 let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
 
                 dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
-                    addr: *addr,
-                    stream_id: *stream_id,
+                    addr,
+                    stream_id,
                     data,
                     flags,
                 });
@@ -314,18 +310,15 @@ impl P2pNetworkRpcState {
                 let addr = rpc_state.addr;
                 let dispatcher = state_context.into_dispatcher();
 
-                dispatcher.push(P2pNetworkRpcAction::PrunePending {
-                    peer_id: *peer_id,
-                    stream_id,
-                });
+                dispatcher.push(P2pNetworkRpcAction::PrunePending { peer_id, stream_id });
                 dispatcher.push(P2pNetworkRpcAction::OutgoingData {
                     addr,
-                    peer_id: *peer_id,
+                    peer_id,
                     stream_id,
                     data: Data::from(
                         RpcMessage::Response {
-                            header: response.clone(),
-                            bytes: data.clone(),
+                            header: response,
+                            bytes: data,
                         }
                         .into_bytes(),
                     ),

@@ -23,6 +23,16 @@ impl State {
 #[cfg(target_family = "wasm")]
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 impl State {
+    pub async fn get(&self, filter: String) -> JsValue {
+        let res = self
+            .sender
+            .oneshot_request::<RpcStateGetResponse>(RpcRequest::StateGet(Some(filter)))
+            .await
+            .and_then(|v| v.ok());
+        res.map(|res| JsValue::from_serde(&res).unwrap_or_default())
+            .unwrap_or_default()
+    }
+
     pub async fn peers(&self) -> JsValue {
         let res = self
             .sender

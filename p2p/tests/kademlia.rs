@@ -1,16 +1,16 @@
+use openmina_core::Substate;
 use p2p::{
-    identity::SecretKey, p2p_effects, P2pAction, P2pNetworkAction, P2pNetworkKadAction,
-    P2pNetworkKadBucket, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
-    P2pNetworkKademliaStreamAction, PeerId,
+    identity::SecretKey, P2pAction, P2pNetworkAction, P2pNetworkKadAction, P2pNetworkKadBucket,
+    P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply, P2pNetworkKademliaStreamAction, P2pState,
+    PeerId,
 };
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, Listener},
-    event::{allow_disconnections, event_mapper_effect, RustNodeEvent},
+    event::{allow_disconnections, RustNodeEvent},
     futures::{StreamExt, TryStreamExt},
     predicates::kad_finished_bootstrap,
     redux::{Action, State},
     rust_node::{RustNodeConfig, RustNodeId},
-    service::ClusterService,
     stream::ClusterStreamExt,
     test_node::TestNode,
     utils::{
@@ -18,7 +18,7 @@ use p2p_testing::{
         try_wait_for_nodes_to_listen,
     },
 };
-use redux::{ActionWithMeta, Store};
+use redux::{ActionWithMeta, Dispatcher};
 use std::{future::ready, net::Ipv4Addr, time::Duration};
 
 #[tokio::test]
@@ -312,7 +312,6 @@ async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-#[ignore = "TODO: Add override for reducer"]
 async fn test_bad_node() -> anyhow::Result<()> {
     std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", "false");
 
@@ -325,7 +324,7 @@ async fn test_bad_node() -> anyhow::Result<()> {
     let bad_node = cluster.add_rust_node(
         RustNodeConfig::default()
             .with_discovery(true)
-            .with_override(bad_node_effects),
+            .with_override_reducer(bad_node_reducer),
     )?;
 
     let node = cluster.add_rust_node(
@@ -353,57 +352,56 @@ async fn test_bad_node() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn bad_node_effects(
-    store: &mut Store<State, ClusterService, Action>,
-    action: ActionWithMeta<Action>,
+fn bad_node_reducer(
+    state: &mut State,
+    action: &ActionWithMeta<Action>,
+    dispatcher: &mut Dispatcher<Action, State>,
 ) {
     {
-        let (action, meta) = action.split();
+        let meta = action.meta().clone();
+        let action = action.action();
+        let time = meta.time();
         match action {
-            Action::P2p(a) => {
-                match a.clone() {
-                    P2pAction::Network(P2pNetworkAction::Kad(P2pNetworkKadAction::System(
-                        P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                            addr,
-                            peer_id,
-                            stream_id,
-                            ..
-                        },
-                    ))) => {
-                        let closer_peers = store
-                            .state
-                            .get()
-                            .state()
-                            .network
-                            .scheduler
-                            .discovery_state()
-                            .expect("Error getting discovery state")
-                            .routing_table
-                            .buckets
-                            .iter()
-                            .flat_map(|bucket| bucket.clone().into_iter())
-                            .collect();
+            Action::P2p(P2pAction::Network(P2pNetworkAction::Kad(
+                P2pNetworkKadAction::System(P2pNetworkKademliaAction::AnswerFindNodeRequest {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    ..
+                }),
+            ))) => {
+                let closer_peers = state
+                    .state()
+                    .network
+                    .scheduler
+                    .discovery_state()
+                    .expect("Error getting discovery state")
+                    .routing_table
+                    .buckets
+                    .iter()
+                    .flat_map(|bucket| bucket.clone().into_iter())
+                    .collect();
 
-                        let message = P2pNetworkKademliaRpcReply::FindNode { closer_peers };
-                        store.dispatch(Action::P2p(
-                            P2pNetworkKademliaStreamAction::SendResponse {
-                                addr,
-                                peer_id,
-                                stream_id,
-                                data: message,
-                            }
-                            .into(),
-                        ));
+                let message = P2pNetworkKademliaRpcReply::FindNode { closer_peers };
+                dispatcher.push(Action::P2p(
+                    P2pNetworkKademliaStreamAction::SendResponse {
+                        addr: *addr,
+                        peer_id: *peer_id,
+                        stream_id: *stream_id,
+                        data: message,
                     }
-                    a => {
-                        p2p_effects(store, meta.with_action(a.clone()));
-                    }
+                    .into(),
+                ));
+            }
+            Action::P2p(action) => {
+                if let Err(error) = P2pState::reducer(
+                    Substate::new(state, dispatcher),
+                    meta.with_action(action.clone()),
+                ) {
+                    openmina_core::warn!(time; "error = {error}");
                 }
-                event_mapper_effect(store, a);
             }
-            Action::Idle(_) => {
-                // p2p_timeout_effects(store, &meta);
-            }
+            Action::Idle(_) | Action::P2pEffectful(_) => {}
         };
     }
 }

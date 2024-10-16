@@ -87,10 +87,13 @@ pub fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
         return std::fs::read(path);
     }
 
-    eprintln!(
-        "circuit-blobs '{}' not found locally, so fetching it...",
-        filename.as_ref().to_str().unwrap()
+    openmina_core::info!(
+        openmina_core::log::system_time();
+        kind = "ledger proofs",
+        message = "circuit-blobs not found locally, so fetching it...",
+        filename = filename.as_ref().to_str().unwrap(),
     );
+
     let base_dir = home_base_dir.expect("$HOME env not set!");
 
     let bytes = reqwest::blocking::get(git_release_url(filename))
@@ -101,7 +104,12 @@ pub fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
 
     // cache it to home dir.
     let cache_path = base_dir.join(filename);
-    eprintln!("caching circuit-blobs to {}", cache_path.to_str().unwrap());
+    openmina_core::info!(
+        openmina_core::log::system_time();
+        kind = "ledger proofs",
+        message = "caching circuit-blobs",
+        path = cache_path.to_str().unwrap(),
+    );
     let _ = std::fs::create_dir_all(cache_path.parent().unwrap());
     let _ = std::fs::write(cache_path, &bytes);
 

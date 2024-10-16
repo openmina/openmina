@@ -6,7 +6,7 @@ export const CONFIG: Readonly<MinaEnv> = {
   ...environment,
   globalConfig: {
     ...environment.globalConfig,
-    graphQL: getURL(environment.globalConfig.graphQL),
+    graphQL: getURL(environment.globalConfig?.graphQL),
   },
   configs: environment.configs.map((config) => ({
     ...config,

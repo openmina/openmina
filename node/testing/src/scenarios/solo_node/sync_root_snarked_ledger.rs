@@ -37,9 +37,9 @@ impl SoloNodeSyncRootSnarkedLedger {
         eprintln!("launch Openmina node with default configuration, id: {node_id}");
 
         const REPLAYER_1: &str =
-            "/ip4/65.109.110.75/tcp/18302/p2p/12D3KooWD8jSyPFXNdAcMBHyHjRBcK1AW9t3xvnpfCFSRKMweVKi";
+            "/dns4/web-node-1/tcp/18302/p2p/12D3KooWD8jSyPFXNdAcMBHyHjRBcK1AW9t3xvnpfCFSRKMweVKi";
         const REPLAYER_2: &str =
-            "/ip4/65.109.110.75/tcp/18303/p2p/12D3KooWBxbfeaxGHxdxP3U5jRKpNK5wQmbjKywGJEqTCNpVPxqk";
+            "/dns4/web-node-1/tcp/18303/p2p/12D3KooWBxbfeaxGHxdxP3U5jRKpNK5wQmbjKywGJEqTCNpVPxqk";
 
         // Initiate connection to 2 replayers.
         runner

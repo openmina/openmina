@@ -1,23 +1,23 @@
 use crate::{
     channels::{
-        rpc::P2pChannelsRpcAction, streaming_rpc::P2pChannelsStreamingRpcAction, P2pChannelsState,
+        rpc::P2pChannelsRpcAction, signaling::discovery::P2pChannelsSignalingDiscoveryAction,
+        streaming_rpc::P2pChannelsStreamingRpcAction, P2pChannelsState,
     },
     connection::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
         P2pConnectionState,
     },
     disconnection::P2pDisconnectedState,
-    P2pAction, P2pActionWithMetaRef, P2pNetworkKadKey, P2pNetworkKademliaAction,
-    P2pNetworkPnetAction, P2pNetworkRpcAction, P2pNetworkSelectAction, P2pNetworkState,
-    P2pPeerState, P2pState, PeerId,
+    P2pAction, P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkPnetAction,
+    P2pNetworkRpcAction, P2pNetworkSelectAction, P2pNetworkState, P2pPeerState, P2pState, PeerId,
 };
 use openmina_core::{bug_condition, Substate};
-use redux::{ActionMeta, Dispatcher, Timestamp};
+use redux::{ActionMeta, ActionWithMeta, Dispatcher, Timestamp};
 
 impl P2pState {
     pub fn reducer<State, Action>(
         mut state_context: Substate<Action, State, Self>,
-        action: P2pActionWithMetaRef<'_>,
+        action: ActionWithMeta<P2pAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -62,12 +62,6 @@ impl P2pState {
                         &limits,
                     )?;
                 }
-                Ok(())
-            }
-            P2pAction::ConnectionEffectful(_)
-            | P2pAction::DisconnectionEffectful(_)
-            | P2pAction::ChannelsEffectful(_) => {
-                // effectful
                 Ok(())
             }
         }
@@ -194,6 +188,14 @@ impl P2pState {
 
         if !config.peer_discovery {
             return Ok(());
+        }
+
+        for (&peer_id, _) in self
+            .ready_peers_iter()
+            .filter(|(_, peer)| peer.channels.signaling.discovery.is_ready())
+        {
+            dispatcher.push(P2pChannelsSignalingDiscoveryAction::RequestSend { peer_id });
+            dispatcher.push(P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend { peer_id });
         }
 
         if let Some(_d) = config.timeouts.initial_peers {

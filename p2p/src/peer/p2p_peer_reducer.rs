@@ -9,7 +9,7 @@ impl P2pPeerState {
     /// Substate is accessed
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pPeerAction>,
+        action: ActionWithMeta<P2pPeerAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -23,10 +23,10 @@ impl P2pPeerState {
                 // TODO: add bound to peers
                 let peer_state = p2p_state
                     .peers
-                    .entry(*peer_id)
+                    .entry(peer_id)
                     .or_insert_with(|| P2pPeerState {
                         is_libp2p: true,
-                        dial_opts: dial_opts.clone(),
+                        dial_opts: None,
                         identify: None,
                         status: P2pPeerStatus::Disconnected {
                             time: Timestamp::ZERO,
@@ -34,16 +34,16 @@ impl P2pPeerState {
                     });
 
                 if let Some(dial_opts) = dial_opts {
-                    peer_state.dial_opts.get_or_insert(dial_opts.clone());
+                    peer_state.dial_opts.get_or_insert(dial_opts);
                 }
                 Ok(())
             }
             P2pPeerAction::Ready { peer_id, incoming } => {
-                let Some(peer) = p2p_state.peers.get_mut(peer_id) else {
+                let Some(peer) = p2p_state.peers.get_mut(&peer_id) else {
                     return Ok(());
                 };
                 peer.status = P2pPeerStatus::Ready(P2pPeerStatusReady::new(
-                    *incoming,
+                    incoming,
                     meta.time(),
                     &p2p_state.config.enabled_channels,
                 ));
@@ -51,13 +51,13 @@ impl P2pPeerState {
                 if !peer.is_libp2p {
                     let (dispatcher, state) = state_context.into_dispatcher_and_state();
                     let state: &P2pState = state.substate()?;
-                    state.channels_init(dispatcher, *peer_id);
+                    state.channels_init(dispatcher, peer_id);
                 }
 
                 Ok(())
             }
             P2pPeerAction::BestTipUpdate { peer_id, best_tip } => {
-                let Some(peer) = p2p_state.get_ready_peer_mut(peer_id) else {
+                let Some(peer) = p2p_state.get_ready_peer_mut(&peer_id) else {
                     bug_condition!("Peer state not found for `P2pPeerAction::BestTipUpdate`");
                     return Ok(());
                 };
@@ -67,12 +67,12 @@ impl P2pPeerState {
                 let p2p_state: &P2pState = state.substate()?;
 
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_peer_best_tip_update {
-                    dispatcher.push_callback(callback.clone(), best_tip.clone());
+                    dispatcher.push_callback(callback.clone(), best_tip);
                 }
                 Ok(())
             }
             P2pPeerAction::Remove { peer_id } => {
-                if p2p_state.peers.remove(peer_id).is_none() {
+                if p2p_state.peers.remove(&peer_id).is_none() {
                     bug_condition!(
                         "Missing state for peer {peer_id} action: `P2pPeerAction::Remove`"
                     );

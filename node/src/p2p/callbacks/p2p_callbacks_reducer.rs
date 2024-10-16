@@ -45,12 +45,16 @@ impl crate::State {
             P2pCallbacksAction::P2pChannelsRpcReady { peer_id } => {
                 let peer_id = *peer_id;
 
-                dispatcher.push(P2pChannelsRpcAction::RequestSend {
-                    peer_id,
-                    id: 0,
-                    request: Box::new(P2pRpcRequest::BestTipWithProof),
-                    on_init: None,
-                });
+                if state.p2p.get_peer(&peer_id).map_or(false, |p| p.is_libp2p) {
+                    // for webrtc peers, we don't need to send this rpc, as we
+                    // will receive current best tip in best tip channel anyways.
+                    dispatcher.push(P2pChannelsRpcAction::RequestSend {
+                        peer_id,
+                        id: 0,
+                        request: Box::new(P2pRpcRequest::BestTipWithProof),
+                        on_init: None,
+                    });
+                }
 
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
@@ -283,7 +287,9 @@ impl crate::State {
                 let response = None.or_else(|| {
                     let best_tip = best_chain.last()?;
                     let mut chain_iter = best_chain.iter();
-                    let root_block = chain_iter.next()?;
+                    let root_block = chain_iter.next();
+                    // when our best tip is genesis block.
+                    let root_block = root_block.unwrap_or(best_tip);
                     // TODO(binier): cache body hashes
                     let Ok(body_hashes) = chain_iter
                         .map(|b| b.header().protocol_state.body.try_hash())

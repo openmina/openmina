@@ -36,10 +36,14 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
     #[cfg(feature = "p2p-libp2p")]
     fn resolve_name(
         &mut self,
-        _host: &str,
+        hostname: &str,
     ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
-        // TODO: resolve host
-        Ok(Vec::new())
+        use std::net::ToSocketAddrs;
+
+        let it = format!("{hostname}:0")
+            .to_socket_addrs()
+            .map_err(|err| P2pNetworkServiceError::Resolve(format!("{hostname}, {err}")))?;
+        Ok(it.map(|addr| addr.ip()).collect())
     }
 
     #[cfg(feature = "p2p-libp2p")]
@@ -144,6 +148,22 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
         if self.peers().contains_key(&peer_id) {
             P2pServiceWebrtc::channel_send(self, peer_id, msg_id, msg)
         }
+    }
+
+    fn encrypt<M: crate::identity::EncryptableType>(
+        &mut self,
+        other_pk: &crate::identity::PublicKey,
+        message: &M,
+    ) -> Result<M::Encrypted, ()> {
+        P2pServiceWebrtc::encrypt(self, other_pk, message)
+    }
+
+    fn decrypt<M: crate::identity::EncryptableType>(
+        &mut self,
+        other_pk: &crate::identity::PublicKey,
+        encrypted: &M::Encrypted,
+    ) -> Result<M, ()> {
+        P2pServiceWebrtc::decrypt(self, other_pk, encrypted)
     }
 }
 

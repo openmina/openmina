@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use crate::{
+    hosts,
     node::RustNodeTestingConfig,
-    scenario::ListenerNode,
     scenarios::{ClusterRunner, Driver},
 };
 
@@ -16,7 +16,7 @@ impl P2pReceiveBlock {
             // make sure it will not ask initial peers
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(1)
-            .initial_peers(vec![ListenerNode::Custom("/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag".parse().unwrap())]);
+            .initial_peers(vec![hosts::devnet()[0].clone()]);
         let retransmitter_openmina_node = runner.add_rust_node(config);
         let retransmitter_peer_id = runner
             .node(retransmitter_openmina_node)

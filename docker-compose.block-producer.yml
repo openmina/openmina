@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  openmina-node:
+    image: openmina/openmina:${OPENMINA_TAG:-latest}
+    entrypoint: >
+      sh -c 'openmina node --producer-key /root/.openmina/producer-key ${COINBASE_RECEIVER:+--coinbase-receiver $COINBASE_RECEIVER}'
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./openmina-workdir:/root/.openmina:rw
+    environment:
+      MINA_PRIVKEY_PASS: "${MINA_PRIVKEY_PASS:-}"
+      COINBASE_RECEIVER: "${COINBASE_RECEIVER:-}"
+
+  frontend:
+    image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}
+    environment:
+      OPENMINA_FRONTEND_ENVIRONMENT: compose-producer
+    ports:
+      - "8070:80"

@@ -5,4 +5,4 @@ mod public_key;
 pub use public_key::PublicKey;
 
 mod secret_key;
-pub use secret_key::SecretKey;
+pub use secret_key::{EncryptableType, SecretKey};

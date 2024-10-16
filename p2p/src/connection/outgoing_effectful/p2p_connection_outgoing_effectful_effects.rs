@@ -60,6 +60,10 @@ impl P2pConnectionOutgoingEffectfulAction {
                         };
                         service.http_signaling_request(url, *offer);
                     }
+                    webrtc::SignalingMethod::P2p { .. } => {
+                        bug_condition!("`P2pConnectionOutgoingEffectfulAction::OfferSend` shouldn't be called for `webrtc::SignalingMethod::P2p`");
+                        return;
+                    }
                 }
                 store.dispatch(P2pConnectionOutgoingAction::OfferSendSuccess { peer_id });
             }

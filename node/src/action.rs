@@ -1,3 +1,4 @@
+use p2p::P2pEffectfulAction;
 use serde::{Deserialize, Serialize};
 
 pub type ActionWithMeta = redux::ActionWithMeta<Action>;
@@ -33,6 +34,7 @@ pub enum Action {
     EventSource(EventSourceAction),
 
     P2p(P2pAction),
+    P2pEffectful(P2pEffectfulAction),
     P2pCallbacks(P2pCallbacksAction),
 
     Ledger(LedgerAction),
@@ -76,6 +78,10 @@ impl redux::EnablingCondition<crate::State> for Action {
                     .ready()
                     .map_or(false, |p2p| other.is_enabled(p2p, time)),
             },
+            Action::P2pEffectful(a) => state
+                .p2p
+                .ready()
+                .map_or(false, |state| a.is_enabled(state, time)),
             Action::Ledger(a) => a.is_enabled(state, time),
             Action::Snark(a) => a.is_enabled(&state.snark, time),
             Action::Consensus(a) => a.is_enabled(state, time),

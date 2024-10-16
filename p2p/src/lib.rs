@@ -6,9 +6,18 @@ pub mod disconnection_effectful;
 pub mod identity;
 use bootstrap::P2pNetworkKadBootstrapState;
 use channels::{
-    best_tip::P2pChannelsBestTipAction, best_tip_effectful::P2pChannelsBestTipEffectfulAction,
-    rpc::P2pChannelsRpcAction, rpc_effectful::P2pChannelsRpcEffectfulAction,
-    snark::P2pChannelsSnarkAction, snark_effectful::P2pChannelsSnarkEffectfulAction,
+    best_tip::P2pChannelsBestTipAction,
+    best_tip_effectful::P2pChannelsBestTipEffectfulAction,
+    rpc::P2pChannelsRpcAction,
+    rpc_effectful::P2pChannelsRpcEffectfulAction,
+    signaling::{
+        discovery::P2pChannelsSignalingDiscoveryAction,
+        discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
+        exchange::P2pChannelsSignalingExchangeAction,
+        exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
+    },
+    snark::P2pChannelsSnarkAction,
+    snark_effectful::P2pChannelsSnarkEffectfulAction,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
     snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
     streaming_rpc::P2pChannelsStreamingRpcAction,
@@ -56,7 +65,6 @@ pub use p2p_state::*;
 mod p2p_reducer;
 
 mod p2p_effects;
-pub use self::p2p_effects::*;
 
 mod p2p_service;
 pub use p2p_service::*;
@@ -108,6 +116,7 @@ pub trait P2pActionTrait<State>:
     EnablingCondition<State>
     + From<AnyAction>
     + From<P2pAction>
+    + From<P2pEffectfulAction>
     + From<P2pNetworkKademliaStreamAction>
     + From<P2pNetworkKadRequestAction>
     + From<P2pNetworkKadBootstrapAction>
@@ -126,6 +135,10 @@ pub trait P2pActionTrait<State>:
     + From<P2pConnectionIncomingAction>
     + From<P2pNetworkPubsubAction>
     + From<P2pNetworkPubsubEffectfulAction>
+    + From<P2pChannelsSignalingExchangeAction>
+    + From<P2pChannelsSignalingExchangeEffectfulAction>
+    + From<P2pChannelsSignalingDiscoveryAction>
+    + From<P2pChannelsSignalingDiscoveryEffectfulAction>
     + From<P2pChannelsTransactionAction>
     + From<P2pChannelsSnarkAction>
     + From<P2pNetworkRpcAction>
@@ -144,5 +157,6 @@ pub trait P2pActionTrait<State>:
     + From<P2pChannelsSnarkJobCommitmentEffectfulAction>
     + From<P2pChannelsRpcEffectfulAction>
     + From<P2pChannelsSnarkEffectfulAction>
+    + From<P2pNetworkKadEffectfulAction>
 {
 }

@@ -1,7 +1,8 @@
 <mina-benchmarks-wallets-toolbar></mina-benchmarks-wallets-toolbar>
 <div class="h-minus-xl flex-column">
-  <mina-benchmarks-wallets-zkapp-toolbar></mina-benchmarks-wallets-zkapp-toolbar>
-  <div class="h-minus-xl flex-column">
+  <mina-benchmarks-wallets-zkapp-toolbar *ngIf="!isWebNode"></mina-benchmarks-wallets-zkapp-toolbar>
+  <div [class.h-minus-xl]="!isWebNode"
+       class="flex-column">
     <mina-benchmarks-wallets-table></mina-benchmarks-wallets-table>
   </div>
 </div>

@@ -6,7 +6,7 @@ use redux::ActionWithMeta;
 impl super::P2pNetworkIdentifyState {
     pub fn reducer<Action, State>(
         state_context: Substate<Action, State, Self>,
-        action: ActionWithMeta<&P2pNetworkIdentifyAction>,
+        action: ActionWithMeta<P2pNetworkIdentifyAction>,
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
@@ -20,10 +20,6 @@ impl super::P2pNetworkIdentifyState {
                 meta.with_action(action),
                 limits,
             ),
-            P2pNetworkIdentifyAction::StreamEffectful(_) => {
-                // no reducer effectful action
-                Ok(())
-            }
         }
     }
 }

@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
-import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
-import { getFirstFeature } from '@shared/constants/config';
+import { NoPreloading, PreloadAllModules, RouterModule, Routes } from '@angular/router';
+import { CONFIG, getFirstFeature } from '@shared/constants/config';
 
 const APP_TITLE: string = 'Open Mina';
 
@@ -10,7 +10,6 @@ export const NETWORK_TITLE: string = APP_TITLE + ' - Network';
 export const NODES_TITLE: string = APP_TITLE + ' - Nodes';
 export const STATE_TITLE: string = APP_TITLE + ' - State';
 export const SNARKS_TITLE: string = APP_TITLE + ' - Snarks';
-export const TESTING_TOOL_TITLE: string = APP_TITLE + ' - Testing Tool';
 export const BLOCK_PRODUCTION_TITLE: string = APP_TITLE + ' - Block Production';
 export const MEMPOOL_TITLE: string = APP_TITLE + ' - Mempool';
 export const BENCHMARKS_TITLE: string = APP_TITLE + ' - Benchmarks';
@@ -49,11 +48,6 @@ const routes: Routes = [
     title: SNARKS_TITLE,
   },
   {
-    path: 'testing-tool',
-    loadChildren: () => import('@testing-tool/testing-tool.module').then(m => m.TestingToolModule),
-    title: TESTING_TOOL_TITLE,
-  },
-  {
     path: 'block-production',
     loadChildren: () => import('@block-production/block-production.module').then(m => m.BlockProductionModule),
     title: BLOCK_PRODUCTION_TITLE,
@@ -79,7 +73,7 @@ const routes: Routes = [
   imports: [
     RouterModule.forRoot(routes, {
       // enableTracing: true,
-      preloadingStrategy: PreloadAllModules,
+      preloadingStrategy: CONFIG.configs.some(c => c.isWebNode) ? NoPreloading : PreloadAllModules,
       onSameUrlNavigation: 'ignore',
       initialNavigation: 'enabledNonBlocking',
     }),

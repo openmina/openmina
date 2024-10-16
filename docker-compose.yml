@@ -6,8 +6,6 @@ services:
     command: [ "node" ]
     ports:
       - "3000:3000"
-    environment:
-      - MINA_SNARK_WORKER_TAG=0.0.9
 
   frontend:
     image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}

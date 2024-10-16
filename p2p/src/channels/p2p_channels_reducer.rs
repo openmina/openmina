@@ -1,6 +1,16 @@
 use super::{
     best_tip::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction, P2pChannelsBestTipState},
     rpc::{P2pChannelsRpcAction, P2pChannelsRpcState, RpcChannelMsg},
+    signaling::{
+        discovery::{
+            P2pChannelsSignalingDiscoveryAction, P2pChannelsSignalingDiscoveryState,
+            SignalingDiscoveryChannelMsg,
+        },
+        exchange::{
+            P2pChannelsSignalingExchangeAction, P2pChannelsSignalingExchangeState,
+            SignalingExchangeChannelMsg,
+        },
+    },
     snark::{P2pChannelsSnarkAction, P2pChannelsSnarkState, SnarkPropagationChannelMsg},
     snark_job_commitment::{
         P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentState,
@@ -24,7 +34,7 @@ use redux::{ActionWithMeta, Dispatcher};
 impl P2pChannelsState {
     pub fn reducer<Action, State>(
         state_context: Substate<Action, State, P2pState>,
-        action: ActionWithMeta<&P2pChannelsAction>,
+        action: ActionWithMeta<P2pChannelsAction>,
     ) -> Result<(), String>
     where
         State: crate::P2pStateTrait,
@@ -36,6 +46,12 @@ impl P2pChannelsState {
             P2pChannelsAction::MessageReceived(action) => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 Self::dispatch_message(meta.with_action(action), dispatcher, state)
+            }
+            P2pChannelsAction::SignalingDiscovery(action) => {
+                P2pChannelsSignalingDiscoveryState::reducer(state_context, meta.with_action(action))
+            }
+            P2pChannelsAction::SignalingExchange(action) => {
+                P2pChannelsSignalingExchangeState::reducer(state_context, meta.with_action(action))
             }
             P2pChannelsAction::BestTip(action) => {
                 P2pChannelsBestTipState::reducer(state_context, meta.with_action(action))
@@ -59,7 +75,7 @@ impl P2pChannelsState {
     }
 
     fn dispatch_message<Action, State>(
-        action: ActionWithMeta<&P2pChannelsMessageReceivedAction>,
+        action: ActionWithMeta<P2pChannelsMessageReceivedAction>,
         dispatcher: &mut Dispatcher<Action, State>,
         state: &State,
     ) -> Result<(), String>
@@ -75,7 +91,56 @@ impl P2pChannelsState {
 
         let mut is_enabled = |action: Action| dispatcher.push_if_enabled(action, state, time);
 
-        let was_expected = match *action.message.clone() {
+        let was_expected = match *action.message {
+            ChannelMsg::SignalingDiscovery(msg) => match msg {
+                SignalingDiscoveryChannelMsg::GetNext => is_enabled(
+                    P2pChannelsSignalingDiscoveryAction::RequestReceived { peer_id }.into(),
+                ),
+                SignalingDiscoveryChannelMsg::Discover => is_enabled(
+                    P2pChannelsSignalingDiscoveryAction::DiscoveryRequestReceived { peer_id }
+                        .into(),
+                ),
+                SignalingDiscoveryChannelMsg::Discovered { target_public_key } => is_enabled(
+                    P2pChannelsSignalingDiscoveryAction::DiscoveredReceived {
+                        peer_id,
+                        target_public_key,
+                    }
+                    .into(),
+                ),
+                SignalingDiscoveryChannelMsg::DiscoveredReject => is_enabled(
+                    P2pChannelsSignalingDiscoveryAction::DiscoveredRejectReceived { peer_id }
+                        .into(),
+                ),
+                SignalingDiscoveryChannelMsg::DiscoveredAccept(offer) => is_enabled(
+                    P2pChannelsSignalingDiscoveryAction::DiscoveredAcceptReceived {
+                        peer_id,
+                        offer,
+                    }
+                    .into(),
+                ),
+                SignalingDiscoveryChannelMsg::Answer(answer) => is_enabled(
+                    P2pChannelsSignalingDiscoveryAction::AnswerReceived { peer_id, answer }.into(),
+                ),
+            },
+            ChannelMsg::SignalingExchange(msg) => match msg {
+                SignalingExchangeChannelMsg::GetNext => is_enabled(
+                    P2pChannelsSignalingExchangeAction::RequestReceived { peer_id }.into(),
+                ),
+                SignalingExchangeChannelMsg::OfferToYou {
+                    offerer_pub_key,
+                    offer,
+                } => is_enabled(
+                    P2pChannelsSignalingExchangeAction::OfferReceived {
+                        peer_id,
+                        offerer_pub_key,
+                        offer,
+                    }
+                    .into(),
+                ),
+                SignalingExchangeChannelMsg::Answer(answer) => is_enabled(
+                    P2pChannelsSignalingExchangeAction::AnswerReceived { peer_id, answer }.into(),
+                ),
+            },
             ChannelMsg::BestTipPropagation(msg) => match msg {
                 BestTipPropagationChannelMsg::GetNext => {
                     is_enabled(P2pChannelsBestTipAction::RequestReceived { peer_id }.into())
@@ -201,6 +266,7 @@ impl P2pChannelsState {
         };
 
         if !was_expected {
+            // dbg!(&action.message);
             let reason = P2pDisconnectionReason::P2pChannelMsgUnexpected(chain_id);
             dispatcher.push(P2pDisconnectionAction::Init { peer_id, reason });
         }

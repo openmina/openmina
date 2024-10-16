@@ -99,6 +99,22 @@ impl P2pServiceWebrtc for ClusterService {
     ) -> &mut std::collections::BTreeMap<p2p::PeerId, p2p::service_impl::webrtc::PeerState> {
         &mut self.peers
     }
+
+    fn encrypt<T: p2p::identity::EncryptableType>(
+        &mut self,
+        _other_pk: &p2p::identity::PublicKey,
+        _message: &T,
+    ) -> Result<T::Encrypted, ()> {
+        unreachable!("this is webrtc only and this crate tests libp2p only")
+    }
+
+    fn decrypt<T: p2p::identity::EncryptableType>(
+        &mut self,
+        _other_pub_key: &p2p::identity::PublicKey,
+        _encrypted: &T::Encrypted,
+    ) -> Result<T, ()> {
+        unreachable!("this is webrtc only and this crate tests libp2p only")
+    }
 }
 
 impl P2pCryptoService for ClusterService {
