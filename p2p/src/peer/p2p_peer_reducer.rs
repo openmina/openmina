@@ -34,7 +34,7 @@ impl P2pPeerState {
                     });
 
                 if let Some(dial_opts) = dial_opts {
-                    let _ = peer_state.dial_opts.insert(dial_opts);
+                    peer_state.dial_opts.get_or_insert(dial_opts);
                 }
                 Ok(())
             }

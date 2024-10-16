@@ -6,7 +6,7 @@ use std::{
 
 use futures::Stream;
 use p2p::{P2pAction, P2pEvent, P2pLimits, P2pState, P2pTimeouts, PeerId};
-use redux::{Effects, EnablingCondition, SubStore};
+use redux::{Effects, EnablingCondition, Reducer, SubStore};
 use tokio::sync::mpsc;
 
 use crate::{
@@ -28,6 +28,7 @@ pub struct RustNodeConfig {
     pub limits: P2pLimits,
     pub discovery: bool,
     pub override_fn: Option<Effects<State, ClusterService, Action>>,
+    pub override_reducer: Option<Reducer<State, Action>>,
 }
 
 impl RustNodeConfig {
@@ -61,6 +62,11 @@ impl RustNodeConfig {
 
     pub fn with_override(mut self, override_fn: Effects<State, ClusterService, Action>) -> Self {
         self.override_fn = Some(override_fn);
+        self
+    }
+
+    pub fn with_override_reducer(mut self, override_fn: Reducer<State, Action>) -> Self {
+        self.override_reducer = Some(override_fn);
         self
     }
 }

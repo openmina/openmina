@@ -160,10 +160,10 @@ impl P2pConnectionIncomingState {
                     );
                     return Ok(());
                 };
-                let signaling = signaling.clone();
+                let signaling = *signaling;
                 *state = Self::AnswerReady {
                     time: meta.time(),
-                    signaling: signaling.clone(),
+                    signaling,
                     offer: offer.clone(),
                     answer: answer.clone(),
                     rpc_id: rpc_id.take(),
