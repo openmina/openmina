@@ -1,9 +1,10 @@
 use std::time::Duration;
 
-use node::{p2p::connection::outgoing::P2pConnectionOutgoingInitOpts, ActionKind};
+use node::ActionKind;
 use openmina_node_native::replay_state_with_input_actions;
 
 use crate::{
+    hosts,
     node::{Recorder, RustNodeTestingConfig, TestPeerId},
     scenarios::{ClusterRunner, RunCfg, RunCfgAdvanceTime},
 };
@@ -15,17 +16,7 @@ pub struct RecordReplayBootstrap;
 
 impl RecordReplayBootstrap {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let seeds_var = std::env::var("OPENMINA_SCENARIO_SEEDS");
-        let seeds = seeds_var.as_ref().map_or_else(
-            |_| node::p2p::DEVNET_SEEDS.to_vec(),
-            |val| val.split_whitespace().collect(),
-        );
-
-        let initial_peers = seeds
-            .iter()
-            .map(|s| s.parse::<P2pConnectionOutgoingInitOpts>().unwrap())
-            .map(Into::into)
-            .collect::<Vec<_>>();
+        let initial_peers = hosts::devnet();
 
         let node_id = runner.add_rust_node(RustNodeTestingConfig {
             initial_time: redux::Timestamp::global_now(),

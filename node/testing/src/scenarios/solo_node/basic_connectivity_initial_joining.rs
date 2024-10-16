@@ -7,6 +7,7 @@ use libp2p::Multiaddr;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 use crate::{
+    hosts,
     node::RustNodeTestingConfig,
     scenario::{ListenerNode, ScenarioStep},
     scenarios::ClusterRunner,
@@ -28,21 +29,10 @@ impl SoloNodeBasicConnectivityInitialJoining {
         const STEPS: usize = 3_000;
         const STEP_DELAY: Duration = Duration::from_millis(200);
 
-        let seeds_var = std::env::var("OPENMINA_SCENARIO_SEEDS");
-        let seeds = seeds_var.as_ref().map_or_else(
-            |_| node::p2p::DEVNET_SEEDS.to_vec(),
-            |val| val.split_whitespace().collect(),
-        );
-
-        let initial_peers = seeds
-            .iter()
-            .map(|s| s.parse::<Multiaddr>().unwrap())
-            .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
-            .map(ListenerNode::from)
-            .collect::<Vec<_>>();
+        let initial_peers = hosts::devnet();
         eprintln!("set max peers per node: {MAX_PEERS_PER_NODE}");
-        for seed in seeds {
-            eprintln!("add initial peer: {seed}");
+        for seed in &initial_peers {
+            eprintln!("add initial peer: {seed:?}");
         }
         let config = RustNodeTestingConfig::devnet_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
