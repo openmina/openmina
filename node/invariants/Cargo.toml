@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-invariants"
-version = "0.10.0"
+version = "0.10.3"
 edition = "2021"
 license = "Apache-2.0"
 

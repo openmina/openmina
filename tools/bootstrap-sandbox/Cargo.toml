@@ -1,6 +1,6 @@
 [package]
 name = "openmina-bootstrap-sandbox"
-version = "0.10.0"
+version = "0.10.3"
 edition = "2021"
 
 [dependencies]
