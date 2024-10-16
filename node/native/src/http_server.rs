@@ -39,48 +39,64 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
 
         use super::rpc::RpcP2pConnectionIncomingResponse;
 
+        let handle = |sender: RpcSender, offer: Box<webrtc::Offer>| async move {
+            let mut rx = sender
+                .multishot_request(
+                    2,
+                    RpcRequest::P2pConnectionIncoming(P2pConnectionIncomingInitOpts {
+                        peer_id: PeerId::from_public_key(offer.identity_pub_key.clone()),
+                        signaling: IncomingSignalingMethod::Http,
+                        offer,
+                    }),
+                )
+                .await;
+
+            match rx.recv().await {
+                Some(RpcP2pConnectionIncomingResponse::Answer(answer)) => {
+                    let status = match &answer {
+                        P2pConnectionResponse::Accepted(_) => StatusCode::OK,
+                        P2pConnectionResponse::Rejected(reason) => match reason.is_bad() {
+                            false => StatusCode::OK,
+                            true => StatusCode::BAD_REQUEST,
+                        },
+                        P2pConnectionResponse::SignalDecryptionFailed => StatusCode::BAD_REQUEST,
+                        P2pConnectionResponse::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
+                    };
+                    with_json_reply(&answer, status)
+                }
+                _ => {
+                    let resp = P2pConnectionResponse::internal_error_str();
+                    with_json_reply(&resp, StatusCode::INTERNAL_SERVER_ERROR)
+                }
+            }
+        };
+
         let rpc_sender_clone = rpc_sender.clone();
-        warp::path!("mina" / "webrtc" / "signal")
-            .and(warp::post())
-            .and(warp::filters::body::json())
-            .then(move |offer: Box<webrtc::Offer>| {
+        let get = warp::path!("mina" / "webrtc" / "signal" / String)
+            .and(warp::get())
+            .then(move |offer: String| {
                 let rpc_sender_clone = rpc_sender_clone.clone();
                 async move {
-                    let mut rx = rpc_sender_clone
-                        .multishot_request(
-                            2,
-                            RpcRequest::P2pConnectionIncoming(P2pConnectionIncomingInitOpts {
-                                peer_id: PeerId::from_public_key(offer.identity_pub_key.clone()),
-                                signaling: IncomingSignalingMethod::Http,
-                                offer,
-                            }),
-                        )
-                        .await;
-
-                    match rx.recv().await {
-                        Some(RpcP2pConnectionIncomingResponse::Answer(answer)) => {
-                            let status = match &answer {
-                                P2pConnectionResponse::Accepted(_) => StatusCode::OK,
-                                P2pConnectionResponse::Rejected(reason) => match reason.is_bad() {
-                                    false => StatusCode::OK,
-                                    true => StatusCode::BAD_REQUEST,
-                                },
-                                P2pConnectionResponse::SignalDecryptionFailed => {
-                                    StatusCode::BAD_REQUEST
-                                }
-                                P2pConnectionResponse::InternalError => {
-                                    StatusCode::INTERNAL_SERVER_ERROR
-                                }
-                            };
-                            with_json_reply(&answer, status)
-                        }
-                        _ => {
-                            let resp = P2pConnectionResponse::internal_error_str();
-                            with_json_reply(&resp, StatusCode::INTERNAL_SERVER_ERROR)
-                        }
+                    let decode_res = Err(()).or_else(move |_| {
+                        let json = bs58::decode(&offer).into_vec().or(Err(()))?;
+                        serde_json::from_slice(&json).or(Err(()))
+                    });
+                    match decode_res {
+                        Err(()) => with_json_reply(
+                            &P2pConnectionResponse::SignalDecryptionFailed,
+                            StatusCode::BAD_REQUEST,
+                        ),
+                        Ok(offer) => handle(rpc_sender_clone.clone(), offer).await,
                     }
                 }
-            })
+            });
+
+        let rpc_sender_clone = rpc_sender.clone();
+        let post = warp::path!("mina" / "webrtc" / "signal")
+            .and(warp::post())
+            .and(warp::filters::body::json())
+            .then(move |offer: Box<webrtc::Offer>| handle(rpc_sender_clone.clone(), offer));
+        get.or(post)
     };
 
     // TODO(binier): make endpoint only accessible locally.

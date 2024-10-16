@@ -274,8 +274,7 @@ impl NodeBuilder {
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
-    ["/2cBFzmUmkYgMUrxdv5S2Udyv8eiuhokAFS4WnYfHiAJLWoQ3yL9/http/webrtc3.webnode.openmina.com/3000",
-    "/2aevrztkwUrbPDP85ZZHkNYM6qha2GYT9sUwPhttKAKzqQdF4nV/http/localhost/3000"]
+    ["/2cBFzmUmkYgMUrxdv5S2Udyv8eiuhokAFS4WnYfHiAJLWoQ3yL9/https/webrtc3.webnode.openmina.com/443"]
         .into_iter()
         .map(|s| s.parse().unwrap())
         .collect()

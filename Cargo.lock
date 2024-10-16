@@ -4555,6 +4555,7 @@ name = "openmina-node-native"
 version = "0.10.0"
 dependencies = [
  "anyhow",
+ "bs58 0.4.0",
  "bytes",
  "derive_more",
  "getrandom",
