@@ -24,7 +24,7 @@ fn main() {
     thread::main_thread_init();
     wasm_bindgen_futures::spawn_local(async {
         console_error_panic_hook::set_once();
-        tracing::initialize(tracing::Level::DEBUG);
+        tracing::initialize(tracing::Level::INFO);
 
         init_rayon().await.unwrap();
     });
