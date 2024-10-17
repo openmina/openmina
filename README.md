@@ -7,7 +7,7 @@
 
 ## Run the Block Producer
 
-Once you have completed the [pre-requisites](https://github.com/openmina/openmina/blob/main/docs/docker-installation.md) for your operating system, follow these steps:
+Once you have completed the [pre-requisites](./docs/docker-installation.md) for your operating system, follow these steps:
 
 ### Setup Option 1: Download Docker Compose Files from the Release
 
