@@ -45,7 +45,7 @@ Visit [http://localhost:8070](http://localhost:8070) to [monitor sync](http://lo
 
 ### 5. Logs
 
-Logs are stored in `openmina-workdir` with filenames like openmina.log.2024-10-14, openmina.log.2024-10-15, etc.
+Logs are stored in `openmina-workdir` with filenames like `openmina.log.2024-10-14`, `openmina.log.2024-10-15`, etc.
 
 ### 6. Feedback
 
