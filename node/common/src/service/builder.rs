@@ -23,7 +23,7 @@ use crate::{
     EventReceiver, EventSender, NodeService,
 };
 
-use super::block_producer::BlockProducerService;
+use super::{archive::ArchiveService, block_producer::BlockProducerService};
 
 pub struct NodeServiceCommonBuilder {
     rng_seed: [u8; 32],
@@ -34,6 +34,7 @@ pub struct NodeServiceCommonBuilder {
     event_receiver: EventReceiver,
     ledger_manager: Option<LedgerManager>,
     block_producer: Option<BlockProducerService>,
+    archive: Option<ArchiveService>,
     p2p: Option<P2pServiceCtx>,
     gather_stats: bool,
     rpc: RpcService,
@@ -57,6 +58,7 @@ impl NodeServiceCommonBuilder {
             event_receiver: event_receiver.into(),
             ledger_manager: None,
             block_producer: None,
+            archive: None,
             p2p: None,
             rpc: RpcService::new(),
             gather_stats: false,
@@ -132,6 +134,7 @@ impl NodeServiceCommonBuilder {
             ),
             ledger_manager,
             block_producer: self.block_producer,
+            archive: self.archive,
             p2p,
             stats: self.gather_stats.then(Stats::new),
             rpc: self.rpc,
