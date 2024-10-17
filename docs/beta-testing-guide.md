@@ -32,7 +32,7 @@ Download the Docker Compose file:
 curl -O https://raw.githubusercontent.com/openmina/openmina/main/docker-compose.block-producer.yml
 ```
 
-Launch the block producer with MINA_PRIVKEY_PASS to set the private key password. Optionally, use COINBASE_RECEIVER to set a different coinbase receiver:
+Launch the block producer with `MINA_PRIVKEY_PASS` to set the private key password. Optionally, use `COINBASE_RECEIVER` to set a different coinbase receiver:
 
 ```bash
 env COINBASE_RECEIVER="YourWalletAddress" MINA_PRIVKEY_PASS="YourPassword" \
