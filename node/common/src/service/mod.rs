@@ -1,6 +1,7 @@
 mod event_receiver;
 pub use event_receiver::*;
 
+pub mod archive;
 pub mod block_producer;
 pub mod p2p;
 pub mod record;
