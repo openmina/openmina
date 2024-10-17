@@ -54,6 +54,7 @@ pub struct YamuxStreamState {
     pub writable: bool,
     pub window_theirs: u32,
     pub window_ours: u32,
+    pub pending: VecDeque<YamuxFrame>,
 }
 
 impl Default for YamuxStreamState {
@@ -66,6 +67,7 @@ impl Default for YamuxStreamState {
             writable: false,
             window_theirs: 256 * 1024,
             window_ours: 256 * 1024,
+            pending: VecDeque::default(),
         }
     }
 }
@@ -181,6 +183,35 @@ impl YamuxFrame {
         }
 
         vec
+    }
+
+    /// If this data is bigger then `pos`, keep only first `pos` bytes and return some remaining
+    /// otherwise return none
+    pub fn split_at(&mut self, pos: usize) -> Option<Self> {
+        use std::ops::Sub;
+
+        if let YamuxFrameInner::Data(data) = &mut self.inner {
+            if data.len() == pos {
+                return None;
+            }
+            let (keep, rest) = data.split_at(pos);
+            let rest = Data(rest.to_vec().into_boxed_slice());
+            *data = Data(keep.to_vec().into_boxed_slice());
+
+            let fin = if self.flags.contains(YamuxFlags::FIN) {
+                self.flags.remove(YamuxFlags::FIN);
+                YamuxFlags::FIN
+            } else {
+                YamuxFlags::empty()
+            };
+            Some(YamuxFrame {
+                flags: self.flags.sub(YamuxFlags::SYN | YamuxFlags::ACK) | fin,
+                stream_id: self.stream_id,
+                inner: YamuxFrameInner::Data(rest),
+            })
+        } else {
+            None
+        }
     }
 }
 

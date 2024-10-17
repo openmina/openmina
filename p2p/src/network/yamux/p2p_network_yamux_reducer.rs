@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use openmina_core::{bug_condition, fuzz_maybe, fuzzed_maybe, Substate, SubstateAccess};
 
 use crate::P2pLimits;
@@ -155,14 +157,14 @@ impl P2pNetworkYamuxState {
                 data,
                 mut flags,
             } => {
-                let yamux_state = yamux_state
+                let stream_state = yamux_state
                     .streams
                     .get(&stream_id)
                     .ok_or_else(|| format!("Stream with id {stream_id} not found for `P2pNetworkYamuxAction::OutgoingData`"))?;
 
-                if !yamux_state.incoming && !yamux_state.established && !yamux_state.syn_sent {
+                if !stream_state.incoming && !stream_state.established && !stream_state.syn_sent {
                     flags.insert(YamuxFlags::SYN);
-                } else if yamux_state.incoming && !yamux_state.established {
+                } else if stream_state.incoming && !stream_state.established {
                     flags.insert(YamuxFlags::ACK);
                 }
 
@@ -180,6 +182,7 @@ impl P2pNetworkYamuxState {
                 Ok(())
             }
             P2pNetworkYamuxAction::IncomingFrame { addr, frame } => {
+                let mut pending_outgoing = VecDeque::default();
                 if let Some(frame) = yamux_state.incoming.pop_front() {
                     if frame.flags.contains(YamuxFlags::SYN) {
                         yamux_state
@@ -211,11 +214,37 @@ impl P2pNetworkYamuxState {
                             }
                         }
                         YamuxFrameInner::WindowUpdate { difference } => {
-                            yamux_state
+                            let stream = yamux_state
                                 .streams
                                 .entry(frame.stream_id)
-                                .or_insert_with(YamuxStreamState::incoming)
-                                .update_window(false, difference);
+                                .or_insert_with(YamuxStreamState::incoming);
+                            stream.update_window(false, difference);
+                            if difference > 0 {
+                                // have some fresh space in the window
+                                // try send as many frames as can
+                                // last frame
+                                let mut window = stream.window_theirs;
+                                while let Some(mut frame) = stream.pending.pop_front() {
+                                    let size = if let YamuxFrameInner::Data(data) = &frame.inner {
+                                        data.len()
+                                    } else {
+                                        0
+                                    } as u32;
+                                    if let Some(new_window) = window.checked_sub(size) {
+                                        pending_outgoing.push_back(frame);
+                                        window = new_window;
+                                    } else {
+                                        if let Some(remaining) =
+                                            frame.split_at((size - window) as usize)
+                                        {
+                                            stream.pending.push_front(remaining);
+                                        }
+                                        pending_outgoing.push_back(frame);
+
+                                        break;
+                                    }
+                                }
+                            }
                         }
                         YamuxFrameInner::Ping { .. } => {}
                         YamuxFrameInner::GoAway(res) => yamux_state.set_res(res),
@@ -282,15 +311,17 @@ impl P2pNetworkYamuxState {
                 }
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {
+                        // here we are very permissive
+                        // always when our window is smaller 64 kb, just increase it by 256 kb
+                        // if we need fine grained back pressure, it should be implemented here
                         if stream.window_ours < 64 * 1024 {
+                            let difference = 256 * 1024;
                             dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame {
                                 addr,
                                 frame: YamuxFrame {
                                     stream_id: frame.stream_id,
                                     flags: YamuxFlags::empty(),
-                                    inner: YamuxFrameInner::WindowUpdate {
-                                        difference: 256 * 1024,
-                                    },
+                                    inner: YamuxFrameInner::WindowUpdate { difference },
                                 },
                             });
                         }
@@ -318,21 +349,45 @@ impl P2pNetworkYamuxState {
                             });
                         }
                     }
+                    YamuxFrameInner::WindowUpdate { .. } => {
+                        while let Some(frame) = pending_outgoing.pop_front() {
+                            dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
+                        }
+                    }
                     _ => {}
                 }
 
                 Ok(())
             }
-            P2pNetworkYamuxAction::OutgoingFrame { frame, addr } => {
+            P2pNetworkYamuxAction::OutgoingFrame { mut frame, addr } => {
                 let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) else {
                     return Ok(());
                 };
-                match &frame.inner {
+                match &mut frame.inner {
                     YamuxFrameInner::Data(data) => {
-                        // must not underflow
-                        // the action must not dispatch if it doesn't fit in the window
-                        // TODO: add pending queue, where frames will wait for window increase
-                        stream.window_theirs = stream.window_theirs.wrapping_sub(data.len() as u32);
+                        if let Some(new_window) =
+                            stream.window_theirs.checked_sub(data.len() as u32)
+                        {
+                            // their window is big enough, decrease the size
+                            // and send the whole frame
+                            stream.window_theirs = new_window;
+                        } else if stream.window_theirs != 0 && stream.pending.is_empty() {
+                            // their window is not big enough, but has some space,
+                            // and the queue is empty,
+                            // do not send the whole frame,
+                            // split it and put remaining in the queue,
+                            if let Some(remaining) = frame.split_at(stream.window_theirs as usize) {
+                                stream.pending.push_back(remaining);
+                            }
+                            // the window will be zero after sending
+                            stream.window_theirs = 0;
+                        } else {
+                            // either the window cannot accept any byte,
+                            // or the queue is already not empty
+                            // in both cases the whole frame goes in the queue and nothing to send
+                            stream.pending.push_back(frame);
+                            return Ok(());
+                        }
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
                         stream.update_window(true, *difference);
