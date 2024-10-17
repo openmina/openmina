@@ -344,9 +344,16 @@ impl P2pNetworkYamuxState {
                             });
                         }
                     }
-                    YamuxFrameInner::WindowUpdate { .. } => {
-                        while let Some(frame) = pending_outgoing.pop_front() {
-                            dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
+                    YamuxFrameInner::WindowUpdate { difference } => {
+                        if *difference < 0 {
+                            let error =
+                                P2pNetworkConnectionError::YamuxBadWindowUpdate(frame.stream_id);
+                            dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
+                        } else {
+                            while let Some(frame) = pending_outgoing.pop_front() {
+                                dispatcher
+                                    .push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
+                            }
                         }
                     }
                     _ => {}
