@@ -7,6 +7,7 @@ use super::super::*;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pNetworkYamuxState {
     pub message_size_limit: Limit<usize>,
+    pub pending_outgoing_limit: Limit<usize>,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<YamuxFrame>,
     pub streams: BTreeMap<StreamId, YamuxStreamState>,
@@ -185,13 +186,21 @@ impl YamuxFrame {
         vec
     }
 
+    pub fn len(&self) -> usize {
+        if let YamuxFrameInner::Data(data) = &self.inner {
+            data.len()
+        } else {
+            0
+        }
+    }
+
     /// If this data is bigger then `pos`, keep only first `pos` bytes and return some remaining
     /// otherwise return none
     pub fn split_at(&mut self, pos: usize) -> Option<Self> {
         use std::ops::Sub;
 
         if let YamuxFrameInner::Data(data) = &mut self.inner {
-            if data.len() == pos {
+            if data.len() <= pos {
                 return None;
             }
             let (keep, rest) = data.split_at(pos);

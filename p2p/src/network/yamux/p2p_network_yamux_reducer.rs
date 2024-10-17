@@ -222,20 +222,15 @@ impl P2pNetworkYamuxState {
                             if difference > 0 {
                                 // have some fresh space in the window
                                 // try send as many frames as can
-                                // last frame
                                 let mut window = stream.window_theirs;
                                 while let Some(mut frame) = stream.pending.pop_front() {
-                                    let size = if let YamuxFrameInner::Data(data) = &frame.inner {
-                                        data.len()
-                                    } else {
-                                        0
-                                    } as u32;
-                                    if let Some(new_window) = window.checked_sub(size) {
+                                    let len = frame.len() as u32;
+                                    if let Some(new_window) = window.checked_sub(len) {
                                         pending_outgoing.push_back(frame);
                                         window = new_window;
                                     } else {
                                         if let Some(remaining) =
-                                            frame.split_at((size - window) as usize)
+                                            frame.split_at((len - window) as usize)
                                         {
                                             stream.pending.push_front(remaining);
                                         }
@@ -360,7 +355,8 @@ impl P2pNetworkYamuxState {
                 Ok(())
             }
             P2pNetworkYamuxAction::OutgoingFrame { mut frame, addr } => {
-                let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) else {
+                let stream_id = frame.stream_id;
+                let Some(stream) = yamux_state.streams.get_mut(&stream_id) else {
                     return Ok(());
                 };
                 match &mut frame.inner {
@@ -386,6 +382,14 @@ impl P2pNetworkYamuxState {
                             // or the queue is already not empty
                             // in both cases the whole frame goes in the queue and nothing to send
                             stream.pending.push_back(frame);
+                            if stream.pending.iter().map(YamuxFrame::len).sum::<usize>()
+                                > yamux_state.pending_outgoing_limit
+                            {
+                                let dispatcher = state_context.into_dispatcher();
+                                let error = P2pNetworkConnectionError::YamuxOverflow(stream_id);
+                                dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
+                            }
+
                             return Ok(());
                         }
                     }

@@ -196,6 +196,8 @@ pub enum P2pNetworkConnectionError {
     StreamReset(StreamId),
     #[error("pubsub error: {0}")]
     PubSubError(String),
+    #[error("peer make us keep too much data")]
+    YamuxOverflow(StreamId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
