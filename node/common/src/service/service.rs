@@ -18,6 +18,7 @@ use sha3::{
 use crate::rpc::RpcReceiver;
 
 use super::{
+    archive::ArchiveService,
     block_producer::BlockProducerService,
     p2p::webrtc_with_libp2p::P2pServiceCtx,
     replay::ReplayerState,
@@ -38,6 +39,7 @@ pub struct NodeService {
 
     pub ledger_manager: LedgerManager,
     pub block_producer: Option<BlockProducerService>,
+    pub archive: Option<ArchiveService>,
     pub p2p: P2pServiceCtx,
 
     pub stats: Option<Stats>,
@@ -76,6 +78,10 @@ impl NodeService {
         self.block_producer.as_ref()
     }
 
+    pub fn archive(&self) -> Option<&ArchiveService> {
+        self.archive.as_ref()
+    }
+
     pub fn stats(&mut self) -> Option<&mut Stats> {
         self.stats.as_mut()
     }
@@ -107,6 +113,7 @@ impl NodeService {
             event_receiver: mpsc::unbounded_channel().1.into(),
             ledger_manager: LedgerManager::spawn(Default::default()),
             block_producer: None,
+            archive: None,
             p2p: P2pServiceCtx::mocked(p2p_sec_key),
             stats: Some(Stats::new()),
             rpc: RpcService::new(),
