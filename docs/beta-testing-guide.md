@@ -8,7 +8,7 @@ Do not use this guide for Mina Mainnet until necessary security audits are compl
 
 ### 0. Prerequisites
 
-Ensure Docker and Docker Compose are installed on your system - [Docker Installation Guide](https://docs.docker.com/get-docker/)
+Ensure Docker and Docker Compose are installed on your system - [Docker Installation Guide](./docker-installation.md)
 
 ### 1. Setup Directories
 Create the main directory and a subdirectory `openmina-workdir`. [Docker Compose](https://github.com/openmina/openmina/blob/main/docker-compose.block-producer.yml) references  `openmina-workdir`. It stores a private key and logs for block production. 
