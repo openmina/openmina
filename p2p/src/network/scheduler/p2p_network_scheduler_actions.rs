@@ -72,6 +72,7 @@ pub enum P2pNetworkSchedulerAction {
         addr: ConnectionAddr,
         peer_id: PeerId,
         message_size_limit: Limit<usize>,
+        pending_outgoing_limit: Limit<usize>,
     },
 
     /// Action that initiate the specified peer disconnection.

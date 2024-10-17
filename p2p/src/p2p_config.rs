@@ -252,6 +252,7 @@ pub struct P2pLimits {
     max_peers_in_state: Limit<usize>,
     max_streams: Limit<usize>,
     yamux_message_size: Limit<usize>,
+    yamux_pending_outgoing_per_peer: Limit<usize>,
 
     identify_message: Limit<usize>,
     kademlia_request: Limit<usize>,
@@ -318,6 +319,12 @@ impl P2pLimits {
         yamux_message_size,
         /// Sets the maximum number of streams that a peer is allowed to open simultaneously.
         with_yamux_message_size
+    );
+    limit!(
+        /// Maximum number of streams from a peer.
+        yamux_pending_outgoing_per_peer,
+        /// Sets the maximum number of streams that a peer is allowed to open simultaneously.
+        with_yamux_pending_outgoing_per_peer
     );
 
     limit!(
@@ -400,6 +407,7 @@ impl Default for P2pLimits {
             max_peers_in_state,
             max_streams,
             yamux_message_size,
+            yamux_pending_outgoing_per_peer: rpc_get_staged_ledger,
 
             identify_message,
             kademlia_request,
