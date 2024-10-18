@@ -249,8 +249,9 @@ impl P2pNetworkSchedulerState {
             }
             P2pNetworkSchedulerAction::YamuxDidInit {
                 addr,
-                message_size_limit,
                 peer_id,
+                message_size_limit,
+                pending_outgoing_limit,
             } => {
                 let Some(cn) = scheduler_state.connections.get_mut(&addr) else {
                     bug_condition!(
@@ -261,6 +262,7 @@ impl P2pNetworkSchedulerState {
                 if let Some(P2pNetworkConnectionMuxState::Yamux(yamux)) = &mut cn.mux {
                     yamux.init = true;
                     yamux.message_size_limit = message_size_limit;
+                    yamux.pending_outgoing_limit = pending_outgoing_limit;
                 }
 
                 let incoming = cn.incoming;
@@ -503,10 +505,13 @@ impl P2pNetworkSchedulerState {
                     return;
                 };
                 let message_size_limit = p2p_state.config.limits.yamux_message_size();
+                let pending_outgoing_limit =
+                    p2p_state.config.limits.yamux_pending_outgoing_per_peer();
                 dispatcher.push(P2pNetworkSchedulerAction::YamuxDidInit {
                     addr,
                     peer_id,
                     message_size_limit,
+                    pending_outgoing_limit,
                 });
             }
             Some(Protocol::Stream(kind)) => {
