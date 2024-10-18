@@ -5577,7 +5577,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?rev=588dd76c#588dd76cb45bd8cc1a9ac5a67cfc22585b3fefae"
+source = "git+https://github.com/openmina/redux-rs.git?rev=75d4d1d9#75d4d1d927f9031f0656b7f56c4a3ec398da138f"
 dependencies = [
  "enum_dispatch",
  "linkme",
