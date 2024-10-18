@@ -724,6 +724,47 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
     { crate::b58version::NON_ZERO_CURVE_POINT_COMPRESSED },
 >;
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum ArchiveTransitionFronntierDiff {
+    BreadcrumbAdded(ArchiveBreadcrumb),
+    // TODO(adonagy): I think this is legacy stuff, doublecheck
+    RootTransitioned(()),
+    BoostrapOf(()),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ArchiveBreadcrumb {
+    pub block: MinaBlockBlockStableV2,
+    pub accounts_accessed: Vec<ArchiveAccountsAccessed>,
+    pub accounts_created: Vec<ArchiveCreatedAccount>,
+    pub tokens_used: Vec<ArchiveTokensUsed>,
+    pub sender_receipt_chains_from_parent_ledger: Vec<ArchiveSenderReceiptChain>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ArchiveAccountsAccessed {
+    pub index: MinaBaseAccountIndexStableV1,
+    pub account: MinaBaseAccountBinableArgStableV2,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ArchiveCreatedAccount {
+    pub account_id: MinaBaseAccountIdStableV2,
+    pub fee: CurrencyFeeStableV1,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ArchiveTokensUsed {
+    pub token_id: MinaBaseTokenIdStableV2,
+    pub owner: Option<MinaBaseAccountIdStableV2>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct ArchiveSenderReceiptChain {
+    pub sender: MinaBaseAccountIdStableV2,
+    pub receipt_chain: MinaBaseReceiptChainHashStableV1,
+}
+
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
@@ -1697,8 +1738,10 @@ mod test {
     use binprot::BinProtRead;
 
     use crate::v2::{
-        MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
+        ArchiveTransitionFronntierDiff, MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1
     };
+
+    use super::ArchiveBreadcrumb;
 
     #[test]
     fn test_zkapp_with_sig_auth_hash() {
@@ -1721,5 +1764,14 @@ mod test {
         let verification_key =
             MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded.as_slice());
         assert!(verification_key.is_ok());
+    }
+
+    #[test]
+    fn test_archive_breadcrumb_serialization() {
+        let breadcrumb_bytes = include_bytes!("../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
+
+        let breadcrumb = ArchiveTransitionFronntierDiff::binprot_read(&mut breadcrumb_bytes.as_slice()).unwrap();
+        // assert!(breadcrumb.is_ok());
+        println!("{:?}", breadcrumb);
     }
 }
