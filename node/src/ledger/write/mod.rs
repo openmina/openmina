@@ -1,5 +1,6 @@
 mod ledger_write_actions;
 use ledger::scan_state::transaction_logic::valid;
+use ledger::AccountId;
 pub use ledger_write_actions::*;
 
 mod ledger_write_state;
@@ -85,6 +86,7 @@ pub enum LedgerWriteResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockApplyResult {
     pub just_emitted_a_proof: bool,
+    pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
