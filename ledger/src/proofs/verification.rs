@@ -68,6 +68,8 @@ mod wasm {
     wasm_bindgen_test_configure!(run_in_browser);
 }
 
+// REVIEW(dw): TODO
+// OK
 fn validate_feature_flags(
     feature_flags: &PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags,
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
@@ -142,6 +144,7 @@ fn validate_feature_flags(
 // REVIEW(dw): it is mostly from Bigint to Fp. However, I would just check that
 // the conversion is correctly performed using decimal or Montgomery
 // representation
+// REVIEW(dw): however, if it was wrong, we would fail with the test.
 // This method converts the evaluations of the polynomials into Fp elements,
 // from BigInt
 pub fn prev_evals_from_p2p<F: FieldWitness>(
@@ -305,9 +308,10 @@ impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
     }
 }
 
-// TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one or the other
-// REVIEW(dw): it is not always the same. It is for now. But with chunking, it won't
-// Link to OCaml code?
+// TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one
+// or the other
+// REVIEW(dw): it is not always the same. It is for now. But with chunking, it
+// won't Link to OCaml code?
 pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     minimal: &PlonkMinimal<F, NLIMB>,
     domain_log2: u8,
@@ -397,6 +401,7 @@ where
 
     let challenge_polynomial_commitments: Vec<InnerCurve<Fp>> =
         extract_polynomial_commitment(challenge_polynomial_commitments);
+    // REVIEW(16) for wrap, because we use 2^16 for the wrap domain
     let old_bulletproof_challenges: Vec<[Fp; 16]> = extract_bulletproof(old_bulletproof_challenges);
     let dlog_plonk_index = commitments;
 
@@ -417,6 +422,8 @@ fn get_message_for_next_wrap_proof(
     let challenge_polynomial_commitments: Vec<InnerCurve<Fq>> =
         extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()]);
 
+    // REVIEW(15) for wrap, because we use 2^15 for the wrap domain
+    // Only wrapping two step proofs, therefore 0 and 1.
     let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(&[
         old_bulletproof_challenges[0].0.clone(),
         old_bulletproof_challenges[1].0.clone(),
