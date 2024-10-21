@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap } from 'rxjs';
 import base from 'base-x';
-import { any, log } from '@openmina/shared';
+import { any } from '@openmina/shared';
 import { HttpClient } from '@angular/common/http';
 
 @Injectable({
@@ -9,8 +9,7 @@ import { HttpClient } from '@angular/common/http';
 })
 export class WebNodeService {
 
-  private readonly backendSubject$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
-  private backend: any;
+  private readonly webnode$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private webNodeKeyPair: { publicKey: string, privateKey: string };
 
   constructor(private http: HttpClient) {
@@ -42,79 +41,74 @@ export class WebNodeService {
           console.log(wasm);
           return from(wasm.run(this.webNodeKeyPair.privateKey));
         }),
-        tap((jsHandle: any) => {
-          this.backend = jsHandle;
+        tap((webnode: any) => {
           console.log('----------------WEBNODE----------------');
-          console.log(jsHandle);
-          this.backendSubject$.next(jsHandle);
+          console.log(webnode);
+          this.webnode$.next(webnode);
         }),
-        switchMap(() => this.backendSubject$.asObservable()),
+        switchMap(() => this.webnode$.asObservable()),
         filter(Boolean),
       );
   }
 
-  get webNodeKeys(): { publicKey: string, privateKey: string } {
-    return this.webNodeKeyPair;
-  }
-
   get status$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).status())),
     );
   }
 
   get blockProducerStats$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).stats().block_producer())),
     );
   }
 
   get peers$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from(any(handle).state().peers())),
     );
   }
 
   get messageProgress$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).state().message_progress())),
     );
   }
 
   get sync$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).stats().sync())),
     );
   }
 
   get accounts$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).ledger().latest().accounts().all())),
     );
   }
 
   get bestChainUserCommands$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).transition_frontier().best_chain().user_commands())),
     );
   }
 
   sendPayment$(payment: any): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).transaction_pool().inject().payment(payment))),
     );
   }
 
   get transactionPool$(): Observable<any> {
-    return this.backendSubject$.asObservable().pipe(
+    return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from((handle as any).transaction_pool().get())),
     );

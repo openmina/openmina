@@ -24,7 +24,7 @@
     </div>
   </ng-container>
   <div class="node-status fx-row-vert-cent bg-surface h-sm border-rad-6 p-relative z-1 mr-10"
-       [class.can-add-nodes]="canAddNodes">
+       [class.can-add-nodes]="switchForbidden">
     <ng-container *ngIf="!switchForbidden && !hideNodeStats">
       <div class="shine-parent overflow-hidden p-absolute z-0 border-rad-6">
         <div *ngIf="details.status === AppNodeStatus.CATCHUP || details.status === AppNodeStatus.BOOTSTRAP"
