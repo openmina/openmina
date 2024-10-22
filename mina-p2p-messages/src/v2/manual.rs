@@ -13,6 +13,7 @@ use crate::{
     b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes},
     b58version::USER_COMMAND_MEMO,
     bigint::BigInt,
+    list::List,
     number::Number,
     string::ByteString,
     versioned::Versioned,
@@ -726,43 +727,17 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum ArchiveTransitionFronntierDiff {
-    BreadcrumbAdded(ArchiveBreadcrumb),
+    BreadcrumbAdded {
+        block: (MinaBlockBlockStableV2, (Option<StateBodyHash>, StateHash)),
+        accounts_accessed: List<(crate::number::UInt32, MinaBaseAccountBinableArgStableV2)>,
+        accounts_created: List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)>,
+        tokens_used: List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)>,
+        sender_receipt_chains_from_parent_ledger:
+            List<(MinaBaseAccountIdStableV2, MinaBaseReceiptChainHashStableV1)>,
+    },
     // TODO(adonagy): I think this is legacy stuff, doublecheck
     RootTransitioned(()),
     BoostrapOf(()),
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ArchiveBreadcrumb {
-    pub block: MinaBlockBlockStableV2,
-    pub accounts_accessed: Vec<ArchiveAccountsAccessed>,
-    pub accounts_created: Vec<ArchiveCreatedAccount>,
-    pub tokens_used: Vec<ArchiveTokensUsed>,
-    pub sender_receipt_chains_from_parent_ledger: Vec<ArchiveSenderReceiptChain>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ArchiveAccountsAccessed {
-    pub index: MinaBaseAccountIndexStableV1,
-    pub account: MinaBaseAccountBinableArgStableV2,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ArchiveCreatedAccount {
-    pub account_id: MinaBaseAccountIdStableV2,
-    pub fee: CurrencyFeeStableV1,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ArchiveTokensUsed {
-    pub token_id: MinaBaseTokenIdStableV2,
-    pub owner: Option<MinaBaseAccountIdStableV2>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub struct ArchiveSenderReceiptChain {
-    pub sender: MinaBaseAccountIdStableV2,
-    pub receipt_chain: MinaBaseReceiptChainHashStableV1,
 }
 
 #[cfg(test)]
@@ -1735,11 +1710,9 @@ impl std::str::FromStr for SgnStableV1 {
 
 #[cfg(test)]
 mod test {
-    use binprot::BinProtRead;
+    use binprot::{BinProtRead, BinProtWrite};
 
-    use crate::v2::{
-        ArchiveTransitionFronntierDiff, MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1
-    };
+    use crate::{list::List, v2};
 
     use super::ArchiveBreadcrumb;
 
@@ -1748,7 +1721,8 @@ mod test {
         let expexcted = "AbliNXLg4Keq0ZJyxK/QNAx8SxrJeffYytk5lbcTF9s9Af0A4fUFAP2+oQMA48vntxcABLty3SXWjvuadrLtBjcsxT1oJ3C2hwS/LDh364LKUxrLe3uF/9lr8VlW/J+ctbiI+m9I61sb9BC/AAG5YjVy4OCnqtGScsSv0DQMfEsayXn32MrZOZW3ExfbPQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAAEBAQEBAQH9AJQ1dwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAEBAQEBAAAAAePL57cXAAS7ct0l1o77mnay7QY3LMU9aCdwtocEvyw4d+uCylMay3t7hf/Za/FZVvyfnLW4iPpvSOtbG/QQvwAAAcwXZjv4NJwWwlJhFZPh2AK+o0dKOpIy1a6CXlskW7gmAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEAAQEBAQEBAf0AlDV3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAQEBAQAAAAICAAAAACIBFlRlc3QgWktBcHAgdG8gUmVjZWl2ZXIAAAAAAAAAAAAA".to_string();
         let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
         let zkapp =
-            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+            v2::MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice())
+                .unwrap();
 
         let zkapp_id = zkapp.to_base64().unwrap();
         assert_eq!(expexcted, zkapp_id);
@@ -1762,16 +1736,16 @@ mod test {
 
         let decoded = STANDARD.decode(verification_key_encoded).unwrap();
         let verification_key =
-            MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded.as_slice());
+            v2::MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded.as_slice());
         assert!(verification_key.is_ok());
     }
 
     #[test]
-    fn test_archive_breadcrumb_serialization() {
+    fn test_archive_breadcrumb_deserialization() {
         let breadcrumb_bytes = include_bytes!("../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
+        let result =
+            v2::ArchiveTransitionFronntierDiff::binprot_read(&mut breadcrumb_bytes.as_slice());
 
-        let breadcrumb = ArchiveTransitionFronntierDiff::binprot_read(&mut breadcrumb_bytes.as_slice()).unwrap();
-        // assert!(breadcrumb.is_ok());
-        println!("{:?}", breadcrumb);
+        assert!(result.is_ok());
     }
 }

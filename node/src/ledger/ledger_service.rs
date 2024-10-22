@@ -36,11 +36,15 @@ use ledger::{
             transaction_partially_applied::TransactionPartiallyApplied,
             valid, Transaction, UserCommand,
         },
-    }, sparse_ledger::SparseLedger, staged_ledger::{
+    },
+    sparse_ledger::SparseLedger,
+    staged_ledger::{
         diff::Diff,
         staged_ledger::{SkipVerification, StagedLedger},
         validate_block::block_body_hash,
-    }, verifier::Verifier, Account, AccountId, AccountIndex, BaseLedger, Database, Mask, TokenId, UnregisterBehavior
+    },
+    verifier::Verifier,
+    Account, AccountId, AccountIndex, BaseLedger, Database, Mask, TokenId, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -717,37 +721,65 @@ impl LedgerCtx {
             UserCommand::try_from(tx).ok().map(|cmd| cmd.fee_payer())
         });
 
-        let account_ids_accessed: BTreeSet<_> = block.body().transactions().flat_map(|tx| {
-            UserCommand::try_from(tx).ok().map(|cmd| cmd.accounts_referenced())
-        }).flatten().collect();
+        let account_ids_accessed: BTreeSet<_> = block
+            .body()
+            .transactions()
+            .flat_map(|tx| {
+                UserCommand::try_from(tx)
+                    .ok()
+                    .map(|cmd| cmd.accounts_referenced())
+            })
+            .flatten()
+            .collect();
 
         // TODO(adonagy): Create a struct instead of tuple
-        let accounts_accessed: Vec<(AccountIndex, Account)> = account_ids_accessed.iter().filter_map(|id| {
-            staged_ledger.ledger().index_of_account(id.clone()).and_then(|index| {
-                staged_ledger.ledger().get_at_index(index).map(|account| (index, *account))
+        let accounts_accessed: Vec<(AccountIndex, Account)> = account_ids_accessed
+            .iter()
+            .filter_map(|id| {
+                staged_ledger
+                    .ledger()
+                    .index_of_account(id.clone())
+                    .and_then(|index| {
+                        staged_ledger
+                            .ledger()
+                            .get_at_index(index)
+                            .map(|account| (index, *account))
+                    })
             })
-        }).collect();
+            .collect();
 
         let account_creation_fee = constraint_constants().account_creation_fee;
 
         // TODO(adonagy): Create a struct instead of tuple
-        let accounts_created: Vec<(AccountId, u64)> = staged_ledger.latest_block_accounts_created(pred_block.hash().to_field()?).iter().map(|id| {
-            (id.clone(), account_creation_fee)
-        }).collect();
+        let accounts_created: Vec<(AccountId, u64)> = staged_ledger
+            .latest_block_accounts_created(pred_block.hash().to_field()?)
+            .iter()
+            .map(|id| (id.clone(), account_creation_fee))
+            .collect();
 
-        let tokens_used: BTreeSet<(TokenId, Option<AccountId>)> = account_ids_accessed.iter().map(|id| {
-            let token_id = id.token_id.clone();
-            let token_owner = staged_ledger.ledger().token_owner(token_id.clone());
-            (token_id, token_owner)
-        }).collect();
+        let tokens_used: BTreeSet<(TokenId, Option<AccountId>)> = account_ids_accessed
+            .iter()
+            .map(|id| {
+                let token_id = id.token_id.clone();
+                let token_owner = staged_ledger.ledger().token_owner(token_id.clone());
+                (token_id, token_owner)
+            })
+            .collect();
 
-        let sender_receipt_chains_from_parent_ledger = senders.filter_map(|sender| {
-            if let Some(location) = staged_ledger.ledger().location_of_account(&sender) {
-                staged_ledger.ledger().get(location).map(|account| (sender, v2::ReceiptChainHash::from(account.receipt_chain_hash)))
-            } else {
-                None
-            }
-        }).collect();
+        let sender_receipt_chains_from_parent_ledger = senders
+            .filter_map(|sender| {
+                if let Some(location) = staged_ledger.ledger().location_of_account(&sender) {
+                    staged_ledger.ledger().get(location).map(|account| {
+                        (
+                            sender,
+                            v2::ReceiptChainHash::from(account.receipt_chain_hash),
+                        )
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         self.sync
             .staged_ledgers
