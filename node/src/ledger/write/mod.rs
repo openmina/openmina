@@ -1,6 +1,6 @@
 mod ledger_write_actions;
 use ledger::scan_state::transaction_logic::valid;
-use ledger::AccountId;
+use ledger::{Account, AccountId, AccountIndex, TokenId};
 pub use ledger_write_actions::*;
 
 mod ledger_write_state;
@@ -85,8 +85,51 @@ pub enum LedgerWriteResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockApplyResult {
+    pub block: ArcBlockWithHash,
     pub just_emitted_a_proof: bool,
+    pub accounts_accessed: Vec<(AccountIndex, Account)>,
+    pub accounts_created: Vec<(AccountId, u64)>,
+    pub tokens_used: BTreeSet<(TokenId, Option<AccountId>)>,
     pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
+}
+
+impl From<BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+    fn from(value: BlockApplyResult) -> Self {
+        Self::BreadcrumbAdded {
+            // TODO(adonagy): check if we need the StateBodyHash, if no keep the None
+            block: (
+                (*value.block.block).clone(),
+                (None, value.block.hash().clone()),
+            ),
+            accounts_accessed: value
+                .accounts_accessed
+                .into_iter()
+                .map(|(index, account)| (index.0.into(), account.into()))
+                .collect(),
+            accounts_created: value
+                .accounts_created
+                .into_iter()
+                .map(|(account_id, fee)| (account_id.into(), v2::CurrencyFeeStableV1(fee.into())))
+                .collect(),
+            tokens_used: value
+                .tokens_used
+                .into_iter()
+                .map(|(token_id, account_id)| {
+                    (
+                        token_id.into(),
+                        account_id.map(|account_id| account_id.into()),
+                    )
+                })
+                .collect(),
+            sender_receipt_chains_from_parent_ledger: value
+                .sender_receipt_chains_from_parent_ledger
+                .into_iter()
+                .map(|(account_id, receipt_chain_hash)| {
+                    (account_id.into(), receipt_chain_hash.into_inner())
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

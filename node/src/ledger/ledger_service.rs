@@ -788,7 +788,11 @@ impl LedgerCtx {
         // staged_ledger.ledger().get_at_index(index)
 
         Ok(BlockApplyResult {
+            block,
             just_emitted_a_proof,
+            accounts_accessed,
+            accounts_created,
+            tokens_used,
             sender_receipt_chains_from_parent_ledger,
         })
     }
