@@ -729,7 +729,7 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
 pub enum ArchiveTransitionFronntierDiff {
     BreadcrumbAdded {
         block: (MinaBlockBlockStableV2, (Option<StateBodyHash>, StateHash)),
-        accounts_accessed: List<(crate::number::UInt32, MinaBaseAccountBinableArgStableV2)>,
+        accounts_accessed: List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)>,
         accounts_created: List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)>,
         tokens_used: List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)>,
         sender_receipt_chains_from_parent_ledger:
@@ -1710,11 +1710,9 @@ impl std::str::FromStr for SgnStableV1 {
 
 #[cfg(test)]
 mod test {
-    use binprot::{BinProtRead, BinProtWrite};
+    use binprot::BinProtRead;
 
-    use crate::{list::List, v2};
-
-    use super::ArchiveBreadcrumb;
+    use crate::v2;
 
     #[test]
     fn test_zkapp_with_sig_auth_hash() {
