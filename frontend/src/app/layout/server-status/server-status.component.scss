@@ -113,6 +113,11 @@
     }
   }
 
+  .chip::before {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+
   .shine-parent {
     height: calc(100% + 3px);
     width: calc(100% - 2px);

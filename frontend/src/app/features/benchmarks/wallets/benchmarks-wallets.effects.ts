@@ -2,16 +2,17 @@ import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Effect } from '@openmina/shared';
-import { forkJoin, map, switchMap } from 'rxjs';
+import { EMPTY, forkJoin, map, switchMap } from 'rxjs';
 import { Store } from '@ngrx/store';
 import {
+  BENCHMARKS_WALLETS_CLOSE,
   BENCHMARKS_WALLETS_GET_ALL_TXS,
   BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
   BENCHMARKS_WALLETS_GET_WALLETS,
   BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
   BENCHMARKS_WALLETS_SEND_TX_SUCCESS,
   BENCHMARKS_WALLETS_SEND_TXS, BENCHMARKS_WALLETS_SEND_ZKAPPS, BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS,
-  BenchmarksWalletsActions,
+  BenchmarksWalletsActions, BenchmarksWalletsClose,
   BenchmarksWalletsGetWallets,
   BenchmarksWalletsSendTxs,
 } from '@benchmarks/wallets/benchmarks-wallets.actions';
@@ -38,22 +39,23 @@ export class BenchmarksWalletsEffects extends MinaRustBaseEffect<BenchmarksWalle
               private zkService: BenchmarksWalletsZkService,
               private mempoolService: MempoolService,
               store: Store<MinaState>) {
-
     super(store, selectMinaState);
 
     this.getWallets$ = createEffect(() => this.actions$.pipe(
-      ofType(BENCHMARKS_WALLETS_GET_WALLETS),
-      this.latestActionState<BenchmarksWalletsGetWallets>(),
-      switchMap(({ action }) => this.benchmarksService.getAccounts().pipe(
-        switchMap(payload => {
-          const actions = [];
-          if (action.payload?.initialRequest) {
-            actions.push({ type: BENCHMARKS_WALLETS_GET_ALL_TXS });
-          }
-          actions.push({ type: BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS, payload });
-          return actions;
-        }),
-      )),
+      ofType(BENCHMARKS_WALLETS_GET_WALLETS, BENCHMARKS_WALLETS_CLOSE),
+      this.latestActionState<BenchmarksWalletsGetWallets | BenchmarksWalletsClose>(),
+      switchMap(({ action }) => action.type === BENCHMARKS_WALLETS_CLOSE
+        ? EMPTY
+        : this.benchmarksService.getAccounts().pipe(
+          switchMap(payload => {
+            const actions = [];
+            if (action.payload?.initialRequest) {
+              actions.push({ type: BENCHMARKS_WALLETS_GET_ALL_TXS });
+            }
+            actions.push({ type: BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS, payload });
+            return actions;
+          }),
+        )),
       catchErrorAndRepeat(MinaErrorType.GENERIC, BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS, []),
     ));
 
