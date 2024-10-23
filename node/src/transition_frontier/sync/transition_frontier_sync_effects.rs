@@ -323,6 +323,9 @@ impl TransitionFrontierSyncAction {
                     store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
                 }
             }
+            TransitionFrontierSyncAction::BlocksSendToArchive { data, .. } => {
+                store.service().send_to_archive(data.into());
+            }
             TransitionFrontierSyncAction::BlocksSuccess => {}
             // Bootstrap/Catchup is practically complete at this point.
             // This effect is where the finalization part needs to be

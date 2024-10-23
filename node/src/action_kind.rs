@@ -653,6 +653,7 @@ pub enum ActionKind {
     TransitionFrontierSyncBlocksPeerQuerySuccess,
     TransitionFrontierSyncBlocksPeersQuery,
     TransitionFrontierSyncBlocksPending,
+    TransitionFrontierSyncBlocksSendToArchive,
     TransitionFrontierSyncBlocksSuccess,
     TransitionFrontierSyncCommitInit,
     TransitionFrontierSyncCommitPending,
@@ -1513,6 +1514,9 @@ impl ActionKindGet for TransitionFrontierSyncAction {
             }
             Self::BlocksNextApplySuccess { .. } => {
                 ActionKind::TransitionFrontierSyncBlocksNextApplySuccess
+            }
+            Self::BlocksSendToArchive { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksSendToArchive
             }
             Self::BlocksSuccess => ActionKind::TransitionFrontierSyncBlocksSuccess,
             Self::CommitInit => ActionKind::TransitionFrontierSyncCommitInit,

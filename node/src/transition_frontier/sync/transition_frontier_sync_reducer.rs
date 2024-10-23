@@ -636,6 +636,7 @@ impl TransitionFrontierSyncState {
                     },
                 };
             }
+            TransitionFrontierSyncAction::BlocksSendToArchive { .. } => {}
             TransitionFrontierSyncAction::BlocksSuccess => {
                 let Self::BlocksPending {
                     chain,

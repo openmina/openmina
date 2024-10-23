@@ -93,8 +93,8 @@ pub struct BlockApplyResult {
     pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
 }
 
-impl From<BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
-    fn from(value: BlockApplyResult) -> Self {
+impl From<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+    fn from(value: &BlockApplyResult) -> Self {
         Self::BreadcrumbAdded {
             // TODO(adonagy): check if we need the StateBodyHash, if no keep the None
             block: (
@@ -103,29 +103,37 @@ impl From<BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
             ),
             accounts_accessed: value
                 .accounts_accessed
-                .into_iter()
+                .iter()
                 .map(|(index, account)| (index.0.into(), account.into()))
                 .collect(),
             accounts_created: value
                 .accounts_created
-                .into_iter()
-                .map(|(account_id, fee)| (account_id.into(), v2::CurrencyFeeStableV1(fee.into())))
+                .iter()
+                .map(|(account_id, fee)| {
+                    (
+                        (*account_id).clone().into(),
+                        v2::CurrencyFeeStableV1((*fee).into()),
+                    )
+                })
                 .collect(),
             tokens_used: value
                 .tokens_used
-                .into_iter()
+                .iter()
                 .map(|(token_id, account_id)| {
                     (
                         token_id.into(),
-                        account_id.map(|account_id| account_id.into()),
+                        account_id.clone().map(|account_id| account_id.into()),
                     )
                 })
                 .collect(),
             sender_receipt_chains_from_parent_ledger: value
                 .sender_receipt_chains_from_parent_ledger
-                .into_iter()
+                .iter()
                 .map(|(account_id, receipt_chain_hash)| {
-                    (account_id.into(), receipt_chain_hash.into_inner())
+                    (
+                        (*account_id).clone().into(),
+                        receipt_chain_hash.clone().into_inner(),
+                    )
                 })
                 .collect(),
         }

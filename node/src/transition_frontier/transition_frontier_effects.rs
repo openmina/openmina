@@ -213,6 +213,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                     }
                 }
+                TransitionFrontierSyncAction::BlocksSendToArchive { .. } => {}
                 TransitionFrontierSyncAction::BlocksSuccess => {
                     store.dispatch(TransitionFrontierSyncAction::CommitInit);
                 }

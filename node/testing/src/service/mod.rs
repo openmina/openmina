@@ -39,6 +39,7 @@ use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS};
 use node::snark_pool::SnarkPoolService;
 use node::stats::Stats;
+use node::transition_frontier::archive::archive_service::ArchiveService;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
@@ -496,6 +497,12 @@ impl SnarkPoolService for NodeTestingService {
 impl BlockProducerVrfEvaluatorService for NodeTestingService {
     fn evaluate(&mut self, data: VrfEvaluatorInput) {
         BlockProducerVrfEvaluatorService::evaluate(&mut self.real, data)
+    }
+}
+
+impl ArchiveService for NodeTestingService {
+    fn send_to_archive(&mut self, data: v2::ArchiveTransitionFronntierDiff) {
+        self.real.send_to_archive(data);
     }
 }
 
