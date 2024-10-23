@@ -32,6 +32,7 @@ import { StoreDevtoolsModule } from '@ngrx/store-devtools';
 import { HttpClientModule } from '@angular/common/http';
 import { NewNodeComponent } from './layout/new-node/new-node.component';
 import { ReactiveFormsModule } from '@angular/forms';
+import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -74,13 +75,14 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     }),
     EffectsModule.forRoot([AppEffects]),
     NgrxRouterStoreModule,
-    !CONFIG.production ? StoreDevtoolsModule.instrument({ maxAge: 150 }) : [],
+    !CONFIG.production ? StoreDevtoolsModule.instrument({ maxAge: 150, connectInZone: true }) : [],
     HttpClientModule,
     MatSidenavModule,
     OpenminaEagerSharedModule,
     HorizontalMenuComponent,
     ReactiveFormsModule,
     CopyComponent,
+    WebNodeLandingPageComponent,
   ],
   providers: [
     THEME_PROVIDER,

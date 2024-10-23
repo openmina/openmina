@@ -46,7 +46,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
 
   vrfText: string;
   vrf: [number, number] = [0, 0];
-  discardedOpen: boolean;
+  discardedOpen: boolean = true;
   percentage: number;
   private timer: any;
   private stopTimer: boolean;

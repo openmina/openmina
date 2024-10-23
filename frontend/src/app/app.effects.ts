@@ -16,14 +16,11 @@ import { catchErrorAndRepeat2 } from '@shared/constants/store-functions';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
 import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
 
-const INIT_EFFECTS = '@ngrx/effects/init';
-
 @Injectable({
   providedIn: 'root',
 })
 export class AppEffects extends BaseEffect {
 
-  readonly initEffects$: Effect;
   readonly init$: Effect;
   readonly initSuccess$: NonDispatchableEffect;
   readonly onNodeChange$: Effect;
@@ -38,11 +35,6 @@ export class AppEffects extends BaseEffect {
               private webNodeService: WebNodeService,
               store: Store<MinaState>) {
     super(store, selectMinaState);
-
-    this.initEffects$ = createEffect(() => this.actions$.pipe(
-      ofType(INIT_EFFECTS),
-      map(() => AppActions.init()),
-    ));
 
     this.init$ = createEffect(() => this.actions$.pipe(
       ofType(AppActions.init),

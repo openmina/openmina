@@ -26,7 +26,6 @@ const initialState: AppState = {
 
 export const appReducer = createReducer(
   initialState,
-  on(AppActions.init, (state) => ({ ...state })),
   on(AppActions.initSuccess, (state, { activeNode, nodes }) => ({ ...state, activeNode, nodes })),
   on(AppActions.changeActiveNode, (state, { node }) => ({ ...state, activeNode: node })),
   on(AppActions.getNodeDetailsSuccess, (state, { details }) => ({ ...state, activeNodeDetails: details })),

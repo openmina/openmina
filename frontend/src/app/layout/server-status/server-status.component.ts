@@ -49,7 +49,7 @@ import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 export class ServerStatusComponent extends StoreDispatcher implements OnInit {
 
   protected readonly AppNodeStatus = AppNodeStatus;
-  protected readonly canAddNodes = CONFIG.globalConfig?.canAddNodes;
+  protected readonly canAddNodes = CONFIG.canAddNodes;
 
   @Input() switchForbidden: boolean;
 
