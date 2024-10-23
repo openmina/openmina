@@ -53,6 +53,11 @@ impl NodeServiceBuilder {
         self
     }
 
+    pub fn archive_init(&mut self, address: &str) -> &mut Self {
+        self.common.archive_init(address);
+        self
+    }
+
     pub fn p2p_init(&mut self, secret_key: P2pSecretKey) -> &mut Self {
         self.common.p2p_init(secret_key, P2pTaskSpawner {});
         self

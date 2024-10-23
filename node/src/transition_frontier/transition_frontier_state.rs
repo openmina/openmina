@@ -31,10 +31,12 @@ pub struct TransitionFrontierState {
     pub blacklist: BTreeMap<StateHash, u32>,
     /// The diff of `Self::best_chain` with the previous one
     pub chain_diff: Option<BestTipDiff>,
+    /// Archive mode enabled
+    pub archive_enabled: bool,
 }
 
 impl TransitionFrontierState {
-    pub fn new(config: TransitionFrontierConfig) -> Self {
+    pub fn new(config: TransitionFrontierConfig, archive_enabled: bool) -> Self {
         Self {
             config,
             genesis: TransitionFrontierGenesisState::Idle,
@@ -43,6 +45,7 @@ impl TransitionFrontierState {
             sync: TransitionFrontierSyncState::Idle,
             blacklist: Default::default(),
             chain_diff: None,
+            archive_enabled,
         }
     }
 

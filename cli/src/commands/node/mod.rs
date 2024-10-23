@@ -137,6 +137,10 @@ pub struct Node {
     // TODO: make this argument required.
     #[arg(short = 'c', long, env)]
     pub config: Option<PathBuf>,
+
+    /// Enable archive mode (seding blocks to the archive process).
+    #[arg(long, env)]
+    pub archive_address: Option<String>,
 }
 
 impl Node {
@@ -266,6 +270,15 @@ impl Node {
                     .custom_coinbase_receiver(pub_key.into())
                     .unwrap();
             }
+        }
+
+        if let Some(address) = self.archive_address {
+            node::core::info!(
+                node::core::log::system_time();
+                summary = "Archive mode enabled",
+                address = address
+            );
+            node_builder.archive(&address);
         }
 
         if let Some(sec_key) = self.run_snarker {

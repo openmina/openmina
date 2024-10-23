@@ -19,7 +19,7 @@ use node::{
     },
     service::Recorder,
     snark::{get_srs, BlockVerifier, TransactionVerifier, VerifierSRS},
-    transition_frontier::genesis::GenesisConfig,
+    transition_frontier::{archive::archive_config::ArchiveConfig, genesis::GenesisConfig},
     BlockProducerConfig, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, SnarkerConfig,
     SnarkerStrategy, TransitionFrontierConfig,
 };
@@ -40,6 +40,7 @@ pub struct NodeBuilder {
     p2p_is_seed: bool,
     p2p_is_started: bool,
     block_producer: Option<BlockProducerConfig>,
+    archive: Option<ArchiveConfig>,
     snarker: Option<SnarkerConfig>,
     service: NodeServiceBuilder,
     verifier_srs: Option<Arc<VerifierSRS>>,
@@ -86,6 +87,7 @@ impl NodeBuilder {
             p2p_is_seed: false,
             p2p_is_started: false,
             block_producer: None,
+            archive: None,
             snarker: None,
             service: NodeServiceBuilder::new(rng_seed),
             verifier_srs: None,
@@ -181,7 +183,7 @@ impl NodeBuilder {
         &mut self,
         spawner: impl TaskSpawner,
     ) -> anyhow::Result<&mut Self> {
-        let sec_key = self.p2p_sec_key.clone().ok_or_else(|| anyhow::anyhow!("before calling `with_p2p_custom_task_spawner` method, p2p secret key needs to be set with `with_p2p_sec_key`."))?;
+        let sec_key: P2pSecretKey = self.p2p_sec_key.clone().ok_or_else(|| anyhow::anyhow!("before calling `with_p2p_custom_task_spawner` method, p2p secret key needs to be set with `with_p2p_sec_key`."))?;
         self.service
             .p2p_init_with_custom_task_spawner(sec_key, spawner);
         self.p2p_is_started = true;
@@ -214,6 +216,12 @@ impl NodeBuilder {
         let key = AccountSecretKey::from_encrypted_file(path, password)
             .context("Failed to decrypt secret key file")?;
         Ok(self.block_producer(key, provers))
+    }
+
+    pub fn archive(&mut self, address: &str) -> &mut Self {
+        self.archive = Some(ArchiveConfig::new(address));
+        self.service.archive_init(address);
+        self
     }
 
     /// Receive block producer's coinbase reward to another account.
@@ -348,6 +356,7 @@ impl NodeBuilder {
             },
             transition_frontier: TransitionFrontierConfig::new(self.genesis_config),
             block_producer: self.block_producer,
+            archive: self.archive,
             tx_pool: ledger::transaction_pool::Config {
                 trust_system: (),
                 pool_max_size: self.daemon_conf.tx_pool_max_size(),

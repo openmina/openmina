@@ -141,6 +141,10 @@ impl LedgerWriteState {
                         .push(TransitionFrontierSyncAction::BlocksNextApplyError { hash, error });
                 }
                 Ok(result) => {
+                    dispatcher.push(TransitionFrontierSyncAction::BlocksSendToArchive {
+                        hash: hash.clone(),
+                        data: result.clone(),
+                    });
                     dispatcher.push(TransitionFrontierSyncAction::BlocksNextApplySuccess {
                         hash,
                         just_emitted_a_proof: result.just_emitted_a_proof,

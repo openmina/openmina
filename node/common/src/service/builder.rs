@@ -93,6 +93,11 @@ impl NodeServiceCommonBuilder {
         self
     }
 
+    pub fn archive_init(&mut self, address: &str) -> &mut Self {
+        self.archive = Some(ArchiveService::start(address));
+        self
+    }
+
     pub fn p2p_init<S: TaskSpawner>(
         &mut self,
         secret_key: P2pSecretKey,
