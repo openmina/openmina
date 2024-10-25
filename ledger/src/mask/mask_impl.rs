@@ -27,7 +27,6 @@ pub enum MaskImpl {
     Attached {
         parent: Mask,
         owning_account: HashMap<AccountIndex, Account>,
-        token_owners: HashMap<TokenId, AccountId>,
         id_to_addr: HashMap<AccountId, Address>,
         last_location: Option<Address>,
         depth: u8,
@@ -39,7 +38,6 @@ pub enum MaskImpl {
         depth: u8,
         childs: HashMap<Uuid, Mask>,
         owning_account: HashMap<AccountIndex, Account>,
-        token_owners: HashMap<TokenId, AccountId>,
         id_to_addr: HashMap<AccountId, Address>,
         last_location: Option<Address>,
         hashes: HashesMatrix,
@@ -68,7 +66,6 @@ impl Clone for MaskImpl {
             Self::Attached {
                 parent,
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 depth,
@@ -78,7 +75,6 @@ impl Clone for MaskImpl {
             } => Self::Attached {
                 parent: parent.clone(),
                 owning_account: owning_account.clone(),
-                token_owners: token_owners.clone(),
                 id_to_addr: id_to_addr.clone(),
                 last_location: last_location.clone(),
                 depth: *depth,
@@ -90,7 +86,6 @@ impl Clone for MaskImpl {
                 depth,
                 childs,
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 hashes,
@@ -99,7 +94,6 @@ impl Clone for MaskImpl {
                 depth: *depth,
                 childs: childs.clone(),
                 owning_account: owning_account.clone(),
-                token_owners: token_owners.clone(),
                 id_to_addr: id_to_addr.clone(),
                 last_location: last_location.clone(),
                 hashes: hashes.clone(),
@@ -121,7 +115,6 @@ impl std::fmt::Debug for MaskImpl {
             Self::Attached {
                 parent,
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 depth,
@@ -133,7 +126,6 @@ impl std::fmt::Debug for MaskImpl {
                 .field("uuid", uuid)
                 .field("parent", &parent.get_uuid())
                 .field("owning_account", &owning_account.len())
-                .field("token_owners", &token_owners.len())
                 .field("id_to_addr", &id_to_addr.len())
                 .field("last_location", last_location)
                 .field("depth", depth)
@@ -145,7 +137,6 @@ impl std::fmt::Debug for MaskImpl {
                 depth,
                 childs,
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 hashes,
@@ -155,7 +146,6 @@ impl std::fmt::Debug for MaskImpl {
                 .field("depth", depth)
                 .field("childs", &childs.len())
                 .field("owning_account", &owning_account.len())
-                .field("token_owners", &token_owners.len())
                 .field("id_to_addr", &id_to_addr.len())
                 .field("last_location", last_location)
                 .field("uuid", uuid)
@@ -298,7 +288,6 @@ impl MaskImpl {
                 childs,
                 uuid,
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 hashes,
@@ -308,7 +297,6 @@ impl MaskImpl {
                 *self = Attached {
                     parent,
                     owning_account: take(owning_account),
-                    token_owners: take(token_owners),
                     id_to_addr: take(id_to_addr),
                     last_location: take(last_location),
                     depth: *depth,
@@ -378,7 +366,6 @@ impl MaskImpl {
             Attached {
                 parent,
                 owning_account,
-                token_owners,
                 id_to_addr,
                 hashes,
                 ..
@@ -386,7 +373,6 @@ impl MaskImpl {
                 assert_ne!(parent.get_uuid(), self_uuid);
 
                 let (accounts, hashes) = {
-                    token_owners.clear();
                     id_to_addr.clear();
                     (std::mem::take(owning_account), hashes.take())
                 };
@@ -485,7 +471,6 @@ impl MaskImpl {
         let Self::Attached {
             parent,
             owning_account,
-            token_owners,
             id_to_addr,
             last_location,
             depth,
@@ -502,7 +487,6 @@ impl MaskImpl {
         let owning_account = std::mem::take(owning_account);
         let depth = std::mem::take(depth);
         let childs = std::mem::take(childs);
-        let token_owners = std::mem::take(token_owners);
         let id_to_addr = std::mem::take(id_to_addr);
         let last_location = std::mem::take(last_location);
         let hashes = std::mem::replace(hashes, HashesMatrix::new(depth as usize));
@@ -510,7 +494,6 @@ impl MaskImpl {
 
         *self = Self::Unattached {
             owning_account,
-            token_owners,
             id_to_addr,
             last_location,
             depth,
@@ -790,7 +773,6 @@ impl MaskImpl {
             Root { .. } => todo!(),
             Unattached {
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 hashes,
@@ -798,7 +780,6 @@ impl MaskImpl {
             }
             | Attached {
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 hashes,
@@ -814,10 +795,7 @@ impl MaskImpl {
                     let account_index = addr.to_index();
                     hashes.invalidate_hashes(account_index);
 
-                    let account = owning_account.remove(&account_index).unwrap();
-                    token_owners
-                        .remove(&account.id().derive_token_id())
-                        .unwrap();
+                    let _account = owning_account.remove(&account_index).unwrap();
 
                     if last_location
                         .as_ref()
@@ -854,14 +832,12 @@ impl MaskImpl {
             Root { database, .. } => database.set(addr, account),
             Unattached {
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 ..
             }
             | Attached {
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 ..
@@ -870,7 +846,6 @@ impl MaskImpl {
 
                 owning_account.insert(account_index, *account);
                 id_to_addr.insert(account_id.clone(), addr.clone());
-                token_owners.insert(account_id.derive_token_id(), account_id);
 
                 if last_location
                     .as_ref()
@@ -1112,32 +1087,6 @@ impl BaseLedger for MaskImpl {
         set
     }
 
-    fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
-        let (parent, token_owners) = match self {
-            Root { database, .. } => return database.token_owner(token_id),
-            Attached {
-                parent,
-                token_owners,
-                ..
-            } => (Some(parent), token_owners),
-            Unattached { token_owners, .. } => (None, token_owners),
-        };
-
-        if let Some(account_id) = token_owners.get(&token_id).cloned() {
-            return Some(account_id);
-        };
-
-        parent.as_ref()?.token_owner(token_id)
-    }
-
-    fn token_owners(&self) -> HashSet<AccountId> {
-        // TODO: Not sure if it's the correct impl
-        self.to_list()
-            .into_iter()
-            .map(|account| account.id())
-            .collect()
-    }
-
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         let mut set = HashSet::with_capacity(1024);
 
@@ -1194,7 +1143,6 @@ impl BaseLedger for MaskImpl {
             Root { database, .. } => database.get_or_create_account(account_id, account)?,
             Unattached {
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 depth,
@@ -1202,7 +1150,6 @@ impl BaseLedger for MaskImpl {
             }
             | Attached {
                 owning_account,
-                token_owners,
                 id_to_addr,
                 last_location,
                 depth,
@@ -1217,7 +1164,6 @@ impl BaseLedger for MaskImpl {
 
                 id_to_addr.insert(account_id.clone(), location.clone());
                 *last_location = Some(location.clone());
-                token_owners.insert(account_id.derive_token_id(), account_id);
                 owning_account.insert(account_index, account);
 
                 self.invalidate_hashes(account_index);

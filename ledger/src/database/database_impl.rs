@@ -20,7 +20,6 @@ pub struct DatabaseImpl<T: TreeVersion> {
     accounts: Vec<Option<T::Account>>,
     pub hashes_matrix: HashesMatrix,
     id_to_addr: HashMap<AccountId, Address>,
-    token_to_account: HashMap<T::TokenId, AccountId>,
     depth: u8,
     last_location: Option<Address>,
     naccounts: usize,
@@ -55,7 +54,6 @@ impl DatabaseImpl<V2> {
             // root: self.root.clone(),
             accounts: self.accounts.clone(),
             id_to_addr: self.id_to_addr.clone(),
-            token_to_account: self.token_to_account.clone(),
             depth: self.depth,
             last_location: self.last_location.clone(),
             naccounts: self.naccounts,
@@ -90,7 +88,6 @@ impl DatabaseImpl<V2> {
             return Ok(GetOrCreated::Existed(addr));
         }
 
-        let token_id = account.token_id.clone();
         let location = match self.last_location.as_ref() {
             Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves)?,
             None => Address::first(self.depth as usize),
@@ -105,7 +102,6 @@ impl DatabaseImpl<V2> {
         self.last_location = Some(location.clone());
         self.naccounts += 1;
 
-        self.token_to_account.insert(token_id, account_id.clone());
         self.id_to_addr.insert(account_id, location.clone());
 
         // self.root_hash.borrow_mut().take();
@@ -340,7 +336,6 @@ impl DatabaseImpl<V2> {
             last_location: None,
             naccounts: 0,
             id_to_addr: HashMap::with_capacity(NACCOUNTS),
-            token_to_account: HashMap::with_capacity(NACCOUNTS),
             uuid,
             directory: path,
             hashes_matrix: HashesMatrix::new(depth as usize),
@@ -521,14 +516,6 @@ impl BaseLedger for DatabaseImpl<V2> {
         self.id_to_addr.keys().cloned().collect()
     }
 
-    fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
-        self.token_to_account.get(&token_id).cloned()
-    }
-
-    fn token_owners(&self) -> HashSet<AccountId> {
-        self.token_to_account.values().cloned().collect()
-    }
-
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         let mut set = HashSet::with_capacity(100);
 
@@ -686,13 +673,10 @@ impl BaseLedger for DatabaseImpl<V2> {
         if let Some(account) = self.get(addr.clone()) {
             let id = account.id();
             self.id_to_addr.remove(&id);
-            self.token_to_account.remove(&id.token_id);
         } else {
             self.naccounts += 1;
         }
 
-        self.token_to_account
-            .insert(account.token_id.clone(), id.clone());
         self.id_to_addr.insert(id, addr.clone());
         self.accounts[index] = Some(*account);
         // root.add_account_on_path(account, addr.iter());
@@ -822,7 +806,6 @@ impl BaseLedger for DatabaseImpl<V2> {
 
             let id = account.id();
             self.id_to_addr.remove(&id);
-            self.token_to_account.remove(&id.token_id);
 
             self.naccounts = self
                 .naccounts
