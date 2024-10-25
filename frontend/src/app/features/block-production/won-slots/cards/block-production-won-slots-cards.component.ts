@@ -40,7 +40,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
 
       const epochEndTime = this.addMinutesToTimestamp(epoch.currentTime / ONE_BILLION, (epoch.end - epoch.currentGlobalSlot) * 3);
       this.card5.endIn = getTimeDiff(epochEndTime * ONE_THOUSAND).diff;
-      this.card5.epochProgress = Math.floor(epoch.currentGlobalSlot / epoch.end * 100) + '%';
+      this.card5.epochProgress = Math.floor((epoch.currentGlobalSlot - epoch.start) / (epoch.end - epoch.start) * 100) + '%';
 
       this.detect();
     }, filter(Boolean));
