@@ -100,7 +100,7 @@ impl Mask {
         let mask = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
-                token_to_account: Default::default(),
+                token_owners: Default::default(),
                 id_to_addr: Default::default(),
                 last_location: None,
                 depth: depth as u8,
