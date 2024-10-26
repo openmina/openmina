@@ -271,7 +271,10 @@ impl P2pNetworkSchedulerState {
                 if incoming {
                     dispatcher.push(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
                 } else {
-                    dispatcher.push(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
+                    dispatcher.push(P2pConnectionOutgoingAction::FinalizeSuccess {
+                        peer_id,
+                        remote_auth: None,
+                    });
                 }
 
                 dispatcher.push(P2pIdentifyAction::NewRequest { peer_id, addr });

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::identity::{EncryptableType, PeerId, PublicKey};
 
-use super::Host;
+use super::{ConnectionAuth, Host};
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
 pub struct Offer {
@@ -55,6 +55,29 @@ pub enum P2pConnectionResponse {
     Rejected(RejectionReason),
     SignalDecryptionFailed,
     InternalError,
+}
+
+fn sdp_hash(sdp: &str) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(sdp);
+    hasher.finalize().into()
+}
+
+impl Offer {
+    pub fn sdp_hash(&self) -> [u8; 32] {
+        sdp_hash(&self.sdp)
+    }
+
+    pub fn conn_auth(&self, answer: &Answer) -> ConnectionAuth {
+        ConnectionAuth::new(self, answer)
+    }
+}
+
+impl Answer {
+    pub fn sdp_hash(&self) -> [u8; 32] {
+        sdp_hash(&self.sdp)
+    }
 }
 
 impl RejectionReason {

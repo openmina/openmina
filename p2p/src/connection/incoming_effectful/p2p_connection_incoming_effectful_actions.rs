@@ -1,6 +1,8 @@
 use crate::{
     connection::{incoming::P2pConnectionIncomingInitOpts, P2pConnectionEffectfulAction},
-    webrtc, P2pState, PeerId,
+    identity::PublicKey,
+    webrtc::{ConnectionAuth, ConnectionAuthEncrypted},
+    P2pState, PeerId,
 };
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
@@ -10,9 +12,16 @@ use serde::{Deserialize, Serialize};
 pub enum P2pConnectionIncomingEffectfulAction {
     /// Incoming connection is initialized.
     Init { opts: P2pConnectionIncomingInitOpts },
-    AnswerSend {
+    ConnectionAuthorizationEncryptAndSend {
         peer_id: PeerId,
-        answer: Box<webrtc::Answer>,
+        other_pub_key: PublicKey,
+        auth: ConnectionAuth,
+    },
+    ConnectionAuthorizationDecryptAndCheck {
+        peer_id: PeerId,
+        other_pub_key: PublicKey,
+        expected_auth: ConnectionAuth,
+        auth: ConnectionAuthEncrypted,
     },
 }
 

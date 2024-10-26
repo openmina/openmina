@@ -127,6 +127,8 @@ pub enum P2pConnectionIncomingError {
     SdpCreateError(String),
     #[error("finalization error: {0}")]
     FinalizeError(String),
+    #[error("connection authentication failed")]
+    ConnectionAuthError,
     #[error("timeout error")]
     Timeout,
 }

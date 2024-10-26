@@ -318,7 +318,8 @@ pub enum ActionKind {
     P2pConnectionIncomingLibp2pReceived,
     P2pConnectionIncomingSuccess,
     P2pConnectionIncomingTimeout,
-    P2pConnectionIncomingEffectfulAnswerSend,
+    P2pConnectionIncomingEffectfulConnectionAuthorizationDecryptAndCheck,
+    P2pConnectionIncomingEffectfulConnectionAuthorizationEncryptAndSend,
     P2pConnectionIncomingEffectfulInit,
     P2pConnectionOutgoingAnswerRecvError,
     P2pConnectionOutgoingAnswerRecvPending,
@@ -338,6 +339,8 @@ pub enum ActionKind {
     P2pConnectionOutgoingSuccess,
     P2pConnectionOutgoingTimeout,
     P2pConnectionOutgoingEffectfulAnswerSet,
+    P2pConnectionOutgoingEffectfulConnectionAuthorizationDecryptAndCheck,
+    P2pConnectionOutgoingEffectfulConnectionAuthorizationEncryptAndSend,
     P2pConnectionOutgoingEffectfulInit,
     P2pConnectionOutgoingEffectfulOfferSend,
     P2pConnectionOutgoingEffectfulRandomInit,
@@ -657,7 +660,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 545;
+    pub const COUNT: u16 = 548;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1871,6 +1874,12 @@ impl ActionKindGet for P2pConnectionOutgoingEffectfulAction {
             Self::Init { .. } => ActionKind::P2pConnectionOutgoingEffectfulInit,
             Self::OfferSend { .. } => ActionKind::P2pConnectionOutgoingEffectfulOfferSend,
             Self::AnswerSet { .. } => ActionKind::P2pConnectionOutgoingEffectfulAnswerSet,
+            Self::ConnectionAuthorizationEncryptAndSend { .. } => {
+                ActionKind::P2pConnectionOutgoingEffectfulConnectionAuthorizationEncryptAndSend
+            }
+            Self::ConnectionAuthorizationDecryptAndCheck { .. } => {
+                ActionKind::P2pConnectionOutgoingEffectfulConnectionAuthorizationDecryptAndCheck
+            }
         }
     }
 }
@@ -1879,7 +1888,12 @@ impl ActionKindGet for P2pConnectionIncomingEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Init { .. } => ActionKind::P2pConnectionIncomingEffectfulInit,
-            Self::AnswerSend { .. } => ActionKind::P2pConnectionIncomingEffectfulAnswerSend,
+            Self::ConnectionAuthorizationEncryptAndSend { .. } => {
+                ActionKind::P2pConnectionIncomingEffectfulConnectionAuthorizationEncryptAndSend
+            }
+            Self::ConnectionAuthorizationDecryptAndCheck { .. } => {
+                ActionKind::P2pConnectionIncomingEffectfulConnectionAuthorizationDecryptAndCheck
+            }
         }
     }
 }
