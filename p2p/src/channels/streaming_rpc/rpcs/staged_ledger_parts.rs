@@ -192,6 +192,19 @@ impl Default for StagedLedgerPartsSendProgress {
 }
 
 impl StagedLedgerPartsReceiveProgress {
+    pub fn last_updated(&self) -> redux::Timestamp {
+        match self {
+            Self::BasePending { time }
+            | Self::BaseSuccess { time, .. }
+            | Self::PreviousIncompleteZkappUpdatesPending { time, .. }
+            | Self::PreviousIncompleteZkappUpdatesSuccess { time, .. }
+            | Self::ScanStateBasePending { time, .. }
+            | Self::ScanStateBaseSuccess { time, .. }
+            | Self::ScanStateTreesPending { time, .. }
+            | Self::Success { time, .. } => *time,
+        }
+    }
+
     pub fn update(&mut self, time: redux::Timestamp, resp: StagedLedgerPartsResponse) -> bool {
         match (std::mem::take(self), resp) {
             (Self::BasePending { .. }, StagedLedgerPartsResponse::Base(base)) => {

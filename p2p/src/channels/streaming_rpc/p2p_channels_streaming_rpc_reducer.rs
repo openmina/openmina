@@ -215,6 +215,7 @@ impl P2pChannelsStreamingRpcState {
                     progress: StagedLedgerPartsSendProgress::LedgerGetIdle { time: meta.time() }
                         .into(),
                 };
+                // async ledger request will be triggered by `LedgerReadAction::FindTodos`.
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::ResponsePending { .. } => {
