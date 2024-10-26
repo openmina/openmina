@@ -174,10 +174,7 @@ impl P2pConnectionIncomingState {
 
                 match signaling {
                     IncomingSignalingMethod::Http => {
-                        dispatcher.push(P2pConnectionIncomingEffectfulAction::AnswerSend {
-                            peer_id,
-                            answer: answer.clone(),
-                        });
+                        // Will respond to the rpc below.
                     }
                     IncomingSignalingMethod::P2p { relay_peer_id } => {
                         dispatcher.push(P2pChannelsSignalingExchangeAction::AnswerSend {
@@ -243,6 +240,9 @@ impl P2pConnectionIncomingState {
                     ..
                 } = state
                 {
+                    let auth = offer.conn_auth(answer);
+                    let other_pub_key = offer.identity_pub_key.clone();
+
                     *state = Self::FinalizePending {
                         time: meta.time(),
                         signaling: *signaling,
@@ -250,12 +250,15 @@ impl P2pConnectionIncomingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+
+                    state_context.into_dispatcher().push(P2pConnectionIncomingEffectfulAction::ConnectionAuthorizationEncryptAndSend { peer_id, other_pub_key, auth });
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::FinalizePending`: {:?}",
                         state
                     );
                 }
+
                 Ok(())
             }
             P2pConnectionIncomingAction::FinalizeError { error, .. } => {
@@ -266,11 +269,13 @@ impl P2pConnectionIncomingState {
                 });
                 Ok(())
             }
-            P2pConnectionIncomingAction::FinalizeSuccess { .. } => {
+            P2pConnectionIncomingAction::FinalizeSuccess { remote_auth, .. } => {
                 let state = p2p_state
                     .incoming_peer_connection_mut(&peer_id)
-                    .ok_or_else(|| format!("Invalid state for: {:?}", action))?;
-                if let Self::FinalizePending {
+                    .ok_or_else(|| {
+                        "Invalid state for: P2pConnectionIncomingAction::FinalizeSuccess".to_owned()
+                    })?;
+                let (expected_auth, other_pub_key) = if let Self::FinalizePending {
                     signaling,
                     offer,
                     answer,
@@ -278,6 +283,8 @@ impl P2pConnectionIncomingState {
                     ..
                 } = state
                 {
+                    let expected_auth = offer.conn_auth(answer);
+                    let other_pub_key = offer.identity_pub_key.clone();
                     *state = Self::FinalizeSuccess {
                         time: meta.time(),
                         signaling: *signaling,
@@ -285,16 +292,25 @@ impl P2pConnectionIncomingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                    (expected_auth, other_pub_key)
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionIncomingAction::FinalizeSuccess`: {:?}",
                         state
                     );
                     return Ok(());
-                }
+                };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionIncomingAction::Success { peer_id });
+
+                dispatcher.push(
+                    P2pConnectionIncomingEffectfulAction::ConnectionAuthorizationDecryptAndCheck {
+                        peer_id,
+                        other_pub_key,
+                        expected_auth,
+                        auth: remote_auth,
+                    },
+                );
                 Ok(())
             }
             P2pConnectionIncomingAction::Timeout { .. } => {

@@ -69,6 +69,7 @@ pub enum P2pConnectionOutgoingAction {
     /// Outgoing connection successfully finalized.
     FinalizeSuccess {
         peer_id: PeerId,
+        remote_auth: Option<webrtc::ConnectionAuthEncrypted>,
     },
     /// Timeout establishing connection to a peer.
     Timeout {
@@ -166,9 +167,10 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                 .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::FinalizePending { .. },
                     )))),
-            P2pConnectionOutgoingAction::FinalizeSuccess { peer_id } => state
+            P2pConnectionOutgoingAction::FinalizeSuccess { peer_id, remote_auth: auth } => state
                 .peers
                 .get(peer_id)
+                .filter(|p| auth.is_some() || p.is_libp2p())
                 .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::FinalizePending { .. },
                     )))),
@@ -192,6 +194,9 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                         }
                         P2pConnectionOutgoingError::FinalizeError(_) => {
                             matches!(s, P2pConnectionOutgoingState::FinalizePending { .. })
+                        }
+                        P2pConnectionOutgoingError::ConnectionAuthError => {
+                            matches!(s, P2pConnectionOutgoingState::FinalizeSuccess { .. })
                         }
                         P2pConnectionOutgoingError::Timeout => true,
                     },

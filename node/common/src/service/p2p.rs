@@ -6,6 +6,7 @@ use node::{
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         identity::{EncryptableType, PublicKey},
+        webrtc::ConnectionAuth,
         PeerId,
     },
 };
@@ -54,6 +55,28 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         encrypted: &T::Encrypted,
     ) -> Result<T, ()> {
         self.p2p.sec_key.decrypt(other_pk, encrypted)
+    }
+
+    fn auth_encrypt_and_send(
+        &mut self,
+        peer_id: PeerId,
+        other_pub_key: &PublicKey,
+        auth: ConnectionAuth,
+    ) {
+        let encrypted = auth.encrypt(&self.p2p.sec_key, other_pub_key, &mut self.rng);
+        if let Some(peer) = self.peers().get(&peer_id) {
+            let _ = peer
+                .cmd_sender
+                .send(webrtc::PeerCmd::ConnectionAuthorizationSend(encrypted));
+        }
+    }
+
+    fn auth_decrypt(
+        &mut self,
+        other_pub_key: &PublicKey,
+        auth: node::p2p::webrtc::ConnectionAuthEncrypted,
+    ) -> Option<ConnectionAuth> {
+        auth.decrypt(&self.p2p.sec_key, other_pub_key)
     }
 }
 

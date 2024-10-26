@@ -184,12 +184,16 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 error,
                             });
                         }
-                        Ok(_) => {
-                            let _ = store
-                                .dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id })
-                                || store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
+                        Ok(auth) => {
+                            let _ = store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess {
+                                peer_id,
+                                remote_auth: Some(auth.clone()),
+                            }) || store.dispatch(
+                                P2pConnectionIncomingAction::FinalizeSuccess {
                                     peer_id,
-                                });
+                                    remote_auth: auth.clone(),
+                                },
+                            );
                         }
                     },
                     P2pConnectionEvent::Closed(peer_id) => {

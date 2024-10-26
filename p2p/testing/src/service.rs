@@ -115,6 +115,23 @@ impl P2pServiceWebrtc for ClusterService {
     ) -> Result<T, ()> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
+
+    fn auth_encrypt_and_send(
+        &mut self,
+        _peer_id: p2p::PeerId,
+        _other_pub_key: &p2p::identity::PublicKey,
+        _auth: p2p::webrtc::ConnectionAuth,
+    ) {
+        unreachable!("this is webrtc only and this crate tests libp2p only")
+    }
+
+    fn auth_decrypt(
+        &mut self,
+        _other_pub_key: &p2p::identity::PublicKey,
+        _auth: p2p::webrtc::ConnectionAuthEncrypted,
+    ) -> Option<p2p::webrtc::ConnectionAuth> {
+        unreachable!("this is webrtc only and this crate tests libp2p only")
+    }
 }
 
 impl P2pCryptoService for ClusterService {

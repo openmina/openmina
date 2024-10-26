@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::channels::signaling::discovery::SignalingDiscoveryChannelMsg;
 use crate::channels::signaling::exchange::SignalingExchangeChannelMsg;
 use crate::channels::streaming_rpc::StreamingRpcChannelMsg;
+use crate::webrtc::ConnectionAuthEncrypted;
 use crate::ConnectionAddr;
 use crate::{
     channels::{transaction::TransactionPropagationChannelMsg, ChannelId, ChannelMsg, MsgId},
@@ -60,7 +61,7 @@ pub enum P2pConnectionEvent {
     OfferSdpReady(PeerId, Result<String, String>),
     AnswerSdpReady(PeerId, Result<String, String>),
     AnswerReceived(PeerId, P2pConnectionResponse),
-    Finalized(PeerId, Result<(), String>),
+    Finalized(PeerId, Result<ConnectionAuthEncrypted, String>),
     Closed(PeerId),
 }
 

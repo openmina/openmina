@@ -8,6 +8,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::{collections::BTreeMap, time::Duration};
 
+use openmina_core::bug_condition;
 use serde::Serialize;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -18,6 +19,7 @@ use wasm_bindgen_futures::spawn_local;
 use openmina_core::channels::{mpsc, oneshot};
 
 use crate::identity::{EncryptableType, PublicKey};
+use crate::webrtc::{ConnectionAuth, ConnectionAuthEncrypted};
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::outgoing::P2pConnectionOutgoingInitOpts,
@@ -43,9 +45,11 @@ pub enum Cmd {
     PeerAdd(PeerAddArgs),
 }
 
+#[derive(Debug)]
 pub enum PeerCmd {
     PeerHttpOfferSend(String, webrtc::Offer),
     AnswerSet(webrtc::Answer),
+    ConnectionAuthorizationSend(Option<ConnectionAuthEncrypted>),
     ChannelOpen(ChannelId),
     ChannelSend(MsgId, ChannelMsg),
 }
@@ -78,7 +82,7 @@ pub enum PeerConnectionKind {
 }
 
 pub struct PeerState {
-    cmd_sender: mpsc::UnboundedSender<PeerCmd>,
+    pub cmd_sender: mpsc::UnboundedSender<PeerCmd>,
 }
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
@@ -333,9 +337,51 @@ async fn peer_start(args: PeerAddArgs) {
             let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
         }
     }
-    let _ = main_channel.close().await;
 
-    let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, Ok(())).into());
+    // Exchange encrypted connection authorization messsages. Makes sure
+    // there is a link between peer identity and connection.
+    let (remote_auth_tx, remote_auth_rx) = oneshot::channel::<ConnectionAuthEncrypted>();
+    let mut remote_auth_tx = Some(remote_auth_tx);
+    main_channel.on_message(move |data| {
+        if let Some(tx) = remote_auth_tx.take() {
+            if let Ok(auth) = data.try_into() {
+                let _ = tx.send(auth);
+            }
+        }
+        std::future::ready(())
+    });
+    match cmd_receiver.recv().await {
+        None => return,
+        Some(PeerCmd::ConnectionAuthorizationSend(None)) => {
+            // eprintln!("PeerCmd::ConnectionAuthorizationSend(None)");
+            return;
+        }
+        Some(PeerCmd::ConnectionAuthorizationSend(Some(auth))) => {
+            // Add a delay for sending messages after channel
+            // was opened. Some initial messages get lost otherwise.
+            // TODO(binier): find deeper cause and fix it.
+            sleep(Duration::from_secs(1)).await;
+            let _ = main_channel
+                .send(&bytes::Bytes::copy_from_slice(auth.as_ref()))
+                .await;
+
+            let res = match remote_auth_rx.await {
+                Err(_) => Err("didn't receive connection authentication message".to_owned()),
+                Ok(remote_auth) => Ok(remote_auth),
+            };
+            let is_err = res.is_err();
+            let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, res).into());
+            if is_err {
+                return;
+            }
+        }
+        Some(cmd) => {
+            bug_condition!("unexpected peer cmd! Expected `PeerCmd::ConnectionAuthorizationSend`. received: {cmd:?}");
+            return;
+        }
+    }
+
+    let _ = main_channel.close().await;
 
     peer_loop(peer_id, event_sender, cmd_receiver, pc).await
 }
@@ -433,8 +479,12 @@ async fn peer_loop(
             },
         };
         match cmd {
-            PeerCmdAll::External(PeerCmd::PeerHttpOfferSend(..) | PeerCmd::AnswerSet(_)) => {
-                // TODO(binier): log unexpected peer cmd.
+            PeerCmdAll::External(
+                PeerCmd::PeerHttpOfferSend(..)
+                | PeerCmd::AnswerSet(_)
+                | PeerCmd::ConnectionAuthorizationSend(_),
+            ) => {
+                bug_condition!("unexpected peer cmd");
             }
             PeerCmdAll::External(PeerCmd::ChannelOpen(id)) => {
                 let pc = pc.clone();
@@ -636,7 +686,6 @@ pub trait P2pServiceWebrtc: redux::Service {
     fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
-        // TODO: sing/verify SDP
         let _ = secret_key;
 
         spawner.spawn_main("webrtc", async move {
@@ -736,4 +785,17 @@ pub trait P2pServiceWebrtc: redux::Service {
         other_pub_key: &PublicKey,
         encrypted: &T::Encrypted,
     ) -> Result<T, ()>;
+
+    fn auth_encrypt_and_send(
+        &mut self,
+        peer_id: PeerId,
+        other_pub_key: &PublicKey,
+        auth: ConnectionAuth,
+    );
+
+    fn auth_decrypt(
+        &mut self,
+        other_pub_key: &PublicKey,
+        auth: ConnectionAuthEncrypted,
+    ) -> Option<ConnectionAuth>;
 }

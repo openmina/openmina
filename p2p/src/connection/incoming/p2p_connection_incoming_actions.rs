@@ -49,6 +49,7 @@ pub enum P2pConnectionIncomingAction {
     /// Incoming connection finalized.
     FinalizeSuccess {
         peer_id: PeerId,
+        remote_auth: webrtc::ConnectionAuthEncrypted,
     },
     /// Timeout establishing incoming connection.
     Timeout {
@@ -86,7 +87,7 @@ impl P2pConnectionIncomingAction {
             | Self::AnswerSendSuccess { peer_id }
             | Self::FinalizePending { peer_id }
             | Self::FinalizeError { peer_id, .. }
-            | Self::FinalizeSuccess { peer_id }
+            | Self::FinalizeSuccess { peer_id, .. }
             | Self::Timeout { peer_id }
             | Self::Error { peer_id, .. }
             | Self::Success { peer_id }
@@ -172,7 +173,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                     )
                 })
             }
-            P2pConnectionIncomingAction::FinalizeSuccess { peer_id } => {
+            P2pConnectionIncomingAction::FinalizeSuccess { peer_id, .. } => {
                 state.peers.get(peer_id).map_or(false, |peer| {
                     matches!(
                         &peer.status,
@@ -197,6 +198,9 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                         }
                         P2pConnectionIncomingError::FinalizeError(_) => {
                             matches!(s, P2pConnectionIncomingState::FinalizePending { .. })
+                        }
+                        P2pConnectionIncomingError::ConnectionAuthError => {
+                            matches!(s, P2pConnectionIncomingState::FinalizeSuccess { .. })
                         }
                         P2pConnectionIncomingError::Timeout => true,
                     },
