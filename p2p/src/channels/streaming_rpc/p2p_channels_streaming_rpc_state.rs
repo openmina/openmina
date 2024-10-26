@@ -90,7 +90,10 @@ impl P2pChannelsStreamingRpcState {
             Self::Ready {
                 local:
                     P2pStreamingRpcLocalState::Requested {
-                        time, id, request, ..
+                        id,
+                        request,
+                        progress,
+                        ..
                     },
                 ..
             } => {
@@ -99,7 +102,7 @@ impl P2pChannelsStreamingRpcState {
                         .kind()
                         .timeout(config)
                         .and_then(|timeout| {
-                            let dur = now.checked_sub(*time)?;
+                            let dur = now.checked_sub(progress.last_updated())?;
                             Some(dur >= timeout)
                         })
                         .unwrap_or(false)
