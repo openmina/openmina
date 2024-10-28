@@ -2107,20 +2107,24 @@ pub mod zkapp_command {
                     .iter()
                     .zip(&zkapp_account.app_state)
                     .enumerate()
+                    // Reversed to enforce right-to-left order application of `f` like in OCaml
                     .rev()
                     .map(|(i, (s, account_s))| {
                         let b = (s, Fp::zero).zcheck::<Ops>(account_s, w);
                         (AccountAppStatePreconditionUnsatisfied(i as u64), b)
                     })
                     .collect::<Vec<_>>();
-                // We need to call rev here, in order to match OCaml order
-                bools.into_iter().rev()
+                // Not reversed again because we are constructing these results in
+                // reverse order to match the OCaml evaluation order.
+                bools.into_iter()
             })
             .chain([
                 {
                     let bools: Vec<_> = zkapp_account
                         .action_state
                         .iter()
+                        // Reversed to enforce right-to-left order application of `f` like in OCaml
+                        .rev()
                         .map(|account_s| {
                             (action_state, ZkAppAccount::empty_action_state)
                                 .zcheck::<Ops>(account_s, w)
