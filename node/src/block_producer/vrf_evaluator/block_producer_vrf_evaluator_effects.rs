@@ -2,6 +2,7 @@ use redux::ActionMeta;
 
 use crate::block_producer::to_epoch_and_slot;
 use crate::ledger::read::LedgerReadAction;
+use crate::ledger::read::LedgerReadInitCallback;
 use crate::ledger::read::LedgerReadRequest;
 use crate::Service;
 use crate::Store;
@@ -149,7 +150,7 @@ impl BlockProducerVrfEvaluatorAction {
                     };
                 if store.dispatch(LedgerReadAction::Init {
                     request: LedgerReadRequest::DelegatorTable(staking_ledger_hash, producer),
-                    propagate: None,
+                    callback: LedgerReadInitCallback::None,
                 }) {
                     // TODO(binier): have pending action.
                 } else {

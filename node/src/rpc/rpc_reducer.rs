@@ -1,4 +1,8 @@
-use openmina_core::bug_condition;
+use openmina_core::{
+    block::AppliedBlock,
+    bug_condition,
+    requests::{RequestId, RpcIdType},
+};
 use p2p::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     webrtc::P2pConnectionResponse,
@@ -6,7 +10,7 @@ use p2p::{
 use redux::ActionWithMeta;
 
 use crate::{
-    ledger::read::{LedgerReadAction, LedgerReadRequest, PropagateLedgerReadInit},
+    ledger::read::{LedgerReadAction, LedgerReadInitCallback, LedgerReadRequest},
     p2p_ready,
     rpc_effectful::RpcEffectfulAction,
     TransactionPoolAction,
@@ -260,10 +264,14 @@ impl RpcState {
                     request: LedgerReadRequest::ScanStateSummary(
                         block.staged_ledger_hashes().clone(),
                     ),
-                    propagate: Some(PropagateLedgerReadInit::RpcScanStateSummaryGetPending {
-                        rpc_id: *rpc_id,
-                        block,
-                    }),
+                    callback: LedgerReadInitCallback::RpcScanStateSummaryGetPending {
+                        callback: redux::callback!(
+                            on_ledger_read_init_rpc_scan_state_summary_get_pending((rpc_id: RequestId<RpcIdType>, block: AppliedBlock)) -> crate::Action{
+                                RpcAction::ScanStateSummaryGetPending { rpc_id, block: Some(block) }
+                            }
+                        ),
+                        args: (*rpc_id, block),
+                    },
                 });
             }
             RpcAction::ScanStateSummaryGetPending { rpc_id, block } => {
@@ -440,9 +448,14 @@ impl RpcState {
                         ledger_hash.clone(),
                         account_query.clone(),
                     ),
-                    propagate: Some(PropagateLedgerReadInit::RpcLedgerAccountsGetPending {
-                        rpc_id: *rpc_id,
-                    }),
+                    callback: LedgerReadInitCallback::RpcLedgerAccountsGetPending {
+                        callback: redux::callback!(
+                            on_ledger_read_init_rpc_actions_get_init(rpc_id: RequestId<RpcIdType>) -> crate::Action{
+                                RpcAction::LedgerAccountsGetPending { rpc_id }
+                            }
+                        ),
+                        args: *rpc_id,
+                    },
                 })
             }
             RpcAction::LedgerAccountsGetPending { rpc_id } => {
@@ -478,16 +491,6 @@ impl RpcState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(RpcAction::TransactionInjectPending { rpc_id: *rpc_id });
-
-                // sort the commands by nonce
-
-                // let Ok(commands) = commands
-                //     .into_iter()
-                //     .map(|c| c.try_into())
-                //     .collect::<Result<_, _>>()
-                // else {
-                //     return;
-                // };
                 dispatcher.push(TransactionPoolAction::StartVerify {
                     commands: commands.clone().into_iter().collect(),
                     from_rpc: Some(*rpc_id),

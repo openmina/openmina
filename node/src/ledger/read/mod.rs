@@ -8,6 +8,7 @@ use openmina_core::block::AppliedBlock;
 use openmina_core::requests::{RequestId, RpcId, RpcIdType};
 use p2p::channels::rpc::P2pRpcId;
 use p2p::PeerId;
+use redux::Callback;
 
 mod ledger_read_reducer;
 
@@ -131,17 +132,18 @@ impl PartialEq for LedgerReadStagedLedgerAuxAndPendingCoinbases {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PropagateLedgerReadInit {
+pub enum LedgerReadInitCallback {
     RpcLedgerAccountsGetPending {
-        rpc_id: RequestId<RpcIdType>,
+        callback: Callback<RequestId<RpcIdType>>,
+        args: RequestId<RpcIdType>,
     },
     RpcScanStateSummaryGetPending {
-        rpc_id: RequestId<RpcIdType>,
-        block: AppliedBlock,
+        callback: Callback<(RequestId<RpcIdType>, AppliedBlock)>,
+        args: (RequestId<RpcIdType>, AppliedBlock),
     },
     P2pChannelsResponsePending {
-        is_streaming: bool,
-        id: P2pRpcId,
-        peer_id: PeerId,
+        callback: Callback<(bool, P2pRpcId, PeerId)>,
+        args: (bool, P2pRpcId, PeerId),
     },
+    None,
 }

@@ -1,7 +1,9 @@
 use openmina_core::{bug_condition, error, Substate};
 use p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 
-use crate::{rpc::RpcState, Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State};
+use crate::{
+    rpc::RpcState, Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State,
+};
 
 pub fn reducer(
     state: &mut State,
