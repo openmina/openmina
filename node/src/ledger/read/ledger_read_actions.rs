@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::{LedgerReadId, LedgerReadRequest, LedgerReadRequestState, LedgerReadResponse};
+use super::{
+    LedgerReadId, LedgerReadRequest, LedgerReadRequestState, LedgerReadResponse,
+    PropagateLedgerReadInit,
+};
 
 pub type LedgerReadActionWithMeta = redux::ActionWithMeta<LedgerReadAction>;
 pub type LedgerReadActionWithMetaRef<'a> = redux::ActionWithMeta<&'a LedgerReadAction>;
@@ -10,6 +13,7 @@ pub enum LedgerReadAction {
     FindTodos,
     Init {
         request: LedgerReadRequest,
+        propagate: Option<PropagateLedgerReadInit>,
     },
     Pending {
         id: LedgerReadId,

@@ -149,6 +149,7 @@ impl BlockProducerVrfEvaluatorAction {
                     };
                 if store.dispatch(LedgerReadAction::Init {
                     request: LedgerReadRequest::DelegatorTable(staking_ledger_hash, producer),
+                    propagate: None,
                 }) {
                     // TODO(binier): have pending action.
                 } else {

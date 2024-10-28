@@ -6,7 +6,7 @@ use p2p::{
 use redux::ActionWithMeta;
 
 use crate::{
-    ledger::read::{LedgerReadAction, LedgerReadRequest},
+    ledger::read::{LedgerReadAction, LedgerReadRequest, PropagateLedgerReadInit},
     p2p_ready,
     rpc_effectful::RpcEffectfulAction,
     TransactionPoolAction,
@@ -83,12 +83,20 @@ impl RpcState {
             }
             RpcAction::P2pConnectionOutgoingPending { rpc_id } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::P2pConnectionOutgoingPending({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Pending { time: meta.time() };
             }
             RpcAction::P2pConnectionOutgoingError { rpc_id, error } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::P2pConnectionOutgoingError({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Error {
@@ -104,6 +112,10 @@ impl RpcState {
             }
             RpcAction::P2pConnectionOutgoingSuccess { rpc_id } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::P2pConnectionOutgoingSuccess({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
@@ -142,6 +154,10 @@ impl RpcState {
             }
             RpcAction::P2pConnectionIncomingPending { rpc_id } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::P2pConnectionIncomingPending({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Pending { time: meta.time() };
@@ -155,6 +171,10 @@ impl RpcState {
             }
             RpcAction::P2pConnectionIncomingError { rpc_id, error } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::P2pConnectionIncomingError({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Error {
@@ -170,6 +190,10 @@ impl RpcState {
             }
             RpcAction::P2pConnectionIncomingSuccess { rpc_id } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::P2pConnectionIncomingSuccess({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
@@ -232,24 +256,22 @@ impl RpcState {
                     }
                 };
 
-                // TODO: add callbacks here
-                if dispatcher.push_if_enabled(
-                    LedgerReadAction::Init {
-                        request: LedgerReadRequest::ScanStateSummary(
-                            block.staged_ledger_hashes().clone(),
-                        ),
-                    },
-                    state,
-                    meta.time(),
-                ) {
-                    dispatcher.push(RpcAction::ScanStateSummaryGetPending {
+                dispatcher.push(LedgerReadAction::Init {
+                    request: LedgerReadRequest::ScanStateSummary(
+                        block.staged_ledger_hashes().clone(),
+                    ),
+                    propagate: Some(PropagateLedgerReadInit::RpcScanStateSummaryGetPending {
                         rpc_id: *rpc_id,
-                        block: Some(block),
-                    });
-                }
+                        block,
+                    }),
+                });
             }
             RpcAction::ScanStateSummaryGetPending { rpc_id, block } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::ScanStateSummaryGetPending({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Pending { time: meta.time() };
@@ -257,6 +279,10 @@ impl RpcState {
             }
             RpcAction::ScanStateSummaryGetSuccess { rpc_id, scan_state } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    bug_condition!(
+                        "Rpc state not found for RpcAction::ScanStateSummaryGetSuccess({})",
+                        rpc_id
+                    );
                     return;
                 };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
@@ -408,20 +434,16 @@ impl RpcState {
                     return;
                 };
 
-                // TODO: add callback here
-                if dispatcher.push_if_enabled(
-                    LedgerReadAction::Init {
-                        request: LedgerReadRequest::AccountsForRpc(
-                            *rpc_id,
-                            ledger_hash.clone(),
-                            account_query.clone(),
-                        ),
-                    },
-                    state,
-                    meta.time(),
-                ) {
-                    dispatcher.push(RpcAction::LedgerAccountsGetPending { rpc_id: *rpc_id });
-                }
+                dispatcher.push(LedgerReadAction::Init {
+                    request: LedgerReadRequest::AccountsForRpc(
+                        *rpc_id,
+                        ledger_hash.clone(),
+                        account_query.clone(),
+                    ),
+                    propagate: Some(PropagateLedgerReadInit::RpcLedgerAccountsGetPending {
+                        rpc_id: *rpc_id,
+                    }),
+                })
             }
             RpcAction::LedgerAccountsGetPending { rpc_id } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {

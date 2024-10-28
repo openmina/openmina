@@ -4,7 +4,10 @@ pub use ledger_read_actions::*;
 
 mod ledger_read_state;
 pub use ledger_read_state::*;
-use openmina_core::requests::RpcId;
+use openmina_core::block::AppliedBlock;
+use openmina_core::requests::{RequestId, RpcId, RpcIdType};
+use p2p::channels::rpc::P2pRpcId;
+use p2p::PeerId;
 
 mod ledger_read_reducer;
 
@@ -125,4 +128,20 @@ impl PartialEq for LedgerReadStagedLedgerAuxAndPendingCoinbases {
     fn eq(&self, other: &Self) -> bool {
         self.ledger_hash == other.ledger_hash
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum PropagateLedgerReadInit {
+    RpcLedgerAccountsGetPending {
+        rpc_id: RequestId<RpcIdType>,
+    },
+    RpcScanStateSummaryGetPending {
+        rpc_id: RequestId<RpcIdType>,
+        block: AppliedBlock,
+    },
+    P2pChannelsResponsePending {
+        is_streaming: bool,
+        id: P2pRpcId,
+        peer_id: PeerId,
+    },
 }

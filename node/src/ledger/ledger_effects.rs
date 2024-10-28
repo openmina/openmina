@@ -11,7 +11,7 @@ use crate::{BlockProducerAction, RpcAction, Store};
 
 use super::read::{
     LedgerReadAction, LedgerReadId, LedgerReadRequest, LedgerReadResponse,
-    LedgerReadStagedLedgerAuxAndPendingCoinbases,
+    LedgerReadStagedLedgerAuxAndPendingCoinbases, PropagateLedgerReadInit,
 };
 use super::write::{LedgerWriteAction, LedgerWriteResponse};
 use super::{LedgerAction, LedgerActionWithMeta, LedgerAddress, LedgerService};
@@ -36,13 +36,47 @@ pub fn ledger_effects<S: LedgerService>(store: &mut Store<S>, action: LedgerActi
             LedgerReadAction::FindTodos => {
                 next_read_requests_init(store);
             }
-            LedgerReadAction::Init { request } => {
+            LedgerReadAction::Init { request, propagate } => {
                 if store.state().ledger.read.has_same_request(&request) {
                     return;
                 }
                 let id = store.state().ledger.read.next_req_id();
                 store.service.read_init(id, request.clone());
                 store.dispatch(LedgerReadAction::Pending { id, request });
+
+                if let Some(propagate) = propagate {
+                    match propagate {
+                        PropagateLedgerReadInit::RpcLedgerAccountsGetPending { rpc_id } => {
+                            store.dispatch(RpcAction::LedgerAccountsGetPending { rpc_id });
+                        }
+                        PropagateLedgerReadInit::RpcScanStateSummaryGetPending {
+                            rpc_id,
+                            block,
+                        } => {
+                            store.dispatch(RpcAction::ScanStateSummaryGetPending {
+                                rpc_id,
+                                block: Some(block),
+                            });
+                        }
+                        PropagateLedgerReadInit::P2pChannelsResponsePending {
+                            is_streaming,
+                            id,
+                            peer_id,
+                        } => {
+                            if !is_streaming {
+                                store.dispatch(P2pChannelsRpcAction::ResponsePending {
+                                    peer_id,
+                                    id,
+                                });
+                            } else {
+                                store.dispatch(P2pChannelsStreamingRpcAction::ResponsePending {
+                                    peer_id,
+                                    id,
+                                });
+                            }
+                        }
+                    }
+                }
             }
             LedgerReadAction::Pending { .. } => {}
             LedgerReadAction::Success { id, response } => {
@@ -219,13 +253,16 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
         }) else {
             continue;
         };
-        if store.dispatch(LedgerReadAction::Init { request }) {
-            if !is_streaming {
-                store.dispatch(P2pChannelsRpcAction::ResponsePending { peer_id, id });
-            } else {
-                store.dispatch(P2pChannelsStreamingRpcAction::ResponsePending { peer_id, id });
-            }
-        }
+
+        store.dispatch(LedgerReadAction::Init {
+            request,
+            propagate: Some(PropagateLedgerReadInit::P2pChannelsResponsePending {
+                is_streaming,
+                id,
+                peer_id,
+            }),
+        });
+
         if !store.state().ledger.read.is_total_cost_under_limit() {
             return;
         }
