@@ -6,6 +6,7 @@ use p2p::{
     },
     PeerId,
 };
+use rand::prelude::*;
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 
@@ -44,9 +45,10 @@ impl TransitionFrontierSyncLedgerStagedState {
                 };
                 let block_hash = staged_ledger.target().staged.block_hash.clone();
 
-                let ready_peers = staged_ledger
+                let mut ready_peers = staged_ledger
                     .filter_available_peers(p2p.ready_rpc_peers_iter())
                     .collect::<Vec<_>>();
+                ready_peers.shuffle(&mut global_state.pseudo_rng());
 
                 for (peer_id, rpc_id) in ready_peers {
                     let enqueued = if p2p.is_libp2p_peer(&peer_id) {

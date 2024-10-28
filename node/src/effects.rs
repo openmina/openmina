@@ -1,4 +1,5 @@
 use openmina_core::log::system_time;
+use rand::prelude::*;
 
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::event_source::event_source_effects;
@@ -120,10 +121,12 @@ use mina_p2p_messages::v2::StateHash;
 
 fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: Option<StateHash>) {
     let p2p = p2p_ready!(store.state().p2p, "request_best_tip", system_time());
-    if let Some((peer_id, id)) = p2p.ready_rpc_peers_iter().last() {
+
+    let peers = p2p.ready_rpc_peers_iter().collect::<Vec<_>>();
+    if let Some((peer_id, id)) = peers.choose(&mut store.state().pseudo_rng()) {
         store.dispatch(P2pChannelsRpcAction::RequestSend {
-            peer_id,
-            id,
+            peer_id: *peer_id,
+            id: *id,
             request: Box::new(P2pRpcRequest::BestTipWithProof),
             on_init: None,
         });
