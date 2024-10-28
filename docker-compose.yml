@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   openmina-node:
     image: openmina/openmina:${OPENMINA_TAG:-latest}
