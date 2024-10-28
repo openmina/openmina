@@ -5,8 +5,12 @@ use multihash::{Blake2b256, Hasher};
 use time::macros::format_description;
 use time::OffsetDateTime;
 
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    io::{Read, Write},
+};
 
+use binprot::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, PartialEq, Eq)]
@@ -92,6 +96,23 @@ impl ChainId {
         let mut arr = [0u8; 32];
         arr.copy_from_slice(&bytes[..32]);
         ChainId(arr)
+    }
+}
+
+impl BinProtWrite for ChainId {
+    fn binprot_write<W: Write>(&self, w: &mut W) -> std::io::Result<()> {
+        w.write_all(&self.0)
+    }
+}
+
+impl BinProtRead for ChainId {
+    fn binprot_read<R: Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let mut bytes = [0; 32];
+        r.read_exact(&mut bytes)?;
+        Ok(Self(bytes))
     }
 }
 

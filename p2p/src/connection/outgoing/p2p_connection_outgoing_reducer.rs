@@ -152,6 +152,7 @@ impl P2pConnectionOutgoingState {
                 Ok(())
             }
             P2pConnectionOutgoingAction::OfferSdpCreateSuccess { sdp, peer_id } => {
+                let chain_id = p2p_state.chain_id.clone();
                 let state = p2p_state
                     .outgoing_peer_connection_mut(&peer_id)
                     .ok_or("Missing peer connection for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`")?;
@@ -170,6 +171,7 @@ impl P2pConnectionOutgoingState {
 
                 let offer = Box::new(crate::webrtc::Offer {
                     sdp,
+                    chain_id,
                     identity_pub_key: p2p_state.config.identity_pub_key.clone(),
                     target_peer_id: peer_id,
                     // TODO(vlad9486): put real address
