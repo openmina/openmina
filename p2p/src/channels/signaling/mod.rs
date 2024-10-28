@@ -52,7 +52,7 @@ impl crate::P2pState {
         );
 
         /// random shuffle available peers
-        use rand::{seq::SliceRandom, SeedableRng};
+        use rand::prelude::*;
         let mut rng = rand::rngs::StdRng::seed_from_u64(time.into());
         let mut available_peers_ordered = available_peers.iter().copied().collect::<Vec<_>>();
         available_peers_ordered.shuffle(&mut rng);

@@ -4065,6 +4065,7 @@ dependencies = [
  "openmina-node-account",
  "p2p",
  "postcard",
+ "rand",
  "redux",
  "regex",
  "rust-format",
