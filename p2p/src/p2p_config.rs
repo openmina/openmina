@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, time::Duration};
+use std::{collections::BTreeSet, net::IpAddr, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +22,8 @@ pub struct P2pConfig {
     pub identity_pub_key: PublicKey,
     /// A list addresses of seed nodes.
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
+    /// External addresses
+    pub external_addrs: Vec<IpAddr>,
 
     /// The time interval that must elapse before the next peer discovery request.
     /// The node periodically polls peers for their connections to keep our list up to date.

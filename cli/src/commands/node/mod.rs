@@ -44,6 +44,10 @@ pub struct Node {
     #[arg(env = "MINA_LIBP2P_PASS")]
     pub libp2p_password: Option<String>,
 
+    /// List of external addresses at which this node is accessible
+    #[arg(long)]
+    pub libp2p_external_ip: Vec<String>,
+
     /// Http port to listen on
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
@@ -193,6 +197,12 @@ impl Node {
         }
 
         node_builder.p2p_libp2p_port(self.libp2p_port);
+
+        node_builder.external_addrs(
+            self.libp2p_external_ip
+                .into_iter()
+                .filter_map(|s| s.parse().ok()),
+        );
 
         self.seed.then(|| node_builder.p2p_seed_node());
         self.no_peers_discovery

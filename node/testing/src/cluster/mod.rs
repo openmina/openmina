@@ -281,6 +281,7 @@ impl Cluster {
                 listen_port: Some(http_port),
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
+                external_addrs: vec![],
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: true,
