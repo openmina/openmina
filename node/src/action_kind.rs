@@ -73,6 +73,7 @@ use crate::p2p::network::{P2pNetworkAction, P2pNetworkEffectfulAction};
 use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
+use crate::rpc_effectful::RpcEffectfulAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
 use crate::snark::user_command_verify::SnarkUserCommandVerifyAction;
@@ -520,6 +521,38 @@ pub enum ActionKind {
     RpcTransactionPool,
     RpcTransactionStatusGet,
     RpcTransitionFrontierUserCommandsGet,
+    RpcEffectfulActionStatsGet,
+    RpcEffectfulBestChain,
+    RpcEffectfulBlockProducerStatsGet,
+    RpcEffectfulConsensusConstantsGet,
+    RpcEffectfulDiscoveryBoostrapStats,
+    RpcEffectfulDiscoveryRoutingTable,
+    RpcEffectfulGlobalStateGet,
+    RpcEffectfulHealthCheck,
+    RpcEffectfulLedgerAccountsGetSuccess,
+    RpcEffectfulMessageProgressGet,
+    RpcEffectfulP2pConnectionIncomingError,
+    RpcEffectfulP2pConnectionIncomingRespond,
+    RpcEffectfulP2pConnectionIncomingSuccess,
+    RpcEffectfulP2pConnectionOutgoingError,
+    RpcEffectfulP2pConnectionOutgoingSuccess,
+    RpcEffectfulPeersGet,
+    RpcEffectfulReadinessCheck,
+    RpcEffectfulScanStateSummaryGetSuccess,
+    RpcEffectfulSnarkPoolAvailableJobsGet,
+    RpcEffectfulSnarkPoolJobGet,
+    RpcEffectfulSnarkerConfigGet,
+    RpcEffectfulSnarkerJobCommit,
+    RpcEffectfulSnarkerJobSpec,
+    RpcEffectfulSnarkerWorkersGet,
+    RpcEffectfulStatusGet,
+    RpcEffectfulSyncStatsGet,
+    RpcEffectfulTransactionInjectFailure,
+    RpcEffectfulTransactionInjectRejected,
+    RpcEffectfulTransactionInjectSuccess,
+    RpcEffectfulTransactionPool,
+    RpcEffectfulTransactionStatusGet,
+    RpcEffectfulTransitionFrontierUserCommandsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
@@ -661,7 +694,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 549;
+    pub const COUNT: u16 = 581;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -689,6 +722,7 @@ impl ActionKindGet for Action {
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
+            Self::RpcEffectful(a) => a.kind(),
             Self::WatchedAccounts(a) => a.kind(),
         }
     }
@@ -999,6 +1033,69 @@ impl ActionKindGet for RpcAction {
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
+        }
+    }
+}
+
+impl ActionKindGet for RpcEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::GlobalStateGet { .. } => ActionKind::RpcEffectfulGlobalStateGet,
+            Self::StatusGet { .. } => ActionKind::RpcEffectfulStatusGet,
+            Self::ActionStatsGet { .. } => ActionKind::RpcEffectfulActionStatsGet,
+            Self::SyncStatsGet { .. } => ActionKind::RpcEffectfulSyncStatsGet,
+            Self::BlockProducerStatsGet { .. } => ActionKind::RpcEffectfulBlockProducerStatsGet,
+            Self::MessageProgressGet { .. } => ActionKind::RpcEffectfulMessageProgressGet,
+            Self::PeersGet { .. } => ActionKind::RpcEffectfulPeersGet,
+            Self::P2pConnectionOutgoingError { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionOutgoingError
+            }
+            Self::P2pConnectionOutgoingSuccess { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionOutgoingSuccess
+            }
+            Self::P2pConnectionIncomingRespond { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionIncomingRespond
+            }
+            Self::P2pConnectionIncomingError { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionIncomingError
+            }
+            Self::P2pConnectionIncomingSuccess { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionIncomingSuccess
+            }
+            Self::ScanStateSummaryGetSuccess { .. } => {
+                ActionKind::RpcEffectfulScanStateSummaryGetSuccess
+            }
+            Self::SnarkPoolAvailableJobsGet { .. } => {
+                ActionKind::RpcEffectfulSnarkPoolAvailableJobsGet
+            }
+            Self::SnarkPoolJobGet { .. } => ActionKind::RpcEffectfulSnarkPoolJobGet,
+            Self::SnarkerConfigGet { .. } => ActionKind::RpcEffectfulSnarkerConfigGet,
+            Self::SnarkerJobCommit { .. } => ActionKind::RpcEffectfulSnarkerJobCommit,
+            Self::SnarkerJobSpec { .. } => ActionKind::RpcEffectfulSnarkerJobSpec,
+            Self::SnarkerWorkersGet { .. } => ActionKind::RpcEffectfulSnarkerWorkersGet,
+            Self::HealthCheck { .. } => ActionKind::RpcEffectfulHealthCheck,
+            Self::ReadinessCheck { .. } => ActionKind::RpcEffectfulReadinessCheck,
+            Self::DiscoveryRoutingTable { .. } => ActionKind::RpcEffectfulDiscoveryRoutingTable,
+            Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcEffectfulDiscoveryBoostrapStats,
+            Self::TransactionPool { .. } => ActionKind::RpcEffectfulTransactionPool,
+            Self::LedgerAccountsGetSuccess { .. } => {
+                ActionKind::RpcEffectfulLedgerAccountsGetSuccess
+            }
+            Self::TransactionInjectSuccess { .. } => {
+                ActionKind::RpcEffectfulTransactionInjectSuccess
+            }
+            Self::TransactionInjectRejected { .. } => {
+                ActionKind::RpcEffectfulTransactionInjectRejected
+            }
+            Self::TransactionInjectFailure { .. } => {
+                ActionKind::RpcEffectfulTransactionInjectFailure
+            }
+            Self::TransitionFrontierUserCommandsGet { .. } => {
+                ActionKind::RpcEffectfulTransitionFrontierUserCommandsGet
+            }
+            Self::BestChain { .. } => ActionKind::RpcEffectfulBestChain,
+            Self::ConsensusConstantsGet { .. } => ActionKind::RpcEffectfulConsensusConstantsGet,
+            Self::TransactionStatusGet { .. } => ActionKind::RpcEffectfulTransactionStatusGet,
         }
     }
 }

@@ -19,9 +19,6 @@ use super::{
     SyncStatsQuery,
 };
 
-pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
-pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
-
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum RpcAction {
     GlobalStateGet {

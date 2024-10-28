@@ -12,6 +12,7 @@ pub use crate::ledger::LedgerAction;
 use crate::p2p::callbacks::P2pCallbacksAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
+use crate::rpc_effectful::RpcEffectfulAction;
 pub use crate::snark::SnarkAction;
 pub use crate::snark_pool::SnarkPoolAction;
 pub use crate::snark_pool::SnarkPoolEffectfulAction;
@@ -48,6 +49,7 @@ pub enum Action {
     ExternalSnarkWorker(ExternalSnarkWorkerAction),
     BlockProducer(BlockProducerAction),
     Rpc(RpcAction),
+    RpcEffectful(RpcEffectfulAction),
 
     WatchedAccounts(WatchedAccountsAction),
 }
@@ -95,6 +97,7 @@ impl redux::EnablingCondition<crate::State> for Action {
             Action::TransactionPool(a) => a.is_enabled(state, time),
             Action::TransactionPoolEffect(a) => a.is_enabled(state, time),
             Action::P2pCallbacks(a) => a.is_enabled(state, time),
+            Action::RpcEffectful(a) => a.is_enabled(state, time),
         }
     }
 }

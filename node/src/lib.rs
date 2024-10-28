@@ -38,6 +38,7 @@ pub mod ledger;
 pub mod logger;
 pub mod p2p;
 pub mod rpc;
+pub mod rpc_effectful;
 pub mod snark;
 pub mod snark_pool;
 pub mod transaction_pool;

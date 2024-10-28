@@ -1,40 +1,39 @@
-use std::collections::BTreeMap;
-use std::time::Duration;
-
-use ledger::scan_state::currency::{Balance, Magnitude};
-use ledger::Account;
-use mina_p2p_messages::rpc_kernel::QueryHeader;
-use mina_p2p_messages::v2::{MinaBaseTransactionStatusStableV2, TransactionHash};
+use super::RpcEffectfulAction;
+use crate::{
+    block_producer::BlockProducerWonSlot,
+    external_snark_worker::available_job_to_snark_worker_spec,
+    p2p::connection::P2pConnectionResponse,
+    p2p_ready,
+    rpc::{
+        AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
+        LedgerSyncProgress, MessagesStats, PeerConnectionStatus, RpcAction, RpcBlockProducerStats,
+        RpcMessageProgressResponse, RpcNodeStatus, RpcNodeStatusTransactionPool,
+        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
+        RpcNodeStatusTransitionFrontierSync, RpcPeerInfo, RpcRequestExtraData, RpcScanStateSummary,
+        RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
+        RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryScanStateJob,
+        RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
+        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcTransactionInjectResponse,
+        TransactionStatus,
+    },
+    snark_pool::SnarkPoolAction,
+    transition_frontier::sync::{
+        ledger::TransitionFrontierSyncLedgerState, TransitionFrontierSyncState,
+    },
+    Service, Store,
+};
+use ledger::{
+    scan_state::currency::{Balance, Magnitude},
+    Account,
+};
+use mina_p2p_messages::{
+    rpc_kernel::QueryHeader,
+    v2::{MinaBaseTransactionStatusStableV2, TransactionHash},
+};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
-use openmina_core::bug_condition;
-
-use crate::block_producer::BlockProducerWonSlot;
-use crate::external_snark_worker::available_job_to_snark_worker_spec;
-use crate::ledger::read::{LedgerReadAction, LedgerReadRequest};
-use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
-use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
-use crate::p2p::connection::P2pConnectionResponse;
-use crate::rpc::{
-    AccountSlim, PeerConnectionStatus, RpcPeerInfo, RpcTransactionInjectResponse,
-    RpcTransactionInjectSuccess, TransactionStatus,
-};
-use crate::snark_pool::SnarkPoolAction;
-use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
-use crate::transition_frontier::sync::TransitionFrontierSyncState;
-use crate::{p2p_ready, Service, Store, TransactionPoolAction};
-
-use super::{
-    ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
-    RpcActionWithMeta, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
-    RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
-    RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync, RpcRequest,
-    RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
-    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
-    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull,
-    RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
-    RpcSnarkerJobSpecResponse, RpcTransactionInjectFailure, RpcTransactionInjectRejected,
-};
+use redux::ActionWithMeta;
+use std::{collections::BTreeMap, time::Duration};
 
 macro_rules! respond_or_log {
     ($e:expr, $t:expr) => {
@@ -44,16 +43,16 @@ macro_rules! respond_or_log {
     };
 }
 
-pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) {
+pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcEffectfulAction>) {
     let (action, meta) = action.split();
 
     match action {
-        RpcAction::GlobalStateGet { rpc_id, filter } => {
+        RpcEffectfulAction::GlobalStateGet { rpc_id, filter } => {
             let _ = store
                 .service
                 .respond_state_get(rpc_id, (store.state.get(), filter.as_deref()));
         }
-        RpcAction::StatusGet { rpc_id } => {
+        RpcEffectfulAction::StatusGet { rpc_id } => {
             let state = store.state.get();
             let chain_id = state.p2p.ready().map(|p2p| p2p.chain_id.to_hex());
             let block_summary =
@@ -88,7 +87,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             };
             let _ = store.service.respond_status_get(rpc_id, Some(status));
         }
-        RpcAction::ActionStatsGet { rpc_id, query } => match query {
+        RpcEffectfulAction::ActionStatsGet { rpc_id, query } => match query {
             ActionStatsQuery::SinceStart => {
                 let resp = store
                     .service
@@ -114,15 +113,15 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 let _ = store.service.respond_action_stats_get(rpc_id, resp);
             }
         },
-        RpcAction::SyncStatsGet { rpc_id, query } => {
+        RpcEffectfulAction::SyncStatsGet { rpc_id, query } => {
             let resp = store
                 .service
                 .stats()
                 .map(|s| s.collect_sync_stats(query.limit));
             let _ = store.service.respond_sync_stats_get(rpc_id, resp);
         }
-        RpcAction::BlockProducerStatsGet { rpc_id } => {
-            let resp = None.or_else(|| {
+        RpcEffectfulAction::BlockProducerStatsGet { rpc_id } => {
+            let mut create_response = || {
                 let state = store.state.get();
                 let best_tip = state.transition_frontier.best_tip()?;
                 let won_slots = &state.block_producer.vrf_evaluator()?.won_slots;
@@ -153,10 +152,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                         })
                         .collect(),
                 })
-            });
-            let _ = store.service.respond_block_producer_stats_get(rpc_id, resp);
+            };
+            let response = create_response();
+            let _ = store
+                .service
+                .respond_block_producer_stats_get(rpc_id, response);
         }
-        RpcAction::MessageProgressGet { rpc_id } => {
+        RpcEffectfulAction::MessageProgressGet { rpc_id } => {
             // TODO: move to stats
             let p2p = p2p_ready!(store.state().p2p, meta.time());
             let messages_stats = p2p
@@ -222,7 +224,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     TransitionFrontierSyncLedgerState::Staged(_) => {
                         // We want to answer with a result that will serve as a 100% complete process for the
                         // frontend while it is still waiting for the staged ledger to complete. Could be cleaner.
-                        response.root_ledger_sync = Some(super::LedgerSyncProgress {
+                        response.root_ledger_sync = Some(LedgerSyncProgress {
                             fetched: 1,
                             estimation: 1,
                         });
@@ -236,61 +238,26 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .service
                 .respond_message_progress_stats_get(rpc_id, response);
         }
-        RpcAction::PeersGet { rpc_id } => {
-            let peers = collect_rpc_peers_info(store.state());
+        RpcEffectfulAction::PeersGet { rpc_id, peers } => {
             respond_or_log!(
                 store.service().respond_peers_get(rpc_id, peers),
                 meta.time()
             );
         }
-        RpcAction::P2pConnectionOutgoingInit { rpc_id, opts } => {
-            store.dispatch(P2pConnectionOutgoingAction::Init {
-                opts,
-                rpc_id: Some(rpc_id),
-            });
-            store.dispatch(RpcAction::P2pConnectionOutgoingPending { rpc_id });
-        }
-        RpcAction::P2pConnectionOutgoingPending { .. } => {}
-        RpcAction::P2pConnectionOutgoingError { rpc_id, error } => {
-            let error = Err(format!("{:?}", error));
-            let _ = store.service.respond_p2p_connection_outgoing(rpc_id, error);
+        RpcEffectfulAction::P2pConnectionOutgoingError { rpc_id, error } => {
+            let _ = store
+                .service
+                .respond_p2p_connection_outgoing(rpc_id, Err(error));
+
             store.dispatch(RpcAction::Finish { rpc_id });
         }
-        RpcAction::P2pConnectionOutgoingSuccess { rpc_id } => {
+        RpcEffectfulAction::P2pConnectionOutgoingSuccess { rpc_id } => {
             let _ = store
                 .service
                 .respond_p2p_connection_outgoing(rpc_id, Ok(()));
             store.dispatch(RpcAction::Finish { rpc_id });
         }
-        RpcAction::P2pConnectionIncomingInit { rpc_id, opts } => {
-            let p2p = p2p_ready!(store.state().p2p, meta.time());
-            match p2p.incoming_accept(opts.peer_id, &opts.offer) {
-                Ok(_) => {
-                    store.dispatch(P2pConnectionIncomingAction::Init {
-                        opts,
-                        rpc_id: Some(rpc_id),
-                    });
-                    store.dispatch(RpcAction::P2pConnectionIncomingPending { rpc_id });
-                }
-                Err(reason) => {
-                    let response = P2pConnectionResponse::Rejected(reason);
-                    store.dispatch(RpcAction::P2pConnectionIncomingRespond { rpc_id, response });
-                }
-            }
-        }
-        RpcAction::P2pConnectionIncomingPending { .. } => {}
-        RpcAction::P2pConnectionIncomingAnswerReady {
-            rpc_id,
-            answer,
-            peer_id,
-        } => {
-            store.dispatch(RpcAction::P2pConnectionIncomingRespond {
-                rpc_id,
-                response: answer,
-            });
-            store.dispatch(P2pConnectionIncomingAction::AnswerSendSuccess { peer_id });
-        }
-        RpcAction::P2pConnectionIncomingRespond { rpc_id, response } => {
+        RpcEffectfulAction::P2pConnectionIncomingRespond { rpc_id, response } => {
             let error = match &response {
                 P2pConnectionResponse::Accepted(_) => None,
                 P2pConnectionResponse::Rejected(reason) => Some(format!("Rejected({:?})", reason)),
@@ -306,74 +273,19 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 store.dispatch(RpcAction::P2pConnectionIncomingError { rpc_id, error });
             }
         }
-        RpcAction::P2pConnectionIncomingError { rpc_id, error } => {
+        RpcEffectfulAction::P2pConnectionIncomingError { rpc_id, error } => {
             let _ = store
                 .service
                 .respond_p2p_connection_incoming(rpc_id, Err(error));
             store.dispatch(RpcAction::Finish { rpc_id });
         }
-        RpcAction::P2pConnectionIncomingSuccess { rpc_id } => {
+        RpcEffectfulAction::P2pConnectionIncomingSuccess { rpc_id } => {
             let _ = store
                 .service
                 .respond_p2p_connection_incoming(rpc_id, Ok(()));
             store.dispatch(RpcAction::Finish { rpc_id });
         }
-        RpcAction::ScanStateSummaryGetInit { rpc_id, .. } => {
-            store.dispatch(RpcAction::ScanStateSummaryLedgerGetInit { rpc_id });
-        }
-        RpcAction::ScanStateSummaryLedgerGetInit { rpc_id } => {
-            let transition_frontier = &store.state().transition_frontier;
-
-            let Some(query) = None.or_else(|| {
-                let req = store.state().rpc.requests.get(&rpc_id)?;
-                match &req.req {
-                    RpcRequest::ScanStateSummaryGet(query) => Some(query),
-                    _ => None,
-                }
-            }) else {
-                return;
-            };
-
-            let block = match query {
-                RpcScanStateSummaryGetQuery::ForBestTip => {
-                    transition_frontier.best_tip_breadcrumb()
-                }
-                RpcScanStateSummaryGetQuery::ForBlockWithHash(hash) => transition_frontier
-                    .best_chain
-                    .iter()
-                    .rev()
-                    .find(|b| b.hash() == hash),
-                RpcScanStateSummaryGetQuery::ForBlockWithHeight(height) => transition_frontier
-                    .best_chain
-                    .iter()
-                    .rev()
-                    .find(|b| b.height() == *height),
-            };
-            let block = match block {
-                Some(v) => v.clone(),
-                None => {
-                    store.dispatch(RpcAction::ScanStateSummaryGetPending {
-                        rpc_id,
-                        block: None,
-                    });
-                    store.dispatch(RpcAction::ScanStateSummaryGetSuccess {
-                        rpc_id,
-                        scan_state: Ok(Vec::new()),
-                    });
-                    return;
-                }
-            };
-            if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::ScanStateSummary(block.staged_ledger_hashes().clone()),
-            }) {
-                store.dispatch(RpcAction::ScanStateSummaryGetPending {
-                    rpc_id,
-                    block: Some(block),
-                });
-            }
-        }
-        RpcAction::ScanStateSummaryGetPending { .. } => {}
-        RpcAction::ScanStateSummaryGetSuccess {
+        RpcEffectfulAction::ScanStateSummaryGetSuccess {
             rpc_id,
             mut scan_state,
         } => {
@@ -457,7 +369,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             });
             let _ = store.service.respond_scan_state_summary_get(rpc_id, res);
         }
-        RpcAction::SnarkPoolAvailableJobsGet { rpc_id } => {
+        RpcEffectfulAction::SnarkPoolAvailableJobsGet { rpc_id } => {
             let resp = store
                 .state()
                 .snark_pool
@@ -476,7 +388,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .collect::<Vec<_>>();
             let _ = store.service().respond_snark_pool_get(rpc_id, resp);
         }
-        RpcAction::SnarkPoolJobGet { job_id, rpc_id } => {
+        RpcEffectfulAction::SnarkPoolJobGet { job_id, rpc_id } => {
             let resp = store.state().snark_pool.range(..).find_map(|(_, job)| {
                 if job.id == job_id {
                     Some(RpcSnarkPoolJobFull {
@@ -497,21 +409,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             });
             let _ = store.service().respond_snark_pool_job_get(rpc_id, resp);
         }
-        RpcAction::SnarkerConfigGet { rpc_id } => {
-            let config =
-                store
-                    .state
-                    .get()
-                    .config
-                    .snarker
-                    .as_ref()
-                    .map(|config| super::RpcSnarkerConfig {
-                        public_key: config.public_key.as_ref().clone(),
-                        fee: config.fee.clone(),
-                    });
+        RpcEffectfulAction::SnarkerConfigGet { rpc_id, config } => {
             let _ = store.service().respond_snarker_config_get(rpc_id, config);
         }
-        RpcAction::SnarkerJobCommit { rpc_id, job_id } => {
+        RpcEffectfulAction::SnarkerJobCommit { rpc_id, job_id } => {
             if !store.state().snark_pool.should_create_commitment(&job_id) {
                 let _ = store
                     .service()
@@ -534,7 +435,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             }
             store.dispatch(SnarkPoolAction::CommitmentCreate { job_id });
         }
-        RpcAction::SnarkerJobSpec { rpc_id, job_id } => {
+        RpcEffectfulAction::SnarkerJobSpec { rpc_id, job_id } => {
             let Some(job) = store.state().snark_pool.get(&job_id) else {
                 if store
                     .service()
@@ -571,32 +472,22 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             // TODO: handle potential errors
             let _ = store.service().respond_snarker_job_spec(rpc_id, input);
         }
-        RpcAction::SnarkerWorkersGet { rpc_id } => {
-            let the_only = store.state().external_snark_worker.0.clone();
-
+        RpcEffectfulAction::SnarkerWorkersGet {
+            rpc_id,
+            snark_worker,
+        } => {
             // TODO: handle potential errors
             let _ = store
                 .service()
-                .respond_snarker_workers(rpc_id, vec![the_only.into()]);
+                .respond_snarker_workers(rpc_id, vec![snark_worker.into()]);
         }
-        RpcAction::HealthCheck { rpc_id } => {
-            let some_peers = store
-                .state()
-                .p2p
-                .ready_peers_iter()
-                .map(|(peer_id, _peer)| {
-                    openmina_core::log::debug!(openmina_core::log::system_time(); "found ready peer: {peer_id}")
-                })
-                .next()
-                .ok_or_else(|| {
-                    openmina_core::log::warn!(openmina_core::log::system_time(); "no ready peers");
-                    String::from("no ready peers") });
+        RpcEffectfulAction::HealthCheck { rpc_id, has_peers } => {
             respond_or_log!(
-                store.service().respond_health_check(rpc_id, some_peers),
+                store.service().respond_health_check(rpc_id, has_peers),
                 meta.time()
             );
         }
-        RpcAction::ReadinessCheck { rpc_id } => {
+        RpcEffectfulAction::ReadinessCheck { rpc_id } => {
             const THRESH: Duration = Duration::from_secs(60 * 3 * 10);
             let synced = match store.state().transition_frontier.sync {
                 TransitionFrontierSyncState::Synced { time }
@@ -638,25 +529,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             );
         }
-        RpcAction::DiscoveryRoutingTable { rpc_id } => {
-            let response = store
-                .state()
-                .p2p
-                .ready()
-                .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                .and_then(
-                    |discovery_state| match (&discovery_state.routing_table).try_into() {
-                        Ok(resp) => Some(resp),
-                        Err(err) => {
-                            bug_condition!(
-                                "{:?} error converting routing table into response: {:?}",
-                                err,
-                                action
-                            );
-                            None
-                        }
-                    },
-                );
+        RpcEffectfulAction::DiscoveryRoutingTable { rpc_id, response } => {
             respond_or_log!(
                 store
                     .service()
@@ -664,15 +537,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             );
         }
-        RpcAction::DiscoveryBoostrapStats { rpc_id } => {
-            let response = store
-                .state()
-                .p2p
-                .ready()
-                .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                .and_then(|discovery_state: &p2p::P2pNetworkKadState| {
-                    discovery_state.bootstrap_stats().cloned()
-                });
+        RpcEffectfulAction::DiscoveryBoostrapStats { rpc_id, response } => {
             respond_or_log!(
                 store
                     .service()
@@ -680,44 +545,22 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             );
         }
-        RpcAction::TransactionPool { rpc_id } => {
-            let response = store.state().transaction_pool.get_all_transactions();
-
+        RpcEffectfulAction::TransactionPool { rpc_id, response } => {
             respond_or_log!(
                 store.service().respond_transaction_pool(rpc_id, response),
                 meta.time()
             )
         }
-        RpcAction::LedgerAccountsGetInit {
-            rpc_id,
-            account_query,
-        } => {
-            let ledger_hash = if let Some(best_tip) = store.state().transition_frontier.best_tip() {
-                best_tip.merkle_root_hash()
-            } else {
-                return;
-            };
-            if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::AccountsForRpc(
-                    rpc_id,
-                    ledger_hash.clone(),
-                    account_query,
-                ),
-            }) {
-                store.dispatch(RpcAction::LedgerAccountsGetPending { rpc_id });
-            }
-        }
-        RpcAction::LedgerAccountsGetPending { .. } => {}
-        RpcAction::LedgerAccountsGetSuccess {
+        RpcEffectfulAction::LedgerAccountsGetSuccess {
             rpc_id,
             accounts,
             account_query,
         } => {
             // TODO(adonagy): maybe something more effective?
             match account_query {
-                super::AccountQuery::SinglePublicKey(_pk) => todo!(),
+                AccountQuery::SinglePublicKey(_pk) => todo!(),
                 // all the accounts for the FE in Slim form
-                super::AccountQuery::All => {
+                AccountQuery::All => {
                     let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
                         .into_iter()
                         .map(|acc| (acc.public_key.clone(), acc))
@@ -757,7 +600,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     )
                 }
                 // for the graphql endpoint
-                super::AccountQuery::PubKeyWithTokenId(..) => {
+                AccountQuery::PubKeyWithTokenId(..) => {
                     respond_or_log!(
                         store.service().respond_ledger_accounts(rpc_id, accounts),
                         meta.time()
@@ -765,27 +608,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 }
             }
         }
-        RpcAction::TransactionInjectInit { rpc_id, commands } => {
-            store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
-            // sort the commadns by nonce
-
-            // let Ok(commands) = commands
-            //     .into_iter()
-            //     .map(|c| c.try_into())
-            //     .collect::<Result<_, _>>()
-            // else {
-            //     return;
-            // };
-
-            store.dispatch(TransactionPoolAction::StartVerify {
-                commands: commands.into_iter().collect(),
-                from_rpc: Some(rpc_id),
-            });
-        }
-        RpcAction::TransactionInjectPending { .. } => {}
-        RpcAction::TransactionInjectSuccess { rpc_id, response } => {
-            let response: RpcTransactionInjectSuccess =
-                response.into_iter().map(|cmd| cmd.into()).collect();
+        RpcEffectfulAction::TransactionInjectSuccess { rpc_id, response } => {
             respond_or_log!(
                 store.service().respond_transaction_inject(
                     rpc_id,
@@ -794,11 +617,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             )
         }
-        RpcAction::TransactionInjectRejected { rpc_id, response } => {
-            let response: RpcTransactionInjectRejected = response
-                .into_iter()
-                .map(|(cmd, failure)| (cmd.into(), failure))
-                .collect();
+        RpcEffectfulAction::TransactionInjectRejected { rpc_id, response } => {
             respond_or_log!(
                 store.service().respond_transaction_inject(
                     rpc_id,
@@ -807,26 +626,16 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             )
         }
-        RpcAction::TransactionInjectFailure { rpc_id, errors } => {
-            let response: RpcTransactionInjectFailure = errors;
-
+        RpcEffectfulAction::TransactionInjectFailure { rpc_id, errors } => {
             respond_or_log!(
                 store.service().respond_transaction_inject(
                     rpc_id,
-                    RpcTransactionInjectResponse::Failure(response)
+                    RpcTransactionInjectResponse::Failure(errors)
                 ),
                 meta.time()
             )
         }
-        RpcAction::TransitionFrontierUserCommandsGet { rpc_id } => {
-            let commands = store
-                .state()
-                .transition_frontier
-                .best_chain
-                .iter()
-                .flat_map(|block| block.body().commands_iter().map(|v| v.data.clone()))
-                .collect::<Vec<_>>();
-
+        RpcEffectfulAction::TransitionFrontierUserCommandsGet { rpc_id, commands } => {
             respond_or_log!(
                 store
                     .service()
@@ -834,25 +643,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             )
         }
-        RpcAction::BestChain { rpc_id, max_length } => {
-            let best_chain = store
-                .state()
-                .transition_frontier
-                .best_chain
-                .iter()
-                .rev()
-                .take(max_length as usize)
-                .cloned()
-                .rev()
-                .collect();
-
+        RpcEffectfulAction::BestChain { rpc_id, best_chain } => {
             respond_or_log!(
                 store.service().respond_best_chain(rpc_id, best_chain),
                 meta.time()
             )
         }
-        RpcAction::ConsensusConstantsGet { rpc_id } => {
-            let response = store.state().config.consensus_constants.clone();
+        RpcEffectfulAction::ConsensusConstantsGet { rpc_id, response } => {
             respond_or_log!(
                 store
                     .service()
@@ -860,7 +657,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             )
         }
-        RpcAction::TransactionStatusGet { rpc_id, tx } => {
+        RpcEffectfulAction::TransactionStatusGet { rpc_id, tx } => {
             // Check if the transaction is in the pool, if it is, return PENDING
             let tx_hash = tx.hash().ok();
 
@@ -910,7 +707,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 )
             }
         }
-        RpcAction::Finish { .. } => {}
     }
 }
 
