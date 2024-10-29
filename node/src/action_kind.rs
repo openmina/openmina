@@ -156,6 +156,7 @@ pub enum ActionKind {
     ConsensusP2pBestTipUpdate,
     ConsensusPrune,
     ConsensusShortRangeForkResolve,
+    ConsensusTransitionFrontierSyncTargetUpdate,
     EventSourceNewEvent,
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
@@ -660,7 +661,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 548;
+    pub const COUNT: u16 = 549;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -796,6 +797,9 @@ impl ActionKindGet for ConsensusAction {
             Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
             Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
             Self::BestTipUpdate { .. } => ActionKind::ConsensusBestTipUpdate,
+            Self::TransitionFrontierSyncTargetUpdate => {
+                ActionKind::ConsensusTransitionFrontierSyncTargetUpdate
+            }
             Self::P2pBestTipUpdate { .. } => ActionKind::ConsensusP2pBestTipUpdate,
             Self::Prune => ActionKind::ConsensusPrune,
         }
