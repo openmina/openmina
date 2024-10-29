@@ -986,7 +986,7 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
     // REVIEW(dw):
-    // Run `cargo test "test_verify_zkapp --release" and fine.
+    // Run `cargo test "test_verify_zkapp --release"
     #[test]
     fn test_verify_zkapp() {
         use mina_p2p_messages::binprot;
