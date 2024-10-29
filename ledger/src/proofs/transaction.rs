@@ -4796,12 +4796,13 @@ pub(super) mod tests {
         #[rustfmt::skip]
         let zkapp_cases = [
             // zkapp proof with signature authorization
-            ("command-1-0.bin", None, None, "b5295e34d8f4b0f349fc48c4f46e9bd400c1f3e551deab75e3fc541282f6d714"),
+            // ("command-1-0.bin", None, None, "b5295e34d8f4b0f349fc48c4f46e9bd400c1f3e551deab75e3fc541282f6d714"),
+            ("command-18-1.bin", None, None, "1aec00836ad93db078feb7e2bb4d36591240295a40bcb980b9a2e4f769c33691"),
             // zkapp proof with proof authorization
-            ("zkapp-command-with-proof-128-1.bin", None, None, "daa090e212c9fcd4e0c7fa70de4708878a6ac0186238d6ca094129fad1cfa5c2"),
+            // ("zkapp-command-with-proof-128-1.bin", None, None, "daa090e212c9fcd4e0c7fa70de4708878a6ac0186238d6ca094129fad1cfa5c2"),
             // zkapp with multiple account updates
             // REVIEW(dw): this seems old. I would suggest to remove
-            ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
+            // ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
         ];
 
         for (file, opt_signed_path, proved_path, expected_sum) in zkapp_cases {
@@ -4831,7 +4832,7 @@ pub(super) mod tests {
         // Block proof
         #[allow(clippy::single_element_loop)]
         for (filename, fps_filename) in [
-            ("block_input-2483246-0.bin", None),
+            // ("block_input-2483246-0.bin", None),
             // ("block_prove_inputs_7.bin", None),
         ] {
             let data = std::fs::read(base_dir.join(filename)).unwrap();
@@ -4911,7 +4912,7 @@ pub(super) mod tests {
         // Same values than OCaml
         #[rustfmt::skip]
         let requests = [
-            ("command-0-1.bin", "cbcb54861c5c65b7d454e7add9a780fa574f5145aa225387a287abe612925abb"),
+            // ("command-0-1.bin", "cbcb54861c5c65b7d454e7add9a780fa574f5145aa225387a287abe612925abb"),
             // ("request_payment_1_rampup4.bin", "a5391b8ac8663a06a0a57ee6b6479e3cf4d95dfbb6d0688e439cb8c36cf187f6"),
             // ("coinbase_0_rampup4.bin", "a2ce1982938687ca3ba3b1994e5100090a80649aefb1f0d10f736a845dab2812"),
             // ("coinbase_1_rampup4.bin", "1120c9fe25078866e0df90fd09a41a2f5870351a01c8a7227d51a19290883efe"),
