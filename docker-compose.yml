@@ -4,6 +4,7 @@ services:
     command: [ "node" ]
     ports:
       - "3000:3000"
+      - "8302:8302"
 
   frontend:
     image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}

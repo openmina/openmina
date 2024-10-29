@@ -5,6 +5,7 @@ services:
       sh -c "openmina node --producer-key /root/.openmina/producer-key $${COINBASE_RECEIVER:+--coinbase-receiver $$COINBASE_RECEIVER}"
     ports:
       - "3000:3000"
+      - "8302:8302"
     volumes:
       - ./openmina-workdir:/root/.openmina:rw
     environment:
