@@ -4800,7 +4800,8 @@ pub(super) mod tests {
             // zkapp proof with proof authorization
             ("zkapp-command-with-proof-128-1.bin", None, None, "daa090e212c9fcd4e0c7fa70de4708878a6ac0186238d6ca094129fad1cfa5c2"),
             // zkapp with multiple account updates
-            // ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
+            // REVIEW(dw): this seems old. I would suggest to remove
+            ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
         ];
 
         for (file, opt_signed_path, proved_path, expected_sum) in zkapp_cases {
