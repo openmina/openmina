@@ -4766,6 +4766,7 @@ pub(super) mod tests {
         let _sum = dbg!(sha256_sum(&proof_json));
     }
 
+    // REVIEW(dw): spending time here, playing a bit more.
     #[test]
     fn test_proofs() {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -4778,11 +4779,13 @@ pub(super) mod tests {
             return;
         }
 
+        // REVIEW(dw): no wrap, no merge ok.
         let BlockProver {
             block_step_prover,
             block_wrap_prover,
             tx_wrap_prover: _,
         } = BlockProver::make(None, None);
+        // REVIEW(dw): no wrap, no merge ok.
         let TransactionProver { tx_step_prover, .. } = TransactionProver::make(None);
         let ZkappProver {
             tx_wrap_prover,
