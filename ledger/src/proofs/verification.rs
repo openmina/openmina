@@ -1014,6 +1014,7 @@ mod tests {
         ];
 
         for filename in cases {
+            println!("Before loading filename={:?}", filename);
             let Ok(file) = std::fs::read(base_dir.join(filename)) else {
                 // REVIEW(dw): well, is there not a better way to handle this?
                 // The code should not be aware of any CI.
@@ -1022,6 +1023,7 @@ mod tests {
                 panic_in_ci();
                 return;
             };
+            println!("After loading filename={:?}", filename);
 
             let VerifyZkapp {
                 vk,
@@ -1034,7 +1036,7 @@ mod tests {
             let srs = crate::verifier::get_srs::<Fp>();
 
             let ok = verify_zkapp(&vk, &zkapp_statement, &proof, &srs);
-            assert!(ok);
+            assert!(false);
         }
     }
 
