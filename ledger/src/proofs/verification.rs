@@ -320,6 +320,7 @@ impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
 }
 
 // TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one or the other
+// REVIEW(dw): check with chunking!
 pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     minimal: &PlonkMinimal<F, NLIMB>,
     domain_log2: u8,
@@ -343,6 +344,7 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
         let omega_to_minus_2 = omega_to_minus_1.square();
         let (omega_to_intermediate_powers, omega_to_zk_plus_1) = {
             let mut next_term = omega_to_minus_2;
+            // REVIEW(dw): that will change with chunking. 3 will be different.
             let omega_to_intermediate_powers = (0..(zk_rows.checked_sub(3).unwrap()))
                 .map(|_| {
                     let term = next_term;
