@@ -30,13 +30,13 @@ impl ArchiveService {
             println!("[archive] msg length: {}", data.len());
 
             // let url = "http://adonagy.hz.minaprotocol.network:3086/v2/archive";
-            if let Err(e) = reqwest::blocking::Client::new()
-                .post(address)
-                .body(data)
-                .send()
-            {
-                println!("Error sending to archive: {:?}", e);
-            }
+            // if let Err(e) = reqwest::blocking::Client::new()
+            //     .post(address)
+            //     .body(data)
+            //     .send()
+            // {
+            //     println!("Error sending to archive: {:?}", e);
+            // }
         }
     }
 
@@ -61,5 +61,284 @@ impl node::transition_frontier::archive::archive_service::ArchiveService for Nod
         if let Some(archive) = self.archive.as_mut() {
             let _ = archive.archive_sender.send(data);
         }
+    }
+}
+
+// We need to replicate the ocaml node's RPC like interface
+
+mod rpc {
+    use binprot::BinProtWrite;
+    use mina_p2p_messages::rpc_kernel::{
+        BinprotTag, Message, MessageHeader, NeedsLength, Query, QueryHeader, QueryPayload,
+        RpcMethod,
+    };
+    use mina_p2p_messages::v2::ArchiveRpc;
+    use mio::event::Event;
+    use mio::net::{TcpListener, TcpStream};
+    use mio::{Events, Interest, Poll, Registry, Token};
+    use std::collections::HashMap;
+    use std::io::{self, Read, Write};
+    use std::str::from_utf8;
+
+    pub enum DiffPayload {
+        Raw(Vec<u8>),
+        Deserialized(ArchiveRpc),
+    }
+
+    const HANDSHAKE_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
+
+    pub fn encode_to_rpc(data: DiffPayload) -> Vec<u8> {
+        type Method = mina_p2p_messages::rpc::SendArchiveDiffUnversioned;
+        type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+        let mut v = vec![0; 8];
+
+        let header = QueryHeader {
+            tag: Method::NAME.into(),
+            version: Method::VERSION,
+            id: 1, // TODO(adonagy): Doublecheck
+        };
+        // BinprotTag::from(Method::NAME).binprot_write(&mut v).unwrap();
+        // version
+        // 0u64.binprot_write(&mut v).unwrap();
+
+        match data {
+            DiffPayload::Raw(data) => {
+                Message::Query(Query {
+                    tag: Method::NAME.into(),
+                    version: Method::VERSION,
+                    id: 1,
+                    data: NeedsLength(data),
+                })
+                .binprot_write(&mut v)
+                .unwrap();
+                // MessageHeader::Query(header).binprot_write(&mut v).unwrap();
+                // v.extend_from_slice(&data);
+            }
+            DiffPayload::Deserialized(data) => {
+                Message::Query(Query {
+                    tag: Method::NAME.into(),
+                    version: Method::VERSION,
+                    id: 1,
+                    data: NeedsLength(data),
+                })
+                .binprot_write(&mut v)
+                .unwrap();
+                // MessageHeader::Query(header).binprot_write(&mut v).unwrap();
+                // <Payload as BinProtWrite>::binprot_write(&NeedsLength(data), &mut v).unwrap();
+                // data.binprot_write(&mut v).unwrap();
+            }
+        }
+        // MessageHeader::Query(header).binprot_write(&mut v).unwrap();
+        // // data.binprot_write(&mut v).unwrap();
+        // <Payload as BinProtWrite>::binprot_write(&NeedsLength(data), &mut v).unwrap();
+        // // data.binprot_write(&mut v).unwrap();
+        let payload_length = (v.len() - 8) as u64;
+        v[..8].copy_from_slice(&payload_length.to_le_bytes());
+        v.splice(0..0, [1, 0, 0, 0, 0, 0, 0, 0, 0].iter().cloned());
+
+        v
+    }
+
+    pub fn process_rpc(url: &str, data: &[u8]) -> io::Result<()> {
+        let mut poll = Poll::new().unwrap();
+        let mut events = Events::with_capacity(128);
+
+        // We still need a token even for one connection
+        const TOKEN: Token = Token(0);
+
+        let addr = url.parse().unwrap();
+        let mut stream = TcpStream::connect(addr)?;
+
+        let mut handshake_received = false;
+        let mut handshake_sent = false;
+
+        poll.registry()
+            .register(&mut stream, TOKEN, Interest::WRITABLE)?;
+
+        loop {
+            if let Err(e) = poll.poll(&mut events, None) {
+                if interrupted(&e) {
+                    continue;
+                }
+                println!("Error polling: {:?}", e);
+                return Err(e);
+            }
+
+            for event in events.iter() {
+                match event.token() {
+                    TOKEN => {
+                        if handle_connection_event(
+                            poll.registry(),
+                            &mut stream,
+                            event,
+                            data,
+                            &mut handshake_received,
+                            &mut handshake_sent,
+                        )? {
+                            return Ok(());
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+
+    /// Returns `true` if the connection is done.
+    fn handle_connection_event(
+        registry: &Registry,
+        connection: &mut TcpStream,
+        event: &Event,
+        data: &[u8],
+        handshake_received: &mut bool,
+        handshake_sent: &mut bool,
+    ) -> io::Result<bool> {
+        if event.is_writable() {
+            // We can (maybe) write to the connection.
+
+            println!("[event] writable, Handshake {handshake_sent} - {handshake_received}");
+
+            if !*handshake_sent {
+                println!("Sending handshake message");
+                match connection.write(&HANDSHAKE_MSG) {
+                    Ok(n) if n < HANDSHAKE_MSG.len() => return Err(io::ErrorKind::WriteZero.into()),
+                    Ok(n) => {
+                        println!("Wrote {} bytes", n);
+                        registry.reregister(connection, event.token(), Interest::READABLE)?;
+                    }
+                    Err(ref err) if would_block(err) => {}
+                    Err(ref err) if interrupted(err) => {
+                        return handle_connection_event(
+                            registry,
+                            connection,
+                            event,
+                            data,
+                            handshake_received,
+                            handshake_sent,
+                        )
+                    }
+                    // Other errors we'll consider fatal.
+                    Err(err) => return Err(err),
+                }
+                *handshake_sent = true;
+                println!("Sent handshake message");
+                return Ok(false);
+            }
+
+            if *handshake_received && *handshake_sent {
+                match connection.write(data) {
+                    Ok(n) if n < data.len() => return Err(io::ErrorKind::WriteZero.into()),
+                    Ok(n) => {
+                        println!("Wrote {} bytes", n);
+                        registry.deregister(connection)?;
+                        connection.shutdown(std::net::Shutdown::Both)?;
+                        return Ok(true);
+                    }
+                    Err(ref err) if would_block(err) => {}
+                    Err(ref err) if interrupted(err) => {
+                        return handle_connection_event(
+                            registry,
+                            connection,
+                            event,
+                            data,
+                            handshake_received,
+                            handshake_sent,
+                        )
+                    }
+                    // Other errors we'll consider fatal.
+                    Err(err) => return Err(err),
+                }
+            }
+        }
+
+        if event.is_readable() {
+            let mut connection_closed = false;
+            let mut received_data = vec![0; 4096];
+            let mut bytes_read = 0;
+
+            println!("[event] readable, Handshake {handshake_sent} - {handshake_received}");
+            loop {
+                match connection.read(&mut received_data[bytes_read..]) {
+                    Ok(0) => {
+                        connection_closed = true;
+                        break;
+                    }
+                    Ok(n) => {
+                        bytes_read += n;
+                        if bytes_read >= 15 {
+                            let handshake = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
+                            if received_data[..15] == handshake {
+                                // Respond with the same heartbeat message
+                                // connection.write_all(&handshake)?;
+                                *handshake_received = true;
+                                println!("Handshake received");
+                                registry.reregister(
+                                    connection,
+                                    event.token(),
+                                    Interest::WRITABLE,
+                                )?;
+                                break;
+                            }
+                        }
+                        if bytes_read == received_data.len() {
+                            received_data.resize(received_data.len() + 1024, 0);
+                        }
+                    }
+                    // Would block "errors" are the OS's way of saying that the
+                    // connection is not actually ready to perform this I/O operation.
+                    Err(ref err) if would_block(err) => break,
+                    Err(ref err) if interrupted(err) => continue,
+                    // Other errors we'll consider fatal.
+                    Err(err) => return Err(err),
+                }
+            }
+
+            if bytes_read != 0 {
+                let received_data = &received_data[..bytes_read];
+                if let Ok(str_buf) = from_utf8(received_data) {
+                    println!("Received data: {}", str_buf.trim_end());
+                } else {
+                    println!("Received (none UTF-8) data: {:?}", received_data);
+                }
+            }
+
+            if connection_closed {
+                println!("Connection closed");
+                registry.deregister(connection)?;
+                connection.shutdown(std::net::Shutdown::Both)?;
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    fn would_block(err: &io::Error) -> bool {
+        err.kind() == io::ErrorKind::WouldBlock
+    }
+
+    fn interrupted(err: &io::Error) -> bool {
+        err.kind() == io::ErrorKind::Interrupted
+    }
+}
+
+// TODO(adonagy): Remove
+mod test {
+    use binprot::BinProtRead;
+    use mina_p2p_messages::v2;
+
+    const URL: &str = "65.21.205.249:3086";
+
+    #[test]
+    fn test_rpc() {
+        let data = include_bytes!("../../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
+        let diff = v2::ArchiveTransitionFronntierDiff::binprot_read(&mut data.as_ref()).unwrap();
+        // let rpc = super::rpc::encode_to_rpc(crate::archive::rpc::DiffPayload::Raw(data.to_vec()));
+        let rpc = super::rpc::encode_to_rpc(crate::archive::rpc::DiffPayload::Deserialized(
+            v2::ArchiveRpc::SendDiff(diff),
+        ));
+
+        super::rpc::process_rpc(URL, &rpc).unwrap();
     }
 }
