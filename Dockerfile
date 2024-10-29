@@ -17,4 +17,8 @@ COPY --from=build /openmina/target/release/openmina /usr/local/bin/
 COPY --from=build /openmina/target/release/openmina-node-testing /usr/local/bin/
 RUN mkdir -p /usr/local/lib/openmina/circuit-blobs
 COPY --from=build /openmina/circuit-blobs/ /usr/local/lib/openmina/circuit-blobs/
+
+EXPOSE 3000
+EXPOSE 8302
+
 ENTRYPOINT [ "openmina" ]
