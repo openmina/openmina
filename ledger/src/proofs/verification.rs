@@ -987,6 +987,12 @@ mod tests {
 
     // REVIEW(dw):
     // Run `cargo test "test_verify_zkapp --release"
+    // Note:
+    //
+    // ```rust
+    // git clone --depth 1 https://github.com/openmina/circuit-blobs.git
+    // ln -s -b $PWD/circuit-blobs/* ledger/
+    // ```
     #[test]
     fn test_verify_zkapp() {
         use mina_p2p_messages::binprot;
@@ -1020,6 +1026,7 @@ mod tests {
                 // The code should not be aware of any CI.
                 // It should not return because otherwise the test is always
                 // passing.
+                // Loading fails if we run the test from the root of the project
                 panic_in_ci();
                 return;
             };
