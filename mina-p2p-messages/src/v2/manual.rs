@@ -740,6 +740,11 @@ pub enum ArchiveTransitionFronntierDiff {
     BoostrapOf(()),
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum ArchiveRpc {
+    SendDiff(ArchiveTransitionFronntierDiff),
+}
+
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
