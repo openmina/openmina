@@ -25,12 +25,6 @@ pub use rpc_actions::*;
 
 mod rpc_reducer;
 
-mod rpc_effects;
-pub use rpc_effects::*;
-
-mod rpc_service;
-pub use rpc_service::*;
-
 mod rpc_impls;
 
 pub use openmina_core::requests::{RpcId, RpcIdType};
@@ -128,14 +122,14 @@ impl TryFrom<RpcInjectPayment> for MinaBaseUserCommandStableV2 {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ActionStatsQuery {
     SinceStart,
     ForLatestBlock,
     ForBlockWithId(u64),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct SyncStatsQuery {
     pub limit: Option<usize>,
 }
@@ -490,8 +484,8 @@ pub struct RpcBlockProducerStats {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkerConfig {
-    public_key: NonZeroCurvePoint,
-    fee: CurrencyFeeStableV1,
+    pub public_key: NonZeroCurvePoint,
+    pub fee: CurrencyFeeStableV1,
 }
 
 #[derive(Serialize, Debug, Clone)]

@@ -1,21 +1,21 @@
+use crate::{
+    p2p::connection::P2pConnectionResponse,
+    rpc::{
+        RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
+        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
+        RpcHealthCheckResponse, RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
+        RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
+        RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
+        RpcSnarkPoolJobGetResponse, RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse,
+        RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcStatusGetResponse,
+        RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+        RpcTransactionStatusGetResponse, RpcTransitionFrontierUserCommandsResponse,
+    },
+    State,
+};
 use openmina_core::consensus::ConsensusConstants;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::p2p::connection::P2pConnectionResponse;
-use crate::State;
-
-use super::{
-    RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
-    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
-    RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
-    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
-    RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
-    RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
-    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
-    RpcTransitionFrontierUserCommandsResponse,
-};
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
 pub enum RespondError {
@@ -110,7 +110,7 @@ pub trait RpcService {
     fn respond_snarker_config_get(
         &mut self,
         rpc_id: RpcId,
-        response: super::RpcSnarkerConfigGetResponse,
+        response: RpcSnarkerConfigGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_snarker_job_commit(
         &mut self,

@@ -1,7 +1,9 @@
 use openmina_core::{bug_condition, error, Substate};
 use p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 
-use crate::{Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State};
+use crate::{
+    rpc::RpcState, Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State,
+};
 
 pub fn reducer(
     state: &mut State,
@@ -87,9 +89,10 @@ pub fn reducer(
         Action::ExternalSnarkWorker(a) => {
             state.external_snark_worker.reducer(meta.with_action(a));
         }
-        Action::Rpc(a) => {
-            state.rpc.reducer(meta.with_action(a));
+        Action::Rpc(action) => {
+            RpcState::reducer(Substate::new(state, dispatcher), meta.with_action(action));
         }
+        Action::RpcEffectful(_) => {}
         Action::WatchedAccounts(a) => {
             crate::watched_accounts::WatchedAccountsState::reducer(
                 Substate::new(state, dispatcher),

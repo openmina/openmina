@@ -8,7 +8,7 @@ use crate::ledger::ledger_effects;
 use crate::ledger::read::LedgerReadAction;
 use crate::logger::logger_effects;
 use crate::p2p::node_p2p_effects;
-use crate::rpc::rpc_effects;
+use crate::rpc_effectful::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
@@ -87,7 +87,10 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::ExternalSnarkWorker(action) => {
             external_snark_worker_effects(store, meta.with_action(action));
         }
-        Action::Rpc(action) => {
+        Action::Rpc(_) => {
+            // Handled by reducer
+        }
+        Action::RpcEffectful(action) => {
             rpc_effects(store, meta.with_action(action));
         }
         Action::WatchedAccounts(_) => {

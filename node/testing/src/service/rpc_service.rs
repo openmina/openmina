@@ -1,6 +1,7 @@
-use node::rpc::RpcMessageProgressResponse;
-use node::State;
-use node::{p2p::connection::P2pConnectionResponse, rpc::RespondError, service::RpcService};
+use node::{
+    p2p::connection::P2pConnectionResponse, rpc::RpcMessageProgressResponse,
+    rpc_effectful::RespondError, service::RpcService, State,
+};
 use openmina_core::requests::RpcId;
 
 macro_rules! to_real {
