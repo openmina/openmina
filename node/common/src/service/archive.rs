@@ -1,5 +1,4 @@
-use binprot::BinProtWrite;
-use mina_p2p_messages::v2::ArchiveTransitionFronntierDiff;
+use mina_p2p_messages::v2::{self, ArchiveTransitionFronntierDiff};
 use node::core::{channels::mpsc, thread};
 
 use super::NodeService;
@@ -19,24 +18,9 @@ impl ArchiveService {
     ) {
         while let Some(breadcrumb) = archive_receiver.blocking_recv() {
             println!("Sending data to archive");
-            // TODO(adonagy): Async?
-            let mut data: Vec<u8> = Vec::new();
-
-            if let Err(e) = breadcrumb.binprot_write(&mut data) {
-                println!("Error writing to binprot: {:?}", e);
-                continue;
+            if let Err(e) = rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb)) {
+                println!("Error sending to archive: {:?}", e);
             }
-
-            println!("[archive] msg length: {}", data.len());
-
-            // let url = "http://adonagy.hz.minaprotocol.network:3086/v2/archive";
-            // if let Err(e) = reqwest::blocking::Client::new()
-            //     .post(address)
-            //     .body(data)
-            //     .send()
-            // {
-            //     println!("Error sending to archive: {:?}", e);
-            // }
         }
     }
 
@@ -68,71 +52,34 @@ impl node::transition_frontier::archive::archive_service::ArchiveService for Nod
 
 mod rpc {
     use binprot::BinProtWrite;
-    use mina_p2p_messages::rpc_kernel::{
-        BinprotTag, Message, MessageHeader, NeedsLength, Query, QueryHeader, QueryPayload,
-        RpcMethod,
-    };
-    use mina_p2p_messages::v2::ArchiveRpc;
+    use mina_p2p_messages::rpc_kernel::{Message, NeedsLength, Query, RpcMethod};
+    use mina_p2p_messages::v2::{self, ArchiveRpc};
     use mio::event::Event;
-    use mio::net::{TcpListener, TcpStream};
+    use mio::net::TcpStream;
     use mio::{Events, Interest, Poll, Registry, Token};
-    use std::collections::HashMap;
     use std::io::{self, Read, Write};
     use std::str::from_utf8;
 
-    pub enum DiffPayload {
-        Raw(Vec<u8>),
-        Deserialized(ArchiveRpc),
-    }
-
     const HANDSHAKE_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
 
-    pub fn encode_to_rpc(data: DiffPayload) -> Vec<u8> {
-        type Method = mina_p2p_messages::rpc::SendArchiveDiffUnversioned;
-        type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+    pub fn send_diff(address: &str, data: v2::ArchiveRpc) -> io::Result<()> {
+        let rpc = encode_to_rpc(data);
+        process_rpc(address, &rpc)
+    }
 
+    pub fn encode_to_rpc(data: ArchiveRpc) -> Vec<u8> {
+        type Method = mina_p2p_messages::rpc::SendArchiveDiffUnversioned;
         let mut v = vec![0; 8];
 
-        let header = QueryHeader {
+        Message::Query(Query {
             tag: Method::NAME.into(),
             version: Method::VERSION,
-            id: 1, // TODO(adonagy): Doublecheck
-        };
-        // BinprotTag::from(Method::NAME).binprot_write(&mut v).unwrap();
-        // version
-        // 0u64.binprot_write(&mut v).unwrap();
+            id: 1,
+            data: NeedsLength(data),
+        })
+        .binprot_write(&mut v)
+        .unwrap();
 
-        match data {
-            DiffPayload::Raw(data) => {
-                Message::Query(Query {
-                    tag: Method::NAME.into(),
-                    version: Method::VERSION,
-                    id: 1,
-                    data: NeedsLength(data),
-                })
-                .binprot_write(&mut v)
-                .unwrap();
-                // MessageHeader::Query(header).binprot_write(&mut v).unwrap();
-                // v.extend_from_slice(&data);
-            }
-            DiffPayload::Deserialized(data) => {
-                Message::Query(Query {
-                    tag: Method::NAME.into(),
-                    version: Method::VERSION,
-                    id: 1,
-                    data: NeedsLength(data),
-                })
-                .binprot_write(&mut v)
-                .unwrap();
-                // MessageHeader::Query(header).binprot_write(&mut v).unwrap();
-                // <Payload as BinProtWrite>::binprot_write(&NeedsLength(data), &mut v).unwrap();
-                // data.binprot_write(&mut v).unwrap();
-            }
-        }
-        // MessageHeader::Query(header).binprot_write(&mut v).unwrap();
-        // // data.binprot_write(&mut v).unwrap();
-        // <Payload as BinProtWrite>::binprot_write(&NeedsLength(data), &mut v).unwrap();
-        // // data.binprot_write(&mut v).unwrap();
         let payload_length = (v.len() - 8) as u64;
         v[..8].copy_from_slice(&payload_length.to_le_bytes());
         v.splice(0..0, [1, 0, 0, 0, 0, 0, 0, 0, 0].iter().cloned());
@@ -140,7 +87,7 @@ mod rpc {
         v
     }
 
-    pub fn process_rpc(url: &str, data: &[u8]) -> io::Result<()> {
+    fn process_rpc(url: &str, data: &[u8]) -> io::Result<()> {
         let mut poll = Poll::new().unwrap();
         let mut events = Events::with_capacity(128);
 
@@ -323,22 +270,14 @@ mod rpc {
     }
 }
 
-// TODO(adonagy): Remove
-mod test {
-    use binprot::BinProtRead;
-    use mina_p2p_messages::v2;
+// // TODO(adonagy): Remove
+// mod test {
+//     const URL: &str = "65.21.205.249:3086";
 
-    const URL: &str = "65.21.205.249:3086";
-
-    #[test]
-    fn test_rpc() {
-        let data = include_bytes!("../../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
-        let diff = v2::ArchiveTransitionFronntierDiff::binprot_read(&mut data.as_ref()).unwrap();
-        // let rpc = super::rpc::encode_to_rpc(crate::archive::rpc::DiffPayload::Raw(data.to_vec()));
-        let rpc = super::rpc::encode_to_rpc(crate::archive::rpc::DiffPayload::Deserialized(
-            v2::ArchiveRpc::SendDiff(diff),
-        ));
-
-        super::rpc::process_rpc(URL, &rpc).unwrap();
-    }
-}
+//     #[test]
+//     fn test_rpc() {
+//         let data = include_bytes!("../../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
+//         let diff = v2::ArchiveTransitionFronntierDiff::binprot_read(&mut data.as_ref()).unwrap();
+//         super::rpc::send_diff(URL, v2::ArchiveRpc::SendDiff(diff)).unwrap();
+//     }
+// }
