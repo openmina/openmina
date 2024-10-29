@@ -1,6 +1,7 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader, Read},
+    net::IpAddr,
     path::Path,
     sync::Arc,
     time::Duration,
@@ -40,6 +41,7 @@ pub struct NodeBuilder {
     p2p_no_discovery: bool,
     p2p_is_started: bool,
     initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
+    external_addrs: Vec<IpAddr>,
     block_producer: Option<BlockProducerConfig>,
     snarker: Option<SnarkerConfig>,
     service: NodeServiceBuilder,
@@ -73,6 +75,7 @@ impl NodeBuilder {
             p2p_no_discovery: false,
             p2p_is_started: false,
             initial_peers: Vec::new(),
+            external_addrs: Vec::new(),
             block_producer: None,
             snarker: None,
             service: NodeServiceBuilder::new(rng_seed),
@@ -118,6 +121,11 @@ impl NodeBuilder {
         peers: impl IntoIterator<Item = P2pConnectionOutgoingInitOpts>,
     ) -> &mut Self {
         self.initial_peers.extend(peers);
+        self
+    }
+
+    pub fn external_addrs(&mut self, v: impl Iterator<Item = IpAddr>) -> &mut Self {
+        self.external_addrs.extend(v);
         self
     }
 
@@ -282,6 +290,8 @@ impl NodeBuilder {
             })
             .collect();
 
+        let external_addrs = self.external_addrs;
+
         let srs = self.verifier_srs.unwrap_or_else(get_srs);
         let block_verifier_index = self
             .block_verifier_index
@@ -311,6 +321,7 @@ impl NodeBuilder {
                 listen_port: self.http_port,
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
+                external_addrs,
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.p2p_no_discovery,

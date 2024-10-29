@@ -230,6 +230,7 @@ impl NodeBuilder {
                 listen_port: None,
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
+                external_addrs: vec![],
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.p2p_no_discovery,
