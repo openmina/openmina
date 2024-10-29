@@ -985,6 +985,8 @@ mod tests {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
+    // REVIEW(dw):
+    // Run `cargo test "test_verify_zkapp --release" and fine.
     #[test]
     fn test_verify_zkapp() {
         use mina_p2p_messages::binprot;
@@ -1001,6 +1003,9 @@ mod tests {
             .join(devnet_circuit_directory())
             .join("tests");
 
+        // REVIEW(dw):
+        // I would simply comment how this data has been generated, and from
+        // which commit.
         let cases = [
             "verify_zapp_4af39d1e141859c964fe32b4e80537d3bd8c32d75e2754c0b869738006d25251_0.binprot",
             "verify_zapp_dc518dc7e0859ea6ffa0cd42637cdcc9c79ab369dfb7ff44c8a89b1219f98728_0.binprot",
@@ -1010,6 +1015,10 @@ mod tests {
 
         for filename in cases {
             let Ok(file) = std::fs::read(base_dir.join(filename)) else {
+                // REVIEW(dw): well, is there not a better way to handle this?
+                // The code should not be aware of any CI.
+                // It should not return because otherwise the test is always
+                // passing.
                 panic_in_ci();
                 return;
             };
@@ -1029,6 +1038,7 @@ mod tests {
         }
     }
 
+    // REVIEW(dw): any reason it is commented?
     // #[test]
     // fn test_verification() {
     //     let now = redux::Instant::now();
