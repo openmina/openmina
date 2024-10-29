@@ -299,11 +299,14 @@ impl From<TransactionVerifier> for Arc<VerifierIndex<Fq>> {
     }
 }
 
+// REVIEW(dw): what is this index used for? To check
+// Ok, it seems it is used when not loaded from cache.
 fn make_verifier_index(index: VerifierIndex<Fq>) -> VerifierIndex<Fq> {
     let domain = index.domain;
     let max_poly_size: usize = index.max_poly_size;
     let (endo, _) = endos::<Fq>();
 
+    // REVIEW(dw): OK
     let feature_flags = FeatureFlags {
         range_check0: false,
         range_check1: false,
@@ -336,6 +339,7 @@ fn make_verifier_index(index: VerifierIndex<Fq>) -> VerifierIndex<Fq> {
         },
     };
 
+    // REVIEW(dw): I would suggest to update the commit. It is old.
     // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L310-L314
     let srs = {
         let mut srs = SRS::create(max_poly_size);
@@ -343,6 +347,7 @@ fn make_verifier_index(index: VerifierIndex<Fq>) -> VerifierIndex<Fq> {
         Arc::new(srs)
     };
 
+    // REVIEW(dw): I would suggest to update the commit. It is old.
     // https://github.com/o1-labs/proof-systems/blob/2702b09063c7a48131173d78b6cf9408674fd67e/kimchi/src/verifier_index.rs#L319
     let permutation_vanishing_polynomial_m =
         permutation_vanishing_polynomial(domain, index.zk_rows);
@@ -390,6 +395,7 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Fq> {
     let d = wrap_domains(vk.actual_wrap_domain_size.to_int());
     let log2_size = d.h.log2_size();
 
+    // REVIEW(dw): TO CHECK
     let public = 40; // Is that constant ?
 
     let domain: Radix2EvaluationDomain<Fq> =
@@ -402,6 +408,7 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Fq> {
         srs
     };
 
+    // Review(DW): FIXME - be careful with chunking.
     let make_poly = |poly: &InnerCurve<Fp>| poly_commitment::PolyComm {
         elems: vec![poly.to_affine()],
     };
@@ -431,6 +438,7 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Fq> {
     let shift = make_shifts(&domain);
 
     // https://github.com/MinaProtocol/mina/blob/047375688f93546d4bdd58c75674394e3faae1f4/src/lib/pickles/side_loaded_verification_key.ml#L232
+    // REVIEW(dw): be careful with chunking!
     let zk_rows = 3;
 
     // Note: Verifier index is converted from OCaml here:
@@ -441,6 +449,7 @@ pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Fq> {
         max_poly_size: 1 << BACKEND_TOCK_ROUNDS_N,
         srs: Arc::new(srs),
         public,
+        // REVIEW(dw): FIXME
         prev_challenges: 2,
         sigma_comm: vk.wrap_index.sigma.each_ref().map(make_poly),
         coefficients_comm: vk.wrap_index.coefficients.each_ref().map(make_poly),
