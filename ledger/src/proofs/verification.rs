@@ -1043,7 +1043,7 @@ mod tests {
             let srs = crate::verifier::get_srs::<Fp>();
 
             let ok = verify_zkapp(&vk, &zkapp_statement, &proof, &srs);
-            assert!(false);
+            assert!(ok);
         }
     }
 
