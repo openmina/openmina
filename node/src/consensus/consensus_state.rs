@@ -12,6 +12,7 @@ use openmina_core::consensus::{
 };
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
+use crate::transition_frontier::TransitionFrontierState;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ConsensusShortRangeForkDecision {
@@ -180,6 +181,32 @@ impl ConsensusState {
                 ..
             } => decision.use_as_best_tip() && self.best_tip.as_ref() == Some(compared_with),
         }
+    }
+
+    pub fn best_tip_chain_proof(
+        &self,
+        transition_frontier: &TransitionFrontierState,
+    ) -> Option<(Vec<StateHash>, ArcBlockWithHash)> {
+        let best_tip = self.best_tip_block_with_hash()?;
+        let pred_hash = best_tip.pred_hash();
+        self.best_tip_chain_proof.clone().or_else(|| {
+            let old_best_tip = transition_frontier.best_tip()?;
+            let mut iter = transition_frontier.best_chain.iter();
+            if old_best_tip.hash() == pred_hash {
+                if old_best_tip.height() > old_best_tip.constants().k.as_u32() {
+                    iter.next();
+                }
+                let root_block = iter.next()?.block_with_hash().clone();
+                let hashes = iter.map(|b| b.hash().clone()).collect();
+                Some((hashes, root_block))
+            } else if old_best_tip.pred_hash() == pred_hash {
+                let root_block = iter.next()?.block_with_hash().clone();
+                let hashes = iter.rev().skip(1).rev().map(|b| b.hash().clone()).collect();
+                Some((hashes, root_block))
+            } else {
+                None
+            }
+        })
     }
 }
 

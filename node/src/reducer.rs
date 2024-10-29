@@ -1,7 +1,7 @@
 use openmina_core::{bug_condition, error, Substate};
 use p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 
-use crate::{Action, ActionWithMeta, EventSourceAction, P2p, State};
+use crate::{Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State};
 
 pub fn reducer(
     state: &mut State,
@@ -18,6 +18,7 @@ pub fn reducer(
                     bug_condition!("{}", error);
                 };
             }
+            dispatcher.push(ConsensusAction::TransitionFrontierSyncTargetUpdate);
         }
         Action::EventSource(EventSourceAction::NewEvent { .. }) => {}
         Action::EventSource(_) => {}

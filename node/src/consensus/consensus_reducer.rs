@@ -1,5 +1,6 @@
 use openmina_core::{
     block::BlockHash,
+    bug_condition,
     consensus::{is_short_range_fork, long_range_fork_take, short_range_fork_take},
 };
 use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError};
@@ -12,7 +13,7 @@ use crate::{
         },
         TransitionFrontierSyncAction,
     },
-    Action, State, WatchedAccountsAction,
+    WatchedAccountsAction,
 };
 
 use super::{
@@ -78,7 +79,7 @@ impl ConsensusState {
                     return;
                 }
 
-                transition_frontier_new_best_tip_handler(global_state, dispatcher);
+                dispatcher.push(ConsensusAction::TransitionFrontierSyncTargetUpdate);
             }
             ConsensusAction::BlockSnarkVerifyPending { req_id, hash } => {
                 if let Some(block) = state.blocks.get_mut(hash) {
@@ -240,7 +241,36 @@ impl ConsensusState {
                     });
                 }
 
-                transition_frontier_new_best_tip_handler(global_state, dispatcher);
+                dispatcher.push(ConsensusAction::TransitionFrontierSyncTargetUpdate);
+            }
+            ConsensusAction::TransitionFrontierSyncTargetUpdate => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let Some(best_tip) = state.consensus.best_tip_block_with_hash() else {
+                    bug_condition!(
+                        "ConsensusAction::TransitionFrontierSyncTargetUpdate | no chosen best tip"
+                    );
+                    return;
+                };
+
+                let Some((blocks_inbetween, root_block)) = state
+                    .consensus
+                    .best_tip_chain_proof(&state.transition_frontier)
+                else {
+                    bug_condition!("ConsensusAction::TransitionFrontierSyncTargetUpdate | no best tip chain proof");
+                    return;
+                };
+
+                let previous_root_snarked_ledger_hash = state
+                    .transition_frontier
+                    .root()
+                    .map(|b| b.snarked_ledger_hash().clone());
+
+                dispatcher.push(TransitionFrontierSyncAction::BestTipUpdate {
+                    previous_root_snarked_ledger_hash,
+                    best_tip,
+                    root_block,
+                    blocks_inbetween,
+                });
             }
             ConsensusAction::P2pBestTipUpdate { best_tip } => {
                 let dispatcher = state_context.into_dispatcher();
@@ -276,58 +306,5 @@ impl ConsensusState {
                 *blocks = blocks_to_keep;
             }
         }
-    }
-}
-
-fn transition_frontier_new_best_tip_handler(
-    state: &State,
-    dispatcher: &mut redux::Dispatcher<Action, State>,
-) {
-    let Some(best_tip) = state.consensus.best_tip_block_with_hash() else {
-        return;
-    };
-    let pred_hash = best_tip.pred_hash();
-
-    let Some((blocks_inbetween, root_block)) =
-        state.consensus.best_tip_chain_proof.clone().or_else(|| {
-            let old_best_tip = state.transition_frontier.best_tip()?;
-            let mut iter = state.transition_frontier.best_chain.iter();
-            if old_best_tip.hash() == pred_hash {
-                if old_best_tip.height() > old_best_tip.constants().k.as_u32() {
-                    iter.next();
-                }
-                let root_block = iter.next()?.block_with_hash().clone();
-                let hashes = iter.map(|b| b.hash().clone()).collect();
-                Some((hashes, root_block))
-            } else if old_best_tip.pred_hash() == pred_hash {
-                let root_block = iter.next()?.block_with_hash().clone();
-                let hashes = iter.rev().skip(1).rev().map(|b| b.hash().clone()).collect();
-                Some((hashes, root_block))
-            } else {
-                None
-            }
-        })
-    else {
-        return;
-    };
-
-    if !state.transition_frontier.sync.is_pending() && !state.transition_frontier.sync.is_synced() {
-        dispatcher.push(TransitionFrontierSyncAction::Init {
-            best_tip,
-            root_block,
-            blocks_inbetween,
-        });
-    } else {
-        let previous_root_snarked_ledger_hash = state
-            .transition_frontier
-            .root()
-            .map(|b| b.snarked_ledger_hash().clone());
-
-        dispatcher.push(TransitionFrontierSyncAction::BestTipUpdate {
-            previous_root_snarked_ledger_hash,
-            best_tip,
-            root_block,
-            blocks_inbetween,
-        });
     }
 }
