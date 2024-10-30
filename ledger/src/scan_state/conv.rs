@@ -1830,24 +1830,27 @@ impl From<&zkapp_command::ZkAppCommand> for MinaBaseZkappCommandTStableV1WireSta
     }
 }
 
-impl From<&MinaTransactionLogicTransactionAppliedVaryingStableV2> for transaction_applied::Varying {
-    fn from(value: &MinaTransactionLogicTransactionAppliedVaryingStableV2) -> Self {
+impl TryFrom<&MinaTransactionLogicTransactionAppliedVaryingStableV2>
+    for transaction_applied::Varying
+{
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &MinaTransactionLogicTransactionAppliedVaryingStableV2,
+    ) -> Result<Self, Self::Error> {
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedVaryingStableV2::*;
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedCommandAppliedStableV2::*;
         use mina_p2p_messages::v2::MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2::*;
-        // use mina_p2p_messages::v2::TransactionSnarkPendingCoinbaseStackStateInitStackStableV1::{Base, Merge};
-        use mina_p2p_messages::v2::MinaStateSnarkedLedgerStatePendingCoinbaseStackStateInitStackStableV1::{Base, Merge};
-        use crate::scan_state::scan_state::transaction_snark::InitStack;
         use transaction_applied::signed_command_applied;
 
-        match value {
+        let result = match value {
             Command(cmd) => match cmd {
                 SignedCommand(cmd) => transaction_applied::Varying::Command(
                     transaction_applied::CommandApplied::SignedCommand(Box::new(
                         transaction_applied::SignedCommandApplied {
                             common: transaction_applied::signed_command_applied::Common {
                                 user_command: WithStatus {
-                                    data: (&cmd.common.user_command.data).into(),
+                                    data: (&cmd.common.user_command.data).try_into()?,
                                     status: (&cmd.common.user_command.status).into(),
                                 },
                             },
@@ -1857,15 +1860,16 @@ impl From<&MinaTransactionLogicTransactionAppliedVaryingStableV2> for transactio
                                         new_accounts: new_accounts
                                             .iter()
                                             .cloned()
-                                            .map(Into::into)
-                                            .collect(),
+                                            .map(TryInto::try_into)
+                                            .collect::<Result<_, _>>()?,
                                     }
                                 }
                                 StakeDelegation { previous_delegate } => {
                                     signed_command_applied::Body::StakeDelegation {
-                                        previous_delegate: previous_delegate
-                                            .as_ref()
-                                            .map(|d| d.into()),
+                                        previous_delegate: match previous_delegate.as_ref() {
+                                            Some(prev) => Some(prev.try_into()?),
+                                            None => None,
+                                        },
                                     }
                                 }
                                 Failed => signed_command_applied::Body::Failed,
@@ -1880,104 +1884,89 @@ impl From<&MinaTransactionLogicTransactionAppliedVaryingStableV2> for transactio
                                 .accounts
                                 .iter()
                                 .map(|(id, account_opt)| {
-                                    let id: AccountId = id.into();
-                                    let account: Option<Account> = account_opt.as_ref().map(Into::into);
+                                    let id: AccountId = id.try_into()?;
+                                    let account: Option<Account> = match account_opt.as_ref() {
+                                        Some(account) => Some(account.try_into()?),
+                                        None => None,
+                                    };
                                     let account = account.map(Box::new);
 
-                                            Ok((id, account))
-                                        })
-                                        .collect::<Result<_, _>>()?,
-                                    command: WithStatus {
-                                        data: (&cmd.command.data).try_into()?,
-                                        status: (&cmd.command.status).into(),
-                                    },
-                                    new_accounts: cmd.new_accounts.iter().map(TryInto::try_into).collect::<Result<_, _>>()?,
-                                },
-                            )),
-                        ),
-                    },
-                    FeeTransfer(ft) => transaction_applied::Varying::FeeTransfer(
-                        transaction_applied::FeeTransferApplied {
-                            fee_transfer: WithStatus {
-                                data: (&ft.fee_transfer.data).try_into()?,
-                                status: (&ft.fee_transfer.status).into(),
-                            },
-                            new_accounts: ft.new_accounts.iter().map(TryInto::try_into).collect::<Result<_, _>>()?,
-                            burned_tokens: ft.burned_tokens.clone().into(),
-                        },
-                    ),
-                    Coinbase(cb) => transaction_applied::Varying::Coinbase(transaction_applied::CoinbaseApplied {
-                        coinbase: WithStatus {
-                            data: crate::scan_state::transaction_logic::Coinbase {
-                                receiver: (&cb.coinbase.data.receiver).try_into()?,
-                                amount: cb.coinbase.data.amount.clone().into(),
-                                fee_transfer: match cb.coinbase.data.fee_transfer.as_ref() {
-                                    Some(ft) => Some(crate::scan_state::transaction_logic::CoinbaseFeeTransfer {
-                                        receiver_pk: (&ft.receiver_pk).try_into()?,
-                                        fee: Fee::from_u64(ft.fee.as_u64()),
-                                    }),
-                                    None => None,
-                                }
-                            },
-                            status: (&cb.coinbase.status).into(),
-                        },
-                        new_accounts: cb.new_accounts.iter().map(TryInto::try_into).collect::<Result<_, _>>()?,
-                        burned_tokens: cb.burned_tokens.clone().into(),
-                    }),
-                },
-                                    (id, account)
+                                    Ok((id, account))
                                 })
-                                .collect(),
+                                .collect::<Result<_, _>>()?,
                             command: WithStatus {
-                                data: (&cmd.command.data).into(),
+                                data: (&cmd.command.data).try_into()?,
                                 status: (&cmd.command.status).into(),
                             },
-                            new_accounts: cmd.new_accounts.iter().map(Into::into).collect(),
+                            new_accounts: cmd
+                                .new_accounts
+                                .iter()
+                                .map(TryInto::try_into)
+                                .collect::<Result<_, _>>()?,
                         },
                     )),
                 ),
             },
-            FeeTransfer(ft) => transaction_applied::Varying::FeeTransfer(
-                transaction_applied::FeeTransferApplied {
+            FeeTransfer(ft) => {
+                transaction_applied::Varying::FeeTransfer(transaction_applied::FeeTransferApplied {
                     fee_transfer: WithStatus {
-                        data: (&ft.fee_transfer.data).into(),
+                        data: (&ft.fee_transfer.data).try_into()?,
                         status: (&ft.fee_transfer.status).into(),
                     },
-                    new_accounts: ft.new_accounts.iter().map(Into::into).collect(),
+                    new_accounts: ft
+                        .new_accounts
+                        .iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<_, _>>()?,
                     burned_tokens: ft.burned_tokens.clone().into(),
-                },
-            ),
-            Coinbase(cb) => transaction_applied::Varying::Coinbase(transaction_applied::CoinbaseApplied {
-                coinbase: WithStatus {
-                    data: crate::scan_state::transaction_logic::Coinbase {
-                        receiver: (&cb.coinbase.data.receiver).into(),
-                        amount: cb.coinbase.data.amount.clone().into(),
-                        fee_transfer: cb.coinbase.data.fee_transfer.as_ref().map(|ft| {
-                            crate::scan_state::transaction_logic::CoinbaseFeeTransfer {
-                                receiver_pk: (&ft.receiver_pk).into(),
-                                fee: Fee::from_u64(ft.fee.as_u64()),
-                            }
-                        }),
+                })
+            }
+            Coinbase(cb) => {
+                transaction_applied::Varying::Coinbase(transaction_applied::CoinbaseApplied {
+                    coinbase: WithStatus {
+                        data: crate::scan_state::transaction_logic::Coinbase {
+                            receiver: (&cb.coinbase.data.receiver).try_into()?,
+                            amount: cb.coinbase.data.amount.clone().into(),
+                            fee_transfer: match cb.coinbase.data.fee_transfer.as_ref() {
+                                Some(ft) => Some(
+                                    crate::scan_state::transaction_logic::CoinbaseFeeTransfer {
+                                        receiver_pk: (&ft.receiver_pk).try_into()?,
+                                        fee: Fee::from_u64(ft.fee.as_u64()),
+                                    },
+                                ),
+                                None => None,
+                            },
+                        },
+                        status: (&cb.coinbase.status).into(),
                     },
-                    status: (&cb.coinbase.status).into(),
-                },
-                new_accounts: cb.new_accounts.iter().map(Into::into).collect(),
-                burned_tokens: cb.burned_tokens.clone().into(),
-            })
-        }
+                    new_accounts: cb
+                        .new_accounts
+                        .iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<_, _>>()?,
+                    burned_tokens: cb.burned_tokens.clone().into(),
+                })
+            }
+        };
+
+        Ok(result)
     }
 }
 
-impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
-    fn from(value: &TransactionSnarkScanStateTransactionWithWitnessStableV2) -> Self {
+impl TryFrom<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for TransactionWithWitness {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        value: &TransactionSnarkScanStateTransactionWithWitnessStableV2,
+    ) -> Result<Self, Self::Error> {
         // use mina_p2p_messages::v2::TransactionSnarkPendingCoinbaseStackStateInitStackStableV1::{Base, Merge};
         use mina_p2p_messages::v2::MinaStateSnarkedLedgerStatePendingCoinbaseStackStateInitStackStableV1::{Base, Merge};
         use crate::scan_state::scan_state::transaction_snark::InitStack;
-       
-        Self {
+
+        Ok(Self {
             transaction_with_info: TransactionApplied {
-                previous_hash: value.transaction_with_info.previous_hash.to_field(),
-                varying: (&value.transaction_with_info.varying).into(),
+                previous_hash: value.transaction_with_info.previous_hash.to_field()?,
+                varying: (&value.transaction_with_info.varying).try_into()?,
             },
             state_hash: {
                 let (state, body) = &value.state_hash;
@@ -1997,7 +1986,7 @@ impl From<&TransactionSnarkScanStateTransactionWithWitnessStableV2> for Transact
             first_pass_ledger_witness: (&value.first_pass_ledger_witness).try_into()?,
             second_pass_ledger_witness: (&value.second_pass_ledger_witness).try_into()?,
             block_global_slot: Slot::from_u32(value.block_global_slot.as_u32()),
-        }
+        })
     }
 }
 

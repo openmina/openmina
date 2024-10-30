@@ -11,7 +11,7 @@ pub struct Header {
 }
 
 impl Header {
-    #[coverage(off)]    
+    #[coverage(off)]
     pub fn read(cursor: &mut Cursor<&Vec<u8>>) -> Self {
         let header = Self {
             zero: read_int(cursor),
@@ -29,7 +29,7 @@ impl Header {
 pub struct Filenames(pub Vec<String>);
 
 impl Filenames {
-    #[coverage(off)]    
+    #[coverage(off)]
     pub fn read(cursor: &mut Cursor<&Vec<u8>>) -> Self {
         let num_filenames = u64::read_leb128(cursor);
         let uncompressed_len = usize::read_leb128(cursor);
@@ -61,7 +61,7 @@ impl Filenames {
         Self(filenames)
     }
 
-    #[coverage(off)]    
+    #[coverage(off)]
     fn read_filename(cursor: &mut Cursor<&Vec<u8>>) -> String {
         let string_len = usize::read_leb128(cursor);
         let mut output = vec![0; string_len];
@@ -79,7 +79,7 @@ pub struct CovMap {
 }
 
 impl CovMap {
-    #[coverage(off)]    
+    #[coverage(off)]
     pub fn read(cursor: &mut Cursor<&Vec<u8>>) -> Self {
         let header = Header::read(cursor);
         let pos = cursor.position() as usize;

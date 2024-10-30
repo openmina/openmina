@@ -19,7 +19,10 @@ pub mod transaction_fuzzer {
         reports::CoverageReport,
         stats::Stats,
     };
-    use ledger::{scan_state::transaction_logic::UserCommand, Account};
+    use ledger::{
+        scan_state::transaction_logic::{transaction_applied, UserCommand},
+        Account,
+    };
     use mina_hasher::Fp;
     use mina_p2p_messages::bigint::BigInt;
     use openmina_core::constants::ConstraintConstantsUnversioned;
@@ -145,7 +148,29 @@ pub mod transaction_fuzzer {
         serialize(&action, stdin);
         let output: ActionOutput = deserialize(stdout);
         match output {
-            ActionOutput::TxApplied(result) => result,
+            ActionOutput::TxApplied(result) => {
+                for applied_tx in result.apply_result.iter() {
+                    match &applied_tx.varying {
+                        transaction_applied::Varying::Command(command_applied) => {
+                            match command_applied {
+                                transaction_applied::CommandApplied::SignedCommand(
+                                    _signed_command_applied,
+                                ) => {}
+                                transaction_applied::CommandApplied::ZkappCommand(
+                                    zkapp_command_applied,
+                                ) => zkapp_command_applied
+                                    .command
+                                    .data
+                                    .account_updates
+                                    .accumulate_hashes(), // Needed because of delayed hashing
+                            }
+                        }
+                        transaction_applied::Varying::FeeTransfer(_fee_transfer_applied) => {}
+                        transaction_applied::Varying::Coinbase(_coinbase_applied) => {}
+                    }
+                }
+                result
+            }
             _ => panic!("Expected TxApplied"),
         }
     }
@@ -256,7 +281,12 @@ fn main() {
             .get_matches();
 
         let mut child = Command::new(
-            "/home/dan/mina/_build/default/src/app/transaction_fuzzer/transaction_fuzzer.exe",
+            &std::env::var("OCAML_TRANSACTION_FUZZER_PATH").unwrap_or_else(|_| {
+                format!(
+                    "{}/mina/_build/default/src/app/transaction_fuzzer/transaction_fuzzer.exe",
+                    std::env::var("HOME").unwrap()
+                )
+            }),
         )
         .arg("execute")
         .stdin(Stdio::piped())

@@ -2,7 +2,7 @@ use std::process::Command;
 
 fn main() {
     let output = Command::new("rustc")
-        .args(&["-vV"])
+        .args(["-vV"])
         .output()
         .expect("Failed to execute rustc");
 

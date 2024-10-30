@@ -27,7 +27,6 @@ members = [
     "tools/hash-tool",
     "tools/ledger-tool",
     "tools/salsa-simple",
-    #cfg(unstable),
     "tools/fuzzing",
     "producer-dashboard",
 

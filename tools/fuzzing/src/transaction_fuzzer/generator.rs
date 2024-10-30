@@ -6,6 +6,7 @@ use ledger::generators::zkapp_command_builder::get_transaction_commitments;
 use ledger::proofs::field::FieldWitness;
 use ledger::proofs::transaction::InnerCurve;
 use ledger::scan_state::currency::{Magnitude, SlotSpan, TxnVersion};
+use ledger::VerificationKeyWire;
 use ledger::{
     proofs::transaction::PlonkVerificationKeyEvals,
     scan_state::{
@@ -71,9 +72,8 @@ use mina_p2p_messages::{
 use mina_signer::{
     CompressedPubKey, CurvePoint, Keypair, NetworkId, ScalarField, SecKey, Signature, Signer,
 };
-use rand::distributions::DistString;
+use rand::seq::SliceRandom;
 use rand::Rng;
-use rand::{distributions::Alphanumeric, seq::SliceRandom};
 use std::{array, iter, ops::RangeInclusive, sync::Arc};
 use tuple_map::TupleMap2;
 
@@ -173,7 +173,7 @@ impl Generator<Keypair> for FuzzerCtx {
     fn gen(&mut self) -> Keypair {
         let sec_key: SecKey = self.gen();
         let scalar = sec_key.into_scalar();
-        let public = CurvePoint::prime_subgroup_generator()
+        let public: CurvePoint = CurvePoint::prime_subgroup_generator()
             .mul(scalar)
             .into_affine();
 
@@ -369,9 +369,8 @@ impl Generator<TokenSymbol> for FuzzerCtx {
         if self.gen.rng.gen_bool(0.9) {
             TokenSymbol::default()
         } else {
-            let rnd_len = self.gen.rng.gen_range(1..=6);
-            // TODO: fix n random chars for n random bytes
-            TokenSymbol(Alphanumeric.sample_string(&mut self.gen.rng, rnd_len))
+            let rnd_len = self.gen.rng.gen_range(0..=6);
+            TokenSymbol((0..rnd_len).map(|_| self.gen.rng.gen()).collect())
         }
     }
 }
@@ -1288,6 +1287,15 @@ impl Generator<SetVerificationKey<AuthRequired>> for FuzzerCtx {
                 TxnVersion::from(self.gen.rng.gen())
             },
         }
+    }
+}
+
+impl Generator<VerificationKeyWire> for FuzzerCtx {
+    #[coverage(off)]
+    fn gen(&mut self) -> VerificationKeyWire {
+        let vk = VerificationKeyWire::new(self.gen());
+        vk.hash();
+        vk
     }
 }
 

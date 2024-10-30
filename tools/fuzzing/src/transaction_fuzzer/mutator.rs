@@ -21,7 +21,8 @@ use ledger::{
             Transaction, UserCommand,
         },
     },
-    Account, AuthRequired, Permissions, Timing, TokenId, TokenSymbol, VerificationKey,
+    Account, AuthRequired, MutableFp, Permissions, Timing, TokenId, TokenSymbol, VerificationKey,
+    VerificationKeyWire,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -39,11 +40,7 @@ use mina_p2p_messages::{
     },
 };
 use mina_signer::{CompressedPubKey, NetworkId, Signature, Signer};
-use rand::{
-    distributions::{Alphanumeric, DistString},
-    seq::SliceRandom,
-    Rng,
-};
+use rand::{seq::SliceRandom, Rng};
 
 #[coverage(off)]
 fn rand_elements(ctx: &mut FuzzerCtx, count: usize) -> Vec<usize> {
@@ -361,7 +358,7 @@ impl MutatorFromAccount<Update> for FuzzerCtx {
                         self.gen()
                     };
 
-                    t.verification_key = SetOrKeep::Set(zkapp_command::WithHash { data, hash });
+                    t.verification_key = SetOrKeep::Set(VerificationKeyWire::with_hash(data, hash));
                 }
                 3 => self.mutate_from_account(&mut t.permissions, account),
                 4 => {
@@ -371,10 +368,9 @@ impl MutatorFromAccount<Update> for FuzzerCtx {
                     )
                 }
                 5 => {
-                    let rnd_len = self.gen.rng.gen_range(1..=6);
-                    // TODO: fix n random chars for n random bytes
+                    let rnd_len = self.gen.rng.gen_range(0..=6);
                     t.token_symbol = SetOrKeep::Set(TokenSymbol(
-                        Alphanumeric.sample_string(&mut self.gen.rng, rnd_len),
+                        (0..rnd_len).map(|_| self.gen.rng.gen()).collect(),
                     ));
                 }
                 6 => self.mutate_from_account(&mut t.timing, account),
@@ -695,7 +691,8 @@ impl Mutator<zkapp_command::CallForest<AccountUpdate>> for FuzzerCtx {
                     match option {
                         0 => {
                             self.mutate(&mut tree.account_update);
-                            tree.account_update_digest = tree.account_update.digest();
+                            tree.account_update_digest =
+                                MutableFp::new(tree.account_update.digest());
                         }
                         1 => self.mutate(&mut tree.calls),
                         _ => unimplemented!(),
@@ -706,12 +703,13 @@ impl Mutator<zkapp_command::CallForest<AccountUpdate>> for FuzzerCtx {
             };
 
             let h_tl = if let Some(x) = t.0.get(i + 1) {
-                x.stack_hash
+                x.stack_hash.get().unwrap()
             } else {
                 Fp::zero()
             };
 
-            t.0[i].stack_hash = hash_with_kimchi("MinaAcctUpdateCons", &[tree_digest, h_tl]);
+            t.0[i].stack_hash =
+                MutableFp::new(hash_with_kimchi("MinaAcctUpdateCons", &[tree_digest, h_tl]));
         }
     }
 }

@@ -3,6 +3,7 @@ use crate::transaction_fuzzer::{
     mutator::Mutator,
     {deserialize, serialize},
 };
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
 use ledger::scan_state::currency::{Amount, Fee, Length, Magnitude, Nonce, Signed, Slot};
 use ledger::scan_state::transaction_logic::protocol_state::{
@@ -98,10 +99,13 @@ fn dummy_state_view(global_slot_since_genesis: Option<Slot>) -> ProtocolStateVie
 #[coverage(off)]
 pub fn dummy_state_and_view(
     global_slot: Option<Slot>,
-) -> (
-    mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
-    ProtocolStateView,
-) {
+) -> Result<
+    (
+        mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
+        ProtocolStateView,
+    ),
+    InvalidBigInt,
+> {
     let mut state = dummy::for_tests::dummy_protocol_state();
 
     if let Some(global_slot) = global_slot {
@@ -128,9 +132,9 @@ pub fn dummy_state_and_view(
         cs.global_slot_since_genesis = (&global_slot_since_genesis).into();
     };
 
-    let view = protocol_state_view(&state);
+    let view = protocol_state_view(&state)?;
 
-    (state, view)
+    Ok((state, view))
 }
 
 pub enum PermissionModel {
@@ -175,7 +179,7 @@ impl Clone for PermissionModel {
 #[derive(Debug)]
 pub struct ApplyTxResult {
     root_hash: Fp,
-    apply_result: Vec<TransactionApplied>,
+    pub apply_result: Vec<TransactionApplied>,
     error: String,
 }
 
@@ -185,7 +189,9 @@ impl binprot::BinProtRead for ApplyTxResult {
     where
         Self: Sized,
     {
-        let root_hash: Fp = bigint::BigInt::binprot_read(r)?.into();
+        let root_hash: Fp = bigint::BigInt::binprot_read(r)?
+            .try_into()
+            .map_err(|x| binprot::Error::CustomError(Box::new(x)))?;
         // Start of Selection
         let apply_result = Vec::<MinaTransactionLogicTransactionAppliedStableV2>::binprot_read(r)?
             .into_iter()
@@ -194,12 +200,22 @@ impl binprot::BinProtRead for ApplyTxResult {
                 |MinaTransactionLogicTransactionAppliedStableV2 {
                      previous_hash,
                      varying,
-                 }| TransactionApplied {
-                    previous_hash: (&previous_hash.0).into(),
-                    varying: (&varying).into(),
+                 }| {
+                    let previous_hash = (&previous_hash.0)
+                        .to_field()
+                        .map_err(|x| binprot::Error::CustomError(Box::new(x)))?;
+
+                    let varying = (&varying)
+                        .try_into()
+                        .map_err(|x| binprot::Error::CustomError(Box::new(x)))?;
+
+                    Ok::<TransactionApplied, binprot::Error>(TransactionApplied {
+                        previous_hash,
+                        varying,
+                    })
                 },
             )
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
         let error: String = SmallString1k::binprot_read(r)?.0;
 
         Ok(ApplyTxResult {
