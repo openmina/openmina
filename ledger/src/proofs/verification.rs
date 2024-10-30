@@ -703,6 +703,7 @@ fn compute_deferred_values(
         let proof_state: StatementProofState = (&proof.statement.proof_state).try_into()?;
         let evals: AllEvals<Fp> = (&proof.prev_evals).try_into()?;
 
+        // REVIEW(dw): hardcoded value, won't work with chunking
         let zk_rows = 3;
         expand_deferred(ExpandDeferredParams {
             evals: &evals,
