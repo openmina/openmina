@@ -161,7 +161,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     state.transition_frontier.sync.best_tip(),
                 ])
                 .flatten()
-                .all(|b| b.hash() == best_tip.hash()
+                .any(|b| b.hash() == best_tip.hash()
                     || !consensus_take(b.consensus_state(), best_tip.consensus_state(), b.hash(), best_tip.hash())) {
                     return false;
                 }

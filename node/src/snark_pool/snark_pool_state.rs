@@ -71,6 +71,10 @@ impl SnarkPoolState {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.list.is_empty()
+    }
+
     pub fn last_index(&self) -> u64 {
         self.list.last_key_value().map_or(0, |(k, _)| *k)
     }
