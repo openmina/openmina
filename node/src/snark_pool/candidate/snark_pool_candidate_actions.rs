@@ -20,6 +20,7 @@ pub enum SnarkPoolCandidateAction {
         peer_id: PeerId,
         info: SnarkInfo,
     },
+    #[action_event(level = trace)]
     WorkFetchAll,
     WorkFetchInit {
         peer_id: PeerId,
@@ -34,6 +35,7 @@ pub enum SnarkPoolCandidateAction {
         peer_id: PeerId,
         work: Snark,
     },
+    #[action_event(level = trace)]
     WorkVerifyNext,
     WorkVerifyPending {
         peer_id: PeerId,

@@ -293,12 +293,19 @@ impl BlockProducerCurrentState {
     }
 
     pub fn won_slot_should_produce(&self, now: redux::Timestamp) -> bool {
+        // TODO(binier): maybe have runtime estimate
+        #[cfg(not(target_arch = "wasm32"))]
+        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(5).as_nanos() as u64;
+        #[cfg(target_arch = "wasm32")]
+        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(20).as_nanos() as u64;
+
         let slot_interval = Duration::from_secs(3 * 60).as_nanos() as u64;
         match self {
             Self::WonSlot { won_slot, .. } | Self::WonSlotWait { won_slot, .. } => {
                 // Make sure to only producer blocks when in the slot interval
                 let slot_upper_bound = won_slot.slot_time + slot_interval;
-                now >= won_slot.slot_time && now < slot_upper_bound
+                let estimated_produced_time = now + BLOCK_PRODUCTION_ESTIMATE;
+                estimated_produced_time >= won_slot.slot_time && now < slot_upper_bound
             }
             _ => false,
         }
