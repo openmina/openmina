@@ -102,7 +102,7 @@ compression = ["zstd"]
 # Add this feature to run tests in both nodejs and browser:
 # https://github.com/rustwasm/wasm-bindgen/issues/2571
 in_nodejs = []
-
+fuzzing = []
 
 [profile.release]
 debug = true

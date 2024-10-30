@@ -116,6 +116,16 @@ pub struct StagedLedger {
 }
 
 impl StagedLedger {
+    #[cfg(feature = "fuzzing")]
+    pub fn ledger_ref(&self) -> &Mask {
+        &self.ledger
+    }
+
+    #[cfg(feature = "fuzzing")]
+    pub fn ledger_mut(&mut self) -> &mut Mask {
+        &mut self.ledger
+    }
+
     pub fn proof_txns_with_state_hashes(
         &self,
     ) -> Option<Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>> {
