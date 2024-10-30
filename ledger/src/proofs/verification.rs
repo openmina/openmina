@@ -594,6 +594,7 @@ fn run_checks(
             foreign_field_mul_lookup_selector,
         } = &proof.prev_evals.evals.evals;
 
+        // REVIEW(dw): TODO checking the semantic of iter on option
         let mut iter = w
             .iter()
             .chain(coefficients.iter())
