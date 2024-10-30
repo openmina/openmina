@@ -1,3 +1,4 @@
+use binprot::BinProtWrite;
 use mina_p2p_messages::v2::{self, ArchiveTransitionFronntierDiff};
 use node::core::{channels::mpsc, thread};
 
@@ -18,6 +19,16 @@ impl ArchiveService {
     ) {
         while let Some(breadcrumb) = archive_receiver.blocking_recv() {
             println!("Sending data to archive");
+            if let v2::ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+                block: (_, (_, ref state_hash)),
+                ..
+            } = breadcrumb
+            {
+                let filename = format!("{}-breadcrumb.bin", state_hash);
+                let mut buff = Vec::new();
+                breadcrumb.binprot_write(&mut buff).unwrap();
+                std::fs::write(filename, buff).unwrap();
+            }
             if let Err(e) = rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb)) {
                 println!("Error sending to archive: {:?}", e);
             }
@@ -270,14 +281,36 @@ mod rpc {
     }
 }
 
-// // TODO(adonagy): Remove
-// mod test {
-//     const URL: &str = "65.21.205.249:3086";
+// TODO(adonagy): Remove
+mod test {
+    use binprot::BinProtRead;
+    use ledger::AccountId;
+    // const URL: &str = "65.21.205.249:3086";
+    use mina_p2p_messages::v2;
 
-//     #[test]
-//     fn test_rpc() {
-//         let data = include_bytes!("../../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
-//         let diff = v2::ArchiveTransitionFronntierDiff::binprot_read(&mut data.as_ref()).unwrap();
-//         super::rpc::send_diff(URL, v2::ArchiveRpc::SendDiff(diff)).unwrap();
-//     }
-// }
+    // #[test]
+    // fn test_rpc() {
+    //     let data = include_bytes!("../../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
+    //     let diff = v2::ArchiveTransitionFronntierDiff::binprot_read(&mut data.as_ref()).unwrap();
+    //     super::rpc::send_diff(URL, v2::ArchiveRpc::SendDiff(diff)).unwrap();
+    // }
+
+    #[test]
+    fn test() {
+        // let data = include_bytes!("../../../../breadcrumbs/3NK2vJduqXCdaNGX1S9oWn5akwhLxgceBh8TxDGqnDzzKMF8YDcb-breadcrumb.bin");
+        let data = include_bytes!("../../../../breadcrumbs/3NL22dMkBSnAc9cJq2mTEiuVxuE8TTzDV1a4hwxoWMEt31zhFoGC-breadcrumb.bin");
+        let diff = v2::ArchiveTransitionFronntierDiff::binprot_read(&mut data.as_ref()).unwrap();
+        if let v2::ArchiveTransitionFronntierDiff::BreadcrumbAdded { tokens_used, .. } = diff {
+            let tokens_used = tokens_used
+                .iter()
+                .map(|(id, owner)| {
+                    (
+                        id.to_decimal(),
+                        owner.as_ref().map(|owner| owner.0.to_string()),
+                    )
+                })
+                .collect::<Vec<_>>();
+            println!("Tokens used: {:#?}", tokens_used);
+        }
+    }
+}

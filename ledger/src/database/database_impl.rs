@@ -105,7 +105,10 @@ impl DatabaseImpl<V2> {
         self.last_location = Some(location.clone());
         self.naccounts += 1;
 
-        self.token_to_account.insert(token_id, account_id.clone());
+        if !token_id.is_default() {
+            self.token_to_account
+                .insert(account_id.derive_token_id(), account_id.clone());
+        }
         self.id_to_addr.insert(account_id, location.clone());
 
         // self.root_hash.borrow_mut().take();
@@ -686,13 +689,17 @@ impl BaseLedger for DatabaseImpl<V2> {
         if let Some(account) = self.get(addr.clone()) {
             let id = account.id();
             self.id_to_addr.remove(&id);
-            self.token_to_account.remove(&id.token_id);
+            if !id.token_id.is_default() {
+                self.token_to_account.remove(&id.derive_token_id());
+            }
         } else {
             self.naccounts += 1;
         }
 
-        self.token_to_account
-            .insert(account.token_id.clone(), id.clone());
+        if !account.token_id.is_default() {
+            self.token_to_account
+                .insert(account.id().derive_token_id(), id.clone());
+        }
         self.id_to_addr.insert(id, addr.clone());
         self.accounts[index] = Some(*account);
         // root.add_account_on_path(account, addr.iter());
@@ -822,7 +829,9 @@ impl BaseLedger for DatabaseImpl<V2> {
 
             let id = account.id();
             self.id_to_addr.remove(&id);
-            self.token_to_account.remove(&id.token_id);
+            if !id.token_id.is_default() {
+                self.token_to_account.remove(&id.derive_token_id());
+            }
 
             self.naccounts = self
                 .naccounts

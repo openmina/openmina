@@ -92,7 +92,8 @@ pub mod webrtc {
             peer_id: PeerId,
             other_pub_key: &PublicKey,
             auth: Option<webrtc::ConnectionAuthEncrypted>,
-        ) {}
+        ) {
+        }
 
         fn auth_encrypt_and_send(
             &mut self,
