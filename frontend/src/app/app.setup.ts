@@ -26,9 +26,6 @@ import { StateState } from '@state/state.state';
 import { SnarksAction, snarksReducer } from '@snarks/snarks.reducer';
 import { SnarksState } from '@snarks/snarks.state';
 
-import { TestingToolAction, testingToolReducer } from '@testing-tool/testing-tool.reducer';
-import { TestingToolState } from '@testing-tool/testing-tool.state';
-
 import { ResourcesAction, resourcesReducer } from '@resources/resources.reducer';
 import { ResourcesState } from '@resources/resources.state';
 
@@ -51,7 +48,6 @@ export interface MinaState {
   resources: ResourcesState;
   state: StateState;
   snarks: SnarksState;
-  testingTool: TestingToolState;
   benchmarks: BenchmarksState;
 }
 
@@ -63,7 +59,6 @@ type MinaAction =
   & ResourcesAction
   & StateAction
   & SnarksAction
-  & TestingToolAction
   ;
 
 export const reducers: ActionReducerMap<MinaState, MinaAction> = {
@@ -78,7 +73,6 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   resources: resourcesReducer,
   state: stateReducer,
   snarks: snarksReducer,
-  testingTool: testingToolReducer,
   benchmarks: benchmarksReducer,
 };
 

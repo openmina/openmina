@@ -33,7 +33,6 @@ export enum Routes {
   LIVE = 'live',
   WORK_POOL = 'work-pool',
   SNARKS = 'snarks',
-  TESTING_TOOL = 'testing-tool',
   NODE_DHT = 'node-dht',
   BLOCK_PRODUCTION = 'block-production',
   WON_SLOTS = 'won-slots',
