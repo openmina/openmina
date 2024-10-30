@@ -29,7 +29,6 @@ export type FeaturesConfig = Partial<{
   'network': string[];
   'snarks': string[];
   'resources': string[];
-  'testing-tool': string[];
   'block-production': string[];
   'mempool': string[];
   'benchmarks': string[];

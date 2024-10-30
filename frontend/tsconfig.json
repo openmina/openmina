@@ -60,9 +60,6 @@
       "@snarks/*": [
         "src/app/features/snarks/*"
       ],
-      "@testing-tool/*": [
-        "src/app/features/testing-tool/*"
-      ],
       "@network/*": [
         "src/app/features/network/*"
       ],
