@@ -14,12 +14,6 @@ pub use block_producer_actions::*;
 
 mod block_producer_reducer;
 
-mod block_producer_effects;
-pub use block_producer_effects::*;
-
-mod block_producer_service;
-pub use block_producer_service::*;
-
 use ledger::AccountIndex;
 use mina_p2p_messages::{list::List, v2};
 use openmina_core::block::ArcBlockWithHash;

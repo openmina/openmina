@@ -49,6 +49,7 @@ impl TransitionFrontierSyncAction {
             TransitionFrontierSyncAction::BestTipUpdate {
                 previous_root_snarked_ledger_hash,
                 best_tip,
+                on_success,
                 ..
             } => {
                 // TODO(tizoc): this is currently required because how how complicated the BestTipUpdate reducer is,
@@ -72,6 +73,9 @@ impl TransitionFrontierSyncAction {
                 store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
 
                 // TODO(binier): cleanup ledgers
+                if let Some(callback) = on_success {
+                    store.dispatch_callback(callback.clone(), ());
+                }
             }
             // TODO(tizoc): this action is never called with the current implementation,
             // either remove it or figure out how to recover it as a reaction to

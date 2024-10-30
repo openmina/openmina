@@ -17,6 +17,8 @@ use strum_macros::VariantArray;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::BlockProducerAction;
+use crate::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorEffectfulAction;
+use crate::block_producer_effectful::BlockProducerEffectfulAction;
 use crate::consensus::ConsensusAction;
 use crate::event_source::EventSourceAction;
 use crate::external_snark_worker::ExternalSnarkWorkerAction;
@@ -129,6 +131,13 @@ pub enum ActionKind {
     BlockProducerWonSlotTransactionsGet,
     BlockProducerWonSlotTransactionsSuccess,
     BlockProducerWonSlotWait,
+    BlockProducerEffectfulBlockProveInit,
+    BlockProducerEffectfulBlockProveSuccess,
+    BlockProducerEffectfulBlockUnprovenBuild,
+    BlockProducerEffectfulStagedLedgerDiffCreateInit,
+    BlockProducerEffectfulStagedLedgerDiffCreateSuccess,
+    BlockProducerEffectfulWonSlot,
+    BlockProducerEffectfulWonSlotDiscard,
     BlockProducerVrfEvaluatorBeginDelegatorTableConstruction,
     BlockProducerVrfEvaluatorBeginEpochEvaluation,
     BlockProducerVrfEvaluatorCheckEpochBounds,
@@ -145,6 +154,7 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
     BlockProducerVrfEvaluatorSelectInitialSlot,
     BlockProducerVrfEvaluatorWaitForNextEvaluation,
+    BlockProducerVrfEvaluatorEffectfulEvaluateSlot,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -694,7 +704,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 581;
+    pub const COUNT: u16 = 589;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -721,6 +731,7 @@ impl ActionKindGet for Action {
             Self::TransactionPoolEffect(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
+            Self::BlockProducerEffectful(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
             Self::RpcEffectful(a) => a.kind(),
             Self::WatchedAccounts(a) => a.kind(),
@@ -965,6 +976,25 @@ impl ActionKindGet for BlockProducerAction {
             Self::BlockProduced => ActionKind::BlockProducerBlockProduced,
             Self::BlockInject => ActionKind::BlockProducerBlockInject,
             Self::BlockInjected => ActionKind::BlockProducerBlockInjected,
+        }
+    }
+}
+
+impl ActionKindGet for BlockProducerEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::VrfEvaluator(a) => a.kind(),
+            Self::WonSlot { .. } => ActionKind::BlockProducerEffectfulWonSlot,
+            Self::WonSlotDiscard { .. } => ActionKind::BlockProducerEffectfulWonSlotDiscard,
+            Self::StagedLedgerDiffCreateInit => {
+                ActionKind::BlockProducerEffectfulStagedLedgerDiffCreateInit
+            }
+            Self::StagedLedgerDiffCreateSuccess => {
+                ActionKind::BlockProducerEffectfulStagedLedgerDiffCreateSuccess
+            }
+            Self::BlockUnprovenBuild => ActionKind::BlockProducerEffectfulBlockUnprovenBuild,
+            Self::BlockProveInit => ActionKind::BlockProducerEffectfulBlockProveInit,
+            Self::BlockProveSuccess => ActionKind::BlockProducerEffectfulBlockProveSuccess,
         }
     }
 }
@@ -1478,6 +1508,14 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             }
             Self::CheckEpochBounds { .. } => ActionKind::BlockProducerVrfEvaluatorCheckEpochBounds,
             Self::CleanupOldSlots { .. } => ActionKind::BlockProducerVrfEvaluatorCleanupOldSlots,
+        }
+    }
+}
+
+impl ActionKindGet for BlockProducerVrfEvaluatorEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::EvaluateSlot { .. } => ActionKind::BlockProducerVrfEvaluatorEffectfulEvaluateSlot,
         }
     }
 }

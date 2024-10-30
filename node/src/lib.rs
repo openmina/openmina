@@ -30,6 +30,7 @@ pub mod recorder;
 pub mod stats;
 
 pub mod block_producer;
+pub mod block_producer_effectful;
 pub mod consensus;
 pub mod daemon_json;
 pub mod event_source;

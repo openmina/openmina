@@ -16,7 +16,7 @@ use ledger::scan_state::scan_state::AvailableJobMessage;
 use mina_p2p_messages::v2;
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::StagedLedgerDiffCreateOutput;
+use crate::block_producer_effectful::StagedLedgerDiffCreateOutput;
 use crate::core::block::ArcBlockWithHash;
 use crate::core::snark::{Snark, SnarkJobId};
 use crate::transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid;

@@ -51,7 +51,9 @@ pub fn vrf_evaluator(
     }
 }
 
-impl node::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService for NodeService {
+impl node::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorService
+    for NodeService
+{
     fn evaluate(&mut self, data: VrfEvaluatorInput) {
         if let Some(bp) = self.block_producer.as_mut() {
             let _ = bp.vrf_evaluation_sender.send(data);

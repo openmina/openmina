@@ -5,6 +5,7 @@ pub type ActionWithMeta = redux::ActionWithMeta<Action>;
 pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 
 pub use crate::block_producer::BlockProducerAction;
+pub use crate::block_producer_effectful::BlockProducerEffectfulAction;
 pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
 pub use crate::external_snark_worker::ExternalSnarkWorkerAction;
@@ -48,6 +49,7 @@ pub enum Action {
     TransactionPoolEffect(TransactionPoolEffectfulAction),
     ExternalSnarkWorker(ExternalSnarkWorkerAction),
     BlockProducer(BlockProducerAction),
+    BlockProducerEffectful(BlockProducerEffectfulAction),
     Rpc(RpcAction),
     RpcEffectful(RpcEffectfulAction),
 
@@ -92,6 +94,7 @@ impl redux::EnablingCondition<crate::State> for Action {
             Action::SnarkPoolEffect(a) => a.is_enabled(state, time),
             Action::ExternalSnarkWorker(a) => a.is_enabled(state, time),
             Action::BlockProducer(a) => a.is_enabled(state, time),
+            Action::BlockProducerEffectful(a) => a.is_enabled(state, time),
             Action::Rpc(a) => a.is_enabled(state, time),
             Action::WatchedAccounts(a) => a.is_enabled(state, time),
             Action::TransactionPool(a) => a.is_enabled(state, time),
