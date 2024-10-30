@@ -24,6 +24,7 @@ mod rpc_actions;
 pub use rpc_actions::*;
 
 mod rpc_reducer;
+pub use rpc_reducer::collect_rpc_peers_info;
 
 mod rpc_impls;
 
@@ -164,6 +165,7 @@ pub struct RpcPeerInfo {
     pub best_tip_timestamp: Option<u64>,
     pub connection_status: PeerConnectionStatus,
     pub address: Option<String>,
+    pub incoming: bool,
     pub time: u64,
 }
 
