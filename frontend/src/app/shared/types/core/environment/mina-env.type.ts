@@ -4,9 +4,10 @@ export interface MinaEnv {
   identifier?: string;
   hideToolbar?: boolean;
   hideNodeStats?: boolean;
+  canAddNodes?: boolean;
+  showWebNodeLandingPage?: boolean;
   globalConfig?: {
     features?: FeaturesConfig;
-    canAddNodes?: boolean;
     graphQL?: string;
   };
 }

@@ -5,6 +5,7 @@
 
 export default {
   production: true,
+  canAddNodes: true,
   globalConfig: {
     features: {
       'block-production': ['won-slots'],
@@ -12,7 +13,6 @@ export default {
       'benchmarks': ['wallets'],
       'snarks': ['scan-state', 'work-pool'],
     },
-    canAddNodes: true,
     graphQL: 'http://localhost:11010/graphql',
   },
   configs: [

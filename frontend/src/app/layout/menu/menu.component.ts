@@ -6,7 +6,9 @@ import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { AppActions } from '@app/app.actions';
 import {
+  getMergedRoute,
   ManualDetection,
+  MergedRoute,
   removeParamsFromURL,
   ThemeSwitcherService,
   ThemeType,
@@ -15,7 +17,6 @@ import {
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { filter, map, tap } from 'rxjs';
 import { CONFIG, getAvailableFeatures } from '@shared/constants/config';
-import { NavigationEnd, Router } from '@angular/router';
 import { MinaNetwork } from '@shared/types/core/mina/mina.type';
 
 interface MenuItem {
@@ -58,8 +59,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   network?: MinaNetwork;
   chainId?: string;
 
-  constructor(private router: Router,
-              private store: Store<MinaState>,
+  constructor(private store: Store<MinaState>,
               private themeService: ThemeSwitcherService) { super(); }
 
   ngOnInit(): void {
@@ -67,17 +67,18 @@ export class MenuComponent extends ManualDetection implements OnInit {
     this.listenToCollapsingMenu();
     this.listenToActiveNodeChange();
     let lastUrl: string;
-    this.router.events.pipe(
-      filter(event => event instanceof NavigationEnd),
-      map((event: any) => (event as NavigationEnd).urlAfterRedirects),
-      filter(url => url !== lastUrl),
-      tap(url => lastUrl = url),
-      map(removeParamsFromURL),
-      map(url => url.split('/')[1]),
-    ).subscribe((url: string) => {
-      this.activeRoute = url;
-      this.detect();
-    });
+    this.store.select(getMergedRoute)
+      .pipe(
+        filter(Boolean),
+        map((route: MergedRoute) => route.url),
+        filter(url => url !== lastUrl),
+        tap(url => lastUrl = url),
+        untilDestroyed(this),
+      )
+      .subscribe((url: string) => {
+        this.activeRoute = removeParamsFromURL(url).split('/')[1];
+        this.detect();
+      });
   }
 
   changeTheme(): void {

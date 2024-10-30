@@ -4,6 +4,7 @@
 
 export default {
   production: true,
+  canAddNodes: false,
   globalConfig: {
     features: {
       'dashboard': [],
@@ -14,7 +15,6 @@ export default {
       'snarks': ['scan-state', 'work-pool'],
       'benchmarks': ['wallets'],
     },
-    canAddNodes: false,
     graphQL: 'https://adonagy.com/graphql'
   },
   configs: [

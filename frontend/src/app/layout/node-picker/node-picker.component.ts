@@ -38,7 +38,7 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   parentInitialWidth: number = 0;
 
   @ViewChild('searchNode') searchInput: ElementRef<HTMLInputElement>;
-  readonly canAddNodes: boolean = CONFIG.globalConfig?.canAddNodes;
+  readonly canAddNodes: boolean = CONFIG.canAddNodes;
 
 
   constructor(private elementRef: ElementRef<HTMLElement>) { super(); }

@@ -7,6 +7,7 @@ import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Local FE',
+  canAddNodes: true,
   globalConfig: {
     features: {
       dashboard: [],
@@ -16,7 +17,6 @@ export const environment: Readonly<MinaEnv> = {
       mempool: [],
       'block-production': ['won-slots'],
     },
-    canAddNodes: true,
   },
   configs: [
     {

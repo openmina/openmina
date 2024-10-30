@@ -4,6 +4,8 @@
 
 export default {
   production: true,
+  canAddNodes: false,
+  showWebNodeLandingPage: true,
   globalConfig: {
     features: {
       'dashboard': [],
@@ -11,7 +13,6 @@ export default {
       'mempool': [],
       'benchmarks': ['wallets'],
     },
-    canAddNodes: false,
   },
   configs: [
     {

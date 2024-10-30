@@ -6,6 +6,7 @@
 export default {
   production: true,
   identifier: 'Running in Docker',
+  canAddNodes: true,
   globalConfig: {
     features: {
       dashboard: [],
@@ -13,7 +14,6 @@ export default {
       state: ['actions'],
       snarks: ['scan-state'],
     },
-    canAddNodes: true,
     graphQL: '/openmina-node/graphql',
   },
   configs: [
