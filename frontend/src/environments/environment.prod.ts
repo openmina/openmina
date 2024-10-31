@@ -10,4 +10,5 @@ export const environment: Readonly<MinaEnv> = {
   hideToolbar: env.hideToolbar,
   canAddNodes: env.canAddNodes,
   showWebNodeLandingPage: env.showWebNodeLandingPage,
+  sentry: env.sentry,
 };

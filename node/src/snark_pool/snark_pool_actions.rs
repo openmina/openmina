@@ -38,6 +38,7 @@ pub enum SnarkPoolAction {
     },
     #[action_event(level = trace)]
     P2pSendAll,
+    #[action_event(level = trace)]
     P2pSend {
         peer_id: PeerId,
     },

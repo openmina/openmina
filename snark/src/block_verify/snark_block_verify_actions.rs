@@ -9,8 +9,9 @@ pub type SnarkBlockVerifyActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Snark
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum SnarkBlockVerifyAction {
     Init {
-        req_id: SnarkBlockVerifyId,
         block: VerifiableBlockWithHash,
+
+        on_init: redux::Callback<(BlockHash, SnarkBlockVerifyId)>,
         on_success: redux::Callback<BlockHash>,
         on_error: redux::Callback<(BlockHash, SnarkBlockVerifyError)>,
     },
@@ -32,9 +33,7 @@ pub enum SnarkBlockVerifyAction {
 impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyAction {
     fn is_enabled(&self, state: &crate::SnarkState, _time: redux::Timestamp) -> bool {
         match self {
-            SnarkBlockVerifyAction::Init { req_id, .. } => {
-                state.block_verify.jobs.next_req_id() == *req_id
-            }
+            SnarkBlockVerifyAction::Init { .. } => true,
             SnarkBlockVerifyAction::Pending { req_id } => state
                 .block_verify
                 .jobs

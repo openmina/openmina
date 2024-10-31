@@ -31,6 +31,8 @@
     "@ngrx/router-store": "^17.2.0",
     "@ngrx/store": "^17.2.0",
     "@openmina/shared": "^0.102.0",
+    "@sentry/angular": "^8.35.0",
+    "@sentry/tracing": "^7.114.0",
     "base-x": "^5.0.0",
     "bs58check": "^4.0.0",
     "buffer": "^6.0.3",

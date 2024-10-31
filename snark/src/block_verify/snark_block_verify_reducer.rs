@@ -27,11 +27,11 @@ pub fn reducer<State, Action>(
     match action {
         SnarkBlockVerifyAction::Init {
             block,
-            req_id,
+            on_init,
             on_success,
             on_error,
         } => {
-            state.jobs.add(SnarkBlockVerifyStatus::Init {
+            let req_id = state.jobs.add(SnarkBlockVerifyStatus::Init {
                 time: meta.time(),
                 block: block.clone(),
                 on_success: on_success.clone(),
@@ -42,13 +42,14 @@ pub fn reducer<State, Action>(
             let verifier_index = state.verifier_index.clone();
             let verifier_srs = state.verifier_srs.clone();
             let dispatcher = state_context.into_dispatcher();
+            dispatcher.push_callback(on_init.clone(), (block.hash_ref().clone(), req_id));
             dispatcher.push(SnarkBlockVerifyEffectfulAction::Init {
-                req_id: *req_id,
+                req_id,
                 block: block.clone(),
                 verifier_index,
                 verifier_srs,
             });
-            dispatcher.push(SnarkBlockVerifyAction::Pending { req_id: *req_id });
+            dispatcher.push(SnarkBlockVerifyAction::Pending { req_id });
         }
         SnarkBlockVerifyAction::Pending { req_id } => {
             if let Some(req) = state.jobs.get_mut(*req_id) {
