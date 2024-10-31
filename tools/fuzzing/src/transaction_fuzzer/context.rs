@@ -5,7 +5,6 @@ use crate::transaction_fuzzer::{
 };
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
-use ledger::scan_state::currency::{Amount, Fee, Length, Magnitude, Nonce, Signed, Slot};
 use ledger::scan_state::transaction_logic::protocol_state::{
     protocol_state_view, EpochData, EpochLedger, ProtocolStateView,
 };
@@ -14,6 +13,10 @@ use ledger::scan_state::transaction_logic::transaction_applied::{
 };
 use ledger::scan_state::transaction_logic::{
     apply_transactions, Transaction, TransactionStatus, UserCommand,
+};
+use ledger::scan_state::{
+    currency::{Amount, Fee, Length, Magnitude, Nonce, Signed, Slot},
+    transaction_logic::transaction_applied,
 };
 use ledger::sparse_ledger::LedgerIntf;
 use ledger::staged_ledger::staged_ledger::StagedLedger;
@@ -1102,6 +1105,25 @@ impl FuzzerCtx {
             Ok(applied) => {
                 // For now we work with one transaction at a time
                 let applied = &applied[0];
+
+                match &applied.varying {
+                    transaction_applied::Varying::Command(command_applied) => {
+                        match command_applied {
+                            transaction_applied::CommandApplied::SignedCommand(
+                                _signed_command_applied,
+                            ) => {}
+                            transaction_applied::CommandApplied::ZkappCommand(
+                                zkapp_command_applied,
+                            ) => zkapp_command_applied
+                                .command
+                                .data
+                                .account_updates
+                                .accumulate_hashes(), // Needed because of delayed hashing
+                        }
+                    }
+                    transaction_applied::Varying::FeeTransfer(_fee_transfer_applied) => {}
+                    transaction_applied::Varying::Coinbase(_coinbase_applied) => {}
+                }
 
                 if expected_apply_result.apply_result.len() != 1 {
                     println!(

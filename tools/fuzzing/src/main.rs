@@ -278,15 +278,25 @@ fn main() {
                     .long("fuzzcase")
                     .value_name("FILE"),
             )
+            .arg(
+                clap::Arg::new("seed")
+                    .short('s')
+                    .long("seed")
+                    .default_value("42")
+                    .value_parser(clap::value_parser!(u64)),
+            )
             .get_matches();
 
         let mut child = Command::new(
-            &std::env::var("OCAML_TRANSACTION_FUZZER_PATH").unwrap_or_else(|_| {
-                format!(
-                    "{}/mina/_build/default/src/app/transaction_fuzzer/transaction_fuzzer.exe",
-                    std::env::var("HOME").unwrap()
-                )
-            }),
+            &std::env::var("OCAML_TRANSACTION_FUZZER_PATH").unwrap_or_else(
+                #[coverage(off)]
+                |_| {
+                    format!(
+                        "{}/mina/_build/default/src/app/transaction_fuzzer/transaction_fuzzer.exe",
+                        std::env::var("HOME").unwrap()
+                    )
+                },
+            ),
         )
         .arg("execute")
         .stdin(Stdio::piped())
@@ -302,8 +312,12 @@ fn main() {
             println!("Reproducing fuzzcase from file: {}", fuzzcase);
             transaction_fuzzer::reproduce(stdin, stdout, fuzzcase);
         } else {
-            println!("Running the fuzzer...");
-            transaction_fuzzer::fuzz(stdin, stdout, true, 42, 1000);
+            let Some(seed) = matches.get_one::<u64>("seed") else {
+                unreachable!()
+            };
+
+            println!("Running the fuzzer with seed {seed}...");
+            transaction_fuzzer::fuzz(stdin, stdout, true, *seed, 1000);
         }
     }
 }
