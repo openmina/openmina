@@ -11,17 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- *Webnode*: Peer discovery and p2p based signaling (so that webnodes can find each other).
-- *Webnode*: Connection authentication.
+- **Webnode**: Peer discovery and p2p based signaling (so that webnodes can find each other).
+- **Webnode**: Connection authentication.
 - Support for specifying external IPs.
 
 ### Fixed
 
-- *Ledger*: Fixed a regression introduced in v0.10.0 that caused the ZKApp precondition checks ordering to not match the OCaml implementation's exactly, which resulted in block application failures.
-- *Ledger*: Corrected handling of custom tokens in the block application logic.
-- *P2P*: Reduced excessive outgoing traffic.
-- *P2P*: Yamux fixes and improvements (backpressure).
-- *Webnode*: Staging ledger sync timeout.
+- **Ledger**: Fixed a regression introduced in v0.10.0 that caused the ZKApp precondition checks ordering to not match the OCaml implementation's exactly, which resulted in block application failures.
+- **Ledger**: Corrected handling of custom tokens in the block application logic.
+- **P2P**: Reduced excessive outgoing traffic.
+- **P2P**: Yamux fixes and improvements (backpressure).
+- **Webnode**: Staging ledger sync timeout.
 
 ## [0.10.3] - 2024-10-16
 
