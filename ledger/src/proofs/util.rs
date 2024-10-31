@@ -14,6 +14,7 @@ use super::{
     witness::Witness,
 };
 
+// REVIEW(dw): let's change this later.
 pub fn extract_polynomial_commitment<
     'a,
     F: FieldWitness,
@@ -32,6 +33,7 @@ pub fn extract_polynomial_commitment<
         .collect()
 }
 
+// REVIEW(dw): let's change this later.
 pub fn extract_bulletproof<
     'a,
     F: FieldWitness,

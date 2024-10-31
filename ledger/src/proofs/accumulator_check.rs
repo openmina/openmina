@@ -53,6 +53,11 @@ pub fn accumulator_check(
 
         comms.push(acc_comm);
     }
+    println!("Number of comms: {}", comms.len());
+    println!(
+        "Number of bulletproof_challenges: {}",
+        bulletproof_challenges.len()
+    );
 
     let acc_check = urs_utils::batch_dlog_accumulator_check(urs, &comms, &bulletproof_challenges);
 

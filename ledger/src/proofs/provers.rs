@@ -396,6 +396,7 @@ mod prover_makers {
     }
 }
 
+// REVIEW(dw)
 #[derive(Clone)]
 pub struct BlockProver {
     pub block_step_prover: Arc<Prover<Fp>>,

@@ -71,6 +71,8 @@ mod wasm {
     wasm_bindgen_test_configure!(run_in_browser);
 }
 
+// REVIEW(dw): OK replicate
+// https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L394
 fn validate_feature_flags(
     feature_flags: &PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags,
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
@@ -554,17 +556,30 @@ fn batch_verify(proofs: &[VerificationContext]) -> Result<(), VerifyError> {
     )
 }
 
+/// REVIEW(dw)
+/// Check
+/// https://github.com/MinaProtocol/mina/blob/ab9b4418a85c141b8a54d0b15a8bd3f5fa2f397f/src/lib/pickles/verify.ml#L42-L148
+/// This method takes a proof as an input and performs the following checks:
+/// - Check only one chunk is always used, i.e. chunking is not activated.
+///    ---> GOOD! Meaning we're gonna refuse proofs where chunking is used.
+/// - Check the feature flags
+/// -
 fn run_checks(
     proof: &PicklesProofProofsVerified2ReprStableV2,
     verifier_index: &VerifierIndex<Fq>,
 ) -> bool {
+    // --------------
+    // REVIEW(dw)
     let mut errors: Vec<String> = vec![];
+    // REVIEW(dw): simple closure to add errors.
     let mut checks = |condition: bool, s: &str| {
         if !condition {
             errors.push(s.to_string())
         }
     };
+    // --------------
 
+    // REVIEW(dw) only gathering everything to check if only one chunk is used.
     let non_chunking = {
         let PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
             w,
@@ -595,6 +610,10 @@ fn run_checks(
         } = &proof.prev_evals.evals.evals;
 
         // REVIEW(dw): TODO checking the semantic of iter on option
+        // REVIEW(dw): when we do have xor_selector.iter() with xor_selector to None, the length is 0.
+        // ```rust
+        // https://gist.github.com/rust-play/ffd7e60bf7ca9666a2744cf10e58624d
+        // ````
         let mut iter = w
             .iter()
             .chain(coefficients.iter())
@@ -628,7 +647,10 @@ fn run_checks(
     };
 
     checks(non_chunking, "only uses single chunks");
+    // End of check for chunking
 
+    // REVIEW(dw): check the feature flags. The method LGTM as it copies the
+    // Caml code.
     checks(
         validate_feature_flags(
             &proof
@@ -656,6 +678,8 @@ fn run_checks(
         let all_possible_domains = [13, 14, 15];
         let [greatest_wrap_domain, _, least_wrap_domain] = all_possible_domains;
 
+        // REVIEW(dw) Equivalent to
+        // https://github.com/MinaProtocol/mina/blob/ab9b4418a85c141b8a54d0b15a8bd3f5fa2f397f/src/lib/pickles/verify.ml#L135
         let actual_wrap_domain = verifier_index.domain.log_size_of_group;
         checks(
             actual_wrap_domain <= least_wrap_domain,
@@ -667,6 +691,8 @@ fn run_checks(
         );
     }
 
+    // --------------
+    // REVIEW(dw) just printing.
     for e in &errors {
         eprintln!("{:?}", e);
     }
@@ -677,6 +703,8 @@ fn run_checks(
 fn compute_deferred_values(
     proof: &PicklesProofProofsVerified2ReprStableV2,
 ) -> Result<DeferredValues<Fp>, InvalidBigInt> {
+    // REVIEW(dw) take all bp challenges and get only 128 bits out of them
+    // REVIEW(dw) see comment below for the 128 bits length.
     let bulletproof_challenges: Vec<Fp> = proof
         .statement
         .proof_state
@@ -690,6 +718,8 @@ fn compute_deferred_values(
         })
         .collect();
 
+    // REVIEW(dw) get all the deferred values (the previous scalars to verify) as 2 u64.
+    // This is to be passed as public inputs to the verifier.
     let deferred_values = {
         let old_bulletproof_challenges: Vec<[Fp; 16]> = proof
             .statement
@@ -698,6 +728,7 @@ fn compute_deferred_values(
             .iter()
             .map(|v| {
                 v.0.clone()
+                    // We trim here 128 bits.
                     .map(|v| two_u64_to_field(&v.prechallenge.inner.0.map(|v| v.as_u64())))
             })
             .collect();
@@ -773,6 +804,7 @@ pub fn verify_transaction<'a>(
         &VK,
     )> = Vec::with_capacity(128);
 
+    // REVIEW(dw): why 128?
     let mut accum_check_proofs: Vec<&PicklesProofProofsVerified2ReprStableV2> =
         Vec::with_capacity(128);
 
@@ -782,6 +814,8 @@ pub fn verify_transaction<'a>(
             accum_check_proofs.push(transaction_proof);
             inputs.push((statement, transaction_proof, &vk));
         });
+    println!("accum_check_proofs.len()={}", accum_check_proofs.len());
+    println!("inputs.len()={}", inputs.len());
 
     let accum_check =
         accumulator_check::accumulator_check(srs, &accum_check_proofs).unwrap_or(false);
@@ -828,6 +862,19 @@ pub fn verify_zkapp(
     ok
 }
 
+// REVIEW(dw)
+/// Main method regarding the verification of a proof.
+/// It is parametrized by an application state `AppState` which englobes the
+/// environment of the proof.
+/// The type of applications are:
+/// - zkapps
+/// - block
+/// - transaction
+/// The different type of instantiations are:
+/// - `verify_block`
+/// - `verify_transaction`
+/// - `verify_zkapp`
+/// and they use different (implicit) type parameters for the `AppState`.
 fn verify_impl<AppState>(
     app_state: &AppState,
     proof: &PicklesProofProofsVerified2ReprStableV2,
@@ -837,6 +884,10 @@ where
     AppState: ToFieldElements<Fp>,
 {
     let deferred_values = compute_deferred_values(proof)?;
+    // REVIEW(dw)
+    // Check
+    // https://github.com/MinaProtocol/mina/blob/ab9b4418a85c141b8a54d0b15a8bd3f5fa2f397f/src/lib/pickles/verify.ml#L42-L148
+
     let checks = run_checks(proof, vk.index);
 
     let message_for_next_step_proof = get_message_for_next_step_proof(

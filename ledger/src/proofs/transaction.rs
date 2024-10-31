@@ -164,6 +164,7 @@ pub mod scalar_challenge {
         assert_eq!((NBITS % bits_per_row), 0);
         let rows = NBITS / bits_per_row;
 
+        // REVIEW(dw): OK
         // TODO: Use arrays when const feature allows it
         // https://github.com/rust-lang/rust/issues/76560
         let nybbles_by_row: Vec<Vec<u64>> = (0..rows)
@@ -215,6 +216,7 @@ pub mod scalar_challenge {
         (a, b, n)
     }
 
+    // REVIEW(dw): OK
     // TODO: `scalar` might be a `F::Scalar` here
     pub fn to_field_checked<F, const NBITS: usize>(scalar: F, endo: F, w: &mut Witness<F>) -> F
     where
@@ -4835,7 +4837,7 @@ pub(super) mod tests {
         // Block proof
         #[allow(clippy::single_element_loop)]
         for (filename, fps_filename) in [
-            // ("block_input-2483246-0.bin", None),
+            ("block_input-2483246-0.bin", None),
             // ("block_prove_inputs_7.bin", None),
         ] {
             let data = std::fs::read(base_dir.join(filename)).unwrap();
@@ -4915,7 +4917,7 @@ pub(super) mod tests {
         // Same values than OCaml
         #[rustfmt::skip]
         let requests = [
-            // ("command-0-1.bin", "cbcb54861c5c65b7d454e7add9a780fa574f5145aa225387a287abe612925abb"),
+            ("command-0-1.bin", "cbcb54861c5c65b7d454e7add9a780fa574f5145aa225387a287abe612925abb"),
             // ("request_payment_1_rampup4.bin", "a5391b8ac8663a06a0a57ee6b6479e3cf4d95dfbb6d0688e439cb8c36cf187f6"),
             // ("coinbase_0_rampup4.bin", "a2ce1982938687ca3ba3b1994e5100090a80649aefb1f0d10f736a845dab2812"),
             // ("coinbase_1_rampup4.bin", "1120c9fe25078866e0df90fd09a41a2f5870351a01c8a7227d51a19290883efe"),
