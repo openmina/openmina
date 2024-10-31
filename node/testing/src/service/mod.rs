@@ -375,6 +375,24 @@ impl P2pServiceWebrtc for NodeTestingService {
     ) -> Result<T, ()> {
         self.real.decrypt(other_pub_key, encrypted)
     }
+
+    fn auth_encrypt_and_send(
+        &mut self,
+        peer_id: PeerId,
+        other_pub_key: &node::p2p::identity::PublicKey,
+        auth: webrtc::ConnectionAuth,
+    ) {
+        self.real
+            .auth_encrypt_and_send(peer_id, other_pub_key, auth)
+    }
+
+    fn auth_decrypt(
+        &mut self,
+        other_pub_key: &node::p2p::identity::PublicKey,
+        auth: webrtc::ConnectionAuthEncrypted,
+    ) -> Option<webrtc::ConnectionAuth> {
+        self.real.auth_decrypt(other_pub_key, auth)
+    }
 }
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {

@@ -84,5 +84,18 @@ pub mod webrtc {
             other_pub_key: &PublicKey,
             encrypted: &T::Encrypted,
         ) -> Result<T, ()>;
+
+        fn auth_encrypt_and_send(
+            &mut self,
+            peer_id: PeerId,
+            other_pub_key: &PublicKey,
+            auth: webrtc::ConnectionAuth,
+        );
+
+        fn auth_decrypt(
+            &mut self,
+            other_pub_key: &PublicKey,
+            auth: webrtc::ConnectionAuthEncrypted,
+        ) -> Option<webrtc::ConnectionAuth>;
     }
 }

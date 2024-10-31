@@ -8,3 +8,6 @@ pub use signal::{
 
 mod signaling_method;
 pub use signaling_method::{HttpSignalingInfo, SignalingMethod, SignalingMethodParseError};
+
+mod connection_auth;
+pub use connection_auth::{ConnectionAuth, ConnectionAuthEncrypted};

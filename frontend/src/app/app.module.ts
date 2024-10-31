@@ -1,4 +1,4 @@
-import { ErrorHandler, Injectable, LOCALE_ID, NgModule } from '@angular/core';
+import { APP_INITIALIZER, ErrorHandler, Injectable, LOCALE_ID, NgModule, Provider } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
 import { AppComponent } from './app.component';
@@ -32,6 +32,9 @@ import { StoreDevtoolsModule } from '@ngrx/store-devtools';
 import { HttpClientModule } from '@angular/common/http';
 import { NewNodeComponent } from './layout/new-node/new-node.component';
 import { ReactiveFormsModule } from '@angular/forms';
+import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
+import * as Sentry from '@sentry/angular';
+import { Router } from '@angular/router';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -40,7 +43,8 @@ registerLocaleData(localeEn, 'en');
 export class AppGlobalErrorhandler implements ErrorHandler {
   constructor(private errorHandlerService: GlobalErrorHandlerService) {}
 
-  handleError(error: any) {
+  handleError(error: any): void {
+    Sentry.captureException(error);
     this.errorHandlerService.handleError(error);
     console.error(error);
   }
@@ -74,18 +78,27 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     }),
     EffectsModule.forRoot([AppEffects]),
     NgrxRouterStoreModule,
-    !CONFIG.production ? StoreDevtoolsModule.instrument({ maxAge: 150 }) : [],
+    !CONFIG.production ? StoreDevtoolsModule.instrument({ maxAge: 150, connectInZone: true }) : [],
     HttpClientModule,
     MatSidenavModule,
     OpenminaEagerSharedModule,
     HorizontalMenuComponent,
     ReactiveFormsModule,
     CopyComponent,
+    WebNodeLandingPageComponent,
   ],
   providers: [
     THEME_PROVIDER,
     { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService] },
     { provide: LOCALE_ID, useValue: 'en' },
+    { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
+    { provide: Sentry.TraceService, deps: [Router] },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: () => () => {},
+      deps: [Sentry.TraceService],
+      multi: true,
+    },
   ],
   bootstrap: [AppComponent],
 })

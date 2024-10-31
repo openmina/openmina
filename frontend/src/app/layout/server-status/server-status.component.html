@@ -1,6 +1,6 @@
 <div class="wrapper fx-row-vert-cent"
      *ngIf="details"
-     [ngClass]="details.status">
+     [ngClass]="switchForbidden ? AppNodeStatus.PENDING : details.status">
   <ng-container *ngIf="!switchForbidden && !hideNodeStats">
     <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
          #mempoolAnchor
@@ -17,14 +17,14 @@
          (mouseenter)="openTooltipDropdown(peersAnchor, peers)"
          (mouseleave)="detachTooltipOverlay()">
       <span class="mina-icon icon-300 f-20">language</span>
-      <ng-container *ngIf="!isMobile">
+      @if (!isMobile) {
         <div>{{ details.peers }} <span>Peers</span></div>
         <div *ngIf="isOnline">{{ details.download }} / {{ details.upload }} <span>MBps</span></div>
-      </ng-container>
+      }
     </div>
   </ng-container>
-  <div class="node-status fx-row-vert-cent bg-surface h-sm border-rad-6 p-relative z-1 mr-10"
-       [class.can-add-nodes]="canAddNodes">
+  <div class="node-status fx-row-vert-cent bg-surface h-sm p-relative z-1 mr-10"
+       [class.can-add-nodes]="switchForbidden">
     <ng-container *ngIf="!switchForbidden && !hideNodeStats">
       <div class="shine-parent overflow-hidden p-absolute z-0 border-rad-6">
         <div *ngIf="details.status === AppNodeStatus.CATCHUP || details.status === AppNodeStatus.BOOTSTRAP"

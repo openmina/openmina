@@ -5,7 +5,7 @@ pub use crate::external_snark_worker::ExternalSnarkWorkerService;
 pub use crate::ledger::LedgerService;
 pub use crate::p2p::service::*;
 pub use crate::recorder::Recorder;
-pub use crate::rpc::RpcService;
+pub use crate::rpc_effectful::RpcService;
 pub use crate::snark::block_verify_effectful::SnarkBlockVerifyService;
 pub use crate::snark::work_verify_effectful::SnarkWorkVerifyService;
 pub use crate::snark_pool::SnarkPoolService;

@@ -24,12 +24,7 @@ mod rpc_actions;
 pub use rpc_actions::*;
 
 mod rpc_reducer;
-
-mod rpc_effects;
-pub use rpc_effects::*;
-
-mod rpc_service;
-pub use rpc_service::*;
+pub use rpc_reducer::collect_rpc_peers_info;
 
 mod rpc_impls;
 
@@ -128,14 +123,14 @@ impl TryFrom<RpcInjectPayment> for MinaBaseUserCommandStableV2 {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ActionStatsQuery {
     SinceStart,
     ForLatestBlock,
     ForBlockWithId(u64),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct SyncStatsQuery {
     pub limit: Option<usize>,
 }
@@ -170,6 +165,7 @@ pub struct RpcPeerInfo {
     pub best_tip_timestamp: Option<u64>,
     pub connection_status: PeerConnectionStatus,
     pub address: Option<String>,
+    pub incoming: bool,
     pub time: u64,
 }
 
@@ -490,8 +486,8 @@ pub struct RpcBlockProducerStats {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkerConfig {
-    public_key: NonZeroCurvePoint,
-    fee: CurrencyFeeStableV1,
+    pub public_key: NonZeroCurvePoint,
+    pub fee: CurrencyFeeStableV1,
 }
 
 #[derive(Serialize, Debug, Clone)]

@@ -49,7 +49,15 @@ impl P2pNetworkIdentifyStreamEffectfulAction {
                 peer_id,
                 stream_id,
             } => {
-                let mut listen_addrs = Vec::new();
+                let config = &store.state().config;
+                let ips = &config.external_addrs;
+                let port = config.libp2p_port.unwrap_or(8302);
+
+                let mut listen_addrs = ips
+                    .iter()
+                    .map(|ip| Multiaddr::from(*ip).with(multiaddr::Protocol::Tcp(port)))
+                    .collect::<Vec<_>>();
+
                 for addr in store
                     .state()
                     .network

@@ -4035,7 +4035,7 @@ export class BenchmarksWalletsService {
   }
 
   getAccounts(): Observable<Pick<BenchmarksWallet, 'publicKey' | 'privateKey' | 'minaTokens' | 'nonce'>[]> {
-    return this.rust.get<any[]>('/accounts').pipe(
+    return this.rust.get<AccountsResponse[]>('/accounts').pipe(
       map(wallets => wallets.map(wallet => {
         return ({
           privateKey: WALLETS.find(w => w.publicKey === wallet.public_key)?.privateKey,
@@ -4139,4 +4139,10 @@ export class BenchmarksWalletsService {
 
       });
   }
+}
+
+export interface AccountsResponse {
+  public_key: string;
+  nonce: number;
+  balance: number;
 }

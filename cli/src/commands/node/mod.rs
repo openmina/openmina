@@ -44,6 +44,10 @@ pub struct Node {
     #[arg(env = "MINA_LIBP2P_PASS")]
     pub libp2p_password: Option<String>,
 
+    /// List of external addresses at which this node is accessible
+    #[arg(long)]
+    pub libp2p_external_ip: Vec<String>,
+
     /// Http port to listen on
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
@@ -90,11 +94,13 @@ pub struct Node {
 
     /// Enable block producer with this key file
     ///
-    /// MINA_PRIVKEY_PASS must be set to decrypt the keyfile
+    /// MINA_PRIVKEY_PASS must be set to decrypt the keyfile if it is password-protected
     #[arg(long, env, group = "producer")]
     pub producer_key: Option<PathBuf>,
-    #[arg(env = "MINA_PRIVKEY_PASS")]
-    pub producer_key_password: Option<String>,
+
+    /// Password used to decrypt the producer key file.
+    #[arg(env = "MINA_PRIVKEY_PASS", default_value = "")]
+    pub producer_key_password: String,
 
     /// Address to send coinbase rewards to (if this node is producing blocks).
     /// If not provided, coinbase rewards will be sent to the producer
@@ -194,6 +200,12 @@ impl Node {
 
         node_builder.p2p_libp2p_port(self.libp2p_port);
 
+        node_builder.external_addrs(
+            self.libp2p_external_ip
+                .into_iter()
+                .filter_map(|s| s.parse().ok()),
+        );
+
         self.seed.then(|| node_builder.p2p_seed_node());
         self.no_peers_discovery
             .then(|| node_builder.p2p_no_discovery());
@@ -212,13 +224,12 @@ impl Node {
             .block_verifier_index(block_verifier_index.clone())
             .work_verifier_index(work_verifier_index.clone());
 
-        if let (Some(producer_key_path), Some(pasword)) =
-            (self.producer_key, &self.producer_key_password)
-        {
+        if let Some(producer_key_path) = self.producer_key {
+            let password = &self.producer_key_password;
             node::core::info!(node::core::log::system_time(); summary = "loading provers index");
             let provers = BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
             node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
-            node_builder.block_producer_from_file(provers, producer_key_path, pasword)?;
+            node_builder.block_producer_from_file(provers, producer_key_path, password)?;
 
             if let Some(pub_key) = self.coinbase_receiver {
                 node_builder

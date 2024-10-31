@@ -1,4 +1,4 @@
-use crate::{webrtc, PeerId};
+use crate::{identity::PublicKey, webrtc, PeerId};
 
 use super::outgoing::P2pConnectionOutgoingInitOpts;
 
@@ -19,4 +19,17 @@ pub trait P2pConnectionService: redux::Service {
     fn set_answer(&mut self, peer_id: PeerId, answer: webrtc::Answer);
 
     fn http_signaling_request(&mut self, url: String, offer: webrtc::Offer);
+
+    fn auth_encrypt_and_send(
+        &mut self,
+        peer_id: PeerId,
+        other_pub_key: &PublicKey,
+        auth: webrtc::ConnectionAuth,
+    );
+
+    fn auth_decrypt(
+        &mut self,
+        other_pub_key: &PublicKey,
+        auth: webrtc::ConnectionAuthEncrypted,
+    ) -> Option<webrtc::ConnectionAuth>;
 }

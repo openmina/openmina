@@ -1,4 +1,3 @@
-
 # The Open Mina Node
 
 ## With the Rust-based Open Mina node, you can produce, validate and apply blocks
@@ -7,15 +6,17 @@
 
 ## Run the Block Producer
 
-Once you have completed the [pre-requisites](https://github.com/openmina/openmina/blob/main/docs/producer-demo.md#prerequisites) for your operating system, follow these steps:
+Once you have completed the [pre-requisites](./docs/docker-installation.md) for your operating system, follow these steps:
 
 ### Setup Option 1: Download Docker Compose Files from the Release
 
 1. **Download the Docker Compose files:**
+
    - Go to the [Releases page](https://github.com/openmina/openmina/releases) of this repository.
    - Download the latest `openmina-vX.Y.Z-docker-compose.zip` (or `.tar.gz`) file corresponding to the release version (available since v0.8.0).
 
 2. **Extract the files:**
+
    - Unzip or untar the downloaded file:
      ```bash
      unzip openmina-vX.Y.Z-docker-compose.zip
@@ -34,6 +35,7 @@ Once you have completed the [pre-requisites](https://github.com/openmina/openmin
 ### Setup Option 2: Clone the Repository
 
 1. **Clone this repository:**
+
    ```bash
    git clone https://github.com/openmina/openmina.git
    ```
@@ -46,9 +48,10 @@ Once you have completed the [pre-requisites](https://github.com/openmina/openmin
 ### Launch
 
 **Run the following command to start the demo:**
-   ```bash
-   docker compose -f docker-compose.local.producers.yml up --pull always --force-recreate
-   ```
+
+```bash
+docker compose -f docker-compose.local.producers.yml up --pull always --force-recreate
+```
 
 And finally:
 
@@ -66,17 +69,15 @@ In the design of the Open Mina node, we are utilizing much of the same logic as 
 
 ## Overview of the Node’s current functionalities
 
-
-| Current functionalities | In Development | Future Plans |  
-|---------------------------------------------------------------------------------------------|--------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|  
-| &#9745; **Produce and prove blocks** (with and without transactions). | &#9744; Receiving and broadcasting transactions from/into the transaction pool. | &#9744; Direct transfer of MINA funds using Webnode |  
-| &#9745; **Produce SNARK proofs** for transactions. | &#9744; A block replayer that uses data from the archive nodes| &#9744; O1JS support for Webnode.|  
-| &#9745; **Connect to the network** and sync up to the best tip block | | |  
-| &#9745; **Validate and apply new blocks** and transactions to update consensus and ledger state. | | |  
-| &#9745; **Broadcast messages**: blocks, SNARK pool | | |
+| Current functionalities                                                                          | In Development                                                                  | Future Plans                                        |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------- |
+| &#9745; **Produce and prove blocks** (with and without transactions).                            | &#9744; Receiving and broadcasting transactions from/into the transaction pool. | &#9744; Direct transfer of MINA funds using Webnode |
+| &#9745; **Produce SNARK proofs** for transactions.                                               | &#9744; A block replayer that uses data from the archive nodes                  | &#9744; O1JS support for Webnode.                   |
+| &#9745; **Connect to the network** and sync up to the best tip block                             |                                                                                 |                                                     |
+| &#9745; **Validate and apply new blocks** and transactions to update consensus and ledger state. |                                                                                 |                                                     |
+| &#9745; **Broadcast messages**: blocks, SNARK pool                                               |                                                                                 |                                                     |
 
 Please note that receiving and broadcasting transactions from/into the transaction pool is already possible, but is still an early alpha version and needs more work.
-
 
 ## Updates to the Front End
 
@@ -86,7 +87,6 @@ We've added two new pages to the node's front end:
 
 ![image](https://github.com/user-attachments/assets/a66b993d-5a9f-42a7-a946-f19f6e18e6ab)
 
-
 Shows a list of the transactions from the pool and a side panel detail.
 
 ### Benchmarks
@@ -94,12 +94,11 @@ Shows a list of the transactions from the pool and a side panel detail.
 ![image](https://github.com/user-attachments/assets/5aa9f0b8-2f53-4c2e-8b60-ed2ccaa7335b)
 
 The benchmarks page helps us to send transactions. The transactions are signed in the front end by the Mina signer.
-Every user can send transactions and they can see in the mempool whether the transactions were sent by their node. 
+Every user can send transactions and they can see in the mempool whether the transactions were sent by their node.
 
 ## Launch the block producer demo
 
 Run the Open Mina block producer node by following this [guide](https://github.com/openmina/openmina/blob/main/docs/producer-demo.md).
-
 
 ## How to launch the node (with Docker compose):
 
@@ -112,7 +111,6 @@ docker compose up --pull always
 Then visit http://localhost:8070 in your browser.
 
 ![image](https://github.com/user-attachments/assets/b8e10a12-ec96-44a9-951a-ef0c1b291428)
-
 
 By default, `docker compose up` will use the latest node and frontend images available (tagged with `latest`), but specific versions can be selected by using the `OPENMINA_TAG` and `OPENMINA_FRONTEND_TAG` variables.
 
@@ -133,7 +131,7 @@ Ubuntu or Debian-based Linux distribution with the following packages installed:
 
 Example (debian-based):
 
-``` sh
+```sh
 # Either using "sudo" or as the "root" user
 sudo apt install curl git libssl-dev pkg-config protobuf-compiler build-essential
 ```
@@ -146,7 +144,7 @@ If you have not yet installed homebrew:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-``` sh
+```sh
 brew install curl git openssl pkg-config protobuf gcc make
 ```
 
@@ -175,12 +173,14 @@ cargo run --release -p cli node
 ### 1. Node.js v20.11.1
 
 #### MacOS
+
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install node@20.11.1
 ```
 
 #### Linux
+
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
 source ~/.bashrc
@@ -188,20 +188,25 @@ nvm install 20.11.1
 ```
 
 #### Windows
+
 Download [Node.js v20.11.1](https://nodejs.org/) from the official website, open the installer and follow the prompts to complete the installation.
 
 ### 2. Angular CLI v16.2.0
+
 ```bash
 npm install -g @angular/cli@16.2.0
 ```
 
 ### 3. Installation
+
 Open a terminal and navigate to this project's root directory
 
 ```bash
 cd PROJECT_LOCATION/openmina/frontend
 ```
+
 Install the dependencies
+
 ```bash
 npm install
 ```
@@ -226,9 +231,7 @@ npm start
 - [cli/](cli) - OpenMina cli.
 - [frontend/](frontend) - OpenMina frontend.
 
-
 [Details regarding architecture](ARCHITECTURE.md)
-
 
 ## The Open Mina Documentation
 
@@ -255,12 +258,9 @@ npm start
   - [Medium](https://medium.com/openmina)
   - [Twitter](https://twitter.com/viable_systems)
 
-
 [changelog]: ./CHANGELOG.md
 [changelog-badge]: https://img.shields.io/badge/changelog-Changelog-%23E05735
-
 [release-badge]: https://img.shields.io/github/v/release/openmina/openmina
 [release-link]: https://github.com/openmina/openmina/releases/latest
-
 [Apache licensed]: https://img.shields.io/badge/license-Apache_2.0-blue.svg
 [Apache link]: https://github.com/openmina/openmina/blob/master/LICENSE

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StateHash};
 use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
+use openmina_core::consensus::consensus_take;
 use openmina_core::{action_event, ActionEvent};
 use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyError;
@@ -53,6 +54,7 @@ pub enum ConsensusAction {
     BestTipUpdate {
         hash: StateHash,
     },
+    TransitionFrontierSyncTargetUpdate,
     P2pBestTipUpdate {
         best_tip: BlockWithHash<Arc<MinaBlockBlockStableV2>>,
     },
@@ -148,6 +150,24 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                 state
                     .consensus
                     .is_candidate_decided_to_use_as_tip(hash)
+            },
+            ConsensusAction::TransitionFrontierSyncTargetUpdate => {
+                let Some(best_tip) = state.consensus.best_tip_block_with_hash() else {
+                    return false;
+                };
+                // do not need to update transition frontier sync target.
+                if IntoIterator::into_iter([
+                    state.transition_frontier.best_tip(),
+                    state.transition_frontier.sync.best_tip(),
+                ])
+                .flatten()
+                .any(|b| b.hash() == best_tip.hash()
+                    || !consensus_take(b.consensus_state(), best_tip.consensus_state(), b.hash(), best_tip.hash())) {
+                    return false;
+                }
+
+                // has enough data
+                state.consensus.best_tip_chain_proof(&state.transition_frontier).is_some()
             },
             ConsensusAction::P2pBestTipUpdate { .. } => true,
             ConsensusAction::Prune => {

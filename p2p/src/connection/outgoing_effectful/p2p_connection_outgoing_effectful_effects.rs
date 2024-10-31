@@ -4,7 +4,8 @@ use redux::ActionMeta;
 use crate::{
     connection::{
         outgoing::{
-            P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState,
+            P2pConnectionOutgoingAction, P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts,
+            P2pConnectionOutgoingState,
         },
         P2pConnectionService, P2pConnectionState,
     },
@@ -70,6 +71,34 @@ impl P2pConnectionOutgoingEffectfulAction {
             P2pConnectionOutgoingEffectfulAction::AnswerSet { peer_id, answer } => {
                 store.service().set_answer(peer_id, *answer);
                 store.dispatch(P2pConnectionOutgoingAction::FinalizePending { peer_id });
+            }
+            P2pConnectionOutgoingEffectfulAction::ConnectionAuthorizationEncryptAndSend {
+                peer_id,
+                other_pub_key,
+                auth,
+            } => {
+                store
+                    .service()
+                    .auth_encrypt_and_send(peer_id, &other_pub_key, auth);
+            }
+            P2pConnectionOutgoingEffectfulAction::ConnectionAuthorizationDecryptAndCheck {
+                peer_id,
+                other_pub_key,
+                expected_auth,
+                auth,
+            } => {
+                if store
+                    .service()
+                    .auth_decrypt(&other_pub_key, auth)
+                    .map_or(false, |remote_auth| remote_auth == expected_auth)
+                {
+                    store.dispatch(P2pConnectionOutgoingAction::Success { peer_id });
+                } else {
+                    store.dispatch(P2pConnectionOutgoingAction::Error {
+                        peer_id,
+                        error: P2pConnectionOutgoingError::ConnectionAuthError,
+                    });
+                }
             }
         }
     }

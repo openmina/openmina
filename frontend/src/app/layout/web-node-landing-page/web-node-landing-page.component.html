@@ -1,0 +1,130 @@
+<div class="landing-page flex-column">
+  <div class="welcome-container p-relative flex-column align-center pl-10 pr-10">
+    <div class="logo f-300 raleway w-100 fx-row-vert-cent">
+      <img ngSrc="assets/images/logo/logo-text.svg" height="40" width="136"/>
+    </div>
+    <div class="flex-column flex-grow align-center flex-center">
+      <!--      <div class="demo border-rad-6 flex-column flex-center align-center">Mina Dev-net Demo</div>-->
+      <h1 class="f-page-title mt-0 text-center">
+        With the Web Node, anyone can produce blocks directly through their browser
+      </h1>
+      <div class="f-description text-center tertiary">An in-browser Mina node capable of producing and
+        validating blocks
+      </div>
+      <button class="launch f-500 border-rad-6 flex-row align-center flex-center cta-primary"
+              (click)="goToNode.emit()">Launch Block Producer
+      </button>
+      <img class="mina-svg" ngSrc="assets/images/logo/text-logo-text.svg" height="40" width="346"/>
+    </div>
+  </div>
+
+  <!--
+    <div class="card-list flex-row flex-center align-center flex-column-md flex-between-md">
+      <div class="card-wrapper">
+        <div class="card bg-base h-100 w-100">
+          <div class="flex-row align-center">
+            <span class="mina-icon icon-200">local_police</span>
+            <span class="f-feature f-500 ml-10">Security</span>
+          </div>
+          <div class="tertiary f-body">
+            Distributing control across multiple Web Nodes makes it difficult for malicious actors to compromise the
+            network.
+          </div>
+        </div>
+      </div>
+      <div class="card-wrapper">
+        <div class="card bg-base h-100 w-100">
+          <div class="flex-row align-center">
+            <span class="mina-icon icon-200">ad_units</span>
+            <span class="f-feature f-500 ml-10">Flexibility</span>
+          </div>
+          <div class="tertiary f-body">
+            Launch the Web Block Producer from any desktop browser for seamless block production.
+          </div>
+        </div>
+      </div>
+      <div class="card-wrapper">
+        <div class="card bg-base h-100 w-100">
+          <div class="flex-row align-center">
+            <span class="mina-icon icon-200">flag</span>
+            <span class="f-feature f-500 ml-10">Inclusivity</span>
+          </div>
+          <div class="tertiary f-body">
+            Each new Web Node launched further democratizes the Mina blockchain and makes it even more transparent.
+          </div>
+        </div>
+      </div>
+    </div>
+  -->
+
+  <div class="wrapper flex-column align-center">
+    <!--    <div class="page-title-2 f-section-title text-center text-nowrap">How the demo works</div>-->
+    <div
+      class="hardcoded-key border-rad-6 text-center pt-10 pb-10 flex-row flex-wrap flex-center align-center p-12">
+      <strong>
+        <span class="p-relative">
+          <span class="warn-icon mina-icon mr-5 icon-500 p-absolute">warning</span>Running
+        </span>
+        <span>on Devnet with&nbsp;</span>
+        <span>Hardcoded Keys.</span>
+      </strong>
+      The private key is pre-set,&nbsp;<span>and the stake is delegated to it.</span>
+    </div>
+  </div>
+
+  <div class="images flex-column">
+    <div class="step flex-column w-100">
+      <div class="flex-row align-center w-100">
+        <div class="step-num f-700 flex-column align-center flex-center">1</div>
+        <div class="step-text">Watch the Web Node Sync with the Network</div>
+      </div>
+      <div class="flex-row align-center w-100">
+        <div class="bar-container">
+          <div class="bar"></div>
+        </div>
+        <div class="img-border-container">
+          <img src="assets/images/web-node-demo/dashboard-photo.png" alt="block producer">
+        </div>
+      </div>
+    </div>
+    <div class="step flex-column w-100">
+      <div class="flex-row align-center w-100">
+        <div class="step-num f-700 flex-column align-center flex-center">2</div>
+        <div class="step-text">See Upcoming Won Slots and Block Production</div>
+      </div>
+      <div class="flex-row align-center w-100">
+        <div class="bar-container">
+          <div class="bar"></div>
+        </div>
+        <div class="img-border-container">
+          <img src="assets/images/web-node-demo/block-producer-photo.png" alt="block producer">
+        </div>
+      </div>
+    </div>
+    <div class="step flex-column w-100">
+      <div class="flex-row align-center w-100">
+        <div class="step-num f-700 flex-column align-center flex-center">3</div>
+        <div class="step-text">Use the Benchmark Page to Send Transactions</div>
+      </div>
+      <div class="flex-row align-center w-100">
+        <div class="bar-container">
+          <div class="bar"></div>
+        </div>
+        <div class="img-border-container">
+          <img src="assets/images/web-node-demo/benchmarks-photo.png" alt="block producer">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrapper flex-column align-center">
+    <div class="page-title-2 f-section-title text-center">Try the demo now</div>
+    <div class="page-title-2-descr f-description tertiary text-center">
+      Sync, produce blocks, and send transactions
+    </div>
+    <button class="launch f-500 border-rad-6 flex-row align-center flex-center cta-primary"
+            (click)="goToNode.emit()">Launch Block Producer
+    </button>
+  </div>
+
+</div>

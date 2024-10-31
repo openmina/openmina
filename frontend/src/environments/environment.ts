@@ -3,6 +3,8 @@ import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
+  canAddNodes: true,
+  showWebNodeLandingPage: true,
   globalConfig: {
     features: {
       dashboard: [],
@@ -16,7 +18,6 @@ export const environment: Readonly<MinaEnv> = {
       benchmarks: ['wallets'],
       zk: ['test'],
     },
-    canAddNodes: true,
     graphQL: 'https://adonagy.com/graphql',
     // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
     // graphQL: 'http://65.109.105.40:5000/graphql',

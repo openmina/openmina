@@ -1,5 +1,5 @@
 use node::{
-    p2p::{P2pConnectionEvent, P2pEvent, PeerId},
+    p2p::{webrtc::ConnectionAuthEncrypted, P2pConnectionEvent, P2pEvent, PeerId},
     rpc::{RpcId, RpcRequest},
 };
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ pub use node::event_source::Event;
 pub enum NonDeterministicEvent {
     /// Non-deterministic because libp2p kademlia initiates connections
     /// without state machine knowing about it.
-    P2pConnectionFinalized(PeerId, Result<(), String>),
+    P2pConnectionFinalized(PeerId, Result<ConnectionAuthEncrypted, String>),
     P2pConnectionClosed(PeerId),
 
     RpcReadonly(RpcId, Box<RpcRequest>),

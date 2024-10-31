@@ -10,8 +10,16 @@ import {
   ViewContainerRef,
 } from '@angular/core';
 import { AppSelectors } from '@app/app.state';
-import { filter, take } from 'rxjs';
-import { isDesktop, isMobile, MAX_WIDTH_700, ONE_MILLION } from '@openmina/shared';
+import { filter, map, take } from 'rxjs';
+import {
+  getMergedRoute,
+  isDesktop,
+  isMobile,
+  MAX_WIDTH_700,
+  MergedRoute,
+  ONE_MILLION,
+  removeParamsFromURL,
+} from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { ComponentPortal, TemplatePortal } from '@angular/cdk/portal';
@@ -24,6 +32,9 @@ import { getTimeDiff } from '@shared/helpers/date.helper';
 import { CONFIG } from '@shared/constants/config';
 import { animate, state, style, transition, trigger } from '@angular/animations';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
+import { Routes } from '@shared/enums/routes.enum';
+import { NavigationEnd, Router } from '@angular/router';
+import { untilDestroyed } from '@ngneat/until-destroy';
 
 @Component({
   selector: 'mina-server-status',
@@ -49,7 +60,7 @@ import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 export class ServerStatusComponent extends StoreDispatcher implements OnInit {
 
   protected readonly AppNodeStatus = AppNodeStatus;
-  protected readonly canAddNodes = CONFIG.globalConfig?.canAddNodes;
+  protected readonly canAddNodes = CONFIG.canAddNodes;
 
   @Input() switchForbidden: boolean;
 
@@ -68,12 +79,14 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
   private nodePickerComponent: ComponentRef<NodePickerComponent>;
   private newNodeComponent: ComponentRef<NewNodeComponent>;
 
-  constructor(private overlay: Overlay,
+  constructor(private router: Router,
+              private overlay: Overlay,
               private viewContainerRef: ViewContainerRef) { super(); }
 
   ngOnInit(): void {
     this.listenToMenuChange();
     this.listenToNodeChanges();
+    this.listenToRouterChange();
   }
 
   private listenToMenuChange(): void {
@@ -99,6 +112,16 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
       this.details = activeNodeDetails;
       this.isOnline = ![AppNodeStatus.PENDING, AppNodeStatus.OFFLINE].includes(activeNodeDetails?.status);
       this.blockTimeAgo = getTimeDiff(activeNodeDetails?.blockTime / ONE_MILLION).diff;
+      this.detect();
+    });
+  }
+
+  private listenToRouterChange(): void {
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      untilDestroyed(this),
+    ).subscribe(() => {
+      this.switchForbidden = location.pathname.includes(Routes.NODES + '/' + Routes.OVERVIEW);
       this.detect();
     });
   }

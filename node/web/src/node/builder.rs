@@ -207,10 +207,6 @@ impl NodeBuilder {
             anyhow::anyhow!("transaction verifier index not set on the node builder!")
         })?;
 
-        let initial_time = self
-            .custom_initial_time
-            .unwrap_or_else(redux::Timestamp::global_now);
-
         let transition_frontier = TransitionFrontierConfig::new(self.genesis_config);
 
         let protocol_constants = transition_frontier.genesis.protocol_constants()?;
@@ -230,13 +226,12 @@ impl NodeBuilder {
                 listen_port: None,
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
+                external_addrs: vec![],
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.p2p_no_discovery,
                 meshsub: P2pMeshsubConfig {
-                    initial_time: initial_time
-                        .checked_sub(redux::Timestamp::ZERO)
-                        .unwrap_or_default(),
+                    initial_time: Duration::ZERO,
                     ..Default::default()
                 },
                 timeouts: P2pTimeouts::default(),
@@ -267,6 +262,10 @@ impl NodeBuilder {
         }
 
         let service = service.build()?;
+
+        let initial_time = self
+            .custom_initial_time
+            .unwrap_or_else(redux::Timestamp::global_now);
         let state = node::State::new(node_config, &consensus_consts, initial_time);
 
         Ok(Node::new(self.rng_seed, state, service, None))

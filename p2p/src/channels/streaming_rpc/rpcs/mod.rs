@@ -144,6 +144,12 @@ impl P2pStreamingRpcReceiveProgress {
         }
     }
 
+    pub fn last_updated(&self) -> redux::Timestamp {
+        match self {
+            Self::StagedLedgerParts(s) => s.last_updated(),
+        }
+    }
+
     pub fn update(&mut self, time: redux::Timestamp, resp: P2pStreamingRpcResponse) -> bool {
         match (self, resp) {
             (

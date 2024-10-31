@@ -20,14 +20,17 @@ use serde::{Deserialize, Serialize};
 use node::core::channels::{mpsc, oneshot};
 use node::core::requests::PendingRequests;
 use node::p2p::connection::P2pConnectionResponse;
-pub use node::rpc::{
-    ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
-    RpcP2pConnectionOutgoingResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse,
-    RpcSyncStatsGetResponse, RpcTransactionInjectSuccess,
-};
 use node::State;
 use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
+pub use node::{
+    rpc::{
+        ActionStatsResponse, RpcActionStatsGetResponse, RpcId, RpcIdType,
+        RpcP2pConnectionOutgoingResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
+        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse,
+        RpcSyncStatsGetResponse, RpcTransactionInjectSuccess,
+    },
+    rpc_effectful::RespondError,
+};
 
 use crate::NodeService;
 
@@ -176,7 +179,7 @@ fn optimize_filtered_state(
     Ok((value, filter))
 }
 
-impl node::rpc::RpcService for NodeService {
+impl node::rpc_effectful::RpcService for NodeService {
     fn respond_state_get(
         &mut self,
         rpc_id: RpcId,

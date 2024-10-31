@@ -1,17 +1,17 @@
-version: '3.8'
-
 services:
   openmina-node:
     image: openmina/openmina:${OPENMINA_TAG:-latest}
     entrypoint: >
-      sh -c 'openmina node --producer-key /root/.openmina/producer-key ${COINBASE_RECEIVER:+--coinbase-receiver $COINBASE_RECEIVER}'
+      sh -c "openmina node --producer-key /root/.openmina/producer-key $${COINBASE_RECEIVER:+--coinbase-receiver $$COINBASE_RECEIVER} $${OPENMINA_LIBP2P_EXTERNAL_IP:+--libp2p-external-ip $$OPENMINA_LIBP2P_EXTERNAL_IP}"
     ports:
       - "3000:3000"
+      - "8302:8302"
     volumes:
       - ./openmina-workdir:/root/.openmina:rw
     environment:
       MINA_PRIVKEY_PASS: "${MINA_PRIVKEY_PASS:-}"
       COINBASE_RECEIVER: "${COINBASE_RECEIVER:-}"
+      OPENMINA_LIBP2P_EXTERNAL_IP: "${OPENMINA_LIBP2P_EXTERNAL_IP}"
 
   frontend:
     image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}

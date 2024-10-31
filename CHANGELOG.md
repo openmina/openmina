@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2024-10-31
+
+### Added
+
+- **Webnode**: Peer discovery and p2p based signaling (so that webnodes can find each other).
+- **Webnode**: Connection authentication.
+- Support for specifying external IPs.
+
+### Fixed
+
+- **Ledger**: Fixed a regression introduced in v0.10.0 that caused the ZKApp precondition checks ordering to not match the OCaml implementation's exactly, which resulted in block application failures.
+- **Ledger**: Corrected handling of custom tokens in the block application logic.
+- **P2P**: Reduced excessive outgoing traffic.
+- **P2P**: Yamux fixes and improvements (backpressure).
+- **Webnode**: Staging ledger sync timeout.
+
 ## [0.10.3] - 2024-10-16
 
 ### Added
@@ -289,7 +305,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.10.3...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.11.0...develop
+[0.11.0]: https://github.com/openmina/openmina/releases/tag/v0.10.3...v0.11.0
 [0.10.3]: https://github.com/openmina/openmina/releases/tag/v0.10.0...v0.10.3
 [0.10.0]: https://github.com/openmina/openmina/releases/tag/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/openmina/openmina/releases/tag/v0.8.14...v0.9.0

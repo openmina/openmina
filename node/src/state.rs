@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
+use rand::prelude::*;
 
 use openmina_core::block::BlockWithHash;
 use openmina_core::requests::RpcId;
@@ -250,6 +251,10 @@ impl State {
     #[inline(always)]
     pub fn time(&self) -> Timestamp {
         self.last_action.time()
+    }
+
+    pub fn pseudo_rng(&self) -> StdRng {
+        StdRng::seed_from_u64(self.time().into())
     }
 
     /// Must be called in the global reducer as the last thing only once

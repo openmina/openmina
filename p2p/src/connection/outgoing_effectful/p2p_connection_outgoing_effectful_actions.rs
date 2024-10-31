@@ -5,7 +5,9 @@ use openmina_core::requests::RpcId;
 
 use crate::{
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionEffectfulAction},
-    webrtc, P2pState, PeerId,
+    identity::PublicKey,
+    webrtc::{self, ConnectionAuth},
+    P2pState, PeerId,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -27,6 +29,17 @@ pub enum P2pConnectionOutgoingEffectfulAction {
     AnswerSet {
         peer_id: PeerId,
         answer: Box<webrtc::Answer>,
+    },
+    ConnectionAuthorizationEncryptAndSend {
+        peer_id: PeerId,
+        other_pub_key: PublicKey,
+        auth: ConnectionAuth,
+    },
+    ConnectionAuthorizationDecryptAndCheck {
+        peer_id: PeerId,
+        other_pub_key: PublicKey,
+        expected_auth: ConnectionAuth,
+        auth: webrtc::ConnectionAuthEncrypted,
     },
 }
 

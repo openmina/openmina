@@ -3,7 +3,7 @@ use std::{collections::btree_map::Entry, sync::Arc};
 use binprot::BinProtRead;
 use mina_p2p_messages::{gossip, v2};
 use openmina_core::{block::BlockWithHash, bug_condition, fuzz_maybe, fuzzed_maybe, Substate};
-use redux::Dispatcher;
+use redux::{Dispatcher, Timestamp};
 
 use crate::{
     channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
@@ -28,7 +28,7 @@ impl P2pNetworkPubsubState {
         Action: crate::P2pActionTrait<State>,
     {
         let pubsub_state = state_context.get_substate_mut()?;
-        let (action, _meta) = action.split();
+        let (action, meta) = action.split();
 
         match action {
             P2pNetworkPubsubAction::NewStream {
@@ -125,7 +125,7 @@ impl P2pNetworkPubsubState {
                 seen_limit,
                 ..
             } => {
-                pubsub_state.reduce_incoming_data(&peer_id, data)?;
+                pubsub_state.reduce_incoming_data(&peer_id, data, meta.time())?;
 
                 let dispatcher: &mut Dispatcher<Action, State> = state_context.into_dispatcher();
                 dispatcher.push(P2pNetworkPubsubEffectfulAction::IncomingData {
@@ -447,7 +447,12 @@ impl P2pNetworkPubsubState {
         Ok(())
     }
 
-    fn reduce_incoming_data(&mut self, peer_id: &PeerId, data: Data) -> Result<(), String> {
+    fn reduce_incoming_data(
+        &mut self,
+        peer_id: &PeerId,
+        data: Data,
+        timestamp: Timestamp,
+    ) -> Result<(), String> {
         let Some(state) = self.clients.get_mut(peer_id) else {
             // TODO: investigate, cannot reproduce this
             // bug_condition!("State not found for action: P2pNetworkPubsubAction::IncomingData");
@@ -529,14 +534,19 @@ impl P2pNetworkPubsubState {
             }
         }
 
-        for ihave in &control.ihave {
-            let message_ids = ihave
-                .message_ids
-                .iter()
-                .filter(|msg_id| !self.mcache.map.contains_key(*msg_id))
-                .cloned()
-                .collect();
-            if let Some(client) = self.clients.get_mut(peer_id) {
+        for ihave in control.ihave {
+            if self.clients.contains_key(peer_id) {
+                let message_ids = ihave
+                    .message_ids
+                    .into_iter()
+                    .filter(|message_id| self.filter_iwant_message_ids(message_id, timestamp))
+                    .collect::<Vec<_>>();
+
+                let Some(client) = self.clients.get_mut(peer_id) else {
+                    bug_condition!("State not found for {}", peer_id);
+                    return Ok(());
+                };
+
                 let ctr = client.message.control.get_or_insert_with(Default::default);
                 ctr.iwant.push(pb::ControlIWant { message_ids })
             }

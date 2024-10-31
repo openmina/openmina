@@ -2,7 +2,8 @@ use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
     disconnection_effectful::P2pDisconnectionService,
-    identity::SecretKey,
+    identity::{PublicKey, SecretKey},
+    webrtc::{ConnectionAuth, ConnectionAuthEncrypted},
     P2pChannelEvent, P2pEvent, PeerId,
 };
 
@@ -112,6 +113,23 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
 
     fn http_signaling_request(&mut self, url: String, offer: crate::webrtc::Offer) {
         P2pServiceWebrtc::http_signaling_request(self, url, offer)
+    }
+
+    fn auth_encrypt_and_send(
+        &mut self,
+        peer_id: PeerId,
+        other_pub_key: &PublicKey,
+        auth: ConnectionAuth,
+    ) {
+        P2pServiceWebrtc::auth_encrypt_and_send(self, peer_id, other_pub_key, auth)
+    }
+
+    fn auth_decrypt(
+        &mut self,
+        other_pub_key: &PublicKey,
+        auth: ConnectionAuthEncrypted,
+    ) -> Option<ConnectionAuth> {
+        P2pServiceWebrtc::auth_decrypt(self, other_pub_key, auth)
     }
 }
 

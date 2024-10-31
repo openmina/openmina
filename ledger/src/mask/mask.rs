@@ -100,7 +100,6 @@ impl Mask {
         let mask = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
-                token_to_account: Default::default(),
                 id_to_addr: Default::default(),
                 last_location: None,
                 depth: depth as u8,
@@ -290,6 +289,21 @@ impl Mask {
     fn test_matrix(&self) -> HashesMatrix {
         self.with(|this| this.test_matrix())
     }
+
+    /// Use for fuzzing only
+    #[cfg(feature = "fuzzing")]
+    pub fn fuzzing_to_root(&self) -> Mask {
+        let accounts = self.to_list();
+        let mut new_root = Self::create(self.depth() as usize);
+
+        for account in accounts {
+            new_root
+                .get_or_create_account(account.id(), account)
+                .unwrap();
+        }
+
+        new_root
+    }
 }
 
 impl BaseLedger for Mask {
@@ -327,14 +341,6 @@ impl BaseLedger for Mask {
 
     fn accounts(&self) -> HashSet<AccountId> {
         self.with(|this| this.accounts())
-    }
-
-    fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
-        self.with(|this| this.token_owner(token_id))
-    }
-
-    fn token_owners(&self) -> HashSet<AccountId> {
-        self.with(|this| this.token_owners())
     }
 
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {

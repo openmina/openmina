@@ -7,6 +7,7 @@ import { Selector, Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { concatLatestFrom } from '@ngrx/effects';
 import { TypedAction } from '@ngrx/store/src/models';
+import * as Sentry from '@sentry/angular';
 
 export const catchErrorAndRepeat = <T>(errType: MinaErrorType, type: string, payload?: any): OperatorFunction<T, ErrorAdd | T | FeatureAction<any>> => {
   return (source: Observable<T>) =>
@@ -21,6 +22,7 @@ export const catchErrorAndRepeat = <T>(errType: MinaErrorType, type: string, pay
 
 export const addError = (error: HttpErrorResponse | Error, type: MinaErrorType): ErrorAdd => {
   console.error(error);
+  Sentry.captureException(error, { tags: { type } });
   return {
     type: ADD_ERROR,
     payload: {

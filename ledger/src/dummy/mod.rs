@@ -5,10 +5,10 @@ use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 
 pub use openmina_core::dummy::*;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzzing"))]
 use crate::VerificationKey;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzzing"))]
 pub mod for_tests;
 
 /// Value of `vk` when we run `dune runtest src/lib/staged_ledger -f`
@@ -24,7 +24,7 @@ pub mod for_tests;
 ///
 /// Core.Printf.eprintf !"vk=%{sexp: (Side_loaded_verification_key.t, Frozen_ledger_hash.t) With_hash.t}\n%!" vk;
 /// Core.Printf.eprintf !"vk_binprot=[%s]\n%!" s;
-#[cfg(test)] // Used for tests only
+#[cfg(any(test, feature = "fuzzing"))] // Used for tests/fuzzing only
 pub fn trivial_verification_key() -> VerificationKey {
     use mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1;
 

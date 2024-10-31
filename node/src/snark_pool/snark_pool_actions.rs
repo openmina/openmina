@@ -36,7 +36,9 @@ pub enum SnarkPoolAction {
         snark: Snark,
         sender: PeerId,
     },
+    #[action_event(level = trace)]
     P2pSendAll,
+    #[action_event(level = trace)]
     P2pSend {
         peer_id: PeerId,
     },
@@ -78,6 +80,8 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
             SnarkPoolAction::P2pSend { peer_id } => state
                 .p2p
                 .get_ready_peer(peer_id)
+                // can't propagate empty snarkpool
+                .filter(|_| !state.snark_pool.is_empty())
                 // Only send commitments/snarks if peer has the same best tip,
                 // or its best tip is extension of our best tip. In such case
                 // no commitment/snark will be dropped by peer, because it

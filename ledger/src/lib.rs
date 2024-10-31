@@ -40,7 +40,7 @@ mod cache;
 #[cfg(all(not(target_family = "wasm"), feature = "ocaml-interop"))]
 mod ffi;
 
-#[cfg(test)]
+#[cfg(any(test, feature = "fuzzing"))]
 pub mod generators;
 
 mod account;

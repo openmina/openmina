@@ -1,4 +1,5 @@
 use openmina_core::log::system_time;
+use rand::prelude::*;
 
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::event_source::event_source_effects;
@@ -7,7 +8,7 @@ use crate::ledger::ledger_effects;
 use crate::ledger::read::LedgerReadAction;
 use crate::logger::logger_effects;
 use crate::p2p::node_p2p_effects;
-use crate::rpc::rpc_effects;
+use crate::rpc_effectful::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
@@ -86,7 +87,10 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::ExternalSnarkWorker(action) => {
             external_snark_worker_effects(store, meta.with_action(action));
         }
-        Action::Rpc(action) => {
+        Action::Rpc(_) => {
+            // Handled by reducer
+        }
+        Action::RpcEffectful(action) => {
             rpc_effects(store, meta.with_action(action));
         }
         Action::WatchedAccounts(_) => {
@@ -120,10 +124,12 @@ use mina_p2p_messages::v2::StateHash;
 
 fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: Option<StateHash>) {
     let p2p = p2p_ready!(store.state().p2p, "request_best_tip", system_time());
-    if let Some((peer_id, id)) = p2p.ready_rpc_peers_iter().last() {
+
+    let peers = p2p.ready_rpc_peers_iter().collect::<Vec<_>>();
+    if let Some((peer_id, id)) = peers.choose(&mut store.state().pseudo_rng()) {
         store.dispatch(P2pChannelsRpcAction::RequestSend {
-            peer_id,
-            id,
+            peer_id: *peer_id,
+            id: *id,
             request: Box::new(P2pRpcRequest::BestTipWithProof),
             on_init: None,
         });

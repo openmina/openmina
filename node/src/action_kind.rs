@@ -73,6 +73,7 @@ use crate::p2p::network::{P2pNetworkAction, P2pNetworkEffectfulAction};
 use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
+use crate::rpc_effectful::RpcEffectfulAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
 use crate::snark::user_command_verify::SnarkUserCommandVerifyAction;
@@ -156,6 +157,7 @@ pub enum ActionKind {
     ConsensusP2pBestTipUpdate,
     ConsensusPrune,
     ConsensusShortRangeForkResolve,
+    ConsensusTransitionFrontierSyncTargetUpdate,
     EventSourceNewEvent,
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
@@ -318,7 +320,8 @@ pub enum ActionKind {
     P2pConnectionIncomingLibp2pReceived,
     P2pConnectionIncomingSuccess,
     P2pConnectionIncomingTimeout,
-    P2pConnectionIncomingEffectfulAnswerSend,
+    P2pConnectionIncomingEffectfulConnectionAuthorizationDecryptAndCheck,
+    P2pConnectionIncomingEffectfulConnectionAuthorizationEncryptAndSend,
     P2pConnectionIncomingEffectfulInit,
     P2pConnectionOutgoingAnswerRecvError,
     P2pConnectionOutgoingAnswerRecvPending,
@@ -338,6 +341,8 @@ pub enum ActionKind {
     P2pConnectionOutgoingSuccess,
     P2pConnectionOutgoingTimeout,
     P2pConnectionOutgoingEffectfulAnswerSet,
+    P2pConnectionOutgoingEffectfulConnectionAuthorizationDecryptAndCheck,
+    P2pConnectionOutgoingEffectfulConnectionAuthorizationEncryptAndSend,
     P2pConnectionOutgoingEffectfulInit,
     P2pConnectionOutgoingEffectfulOfferSend,
     P2pConnectionOutgoingEffectfulRandomInit,
@@ -516,6 +521,38 @@ pub enum ActionKind {
     RpcTransactionPool,
     RpcTransactionStatusGet,
     RpcTransitionFrontierUserCommandsGet,
+    RpcEffectfulActionStatsGet,
+    RpcEffectfulBestChain,
+    RpcEffectfulBlockProducerStatsGet,
+    RpcEffectfulConsensusConstantsGet,
+    RpcEffectfulDiscoveryBoostrapStats,
+    RpcEffectfulDiscoveryRoutingTable,
+    RpcEffectfulGlobalStateGet,
+    RpcEffectfulHealthCheck,
+    RpcEffectfulLedgerAccountsGetSuccess,
+    RpcEffectfulMessageProgressGet,
+    RpcEffectfulP2pConnectionIncomingError,
+    RpcEffectfulP2pConnectionIncomingRespond,
+    RpcEffectfulP2pConnectionIncomingSuccess,
+    RpcEffectfulP2pConnectionOutgoingError,
+    RpcEffectfulP2pConnectionOutgoingSuccess,
+    RpcEffectfulPeersGet,
+    RpcEffectfulReadinessCheck,
+    RpcEffectfulScanStateSummaryGetSuccess,
+    RpcEffectfulSnarkPoolAvailableJobsGet,
+    RpcEffectfulSnarkPoolJobGet,
+    RpcEffectfulSnarkerConfigGet,
+    RpcEffectfulSnarkerJobCommit,
+    RpcEffectfulSnarkerJobSpec,
+    RpcEffectfulSnarkerWorkersGet,
+    RpcEffectfulStatusGet,
+    RpcEffectfulSyncStatsGet,
+    RpcEffectfulTransactionInjectFailure,
+    RpcEffectfulTransactionInjectRejected,
+    RpcEffectfulTransactionInjectSuccess,
+    RpcEffectfulTransactionPool,
+    RpcEffectfulTransactionStatusGet,
+    RpcEffectfulTransitionFrontierUserCommandsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
@@ -657,7 +694,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 545;
+    pub const COUNT: u16 = 581;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -685,6 +722,7 @@ impl ActionKindGet for Action {
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
+            Self::RpcEffectful(a) => a.kind(),
             Self::WatchedAccounts(a) => a.kind(),
         }
     }
@@ -793,6 +831,9 @@ impl ActionKindGet for ConsensusAction {
             Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
             Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
             Self::BestTipUpdate { .. } => ActionKind::ConsensusBestTipUpdate,
+            Self::TransitionFrontierSyncTargetUpdate => {
+                ActionKind::ConsensusTransitionFrontierSyncTargetUpdate
+            }
             Self::P2pBestTipUpdate { .. } => ActionKind::ConsensusP2pBestTipUpdate,
             Self::Prune => ActionKind::ConsensusPrune,
         }
@@ -992,6 +1033,69 @@ impl ActionKindGet for RpcAction {
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
+        }
+    }
+}
+
+impl ActionKindGet for RpcEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::GlobalStateGet { .. } => ActionKind::RpcEffectfulGlobalStateGet,
+            Self::StatusGet { .. } => ActionKind::RpcEffectfulStatusGet,
+            Self::ActionStatsGet { .. } => ActionKind::RpcEffectfulActionStatsGet,
+            Self::SyncStatsGet { .. } => ActionKind::RpcEffectfulSyncStatsGet,
+            Self::BlockProducerStatsGet { .. } => ActionKind::RpcEffectfulBlockProducerStatsGet,
+            Self::MessageProgressGet { .. } => ActionKind::RpcEffectfulMessageProgressGet,
+            Self::PeersGet { .. } => ActionKind::RpcEffectfulPeersGet,
+            Self::P2pConnectionOutgoingError { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionOutgoingError
+            }
+            Self::P2pConnectionOutgoingSuccess { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionOutgoingSuccess
+            }
+            Self::P2pConnectionIncomingRespond { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionIncomingRespond
+            }
+            Self::P2pConnectionIncomingError { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionIncomingError
+            }
+            Self::P2pConnectionIncomingSuccess { .. } => {
+                ActionKind::RpcEffectfulP2pConnectionIncomingSuccess
+            }
+            Self::ScanStateSummaryGetSuccess { .. } => {
+                ActionKind::RpcEffectfulScanStateSummaryGetSuccess
+            }
+            Self::SnarkPoolAvailableJobsGet { .. } => {
+                ActionKind::RpcEffectfulSnarkPoolAvailableJobsGet
+            }
+            Self::SnarkPoolJobGet { .. } => ActionKind::RpcEffectfulSnarkPoolJobGet,
+            Self::SnarkerConfigGet { .. } => ActionKind::RpcEffectfulSnarkerConfigGet,
+            Self::SnarkerJobCommit { .. } => ActionKind::RpcEffectfulSnarkerJobCommit,
+            Self::SnarkerJobSpec { .. } => ActionKind::RpcEffectfulSnarkerJobSpec,
+            Self::SnarkerWorkersGet { .. } => ActionKind::RpcEffectfulSnarkerWorkersGet,
+            Self::HealthCheck { .. } => ActionKind::RpcEffectfulHealthCheck,
+            Self::ReadinessCheck { .. } => ActionKind::RpcEffectfulReadinessCheck,
+            Self::DiscoveryRoutingTable { .. } => ActionKind::RpcEffectfulDiscoveryRoutingTable,
+            Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcEffectfulDiscoveryBoostrapStats,
+            Self::TransactionPool { .. } => ActionKind::RpcEffectfulTransactionPool,
+            Self::LedgerAccountsGetSuccess { .. } => {
+                ActionKind::RpcEffectfulLedgerAccountsGetSuccess
+            }
+            Self::TransactionInjectSuccess { .. } => {
+                ActionKind::RpcEffectfulTransactionInjectSuccess
+            }
+            Self::TransactionInjectRejected { .. } => {
+                ActionKind::RpcEffectfulTransactionInjectRejected
+            }
+            Self::TransactionInjectFailure { .. } => {
+                ActionKind::RpcEffectfulTransactionInjectFailure
+            }
+            Self::TransitionFrontierUserCommandsGet { .. } => {
+                ActionKind::RpcEffectfulTransitionFrontierUserCommandsGet
+            }
+            Self::BestChain { .. } => ActionKind::RpcEffectfulBestChain,
+            Self::ConsensusConstantsGet { .. } => ActionKind::RpcEffectfulConsensusConstantsGet,
+            Self::TransactionStatusGet { .. } => ActionKind::RpcEffectfulTransactionStatusGet,
         }
     }
 }
@@ -1871,6 +1975,12 @@ impl ActionKindGet for P2pConnectionOutgoingEffectfulAction {
             Self::Init { .. } => ActionKind::P2pConnectionOutgoingEffectfulInit,
             Self::OfferSend { .. } => ActionKind::P2pConnectionOutgoingEffectfulOfferSend,
             Self::AnswerSet { .. } => ActionKind::P2pConnectionOutgoingEffectfulAnswerSet,
+            Self::ConnectionAuthorizationEncryptAndSend { .. } => {
+                ActionKind::P2pConnectionOutgoingEffectfulConnectionAuthorizationEncryptAndSend
+            }
+            Self::ConnectionAuthorizationDecryptAndCheck { .. } => {
+                ActionKind::P2pConnectionOutgoingEffectfulConnectionAuthorizationDecryptAndCheck
+            }
         }
     }
 }
@@ -1879,7 +1989,12 @@ impl ActionKindGet for P2pConnectionIncomingEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Init { .. } => ActionKind::P2pConnectionIncomingEffectfulInit,
-            Self::AnswerSend { .. } => ActionKind::P2pConnectionIncomingEffectfulAnswerSend,
+            Self::ConnectionAuthorizationEncryptAndSend { .. } => {
+                ActionKind::P2pConnectionIncomingEffectfulConnectionAuthorizationEncryptAndSend
+            }
+            Self::ConnectionAuthorizationDecryptAndCheck { .. } => {
+                ActionKind::P2pConnectionIncomingEffectfulConnectionAuthorizationDecryptAndCheck
+            }
         }
     }
 }

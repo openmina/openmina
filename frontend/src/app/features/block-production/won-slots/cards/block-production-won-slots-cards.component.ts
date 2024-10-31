@@ -11,6 +11,7 @@ import {
 import {
   BlockProductionWonSlotsEpoch,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
+import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 
 @Component({
   selector: 'mina-block-production-won-slots-cards',
@@ -40,7 +41,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
 
       const epochEndTime = this.addMinutesToTimestamp(epoch.currentTime / ONE_BILLION, (epoch.end - epoch.currentGlobalSlot) * 3);
       this.card5.endIn = getTimeDiff(epochEndTime * ONE_THOUSAND).diff;
-      this.card5.epochProgress = Math.floor(epoch.currentGlobalSlot / epoch.end * 100) + '%';
+      this.card5.epochProgress = Math.floor((epoch.currentGlobalSlot - epoch.start) / (epoch.end - epoch.start) * 100) + '%';
 
       this.detect();
     }, filter(Boolean));
@@ -67,9 +68,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
       this.card4.lastBlockTime = getTimeDiff(lastItem(slots.filter(s => s.status === BlockProductionWonSlotsStatus.Canonical))?.slotTime).diff;
 
       this.card6.totalRewards = slots
-        .filter(
-          s => [BlockProductionWonSlotsStatus.Canonical, BlockProductionWonSlotsStatus.Orphaned, BlockProductionWonSlotsStatus.Discarded].includes(s.status),
-        )
+        .filter(s => [BlockProductionWonSlotsStatus.Canonical].includes(s.status))
         .map(s => s.coinbaseRewards + s.txFeesRewards).reduce((a, b) => a + b, 0).toFixed(0);
 
       this.card6.totalRewards = isNaN(+this.card6.totalRewards) ? '0' : this.card6.totalRewards;
@@ -80,5 +79,9 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
   private addMinutesToTimestamp(timestampInSeconds: number, minutesToAdd: number): number {
     const secondsToAdd = minutesToAdd * 60;
     return timestampInSeconds + secondsToAdd;
+  }
+
+  toggleSidePanel(): void {
+    this.dispatch2(BlockProductionWonSlotsActions.toggleSidePanel());
   }
 }

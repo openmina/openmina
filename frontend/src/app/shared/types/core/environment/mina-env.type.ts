@@ -4,9 +4,14 @@ export interface MinaEnv {
   identifier?: string;
   hideToolbar?: boolean;
   hideNodeStats?: boolean;
+  canAddNodes?: boolean;
+  showWebNodeLandingPage?: boolean;
+  sentry?: {
+    dsn: string;
+    tracingOrigins: string[];
+  };
   globalConfig?: {
     features?: FeaturesConfig;
-    canAddNodes?: boolean;
     graphQL?: string;
   };
 }
@@ -28,7 +33,6 @@ export type FeaturesConfig = Partial<{
   'network': string[];
   'snarks': string[];
   'resources': string[];
-  'testing-tool': string[];
   'block-production': string[];
   'mempool': string[];
   'benchmarks': string[];

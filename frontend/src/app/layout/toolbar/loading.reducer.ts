@@ -45,6 +45,7 @@ import {
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
 import { BLOCK_PRODUCTION_PREFIX } from '@block-production/block-production.actions';
 import {
+  BENCHMARKS_WALLETS_CLOSE,
   BENCHMARKS_WALLETS_GET_ALL_TXS,
   BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
   BENCHMARKS_WALLETS_GET_WALLETS, BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
@@ -154,6 +155,8 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
       return remove(state, BENCHMARKS_WALLETS_GET_WALLETS);
     case BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS:
       return remove(state, BENCHMARKS_WALLETS_GET_ALL_TXS);
+    case BENCHMARKS_WALLETS_CLOSE:
+      return remove(state, [BENCHMARKS_WALLETS_GET_WALLETS, BENCHMARKS_WALLETS_GET_ALL_TXS]);
 
     default:
       return state;

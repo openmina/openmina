@@ -33,6 +33,10 @@ impl P2pState {
         peer_id: PeerId,
         offer: &webrtc::Offer,
     ) -> Result<(), RejectionReason> {
+        if self.chain_id != offer.chain_id {
+            return Err(RejectionReason::ChainIdMismatch);
+        }
+
         if peer_id != offer.identity_pub_key.peer_id() {
             return Err(RejectionReason::PeerIdAndPublicKeyMismatch);
         }

@@ -131,6 +131,8 @@ pub enum P2pConnectionOutgoingError {
     RemoteInternalError,
     #[error("finalization error: {0}")]
     FinalizeError(String),
+    #[error("connection authorization error")]
+    ConnectionAuthError,
     #[error("timeout error")]
     Timeout,
 }

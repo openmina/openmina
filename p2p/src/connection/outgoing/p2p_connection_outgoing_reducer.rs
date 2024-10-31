@@ -152,6 +152,7 @@ impl P2pConnectionOutgoingState {
                 Ok(())
             }
             P2pConnectionOutgoingAction::OfferSdpCreateSuccess { sdp, peer_id } => {
+                let chain_id = p2p_state.chain_id.clone();
                 let state = p2p_state
                     .outgoing_peer_connection_mut(&peer_id)
                     .ok_or("Missing peer connection for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`")?;
@@ -170,6 +171,7 @@ impl P2pConnectionOutgoingState {
 
                 let offer = Box::new(crate::webrtc::Offer {
                     sdp,
+                    chain_id,
                     identity_pub_key: p2p_state.config.identity_pub_key.clone(),
                     target_peer_id: peer_id,
                     // TODO(vlad9486): put real address
@@ -323,7 +325,7 @@ impl P2pConnectionOutgoingState {
                     .outgoing_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
 
-                match state {
+                let (auth, other_pub_key) = match state {
                     Self::Init { opts, rpc_id, .. } => {
                         *state = Self::FinalizePending {
                             time,
@@ -332,7 +334,7 @@ impl P2pConnectionOutgoingState {
                             answer: None,
                             rpc_id: rpc_id.take(),
                         };
-                        Ok(())
+                        return Ok(());
                     }
                     Self::AnswerRecvSuccess {
                         opts,
@@ -341,6 +343,9 @@ impl P2pConnectionOutgoingState {
                         rpc_id,
                         ..
                     } => {
+                        let auth = offer.conn_auth(answer);
+                        let other_pub_key = answer.identity_pub_key.clone();
+
                         *state = Self::FinalizePending {
                             time,
                             opts: opts.clone(),
@@ -348,16 +353,23 @@ impl P2pConnectionOutgoingState {
                             answer: Some(answer.clone()),
                             rpc_id: rpc_id.take(),
                         };
-                        Ok(())
+
+                        (auth, other_pub_key)
                     }
                     _ => {
-                        bug_condition!(
-                                "Invalid state for `P2pConnectionOutgoingAction::FinalizePending`: {:?}",
-                                state
-                            );
-                        Ok(())
+                        bug_condition!("Invalid state for `P2pConnectionOutgoingAction::FinalizePending`: {state:?}");
+                        return Ok(());
                     }
-                }
+                };
+
+                state_context.into_dispatcher().push(
+                    P2pConnectionOutgoingEffectfulAction::ConnectionAuthorizationEncryptAndSend {
+                        peer_id,
+                        other_pub_key,
+                        auth,
+                    },
+                );
+                Ok(())
             }
             P2pConnectionOutgoingAction::FinalizeError { error, peer_id } => {
                 let dispatcher = state_context.into_dispatcher();
@@ -367,12 +379,17 @@ impl P2pConnectionOutgoingState {
                 });
                 Ok(())
             }
-            P2pConnectionOutgoingAction::FinalizeSuccess { peer_id } => {
+            P2pConnectionOutgoingAction::FinalizeSuccess {
+                peer_id,
+                remote_auth: auth,
+            } => {
                 let state = p2p_state
                     .outgoing_peer_connection_mut(&peer_id)
-                    .ok_or_else(|| format!("Invalid state: {:?}", action))?;
+                    .ok_or_else(|| {
+                        "Invalid state for: P2pConnectionOutgoingAction::FinalizeSuccess".to_owned()
+                    })?;
 
-                if let Self::FinalizePending {
+                let values = if let Self::FinalizePending {
                     opts,
                     offer,
                     answer,
@@ -380,6 +397,14 @@ impl P2pConnectionOutgoingState {
                     ..
                 } = state
                 {
+                    let values = None.or_else(|| {
+                        let answer = answer.as_ref()?;
+                        Some((
+                            auth?,
+                            offer.as_ref()?.conn_auth(answer),
+                            answer.identity_pub_key.clone(),
+                        ))
+                    });
                     *state = Self::FinalizeSuccess {
                         time,
                         opts: opts.clone(),
@@ -387,16 +412,29 @@ impl P2pConnectionOutgoingState {
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
+                    values
                 } else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::FinalizeSuccess`: {:?}",
                         state
                     );
                     return Ok(());
-                }
+                };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionOutgoingAction::Success { peer_id });
+                if let Some((auth, expected_auth, other_pub_key)) = values {
+                    dispatcher.push(
+                        P2pConnectionOutgoingEffectfulAction::ConnectionAuthorizationDecryptAndCheck {
+                            peer_id,
+                            other_pub_key,
+                            expected_auth,
+                            auth,
+                        },
+                    );
+                } else {
+                    // libp2p
+                    dispatcher.push(P2pConnectionOutgoingAction::Success { peer_id });
+                }
                 Ok(())
             }
             P2pConnectionOutgoingAction::Timeout { peer_id } => {
