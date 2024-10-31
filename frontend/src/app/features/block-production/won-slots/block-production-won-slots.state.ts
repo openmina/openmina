@@ -18,6 +18,7 @@ export interface BlockProductionWonSlotsState {
   filteredSlots: BlockProductionWonSlotsSlot[];
   activeSlot: BlockProductionWonSlotsSlot;
   activeSlotRoute: string;
+  openSidePanel: boolean;
   filters: BlockProductionWonSlotsFilters;
   sort: TableSort<BlockProductionWonSlotsSlot>;
 }
@@ -34,6 +35,7 @@ const filteredSlots = select(state => state.filteredSlots);
 const activeSlot = select(state => state.activeSlot);
 const filters = select(state => state.filters);
 const sort = select(state => state.sort);
+const openSidePanel = select(state => state.openSidePanel);
 
 export const BlockProductionWonSlotsSelectors = {
   epoch,
@@ -42,4 +44,5 @@ export const BlockProductionWonSlotsSelectors = {
   activeSlot,
   filters,
   sort,
+  openSidePanel,
 };

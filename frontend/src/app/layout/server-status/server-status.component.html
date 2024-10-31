@@ -1,6 +1,6 @@
 <div class="wrapper fx-row-vert-cent"
      *ngIf="details"
-     [ngClass]="details.status">
+     [ngClass]="switchForbidden ? AppNodeStatus.PENDING : details.status">
   <ng-container *ngIf="!switchForbidden && !hideNodeStats">
     <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
          #mempoolAnchor
@@ -23,7 +23,7 @@
       }
     </div>
   </ng-container>
-  <div class="node-status fx-row-vert-cent bg-surface h-sm border-rad-6 p-relative z-1 mr-10"
+  <div class="node-status fx-row-vert-cent bg-surface h-sm p-relative z-1 mr-10"
        [class.can-add-nodes]="switchForbidden">
     <ng-container *ngIf="!switchForbidden && !hideNodeStats">
       <div class="shine-parent overflow-hidden p-absolute z-0 border-rad-6">

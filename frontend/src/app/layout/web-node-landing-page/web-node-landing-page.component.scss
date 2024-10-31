@@ -10,41 +10,6 @@ $white: #000000;
   font-size: 16px;
 }
 
-.demo {
-  border: 1px solid $base-tertiary;
-  height: 32px;
-  padding: 0 12px;
-  color: $base-primary;
-  background: rgba(255, 255, 255, 0.10);
-  margin-bottom: 48px;
-}
-
-.f-page-title {
-  font-weight: 700;
-  font-size: 40px;
-  line-height: 56px;
-}
-
-.f-section-title {
-  font-weight: 700;
-  font-size: 32px;
-  line-height: 48px;
-}
-
-.f-feature {
-  font-weight: 500;
-  font-size: 24px;
-  line-height: 32px;
-  letter-spacing: -0.019em;
-}
-
-.f-description {
-  font-weight: 500;
-  font-size: 24px;
-  line-height: 150%;
-  letter-spacing: -0.019em;
-}
-
 .f-body {
   font-weight: 400;
   font-size: 16px;
@@ -58,48 +23,66 @@ $white: #000000;
   letter-spacing: -0.019em;
 }
 
+.f-page-title {
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 56px;
+  margin-bottom: 16px;
+}
+
+.f-description {
+  font-weight: 500;
+  font-size: 24px;
+  line-height: 150%;
+  letter-spacing: -0.019em;
+  margin-bottom: 56px;
+}
+
+.f-section-title {
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 48px;
+}
+
 .welcome-container {
-  height: 76vh;
   background: linear-gradient(180deg, transparent 75%, $base-background), url('../../../assets/images/web-node-demo/Hero BG.jpg');
   background-size: cover;
   background-position: top;
 
   .logo {
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 32px;
+    padding-right: 32px;
     max-width: 1250px;
+    height: 96px;
+    margin-bottom: 64px;
   }
 
   h1 {
     max-width: 980px;
   }
 
-  .independently {
-    margin-bottom: 96px;
-  }
-
   .mina-svg {
     max-width: 371px;
+    margin-bottom: 64px;
   }
 }
 
 .launch {
   height: 56px !important;
   font-size: 20px;
-  width: 298px;
+  width: 341px;
   background: linear-gradient(to right, $green 0%, $sand 50%, $peach 100%);
   background-size: 500%;
   margin-bottom: 96px;
-  animation-duration: 2s;
-  animation-iteration-count: 1;
-  animation-fill-mode: forwards;
-  animation-name: gradient-out;
+  transition: background-position 2s ease;
+  background-position: 0 50%;
 
   &:hover {
-    animation-name: gradient-in;
+    background-position: 100% 50%;
   }
 }
 
+/*
 .card-list {
   margin-top: 40px;
   margin-bottom: 160px;
@@ -127,13 +110,23 @@ $white: #000000;
     }
   }
 }
+*/
 
 .hardcoded-key {
   background-color: $warn-container;
   color: $warn-primary;
-  margin: 0 10px;
+  margin: 64px 10px;
   width: calc(100% - 20px);
   max-width: 946px;
+  min-height: 56px;
+
+  strong .p-relative {
+    .warn-icon {
+      left: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+  }
 }
 
 .wrapper {
@@ -196,61 +189,21 @@ $white: #000000;
 
     .img-border-container {
       width: calc(100% - 56px);
-      background: linear-gradient(148deg, rgba(#59bfb5, 0.3) 20%, rgba(#acdea0, 0.3), rgba(#acdea0, 0.1), rgba(100, 100, 100, 0.1) 70%, transparent 80%);
-      padding: 1px;
 
-      .img-container {
-        padding: 24px 16px;
-
-        img {
-          width: auto;
-          height: auto;
-          max-width: 100%;
-        }
+      img {
+        width: auto;
+        height: auto;
+        max-width: 100%;
       }
     }
   }
 }
 
-button {
-  @media (max-width: 960px) {
-    width: 100% ! important;
-  }
-}
-
-@keyframes gradient-in {
-  0% {
-    background-position: 0 50%
-  }
-  100% {
-    background-position: 100%;
-  }
-}
-
-@keyframes gradient-out {
-  0% {
-    background-position: 100%;
-  }
-  100% {
-    background-position: 0 50%
-  }
-}
-
-
-@media (min-width: 361px) and (max-width: 1024px) {
+@media (max-width: 1024px) {
   .f-page-title {
     font-size: 6.667vw;
     line-height: 8.889vw;
-  }
-
-  .f-section-title {
-    font-size: 6.667vw;
-    line-height: 8.889vw;
-  }
-
-  .f-feature {
-    font-size: 5.556vw;
-    line-height: 6.667vw;
+    margin-bottom: 24px;
   }
 
   .f-description {
@@ -273,6 +226,7 @@ button {
     padding-right: 6.667vw !important;
 
     .logo {
+      padding: 0;
       font-size: 6.667vw;
       margin-bottom: 30px;
       text-align: center;
@@ -291,7 +245,13 @@ button {
     font-size: 5.556vw;
     height: 15.556vw !important;
     margin-bottom: 17.778vw;
+    width: 100% ! important;
   }
+
+  .images .step .step-text {
+    font-size: 4.2vw;
+  }
+  /*
 
   .card-list {
     padding-left: 6.667vw;
@@ -312,70 +272,18 @@ button {
       }
     }
   }
+  */
 
   .hardcoded-key {
-    font-size: 4vw;
+    font-size: 5vw;
 
     .mina-icon {
       font-size: inherit;
     }
-  }
-}
 
-@media (max-width: 360px) {
-  .f-page-title {
-    font-size: 24px;
-    line-height: 32px;
-  }
-
-  .f-section-title {
-    font-size: 24px;
-    line-height: 32px;
-  }
-
-  .f-feature {
-    font-size: 20px;
-    line-height: 24px;
-  }
-
-  .f-description {
-    font-size: 20px;
-  }
-
-  .welcome-container {
-    height: auto;
-    padding-left: 24px !important;
-    padding-right: 24px !important;
-
-    .logo {
-      font-size: 24px;
-      margin-bottom: 7.692vw;
-    }
-
-    .independently {
-      margin-bottom: 32px;
-    }
-
-    .mina-svg {
-      max-width: 222px;
-    }
-  }
-
-  .launch {
-    margin-bottom: 64px;
-  }
-
-  .card-list {
-    padding-left: 24px;
-    padding-right: 24px;
-    margin-bottom: 64px;
-    margin-top: 64px;
-
-    .card-wrapper {
-      height: 200px;
-
-      .card {
-        padding: 24px 16px 24px 24px;
+    strong .p-relative {
+      .warn-icon {
+        left: -5.5vw;
       }
     }
   }

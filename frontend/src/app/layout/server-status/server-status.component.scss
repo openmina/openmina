@@ -113,9 +113,12 @@
     }
   }
 
-  .chip::before {
-    border-top-right-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
+  .chip {
+    &,
+    &::before {
+      border-top-right-radius: 0 !important;
+      border-bottom-right-radius: 0 !important;
+    }
   }
 
   .shine-parent {

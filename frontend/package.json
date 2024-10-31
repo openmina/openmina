@@ -7,7 +7,6 @@
     "start:dev": "ng serve --configuration development",
     "build": "ng build",
     "build:prod": "ng build --configuration production",
-    "watch": "ng build --watch --configuration development",
     "tests": "npx cypress open --config baseUrl=http://localhost:4200",
     "tests:headless": "npx cypress run --headless --config baseUrl=http://localhost:4200",
     "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest",
