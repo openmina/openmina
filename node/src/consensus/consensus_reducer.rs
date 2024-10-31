@@ -268,6 +268,7 @@ impl ConsensusState {
                     best_tip,
                     root_block,
                     blocks_inbetween,
+                    on_success: None,
                 });
             }
             ConsensusAction::P2pBestTipUpdate { best_tip } => {

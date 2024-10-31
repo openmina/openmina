@@ -1,5 +1,5 @@
-pub use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService;
-pub use crate::block_producer::BlockProducerService;
+pub use crate::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorService;
+pub use crate::block_producer_effectful::BlockProducerService;
 pub use crate::event_source::EventSourceService;
 pub use crate::external_snark_worker::ExternalSnarkWorkerService;
 pub use crate::ledger::LedgerService;

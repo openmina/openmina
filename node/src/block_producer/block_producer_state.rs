@@ -135,7 +135,7 @@ pub enum BlockProducerCurrentState {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum BlockProducerWonSlotDiscardReason {
     BestTipStakingLedgerDifferent,
     BestTipGlobalSlotHigher,
@@ -152,20 +152,19 @@ impl BlockProducerState {
         }))
     }
 
-    #[inline(always)]
-    pub(super) fn with<'a, F, R: 'a>(&'a self, default: R, fun: F) -> R
+    pub fn with<'a, F, R: 'a>(&'a self, default: R, fun: F) -> R
     where
         F: FnOnce(&'a BlockProducerEnabled) -> R,
     {
         self.0.as_ref().map_or(default, fun)
     }
 
-    #[inline(always)]
-    pub(super) fn with_mut<F, R>(&mut self, default: R, fun: F) -> R
-    where
-        F: FnOnce(&mut BlockProducerEnabled) -> R,
-    {
-        self.0.as_mut().map_or(default, fun)
+    pub fn as_mut(&mut self) -> Option<&mut BlockProducerEnabled> {
+        self.0.as_mut()
+    }
+
+    pub fn as_ref(&self) -> Option<&BlockProducerEnabled> {
+        self.0.as_ref()
     }
 
     pub fn is_enabled(&self) -> bool {

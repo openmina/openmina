@@ -44,6 +44,7 @@ impl TransitionFrontierSyncState {
                 best_tip,
                 root_block,
                 blocks_inbetween,
+                ..
             } => match state {
                 Self::StakingLedgerPending(substate)
                 | Self::NextEpochLedgerPending(substate)

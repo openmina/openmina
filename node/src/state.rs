@@ -24,6 +24,7 @@ use snark::block_verify::SnarkBlockVerifyState;
 use snark::user_command_verify::SnarkUserCommandVerifyState;
 use snark::work_verify::SnarkWorkVerifyState;
 
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorState;
 pub use crate::block_producer::BlockProducerState;
 pub use crate::consensus::ConsensusState;
 use crate::external_snark_worker::ExternalSnarkWorkers;
@@ -125,6 +126,24 @@ impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerState> for State 
             .sync
             .ledger_mut()
             .ok_or_else(|| "Ledger sync state unavailable".to_owned())
+    }
+}
+
+impl SubstateAccess<BlockProducerVrfEvaluatorState> for State {
+    fn substate(&self) -> openmina_core::SubstateResult<&BlockProducerVrfEvaluatorState> {
+        self.block_producer
+            .as_ref()
+            .map(|state| &state.vrf_evaluator)
+            .ok_or_else(|| "Block producer VRF evaluator state unavailable".to_owned())
+    }
+
+    fn substate_mut(
+        &mut self,
+    ) -> openmina_core::SubstateResult<&mut BlockProducerVrfEvaluatorState> {
+        self.block_producer
+            .as_mut()
+            .map(|state| &mut state.vrf_evaluator)
+            .ok_or_else(|| "Block producer VRF evaluator state unavailable".to_owned())
     }
 }
 

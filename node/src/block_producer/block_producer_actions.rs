@@ -4,11 +4,10 @@ use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
+use crate::block_producer_effectful::StagedLedgerDiffCreateOutput;
+
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
-use super::{
-    BlockProducerCurrentState, BlockProducerWonSlot, BlockProducerWonSlotDiscardReason,
-    StagedLedgerDiffCreateOutput,
-};
+use super::{BlockProducerCurrentState, BlockProducerWonSlot, BlockProducerWonSlotDiscardReason};
 
 pub type BlockProducerActionWithMeta = redux::ActionWithMeta<BlockProducerAction>;
 pub type BlockProducerActionWithMetaRef<'a> = redux::ActionWithMeta<&'a BlockProducerAction>;

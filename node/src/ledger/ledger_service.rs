@@ -49,7 +49,7 @@ use openmina_core::{block::AppliedBlock, constants::constraint_constants};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 
-use crate::block_producer::StagedLedgerDiffCreateOutput;
+use crate::block_producer_effectful::StagedLedgerDiffCreateOutput;
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use crate::rpc::{
     RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
