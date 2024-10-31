@@ -43,6 +43,7 @@ impl BlockProducerState {
 }
 
 impl BlockProducerEnabled {
+    /// Substate is accesses from global state, because applied blocks from transition frontier are required
     pub fn reducer(mut state_context: Substate<State>, action: BlockProducerActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         let Ok(global_state) = state_context.get_substate_mut() else {
@@ -88,11 +89,10 @@ impl BlockProducerEnabled {
                     won_slot: won_slot.clone(),
                 };
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerEffectfulAction::WonSlot {
-                        won_slot: won_slot.clone(),
-                    });
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::WonSlot {
+                    won_slot: won_slot.clone(),
+                });
             }
             BlockProducerAction::WonSlotDiscard { reason } => {
                 if let Some(won_slot) = state.current.won_slot() {
@@ -103,9 +103,8 @@ impl BlockProducerEnabled {
                     };
                 }
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerEffectfulAction::WonSlotDiscard { reason: *reason });
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::WonSlotDiscard { reason: *reason });
             }
             BlockProducerAction::WonSlotWait => {
                 if let Some(won_slot) = state.current.won_slot() {
@@ -129,9 +128,8 @@ impl BlockProducerEnabled {
                     chain: chain.clone(),
                 };
 
-                state_context
-                    .into_dispatcher()
-                    .push(TransactionPoolAction::CollectTransactionsByFee);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(TransactionPoolAction::CollectTransactionsByFee);
             }
             BlockProducerAction::WonSlotTransactionsSuccess {
                 transactions_by_fee,
@@ -150,9 +148,8 @@ impl BlockProducerEnabled {
                     transactions_by_fee: transactions_by_fee.clone(),
                 };
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerAction::StagedLedgerDiffCreateInit);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerAction::StagedLedgerDiffCreateInit);
             }
             BlockProducerAction::WonSlotProduceInit => {
                 if let Some(won_slot) = state.current.won_slot() {
@@ -173,14 +170,12 @@ impl BlockProducerEnabled {
                     };
                 }
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerAction::WonSlotTransactionsGet);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerAction::WonSlotTransactionsGet);
             }
             BlockProducerAction::StagedLedgerDiffCreateInit => {
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerEffectfulAction::StagedLedgerDiffCreateInit);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::StagedLedgerDiffCreateInit);
             }
             BlockProducerAction::StagedLedgerDiffCreatePending => {
                 let BlockProducerCurrentState::WonSlotTransactionsSuccess {
@@ -221,21 +216,18 @@ impl BlockProducerEnabled {
                     stake_proof_sparse_ledger: output.stake_proof_sparse_ledger.clone(),
                 };
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerEffectfulAction::StagedLedgerDiffCreateSuccess);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::StagedLedgerDiffCreateSuccess);
             }
             BlockProducerAction::BlockUnprovenBuild => {
                 state.reduce_block_unproved_build(meta.time());
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerEffectfulAction::BlockUnprovenBuild);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::BlockUnprovenBuild);
             }
             BlockProducerAction::BlockProveInit => {
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerEffectfulAction::BlockProveInit);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::BlockProveInit);
             }
             BlockProducerAction::BlockProvePending => {
                 if let BlockProducerCurrentState::BlockUnprovenBuilt {
@@ -282,9 +274,8 @@ impl BlockProducerEnabled {
                     };
                 }
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerEffectfulAction::BlockProveSuccess);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::BlockProveSuccess);
             }
             BlockProducerAction::BlockProduced => {
                 if let BlockProducerCurrentState::BlockProveSuccess {
@@ -304,9 +295,8 @@ impl BlockProducerEnabled {
                     };
                 }
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerAction::BlockInject);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerAction::BlockInject);
             }
             BlockProducerAction::BlockInject => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -355,9 +345,8 @@ impl BlockProducerEnabled {
                     };
                 }
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerAction::WonSlotSearch);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerAction::WonSlotSearch);
             }
         }
     }

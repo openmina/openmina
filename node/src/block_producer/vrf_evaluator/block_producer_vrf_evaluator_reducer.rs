@@ -1,3 +1,4 @@
+use openmina_core::bug_condition;
 use vrf::VrfEvaluationOutput;
 
 use crate::{
@@ -30,11 +31,10 @@ impl BlockProducerVrfEvaluatorState {
                     global_slot: vrf_input.global_slot,
                 };
 
-                state_context.into_dispatcher().push(
-                    BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlot {
-                        vrf_input: vrf_input.clone(),
-                    },
-                );
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlot {
+                    vrf_input: vrf_input.clone(),
+                });
             }
             BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
                 vrf_output,
@@ -243,9 +243,8 @@ impl BlockProducerVrfEvaluatorState {
                     producer: producer.clone(),
                 };
 
-                state_context
-                    .into_dispatcher()
-                    .push(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
             }
             BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction => {
                 let BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
@@ -299,6 +298,7 @@ impl BlockProducerVrfEvaluatorState {
                     staking_epoch_ledger_hash: _,
                 } = &state.status
                 else {
+                    bug_condition!("Invalid state for `BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction` expected: `BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending`, found: {:?}", state.status);
                     return;
                 };
 
@@ -336,7 +336,7 @@ impl BlockProducerVrfEvaluatorState {
                     },
                 )) = get_slot_and_status()
                 else {
-                    // error here!
+                    bug_condition!("Invalid state for `BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction`");
                     return;
                 };
 

@@ -315,8 +315,9 @@ impl P2pConnectionOutgoingState {
                         state
                     );
                 }
-                state_context
-                    .into_dispatcher()
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher
                     .push(P2pConnectionOutgoingEffectfulAction::AnswerSet { peer_id, answer });
                 Ok(())
             }
@@ -362,7 +363,8 @@ impl P2pConnectionOutgoingState {
                     }
                 };
 
-                state_context.into_dispatcher().push(
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(
                     P2pConnectionOutgoingEffectfulAction::ConnectionAuthorizationEncryptAndSend {
                         peer_id,
                         other_pub_key,
