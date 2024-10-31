@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { getMergedRoute, isDesktop, isMobile, MergedRoute } from '@openmina/shared';
-import { debounceTime, filter, fromEvent, take, timer } from 'rxjs';
+import { debounceTime, filter, fromEvent, skip, take, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
+import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
 
 @Component({
   selector: 'mina-block-production-won-slots',
@@ -37,16 +38,10 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
   }
 
   private listenToResize(): void {
-    fromEvent(window, 'resize')
-      .pipe(
-        debounceTime(100),
-        filter(() => this.showSidePanel === isMobile()),
-        untilDestroyed(this),
-      )
-      .subscribe(() => {
-        this.showSidePanel = isDesktop();
-        this.detect();
-      });
+    this.select(BlockProductionWonSlotsSelectors.openSidePanel, (open: boolean) => {
+      this.showSidePanel = open;
+      this.detect();
+    });
   }
 
   override ngOnDestroy(): void {

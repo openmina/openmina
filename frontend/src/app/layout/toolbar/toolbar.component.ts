@@ -5,7 +5,6 @@ import { getMergedRoute, MergedRoute, removeParamsFromURL, TooltipService } from
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { AppActions } from '@app/app.actions';
 import { selectLoadingStateLength } from '@app/layout/toolbar/loading.reducer';
-import { Routes } from '@shared/enums/routes.enum';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 
 @Component({
@@ -19,7 +18,6 @@ export class ToolbarComponent extends StoreDispatcher implements OnInit {
 
   title: string = 'Loading';
   isMobile: boolean;
-  switchForbidden: boolean;
 
   @ViewChild('loadingRef') private loadingRef: ElementRef<HTMLDivElement>;
 
@@ -62,12 +60,7 @@ export class ToolbarComponent extends StoreDispatcher implements OnInit {
   private listenToRouterChange(): void {
     this.select(getMergedRoute, (url: string) => {
       this.title = removeParamsFromURL(url).split('/')[1].replace(/-/g, ' ');
-      this.checkNodeSwitchForbidden();
       this.detect();
     }, filter(Boolean), map((route: MergedRoute) => route.url));
-  }
-
-  private checkNodeSwitchForbidden(): void {
-    this.switchForbidden = location.pathname.includes(Routes.NODES + '/' + Routes.OVERVIEW);
   }
 }

@@ -14,6 +14,7 @@ platformBrowserDynamic().bootstrapModule(AppModule)
 
 function initSentry(): void {
   if (CONFIG.sentry) {
+    const clientFingerprint = (Math.random() * 1e9).toString();
     Sentry.init({
       dsn: CONFIG.sentry.dsn,
       integrations: [
@@ -21,11 +22,12 @@ function initSentry(): void {
         Sentry.replayIntegration(),
       ],
       tracesSampleRate: 1.0,
+      profilesSampleRate: 1.0,
       tracePropagationTargets: [...CONFIG.sentry?.tracingOrigins, ...CONFIG.configs.map((config) => config.url).filter(Boolean)],
       replaysSessionSampleRate: 1.0,
       replaysOnErrorSampleRate: 0.1,
       beforeSend: (event: ErrorEvent) => {
-        event.fingerprint = [(Math.random() * 10000000).toString()];
+        event.fingerprint = [clientFingerprint];
         return event;
       },
     });

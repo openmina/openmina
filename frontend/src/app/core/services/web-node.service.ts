@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap } from 'rxjs';
+import { BehaviorSubject, catchError, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap } from 'rxjs';
 import base from 'base-x';
 import { any } from '@openmina/shared';
 import { HttpClient } from '@angular/common/http';
+import { sendSentryEvent } from '@shared/helpers/webnode.helper';
+import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 
 @Injectable({
   providedIn: 'root',
@@ -11,6 +13,8 @@ export class WebNodeService {
 
   private readonly webnode$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private webNodeKeyPair: { publicKey: string, privateKey: string };
+  private webNodeStartTime: number;
+  private sentryEvents: any = {};
 
   constructor(private http: HttpClient) {
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
@@ -21,31 +25,38 @@ export class WebNodeService {
   }
 
   loadWasm$(): Observable<void> {
-    console.log('---LOADING WEBNODE---');
+    sendSentryEvent('Loading WebNode JS');
     return merge(
       of(any(window).webnode).pipe(filter(Boolean)),
       fromEvent(window, 'webNodeLoaded'),
     ).pipe(
       switchMap(() => this.http.get<{ publicKey: string, privateKey: string }>('assets/webnode/web-node-secrets.json')),
-      tap(data => this.webNodeKeyPair = data),
+      tap(data => {
+        this.webNodeKeyPair = data;
+        sendSentryEvent('WebNode JS Loaded. Loading WebNode Wasm');
+      }),
       map(() => void 0),
     );
   }
 
   startWasm$(): Observable<any> {
-    console.log('---STARTING WEBNODE---');
     return of(any(window).webnode)
       .pipe(
         switchMap((wasm: any) => from(wasm.default('assets/webnode/pkg/openmina_node_web_bg.wasm')).pipe(map(() => wasm))),
         switchMap((wasm) => {
-          console.log(wasm);
+          sendSentryEvent('WebNode Wasm loaded. Starting WebNode');
           return from(wasm.run(this.webNodeKeyPair.privateKey));
         }),
         tap((webnode: any) => {
-          console.log('----------------WEBNODE----------------');
-          console.log(webnode);
-          (window as any)["webnode"] = webnode;
+          sendSentryEvent('WebNode Started');
+          this.webNodeStartTime = Date.now();
+          (window as any)['webnode'] = webnode;
           this.webnode$.next(webnode);
+        }),
+        catchError((error) => {
+          sendSentryEvent('WebNode failed to start');
+          console.error(error);
+          return of(null);
         }),
         switchMap(() => this.webnode$.asObservable()),
         filter(Boolean),
@@ -70,6 +81,23 @@ export class WebNodeService {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from(any(handle).state().peers())),
+      tap((peers) => {
+        if (!this.sentryEvents.sentNoPeersEvent && Date.now() - this.webNodeStartTime >= 5000 && peers.length === 0) {
+          console.log('WebNode has no peers after 5 seconds from startup.');
+          sendSentryEvent('WebNode has no peers after 5 seconds from startup.');
+          this.sentryEvents.sentNoPeersEvent = true;
+        }
+        if (!this.sentryEvents.sentPeersEvent && peers.length > 0) {
+          const seconds = (Date.now() - this.webNodeStartTime) / 1000;
+          sendSentryEvent(`WebNode found its first peer after ${seconds}s`);
+          this.sentryEvents.sentPeersEvent = true;
+        }
+        if (!this.sentryEvents.firstPeerConnected && peers.some((p: any) => p.connection_status === DashboardPeerStatus.CONNECTED)) {
+          const seconds = (Date.now() - this.webNodeStartTime) / 1000;
+          sendSentryEvent(`WebNode connected to its first peer after ${seconds}s`);
+          this.sentryEvents.firstPeerConnected = true;
+        }
+      }),
     );
   }
 

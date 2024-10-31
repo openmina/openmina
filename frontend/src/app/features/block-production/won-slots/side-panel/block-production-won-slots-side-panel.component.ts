@@ -15,7 +15,15 @@ import {
   BlockProductionWonSlotTimes,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { getTimeDiff } from '@shared/helpers/date.helper';
-import { any, hasValue, noMillisFormat, ONE_THOUSAND, SecDurationConfig, toReadableDate } from '@openmina/shared';
+import {
+  any,
+  hasValue,
+  isMobile,
+  noMillisFormat,
+  ONE_THOUSAND,
+  SecDurationConfig,
+  toReadableDate,
+} from '@openmina/shared';
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
@@ -31,12 +39,13 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
 
   protected readonly BlockProductionWonSlotsStatus = BlockProductionWonSlotsStatus;
   protected readonly config: SecDurationConfig = {
-    includeMinutes: true,
     color: false,
+    includeMinutes: true,
     undefinedAlternative: undefined,
     valueIsZeroFn: () => '<1ms',
   };
   protected readonly noMillisFormat = noMillisFormat;
+  isMobile = isMobile();
   title: string;
 
   slot: BlockProductionWonSlotsSlot;
@@ -178,11 +187,6 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
     }
   }
 
-  override ngOnDestroy(): void {
-    super.ngOnDestroy();
-    clearInterval(this.timer);
-  }
-
   private queryServerOftenToGetTheNewSlotState(): void {
     const timer = setInterval(() => {
       if (!this.stateWhenReachedZero) {
@@ -191,5 +195,14 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
       }
       this.dispatch2(BlockProductionWonSlotsActions.getSlots());
     }, 1000);
+  }
+
+  closeSidePanel(): void {
+    this.dispatch2(BlockProductionWonSlotsActions.toggleSidePanel());
+  }
+
+  override ngOnDestroy(): void {
+    super.ngOnDestroy();
+    clearInterval(this.timer);
   }
 }

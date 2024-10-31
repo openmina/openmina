@@ -67,7 +67,7 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
         map(() => this.searchInput.nativeElement.value.toLowerCase()),
       )
       .subscribe((value: string) => {
-        this.filteredNodes = this.nodes.filter(n => n.name.toLowerCase().includes(value) || n.url.toLowerCase().includes(value));
+        this.filteredNodes = this.nodes.filter(n => n.name.toLowerCase().includes(value) || n.url?.toLowerCase().includes(value));
         this.detect();
       });
   }
