@@ -1,6 +1,6 @@
 [package]
 name = "openmina-gossipsub-sandbox"
-version = "0.10.3"
+version = "0.11.0"
 edition = "2021"
 
 [dependencies]
