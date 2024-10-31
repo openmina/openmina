@@ -6,6 +6,10 @@ export interface MinaEnv {
   hideNodeStats?: boolean;
   canAddNodes?: boolean;
   showWebNodeLandingPage?: boolean;
+  sentry?: {
+    dsn: string;
+    tracingOrigins: string[];
+  };
   globalConfig?: {
     features?: FeaturesConfig;
     graphQL?: string;
