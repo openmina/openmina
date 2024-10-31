@@ -1,4 +1,4 @@
-# Test Alpha Rust Node on Devnet
+# Run Non-Block Producing Node on Devnet
 
 This guide will walk you through running the **Alpha Rust Node** on Devnet using Docker. Follow these steps to set up the node and [Provide Feedback](#4-provide-feedback) on this Alpha release.
 
@@ -21,6 +21,12 @@ Ensure you have **Docker** installed:
    unzip openmina-vX.Y.Z-docker-compose.zip
    cd openmina-vX.Y.Z-docker-compose
    ```
+
+   Additional optional parameters:
+
+   `OPENMINA_LIBP2P_EXTERNAL_IP` Sets your node’s external IP address to help other nodes find it.
+
+   `OPENMINA_LIBP2P_PORT` Sets the port for Libp2p communication.
 
 3. **Start the Node on Devnet and Save Logs**:
    Start the node and save the logs for later analysis:
