@@ -44,6 +44,7 @@ export class WebNodeService {
         tap((webnode: any) => {
           console.log('----------------WEBNODE----------------');
           console.log(webnode);
+          (window as any)["webnode"] = webnode;
           this.webnode$.next(webnode);
         }),
         switchMap(() => this.webnode$.asObservable()),

@@ -3,7 +3,7 @@ use openmina_core::{
     bug_condition,
     consensus::{is_short_range_fork, long_range_fork_take, short_range_fork_take},
 };
-use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError};
+use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError, SnarkBlockVerifyId};
 
 use crate::{
     transition_frontier::sync::{
@@ -48,11 +48,13 @@ impl ConsensusState {
                 );
 
                 // Dispatch
-                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
-                let req_id = global_state.snark.block_verify.next_req_id();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(SnarkBlockVerifyAction::Init {
-                    req_id,
                     block: (hash.clone(), block.clone()).into(),
+                    on_init: redux::callback!(
+                        on_received_block_snark_verify_init((hash: BlockHash, req_id: SnarkBlockVerifyId)) -> crate::Action {
+                            ConsensusAction::BlockSnarkVerifyPending { hash, req_id }
+                        }),
                     on_success: redux::callback!(
                         on_received_block_snark_verify_success(hash: BlockHash) -> crate::Action {
                             ConsensusAction::BlockSnarkVerifySuccess { hash }
@@ -61,10 +63,6 @@ impl ConsensusState {
                         on_received_block_snark_verify_error((hash: BlockHash, error: SnarkBlockVerifyError)) -> crate::Action {
                             ConsensusAction::BlockSnarkVerifyError { hash, error }
                         }),
-                });
-                dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
-                    req_id,
-                    hash: hash.clone(),
                 });
             }
             ConsensusAction::BlockChainProofUpdate { hash, chain_proof } => {
