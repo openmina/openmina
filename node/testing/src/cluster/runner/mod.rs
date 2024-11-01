@@ -319,7 +319,7 @@ impl<'a> ClusterRunner<'a> {
     where
         F: Fn(&State, u32, u32) -> bool,
     {
-        let now = tokio::time::Instant::now();
+        let now = redux::Instant::now();
 
         let mut last_slot: u32 = 0;
         let mut produced_blocks: u32 = 0;

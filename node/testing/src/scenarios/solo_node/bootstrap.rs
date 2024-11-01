@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use node::transition_frontier::sync::TransitionFrontierSyncState;
-use tokio::time::Instant;
+use redux::Instant;
 
 use crate::{
     hosts,
