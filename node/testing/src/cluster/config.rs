@@ -21,9 +21,7 @@ pub enum ProofKind {
 
 impl Default for ProofKind {
     fn default() -> Self {
-        // TODO(binier): change default to `ConstraintsChecked` once
-        // https://github.com/openmina/openmina/issues/260 is closed
-        Self::Dummy
+        Self::ConstraintsChecked
     }
 }
 

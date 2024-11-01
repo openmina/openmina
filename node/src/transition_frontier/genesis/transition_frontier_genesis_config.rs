@@ -429,7 +429,8 @@ impl GenesisConfig {
             account
         }
 
-        let mut accounts = Vec::new();
+        // Add genesis accounts
+        let mut accounts = genesis_account_iter().map(Ok).collect::<Vec<_>>();
 
         // Process block producers and their delegators
         for (bp_balance, delegators) in block_producers {
@@ -474,11 +475,6 @@ impl GenesisConfig {
                     create_account(&mut counter, non_staker_balance, None, &mut total_balance);
                 accounts.push(Ok(non_staker_account));
             }
-        }
-
-        // Add genesis accounts
-        for genesis_account in genesis_account_iter() {
-            accounts.push(Ok(genesis_account));
         }
 
         Self::build_ledger_from_accounts(accounts)

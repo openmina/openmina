@@ -512,14 +512,47 @@ impl BlockProducerService for NodeTestingService {
             ProofKind::ConstraintsChecked => {
                 match openmina_node_native::block_producer::prove(
                     self.provers(),
-                    input,
-                    keypair,
+                    input.clone(),
+                    keypair.clone(),
                     true,
                 ) {
                     Err(ProofError::ConstraintsOk) => {
                         let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
                     }
-                    Err(err) => panic!("unexpected block proof generation error: {err:?}"),
+                    Err(err) => {
+                        openmina_core::set_work_dir(std::path::PathBuf::from("/tmp/openmina/"));
+                        keypair
+                            .to_encrypted_file(
+                                format!("/tmp/openmina/{block_hash}_producer_key"),
+                                "",
+                            )
+                            .unwrap();
+                        dump_failed_block_proof_input(block_hash.clone(), input).unwrap();
+
+                        fn dump_failed_block_proof_input(
+                            block_hash: StateHash,
+                            input: Box<ProverExtendBlockchainInputStableV2>,
+                        ) -> std::io::Result<()> {
+                            use mina_p2p_messages::binprot::BinProtWrite;
+                            let debug_dir = openmina_core::get_debug_dir();
+                            let filename = debug_dir
+                                .join(format!("failed_block_proof_input_{block_hash}.binprot"))
+                                .to_string_lossy()
+                                .to_string();
+                            openmina_core::warn!(
+                                openmina_core::log::system_time();
+                                message = "Dumping failed block proof.",
+                                filename = filename
+                            );
+                            std::fs::create_dir_all(&debug_dir)?;
+                            let mut file = std::fs::File::create(&filename)?;
+                            input.binprot_write(&mut file)?;
+                            file.sync_all()?;
+                            Ok(())
+                        }
+
+                        panic!("unexpected block proof generation error: {err:?}")
+                    }
                     Ok(_) => unreachable!(),
                 }
             }
