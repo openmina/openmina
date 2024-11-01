@@ -14,6 +14,7 @@ export const SNARKS_TITLE: string = APP_TITLE + ' - Snarks';
 export const BLOCK_PRODUCTION_TITLE: string = APP_TITLE + ' - Block Production';
 export const MEMPOOL_TITLE: string = APP_TITLE + ' - Mempool';
 export const BENCHMARKS_TITLE: string = APP_TITLE + ' - Benchmarks';
+export const WEBNODE_TITLE: string = APP_TITLE + ' - Web Node';
 
 
 function generateRoutes(): Routes {
@@ -64,6 +65,11 @@ function generateRoutes(): Routes {
       loadChildren: () => import('./features/benchmarks/benchmarks.module').then(m => m.BenchmarksModule),
       title: BENCHMARKS_TITLE,
     },
+    {
+      path: 'loading-web-node',
+      loadChildren: () => import('./features/webnode/webnode.module').then(m => m.WebnodeModule),
+      title: WEBNODE_TITLE,
+    },
   ];
   if (CONFIG.showWebNodeLandingPage) {
     routes.push({
@@ -76,7 +82,7 @@ function generateRoutes(): Routes {
     ...routes,
     {
       path: '**',
-      redirectTo: getFirstFeature(),
+      redirectTo: CONFIG.showWebNodeLandingPage ? '' : getFirstFeature(),
       pathMatch: 'full',
     },
   ];

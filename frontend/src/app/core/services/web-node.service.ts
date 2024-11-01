@@ -16,6 +16,8 @@ export class WebNodeService {
   private webNodeStartTime: number;
   private sentryEvents: any = {};
 
+  readonly webnodeProgress$: BehaviorSubject<string> = new BehaviorSubject<string>('');
+
   constructor(private http: HttpClient) {
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
     any(window)['bs58btc'] = {
@@ -45,6 +47,7 @@ export class WebNodeService {
         switchMap((wasm: any) => from(wasm.default('assets/webnode/pkg/openmina_node_web_bg.wasm')).pipe(map(() => wasm))),
         switchMap((wasm) => {
           sendSentryEvent('WebNode Wasm loaded. Starting WebNode');
+          this.webnodeProgress$.next('Loaded');
           return from(wasm.run(this.webNodeKeyPair.privateKey));
         }),
         tap((webnode: any) => {
@@ -52,6 +55,7 @@ export class WebNodeService {
           this.webNodeStartTime = Date.now();
           (window as any)['webnode'] = webnode;
           this.webnode$.next(webnode);
+          this.webnodeProgress$.next('Started');
         }),
         catchError((error) => {
           sendSentryEvent('WebNode failed to start');
@@ -83,7 +87,6 @@ export class WebNodeService {
       switchMap(handle => from(any(handle).state().peers())),
       tap((peers) => {
         if (!this.sentryEvents.sentNoPeersEvent && Date.now() - this.webNodeStartTime >= 5000 && peers.length === 0) {
-          console.log('WebNode has no peers after 5 seconds from startup.');
           sendSentryEvent('WebNode has no peers after 5 seconds from startup.');
           this.sentryEvents.sentNoPeersEvent = true;
         }
@@ -96,6 +99,7 @@ export class WebNodeService {
           const seconds = (Date.now() - this.webNodeStartTime) / 1000;
           sendSentryEvent(`WebNode connected to its first peer after ${seconds}s`);
           this.sentryEvents.firstPeerConnected = true;
+          this.webnodeProgress$.next('Connected');
         }
       }),
     );

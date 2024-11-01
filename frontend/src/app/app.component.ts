@@ -5,9 +5,10 @@ import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
 import { AppActions } from '@app/app.actions';
 import { filter, map, Observable, Subscription, take, timer } from 'rxjs';
-import { CONFIG, getFirstFeature } from '@shared/constants/config';
+import { CONFIG } from '@shared/constants/config';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { Router } from '@angular/router';
+import { Routes } from '@shared/enums/routes.enum';
 
 @Component({
   selector: 'app-root',
@@ -20,8 +21,10 @@ export class AppComponent extends StoreDispatcher implements OnInit {
 
   protected readonly menu$: Observable<AppMenu> = this.select$(AppSelectors.menu);
   protected readonly showLandingPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === '/'));
+  protected readonly showLoadingWebNodePage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === `/${Routes.LOADING_WEB_NODE}`));
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
+  loaded: boolean;
 
   private nodeUpdateSubscription: Subscription | null = null;
 
@@ -42,10 +45,18 @@ export class AppComponent extends StoreDispatcher implements OnInit {
       take(1),
       filter((route: MergedRoute) => route.url !== '/'),
     );
+    this.select(
+      getMergedRoute,
+      () => {
+        this.loaded = true;
+        this.detect();
+      },
+      filter(Boolean),
+    );
   }
 
   goToWebNode(): void {
-    this.router.navigate([getFirstFeature()]);
+    this.router.navigate([Routes.LOADING_WEB_NODE]);
     this.initAppFunctionalities();
   }
 

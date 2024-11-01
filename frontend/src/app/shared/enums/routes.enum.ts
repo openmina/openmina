@@ -37,4 +37,5 @@ export enum Routes {
   BLOCK_PRODUCTION = 'block-production',
   WON_SLOTS = 'won-slots',
   MEMPOOL = 'mempool',
+  LOADING_WEB_NODE = 'loading-web-node',
 }
