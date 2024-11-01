@@ -539,6 +539,11 @@ impl BlockProducerEnabled {
             (min_window_density, next_sub_window_densities)
         };
 
+        let supercharge_coinbase = can_apply_supercharged_coinbase(
+            &block_stake_winner,
+            &stake_proof_sparse_ledger,
+            &global_slot_since_genesis,
+        );
         let consensus_state = v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             blockchain_length: v2::UnsignedExtendedUInt32StableV1((pred_block.height() + 1).into()),
             epoch_count,
@@ -554,8 +559,7 @@ impl BlockProducerEnabled {
             block_stake_winner,
             block_creator,
             coinbase_receiver,
-            // TODO(binier): Staged_ledger.can_apply_supercharged_coinbase_exn
-            supercharge_coinbase: constraint_constants().supercharged_coinbase_factor != 0,
+            supercharge_coinbase,
         };
 
         let protocol_state = v2::MinaStateProtocolStateValueStableV2 {
@@ -699,6 +703,24 @@ impl BlockProducerEnabled {
             dispatcher.push(BlockProducerAction::WonSlotSearch);
         }
     }
+}
+
+fn can_apply_supercharged_coinbase(
+    block_stake_winner: &v2::NonZeroCurvePoint,
+    stake_proof_sparse_ledger: &v2::MinaBaseSparseLedgerBaseStableV2,
+    global_slot_since_genesis: &v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
+) -> bool {
+    use ledger::staged_ledger::staged_ledger::StagedLedger;
+
+    let winner = (block_stake_winner)
+        .try_into()
+        .expect("Public key being used cannot be invalid here");
+    let epoch_ledger = (stake_proof_sparse_ledger)
+        .try_into()
+        .expect("Sparse ledger being used cannot be invalid here");
+    let global_slot = (global_slot_since_genesis).into();
+
+    StagedLedger::can_apply_supercharged_coinbase_exn(winner, &epoch_ledger, global_slot)
 }
 
 fn next_to_staking_epoch_data(
