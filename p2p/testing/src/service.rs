@@ -64,7 +64,7 @@ impl ClusterService {
 
 impl TimeService for ClusterService {
     fn monotonic_time(&mut self) -> redux::Instant {
-        self.time
+        self.time.into()
     }
 }
 

@@ -1,0 +1,55 @@
+<div class="data-wrapper h-100 fx-col-full-cent">
+  <div class="header flex-column align-center mb-16 pb-12 text-center">
+    <div class="loading-webnode f-500">
+      With the Web Node, you can produce blocks directly through your browser
+    </div>
+
+    <div class="font-16 tertiary pt-10 mt-10">
+      @if (!loading[loading.length - 1].loaded) {
+        Setting up your in-browser Web Node...
+      } @else {
+        Web Node is ready
+      }
+    </div>
+  </div>
+
+  <div class="mt-16 border-rad-6 bg-container flex-column p-12 w-100">
+    @for (item of loading; track $index) {
+      <div class="flex-row flex-between align-center h-xl f-500 font-16">
+        <div [ngClass]="item.loaded ? 'tertiary' : 'primary'">{{ item.name }}</div>
+        <div class="flex-row align-center flex-center w-lg h-md border-rad-6"
+             [ngClass]="'bg-' + (item.loaded ? 'success' : (!item.loaded && (loading[$index - 1]?.loaded || $index === 0)) ? 'aware' : '') + '-container'">
+          <span class="mina-icon icon-200"
+                [ngClass]="(item.loaded ? 'success-' : (!item.loaded && (loading[$index - 1]?.loaded || $index === 0)) ? 'aware-' : '') + 'primary'">
+            {{ item.loaded ? 'task_alt' : 'more_horiz' }}
+          </span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="p-relative">
+    @if (ready) {
+      <button
+        [@fadeIn]="ready"
+        class="p-absolute launch f-500 border-rad-6 flex-row align-center flex-center cta-primary"
+        (click)="goToDashboard()">
+        Launch Block Producer
+      </button>
+    }
+  </div>
+
+  @if (!loading[loading.length - 1].loaded && errors.length) {
+    <div class="flex-column w-100 bg-surface p-12 mt-10 border-rad-6">
+      <div class="font-16 flex-row flex-column-md flex-between align-center flex-start-md"
+           [ngClass]="errors.length ? 'warn-primary' : 'aware-primary'">
+        <div>It appears there are some errors.</div>
+      </div>
+      <div class="flex-column border-rad-8 warn-secondary monospace break-word">
+        @for (error of errors; track $index) {
+          <div class="lh-sm">{{ error }}</div>
+        }
+      </div>
+    </div>
+  }
+</div>

@@ -1,4 +1,4 @@
-import { APP_INITIALIZER, ErrorHandler, Injectable, LOCALE_ID, NgModule, Provider } from '@angular/core';
+import { APP_INITIALIZER, ErrorHandler, Injectable, LOCALE_ID, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
 import { AppComponent } from './app.component';

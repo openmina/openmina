@@ -1,7 +1,9 @@
 @if (showLandingPage$ | async) {
   <mina-web-node-landing-page (goToNode)="goToWebNode()"
                               (stopRequests)="clearNodeUpdateSubscription()"></mina-web-node-landing-page>
-} @else {
+} @else if (showLoadingWebNodePage$ | async) {
+  <router-outlet></router-outlet>
+} @else if (loaded) {
   <mat-sidenav-container [hasBackdrop]="false"
                          class="w-100 h-100"
                          *ngIf="menu$ | async as menu">

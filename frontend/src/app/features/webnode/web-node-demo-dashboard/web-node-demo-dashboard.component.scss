@@ -1,0 +1,60 @@
+@import 'openmina';
+
+$green: #59bfb5;
+$light-peach: #0d0d0d;
+$peach: #acdea0;
+$sand: #5bb3fb;
+$white: #000000;
+
+.font-16 {
+  font-size: 16px;
+}
+
+.data-wrapper {
+  max-width: 568px;
+
+  .header {
+    margin-bottom: 56px;
+
+    .loading-webnode {
+      font-size: 24px;
+      line-height: 32px;
+    }
+  }
+
+  .mina-icon.aware-primary {
+    animation: fadeIn 1500ms ease-in-out infinite;
+  }
+}
+
+.launch {
+  height: 56px !important;
+  font-size: 20px;
+  width: 341px;
+  background: linear-gradient(to right, $green 0%, $sand 50%, $peach 100%);
+  background-size: 500%;
+  margin-top: 64px;
+  transition: background-position 1s ease;
+  background-position: 0 50%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  &:hover {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes fadeIn {
+  10% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 0.1;
+  }
+  42% {
+    opacity: 0.1;
+  }
+  70% {
+    opacity: 1;
+  }
+}
