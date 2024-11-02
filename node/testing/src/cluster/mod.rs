@@ -321,7 +321,7 @@ impl Cluster {
 
         if let Some(keypair) = block_producer_sec_key {
             let provers = BlockProver::make(None, None);
-            service_builder.block_producer_init(keypair, provers);
+            service_builder.block_producer_init(keypair, Some(provers));
         }
 
         let real_service = service_builder

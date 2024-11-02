@@ -290,12 +290,12 @@ impl State {
     }
 
     fn cur_slot(&self, initial_slot: impl FnOnce(&ArcBlockWithHash) -> u32) -> Option<u32> {
-        let best_tip = self.transition_frontier.best_tip()?;
-        let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
+        let genesis = self.genesis_block()?;
+        let initial_ms = u64::from(genesis.timestamp()) / 1_000_000;
         let now_ms = u64::from(self.time()) / 1_000_000;
-        let ms = now_ms.saturating_sub(best_tip_ms);
+        let ms = now_ms.saturating_sub(initial_ms);
         let slots = ms / constraint_constants().block_window_duration_ms;
-        Some(initial_slot(best_tip) + slots as u32)
+        Some(initial_slot(&genesis) + slots as u32)
     }
 
     /// Current global slot based on constants and current time.
@@ -306,7 +306,8 @@ impl State {
     }
 
     pub fn current_slot(&self) -> Option<u32> {
-        self.cur_slot(|b| b.global_slot() % b.constants().slots_per_epoch.as_u32())
+        let slots_per_epoch = self.genesis_block()?.constants().slots_per_epoch.as_u32();
+        Some(self.cur_global_slot()? % slots_per_epoch)
     }
 
     pub fn cur_global_slot_since_genesis(&self) -> Option<u32> {

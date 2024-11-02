@@ -103,7 +103,7 @@ impl node::service::BlockProducerService for crate::NodeService {
             .expect("provers shouldn't be needed if block producer isn't initialized")
             .provers
             .clone()
-            .unwrap_or_else(|| BlockProver::get_once_made())
+            .unwrap_or_else(BlockProver::get_once_made)
     }
 
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
