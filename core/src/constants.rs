@@ -107,19 +107,6 @@ pub fn checkpoint_window_size_in_slots() -> u32 {
     size_in_slots as u32
 }
 
-pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1) -> u32 {
-    let slots = {
-        const NUM_DAYS: u64 = 3;
-        let n_days_ms = days_to_ms(NUM_DAYS);
-        let n_days = n_days_ms / constraint_constants().block_window_duration_ms;
-        (n_days as u32).min(constants.slots_per_epoch.as_u32())
-    };
-    match constraint_constants().fork.as_ref() {
-        None => slots,
-        Some(fork) => slots + fork.global_slot_since_genesis,
-    }
-}
-
 pub const DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS: u64 = 1707157200000;
 
 pub const PROTOCOL_TRANSACTION_VERSION: u8 = 3;

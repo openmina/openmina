@@ -7,7 +7,7 @@ use time::{macros::format_description, OffsetDateTime};
 
 use crate::constants::constraint_constants;
 pub use crate::constants::{
-    checkpoint_window_size_in_slots, grace_period_end, slots_per_window, CHECKPOINTS_PER_YEAR,
+    checkpoint_window_size_in_slots, slots_per_window, CHECKPOINTS_PER_YEAR,
 };
 
 // TODO get constants from elsewhere
