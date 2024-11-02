@@ -12,12 +12,13 @@ use mina_p2p_messages::{
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
     },
 };
-use openmina_core::{block::ArcBlockWithHash, constants::constraint_constants};
+use openmina_core::{
+    block::ArcBlockWithHash, consensus::ConsensusConstants, constants::constraint_constants,
+};
 use openmina_core::{
     bug_condition,
     consensus::{
-        global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
-        relative_sub_window,
+        global_sub_window, in_same_checkpoint_window, in_seed_update_range, relative_sub_window,
     },
 };
 use redux::{callback, Dispatcher, Timestamp};
@@ -49,6 +50,7 @@ impl BlockProducerEnabled {
         let Ok(global_state) = state_context.get_substate_mut() else {
             return;
         };
+        let consensus_constants = &global_state.config.consensus_constants;
 
         let best_chain = &global_state.transition_frontier.best_chain;
         let Some(state) = global_state.block_producer.as_mut() else {
@@ -220,7 +222,7 @@ impl BlockProducerEnabled {
                 dispatcher.push(BlockProducerEffectfulAction::StagedLedgerDiffCreateSuccess);
             }
             BlockProducerAction::BlockUnprovenBuild => {
-                state.reduce_block_unproved_build(meta.time());
+                state.reduce_block_unproved_build(consensus_constants, meta.time());
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerEffectfulAction::BlockUnprovenBuild);
@@ -351,7 +353,11 @@ impl BlockProducerEnabled {
         }
     }
 
-    fn reduce_block_unproved_build(&mut self, time: Timestamp) {
+    fn reduce_block_unproved_build(
+        &mut self,
+        consensus_constants: &ConsensusConstants,
+        time: Timestamp,
+    ) {
         let BlockProducerCurrentState::StagedLedgerDiffCreateSuccess {
             won_slot,
             chain,
@@ -493,7 +499,7 @@ impl BlockProducerEnabled {
                     } else {
                         gt_pred_sub_window || lt_next_sub_window
                     };
-                    if is_same_global_sub_window || are_windows_overlapping && !within_range {
+                    if is_same_global_sub_window || (are_windows_overlapping && !within_range) {
                         density
                     } else {
                         0
@@ -501,7 +507,7 @@ impl BlockProducerEnabled {
                 })
                 .collect::<Vec<_>>();
 
-            let grace_period_end = grace_period_end(pred_block.constants());
+            let grace_period_end = consensus_constants.grace_period_end;
             let min_window_density = if is_same_global_sub_window
                 || curr_global_slot_since_hard_fork.slot_number.as_u32() < grace_period_end
             {
