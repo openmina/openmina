@@ -287,9 +287,7 @@ impl crate::State {
                 let response = None.or_else(|| {
                     let best_tip = best_chain.last()?;
                     let mut chain_iter = best_chain.iter();
-                    let root_block = chain_iter.next();
-                    // when our best tip is genesis block.
-                    let root_block = root_block.unwrap_or(best_tip);
+                    let root_block = chain_iter.next()?;
                     // TODO(binier): cache body hashes
                     let Ok(body_hashes) = chain_iter
                         .map(|b| b.header().protocol_state.body.try_hash())

@@ -7,7 +7,7 @@ use crate::{P2pPeerStatus, P2pState, PeerId};
 pub type P2pDisconnectionActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDisconnectionAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(fields(display(peer_id), display(reason)), level = info)]
+#[action_event(level = debug)]
 pub enum P2pDisconnectionAction {
     /// Initialize disconnection.
     #[action_event(fields(display(peer_id), display(reason)), level = info)]
@@ -16,7 +16,7 @@ pub enum P2pDisconnectionAction {
         reason: P2pDisconnectionReason,
     },
     /// Finish disconnecting from a peer.
-    #[action_event(level = debug)]
+    #[action_event(fields(display(peer_id)), level = debug)]
     Finish { peer_id: PeerId },
 }
 

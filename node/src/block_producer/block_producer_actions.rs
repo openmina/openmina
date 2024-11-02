@@ -60,6 +60,7 @@ pub enum BlockProducerAction {
         proof: Box<MinaBaseProofStableV2>,
     },
     BlockProduced,
+    #[action_event(level = trace)]
     BlockInject,
     BlockInjected,
 }
