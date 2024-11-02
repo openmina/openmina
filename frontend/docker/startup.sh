@@ -27,6 +27,8 @@ download_circuit_files() {
     CIRCUITS_VERSION="3.0.1devnet"
 
     DEVNET_CIRCUIT_FILES=(
+        "block_verifier_index.postcard"
+        "transaction_verifier_index.postcard"
         "step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60_gates.json"
         "step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60_internal_vars.bin"
         "step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60_rows_rev.bin"

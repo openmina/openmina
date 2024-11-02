@@ -117,14 +117,18 @@ impl NodeBuilder {
     }
 
     /// Set up block producer.
-    pub fn block_producer(&mut self, provers: BlockProver, key: AccountSecretKey) -> &mut Self {
+    pub fn block_producer(
+        &mut self,
+        key: AccountSecretKey,
+        provers: Option<BlockProver>,
+    ) -> &mut Self {
         let config = BlockProducerConfig {
             pub_key: key.public_key().into(),
             custom_coinbase_receiver: None,
             proposed_protocol_version: None,
         };
         self.block_producer = Some(config);
-        self.service.block_producer_init(provers, key);
+        self.service.block_producer_init(key, provers);
         self
     }
 
