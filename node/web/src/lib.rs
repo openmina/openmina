@@ -45,7 +45,7 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
             node.run_forever().await;
         });
 
-        wasm_bindgen::throw_str("Cursed hack to keep workers alive. See https://github.com/rustwasm/wasm-bindgen/issues/2945");
+        keep_worker_alive_cursed_hack();
     });
 
     rpc_sender_rx.await.unwrap()
@@ -64,9 +64,10 @@ async fn setup_node(
         .work_verifier_index(work_verifier_index.clone());
 
     if let Some(bp_key) = block_producer {
-        let provers =
-            BlockProver::make(Some(block_verifier_index), Some(work_verifier_index)).await;
-        node_builder.block_producer(provers, bp_key);
+        thread::spawn(move || {
+            BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
+        });
+        node_builder.block_producer(bp_key, None);
     }
 
     node_builder
@@ -74,4 +75,8 @@ async fn setup_node(
         .unwrap();
     node_builder.gather_stats();
     node_builder.build().context("node build failed!").unwrap()
+}
+
+fn keep_worker_alive_cursed_hack() {
+    wasm_bindgen::throw_str("Cursed hack to keep workers alive. See https://github.com/rustwasm/wasm-bindgen/issues/2945");
 }

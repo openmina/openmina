@@ -71,7 +71,7 @@ fn cache_path(kind: Kind) -> Option<PathBuf> {
 macro_rules! read_cache {
     ($kind: expr, $digest: expr) => {{
         #[cfg(not(target_family = "wasm"))]
-        let data = super::circuit_blobs::fetch(&cache_filename($kind))
+        let data = super::circuit_blobs::fetch_blocking(&cache_filename($kind))
             .context("fetching verifier index failed")?;
         #[cfg(target_family = "wasm")]
         let data = super::circuit_blobs::fetch(&cache_filename($kind))
