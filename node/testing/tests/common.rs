@@ -18,8 +18,8 @@ macro_rules! scenario_test {
         $(#[$meta])?
         async fn $name() {
             use openmina_node_testing::{
-                cluster::{Cluster, ClusterConfig},
-                scenarios::ClusterRunner,
+                cluster::Cluster,
+                scenarios::{ClusterRunner, Scenarios},
                 setup_without_rt, wait_for_other_tests,
             };
             use std::io::Write;
@@ -57,16 +57,15 @@ macro_rules! scenario_test {
                 }));
             }
 
+            let scenario = $scenario_instance;
             #[allow(unused_mut)]
-            let mut config = ClusterConfig::new(None).unwrap();
+            let mut config = Scenarios::from(scenario).default_cluster_config().unwrap();
             #[cfg(feature = "p2p-webrtc")]
             if $can_test_webrtc {
-                eprintln!("All rust to rust connections will be over webrtc transport");
-                config = config.set_all_rust_to_rust_use_webrtc();
+                config.set_all_rust_to_rust_use_webrtc();
             }
             let mut cluster = Cluster::new(config);
             let runner = ClusterRunner::new(&mut cluster, |_| {});
-            let scenario = $scenario_instance;
             scenario.run(runner).await;
 
             if let Some(summary) = std::env::var_os("GITHUB_STEP_SUMMARY") {
