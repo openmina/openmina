@@ -79,15 +79,15 @@ download_wasm_files() {
         echo "Error: OPENMINA_WASM_VERSION is not set. Exiting."
         exit 1
     fi
-    
+
     WASM_URL="$OPENMINA_BASE_URL/openmina/releases/download/$OPENMINA_WASM_VERSION/openmina-$OPENMINA_WASM_VERSION-webnode-wasm.tar.gz"
     TARGET_DIR="/usr/local/apache2/htdocs/assets/webnode/pkg"
-    
+
     mkdir -p "$TARGET_DIR"
 
     echo "Downloading WASM files from $WASM_URL..."
     curl -s -L --retry 3 --retry-delay 5 -o "/tmp/openmina-$OPENMINA_WASM_VERSION-webnode-wasm.tar.gz" "$WASM_URL"
-    
+
     if [[ $? -ne 0 ]]; then
         echo "Failed to download the WASM file after 3 attempts, exiting."
         exit 1
@@ -95,18 +95,43 @@ download_wasm_files() {
         echo "WASM file downloaded successfully. Extracting to $TARGET_DIR..."
 
         tar -xzf "/tmp/openmina-$OPENMINA_WASM_VERSION-webnode-wasm.tar.gz" -C "$TARGET_DIR"
-        
+
         # Check if the extraction was successful
         if [[ $? -ne 0 ]]; then
             echo "Failed to extract the WASM file, exiting."
             exit 1
         else
             echo "WASM files extracted successfully to $TARGET_DIR"
+
+            # Inject caching logic into openmina_node_web.js
+            OPENMINA_JS="$TARGET_DIR/openmina_node_web.js"
+            inject_caching_logic "$OPENMINA_JS"
         fi
     fi
 
     rm "/tmp/openmina-$OPENMINA_WASM_VERSION-webnode-wasm.tar.gz"
 }
+
+inject_caching_logic() {
+  local js_file="$1"
+  if [ -f "$js_file" ]; then
+    echo "Injecting caching logic into $js_file"
+
+    # Generate a unique hash
+    local hash=$(openssl rand -hex 8)
+
+    sed -i "/module_or_path = fetch(module_or_path);/i\    module_or_path += \"\?v=${hash}\";" "$js_file"
+    sed -i 's/module_or_path = fetch(module_or_path);/module_or_path = fetch(module_or_path, { cache: "force-cache", headers: { "Cache-Control": "max-age=31536000, immutable" } });/' "$js_file"
+    if [[ $? -ne 0 ]]; then
+      echo "Failed to inject caching logic into $js_file"
+    else
+      echo "Successfully injected caching logic into $js_file"
+    fi
+  else
+    echo "Warning: $js_file not found. Caching logic not injected."
+  fi
+}
+
 
 if [ -n "$OPENMINA_FRONTEND_ENVIRONMENT" ]; then
   echo "Using environment: $OPENMINA_FRONTEND_ENVIRONMENT"

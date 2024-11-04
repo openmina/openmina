@@ -6,11 +6,12 @@
     "start": "npm install && ng serve --configuration local --open",
     "start:dev": "ng serve --configuration development",
     "build": "ng build",
-    "build:prod": "ng build --configuration production",
+    "build:prod": "npm run prebuild && ng build --configuration production",
     "tests": "npx cypress open --config baseUrl=http://localhost:4200",
     "tests:headless": "npx cypress run --headless --config baseUrl=http://localhost:4200",
     "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest",
-    "start:bundle": "npx http-server dist/frontend -p 4200"
+    "start:bundle": "npx http-server dist/frontend -p 4200",
+    "prebuild": "node scripts/update-webnode-version.js"
   },
   "private": true,
   "dependencies": {
