@@ -120,7 +120,6 @@ inject_caching_logic() {
     # Generate a unique hash
     local hash=$(openssl rand -hex 8)
 
-    sed -i "/module_or_path = fetch(module_or_path);/i\    module_or_path += \"\?v=${hash}\";" "$js_file"
     sed -i 's/module_or_path = fetch(module_or_path);/module_or_path = fetch(module_or_path, { cache: "force-cache", headers: { "Cache-Control": "max-age=31536000, immutable" } });/' "$js_file"
     if [[ $? -ne 0 ]]; then
       echo "Failed to inject caching logic into $js_file"
