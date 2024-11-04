@@ -2,14 +2,15 @@ services:
   openmina-node:
     image: openmina/openmina:${OPENMINA_TAG:-latest}
     entrypoint: >
-      sh -c "openmina node $${OPENMINA_LIBP2P_EXTERNAL_IP:+--libp2p-external-ip $$OPENMINA_LIBP2P_EXTERNAL_IP}"
+      sh -c "openmina node $${OPENMINA_LIBP2P_EXTERNAL_IP:+--libp2p-external-ip $$OPENMINA_LIBP2P_EXTERNAL_IP} $${OPENMINA_LIBP2P_PORT:+--libp2p-port $$OPENMINA_LIBP2P_PORT}"
     volumes:
       - ./openmina-workdir:/root/.openmina:rw
     ports:
       - "3000:3000"
-      - "8302:8302"
+      - "${OPENMINA_LIBP2P_PORT:-8302}:${OPENMINA_LIBP2P_PORT:-8302}"
     environment:
       OPENMINA_LIBP2P_EXTERNAL_IP: "${OPENMINA_LIBP2P_EXTERNAL_IP}"
+      OPENMINA_LIBP2P_PORT: "${OPENMINA_LIBP2P_PORT}"
 
   frontend:
     image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}
