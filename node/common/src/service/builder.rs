@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
@@ -93,7 +95,7 @@ impl NodeServiceCommonBuilder {
         self
     }
 
-    pub fn archive_init(&mut self, address: &str) -> &mut Self {
+    pub fn archive_init(&mut self, address: SocketAddr) -> &mut Self {
         self.archive = Some(ArchiveService::start(address));
         self
     }

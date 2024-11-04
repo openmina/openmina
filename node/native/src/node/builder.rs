@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{BufRead, BufReader, Read},
-    net::IpAddr,
+    net::{IpAddr, SocketAddr},
     path::Path,
     sync::Arc,
     time::Duration,
@@ -218,8 +218,8 @@ impl NodeBuilder {
         Ok(self.block_producer(key, provers))
     }
 
-    pub fn archive(&mut self, address: &str) -> &mut Self {
-        self.archive = Some(ArchiveConfig::new(address));
+    pub fn archive(&mut self, address: SocketAddr) -> &mut Self {
+        self.archive = Some(ArchiveConfig::new(&address.to_string()));
         self.service.archive_init(address);
         self
     }

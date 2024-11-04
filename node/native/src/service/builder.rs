@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey, core::thread, p2p::identity::SecretKey as P2pSecretKey,
@@ -53,7 +55,7 @@ impl NodeServiceBuilder {
         self
     }
 
-    pub fn archive_init(&mut self, address: &str) -> &mut Self {
+    pub fn archive_init(&mut self, address: SocketAddr) -> &mut Self {
         self.common.archive_init(address);
         self
     }
