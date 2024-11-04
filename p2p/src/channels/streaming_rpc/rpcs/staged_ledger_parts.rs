@@ -366,6 +366,43 @@ impl StagedLedgerPartsReceiveProgress {
             }
         }
     }
+
+    pub fn progress(&self) -> (u64, u64) {
+        const EXPECTED_FETCH_TOTAL: u64 = 27;
+        let total = |trees: u32| (trees as u64) + 3;
+        match self {
+            Self::BasePending { .. } => (0, EXPECTED_FETCH_TOTAL),
+            Self::BaseSuccess { .. } | Self::ScanStateBasePending { .. } => {
+                (1, EXPECTED_FETCH_TOTAL)
+            }
+            Self::ScanStateBaseSuccess {
+                scan_state_base, ..
+            }
+            | Self::PreviousIncompleteZkappUpdatesPending {
+                scan_state_base, ..
+            } => (2, total(scan_state_base.trees.as_u32())),
+            Self::PreviousIncompleteZkappUpdatesSuccess {
+                scan_state_base, ..
+            } => (3, total(scan_state_base.trees.as_u32())),
+            Self::ScanStateTreesPending {
+                scan_state_base,
+                trees,
+                ..
+            } => (
+                3 + trees.len() as u64,
+                total(scan_state_base.trees.as_u32()),
+            ),
+            Self::Success { data, .. } => {
+                let total = calc_total_pieces_to_transfer(data);
+                (total, total)
+            }
+        }
+    }
+}
+
+pub fn calc_total_pieces_to_transfer(parts: &StagedLedgerAuxAndPendingCoinbases) -> u64 {
+    let total_trees = parts.scan_state.scan_state.trees.1.len() + 1;
+    3 + total_trees as u64
 }
 
 impl Default for StagedLedgerPartsReceiveProgress {
