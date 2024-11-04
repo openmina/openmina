@@ -294,7 +294,7 @@ pub struct RpcMessageProgressResponse {
     pub messages_stats: BTreeMap<PeerId, MessagesStats>,
     pub staking_ledger_sync: Option<LedgerSyncProgress>,
     pub next_epoch_ledger_sync: Option<LedgerSyncProgress>,
-    pub root_ledger_sync: Option<LedgerSyncProgress>,
+    pub root_ledger_sync: Option<RootLedgerSyncProgress>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -307,6 +307,19 @@ pub struct MessagesStats {
 pub struct LedgerSyncProgress {
     pub fetched: u64,
     pub estimation: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RootLedgerSyncProgress {
+    pub fetched: u64,
+    pub estimation: u64,
+    pub staged: Option<RootStagedLedgerSyncProgress>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RootStagedLedgerSyncProgress {
+    pub fetched: u64,
+    pub total: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

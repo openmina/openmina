@@ -116,6 +116,7 @@ impl TransitionFrontierSyncLedgerStagedState {
         Some(match self {
             Self::PartsFetchSuccess { target, parts, .. } => (target, Some(parts)),
             Self::ReconstructEmpty { target, .. } => (target, None),
+            Self::ReconstructPending { target, parts, .. } => (target, parts.as_ref()),
             _ => return None,
         })
     }
