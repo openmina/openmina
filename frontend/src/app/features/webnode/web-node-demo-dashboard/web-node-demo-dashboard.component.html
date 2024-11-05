@@ -1,41 +1,48 @@
-<div class="data-wrapper h-100 fx-col-full-cent">
-  <div class="header flex-column align-center mb-16 pb-12 text-center">
+<div class="logo-header w-100 border-bottom fx-row-full-cent">
+  <img ngSrc="assets/images/logo/logo-text.svg" height="40" width="136"/>
+</div>
+<div class="data-wrapper fx-col-full-cent">
+  <div class="header flex-column align-center mb-16 pb-12 pl-10 pr-10 text-center">
     <div class="loading-webnode f-500">
-      With the Web Node, you can produce blocks directly through your browser
+      Produce blocks,
+      <span>&nbsp;right in your browser</span>
     </div>
 
-    <div class="font-16 tertiary pt-10 mt-10">
+    <div class="font-16 tertiary mt-16 font-16 f-300">
       @if (!loading[loading.length - 1].loaded) {
-        Setting up your in-browser Web Node...
+        @if (loading[0].status === WebNodeStepStatus.LOADING) {
+          Downloading...
+        } @else {
+          ~7 seconds left
+        }
       } @else {
         Web Node is ready
       }
     </div>
   </div>
 
-  <div class="mt-16 border-rad-6 bg-container flex-column p-12 w-100">
-    @for (item of loading; track $index) {
-      <div class="flex-row flex-between align-center h-xl f-500 font-16">
-        <div [ngClass]="item.loaded ? 'tertiary' : 'primary'">{{ item.name }}</div>
-        <div class="flex-row align-center flex-center w-lg h-md border-rad-6"
-             [ngClass]="'bg-' + (item.loaded ? 'success' : (!item.loaded && (loading[$index - 1]?.loaded || $index === 0)) ? 'aware' : '') + '-container'">
-          <span class="mina-icon icon-200"
-                [ngClass]="(item.loaded ? 'success-' : (!item.loaded && (loading[$index - 1]?.loaded || $index === 0)) ? 'aware-' : '') + 'primary'">
-            {{ item.loaded ? 'task_alt' : 'more_horiz' }}
-          </span>
-        </div>
-      </div>
-    }
-  </div>
+  <div #progress class="progress w-100"></div>
 
-  <div class="p-relative">
-    @if (ready) {
-      <button
-        [@fadeIn]="ready"
-        class="p-absolute launch f-500 border-rad-6 flex-row align-center flex-center cta-primary"
-        (click)="goToDashboard()">
-        Launch Block Producer
-      </button>
+  <div class="mt-16 flex-column w-100 pl-10 pr-10">
+    @for (item of loading; track $index) {
+      <div class="fx-row-vert-cent h-xl font-16">
+        @if (item.status === WebNodeStepStatus.LOADING) {
+          <mina-loading-spinner [size]="20" [borderWidth]="2"></mina-loading-spinner>
+        } @else {
+          <span [ngClass]="item.status === WebNodeStepStatus.DONE ? 'success-primary' : 'tertiary'"
+                class="circle-check mina-icon icon-200">check_circle</span>
+        }
+        <div [ngClass]="item.status === WebNodeStepStatus.PENDING ? 'tertiary' : 'primary'"
+             class="ml-8 f-400">{{ item.name }}
+        </div>
+        @if (item.data) {
+          @if (item.data.total) {
+            <span class="tertiary ml-5">{{ item.data.downloaded }} of {{ item.data.total }} MB</span>
+          } @else {
+            <span class="tertiary ml-5">{{ item.data.est }}</span>
+          }
+        }
+      </div>
     }
   </div>
 
@@ -52,4 +59,17 @@
       </div>
     </div>
   }
+</div>
+<div class="footer border-top fx-row-vert-cent flex-between w-100 pl-10 pr-10">
+  <div class="fx-row-vert-cent">
+    <span class="mina-icon icon-300 selected-primary mr-5">lightbulb</span>
+    <div class="selected-primary f-big f-500">
+      You can run the Web Node from your phone
+    </div>
+  </div>
+  <button class="border-rad-8 fx-row-full-cent font-16 ml-10"
+          [class.disabled]="!loading[loading.length - 1].loaded"
+          (click)="goToDashboard()">
+    <span>Continue</span>
+  </button>
 </div>

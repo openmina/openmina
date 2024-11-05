@@ -1,10 +1,12 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { BehaviorSubject, catchError, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap } from 'rxjs';
 import base from 'base-x';
 import { any } from '@openmina/shared';
 import { HttpClient } from '@angular/common/http';
 import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
+import { DOCUMENT } from '@angular/common';
+import { FileProgressHelper } from '@core/helpers/file-progress.helper';
 
 @Injectable({
   providedIn: 'root',
@@ -18,7 +20,9 @@ export class WebNodeService {
 
   readonly webnodeProgress$: BehaviorSubject<string> = new BehaviorSubject<string>('');
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient,
+              @Inject(DOCUMENT) private document: Document) {
+    FileProgressHelper.initDownloadProgress();
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
     any(window)['bs58btc'] = {
       encode: (buffer: Uint8Array | number[]) => 'z' + basex.encode(buffer),
@@ -26,7 +30,32 @@ export class WebNodeService {
     };
   }
 
+  private loadWebnodeJs(): void {
+    if (this.document.querySelector('[data-webnode]')) {
+      return;
+    }
+
+    const script = this.document.createElement('script');
+    script.type = 'module';
+    script.setAttribute('data-webnode', 'true');
+    script.textContent = `
+      import('./assets/webnode/pkg/openmina_node_web.js')
+        .then(v => {
+          window.webnode = v;
+          window.dispatchEvent(new CustomEvent('webNodeLoaded'));
+        })
+        .catch(er => {
+          if (window.env?.configs.some(c => c.isWebNode)) {
+            console.error('Failed to load Web Node:', er);
+          }
+        });
+    `;
+
+    this.document.body.appendChild(script);
+  }
+
   loadWasm$(): Observable<void> {
+    this.loadWebnodeJs();
     sendSentryEvent('Loading WebNode JS');
     return merge(
       of(any(window).webnode).pipe(filter(Boolean)),
