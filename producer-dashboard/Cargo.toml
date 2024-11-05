@@ -6,7 +6,7 @@ license = "Apache-2.0"
 
 [[bin]]
 name = "openmina-producer-dashboard"
-path = "src/main.rs"
+path = "src/bin/producer_dashboard.rs"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
