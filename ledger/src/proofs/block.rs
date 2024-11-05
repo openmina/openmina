@@ -1375,7 +1375,6 @@ pub mod consensus {
 
         let (new_total_currency, _overflow) = {
             let total_currency: Amount = previous_state.total_currency;
-            w.exists(supply_increase.force_value());
             total_currency
                 .to_checked()
                 .add_signed_flagged(supply_increase, w)
@@ -1639,7 +1638,7 @@ fn block_main<'a>(
     };
 
     let supply_increase = w.exists_no_check(match txn_stmt_ledger_hashes_didn_t_change {
-        Boolean::True => CheckedSigned::zero(),
+        Boolean::True => CheckedSigned::const_zero(),
         Boolean::False => txn_snark.supply_increase.to_checked(),
     });
 

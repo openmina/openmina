@@ -86,6 +86,14 @@ where
         Self::of_unsigned(T::zero())
     }
 
+    pub fn const_zero() -> Self {
+        Self {
+            magnitude: T::zero(),
+            sgn: Sgn::Pos,
+            value: Cell::new(None),
+        }
+    }
+
     pub fn negate(self) -> Self {
         Self {
             magnitude: self.magnitude,
@@ -215,15 +223,14 @@ where
     }
 
     pub fn equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
-        // We decompose this way because of OCaml evaluation order
-        let t2 = other.value(w);
         let t1 = self.value(w);
+        let t2 = other.value(w);
         field::equal(t1, t2, w)
     }
 
     pub fn const_equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
-        let t2 = other.value(w);
         let t1 = self.value(w);
+        let t2 = other.value(w);
         field::equal(t1, t2, w)
     }
 }
