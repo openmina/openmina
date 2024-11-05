@@ -1,38 +1,17 @@
-use node::NodeData;
 use openmina_node_account::AccountSecretKey;
-
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
-
-use clap::Parser;
-
-use crate::{
+use openmina_producer_dashboard::{
     archive::watchdog::ArchiveWatchdog,
+    config,
     evaluator::{EpochInit, Evaluator},
     node::{watchdog::spawn_watchdog, Node},
+    rpc,
     storage::db_sled::Database,
+    NodeStatus,
 };
 
-mod archive;
-mod config;
-pub mod evaluator;
-mod node;
-mod rpc;
-mod storage;
+use tokio::sync::mpsc;
 
-#[derive(Debug, thiserror::Error)]
-pub enum StakingToolError {
-    #[error("Empty graphql response")]
-    EmptyGraphqlResponse,
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
-    #[error("Node offline")]
-    NodeOffline,
-}
-
-pub type NodeStatus = Arc<RwLock<NodeData>>;
+use clap::Parser;
 
 #[tokio::main]
 async fn main() {
