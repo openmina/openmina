@@ -43,6 +43,6 @@ impl SimulationSmallForeverRealTime {
             recorder: Default::default(),
         };
         let mut simulator = Simulator::new(initial_time, cfg);
-        simulator.run(&mut runner).await;
+        simulator.setup_and_run(&mut runner).await;
     }
 }

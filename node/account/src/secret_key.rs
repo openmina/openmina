@@ -23,7 +23,7 @@ lazy_static::lazy_static! {
     // TODO(binier): better way.
     static ref GENERATED_DETERMINISTIC: Vec<AccountSecretKey> = {
         let mut rng = StdRng::seed_from_u64(0);
-        (0..1000)
+        (0..10000)
             .map(|_| AccountSecretKey::rand_with(&mut rng))
             .collect()
     };

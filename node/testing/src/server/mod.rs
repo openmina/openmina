@@ -1,3 +1,5 @@
+pub mod simulator;
+
 use crate::cluster::{Cluster, ClusterConfig, ClusterNodeId};
 use crate::node::NodeTestingConfig;
 use crate::scenario::{event_details, Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
@@ -11,6 +13,8 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::transition_frontier::genesis::{GenesisConfig, PrebuiltGenesisConfig};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
@@ -40,6 +44,8 @@ pub fn server(rt: Runtime, port: u16) {
             "/:cluster_id/scenarios/reload",
             post(cluster_scenarios_reload),
         )
+        .route("/:cluster_id/seeds", get(cluster_seeds))
+        .route("/:cluster_id/genesis/config", get(cluster_genesis_config))
         .route(
             "/:cluster_id/nodes/events/pending",
             get(cluster_events_pending),
@@ -55,6 +61,7 @@ pub fn server(rt: Runtime, port: u16) {
     let app = Router::new()
         .nest("/scenarios", scenarios_router)
         .nest("/clusters", clusters_router)
+        .nest("/simulations", simulator::simulations_router())
         .with_state(state)
         .layer(cors);
 
@@ -127,6 +134,27 @@ impl AppState {
             .start(scenario)
             .await
             .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?;
+
+        let mut state = self.lock().await;
+        let id = loop {
+            let id = state.rng.gen();
+            if !state.clusters.contains_key(&id) {
+                break id;
+            }
+        };
+
+        let cluster = Arc::new(Mutex::new(cluster));
+        let cluster_guard = cluster.clone().try_lock_owned().unwrap();
+        state.clusters.insert(id, cluster);
+
+        Ok((id, cluster_guard))
+    }
+
+    pub async fn cluster_create_empty(
+        &self,
+        config: ClusterConfig,
+    ) -> Result<(u16, OwnedMutexGuard<Cluster>), (StatusCode, String)> {
+        let cluster = Cluster::new(config);
 
         let mut state = self.lock().await;
         let id = loop {
@@ -378,6 +406,69 @@ async fn cluster_scenarios_reload(
         .reload_scenarios()
         .await
         .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))
+}
+
+async fn cluster_seeds(
+    State(state): State<AppState>,
+    Path(cluster_id): Path<u16>,
+) -> Result<Json<Vec<P2pConnectionOutgoingInitOpts>>, (StatusCode, String)> {
+    state
+        .cluster(cluster_id)
+        .await
+        .map(|cluster| {
+            cluster
+                .nodes_iter()
+                .filter(|(_, node)| node.config().initial_peers.is_empty())
+                .map(|(_, node)| node.dial_addr())
+                .collect()
+        })
+        .map(Json)
+}
+
+async fn cluster_genesis_config(
+    State(state): State<AppState>,
+    Path(cluster_id): Path<u16>,
+) -> Result<Vec<u8>, (StatusCode, String)> {
+    let cluster = state.cluster(cluster_id).await?;
+    let genesis = cluster
+        .nodes_iter()
+        .next()
+        .map(|(_, node)| node.config().genesis.clone());
+    let genesis = genesis.ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            "no nodes in the cluster".to_owned(),
+        )
+    })?;
+    if let GenesisConfig::Prebuilt(encoded) = &*genesis {
+        return Ok(encoded.clone().into_owned());
+    }
+    tokio::task::spawn_blocking(move || {
+        let res = genesis.load().map_err(|err| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("failed to load genesis config. err: {err}"),
+            )
+        })?;
+        let mut encoded = Vec::new();
+        PrebuiltGenesisConfig::from_loaded(res)
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "failed to build `PrebuiltGenesisConfig` from loaded data".to_owned(),
+                )
+            })?
+            .store(&mut encoded)
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "failed to encode `PrebuiltGenesisConfig`".to_owned(),
+                )
+            })?;
+        Ok(encoded)
+    })
+    .await
+    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "join error".to_owned()))?
 }
 
 #[derive(Serialize)]

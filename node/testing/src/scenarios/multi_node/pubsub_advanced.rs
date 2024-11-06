@@ -45,6 +45,6 @@ impl MultiNodePubsubPropagateBlock {
             recorder: Recorder::StateWithInputActions,
         };
         let mut simulator = Simulator::new(initial_time, config);
-        simulator.run(&mut runner).await;
+        simulator.setup_and_run(&mut runner).await;
     }
 }

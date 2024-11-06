@@ -355,7 +355,6 @@ impl Cluster {
             identity_pub_key: secret_key.public_key(),
             initial_peers,
             external_addrs: vec![],
-            ask_initial_peers_interval: Duration::from_secs(5),
             enabled_channels: p2p::channels::ChannelId::for_libp2p().collect(),
             peer_discovery: config.discovery,
             timeouts: config.timeouts,

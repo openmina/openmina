@@ -1,5 +1,6 @@
 mod config;
 pub use config::*;
+
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
@@ -37,7 +38,6 @@ impl Simulator {
             initial_time: self.initial_time(),
             genesis: self.config.genesis.clone(),
             max_peers: 1000,
-            ask_initial_peers_interval: Duration::from_secs(60),
             initial_peers: Vec::new(),
             peer_id: Default::default(),
             block_producer: None,
@@ -98,6 +98,10 @@ impl Simulator {
     }
 
     async fn set_up_normal_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
+        if self.config.normal_nodes == 0 {
+            return;
+        }
+
         eprintln!("setting up normal nodes: {}", self.config.normal_nodes);
 
         let node_config = RustNodeTestingConfig {
@@ -114,6 +118,10 @@ impl Simulator {
     }
 
     async fn set_up_snark_worker_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
+        if self.config.snark_workers == 0 {
+            return;
+        }
+
         eprintln!(
             "setting up rust snark worker nodes: {}",
             self.config.snark_workers
@@ -163,6 +171,10 @@ impl Simulator {
     }
 
     async fn set_up_block_producer_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
+        if self.config.block_producers == 0 {
+            return;
+        }
+
         let block_producers = runner.block_producer_sec_keys(ClusterNodeId::new_unchecked(0));
 
         assert!(self.config.block_producers <= block_producers.len());
@@ -203,12 +215,19 @@ impl Simulator {
         self.wait_for_all_nodes_synced(runner).await;
     }
 
-    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+    pub async fn setup<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
         self.set_up_seed_nodes(runner).await;
         self.set_up_normal_nodes(runner).await;
         self.set_up_snark_worker_nodes(runner).await;
         self.set_up_block_producer_nodes(runner).await;
+    }
 
+    pub async fn setup_and_run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+        self.setup(runner).await;
+        self.run(runner).await;
+    }
+
+    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
         let run_until = self.config.run_until.clone();
         let advance_time = self.config.advance_time.clone();
         let start_t = redux::Instant::now();

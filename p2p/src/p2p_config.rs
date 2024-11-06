@@ -25,10 +25,6 @@ pub struct P2pConfig {
     /// External addresses
     pub external_addrs: Vec<IpAddr>,
 
-    /// The time interval that must elapse before the next peer discovery request.
-    /// The node periodically polls peers for their connections to keep our list up to date.
-    pub ask_initial_peers_interval: Duration,
-
     pub enabled_channels: BTreeSet<ChannelId>,
 
     pub timeouts: P2pTimeouts,

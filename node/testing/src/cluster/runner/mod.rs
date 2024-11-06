@@ -23,7 +23,7 @@ use crate::{
 
 pub struct ClusterRunner<'a> {
     cluster: &'a mut Cluster,
-    add_step: Box<dyn 'a + FnMut(&ScenarioStep)>,
+    add_step: Box<dyn 'a + Send + FnMut(&ScenarioStep)>,
     rng: StdRng,
     latest_advance_time: Option<redux::Timestamp>,
 }
@@ -31,7 +31,7 @@ pub struct ClusterRunner<'a> {
 impl<'a> ClusterRunner<'a> {
     pub fn new<F>(cluster: &'a mut Cluster, add_step: F) -> Self
     where
-        F: 'a + FnMut(&ScenarioStep),
+        F: 'a + Send + FnMut(&ScenarioStep),
     {
         Self {
             cluster,
