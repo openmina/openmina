@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, NgZone, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { WebNodeService } from '@core/services/web-node.service';
@@ -6,7 +6,7 @@ import { GlobalErrorHandlerService } from '@openmina/shared';
 import { NgClass, NgForOf, NgIf, NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
 import { getFirstFeature } from '@shared/constants/config';
-import { trigger, state, style, transition, animate } from '@angular/animations';
+import { animate, state, style, transition, trigger } from '@angular/animations';
 import { filter, switchMap, timer } from 'rxjs';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
 import { FileProgressHelper } from '@core/helpers/file-progress.helper';
@@ -53,7 +53,7 @@ export interface WebNodeLoadingStep {
     ]),
   ],
 })
-export class WebNodeDemoDashboardComponent extends StoreDispatcher implements OnInit {
+export class WebNodeDemoDashboardComponent extends StoreDispatcher implements OnInit, AfterViewInit {
 
   protected readonly WebNodeStepStatus = WebNodeStepStatus;
   readonly loading: WebNodeLoadingStep[] = [
@@ -87,6 +87,9 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
     this.listenToErrorIssuing();
     this.checkWebNodeProgress();
     this.fetchPeersInformation();
+  }
+
+  ngAfterViewInit(): void {
     this.buildProgressBar();
   }
 
@@ -196,10 +199,10 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
         downloaded: (progress.downloaded / 1e6).toFixed(1),
         total: (progress.totalSize / 1e6).toFixed(1),
       };
-      // this step is only 1 out of 3. But it counts as 80% of the 100% progress.
-      // So we need to calculate the total progress based on the current step.
-      const totalProgress = (progress.progress * this.stepsPercentages[0]) / 100;
-      this.updateProgressBar(totalProgress);
+      if (this.svg) {
+        const totalProgress = (progress.progress * this.stepsPercentages[0]) / 100;
+        this.updateProgressBar(totalProgress);
+      }
       this.detect();
     });
   }
@@ -259,7 +262,8 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
 
     this.progressBar.append('text')
       .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'middle')
+      .attr('alignment-baseline', 'central')
+      .attr('dominant-baseline', 'central')
       .attr('font-size', '40px')
       .attr('fill', 'var(--base-primary)')
       .attr('opacity', 0.8)

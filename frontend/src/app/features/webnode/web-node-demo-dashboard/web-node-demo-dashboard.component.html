@@ -1,11 +1,11 @@
 <div class="logo-header w-100 border-bottom fx-row-full-cent">
   <img ngSrc="assets/images/logo/logo-text.svg" height="40" width="136"/>
 </div>
-<div class="data-wrapper fx-col-full-cent">
-  <div class="header flex-column align-center mb-16 pb-12 pl-10 pr-10 text-center">
+<div class="data-wrapper flex-column flex-around align-center">
+  <div class="header flex-column align-center pl-10 pr-10 text-center mb-16">
     <div class="loading-webnode f-500">
       Produce blocks,
-      <span>&nbsp;right in your browser</span>
+      <span>right in your browser</span>
     </div>
 
     <div class="font-16 tertiary mt-16 font-16 f-300">
@@ -21,7 +21,7 @@
     </div>
   </div>
 
-  <div #progress class="progress w-100"></div>
+  <div #progress class="progress w-100 fx-row-full-cent"></div>
 
   <div class="mt-16 flex-column w-100 pl-10 pr-10">
     @for (item of loading; track $index) {
