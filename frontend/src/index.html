@@ -42,21 +42,16 @@
 
 <body class="f-base">
 <script type="module">
-  // Get version from build-time replaced variable or from meta tag
-  // This will be replaced during build (don't change this line!!)
-  const WEBNODE_VERSION = '13b85f46d3496a8608a86c8af21374bf';
-  // const webNodeUrl = `./assets/webnode/pkg/openmina_node_web.js`;
-  //
-  // import(webNodeUrl)
-  //   .then((v) => {
-  //     window.webnode = v;
-  //     window.dispatchEvent(new CustomEvent('webNodeLoaded'));
-  //   })
-  //   .catch((error) => {
-  //     if (window.env?.configs.some(c => c.isWebNode)) {
-  //       console.error('Failed to load Web Node:', error);
-  //     }
-  //   });
+  import('./assets/webnode/pkg/openmina_node_web.js')
+    .then((v) => {
+      window.webnode = v;
+      window.dispatchEvent(new CustomEvent('webNodeLoaded'));
+    })
+    .catch((error) => {
+      if (window.env?.configs.some(c => c.isWebNode)) {
+        console.error('Failed to load Web Node:', error);
+      }
+    });
 </script>
 <app-root class="h-100"></app-root>
 </body>

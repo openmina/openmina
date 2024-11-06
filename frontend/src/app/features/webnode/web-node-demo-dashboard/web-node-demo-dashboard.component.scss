@@ -12,36 +12,43 @@ $white: #000000;
 
 .logo-header {
   height: 56px;
+
+  img {
+    opacity: 0.5;
+  }
 }
 
 .data-wrapper {
   height: calc(100% - 56px - 72px);
-  max-width: 568px;
 
-  .header {
-    margin-bottom: 56px;
+  .loading-content {
+    max-width: 568px;
 
-    .loading-webnode {
-      font-size: 24px;
-      line-height: 32px;
+    .header {
+      .loading-webnode {
+        font-size: 20px;
+        line-height: 30px;
+      }
     }
-  }
 
-  mina-loading-spinner {
-    margin: 0 2px;
-  }
+    mina-loading-spinner {
+      margin: 0 2px;
+    }
 
-  .mina-icon.circle-check {
-    font-variation-settings: 'FILL' 1, 'wght' 300 !important;
-  }
+    .mina-icon.circle-check {
+      font-variation-settings: 'FILL' 1, 'wght' 300 !important;
+    }
 
-  .mina-icon.aware-primary {
-    animation: fadeIn 1500ms ease-in-out infinite;
-  }
+    .mina-icon.aware-primary {
+      animation: fadeIn 1500ms ease-in-out infinite;
+    }
 
-  .progress {
-    height: 380px;
-    margin: 64px 0;
+    .progress {
+      min-height: 256px;
+      @media (max-width: 768px) {
+        min-height: 30vh;
+      }
+    }
   }
 }
 
@@ -53,6 +60,7 @@ $white: #000000;
     width: 158px;
     height: 48px !important;
     background-color: $cta-container;
+    color: $base-background;
 
     &.disabled {
       opacity: 0.25;
@@ -61,6 +69,15 @@ $white: #000000;
 
     &:hover:not(.disabled) {
       background-color: $selected-primary;
+    }
+  }
+
+  @media (max-width: 768px) {
+    > div {
+      display: none;
+    }
+    button {
+      width: 100%;
     }
   }
 }
@@ -80,10 +97,7 @@ $white: #000000;
   }
 }
 
-@media (max-width: 768px) {
-  .font-16 {
-    font-size: 15px;
-  }
+@media (max-width: 568px) {
   .loading-webnode span {
     display: block;
   }
