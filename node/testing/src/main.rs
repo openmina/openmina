@@ -66,7 +66,7 @@ impl Command {
 
         match self {
             Self::Server(args) => {
-                server(args.port);
+                server(rt, args.port);
                 Ok(())
             }
             Self::ScenariosGenerate(cmd) => {

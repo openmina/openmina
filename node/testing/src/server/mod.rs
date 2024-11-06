@@ -13,10 +13,12 @@ use axum::{
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
+use tokio::net::TcpListener;
+use tokio::runtime::Runtime;
 use tokio::sync::{oneshot, Mutex, MutexGuard, OwnedMutexGuard};
 use tower_http::cors::CorsLayer;
 
-pub fn server(port: u16) {
+pub fn server(rt: Runtime, port: u16) {
     eprintln!("scenarios path: {}", Scenario::PATH);
 
     let state = AppState::new();
@@ -56,9 +58,10 @@ pub fn server(port: u16) {
         .with_state(state)
         .layer(cors);
 
-    tokio::runtime::Handle::current().block_on(async {
-        axum::Server::bind(&([0, 0, 0, 0], port).into())
-            .serve(app.into_make_service())
+    rt.block_on(async {
+        let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
+        let listener = TcpListener::bind(addr).await.unwrap();
+        axum::serve(listener, app.into_make_service())
             .await
             .unwrap();
     });
