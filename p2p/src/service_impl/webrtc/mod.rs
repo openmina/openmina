@@ -250,6 +250,15 @@ async fn peer_start(args: PeerAddArgs) {
         }
     };
 
+    let (main_channel_open_tx, main_channel_open) = oneshot::channel::<()>();
+    let mut main_channel_open_tx = Some(main_channel_open_tx);
+    main_channel.on_open(move || {
+        if let Some(tx) = main_channel_open_tx.take() {
+            let _ = tx.send(());
+        }
+        std::future::ready(())
+    });
+
     let answer = if is_outgoing {
         let answer_fut = async {
             let sdp = pc.local_sdp().await.unwrap();
@@ -357,6 +366,8 @@ async fn peer_start(args: PeerAddArgs) {
             return;
         }
         Some(PeerCmd::ConnectionAuthorizationSend(Some(auth))) => {
+            let _ = main_channel_open.await;
+
             // Add a delay for sending messages after channel
             // was opened. Some initial messages get lost otherwise.
             // TODO(binier): find deeper cause and fix it.
