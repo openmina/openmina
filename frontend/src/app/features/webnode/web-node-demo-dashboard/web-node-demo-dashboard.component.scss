@@ -10,37 +10,75 @@ $white: #000000;
   font-size: 16px;
 }
 
-.data-wrapper {
-  max-width: 568px;
+.logo-header {
+  height: 56px;
 
-  .header {
-    margin-bottom: 56px;
-
-    .loading-webnode {
-      font-size: 24px;
-      line-height: 32px;
-    }
-  }
-
-  .mina-icon.aware-primary {
-    animation: fadeIn 1500ms ease-in-out infinite;
+  img {
+    opacity: 0.5;
   }
 }
 
-.launch {
-  height: 56px !important;
-  font-size: 20px;
-  width: 341px;
-  background: linear-gradient(to right, $green 0%, $sand 50%, $peach 100%);
-  background-size: 500%;
-  margin-top: 64px;
-  transition: background-position 1s ease;
-  background-position: 0 50%;
-  left: 50%;
-  transform: translateX(-50%);
+.data-wrapper {
+  height: calc(100% - 56px - 72px);
 
-  &:hover {
-    background-position: 100% 50%;
+  .loading-content {
+    max-width: 568px;
+
+    .header {
+      .loading-webnode {
+        font-size: 20px;
+        line-height: 30px;
+      }
+    }
+
+    mina-loading-spinner {
+      margin: 0 2px;
+    }
+
+    .mina-icon.circle-check {
+      font-variation-settings: 'FILL' 1, 'wght' 300 !important;
+    }
+
+    .mina-icon.aware-primary {
+      animation: fadeIn 1500ms ease-in-out infinite;
+    }
+
+    .progress {
+      min-height: 256px;
+      @media (max-width: 768px) {
+        min-height: 30vh;
+      }
+    }
+  }
+}
+
+.footer {
+  height: 72px;
+  max-width: 568px;
+
+  button {
+    width: 158px;
+    height: 48px !important;
+    background-color: $cta-container;
+    color: $base-background;
+
+    &.disabled {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    &:hover:not(.disabled) {
+      background-color: $selected-primary;
+    }
+  }
+
+  @media (max-width: 768px) {
+    > div {
+      display: none;
+    }
+    button {
+      width: 100%;
+    }
   }
 }
 
@@ -56,5 +94,11 @@ $white: #000000;
   }
   70% {
     opacity: 1;
+  }
+}
+
+@media (max-width: 568px) {
+  .loading-webnode span {
+    display: block;
   }
 }

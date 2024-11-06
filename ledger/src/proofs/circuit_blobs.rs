@@ -36,6 +36,15 @@ mod http {
             _get_bytes(url).await
         }
     }
+
+    pub fn get_bytes_blocking(url: &str) -> std::io::Result<Vec<u8>> {
+        let url = url.to_owned();
+        if thread::is_web_worker_thread() {
+            thread::run_async_fn_in_main_thread_blocking(move || _get_bytes(url)).expect("failed to run task in the main thread! Maybe main thread crashed or not initialized?")
+        } else {
+            panic!("can't do blocking requests from main browser thread");
+        }
+    }
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -53,7 +62,7 @@ fn git_release_url(filename: &impl AsRef<Path>) -> String {
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+pub fn fetch_blocking(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
     use std::path::PathBuf;
 
     fn try_base_dir<P: Into<PathBuf>>(base_dir: P, filename: &impl AsRef<Path>) -> Option<PathBuf> {
@@ -123,4 +132,12 @@ pub async fn fetch(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
     let url = format!("{prefix}/{}", filename.as_ref().to_str().unwrap());
     http::get_bytes(&url).await
     // http::get_bytes(&git_release_url(filename)).await
+}
+
+#[cfg(target_family = "wasm")]
+pub fn fetch_blocking(filename: &impl AsRef<Path>) -> std::io::Result<Vec<u8>> {
+    let prefix =
+        option_env!("CIRCUIT_BLOBS_HTTP_PREFIX").unwrap_or("/assets/webnode/circuit-blobs");
+    let url = format!("{prefix}/{}", filename.as_ref().to_str().unwrap());
+    http::get_bytes_blocking(&url)
 }

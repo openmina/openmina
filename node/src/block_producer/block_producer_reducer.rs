@@ -1,23 +1,12 @@
 use ledger::scan_state::currency::{Amount, Signed};
-use mina_p2p_messages::{
-    list::List,
-    v2::{
-        ConsensusProofOfStakeDataConsensusStateValueStableV2,
-        ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-        ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        ConsensusVrfOutputTruncatedStableV1, LedgerProofProdStableV2,
-        MinaBaseEpochLedgerValueStableV1, MinaStateBlockchainStateValueStableV2,
-        MinaStateBlockchainStateValueStableV2LedgerProofStatement,
-        MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
-        StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
-    },
+use mina_p2p_messages::{list::List, v2};
+use openmina_core::{
+    block::ArcBlockWithHash, consensus::ConsensusConstants, constants::constraint_constants,
 };
-use openmina_core::{block::ArcBlockWithHash, constants::constraint_constants};
 use openmina_core::{
     bug_condition,
     consensus::{
-        global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
-        relative_sub_window,
+        global_sub_window, in_same_checkpoint_window, in_seed_update_range, relative_sub_window,
     },
 };
 use redux::{callback, Dispatcher, Timestamp};
@@ -49,6 +38,7 @@ impl BlockProducerEnabled {
         let Ok(global_state) = state_context.get_substate_mut() else {
             return;
         };
+        let consensus_constants = &global_state.config.consensus_constants;
 
         let best_chain = &global_state.transition_frontier.best_chain;
         let Some(state) = global_state.block_producer.as_mut() else {
@@ -220,7 +210,7 @@ impl BlockProducerEnabled {
                 dispatcher.push(BlockProducerEffectfulAction::StagedLedgerDiffCreateSuccess);
             }
             BlockProducerAction::BlockUnprovenBuild => {
-                state.reduce_block_unproved_build(meta.time());
+                state.reduce_block_unproved_build(consensus_constants, meta.time());
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerEffectfulAction::BlockUnprovenBuild);
@@ -351,7 +341,11 @@ impl BlockProducerEnabled {
         }
     }
 
-    fn reduce_block_unproved_build(&mut self, time: Timestamp) {
+    fn reduce_block_unproved_build(
+        &mut self,
+        consensus_constants: &ConsensusConstants,
+        time: Timestamp,
+    ) {
         let BlockProducerCurrentState::StagedLedgerDiffCreateSuccess {
             won_slot,
             chain,
@@ -389,7 +383,7 @@ impl BlockProducerEnabled {
             in_same_checkpoint_window(&pred_global_slot, &curr_global_slot_since_hard_fork);
 
         let block_stake_winner = won_slot.delegator.0.clone();
-        let vrf_truncated_output: ConsensusVrfOutputTruncatedStableV1 =
+        let vrf_truncated_output: v2::ConsensusVrfOutputTruncatedStableV1 =
             (*won_slot.vrf_output).clone().into();
         let vrf_hash = won_slot.vrf_output.hash();
         let block_creator = self.config.pub_key.clone();
@@ -418,7 +412,7 @@ impl BlockProducerEnabled {
             let next_staking_ledger = if pred_block.snarked_ledger_hash() == genesis_ledger_hash {
                 pred_consensus_state.next_epoch_data.ledger.clone()
             } else {
-                MinaBaseEpochLedgerValueStableV1 {
+                v2::MinaBaseEpochLedgerValueStableV1 {
                     hash: pred_block.snarked_ledger_hash().clone(),
                     total_currency: (&total_currency).into(),
                 }
@@ -426,23 +420,25 @@ impl BlockProducerEnabled {
             let (staking_data, next_data, epoch_count) = if next_epoch > pred_epoch {
                 let staking_data =
                     next_to_staking_epoch_data(&pred_consensus_state.next_epoch_data);
-                let next_data = ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-                    seed: pred_consensus_state.next_epoch_data.seed.clone(),
-                    ledger: next_staking_ledger,
-                    start_checkpoint: pred_block.hash().clone(),
-                    // comment from Mina repo: (* TODO: We need to make sure issue #2328 is properly addressed. *)
-                    lock_checkpoint: StateHash::zero(),
-                    epoch_length: UnsignedExtendedUInt32StableV1(1.into()),
-                };
-                let epoch_count = UnsignedExtendedUInt32StableV1(
+                let next_data =
+                    v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+                        seed: pred_consensus_state.next_epoch_data.seed.clone(),
+                        ledger: next_staking_ledger,
+                        start_checkpoint: pred_block.hash().clone(),
+                        // comment from Mina repo: (* TODO: We need to make sure issue #2328 is properly addressed. *)
+                        lock_checkpoint: v2::StateHash::zero(),
+                        epoch_length: v2::UnsignedExtendedUInt32StableV1(1.into()),
+                    };
+                let epoch_count = v2::UnsignedExtendedUInt32StableV1(
                     (pred_consensus_state.epoch_count.as_u32() + 1).into(),
                 );
                 (staking_data, next_data, epoch_count)
             } else {
                 assert_eq!(pred_epoch, next_epoch);
                 let mut next_data = pred_consensus_state.next_epoch_data.clone();
-                next_data.epoch_length =
-                    UnsignedExtendedUInt32StableV1((next_data.epoch_length.as_u32() + 1).into());
+                next_data.epoch_length = v2::UnsignedExtendedUInt32StableV1(
+                    (next_data.epoch_length.as_u32() + 1).into(),
+                );
                 (
                     pred_consensus_state.staking_epoch_data.clone(),
                     next_data,
@@ -451,7 +447,7 @@ impl BlockProducerEnabled {
             };
 
             let next_data = if in_seed_update_range(next_slot, pred_block.constants()) {
-                ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+                v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
                     seed: calc_epoch_seed(&next_data.seed, vrf_hash),
                     lock_checkpoint: pred_block.hash().clone(),
                     ..next_data
@@ -465,6 +461,7 @@ impl BlockProducerEnabled {
 
         let (min_window_density, sub_window_densities) = {
             // TODO(binier): when should this be false?
+            // https://github.com/MinaProtocol/mina/blob/4aac38814556b9641ffbdfaef19b38ab7980011b/src/lib/consensus/proof_of_stake.ml#L2864
             let incr_window = true;
             let pred_sub_window_densities = &pred_consensus_state.sub_window_densities;
 
@@ -493,7 +490,7 @@ impl BlockProducerEnabled {
                     } else {
                         gt_pred_sub_window || lt_next_sub_window
                     };
-                    if is_same_global_sub_window || are_windows_overlapping && !within_range {
+                    if is_same_global_sub_window || (are_windows_overlapping && !within_range) {
                         density
                     } else {
                         0
@@ -501,7 +498,7 @@ impl BlockProducerEnabled {
                 })
                 .collect::<Vec<_>>();
 
-            let grace_period_end = grace_period_end(pred_block.constants());
+            let grace_period_end = consensus_constants.grace_period_end;
             let min_window_density = if is_same_global_sub_window
                 || curr_global_slot_since_hard_fork.slot_number.as_u32() < grace_period_end
             {
@@ -512,7 +509,7 @@ impl BlockProducerEnabled {
                     .min_window_density
                     .as_u32()
                     .min(cur_density);
-                UnsignedExtendedUInt32StableV1(min_density.into())
+                v2::UnsignedExtendedUInt32StableV1(min_density.into())
             };
 
             let next_sub_window_densities = current_sub_window_densities
@@ -536,14 +533,19 @@ impl BlockProducerEnabled {
                         density
                     }
                 })
-                .map(|v| UnsignedExtendedUInt32StableV1(v.into()))
+                .map(|v| v2::UnsignedExtendedUInt32StableV1(v.into()))
                 .collect();
 
             (min_window_density, next_sub_window_densities)
         };
 
-        let consensus_state = ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-            blockchain_length: UnsignedExtendedUInt32StableV1((pred_block.height() + 1).into()),
+        let supercharge_coinbase = can_apply_supercharged_coinbase(
+            &block_stake_winner,
+            &stake_proof_sparse_ledger,
+            &global_slot_since_genesis,
+        );
+        let consensus_state = v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+            blockchain_length: v2::UnsignedExtendedUInt32StableV1((pred_block.height() + 1).into()),
             epoch_count,
             min_window_density,
             sub_window_densities,
@@ -557,13 +559,12 @@ impl BlockProducerEnabled {
             block_stake_winner,
             block_creator,
             coinbase_receiver,
-            // TODO(binier): Staged_ledger.can_apply_supercharged_coinbase_exn
-            supercharge_coinbase: constraint_constants().supercharged_coinbase_factor != 0,
+            supercharge_coinbase,
         };
 
-        let protocol_state = MinaStateProtocolStateValueStableV2 {
+        let protocol_state = v2::MinaStateProtocolStateValueStableV2 {
             previous_state_hash: pred_block.hash().clone(),
-            body: MinaStateProtocolStateBodyValueStableV2 {
+            body: v2::MinaStateProtocolStateBodyValueStableV2 {
                 genesis_state_hash: if pred_block.is_genesis() {
                     pred_block.hash().clone()
                 } else {
@@ -575,7 +576,7 @@ impl BlockProducerEnabled {
                         .clone()
                 },
                 constants: pred_block.header().protocol_state.body.constants.clone(),
-                blockchain_state: MinaStateBlockchainStateValueStableV2 {
+                blockchain_state: v2::MinaStateBlockchainStateValueStableV2 {
                     staged_ledger_hash: staged_ledger_hash.clone(),
                     genesis_ledger_hash: genesis_ledger_hash.clone(),
                     ledger_proof_statement,
@@ -596,7 +597,7 @@ impl BlockProducerEnabled {
                     let first_hash = first_block.hash().clone();
                     let body_hashes = iter
                         .filter_map(|b| b.header().protocol_state.body.try_hash().ok()) // TODO: Handle error ?
-                        .map(StateBodyHash::from)
+                        .map(v2::StateBodyHash::from)
                         .collect();
                     (first_hash, body_hashes)
                 } else {
@@ -612,7 +613,7 @@ impl BlockProducerEnabled {
             delta_block_chain_proof,
             current_protocol_version: pred_block.header().current_protocol_version.clone(),
             proposed_protocol_version_opt,
-            body: StagedLedgerDiffBodyStableV1 {
+            body: v2::StagedLedgerDiffBodyStableV1 {
                 staged_ledger_diff: diff.clone(),
             },
         };
@@ -704,10 +705,28 @@ impl BlockProducerEnabled {
     }
 }
 
+fn can_apply_supercharged_coinbase(
+    block_stake_winner: &v2::NonZeroCurvePoint,
+    stake_proof_sparse_ledger: &v2::MinaBaseSparseLedgerBaseStableV2,
+    global_slot_since_genesis: &v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
+) -> bool {
+    use ledger::staged_ledger::staged_ledger::StagedLedger;
+
+    let winner = (block_stake_winner)
+        .try_into()
+        .expect("Public key being used cannot be invalid here");
+    let epoch_ledger = (stake_proof_sparse_ledger)
+        .try_into()
+        .expect("Sparse ledger being used cannot be invalid here");
+    let global_slot = (global_slot_since_genesis).into();
+
+    StagedLedger::can_apply_supercharged_coinbase_exn(winner, &epoch_ledger, global_slot)
+}
+
 fn next_to_staking_epoch_data(
-    data: &ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-) -> ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
-    ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+    data: &v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+) -> v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+    v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
         seed: data.seed.clone(),
         ledger: data.ledger.clone(),
         start_checkpoint: data.start_checkpoint.clone(),
@@ -717,12 +736,12 @@ fn next_to_staking_epoch_data(
 }
 
 fn ledger_proof_statement_from_emitted_proof(
-    emitted_ledger_proof: Option<&LedgerProofProdStableV2>,
-    pred_proof_statement: &MinaStateBlockchainStateValueStableV2LedgerProofStatement,
-) -> MinaStateBlockchainStateValueStableV2LedgerProofStatement {
+    emitted_ledger_proof: Option<&v2::LedgerProofProdStableV2>,
+    pred_proof_statement: &v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+) -> v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement {
     match emitted_ledger_proof.map(|proof| &proof.statement) {
         None => pred_proof_statement.clone(),
-        Some(stmt) => MinaStateBlockchainStateValueStableV2LedgerProofStatement {
+        Some(stmt) => v2::MinaStateBlockchainStateValueStableV2LedgerProofStatement {
             source: stmt.source.clone(),
             target: stmt.target.clone(),
             connecting_ledger_left: stmt.connecting_ledger_left.clone(),

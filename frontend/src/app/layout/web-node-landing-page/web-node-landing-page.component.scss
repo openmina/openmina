@@ -82,36 +82,6 @@ $white: #000000;
   }
 }
 
-/*
-.card-list {
-  margin-top: 40px;
-  margin-bottom: 160px;
-  padding-left: 24px;
-  padding-right: 24px;
-  gap: 24px;
-
-  .card-wrapper {
-    height: 216px;
-    max-width: 400px;
-    background: linear-gradient(148deg, rgba(#59bfb5, 0.3) 20%, rgba(#acdea0, 0.3), rgba(#acdea0, 0.1), rgba(100, 100, 100, 0.1) 70%, transparent 80%);
-    padding: 1px;
-
-    .card {
-      padding: 24px;
-
-      .mina-icon {
-        color: #59bfb5;
-        font-size: 32px;
-      }
-
-      > * {
-        margin-bottom: 24px;
-      }
-    }
-  }
-}
-*/
-
 .hardcoded-key {
   background-color: $warn-container;
   color: $warn-primary;
@@ -251,28 +221,6 @@ $white: #000000;
   .images .step .step-text {
     font-size: 4.2vw;
   }
-  /*
-
-  .card-list {
-    padding-left: 6.667vw;
-    padding-right: 6.667vw;
-    margin-bottom: 17.778vw;
-    margin-top: 17.778vw;
-
-    .card-wrapper {
-      min-height: 55.556vw;
-      max-width: 100vw;
-
-      .card {
-        padding: 6.667vw 4.444vw 6.667vw 6.667vw;
-
-        .mina-icon {
-          font-size: 8.889vw;
-        }
-      }
-    }
-  }
-  */
 
   .hardcoded-key {
     font-size: 5vw;

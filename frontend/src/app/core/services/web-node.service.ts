@@ -1,10 +1,25 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject, catchError, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap } from 'rxjs';
+import { Inject, Injectable } from '@angular/core';
+import {
+  BehaviorSubject,
+  catchError,
+  EMPTY,
+  filter,
+  from,
+  fromEvent,
+  map,
+  merge,
+  Observable,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import base from 'base-x';
 import { any } from '@openmina/shared';
 import { HttpClient } from '@angular/common/http';
 import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
+import { DOCUMENT } from '@angular/common';
+import { FileProgressHelper } from '@core/helpers/file-progress.helper';
 
 @Injectable({
   providedIn: 'root',
@@ -18,7 +33,9 @@ export class WebNodeService {
 
   readonly webnodeProgress$: BehaviorSubject<string> = new BehaviorSubject<string>('');
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient,
+              @Inject(DOCUMENT) private document: Document) {
+    FileProgressHelper.initDownloadProgress();
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
     any(window)['bs58btc'] = {
       encode: (buffer: Uint8Array | number[]) => 'z' + basex.encode(buffer),
@@ -26,8 +43,33 @@ export class WebNodeService {
     };
   }
 
+  private loadWebnodeJs(): void {
+    if (this.document.querySelector('[data-webnode]')) {
+      return;
+    }
+
+    const script = this.document.createElement('script');
+    script.type = 'module';
+    script.setAttribute('data-webnode', 'true');
+    script.textContent = `
+      import('./assets/webnode/pkg/openmina_node_web.js')
+        .then(v => {
+          window.webnode = v;
+          window.dispatchEvent(new CustomEvent('webNodeLoaded'));
+        })
+        .catch(er => {
+          if (window.env?.configs.some(c => c.isWebNode)) {
+            console.error('Failed to load Web Node:', er);
+          }
+        });
+    `;
+
+    this.document.body.appendChild(script);
+  }
+
   loadWasm$(): Observable<void> {
-    sendSentryEvent('Loading WebNode JS');
+    this.webNodeStartTime = Date.now();
+    // this.loadWebnodeJs();
     return merge(
       of(any(window).webnode).pipe(filter(Boolean)),
       fromEvent(window, 'webNodeLoaded'),
@@ -35,7 +77,6 @@ export class WebNodeService {
       switchMap(() => this.http.get<{ publicKey: string, privateKey: string }>('assets/webnode/web-node-secrets.json')),
       tap(data => {
         this.webNodeKeyPair = data;
-        sendSentryEvent('WebNode JS Loaded. Loading WebNode Wasm');
       }),
       map(() => void 0),
     );
@@ -46,19 +87,16 @@ export class WebNodeService {
       .pipe(
         switchMap((wasm: any) => from(wasm.default('assets/webnode/pkg/openmina_node_web_bg.wasm')).pipe(map(() => wasm))),
         switchMap((wasm) => {
-          sendSentryEvent('WebNode Wasm loaded. Starting WebNode');
           this.webnodeProgress$.next('Loaded');
           return from(wasm.run(this.webNodeKeyPair.privateKey));
         }),
         tap((webnode: any) => {
-          sendSentryEvent('WebNode Started');
-          this.webNodeStartTime = Date.now();
           (window as any)['webnode'] = webnode;
           this.webnode$.next(webnode);
           this.webnodeProgress$.next('Started');
         }),
         catchError((error) => {
-          sendSentryEvent('WebNode failed to start');
+          sendSentryEvent('WebNode failed to start: ' + error.message);
           console.error(error);
           return of(null);
         }),
@@ -86,18 +124,16 @@ export class WebNodeService {
       filter(Boolean),
       switchMap(handle => from(any(handle).state().peers())),
       tap((peers) => {
-        if (!this.sentryEvents.sentNoPeersEvent && Date.now() - this.webNodeStartTime >= 5000 && peers.length === 0) {
-          sendSentryEvent('WebNode has no peers after 5 seconds from startup.');
-          this.sentryEvents.sentNoPeersEvent = true;
-        }
-        if (!this.sentryEvents.sentPeersEvent && peers.length > 0) {
-          const seconds = (Date.now() - this.webNodeStartTime) / 1000;
-          sendSentryEvent(`WebNode found its first peer after ${seconds}s`);
-          this.sentryEvents.sentPeersEvent = true;
-        }
+        // if (!this.sentryEvents.sentNoPeersEvent && Date.now() - this.webNodeStartTime >= 5000 && peers.length === 0) {
+        //   sendSentryEvent('WebNode has no peers after 5 seconds from startup.');
+        //   this.sentryEvents.sentNoPeersEvent = true;
+        // }
+        // if (!this.sentryEvents.sentPeersEvent && peers.length > 0) {
+        //   this.sentryEvents.sentPeersEvent = true;
+        // }
         if (!this.sentryEvents.firstPeerConnected && peers.some((p: any) => p.connection_status === DashboardPeerStatus.CONNECTED)) {
           const seconds = (Date.now() - this.webNodeStartTime) / 1000;
-          sendSentryEvent(`WebNode connected to its first peer after ${seconds}s`);
+          sendSentryEvent(`WebNode connected in ${seconds.toFixed(1)}s`);
           this.sentryEvents.firstPeerConnected = true;
           this.webnodeProgress$.next('Connected');
         }

@@ -226,10 +226,12 @@ impl Node {
 
         if let Some(producer_key_path) = self.producer_key {
             let password = &self.producer_key_password;
-            node::core::info!(node::core::log::system_time(); summary = "loading provers index");
-            let provers = BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
-            node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
-            node_builder.block_producer_from_file(provers, producer_key_path, password)?;
+            openmina_core::thread::spawn(|| {
+                node::core::info!(node::core::log::system_time(); summary = "loading provers index");
+                BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
+                node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
+            });
+            node_builder.block_producer_from_file(producer_key_path, password, None)?;
 
             if let Some(pub_key) = self.coinbase_receiver {
                 node_builder

@@ -6,15 +6,15 @@ use crate::{
     p2p_ready,
     rpc::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
-        LedgerSyncProgress, MessagesStats, RpcAction, RpcBlockProducerStats,
-        RpcMessageProgressResponse, RpcNodeStatus, RpcNodeStatusTransactionPool,
-        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
-        RpcNodeStatusTransitionFrontierSync, RpcRequestExtraData, RpcScanStateSummary,
-        RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-        RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryScanStateJob,
-        RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
-        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcTransactionInjectResponse,
-        TransactionStatus,
+        MessagesStats, RootLedgerSyncProgress, RootStagedLedgerSyncProgress, RpcAction,
+        RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
+        RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
+        RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
+        RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
+        RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+        RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
+        RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+        RpcTransactionInjectResponse, TransactionStatus,
     },
     snark_pool::SnarkPoolAction,
     transition_frontier::sync::{
@@ -32,6 +32,9 @@ use mina_p2p_messages::{
 };
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
+use p2p::channels::streaming_rpc::{
+    staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
+};
 use redux::ActionWithMeta;
 use std::{collections::BTreeMap, time::Duration};
 
@@ -219,14 +222,54 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 }
                 TransitionFrontierSyncState::RootLedgerPending(state) => match &state.ledger {
                     TransitionFrontierSyncLedgerState::Snarked(state) => {
-                        response.root_ledger_sync = state.estimation()
+                        response.root_ledger_sync =
+                            state.estimation().map(|data| RootLedgerSyncProgress {
+                                fetched: data.fetched,
+                                estimation: data.estimation,
+                                staged: None,
+                            });
                     }
-                    TransitionFrontierSyncLedgerState::Staged(_) => {
+                    TransitionFrontierSyncLedgerState::Staged(state) => {
+                        let unknown_staged_progress = || RootStagedLedgerSyncProgress {
+                            fetched: 0,
+                            total: 1,
+                        };
+                        let staged = match state.fetch_attempts() {
+                            None => state.target_with_parts().map(|(_, parts)| {
+                                let v = parts
+                                    .map(|parts| calc_total_pieces_to_transfer(parts))
+                                    .unwrap_or(0);
+                                RootStagedLedgerSyncProgress {
+                                    fetched: v,
+                                    total: v,
+                                }
+                            }),
+                            Some(attempts) => attempts
+                                .iter()
+                                .find(|(_, s)| s.fetch_pending_rpc_id().is_some())
+                                .map(|(id, _)| id)
+                                .and_then(|peer_id| store.state().p2p.get_ready_peer(peer_id))
+                                .map(|peer| {
+                                    match peer.channels.streaming_rpc.pending_local_rpc_progress() {
+                                        None => unknown_staged_progress(),
+                                        Some(
+                                            P2pStreamingRpcReceiveProgress::StagedLedgerParts(
+                                                progress,
+                                            ),
+                                        ) => {
+                                            let (fetched, total) = progress.progress();
+                                            RootStagedLedgerSyncProgress { fetched, total }
+                                        }
+                                    }
+                                }),
+                        };
+
                         // We want to answer with a result that will serve as a 100% complete process for the
                         // frontend while it is still waiting for the staged ledger to complete. Could be cleaner.
-                        response.root_ledger_sync = Some(LedgerSyncProgress {
+                        response.root_ledger_sync = Some(RootLedgerSyncProgress {
                             fetched: 1,
                             estimation: 1,
+                            staged,
                         });
                     }
                     _ => {}
