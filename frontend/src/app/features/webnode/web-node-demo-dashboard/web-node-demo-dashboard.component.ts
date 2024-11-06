@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnInit, 
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { WebNodeService } from '@core/services/web-node.service';
-import { GlobalErrorHandlerService } from '@openmina/shared';
+import { any, GlobalErrorHandlerService } from '@openmina/shared';
 import { NgClass, NgForOf, NgIf, NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
 import { getFirstFeature } from '@shared/constants/config';
@@ -22,10 +22,6 @@ export interface WebNodeLoadingStep {
   name: string;
   loaded: boolean;
   status: WebNodeStepStatus;
-  data: {
-    downloaded: string;
-    total: string;
-  } | any;
 }
 
 
@@ -57,19 +53,15 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
 
   protected readonly WebNodeStepStatus = WebNodeStepStatus;
   readonly loading: WebNodeLoadingStep[] = [
-    { name: 'Setting up browser for Web Node', loaded: false, status: WebNodeStepStatus.LOADING, data: null },
-    { name: 'Getting ready to produce blocks', loaded: false, status: WebNodeStepStatus.PENDING, data: { est: '~5s' } },
-    {
-      name: 'Connecting directly to Mina network',
-      loaded: false,
-      status: WebNodeStepStatus.PENDING,
-      data: { est: '~2s' },
-    },
+    { name: 'Setting up browser for Web Node', loaded: false, status: WebNodeStepStatus.LOADING },
+    { name: 'Getting ready to produce blocks', loaded: false, status: WebNodeStepStatus.PENDING },
+    { name: 'Connecting directly to Mina network', loaded: false, status: WebNodeStepStatus.PENDING },
   ];
+  loadingMessage: string = '';
   ready: boolean = false;
   errors: string[] = [];
 
-  private stepsPercentages = this.stepPercentages;
+  private stepsPercentages: number[];
   private secondStepInterval: any;
   private thirdStepInterval: any;
   private progress: number = 0;
@@ -83,6 +75,8 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
               private router: Router) { super(); }
 
   ngOnInit(): void {
+    any(window).testtest = [];
+    this.stepsPercentages = this.getStepPercentages();
     this.fetchProgress();
     this.listenToErrorIssuing();
     this.checkWebNodeProgress();
@@ -96,18 +90,19 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
   private checkWebNodeProgress(): void {
     this.webNodeService.webnodeProgress$.pipe(untilDestroyed(this)).subscribe((state: string) => {
       if (state === 'Loaded') {
+        this.loadingMessage = '~5 seconds left';
         this.loading[0].loaded = true;
         this.loading[0].status = WebNodeStepStatus.DONE;
         this.loading[1].status = WebNodeStepStatus.LOADING;
         this.advanceProgressFor2ndStep();
       } else if (state === 'Started') {
+        this.loadingMessage = '~2 seconds left';
         clearInterval(this.secondStepInterval);
         this.loading[0].loaded = true;
         this.loading[1].loaded = true;
         this.loading[0].status = WebNodeStepStatus.DONE;
         this.loading[1].status = WebNodeStepStatus.DONE;
         this.loading[2].status = WebNodeStepStatus.LOADING;
-        this.updateProgressBar(this.stepsPercentages[0] + this.stepsPercentages[1]);
         this.advanceProgressFor3rdStep();
       } else if (state === 'Connected') {
         clearInterval(this.thirdStepInterval);
@@ -117,12 +112,11 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
         this.loading.forEach((step: WebNodeLoadingStep) => step.loaded = true);
         this.goToEndProgress();
       }
-      this.ready = this.loading.every((step: WebNodeLoadingStep) => step.loaded);
       this.detect();
     });
   }
 
-  private get stepPercentages(): number[] {
+  private getStepPercentages(): number[] {
     // random between 65 and 80
     const first = Math.floor(Math.random() * 15) + 65;
     // random between 15 and 17
@@ -145,11 +139,23 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
     }, 75);
   }
 
-  private advanceProgressFor3rdStep(): void {
+  private async advanceProgressFor3rdStep(): Promise<void> {
     // second step is done, now we are working on the third step.
     // each second add 1% to the progress.
     // but the third step is only 10% of the total progress.
     // so never go above 10%. Stop at 9% if the third step is not done yet.
+
+    const currentProgress = this.progress;
+    const targetProgress = this.stepsPercentages[0] + this.stepsPercentages[1] - 1;
+    // run fast 5 increments to reach the target progress
+    const diff = targetProgress - currentProgress;
+
+    for (let i = 0; i < diff; i++) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+      this.updateProgressBar(currentProgress + i);
+      this.detect();
+    }
+
     let progress = 0;
     this.thirdStepInterval = setInterval(() => {
       if (progress < this.stepsPercentages[2] - 1) {
@@ -166,13 +172,13 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
 
     let progress = this.progress;
     let interval = setInterval(() => {
-      if (progress < 100) {
+      if (progress <= 100) {
         progress += 1;
         this.updateProgressBar(progress);
       } else {
         clearInterval(interval);
       }
-    }, 10);
+    }, 30);
   }
 
   private fetchPeersInformation(): void {
@@ -186,7 +192,8 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
     this.errorHandler.errors$
       .pipe(untilDestroyed(this))
       .subscribe((error: string) => {
-        console.log(error);
+        this.errors.push(error);
+        this.detect();
       });
   }
 
@@ -195,10 +202,7 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
       filter(Boolean),
       untilDestroyed(this),
     ).subscribe((progress) => {
-      this.loading[0].data = {
-        downloaded: (progress.downloaded / 1e6).toFixed(1),
-        total: (progress.totalSize / 1e6).toFixed(1),
-      };
+      this.loadingMessage = `Downloading ${(progress.downloaded / 1e6).toFixed(1)} of ${(progress.totalSize / 1e6).toFixed(1)} MB`;
       if (this.svg) {
         const totalProgress = (progress.progress * this.stepsPercentages[0]) / 100;
         this.updateProgressBar(totalProgress);
@@ -217,7 +221,7 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
   private buildProgressBar(): void {
     const width = this.chartContainer.nativeElement.offsetWidth;
     const height = this.chartContainer.nativeElement.offsetHeight;
-    const barWidth = 12;
+    const barWidth = 4;
     const progress = 0;
 
     this.svg = d3
@@ -230,6 +234,13 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
       .attr('transform', `translate(${width / 2}, ${height / 2})`);
 
     const radius = Math.min(width, height) / 2 - barWidth;
+
+    this.progressBar.append('circle')
+      .attr('r', radius)
+      .attr('fill', 'none')
+      .attr('stroke', 'var(--base-tertiary2)')
+      .attr('stroke-width', 1);
+
     this.arc = d3.arc()
       .innerRadius(radius - barWidth)
       .outerRadius(radius)
@@ -245,10 +256,9 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
     const gradient = defs.append('linearGradient')
       .attr('id', 'progress-gradient')
       .attr('x1', '0%')
-      .attr('x2', '100%')
-      .attr('y1', '0%')
-      .attr('y2', '0%')
-      .attr('gradientTransform', 'rotate(45)');
+      .attr('x2', '75%')
+      .attr('y1', '25%')
+      .attr('y2', '0%');
 
     gradient.append('stop')
       .attr('offset', '8%')
@@ -267,12 +277,27 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
       .attr('font-size', '40px')
       .attr('fill', 'var(--base-primary)')
       .attr('opacity', 0.8)
-      .text(`${(progress).toFixed(0)}%`);
+      .attr('dx', '-.2em')
+      .text((progress).toFixed(0));
+    this.progressBar.append('text')
+      .attr('class', 'symbol')
+      .attr('text-anchor', 'middle')
+      .attr('alignment-baseline', 'central')
+      .attr('dominant-baseline', 'central')
+      .attr('font-size', '20px')
+      .attr('fill', 'var(--base-tertiary)')
+      .attr('opacity', 0.8)
+      .attr('dy', '-.3em')
+      .attr('dx', '1.5em')
+      .text('%');
   }
 
   private updateProgressBar(newProgress: number): void {
-    if (newProgress > 100) {
+    any(window).testtest.push(newProgress);
+    if (newProgress >= 100) {
+      this.ready = true;
       newProgress = 100;
+      this.detect();
     }
     this.progress = newProgress;
     this.arc.endAngle(Math.PI * 2 * (newProgress / 100));
@@ -281,6 +306,10 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
       .attr('d', this.arc);
     this.progressBar
       .select('text')
-      .text(`${(newProgress).toFixed(0)}%`);
+      .text((newProgress).toFixed(0));
+    const numberOfDigits = newProgress.toFixed(0).length + 1;
+    this.progressBar.select('.symbol')
+      .attr('dx', `${numberOfDigits * 0.45}em`)
+      .text('%');
   }
 }

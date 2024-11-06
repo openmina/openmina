@@ -44,6 +44,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
   constructor(private errorHandlerService: GlobalErrorHandlerService) {}
 
   handleError(error: any): void {
+    console.log(123123123);
     Sentry.captureException(error);
     this.errorHandlerService.handleError(error);
     console.error(error);
