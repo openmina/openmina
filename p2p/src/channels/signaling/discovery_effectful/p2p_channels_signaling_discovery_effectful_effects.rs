@@ -32,7 +32,7 @@ impl P2pChannelsSignalingDiscoveryEffectfulAction {
                 pub_key,
                 offer,
             } => match store.service().encrypt(&pub_key, &*offer) {
-                Err(()) => {
+                Err(_) => {
                     // todo!("Failed to encrypt webrtc offer. Handle it.")
                 }
                 Ok(offer) => {
@@ -49,7 +49,7 @@ impl P2pChannelsSignalingDiscoveryEffectfulAction {
                     .service()
                     .decrypt::<P2pConnectionResponse>(&pub_key, &answer)
                 {
-                    Err(()) => {
+                    Err(_) => {
                         store.dispatch(P2pChannelsSignalingDiscoveryAction::AnswerDecrypted {
                             peer_id,
                             answer: P2pConnectionResponse::SignalDecryptionFailed,

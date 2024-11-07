@@ -653,7 +653,7 @@ pub mod discovery {
                 peer_id: value.peer_id,
                 libp2p: value.peer_id.try_into()?,
                 key: value.key,
-                dist: this_key - value.key,
+                dist: this_key.distance(&value.key),
                 addrs: value.addresses().clone(),
                 connection: value.connection,
             })

@@ -856,7 +856,7 @@ impl LedgerCtx {
 
         let num_accounts = mask.num_accounts() as u64;
         let first_node_addr = ledger::Address::first(
-            LEDGER_DEPTH - super::tree_height_for_num_accounts(num_accounts),
+            LEDGER_DEPTH.saturating_sub(super::tree_height_for_num_accounts(num_accounts)),
         );
         let hash = LedgerHash::from_fp(mask.get_hash(first_node_addr)?);
         Some((num_accounts, hash))

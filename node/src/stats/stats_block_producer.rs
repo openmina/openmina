@@ -361,13 +361,15 @@ impl From<&BlockWithoutProof> for ProducedBlockTransactions {
                 match &cmd.data {
                     v2::MinaBaseUserCommandStableV2::SignedCommand(v) => match &v.payload.body {
                         v2::MinaBaseSignedCommandPayloadBodyStableV2::Payment(_) => {
-                            res.payments += 1
+                            res.payments = res.payments.checked_add(1).expect("overflow")
                         }
                         v2::MinaBaseSignedCommandPayloadBodyStableV2::StakeDelegation(_) => {
-                            res.delegations += 1
+                            res.delegations = res.delegations.checked_add(1).expect("overflow")
                         }
                     },
-                    v2::MinaBaseUserCommandStableV2::ZkappCommand(_) => res.zkapps += 1,
+                    v2::MinaBaseUserCommandStableV2::ZkappCommand(_) => {
+                        res.zkapps = res.zkapps.checked_add(1).expect("overflow")
+                    }
                 }
                 res
             })

@@ -78,7 +78,7 @@ pub struct GenesisConfigLoaded {
 }
 
 fn bp_num_delegators(i: usize) -> usize {
-    (i + 1) * 2
+    (i.saturating_add(1)).checked_mul(2).expect("overflow")
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -146,7 +146,8 @@ impl GenesisConfig {
                 constants,
             } => {
                 let (whales, fish) = (*whales, *fish);
-                let delegator_balance = |balance: u64| move |i| balance / i as u64;
+                let delegator_balance =
+                    |balance: u64| move |i| balance.checked_div(i as u64).expect("division by 0");
                 let whales = (0..whales).map(|i| {
                     let balance = 8333_u64;
                     let delegators = (1..=bp_num_delegators(i)).map(delegator_balance(50_000_000));
@@ -423,8 +424,8 @@ impl GenesisConfig {
             let mut account =
                 ledger::Account::create_with(account_id, Balance::from_mina(balance).unwrap());
             account.delegate = delegate;
-            *total_balance += balance;
-            *counter += 1;
+            *total_balance = total_balance.checked_add(balance).expect("overflow");
+            *counter = counter.checked_add(1).expect("overflow");
             // println!("Created account with balance: {}, total_balance: {}", balance, *total_balance); // Debug print
             account
         }
@@ -458,12 +459,10 @@ impl GenesisConfig {
             NonStakers::Count(count) => *std::cmp::min(count, &remaining_accounts),
         };
 
-        let non_staker_total = total_balance * 20 / 80;
-        let non_staker_balance = if non_staker_count > 0 {
-            non_staker_total / non_staker_count as u64
-        } else {
-            0
-        };
+        let non_staker_total = total_balance.checked_mul(20).expect("overflow") / 80;
+        let non_staker_balance = non_staker_total
+            .checked_div(non_staker_count as u64)
+            .unwrap_or(0);
 
         println!("Non staker total balance: {}", non_staker_total);
 
@@ -486,10 +485,12 @@ impl GenesisConfig {
         let mask = ledger::Mask::new_root(db);
         let (mask, total_currency) = accounts.into_iter().try_fold(
             (mask, 0),
-            |(mut mask, mut total_currency), account| {
+            |(mut mask, mut total_currency): (ledger::Mask, u64), account| {
                 let account = account?;
                 let account_id = account.id();
-                total_currency += account.balance.as_u64();
+                total_currency = total_currency
+                    .checked_add(account.balance.as_u64())
+                    .expect("overflow");
                 mask.get_or_create_account(account_id, account).unwrap();
                 Ok((mask, total_currency))
             },

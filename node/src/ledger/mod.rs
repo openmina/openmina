@@ -40,7 +40,7 @@ lazy_static::lazy_static! {
         use ledger::TreeVersion;
 
         std::array::from_fn(|i| {
-            let hash = ledger::V2::empty_hash_at_height(LEDGER_DEPTH - i);
+            let hash = ledger::V2::empty_hash_at_height(LEDGER_DEPTH.saturating_sub(i));
             v2::MinaBaseLedgerHash0StableV1(hash.into()).into()
         })
     };
@@ -61,7 +61,7 @@ pub fn complete_height_tree_with_empties(
     let content_hash = content_hash.0.to_field()?;
 
     let computed_hash = (subtree_height..LEDGER_DEPTH).fold(content_hash, |prev_hash, height| {
-        let depth = LEDGER_DEPTH - height;
+        let depth = LEDGER_DEPTH.saturating_sub(height);
         let empty_right = ledger_empty_hash_at_depth(depth).0.to_field().unwrap(); // We know empties are valid
         ledger::V2::hash_node(height, prev_hash, empty_right)
     });
@@ -109,7 +109,7 @@ pub fn hash_node_at_depth(
     left: mina_hasher::Fp,
     right: mina_hasher::Fp,
 ) -> mina_hasher::Fp {
-    let height = LEDGER_DEPTH - depth - 1;
+    let height = LEDGER_DEPTH.saturating_sub(depth).saturating_sub(1);
     ledger::V2::hash_node(height, left, right)
 }
 

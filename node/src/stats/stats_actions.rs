@@ -21,7 +21,10 @@ impl ActionStats {
         while self.per_block.len() >= 20000 {
             self.per_block.pop_back();
         }
-        let id = self.per_block.back().map_or(0, |v| v.id + 1);
+        let id = self
+            .per_block
+            .back()
+            .map_or(0, |v| v.id.checked_add(1).expect("overflow"));
         self.per_block.push_back(ActionStatsForBlock {
             id,
             time,
@@ -54,7 +57,7 @@ impl ActionStats {
         };
         let i = id
             .checked_add(blocks.len() as u64)?
-            .checked_sub(last.id + 1)?;
+            .checked_sub(last.id.checked_add(1)?)?;
         blocks.get(i as usize).cloned()
     }
 }
@@ -69,16 +72,22 @@ impl ActionStatsSnapshot {
         }
 
         let kind_i = *prev_action.action() as usize;
-        let duration = action.meta().time_as_nanos() - prev_action.meta().time_as_nanos();
+        let duration = action
+            .meta()
+            .time_as_nanos()
+            .saturating_sub(prev_action.meta().time_as_nanos());
 
         // TODO(binier): add constant len in ActionKind instead and use
         // that for constant vec length.
         let len = self.0.len();
-        let need_len = kind_i + 1;
+        let need_len = kind_i.checked_add(1).expect("overflow");
         if len < need_len {
             self.0.resize(need_len, Default::default());
         }
-        self.0[kind_i].add(duration);
+        self.0
+            .get_mut(kind_i)
+            .expect("kind_i out of bounds")
+            .add(duration);
     }
 }
 
@@ -128,11 +137,16 @@ pub struct ActionStatsForBlock {
 
 impl ActionStatsForBlock {
     fn new_action(&mut self, action: &ActionKindWithMeta, prev_action: &ActionKindWithMeta) {
-        let duration = action.meta().time_as_nanos() - prev_action.meta().time_as_nanos();
+        let duration = action
+            .meta()
+            .time_as_nanos()
+            .saturating_sub(prev_action.meta().time_as_nanos());
         match prev_action.action() {
             ActionKind::None => {}
-            ActionKind::EventSourceWaitForEvents => self.cpu_idle += duration,
-            _ => self.cpu_busy += duration,
+            ActionKind::EventSourceWaitForEvents => {
+                self.cpu_idle = self.cpu_idle.saturating_add(duration)
+            }
+            _ => self.cpu_busy = self.cpu_busy.saturating_add(duration),
         }
         self.stats.add(action, prev_action);
     }
@@ -182,8 +196,8 @@ impl ActionStatsForRanges {
         } else {
             &mut self.above_50_ms
         };
-        stats.total_calls += 1;
-        stats.total_duration += duration;
+        stats.total_calls = stats.total_calls.saturating_add(1);
+        stats.total_duration = stats.total_duration.saturating_add(duration);
         stats.max_duration = std::cmp::max(stats.max_duration, duration);
     }
 }

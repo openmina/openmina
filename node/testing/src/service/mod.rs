@@ -364,7 +364,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         &mut self,
         other_pk: &node::p2p::identity::PublicKey,
         message: &T,
-    ) -> Result<T::Encrypted, ()> {
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         self.real.encrypt(other_pk, message)
     }
 
@@ -372,7 +372,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         &mut self,
         other_pub_key: &node::p2p::identity::PublicKey,
         encrypted: &T::Encrypted,
-    ) -> Result<T, ()> {
+    ) -> Result<T, Box<dyn std::error::Error>> {
         self.real.decrypt(other_pub_key, encrypted)
     }
 

@@ -86,7 +86,10 @@ impl TransitionFrontierState {
                     // into transition frontier anymore due to consensus
                     // reasons.
                     let tip = new_chain.last().unwrap();
-                    *height + tip.constants().k.as_u32() > tip.height()
+                    height
+                        .checked_add(tip.constants().k.as_u32())
+                        .expect("overflow")
+                        > tip.height()
                 });
                 state.chain_diff = state.maybe_make_chain_diff(&new_chain);
                 state.best_chain = new_chain;

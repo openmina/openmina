@@ -38,7 +38,7 @@ impl Recorder {
         actions_files.push(Some(file));
 
         Self::OnlyInputActions {
-            recorder_i: actions_files.len() - 1,
+            recorder_i: actions_files.len().saturating_sub(1),
             recorder_path: path,
             actions_f_bytes_written: 0,
             actions_f_index,
@@ -90,12 +90,14 @@ impl Recorder {
                 };
 
                 let mut files = ACTIONS_F.try_lock().unwrap();
-                let cur_f = &mut files[*recorder_i];
+                let cur_f = files.get_mut(*recorder_i).unwrap(); // TODO: error propagation
 
                 let file = if *actions_f_bytes_written > 64 * 1024 * 1024 {
                     cur_f.take().unwrap().sync_all().unwrap();
                     *actions_f_bytes_written = 0;
-                    *actions_f_index += 1;
+                    *actions_f_index = actions_f_index
+                        .checked_add(1)
+                        .expect("overflow in actions_f_index");
                     cur_f.insert(
                         fs::File::create(super::actions_path(recorder_path, *actions_f_index))
                             .unwrap(),
@@ -113,7 +115,12 @@ impl Recorder {
                 writer.write_all(&encoded).unwrap();
                 writer.flush().unwrap();
 
-                *actions_f_bytes_written += 8 + encoded.len() as u64;
+                *actions_f_bytes_written = actions_f_bytes_written
+                    .checked_add(
+                        8u64.checked_add(encoded.len() as u64)
+                            .expect("overflow in encoded len"),
+                    )
+                    .expect("overflow in actions_f_bytes_written");
             }
         }
     }

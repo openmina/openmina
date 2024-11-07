@@ -191,7 +191,8 @@ impl BlockProducerVrfEvaluatorState {
                     best_tip_epoch,
                     root_block_epoch: *root_block_epoch,
                     is_current_epoch_evaluated: state.is_epoch_evaluated(best_tip_epoch),
-                    is_next_epoch_evaluated: state.is_epoch_evaluated(best_tip_epoch + 1),
+                    is_next_epoch_evaluated: state
+                        .is_epoch_evaluated(best_tip_epoch.checked_add(1).expect("overflow")),
                     last_evaluated_epoch: state.last_evaluated_epoch(),
                     staking_epoch_data: staking_epoch_data.clone(),
                     next_epoch_data: next_epoch_data.clone(),
@@ -235,7 +236,8 @@ impl BlockProducerVrfEvaluatorState {
                     time: meta.time(),
                     best_tip_epoch: *best_tip_epoch,
                     is_current_epoch_evaluated: state.is_epoch_evaluated(*best_tip_epoch),
-                    is_next_epoch_evaluated: state.is_epoch_evaluated(best_tip_epoch + 1),
+                    is_next_epoch_evaluated: state
+                        .is_epoch_evaluated(best_tip_epoch.checked_add(1).expect("overflow")),
                     best_tip_slot: *best_tip_slot,
                     best_tip_global_slot: *best_tip_global_slot,
                     next_epoch_first_slot: *next_epoch_first_slot,
@@ -425,7 +427,10 @@ impl BlockProducerVrfEvaluatorState {
             } => {
                 let (epoch_number, initial_slot) = match state.epoch_context() {
                     super::EpochContext::Current(_) => (*best_tip_epoch, *current_global_slot),
-                    super::EpochContext::Next(_) => (best_tip_epoch + 1, next_epoch_first_slot - 1),
+                    super::EpochContext::Next(_) => (
+                        best_tip_epoch.checked_add(1).expect("overflow"),
+                        next_epoch_first_slot.checked_sub(1).expect("underflow"),
+                    ),
                     super::EpochContext::Waiting => todo!(),
                 };
                 state.status = BlockProducerVrfEvaluatorStatus::InitialSlotSelection {

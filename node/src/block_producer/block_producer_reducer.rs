@@ -145,9 +145,10 @@ impl BlockProducerEnabled {
                 if let Some(won_slot) = state.current.won_slot() {
                     if let Some(chain) = best_chain.last().map(|best_tip| {
                         if best_tip.global_slot() == won_slot.global_slot() {
-                            // We are producing block which replaces current best tip
-                            // instead of extending it.
-                            best_chain[..(best_chain.len() - 1)].to_vec()
+                            best_chain
+                                .get(..best_chain.len().saturating_sub(1))
+                                .unwrap_or(&[])
+                                .to_vec()
                         } else {
                             best_chain.to_vec()
                         }
@@ -430,14 +431,24 @@ impl BlockProducerEnabled {
                         epoch_length: v2::UnsignedExtendedUInt32StableV1(1.into()),
                     };
                 let epoch_count = v2::UnsignedExtendedUInt32StableV1(
-                    (pred_consensus_state.epoch_count.as_u32() + 1).into(),
+                    (pred_consensus_state
+                        .epoch_count
+                        .as_u32()
+                        .checked_add(1)
+                        .expect("overflow"))
+                    .into(),
                 );
                 (staking_data, next_data, epoch_count)
             } else {
                 assert_eq!(pred_epoch, next_epoch);
                 let mut next_data = pred_consensus_state.next_epoch_data.clone();
                 next_data.epoch_length = v2::UnsignedExtendedUInt32StableV1(
-                    (next_data.epoch_length.as_u32() + 1).into(),
+                    (next_data
+                        .epoch_length
+                        .as_u32()
+                        .checked_add(1)
+                        .expect("overflow"))
+                    .into(),
                 );
                 (
                     pred_consensus_state.staking_epoch_data.clone(),
@@ -475,7 +486,8 @@ impl BlockProducerEnabled {
 
             let is_same_global_sub_window = pred_global_sub_window == next_global_sub_window;
             let are_windows_overlapping = pred_global_sub_window
-                + constraint_constants().sub_windows_per_window as u32
+                .checked_add(constraint_constants().sub_windows_per_window as u32)
+                .expect("overflow")
                 >= next_global_sub_window;
 
             let current_sub_window_densities = pred_sub_window_densities
@@ -525,7 +537,7 @@ impl BlockProducerEnabled {
                             0
                         };
                         if incr_window {
-                            density + 1
+                            density.saturating_add(1)
                         } else {
                             density
                         }
@@ -545,7 +557,9 @@ impl BlockProducerEnabled {
             &global_slot_since_genesis,
         );
         let consensus_state = v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-            blockchain_length: v2::UnsignedExtendedUInt32StableV1((pred_block.height() + 1).into()),
+            blockchain_length: v2::UnsignedExtendedUInt32StableV1(
+                (pred_block.height().checked_add(1).expect("overflow")).into(),
+            ),
             epoch_count,
             min_window_density,
             sub_window_densities,
@@ -592,7 +606,11 @@ impl BlockProducerEnabled {
             0 => (pred_block.hash().clone(), List::new()),
             chain_proof_len => {
                 // TODO(binier): test
-                let mut iter = chain.iter().rev().take(chain_proof_len + 1).rev();
+                let mut iter = chain
+                    .iter()
+                    .rev()
+                    .take(chain_proof_len.saturating_add(1))
+                    .rev();
                 if let Some(first_block) = iter.next() {
                     let first_hash = first_block.hash().clone();
                     let body_hashes = iter

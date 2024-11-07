@@ -231,7 +231,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
                                 best_tip.height().saturating_sub(b1.height()) as usize;
                             if height_diff == 0 {
                                 best_tip.hash() != b1.hash()
-                            } else if let Some(index) = chain.len().checked_sub(height_diff + 1) {
+                            } else if let Some(index) =
+                                chain.len().checked_sub(height_diff.saturating_add(1))
+                            {
                                 chain.get(index).map_or(true, |b2| b1.hash() != b2.hash())
                             } else {
                                 true

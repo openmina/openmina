@@ -172,7 +172,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
         &mut self,
         other_pk: &crate::identity::PublicKey,
         message: &M,
-    ) -> Result<M::Encrypted, ()> {
+    ) -> Result<M::Encrypted, Box<dyn std::error::Error>> {
         P2pServiceWebrtc::encrypt(self, other_pk, message)
     }
 
@@ -180,7 +180,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
         &mut self,
         other_pk: &crate::identity::PublicKey,
         encrypted: &M::Encrypted,
-    ) -> Result<M, ()> {
+    ) -> Result<M, Box<dyn std::error::Error>> {
         P2pServiceWebrtc::decrypt(self, other_pk, encrypted)
     }
 }

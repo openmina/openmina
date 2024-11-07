@@ -229,10 +229,12 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 // would be more accurate (accounts are fetched in groups of 64, hashes of 2).
                 let tree_height = tree_height_for_num_accounts(*total_accounts_expected);
                 let fill_ratio = (*total_accounts_expected as f64) / 2f64.powf(tree_height as f64);
-                let num_hashes_estimate = 2u64.pow((tree_height - ACCOUNT_SUBTREE_HEIGHT) as u32);
+                let num_hashes_estimate = 2u64
+                    .saturating_pow((tree_height.saturating_sub(ACCOUNT_SUBTREE_HEIGHT)) as u32);
                 let num_hashes_estimate = (num_hashes_estimate as f64 * fill_ratio).ceil() as u64;
-                let fetched = *synced_accounts_count + synced_hashes_count;
-                let estimation = fetched.max(*total_accounts_expected + num_hashes_estimate);
+                let fetched = synced_accounts_count.saturating_add(*synced_hashes_count);
+                let estimation =
+                    fetched.max(total_accounts_expected.saturating_add(num_hashes_estimate));
 
                 Some(LedgerSyncProgress {
                     fetched,

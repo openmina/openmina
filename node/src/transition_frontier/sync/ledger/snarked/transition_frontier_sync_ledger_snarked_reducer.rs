@@ -316,7 +316,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
                 // We know at which node to begin querying, so we skip all the intermediary depths
                 let first_node_address = ledger::Address::first(
-                    LEDGER_DEPTH - tree_height_for_num_accounts(*num_accounts),
+                    LEDGER_DEPTH.saturating_sub(tree_height_for_num_accounts(*num_accounts)),
                 );
                 let expected_hash = contents_hash.clone();
                 let first_query = (first_node_address, expected_hash);
@@ -528,8 +528,16 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 // from that subtree will be skipped and add them to the count.
 
                 // Empty node hashes are not counted in the stats.
-                let empty = ledger_empty_hash_at_depth(address.length() + 1);
-                *num_hashes_accepted += (*left != empty) as u64 + (*right != empty) as u64;
+                let empty =
+                    ledger_empty_hash_at_depth(address.length().checked_add(1).expect("overflow"));
+
+                if *left != empty {
+                    *num_hashes_accepted = num_hashes_accepted.checked_add(1).expect("overflow")
+                }
+
+                if *right != empty {
+                    *num_hashes_accepted = num_hashes_accepted.checked_add(1).expect("overflow")
+                }
 
                 if left != previous_left {
                     let previous = queue.insert(address.child_left(), left.clone());
@@ -572,7 +580,8 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     return;
                 };
 
-                *synced_accounts_count += count;
+                *synced_accounts_count =
+                    synced_accounts_count.checked_add(*count).expect("overflow");
                 pending.remove(address);
 
                 // Dispatch
