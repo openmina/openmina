@@ -2285,6 +2285,7 @@ pub mod transaction_snark {
             transaction_logic::{checked_cons_signed_command_payload, Coinbase},
         },
         sparse_ledger::SparseLedger,
+        zkapps::intefaces::{SignedAmountBranchParam, SignedAmountInterface},
         AccountId, Inputs, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
     use ark_ff::Zero;
@@ -3080,7 +3081,11 @@ pub mod transaction_snark {
                             Boolean::True => Sgn::Neg,
                             Boolean::False => Sgn::Pos,
                         };
-                        CheckedSigned::create(CheckedAmount::of_fee(&fee), sgn, None)
+                        CheckedSigned::create(
+                            CheckedAmount::of_fee(&fee),
+                            CircuitVar::Constant(sgn),
+                            None,
+                        )
                     };
 
                     let account_creation_fee = {
@@ -3090,7 +3095,7 @@ pub mod transaction_snark {
                         } else {
                             CheckedAmount::zero()
                         };
-                        CheckedSigned::create(magnitude, Sgn::Neg, None)
+                        CheckedSigned::create(magnitude, CircuitVar::Constant(Sgn::Neg), None)
                     };
 
                     new_account_fees = account_creation_fee.clone();
@@ -3113,7 +3118,7 @@ pub mod transaction_snark {
 
                 let txn_global_slot = current_global_slot;
                 let timing = {
-                    let txn_amount = w.exists_no_check(match amount.sgn {
+                    let txn_amount = w.exists_no_check(match amount.sgn.value() {
                         Sgn::Neg => amount.magnitude,
                         Sgn::Pos => CheckedAmount::zero(),
                     });
@@ -3569,7 +3574,10 @@ pub mod transaction_snark {
                 let (fee_transfer_excess, fee_transfer_excess_overflowed) = {
                     let (magnitude, overflow) =
                         payload.body.amount.to_checked().add_flagged(&amount_fee, w);
-                    (CheckedSigned::create(magnitude, Sgn::Neg, None), overflow)
+                    (
+                        CheckedSigned::create(magnitude, CircuitVar::Constant(Sgn::Neg), None),
+                        overflow,
+                    )
                 };
 
                 Boolean::assert_any(
@@ -3577,37 +3585,48 @@ pub mod transaction_snark {
                     w,
                 );
 
-                let value = match is_fee_transfer {
-                    Boolean::True => fee_transfer_excess,
-                    Boolean::False => user_command_excess,
-                };
-                w.exists_no_check(value.magnitude);
-                value
+                CheckedSigned::on_if(
+                    is_fee_transfer.var(),
+                    SignedAmountBranchParam {
+                        on_true: &fee_transfer_excess,
+                        on_false: &user_command_excess,
+                    },
+                    w,
+                )
             };
 
-            w.exists_no_check(match is_coinbase {
-                Boolean::True => then_value,
-                Boolean::False => else_value,
-            })
+            CheckedSigned::on_if(
+                is_coinbase.var(),
+                SignedAmountBranchParam {
+                    on_true: &then_value,
+                    on_false: &else_value,
+                },
+                w,
+            )
         };
 
         let supply_increase = {
-            let expected_supply_increase = match is_coinbase {
-                Boolean::True => CheckedSigned::of_unsigned(payload.body.amount.to_checked()),
-                Boolean::False => CheckedSigned::of_unsigned(CheckedAmount::zero()),
-            };
-            w.exists_no_check(expected_supply_increase.magnitude);
-            w.exists_no_check(expected_supply_increase.magnitude);
+            let expected_supply_increase = CheckedSigned::on_if(
+                is_coinbase.var(),
+                SignedAmountBranchParam {
+                    on_true: &CheckedSigned::of_unsigned(payload.body.amount.to_checked()),
+                    on_false: &CheckedSigned::of_unsigned(CheckedAmount::zero()),
+                },
+                w,
+            );
 
             let (amt0, _overflow0) = expected_supply_increase
                 .add_flagged(&CheckedSigned::of_unsigned(burned_tokens).negate(), w);
 
-            let new_account_fees_total = w.exists_no_check(match user_command_fails {
-                Boolean::True => zero_fee,
-                Boolean::False => new_account_fees,
-            });
+            let new_account_fees_total = CheckedSigned::on_if(
+                user_command_fails.var(),
+                SignedAmountBranchParam {
+                    on_true: &zero_fee,
+                    on_false: &new_account_fees,
+                },
+                w,
+            );
 
-            w.exists(new_account_fees_total.force_value()); // Made in the `add_flagged` call
             let (amt, _overflow) = amt0.add_flagged(&new_account_fees_total, w);
 
             amt

@@ -1075,8 +1075,8 @@ fn zkapp_main(
                 ledger: witness.global_second_pass_ledger.clone(),
                 hash: statement.source.second_pass_ledger,
             },
-            fee_excess: CheckedSigned::zero(),
-            supply_increase: CheckedSigned::zero(),
+            fee_excess: CheckedSigned::constant_zero(),
+            supply_increase: CheckedSigned::constant_zero(),
             protocol_state: state_body.view(),
             block_global_slot,
         };
