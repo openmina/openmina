@@ -32,7 +32,6 @@ use crate::{
 
 use super::{
     field::{Boolean, CircuitVar, FieldWitness, GroupAffine},
-    numbers::currency::{CheckedCurrency, CheckedSigned},
     step::PerProofWitness,
     transaction::{
         field_to_bits, InnerCurve, PlonkVerificationKeyEvals, StepMainProofState, StepMainStatement,
@@ -799,13 +798,6 @@ impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for &T {
     }
 }
 
-impl<F: FieldWitness, T: CheckedCurrency<F>> ToFieldElements<F> for CheckedSigned<F, T> {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        self.sgn.to_field_elements(fields);
-        self.magnitude.to_field_elements(fields);
-    }
-}
-
 impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let GroupAffine::<F> { x, y, .. } = self.to_affine();
@@ -823,6 +815,15 @@ impl<F: FieldWitness> ToFieldElements<F> for Boolean {
 impl<F: FieldWitness> ToFieldElements<F> for CircuitVar<Boolean> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         self.as_boolean().to_field_elements(fields);
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for CircuitVar<Sgn> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        match self {
+            CircuitVar::Constant(_) => (),
+            CircuitVar::Var(var) => var.to_field_elements(fields),
+        }
     }
 }
 

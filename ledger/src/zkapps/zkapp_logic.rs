@@ -696,7 +696,7 @@ where
         );
         let first = Z::Bool::or(
             creation_overflow,
-            Z::SignedAmount::is_neg(balance_change),
+            Z::SignedAmount::is_neg(&balance_change),
             w,
         );
         Z::LocalState::add_check(
@@ -705,7 +705,7 @@ where
             Z::Bool::and(pay_creation_fee, first, w).neg(),
             w,
         );
-        ((), balance_change.clone())
+        ((), balance_change)
     };
 
     // Apply balance change.

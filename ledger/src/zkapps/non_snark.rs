@@ -401,15 +401,11 @@ impl SignedAmountInterface for Signed<Amount> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         Self::of_unsigned(unsigned)
     }
-    fn on_if<'a>(
-        b: Self::Bool,
-        param: SignedAmountBranchParam<&'a Self>,
-        w: &mut Self::W,
-    ) -> &'a Self {
+    fn on_if(b: Self::Bool, param: SignedAmountBranchParam<&Self>, w: &mut Self::W) -> Self {
         let SignedAmountBranchParam { on_true, on_false } = param;
         match b {
-            true => on_true,
-            false => on_false,
+            true => *on_true,
+            false => *on_false,
         }
     }
 }
