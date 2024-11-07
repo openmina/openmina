@@ -5,8 +5,12 @@ use crate::node::NodeTestingConfig;
 use crate::scenario::{event_details, Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
 use crate::service::PendingEventId;
 
+use std::path::PathBuf;
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
+use axum::http::header;
+use axum::middleware;
+use axum::routing::get_service;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -21,9 +25,14 @@ use tokio::net::TcpListener;
 use tokio::runtime::Runtime;
 use tokio::sync::{oneshot, Mutex, MutexGuard, OwnedMutexGuard};
 use tower_http::cors::CorsLayer;
+use tower_http::services::ServeDir;
 
 pub fn server(rt: Runtime, port: u16) {
+    let fe_dist_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../")
+        .join("frontend/dist/frontend/");
     eprintln!("scenarios path: {}", Scenario::PATH);
+    eprintln!("FrontEnd dist path: {fe_dist_dir:?}");
 
     let state = AppState::new();
 
@@ -62,6 +71,22 @@ pub fn server(rt: Runtime, port: u16) {
         .nest("/scenarios", scenarios_router)
         .nest("/clusters", clusters_router)
         .nest("/simulations", simulator::simulations_router())
+        .fallback(
+            get_service(ServeDir::new(fe_dist_dir)).layer(middleware::from_fn(
+                |req, next: middleware::Next| async {
+                    let mut resp = next.run(req).await;
+                    resp.headers_mut().insert(
+                        header::HeaderName::from_static("cross-origin-embedder-policy"),
+                        header::HeaderValue::from_static("require-corp"),
+                    );
+                    resp.headers_mut().insert(
+                        header::HeaderName::from_static("cross-origin-opener-policy"),
+                        header::HeaderValue::from_static("same-origin"),
+                    );
+                    resp
+                },
+            )),
+        )
         .with_state(state)
         .layer(cors);
 
