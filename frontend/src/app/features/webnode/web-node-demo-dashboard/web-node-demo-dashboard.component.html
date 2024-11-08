@@ -1,7 +1,7 @@
 <div class="logo-header w-100 border-bottom fx-row-full-cent">
   <img ngSrc="assets/images/logo/logo-text.svg" height="40" width="136"/>
 </div>
-<div class="data-wrapper flex-column w-100 overflow-auto align-center">
+<div class="data-wrapper border-bottom flex-column w-100 overflow-auto align-center">
   <div class="loading-content h-100 flex-column flex-around align-center">
     <div class="header flex-column align-center pl-10 pr-10 text-center mb-16">
       <div class="loading-webnode f-500 mb-8">
@@ -32,7 +32,7 @@
   </div>
 
   @if (!loading[loading.length - 1].loaded && errors.length) {
-    <div class="flex-column w-100 pl-10 pr-10 mt-10">
+    <div class="errors flex-column w-100 pl-10 pr-10 mt-10">
       <div class="flex-column w-100 bg-surface p-12 border-rad-6">
         <div class="w-100 font-16 flex-row flex-column-md flex-between align-center flex-start-md"
              [ngClass]="errors.length ? 'warn-primary' : 'aware-primary'">
@@ -47,7 +47,7 @@
     </div>
   }
 </div>
-<div class="footer border-top fx-row-vert-cent flex-between w-100 pl-10 pr-10">
+<div class="footer fx-row-vert-cent flex-between w-100 pl-10 pr-10">
   <div class="fx-row-vert-cent mr-10">
     <span class="mina-icon icon-300 selected-primary mr-5">lightbulb</span>
     <div class="selected-primary f-big f-500">

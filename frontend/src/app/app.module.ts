@@ -44,8 +44,6 @@ export class AppGlobalErrorhandler implements ErrorHandler {
   constructor(private errorHandlerService: GlobalErrorHandlerService) {}
 
   handleError(error: any): void {
-    console.log(123123123);
-    Sentry.captureException(error);
     this.errorHandlerService.handleError(error);
     console.error(error);
   }
@@ -90,9 +88,9 @@ export class AppGlobalErrorhandler implements ErrorHandler {
   ],
   providers: [
     THEME_PROVIDER,
-    { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService] },
     { provide: LOCALE_ID, useValue: 'en' },
     { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
+    { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService] },
     { provide: Sentry.TraceService, deps: [Router] },
     {
       provide: APP_INITIALIZER,
