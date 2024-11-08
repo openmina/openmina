@@ -1,4 +1,4 @@
-use std::{fmt::Write, marker::PhantomData};
+use std::{cell::Cell, fmt::Write, marker::PhantomData};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
@@ -189,7 +189,7 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     type Amount = SnarkAmount;
 
     fn zero() -> Self {
-        CheckedSigned::zero()
+        CheckedSigned::of_unsigned(<CheckedAmount<_> as CheckedCurrency<Fp>>::zero())
     }
     fn is_neg(&self) -> Self::Bool {
         CheckedSigned::is_neg(self).var()
@@ -210,21 +210,32 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         Self::of_unsigned(unsigned)
     }
-    fn on_if<'a>(
-        b: Self::Bool,
-        param: SignedAmountBranchParam<&'a Self>,
-        w: &mut Self::W,
-    ) -> &'a Self {
+    fn on_if(b: Self::Bool, param: SignedAmountBranchParam<&Self>, w: &mut Self::W) -> Self {
         let SignedAmountBranchParam { on_true, on_false } = param;
 
-        let amount = w.exists_no_check(match b.as_boolean() {
+        let amount = match b.as_boolean() {
             Boolean::True => on_true,
             Boolean::False => on_false,
-        });
-        if on_true.try_get_value().is_some() && on_false.try_get_value().is_some() {
-            w.exists_no_check(amount.force_value());
+        };
+
+        // TODO: This should be moved in a `Sgn::on_if`
+        let sgn = match (on_true.sgn, on_false.sgn) {
+            (CircuitVar::Constant(_), CircuitVar::Constant(_)) => {
+                CircuitVar::Var(*amount.sgn.value())
+            }
+            _ => CircuitVar::Var(w.exists_no_check(*amount.sgn.value())),
+        };
+        w.exists_no_check(&amount.magnitude);
+
+        let value = match (on_true.try_get_value(), on_false.try_get_value()) {
+            (Some(_), Some(_)) => Some(w.exists_no_check(amount.force_value())),
+            _ => None,
+        };
+        Self {
+            value: Cell::new(value),
+            sgn,
+            ..amount.clone()
         }
-        amount
     }
 }
 

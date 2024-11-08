@@ -35,6 +35,7 @@ use crate::{
         transaction_logic::protocol_state::{EpochLedger, ProtocolStateView},
     },
     staged_ledger::hash::StagedLedgerHash,
+    zkapps::intefaces::{SignedAmountBranchParam, SignedAmountInterface},
     Inputs, ToInputs,
 };
 
@@ -1375,7 +1376,6 @@ pub mod consensus {
 
         let (new_total_currency, _overflow) = {
             let total_currency: Amount = previous_state.total_currency;
-            w.exists(supply_increase.force_value());
             total_currency
                 .to_checked()
                 .add_signed_flagged(supply_increase, w)
@@ -1638,10 +1638,14 @@ fn block_main<'a>(
         txn_statement_ledger_hashes_equal(s1, &s2, w)
     };
 
-    let supply_increase = w.exists_no_check(match txn_stmt_ledger_hashes_didn_t_change {
-        Boolean::True => CheckedSigned::zero(),
-        Boolean::False => txn_snark.supply_increase.to_checked(),
-    });
+    let supply_increase = CheckedSigned::on_if(
+        txn_stmt_ledger_hashes_didn_t_change.var(),
+        SignedAmountBranchParam {
+            on_true: &CheckedSigned::zero(),
+            on_false: &txn_snark.supply_increase.to_checked(),
+        },
+        w,
+    );
 
     let (updated_consensus_state, consensus_state) = consensus::next_state_checked(
         previous_state,

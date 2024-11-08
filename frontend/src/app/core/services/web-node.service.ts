@@ -91,7 +91,7 @@ export class WebNodeService {
           return from(wasm.run(this.webNodeKeyPair.privateKey));
         }),
         tap((webnode: any) => {
-          (window as any)['webnode'] = webnode;
+          any(window)['webnode'] = webnode;
           this.webnode$.next(webnode);
           this.webnodeProgress$.next('Started');
         }),
@@ -108,14 +108,14 @@ export class WebNodeService {
   get status$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).status())),
+      switchMap(handle => from(any(handle).status())),
     );
   }
 
   get blockProducerStats$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).stats().block_producer())),
+      switchMap(handle => from(any(handle).stats().block_producer())),
     );
   }
 
@@ -144,42 +144,42 @@ export class WebNodeService {
   get messageProgress$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).state().message_progress())),
+      switchMap(handle => from(any(handle).state().message_progress())),
     );
   }
 
   get sync$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).stats().sync())),
+      switchMap(handle => from(any(handle).stats().sync())),
     );
   }
 
   get accounts$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).ledger().latest().accounts().all())),
+      switchMap(handle => from(any(handle).ledger().latest().accounts().all())),
     );
   }
 
   get bestChainUserCommands$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).transition_frontier().best_chain().user_commands())),
+      switchMap(handle => from(any(handle).transition_frontier().best_chain().user_commands())),
     );
   }
 
   sendPayment$(payment: any): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).transaction_pool().inject().payment(payment))),
+      switchMap(handle => from(any(handle).transaction_pool().inject().payment(payment))),
     );
   }
 
   get transactionPool$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from((handle as any).transaction_pool().get())),
+      switchMap(handle => from(any(handle).transaction_pool().get())),
     );
   }
 }

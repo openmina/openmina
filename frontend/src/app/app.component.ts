@@ -20,8 +20,8 @@ import { Routes } from '@shared/enums/routes.enum';
 export class AppComponent extends StoreDispatcher implements OnInit {
 
   protected readonly menu$: Observable<AppMenu> = this.select$(AppSelectors.menu);
-  protected readonly showLandingPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === '/'));
-  protected readonly showLoadingWebNodePage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === `/${Routes.LOADING_WEB_NODE}`));
+  protected readonly showLandingPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === '/' || route.url.startsWith('/?')));
+  protected readonly showLoadingWebNodePage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LOADING_WEB_NODE}`)));
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
   loaded: boolean;

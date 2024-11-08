@@ -142,11 +142,7 @@ where
     fn negate(&self) -> Self;
     fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool);
     fn of_unsigned(unsigned: Self::Amount) -> Self;
-    fn on_if<'a>(
-        b: Self::Bool,
-        param: SignedAmountBranchParam<&'a Self>,
-        w: &mut Self::W,
-    ) -> &'a Self;
+    fn on_if(b: Self::Bool, param: SignedAmountBranchParam<&Self>, w: &mut Self::W) -> Self;
 }
 
 pub trait BalanceInterface
@@ -226,6 +222,7 @@ pub struct StackFrameMakeParams<'a, Calls> {
     pub calls: &'a Calls,
 }
 
+#[derive(Debug)]
 pub struct SignedAmountBranchParam<T> {
     pub on_true: T,
     pub on_false: T,
@@ -583,8 +580,7 @@ where
     >;
     type SignedAmount: SignedAmountInterface<W = Self::WitnessGenerator, Bool = Self::Bool, Amount = Self::Amount>
         + std::fmt::Debug
-        + Clone
-        + ToFieldElements<Fp>;
+        + Clone;
     type Amount: AmountInterface<W = Self::WitnessGenerator, Bool = Self::Bool> + Clone;
     type Balance: BalanceInterface<
         W = Self::WitnessGenerator,

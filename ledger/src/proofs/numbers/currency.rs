@@ -1,4 +1,7 @@
-use crate::scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax, Sgn, Signed};
+use crate::{
+    proofs::field::CircuitVar,
+    scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax, Sgn, Signed},
+};
 use std::{cell::Cell, cmp::Ordering::Less};
 
 use crate::proofs::{
@@ -42,7 +45,7 @@ where
     T: CheckedCurrency<F>,
 {
     pub magnitude: T,
-    pub sgn: Sgn,
+    pub sgn: CircuitVar<Sgn>,
     pub value: Cell<Option<F>>,
 }
 
@@ -65,7 +68,7 @@ where
     F: FieldWitness + std::fmt::Debug,
     T: CheckedCurrency<F> + std::fmt::Debug,
 {
-    pub fn create(magnitude: T, sgn: Sgn, value: Option<F>) -> Self {
+    pub fn create(magnitude: T, sgn: CircuitVar<Sgn>, value: Option<F>) -> Self {
         Self {
             magnitude,
             sgn,
@@ -77,32 +80,46 @@ where
         let value = magnitude.to_field();
         Self {
             magnitude,
-            sgn: Sgn::Pos,
+            sgn: CircuitVar::Constant(Sgn::Pos),
             value: Cell::new(Some(value)),
         }
     }
 
     pub fn zero() -> Self {
-        Self::of_unsigned(T::zero())
+        Self {
+            magnitude: T::zero(),
+            sgn: CircuitVar::Constant(Sgn::Pos),
+            value: Cell::new(None),
+        }
+    }
+
+    // https://github.com/MinaProtocol/mina/blob/ca9c8c86aa21d3c346d28ea0be7ad4cb0c22bf7f/src/lib/transaction_snark/transaction_snark.ml#L1891-L1892
+    // https://github.com/MinaProtocol/mina/blob/ca9c8c86aa21d3c346d28ea0be7ad4cb0c22bf7f/src/lib/currency/currency.ml#L579
+    pub fn constant_zero() -> Self {
+        Self {
+            magnitude: T::zero(),
+            sgn: CircuitVar::Constant(Sgn::Pos),
+            value: Cell::new(Some(T::zero().to_field())),
+        }
     }
 
     pub fn negate(self) -> Self {
         Self {
             magnitude: self.magnitude,
-            sgn: self.sgn.negate(),
+            sgn: self.sgn.map(|sgn| sgn.negate()),
             value: Cell::new(self.value.get().map(|f| f.neg())),
         }
     }
 
     pub fn is_neg(&self) -> Boolean {
-        match self.sgn {
+        match self.sgn.value() {
             Sgn::Pos => Boolean::False,
             Sgn::Neg => Boolean::True,
         }
     }
 
     pub fn is_pos(&self) -> Boolean {
-        match self.sgn {
+        match self.sgn.value() {
             Sgn::Pos => Boolean::True,
             Sgn::Neg => Boolean::False,
         }
@@ -112,7 +129,7 @@ where
         match self.value.get() {
             Some(x) => x,
             None => {
-                let sgn: F = self.sgn.to_field();
+                let sgn: F = self.sgn.value().to_field();
                 let magnitude: F = self.magnitude.to_field();
                 let value = w.exists_no_check(magnitude * sgn);
                 self.value.replace(Some(value));
@@ -125,7 +142,7 @@ where
         match self.value.get() {
             Some(x) => x,
             None => {
-                let sgn: F = self.sgn.to_field();
+                let sgn: F = self.sgn.value().to_field();
                 let magnitude: F = self.magnitude.to_field();
                 magnitude * sgn
             }
@@ -136,7 +153,7 @@ where
         match self.value.get() {
             Some(_) => {}
             None => {
-                let sgn: F = self.sgn.to_field();
+                let sgn: F = self.sgn.value().to_field();
                 let magnitude: F = self.magnitude.to_field();
                 self.value.replace(Some(magnitude * sgn));
             }
@@ -150,7 +167,7 @@ where
     fn unchecked(&self) -> currency::Signed<T::Inner> {
         currency::Signed {
             magnitude: self.magnitude.to_inner(),
-            sgn: self.sgn,
+            sgn: *self.sgn.value(),
         }
     }
 
@@ -185,7 +202,7 @@ where
 
         let res = Self {
             magnitude: res_magnitude,
-            sgn,
+            sgn: CircuitVar::Var(sgn),
             value: Cell::new(Some(res_value)),
         };
         (res, overflow)
@@ -211,19 +228,22 @@ where
 
         range_check::<F, CURRENCY_NBITS>(magnitude, w);
 
-        Self::create(T::from_field(magnitude), sgn, Some(res_value))
+        Self::create(
+            T::from_field(magnitude),
+            CircuitVar::Var(sgn),
+            Some(res_value),
+        )
     }
 
     pub fn equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
-        // We decompose this way because of OCaml evaluation order
-        let t2 = other.value(w);
         let t1 = self.value(w);
+        let t2 = other.value(w);
         field::equal(t1, t2, w)
     }
 
     pub fn const_equal(&self, other: &Self, w: &mut Witness<F>) -> Boolean {
-        let t2 = other.value(w);
         let t1 = self.value(w);
+        let t2 = other.value(w);
         field::equal(t1, t2, w)
     }
 }
@@ -497,7 +517,7 @@ macro_rules! impl_currency {
             pub fn to_checked<F: FieldWitness>(&self) -> CheckedSigned<F, $name<F>> {
                 CheckedSigned {
                     magnitude: self.magnitude.to_checked(),
-                    sgn: self.sgn,
+                    sgn: CircuitVar::Var(self.sgn),
                     value: Cell::new(None),
                 }
             }
