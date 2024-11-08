@@ -42,16 +42,19 @@
 
 <body class="f-base">
 <script type="module">
-  import('./assets/webnode/pkg/openmina_node_web.js')
-    .then((v) => {
-      window.webnode = v;
-      window.dispatchEvent(new CustomEvent('webNodeLoaded'));
-    })
-    .catch((error) => {
-      if (window.env?.configs.some(c => c.isWebNode)) {
-        console.error('Failed to load Web Node:', error);
-      }
-    });
+  window.addEventListener('startWebNode', () => {
+    import('./assets/webnode/pkg/openmina_node_web.js')
+      .then((v) => {
+        window.webnode = v;
+        window.dispatchEvent(new CustomEvent('webNodeLoaded'));
+      })
+      .catch((error) => {
+        if (window.env?.configs.some(c => c.isWebNode)) {
+          console.error('Failed to load Web Node:', error);
+        }
+      });
+  });
+
 </script>
 <app-root class="h-100"></app-root>
 </body>
