@@ -65,6 +65,7 @@ impl webrtc::P2pServiceWebrtc for NodeService {
     ) {
         let encrypted = auth.encrypt(&self.p2p.sec_key, other_pub_key, &mut self.rng);
         if let Some(peer) = self.peers().get(&peer_id) {
+            #[cfg(feature = "p2p-webrtc")]
             let _ = peer
                 .cmd_sender
                 .send(webrtc::PeerCmd::ConnectionAuthorizationSend(encrypted));
