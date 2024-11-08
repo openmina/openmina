@@ -302,8 +302,13 @@ impl BlockProducerCurrentState {
         match self {
             Self::WonSlot { won_slot, .. } | Self::WonSlotWait { won_slot, .. } => {
                 // Make sure to only producer blocks when in the slot interval
-                let slot_upper_bound = won_slot.slot_time + slot_interval;
-                let estimated_produced_time = now + BLOCK_PRODUCTION_ESTIMATE;
+                let slot_upper_bound = won_slot
+                    .slot_time
+                    .checked_add(slot_interval)
+                    .expect("overflow");
+                let estimated_produced_time = now
+                    .checked_add(BLOCK_PRODUCTION_ESTIMATE)
+                    .expect("overflow");
                 estimated_produced_time >= won_slot.slot_time && now < slot_upper_bound
             }
             _ => false,

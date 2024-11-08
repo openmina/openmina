@@ -102,7 +102,7 @@ impl SnarkPoolState {
         let id = job.id.clone();
         self.list.insert(self.counter, job);
         self.by_ledger_hash_index.insert(id, self.counter);
-        self.counter += 1;
+        self.counter = self.counter.saturating_add(1);
     }
 
     pub fn remove(&mut self, id: &SnarkJobId) -> Option<JobState> {
@@ -194,7 +194,7 @@ impl SnarkPoolState {
     pub fn available_jobs_with_highest_priority(&self, n: usize) -> Vec<&JobState> {
         // find `n` jobs with lowest order (highest priority).
         self.available_jobs_iter()
-            .fold(Vec::with_capacity(n + 1), |mut jobs, job| {
+            .fold(Vec::with_capacity(n.saturating_add(1)), |mut jobs, job| {
                 jobs.push(job);
                 if jobs.len() > n {
                     jobs.sort_by_key(|job| job.order);
@@ -267,7 +267,9 @@ impl JobState {
         };
         let account_updates = match &self.job {
             OneOrTwo::One(job) => account_updates(job),
-            OneOrTwo::Two((job1, job2)) => account_updates(job1) + account_updates(job2),
+            OneOrTwo::Two((job1, job2)) => account_updates(job1)
+                .checked_add(account_updates(job2))
+                .expect("overflow"),
         };
 
         if matches!(
@@ -292,7 +294,7 @@ impl JobSummary {
         const MAX_LATENCY: Duration = Duration::from_secs(10);
 
         let (JobSummary::Tx(n) | JobSummary::Merge(n)) = self;
-        BASE * (*n as u32) + MAX_LATENCY
+        BASE.saturating_mul(*n as u32).saturating_add(MAX_LATENCY)
     }
 }
 

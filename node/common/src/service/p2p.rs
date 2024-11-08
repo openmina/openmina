@@ -44,7 +44,7 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         &mut self,
         other_pk: &PublicKey,
         message: &T,
-    ) -> Result<T::Encrypted, ()> {
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         let rng = &mut self.rng;
         self.p2p.sec_key.encrypt(other_pk, rng, message)
     }
@@ -53,7 +53,7 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         &mut self,
         other_pk: &PublicKey,
         encrypted: &T::Encrypted,
-    ) -> Result<T, ()> {
+    ) -> Result<T, Box<dyn std::error::Error>> {
         self.p2p.sec_key.decrypt(other_pk, encrypted)
     }
 

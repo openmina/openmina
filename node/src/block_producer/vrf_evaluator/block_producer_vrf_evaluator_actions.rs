@@ -133,7 +133,11 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             } => state.block_producer.with(false, |this| {
                 if this.vrf_evaluator.is_slot_requested() {
                     if let Some(current_evaluation) = this.vrf_evaluator.current_evaluation() {
-                        current_evaluation.latest_evaluated_slot + 1 == vrf_output.global_slot()
+                        current_evaluation
+                            .latest_evaluated_slot
+                            .checked_add(1)
+                            .expect("overflow")
+                            == vrf_output.global_slot()
                             && current_evaluation.epoch_data.ledger == *staking_ledger_hash
                     } else {
                         false

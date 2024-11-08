@@ -79,8 +79,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 snark_pool: state.snark_pool.jobs_iter().fold(
                     Default::default(),
                     |mut acc, job| {
-                        acc.snarks += job.snark.is_some() as usize;
-                        acc.total_jobs += 1;
+                        if job.snark.is_some() {
+                            acc.snarks = acc.snarks.saturating_add(1);
+                        }
+                        acc.total_jobs = acc.total_jobs.saturating_add(1);
                         acc
                     },
                 ),
@@ -131,18 +133,24 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
 
                 let stats = store.service.stats()?;
                 let attempts = stats.block_producer().collect_attempts();
-                let future_slot = attempts.last().map_or(0, |v| v.won_slot.global_slot + 1);
+                let future_slot = attempts.last().map_or(0, |v| {
+                    v.won_slot.global_slot.checked_add(1).expect("overflow")
+                });
 
                 let cur_global_slot = state.cur_global_slot();
                 let slots_per_epoch = best_tip.constants().slots_per_epoch.as_u32();
-                let epoch_start =
-                    cur_global_slot.map(|slot| (slot / slots_per_epoch) * slots_per_epoch);
+                let epoch_start = cur_global_slot.map(|slot| {
+                    (slot.checked_div(slots_per_epoch).expect("division by 0"))
+                        .checked_mul(slots_per_epoch)
+                        .expect("overflow")
+                });
 
                 Some(RpcBlockProducerStats {
                     current_time: meta.time(),
                     current_global_slot: cur_global_slot,
                     epoch_start,
-                    epoch_end: epoch_start.map(|slot| slot + slots_per_epoch),
+                    epoch_end: epoch_start
+                        .map(|slot| slot.checked_add(slots_per_epoch).expect("overflow")),
                     attempts,
                     future_won_slots: won_slots
                         .range(future_slot..)
@@ -177,9 +185,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     let current_request = if buffer.len() < 8 {
                         None
                     } else {
-                        let received_bytes = buffer.len() - 8;
+                        let received_bytes = buffer.len().saturating_sub(8);
                         let total_bytes = u64::from_le_bytes(
-                            buffer[..8].try_into().expect("cannot fail checked above"),
+                            buffer
+                                .get(..8)
+                                .expect("slice with incorrect length")
+                                .try_into()
+                                .expect("cannot fail checked above"),
                         ) as usize;
                         Some(CurrentMessageProgress {
                             name,

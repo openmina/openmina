@@ -56,11 +56,24 @@ use aes_gcm::{
     aead::{Aead, AeadCore},
     Aes256Gcm, KeyInit,
 };
+
+// TODO: provide more detailed errors
+#[derive(Debug, Clone)]
+pub struct EncryptError();
+
+impl std::fmt::Display for EncryptError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Encryption error occurred")
+    }
+}
+
+impl std::error::Error for EncryptError {}
+
 impl SecretKey {
-    fn shared_key(&self, other_pk: &PublicKey) -> Result<Aes256Gcm, ()> {
+    fn shared_key(&self, other_pk: &PublicKey) -> Result<Aes256Gcm, EncryptError> {
         let key = self.to_x25519().diffie_hellman(&other_pk.to_x25519());
         if !key.was_contributory() {
-            return Err(());
+            return Err(EncryptError());
         }
         let key = key.to_bytes();
         // eprintln!("[shared_key] {} & {} = {}", self.public_key(), other_pk, hex::encode(&key));
@@ -73,11 +86,15 @@ impl SecretKey {
         other_pk: &PublicKey,
         rng: impl Rng + CryptoRng,
         data: &[u8],
-    ) -> Result<Vec<u8>, ()> {
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let shared_key = self.shared_key(other_pk)?;
         let nonce = Aes256Gcm::generate_nonce(rng);
         let mut buffer = Vec::from(AsRef::<[u8]>::as_ref(&nonce));
-        buffer.extend(shared_key.encrypt(&nonce, data).or(Err(()))?);
+        buffer.extend(
+            shared_key
+                .encrypt(&nonce, data)
+                .or(Err(Box::new(EncryptError())))?,
+        );
         Ok(buffer)
     }
 
@@ -86,24 +103,30 @@ impl SecretKey {
         other_pk: &PublicKey,
         rng: impl Rng + CryptoRng,
         data: &M,
-    ) -> Result<M::Encrypted, ()> {
-        let data = serde_json::to_vec(data).or(Err(()))?;
+    ) -> Result<M::Encrypted, Box<dyn std::error::Error>> {
+        let data = serde_json::to_vec(data).map_err(|_| EncryptError())?;
         self.encrypt_raw(other_pk, rng, &data).map(Into::into)
     }
 
-    pub fn decrypt_raw(&self, other_pk: &PublicKey, ciphertext: &[u8]) -> Result<Vec<u8>, ()> {
+    pub fn decrypt_raw(
+        &self,
+        other_pk: &PublicKey,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, EncryptError> {
         let shared_key = self.shared_key(other_pk)?;
-        let (nonce, ciphertext) = ciphertext.split_at_checked(12).ok_or(())?;
-        shared_key.decrypt(nonce.into(), ciphertext).or(Err(()))
+        let (nonce, ciphertext) = ciphertext.split_at_checked(12).ok_or(EncryptError())?;
+        shared_key
+            .decrypt(nonce.into(), ciphertext)
+            .or(Err(EncryptError()))
     }
 
     pub fn decrypt<M: EncryptableType>(
         &self,
         other_pk: &PublicKey,
         ciphertext: &M::Encrypted,
-    ) -> Result<M, ()> {
-        let data = self.decrypt_raw(other_pk, ciphertext.as_ref())?;
-        serde_json::from_slice(&data).or(Err(()))
+    ) -> Result<M, Box<dyn std::error::Error>> {
+        let data: Vec<u8> = self.decrypt_raw(other_pk, ciphertext.as_ref())?;
+        serde_json::from_slice(&data).map_err(Box::<dyn std::error::Error>::from)
     }
 }
 

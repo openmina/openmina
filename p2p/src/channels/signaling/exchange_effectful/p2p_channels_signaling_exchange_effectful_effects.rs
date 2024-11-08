@@ -34,7 +34,7 @@ impl P2pChannelsSignalingExchangeEffectfulAction {
                 offer,
             } => {
                 match store.service().decrypt::<Offer>(&pub_key, &offer) {
-                    Err(()) => {
+                    Err(_) => {
                         store.dispatch(P2pChannelsSignalingExchangeAction::OfferDecryptError {
                             peer_id,
                         });
@@ -67,7 +67,7 @@ impl P2pChannelsSignalingExchangeEffectfulAction {
                     Some(v) => v,
                 };
                 match store.service().encrypt(&pub_key, &answer) {
-                    Err(()) => bug_condition!("Failed to encrypt webrtc answer. Shouldn't happen since we managed to decrypt sent offer."),
+                    Err(_) => bug_condition!("Failed to encrypt webrtc answer. Shouldn't happen since we managed to decrypt sent offer."),
                     Ok(answer) => {
                         answer_message_send(store.service(), peer_id, Some(answer));
                     }

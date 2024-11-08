@@ -280,7 +280,7 @@ impl State {
     /// and only there!
     pub fn action_applied(&mut self, action: &ActionWithMeta) {
         self.last_action = action.meta().clone();
-        self.applied_actions_count += 1;
+        self.applied_actions_count = self.applied_actions_count.checked_add(1).expect("overflow");
     }
 
     pub fn genesis_block(&self) -> Option<ArcBlockWithHash> {
@@ -294,8 +294,14 @@ impl State {
         let initial_ms = u64::from(genesis.timestamp()) / 1_000_000;
         let now_ms = u64::from(self.time()) / 1_000_000;
         let ms = now_ms.saturating_sub(initial_ms);
-        let slots = ms / constraint_constants().block_window_duration_ms;
-        Some(initial_slot(&genesis) + slots as u32)
+        let slots = ms
+            .checked_div(constraint_constants().block_window_duration_ms)
+            .expect("division by 0");
+        Some(
+            initial_slot(&genesis)
+                .checked_add(slots as u32)
+                .expect("overflow"),
+        )
     }
 
     /// Current global slot based on constants and current time.
@@ -307,7 +313,11 @@ impl State {
 
     pub fn current_slot(&self) -> Option<u32> {
         let slots_per_epoch = self.genesis_block()?.constants().slots_per_epoch.as_u32();
-        Some(self.cur_global_slot()? % slots_per_epoch)
+        Some(
+            self.cur_global_slot()?
+                .checked_rem(slots_per_epoch)
+                .expect("division by 0"),
+        )
     }
 
     pub fn cur_global_slot_since_genesis(&self) -> Option<u32> {
@@ -316,14 +326,22 @@ impl State {
 
     pub fn current_epoch(&self) -> Option<u32> {
         let slots_per_epoch = self.genesis_block()?.constants().slots_per_epoch.as_u32();
-        Some(self.cur_global_slot()? / slots_per_epoch)
+        Some(
+            self.cur_global_slot()?
+                .checked_div(slots_per_epoch)
+                .expect("division by 0"),
+        )
     }
 
     pub fn should_produce_blocks_after_genesis(&self) -> bool {
         self.block_producer.is_enabled()
             && self.genesis_block().map_or(false, |b| {
                 let slot = &b.consensus_state().curr_global_slot_since_hard_fork;
-                let epoch = slot.slot_number.as_u32() / slot.slots_per_epoch.as_u32();
+                let epoch = slot
+                    .slot_number
+                    .as_u32()
+                    .checked_div(slot.slots_per_epoch.as_u32())
+                    .expect("division by 0");
                 self.current_epoch() <= Some(epoch)
             })
     }
