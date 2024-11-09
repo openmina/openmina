@@ -69,7 +69,9 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     hash: hash.clone(),
                     block: block.clone()
                 };
-                !block.is_genesis() && !state.consensus.blocks.contains_key(hash)
+                !block.is_genesis()
+                    && !state.consensus.blocks.contains_key(hash)
+                    && state.prevalidate_block(&block)
             },
             ConsensusAction::BlockChainProofUpdate { hash, .. } => {
                 (state.consensus.best_tip.as_ref() == Some(hash)

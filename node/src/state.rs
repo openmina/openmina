@@ -356,6 +356,44 @@ impl State {
         })
     }
 
+    pub fn prevalidate_block(&self, block: &ArcBlockWithHash) -> bool {
+        let Some((genesis, cur_global_slot)) =
+            None.or_else(|| Some((self.genesis_block()?, self.cur_global_slot()?)))
+        else {
+            // we don't have genesis block. This should be impossible
+            // because we don't even know chain_id before we have genesis
+            // block, so we can't be connected to any peers from which
+            // we would receive a block.
+            return false;
+        };
+
+        // received_at_valid_time
+        // https://github.com/minaprotocol/mina/blob/6af211ad58e9356f00ea4a636cea70aa8267c072/src/lib/consensus/proof_of_stake.ml#L2746
+        {
+            let block_global_slot = block.global_slot();
+
+            let delta = genesis.constants().delta.as_u32();
+            if cur_global_slot < block_global_slot {
+                // Too_early
+                return false;
+            } else if cur_global_slot.saturating_sub(block_global_slot) > delta {
+                // Too_late
+                return false;
+            }
+        }
+
+        if block.constants() != genesis.constants() {
+            return false;
+        }
+
+        if block.header().genesis_state_hash() != genesis.hash() {
+            return false;
+        }
+
+        // TODO(binier): more checks.
+        true
+    }
+
     pub fn should_log_node_id(&self) -> bool {
         self.config.testing_run
     }

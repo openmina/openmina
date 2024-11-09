@@ -1532,6 +1532,12 @@ impl From<OffsetDateTime> for BlockTimeTimeStableV1 {
     }
 }
 
+impl MinaBlockHeaderStableV2 {
+    pub fn genesis_state_hash(&self) -> &StateHash {
+        &self.protocol_state.body.genesis_state_hash
+    }
+}
+
 impl StagedLedgerDiffBodyStableV1 {
     pub fn diff(&self) -> &StagedLedgerDiffDiffDiffStableV2 {
         &self.staged_ledger_diff.diff
