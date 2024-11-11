@@ -32,7 +32,7 @@ export class WebnodeComponent implements OnInit {
       return;
     }
 
-    if (this.platform.FIREFOX || this.platform.BLINK) {
+    if (this.platform.FIREFOX) {
       this.supported = false;
       return;
     }
