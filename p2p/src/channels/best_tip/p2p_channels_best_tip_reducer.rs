@@ -2,8 +2,7 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::best_tip_effectful::P2pChannelsBestTipEffectfulAction, P2pNetworkPubsubAction,
-    P2pPeerAction, P2pState,
+    channels::best_tip_effectful::P2pChannelsBestTipEffectfulAction, P2pPeerAction, P2pState,
 };
 
 use super::{BestTipPropagationState, P2pChannelsBestTipAction, P2pChannelsBestTipState};
@@ -143,23 +142,6 @@ impl P2pChannelsBestTipState {
                     return Ok(());
                 }
 
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    use mina_p2p_messages::gossip::GossipNetMessageV2;
-                    let block = (*best_tip.block).clone();
-                    let message = Box::new(GossipNetMessageV2::NewState(block));
-                    // TODO(vlad): `P2pChannelsBestTipAction::ResponseSend`
-                    // action is dispatched for each peer. So `P2pNetworkPubsubAction::Broadcast`
-                    // will be called many times causing many duplicate
-                    // broadcasts. Either in pubsub state machine, we
-                    // need to filter out duplicate messages, or better,
-                    // have a simple action to send pubsub message to a
-                    // specific peer instead of sending to everyone.
-                    // That way we can avoid duplicate state, since we
-                    // already store last sent best tip here and we make
-                    // sure we don't send same block to same peer again.
-                    dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
-                }
                 Ok(())
             }
         }

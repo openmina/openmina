@@ -7,13 +7,16 @@ use mina_p2p_messages::v2::{
 
 use std::{collections::BTreeSet, time::Duration};
 
-use node::{ActionKind, BlockProducerConfig, SnarkerConfig, SnarkerStrategy, State};
+use node::{
+    ActionKind, ActionWithMeta, BlockProducerConfig, SnarkerConfig, SnarkerStrategy, State,
+};
 
 use crate::{
     cluster::ClusterNodeId,
     node::{Node, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::ListenerNode,
     scenarios::{ClusterRunner, RunCfg},
+    service::NodeTestingService,
 };
 
 pub struct Simulator {
@@ -217,6 +220,25 @@ impl Simulator {
         self.wait_for_all_nodes_synced(runner).await;
     }
 
+    pub async fn setup_and_run_with_listener<'a, AL, ALF>(
+        &mut self,
+        runner: &mut ClusterRunner<'a>,
+        listener: ALF,
+    ) where
+        ALF: FnMut() -> AL,
+        AL: 'static
+            + Send
+            + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    {
+        self.setup(runner).await;
+        self.run_with_listener(runner, listener).await;
+    }
+
+    pub async fn setup_and_run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+        self.setup(runner).await;
+        self.run_with_listener(runner, || |_, _, _, _| false).await;
+    }
+
     pub async fn setup<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
         self.set_up_seed_nodes(runner).await;
         self.set_up_normal_nodes(runner).await;
@@ -224,12 +246,16 @@ impl Simulator {
         self.set_up_block_producer_nodes(runner).await;
     }
 
-    pub async fn setup_and_run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
-        self.setup(runner).await;
-        self.run(runner).await;
-    }
-
-    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+    pub async fn run_with_listener<'a, AL, ALF>(
+        &mut self,
+        runner: &mut ClusterRunner<'a>,
+        mut listener: ALF,
+    ) where
+        ALF: FnMut() -> AL,
+        AL: 'static
+            + Send
+            + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    {
         let run_until = self.config.run_until.clone();
         let advance_time = self.config.advance_time.clone();
         let start_t = *self.start_t.get_or_insert_with(redux::Instant::now);
@@ -238,13 +264,11 @@ impl Simulator {
 
         while start_t.elapsed() < self.config.run_until_timeout {
             tokio::task::yield_now().await;
-            let _ = runner
-                .run(
-                    RunCfg::default()
-                        .advance_time(advance_time.clone())
-                        .timeout(Duration::ZERO),
-                )
-                .await;
+            let cfg = RunCfg::default()
+                .advance_time(advance_time.clone())
+                .timeout(Duration::ZERO)
+                .action_handler(listener());
+            let _ = runner.run(cfg).await;
 
             let printed_elapsed_time = {
                 let state = runner.nodes_iter().next().unwrap().1.state();
