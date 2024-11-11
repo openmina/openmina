@@ -1,0 +1,45 @@
+.header {
+  height: 56px;
+
+  .mina-svg {
+    height: 32px;
+  }
+}
+
+.phone-content,
+.browser-content {
+  height: calc(100% - 56px);
+
+  .headline {
+    font-size: 20px;
+    line-height: 30px;
+    margin-bottom: 8px;
+  }
+
+  .img-wrapper {
+    margin-top: 24px;
+    gap: 30px;
+  }
+
+  img {
+    height: 44px;
+    width: 44px;
+  }
+
+  .sub-headline {
+    font-size: 16px;
+  }
+
+  .browser {
+    margin-top: 64px;
+  }
+}
+
+.browser-content {
+  max-width: 600px;
+
+  img {
+    height: 56px;
+    width: 56px;
+  }
+}

@@ -110,6 +110,9 @@ export class AppGlobalErrorhandler implements ErrorHandler {
 
   handleError(error: any): void {
     Sentry.captureException(error);
+    if (typeof error === 'string') {
+      error = new Error(error);
+    }
     this.errorHandlerService.handleError(error);
   }
 }

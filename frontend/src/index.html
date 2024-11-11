@@ -2,16 +2,25 @@
 <html lang="en">
 <head>
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-FY2FWHFD8F"></script>
+  <script type="module">
+    import env from './assets/environments/env.js';
+
+    (function (window) {
+      window['env'] = window.env || env;
+    })(window);
+  </script>
   <script>
-    window.dataLayer = window.dataLayer || [];
+    if (window.env?.production) {
+      window.dataLayer = window.dataLayer || [];
 
-    function gtag() {
-      dataLayer.push(arguments);
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+
+      gtag('js', new Date());
+
+      gtag('config', 'G-FY2FWHFD8F');
     }
-
-    gtag('js', new Date());
-
-    gtag('config', 'G-FY2FWHFD8F');
   </script>
 
   <meta charset="utf-8">
@@ -31,13 +40,6 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=block" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;500;600&display=block" rel="stylesheet">
   <meta name="viewport" content="width=device-width, minimal-ui">
-  <script type="module">
-    import env from './assets/environments/env.js';
-
-    (function (window) {
-      window["env"] = window.env || env;
-    })(window);
-  </script>
 </head>
 
 <body class="f-base">

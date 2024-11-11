@@ -1,0 +1,60 @@
+<div class="header border-bottom fx-row-full-cent">
+  <img class="mina-svg" src="assets/images/logo/text-logo-text.svg" height="40" width="346"/>
+</div>
+@if (isPhone) {
+  <div class="phone-content flex-column flex-around text-center">
+    <div class="w-100 fx-col-vert-cent">
+      <div class="headline">Your device isn't supported</div>
+      <div class="sub-headline tertiary">
+        Unfortunately, iOS devices are not currently supported.
+      </div>
+    </div>
+
+    <div class="w-100 fx-col-vert-cent sub-headline">
+      <div>Switch to one of the following platforms</div>
+      <div class="img-wrapper flex-row align-center w-100 flex-center">
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/windows.svg" alt="" class="mb-8">
+          Windows
+        </div>
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/android.svg" alt="" class="mb-8">
+          Android
+        </div>
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/macos.svg" alt="" class="mb-8">
+          MacOS
+        </div>
+      </div>
+    </div>
+
+    <div class="w-100 fx-col-vert-cent sub-headline">And use Chrome, Edge or Safari</div>
+  </div>
+} @else {
+  <div class="browser-content flex-column flex-center text-center">
+    <div class="w-100 fx-col-vert-cent">
+      <div class="headline mb-16">Your browser isn't supported</div>
+      <div class="sub-headline tertiary">
+        <div>To run a Mina node in your browser,</div>
+        <div>we recommend Chrome or similar.</div>
+      </div>
+    </div>
+
+    <div class="browser w-100 fx-col-vert-cent sub-headline">
+      <div class="img-wrapper flex-row align-center w-100 flex-between">
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/chrome.svg" alt="" class="mb-8">
+          Chrome
+        </div>
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/safari.svg" alt="" class="mb-8">
+          Safari
+        </div>
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/edge.svg" alt="" class="mb-8">
+          Edge
+        </div>
+      </div>
+    </div>
+  </div>
+}
