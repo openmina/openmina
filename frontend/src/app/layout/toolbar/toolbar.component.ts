@@ -59,7 +59,7 @@ export class ToolbarComponent extends StoreDispatcher implements OnInit {
 
   private listenToRouterChange(): void {
     this.select(getMergedRoute, (url: string) => {
-      this.title = removeParamsFromURL(url).split('/')[1].replace(/-/g, ' ');
+      this.title = removeParamsFromURL(url).split('/')[1]?.replace(/-/g, ' ');
       this.detect();
     }, filter(Boolean), map((route: MergedRoute) => route.url));
   }
