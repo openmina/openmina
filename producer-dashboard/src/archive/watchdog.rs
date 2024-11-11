@@ -15,7 +15,7 @@ impl ArchiveWatchdog {
         tokio::spawn(async move {
             Self {
                 producer_pk,
-                archive_connector: ArchiveConnector::connect().await,
+                archive_connector: ArchiveConnector::connect(super::ArchiveUrl::Env).await,
                 db,
                 node_status,
             }

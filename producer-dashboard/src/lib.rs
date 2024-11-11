@@ -8,6 +8,10 @@ pub mod storage;
 use std::sync::Arc;
 
 pub use archive::ArchiveConnector;
+
+#[cfg(test)]
+pub use archive::ArchiveConnectorForTest;
+
 use node::NodeData;
 use tokio::sync::RwLock;
 

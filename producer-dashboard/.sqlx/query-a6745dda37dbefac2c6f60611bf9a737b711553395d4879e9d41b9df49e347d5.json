@@ -1,0 +1,151 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM blocks",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "state_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "parent_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "parent_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "creator_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "block_winner_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "last_vrf_output",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "snarked_ledger_hash_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "staking_epoch_data_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "next_epoch_data_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "min_window_density",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "sub_window_densities",
+        "type_info": "Int8Array"
+      },
+      {
+        "ordinal": 12,
+        "name": "total_currency",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "ledger_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 14,
+        "name": "height",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "global_slot_since_hard_fork",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 16,
+        "name": "global_slot_since_genesis",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 17,
+        "name": "protocol_version_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 18,
+        "name": "proposed_protocol_version_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 19,
+        "name": "timestamp",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 20,
+        "name": "chain_status",
+        "type_info": {
+          "Custom": {
+            "name": "chain_status_type",
+            "kind": {
+              "Enum": [
+                "canonical",
+                "orphaned",
+                "pending"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "a6745dda37dbefac2c6f60611bf9a737b711553395d4879e9d41b9df49e347d5"
+}
