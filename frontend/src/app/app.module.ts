@@ -49,7 +49,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     }
   }
 
-  private setupErrorHandlers() {
+  private setupErrorHandlers(): void {
     const self = this;
 
     // Global error handler
@@ -82,7 +82,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     };
   }
 
-  private interceptWebAssembly() {
+  private interceptWebAssembly(): void {
     const self = this;
 
     const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
@@ -109,6 +109,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
   }
 
   handleError(error: any): void {
+    Sentry.captureException(error);
     this.errorHandlerService.handleError(error);
   }
 }
