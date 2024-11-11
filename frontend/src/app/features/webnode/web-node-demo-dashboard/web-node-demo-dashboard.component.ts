@@ -75,6 +75,7 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
               private router: Router) { super(); }
 
   ngOnInit(): void {
+    window.dispatchEvent(new CustomEvent('startWebNode'));
     any(window).testtest = [];
     this.stepsPercentages = this.getStepPercentages();
     this.fetchProgress();
@@ -105,6 +106,7 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
         this.loading[2].status = WebNodeStepStatus.LOADING;
         this.advanceProgressFor3rdStep();
       } else if (state === 'Connected') {
+        this.loadingMessage = 'Web Node is ready';
         clearInterval(this.thirdStepInterval);
         this.loading[0].status = WebNodeStepStatus.DONE;
         this.loading[1].status = WebNodeStepStatus.DONE;
