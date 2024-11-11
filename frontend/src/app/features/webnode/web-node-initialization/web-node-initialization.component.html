@@ -12,7 +12,7 @@
       <div class="font-16 tertiary f-300"
            [class.aware-primary]="hasWarn && !hasError"
            [class.warn-primary]="hasError"
-           [@messageChange]="loadingMessage">{{ loadingMessage }}</div>
+           [@messageChange]="loadingMessage">{{ loadingMessage || downloadingMessage }}</div>
     </div>
 
     <div #progress class="progress w-100 fx-row-full-cent"></div>
