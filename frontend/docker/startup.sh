@@ -105,7 +105,8 @@ download_wasm_files() {
 
             # Inject caching logic into openmina_node_web.js
             OPENMINA_JS="$TARGET_DIR/openmina_node_web.js"
-            inject_caching_logic "$OPENMINA_JS"
+            INDEX_HTML="/usr/local/apache2/htdocs/index.html"
+            inject_caching_logic "$OPENMINA_JS" "$INDEX_HTML"
         fi
     fi
 
@@ -114,13 +115,28 @@ download_wasm_files() {
 
 inject_caching_logic() {
   local js_file="$1"
+  local index_html="$2"
   if [ -f "$js_file" ]; then
     echo "Injecting caching logic into $js_file"
 
     # Generate a unique hash
     local hash=$(openssl rand -hex 8)
 
+    # replace openmina_node_web_bg.wasm with openmina_node_web_bg.$hash.wasm
+    sed -i "s/openmina_node_web_bg.wasm/openmina_node_web_bg.$hash.wasm/g" "$js_file"
+
+    # add cache headers to fetch calls
     sed -i 's/module_or_path = fetch(module_or_path);/module_or_path = fetch(module_or_path, { cache: "force-cache", headers: { "Cache-Control": "max-age=31536000, immutable" } });/' "$js_file"
+
+    # rename openmina_node_web_bg.wasm to openmina_node_web_bg.$hash.wasm
+    mv "$TARGET_DIR/openmina_node_web_bg.wasm" "$TARGET_DIR/openmina_node_web_bg.$hash.wasm"
+
+    # rename openmina_node_web.js to openmina_node_web.$hash.js
+    mv "$TARGET_DIR/openmina_node_web.js" "$TARGET_DIR/openmina_node_web.$hash.js"
+
+    # replace openmina_node_web.js with openmina_node_web.$hash.js in index.html
+    sed -i "s/openmina_node_web.js/openmina_node_web.$hash.js/g" "$index_html"
+
     if [[ $? -ne 0 ]]; then
       echo "Failed to inject caching logic into $js_file"
     else
