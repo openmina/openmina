@@ -9,6 +9,7 @@ import { CONFIG } from '@shared/constants/config';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
+import { WebNodeService } from '@core/services/web-node.service';
 
 @Component({
   selector: 'app-root',
@@ -19,9 +20,9 @@ import { Routes } from '@shared/enums/routes.enum';
 })
 export class AppComponent extends StoreDispatcher implements OnInit {
 
-  protected readonly menu$: Observable<AppMenu> = this.select$(AppSelectors.menu);
-  protected readonly showLandingPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === '/' || route.url.startsWith('/?')));
-  protected readonly showLoadingWebNodePage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LOADING_WEB_NODE}`)));
+  readonly menu$: Observable<AppMenu> = this.select$(AppSelectors.menu);
+  readonly showLandingPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === '/' || route.url.startsWith('/?')));
+  readonly showLoadingWebNodePage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LOADING_WEB_NODE}`)));
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
   loaded: boolean;
@@ -29,7 +30,8 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   private nodeUpdateSubscription: Subscription | null = null;
 
   constructor(private breakpointObserver: BreakpointObserver,
-              private router: Router) {
+              private router: Router,
+              private webNodeService: WebNodeService) {
     super();
     if (any(window).Cypress) {
       any(window).config = CONFIG;
@@ -43,7 +45,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
       () => this.initAppFunctionalities(),
       filter(Boolean),
       take(1),
-      filter((route: MergedRoute) => route.url !== '/'),
+      filter((route: MergedRoute) => route.url !== '/' && !route.url.startsWith('/?')),
     );
     this.select(
       getMergedRoute,
@@ -61,6 +63,9 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   }
 
   private initAppFunctionalities(): void {
+    if (this.webNodeService.hasWebNodeConfig() && !this.webNodeService.isWebNodeLoaded()) {
+      this.router.navigate([Routes.LOADING_WEB_NODE]);
+    }
     this.dispatch2(AppActions.init());
     if (!this.hideToolbar && !CONFIG.hideNodeStats) {
       this.scheduleNodeUpdates();

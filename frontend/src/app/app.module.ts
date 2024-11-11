@@ -41,11 +41,75 @@ registerLocaleData(localeEn, 'en');
 
 @Injectable()
 export class AppGlobalErrorhandler implements ErrorHandler {
-  constructor(private errorHandlerService: GlobalErrorHandlerService) {}
+  constructor(private errorHandlerService: GlobalErrorHandlerService) {
+    this.setupErrorHandlers();
+
+    if (WebAssembly) {
+      this.interceptWebAssembly();
+    }
+  }
+
+  private setupErrorHandlers() {
+    const self = this;
+
+    // Global error handler
+    window.onerror = function(msg, url, line, column, error) {
+      self.handleError(error || msg);
+      return false;
+    };
+
+    // Unhandled promise rejections
+    window.onunhandledrejection = function(event) {
+      event.preventDefault();
+      self.handleError(event.reason);
+    };
+
+    // Regular error listener
+    window.addEventListener('error', (event: ErrorEvent) => {
+      event.preventDefault();
+      this.handleError(event.error);
+    }, { capture: true });
+
+    // Override console.error with proper error extraction
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      // Find the actual error object in the arguments
+      const error = args.find(arg => arg instanceof Error) ||
+        args.join(' ');
+
+      this.handleError(error);
+      originalConsoleError.apply(console, args);
+    };
+  }
+
+  private interceptWebAssembly() {
+    const self = this;
+
+    const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
+    if (originalInstantiateStreaming) {
+      WebAssembly.instantiateStreaming = async function(response: any, importObject?: any): Promise<any> {
+        try {
+          return await originalInstantiateStreaming.call(WebAssembly, response, importObject);
+        } catch (error) {
+          self.handleError(error);
+          throw error;
+        }
+      };
+    }
+
+    const originalInstantiate = WebAssembly.instantiate;
+    WebAssembly.instantiate = async function(moduleObject: any, importObject?: any): Promise<any> {
+      try {
+        return await originalInstantiate.call(WebAssembly, moduleObject, importObject);
+      } catch (error) {
+        self.handleError(error);
+        throw error;
+      }
+    };
+  }
 
   handleError(error: any): void {
     this.errorHandlerService.handleError(error);
-    console.error(error);
   }
 }
 
@@ -90,7 +154,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     THEME_PROVIDER,
     { provide: LOCALE_ID, useValue: 'en' },
     { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
-    { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService] },
+    { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService], multi: false },
     { provide: Sentry.TraceService, deps: [Router] },
     {
       provide: APP_INITIALIZER,

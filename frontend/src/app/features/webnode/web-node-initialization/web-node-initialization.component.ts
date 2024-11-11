@@ -24,11 +24,10 @@ export interface WebNodeLoadingStep {
   status: WebNodeStepStatus;
 }
 
-
 @Component({
-  selector: 'mina-web-node-demo-dashboard',
-  templateUrl: './web-node-demo-dashboard.component.html',
-  styleUrls: ['./web-node-demo-dashboard.component.scss'],
+  selector: 'mina-web-node-initialization',
+  templateUrl: './web-node-initialization.component.html',
+  styleUrls: ['./web-node-initialization.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-column h-100 w-100 align-center' },
   standalone: true,
@@ -40,16 +39,15 @@ export interface WebNodeLoadingStep {
     LoadingSpinnerComponent,
   ],
   animations: [
-    trigger('fadeIn', [
-      state('void', style({ opacity: 0 })),
-      state('*', style({ opacity: 1 })),
-      transition('void => *', [
-        animate('.6s ease-in'),
+    trigger('messageChange', [
+      transition('* => *', [
+        style({ opacity: 0, transform: 'translateY(-10px)' }),
+        animate('300ms ease-out', style({ opacity: 1, transform: 'translateY(0)' })),
       ]),
     ]),
   ],
 })
-export class WebNodeDemoDashboardComponent extends StoreDispatcher implements OnInit, AfterViewInit {
+export class WebNodeInitializationComponent extends StoreDispatcher implements OnInit, AfterViewInit {
 
   protected readonly WebNodeStepStatus = WebNodeStepStatus;
   readonly loading: WebNodeLoadingStep[] = [
@@ -59,6 +57,8 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
   ];
   loadingMessage: string = '';
   ready: boolean = false;
+  hasError: boolean = false;
+  hasWarn: boolean = false;
   errors: string[] = [];
 
   private stepsPercentages: number[];
@@ -91,13 +91,27 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
   private checkWebNodeProgress(): void {
     this.webNodeService.webnodeProgress$.pipe(untilDestroyed(this)).subscribe((state: string) => {
       if (state === 'Loaded') {
-        this.loadingMessage = '~5 seconds left';
+        this.updateLoadingMessage('~5 seconds left');
+        setTimeout(() => {
+          if (!this.hasError && this.loading[1].status !== WebNodeStepStatus.DONE) {
+            this.updateLoadingMessage('Slower than usual');
+            this.hasWarn = true;
+            this.detect();
+          }
+        }, 5000);
         this.loading[0].loaded = true;
         this.loading[0].status = WebNodeStepStatus.DONE;
         this.loading[1].status = WebNodeStepStatus.LOADING;
         this.advanceProgressFor2ndStep();
       } else if (state === 'Started') {
-        this.loadingMessage = '~2 seconds left';
+        this.updateLoadingMessage('~2 seconds left');
+        setTimeout(() => {
+          if (!this.hasError && this.loading[2].status !== WebNodeStepStatus.DONE) {
+            this.updateLoadingMessage('Slower than usual');
+            this.hasWarn = true;
+            this.detect();
+          }
+        }, 2000);
         clearInterval(this.secondStepInterval);
         this.loading[0].loaded = true;
         this.loading[1].loaded = true;
@@ -106,7 +120,7 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
         this.loading[2].status = WebNodeStepStatus.LOADING;
         this.advanceProgressFor3rdStep();
       } else if (state === 'Connected') {
-        this.loadingMessage = 'Web Node is ready';
+        this.updateLoadingMessage('Web Node is ready');
         clearInterval(this.thirdStepInterval);
         this.loading[0].status = WebNodeStepStatus.DONE;
         this.loading[1].status = WebNodeStepStatus.DONE;
@@ -190,11 +204,22 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
     ).subscribe();
   }
 
+  private updateLoadingMessage(message: string): void {
+    if (this.hasError || this.hasWarn) {
+      return;
+    }
+    this.loadingMessage = message;
+  }
+
   private listenToErrorIssuing(): void {
     this.errorHandler.errors$
-      .pipe(untilDestroyed(this))
+      .pipe(filter(errors => !!errors.length), untilDestroyed(this))
       .subscribe((error: string) => {
         this.errors.push(error);
+        this.loadingMessage = error;
+        this.hasError = true;
+        this.markErrorOnD3();
+
         this.detect();
       });
   }
@@ -264,13 +289,13 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
 
     gradient.append('stop')
       .attr('offset', '8%')
-      .attr('stop-color', '#57D7FF');
+      .attr('stop-color', '#57d7ff');
     gradient.append('stop')
       .attr('offset', '60%')
-      .attr('stop-color', '#FDA2FF');
+      .attr('stop-color', '#fda2ff');
     gradient.append('stop')
       .attr('offset', '100%')
-      .attr('stop-color', '#FF833D');
+      .attr('stop-color', '#ff833d');
 
     this.progressBar.append('text')
       .attr('text-anchor', 'middle')
@@ -313,5 +338,14 @@ export class WebNodeDemoDashboardComponent extends StoreDispatcher implements On
     this.progressBar.select('.symbol')
       .attr('dx', `${numberOfDigits * 0.45}em`)
       .text('%');
+  }
+
+  private markErrorOnD3(): void {
+    this.progressBar.select('path').attr('fill', 'var(--warn-primary)');
+    this.progressBar.select('text').attr('fill', 'var(--warn-primary)');
+    this.progressBar.select('.symbol').attr('fill', 'var(--warn-primary)');
+    this.progressBar.select('path').attr('opacity', 0.4);
+    this.progressBar.select('text').attr('opacity', 0.8);
+    this.progressBar.select('.symbol').attr('opacity', 0.4);
   }
 }
