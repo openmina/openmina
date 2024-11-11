@@ -53,6 +53,7 @@ impl P2pNetworkPubsubState {
                         publish: vec![],
                         control: None,
                     },
+                    cache: Default::default(),
                     buffer: vec![],
                     incoming_messages: vec![],
                 });
@@ -61,7 +62,9 @@ impl P2pNetworkPubsubState {
 
                 pubsub_state
                     .topics
-                    .insert(super::TOPIC.to_owned(), Default::default());
+                    .entry(super::TOPIC.to_owned())
+                    .or_default()
+                    .insert(peer_id, Default::default());
 
                 Ok(())
             }
@@ -82,6 +85,7 @@ impl P2pNetworkPubsubState {
                             publish: vec![],
                             control: None,
                         },
+                        cache: Default::default(),
                         buffer: vec![],
                         incoming_messages: vec![],
                     }
@@ -89,6 +93,12 @@ impl P2pNetworkPubsubState {
                 state.outgoing_stream_id = Some(stream_id);
                 state.protocol = protocol;
                 state.addr = addr;
+
+                pubsub_state
+                    .topics
+                    .entry(TOPIC.to_owned())
+                    .or_default()
+                    .insert(peer_id, Default::default());
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let config: &P2pConfig = state.substate()?;
@@ -113,7 +123,7 @@ impl P2pNetworkPubsubState {
                 if mesh_size < config.meshsub.outbound_degree_desired {
                     dispatcher.push(P2pNetworkPubsubAction::Graft {
                         peer_id,
-                        topic_id: TOPIC.to_owned(),
+                        topic_id: dbg!(TOPIC.to_owned()),
                     });
                 }
 
@@ -158,7 +168,10 @@ impl P2pNetworkPubsubState {
                     if !could_accept {
                         if let Some(topic_state) = map.get(&peer_id) {
                             if topic_state.on_mesh() {
-                                dispatcher.push(P2pNetworkPubsubAction::Prune { peer_id, topic_id })
+                                dispatcher.push(P2pNetworkPubsubAction::Prune {
+                                    peer_id,
+                                    topic_id: dbg!(topic_id),
+                                })
                             }
                         }
                     }
@@ -333,7 +346,7 @@ impl P2pNetworkPubsubState {
                     pubsub_state
                         .clients
                         .iter_mut()
-                        .for_each(|(_, state)| state.message.publish.push(message.clone()));
+                        .for_each(|(_, state)| state.publish(&message));
                 }
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -408,7 +421,7 @@ impl P2pNetworkPubsubState {
                     return;
                 };
                 if topic_state.on_mesh() {
-                    state.message.publish.push(message.clone())
+                    state.publish(&message)
                 } else {
                     let ctr = state.message.control.get_or_insert_with(Default::default);
                     ctr.ihave.push(pb::ControlIHave {
@@ -528,7 +541,7 @@ impl P2pNetworkPubsubState {
             for msg_id in &iwant.message_ids {
                 if let Some(msg) = self.mcache.map.get(msg_id) {
                     if let Some(client) = self.clients.get_mut(peer_id) {
-                        client.message.publish.push(msg.clone());
+                        client.publish(msg);
                     }
                 }
             }

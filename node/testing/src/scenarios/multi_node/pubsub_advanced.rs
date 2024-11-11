@@ -1,11 +1,20 @@
-use std::time::Duration;
+use std::{
+    str,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use mina_p2p_messages::v2;
-use node::transition_frontier::genesis::{GenesisConfig, NonStakers};
+use mina_p2p_messages::{binprot::BinProtRead, gossip, v2};
+use node::{
+    p2p::{P2pNetworkAction, P2pNetworkPubsubAction, PeerId},
+    transition_frontier::genesis::{GenesisConfig, NonStakers},
+    Action, ActionWithMeta, P2pAction,
+};
 
 use crate::{
     node::Recorder,
     scenarios::{ClusterRunner, RunCfgAdvanceTime},
+    service::NodeTestingService,
     simulator::{Simulator, SimulatorConfig, SimulatorRunUntil},
 };
 
@@ -20,9 +29,54 @@ use crate::{
 pub struct MultiNodePubsubPropagateBlock;
 
 impl MultiNodePubsubPropagateBlock {
-    const WORKERS: usize = 20;
+    const WORKERS: usize = 10;
 
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
+        let graph = Arc::new(Mutex::new("digraph {\n".to_owned()));
+        let factory = || {
+            let graph = graph.clone();
+            move |_id,
+                  state: &node::State,
+                  _service: &NodeTestingService,
+                  action: &ActionWithMeta| {
+                let this = state.p2p.my_id();
+
+                let cut = |peer_id: &PeerId| {
+                    let st = peer_id.to_string();
+                    let len = st.len();
+                    st[(len - 6)..len].to_owned()
+                };
+                let this = cut(&this);
+
+                match action.action() {
+                    Action::P2p(P2pAction::Network(P2pNetworkAction::Pubsub(
+                        P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id },
+                    ))) => {
+                        for publish_message in &msg.publish {
+                            let mut slice = &publish_message.data()[8..];
+                            if let Ok(gossip::GossipNetMessageV2::NewState(block)) =
+                                gossip::GossipNetMessageV2::binprot_read(&mut slice)
+                            {
+                                let height = block
+                                    .header
+                                    .protocol_state
+                                    .body
+                                    .consensus_state
+                                    .global_slot();
+                                let mut lock = graph.lock().unwrap();
+                                *lock = format!(
+                                    "{lock}  \"{this}\" -> \"{}\" [label=\"{height}\"];\n",
+                                    cut(peer_id)
+                                );
+                            }
+                        }
+                        false
+                    }
+                    _ => false,
+                }
+            }
+        };
+
         let initial_time = redux::Timestamp::global_now();
         let mut constants = v2::PROTOCOL_CONSTANTS.clone();
         constants.genesis_state_timestamp =
@@ -40,11 +94,15 @@ impl MultiNodePubsubPropagateBlock {
             snark_workers: 1,
             block_producers: 1,
             advance_time: RunCfgAdvanceTime::Rand(1..=200),
-            run_until: SimulatorRunUntil::BlockchainLength(3),
+            run_until: SimulatorRunUntil::BlockchainLength(4),
             run_until_timeout: Duration::from_secs(10 * 60),
             recorder: Recorder::StateWithInputActions,
         };
         let mut simulator = Simulator::new(initial_time, config);
-        simulator.setup_and_run(&mut runner).await;
+        simulator
+            .setup_and_run_with_listener(&mut runner, factory)
+            .await;
+
+        println!("{}}}\n", graph.lock().unwrap());
     }
 }
