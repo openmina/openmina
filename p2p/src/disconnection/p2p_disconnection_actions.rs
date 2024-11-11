@@ -15,6 +15,9 @@ pub enum P2pDisconnectionAction {
         peer_id: PeerId,
         reason: P2pDisconnectionReason,
     },
+    /// Peer disconnection.
+    #[action_event(fields(display(peer_id)), level = info)]
+    PeerClosed { peer_id: PeerId },
     /// Finish disconnecting from a peer.
     #[action_event(fields(display(peer_id)), level = debug)]
     Finish { peer_id: PeerId },
@@ -24,6 +27,7 @@ impl redux::EnablingCondition<P2pState> for P2pDisconnectionAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             P2pDisconnectionAction::Init { peer_id, .. }
+            | P2pDisconnectionAction::PeerClosed { peer_id, .. }
             | P2pDisconnectionAction::Finish { peer_id } => {
                 state.peers.get(peer_id).map_or(false, |peer| {
                     !matches!(peer.status, P2pPeerStatus::Disconnected { .. })

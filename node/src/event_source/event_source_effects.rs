@@ -197,7 +197,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     },
                     P2pConnectionEvent::Closed(peer_id) => {
-                        store.dispatch(P2pDisconnectionAction::Finish { peer_id });
+                        store.dispatch(P2pDisconnectionAction::PeerClosed { peer_id });
                     }
                 },
                 P2pEvent::Channel(e) => match e {
