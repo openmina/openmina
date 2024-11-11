@@ -54,6 +54,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
         this.detect();
       },
       filter(Boolean),
+      take(1),
     );
   }
 
