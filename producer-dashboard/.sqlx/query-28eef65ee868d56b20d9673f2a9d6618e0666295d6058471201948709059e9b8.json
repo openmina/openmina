@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT \n    ac.block_id,\n    ac.account_identifier_id,\n    ac.creation_fee\nFROM accounts_created ac;\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "account_identifier_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "creation_fee",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "28eef65ee868d56b20d9673f2a9d6618e0666295d6058471201948709059e9b8"
+}

@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT \n    aa.ledger_index,\n    aa.block_id,\n    aa.account_identifier_id,\n    aa.token_symbol_id,\n    aa.balance,\n    aa.nonce,\n    aa.receipt_chain_hash,\n    aa.delegate_id,\n    aa.voting_for_id,\n    aa.timing_id,\n    aa.permissions_id,\n    aa.zkapp_id\nFROM accounts_accessed aa;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ledger_index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "block_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "account_identifier_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "token_symbol_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "balance",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "nonce",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "receipt_chain_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "delegate_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "voting_for_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "timing_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "permissions_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "zkapp_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "c2b6606f302226d004acb808b820558548b82ae4af5e20821c19a88371504f63"
+}

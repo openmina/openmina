@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    bc.block_id,\n    bc.zkapp_command_id,\n    bc.sequence_no,\n    bc.status AS \"status: TransactionStatus\",\n    bc.failure_reasons_ids\nFROM blocks_zkapp_commands bc;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "block_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "zkapp_command_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "sequence_no",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "status: TransactionStatus",
+        "type_info": {
+          "Custom": {
+            "name": "transaction_status",
+            "kind": {
+              "Enum": [
+                "applied",
+                "failed"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "failure_reasons_ids",
+        "type_info": "Int4Array"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "9627acfadc7259af8a7989c3bb408034058b8e0bc9d364e8773dd56b77de7809"
+}

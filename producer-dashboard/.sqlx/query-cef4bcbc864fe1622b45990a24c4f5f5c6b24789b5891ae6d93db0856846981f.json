@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT \n    ai.id,\n    ai.public_key_id,\n    ai.token_id\nFROM account_identifiers ai",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "public_key_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "token_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cef4bcbc864fe1622b45990a24c4f5f5c6b24789b5891ae6d93db0856846981f"
+}
