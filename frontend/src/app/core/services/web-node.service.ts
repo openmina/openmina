@@ -20,6 +20,8 @@ export class WebNodeService {
 
   readonly webnodeProgress$: BehaviorSubject<string> = new BehaviorSubject<string>('');
 
+  memory: WebAssembly.Memory;
+
   constructor(private http: HttpClient) {
     FileProgressHelper.initDownloadProgress();
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
@@ -54,7 +56,7 @@ export class WebNodeService {
   startWasm$(): Observable<any> {
     return of(any(window).webnode)
       .pipe(
-        switchMap((wasm: any) => from(wasm.default()).pipe(map(() => wasm))),
+        switchMap((wasm: any) => from(wasm.default(undefined, this.memory)).pipe(map(() => wasm))),
         switchMap((wasm) => {
           this.webnodeProgress$.next('Loaded');
           return from(wasm.run(this.webNodeKeyPair.privateKey));
