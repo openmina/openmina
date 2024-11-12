@@ -139,6 +139,17 @@ impl GenesisConfig {
         }
     }
 
+    pub fn override_genesis_state_timestamp(&mut self, timestamp: v2::BlockTimeTimeStableV1) {
+        match self {
+            Self::Counts { constants, .. }
+            | Self::BalancesDelegateTable { constants, .. }
+            | Self::AccountsBinProt { constants, .. } => {
+                constants.genesis_state_timestamp = timestamp;
+            }
+            _ => todo!(),
+        }
+    }
+
     pub fn load(
         &self,
     ) -> anyhow::Result<(Vec<ledger::Mask>, GenesisConfigLoaded), GenesisConfigError> {

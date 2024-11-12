@@ -5,6 +5,7 @@ use axum::{
     http::StatusCode,
     routing::put,
 };
+use mina_p2p_messages::v2;
 use openmina_core::channels::oneshot;
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,8 @@ pub fn simulations_router() -> axum::Router<AppState> {
 struct SimulationCreateArgs {
     cluster: ClusterConfig,
     simulator: SimulatorConfig,
+    #[serde(default)]
+    override_genesis_state_timestamp: bool,
 }
 
 #[derive(Serialize)]
@@ -37,11 +40,18 @@ async fn simulation_create(
 ) -> Result<Json<SimulationCreateResponse>, (StatusCode, String)> {
     async fn setup(
         state: AppState,
-        args: SimulationCreateArgs,
+        mut args: SimulationCreateArgs,
     ) -> Result<(u16, Simulator), (StatusCode, String)> {
         let (cluster_id, mut cluster) = state.cluster_create_empty(args.cluster).await?;
 
         let initial_time = redux::Timestamp::global_now();
+        if args.override_genesis_state_timestamp {
+            Arc::get_mut(&mut args.simulator.genesis)
+                .unwrap()
+                .override_genesis_state_timestamp(v2::BlockTimeTimeStableV1(
+                    (u64::from(initial_time) / 1_000_000).into(),
+                ));
+        }
         let mut simulator = Simulator::new(initial_time, args.simulator);
         simulator
             .setup(&mut ClusterRunner::new(&mut cluster, |_| {}))

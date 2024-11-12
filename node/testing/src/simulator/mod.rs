@@ -19,6 +19,7 @@ use crate::{
 pub struct Simulator {
     initial_time: redux::Timestamp,
     config: SimulatorConfig,
+    start_t: Option<redux::Instant>,
 }
 
 impl Simulator {
@@ -26,6 +27,7 @@ impl Simulator {
         Self {
             initial_time,
             config,
+            start_t: None,
         }
     }
 
@@ -230,7 +232,7 @@ impl Simulator {
     pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
         let run_until = self.config.run_until.clone();
         let advance_time = self.config.advance_time.clone();
-        let start_t = redux::Instant::now();
+        let start_t = *self.start_t.get_or_insert_with(redux::Instant::now);
         let mut last_printed_slot = 0;
         let virtual_initial_time = self.initial_time();
 

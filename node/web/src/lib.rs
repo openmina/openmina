@@ -1,5 +1,6 @@
 #![cfg(target_family = "wasm")]
 
+use ::node::transition_frontier::genesis::GenesisConfig;
 pub use openmina_node_common::*;
 
 mod rayon;
@@ -31,7 +32,11 @@ fn main() {
 }
 
 #[wasm_bindgen]
-pub async fn run(block_producer: Option<String>) -> RpcSender {
+pub async fn run(
+    block_producer: Option<String>,
+    seed_nodes_url: Option<String>,
+    genesis_config_url: Option<String>,
+) -> RpcSender {
     let block_producer: Option<AccountSecretKey> = block_producer.map(|key| {
         key.parse()
             .expect("failed to parse passed block producer keys")
@@ -40,7 +45,7 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
     let (rpc_sender_tx, rpc_sender_rx) = ::node::core::channels::oneshot::channel();
     let _ = thread::spawn(move || {
         wasm_bindgen_futures::spawn_local(async move {
-            let mut node = setup_node(block_producer).await;
+            let mut node = setup_node(block_producer, seed_nodes_url, genesis_config_url).await;
             let _ = rpc_sender_tx.send(node.rpc());
             node.run_forever().await;
         });
@@ -53,15 +58,37 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
 
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
+    seed_nodes_url: Option<String>,
+    genesis_config_url: Option<String>,
 ) -> openmina_node_common::Node<NodeService> {
     let block_verifier_index = BlockVerifier::make().await;
     let work_verifier_index = TransactionVerifier::make().await;
 
-    let genesis_config = ::node::config::DEVNET_CONFIG.clone();
+    let genesis_config = if let Some(genesis_config_url) = genesis_config_url {
+        let bytes = ::node::core::http::get_bytes(&genesis_config_url)
+            .await
+            .expect("failed to fetch genesis config");
+        GenesisConfig::Prebuilt(bytes.into()).into()
+    } else {
+        ::node::config::DEVNET_CONFIG.clone()
+    };
+
     let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
     node_builder
         .block_verifier_index(block_verifier_index.clone())
         .work_verifier_index(work_verifier_index.clone());
+
+    // TODO(binier): refactor
+    if let Some(seed_nodes_url) = seed_nodes_url {
+        let peers = ::node::core::http::get_bytes(&seed_nodes_url)
+            .await
+            .expect("failed to fetch seed nodes");
+        node_builder.initial_peers(
+            String::from_utf8_lossy(&peers)
+                .split("\n")
+                .map(|s| s.parse().expect("failed to parse seed node addr")),
+        );
+    }
 
     if let Some(bp_key) = block_producer {
         thread::spawn(move || {

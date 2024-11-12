@@ -117,13 +117,6 @@ lazy_static::lazy_static! {
     static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs();
 }
 
-lazy_static::lazy_static! {
-    static ref DETERMINISTIC_ACCOUNT_SEC_KEYS: BTreeMap<AccountPublicKey, AccountSecretKey> = (0..1000)
-        .map(AccountSecretKey::deterministic)
-        .map(|sec_key| (sec_key.public_key(), sec_key))
-        .collect();
-}
-
 pub struct Cluster {
     pub config: ClusterConfig,
     scenario: ClusterScenarioRun,
@@ -193,9 +186,9 @@ impl Cluster {
     }
 
     pub fn get_account_sec_key(&self, pub_key: &AccountPublicKey) -> Option<&AccountSecretKey> {
-        self.account_sec_keys
-            .get(pub_key)
-            .or_else(|| DETERMINISTIC_ACCOUNT_SEC_KEYS.get(pub_key))
+        self.account_sec_keys.get(pub_key).or_else(|| {
+            AccountSecretKey::deterministic_iter().find(|sec_key| &sec_key.public_key() == pub_key)
+        })
     }
 
     pub fn set_initial_time(&mut self, initial_time: redux::Timestamp) {

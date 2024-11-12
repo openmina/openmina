@@ -42,6 +42,11 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   }
 
   ngOnInit(): void {
+    const args = new URLSearchParams(window.location.search).get("a");
+    if (!!args) {
+      window.localStorage.setItem("webnodeArgs", args);
+    } 
+
     this.select(
       getMergedRoute,
       () => this.initAppFunctionalities(),

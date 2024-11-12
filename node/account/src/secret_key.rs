@@ -40,6 +40,10 @@ impl AccountSecretKey {
         GENERATED_DETERMINISTIC[i as usize].clone()
     }
 
+    pub fn deterministic_iter() -> impl Iterator<Item = &'static AccountSecretKey> {
+        GENERATED_DETERMINISTIC.iter()
+    }
+
     pub fn max_deterministic_count() -> usize {
         GENERATED_DETERMINISTIC.len()
     }

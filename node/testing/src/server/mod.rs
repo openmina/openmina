@@ -1,10 +1,12 @@
 pub mod simulator;
+pub mod webnode;
 
 use crate::cluster::{Cluster, ClusterConfig, ClusterNodeId};
 use crate::node::NodeTestingConfig;
 use crate::scenario::{event_details, Scenario, ScenarioId, ScenarioInfo, ScenarioStep};
 use crate::service::PendingEventId;
 
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
@@ -17,8 +19,11 @@ use axum::{
     routing::{get, post, put},
     Json, Router,
 };
+use node::account::AccountPublicKey;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::p2p::webrtc::{Host, Offer, P2pConnectionResponse, SignalingMethod};
 use node::transition_frontier::genesis::{GenesisConfig, PrebuiltGenesisConfig};
+use openmina_node_native::p2p::webrtc::webrtc_signal_send;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
@@ -27,14 +32,14 @@ use tokio::sync::{oneshot, Mutex, MutexGuard, OwnedMutexGuard};
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
 
-pub fn server(rt: Runtime, port: u16) {
+pub fn server(rt: Runtime, host: Host, port: u16, ssl_port: Option<u16>) {
     let fe_dist_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../")
         .join("frontend/dist/frontend/");
     eprintln!("scenarios path: {}", Scenario::PATH);
     eprintln!("FrontEnd dist path: {fe_dist_dir:?}");
 
-    let state = AppState::new();
+    let state = AppState::new(host, ssl_port);
 
     let scenarios_router = Router::new()
         .route("/", get(scenario_list))
@@ -47,11 +52,16 @@ pub fn server(rt: Runtime, port: u16) {
         .route("/", get(cluster_list))
         .route("/create/:scenario_id", put(cluster_create))
         .route("/:cluster_id", get(cluster_get))
+        .nest("/:cluster_id/webnode", webnode::router())
         .route("/:cluster_id/run", post(cluster_run))
         .route("/:cluster_id/run/auto", post(cluster_run_auto))
         .route(
             "/:cluster_id/scenarios/reload",
             post(cluster_scenarios_reload),
+        )
+        .route(
+            "/:cluster_id/mina/webrtc/signal/:offer",
+            get(cluster_webrtc_signal),
         )
         .route("/:cluster_id/seeds", get(cluster_seeds))
         .route("/:cluster_id/genesis/config", get(cluster_genesis_config))
@@ -66,27 +76,24 @@ pub fn server(rt: Runtime, port: u16) {
         .route("/:cluster_id/destroy", post(cluster_destroy));
 
     let cors = CorsLayer::very_permissive();
+    let coop_coep = middleware::from_fn(|req, next: middleware::Next| async {
+        let mut resp = next.run(req).await;
+        resp.headers_mut().insert(
+            header::HeaderName::from_static("cross-origin-embedder-policy"),
+            header::HeaderValue::from_static("require-corp"),
+        );
+        resp.headers_mut().insert(
+            header::HeaderName::from_static("cross-origin-opener-policy"),
+            header::HeaderValue::from_static("same-origin"),
+        );
+        resp
+    });
 
     let app = Router::new()
         .nest("/scenarios", scenarios_router)
         .nest("/clusters", clusters_router)
         .nest("/simulations", simulator::simulations_router())
-        .fallback(
-            get_service(ServeDir::new(fe_dist_dir)).layer(middleware::from_fn(
-                |req, next: middleware::Next| async {
-                    let mut resp = next.run(req).await;
-                    resp.headers_mut().insert(
-                        header::HeaderName::from_static("cross-origin-embedder-policy"),
-                        header::HeaderValue::from_static("require-corp"),
-                    );
-                    resp.headers_mut().insert(
-                        header::HeaderName::from_static("cross-origin-opener-policy"),
-                        header::HeaderValue::from_static("same-origin"),
-                    );
-                    resp
-                },
-            )),
-        )
+        .fallback(get_service(ServeDir::new(&fe_dist_dir)).layer(coop_coep.clone()))
         .with_state(state)
         .layer(cors);
 
@@ -100,15 +107,22 @@ pub fn server(rt: Runtime, port: u16) {
 }
 
 pub struct AppStateInner {
+    host: Host,
+    ssl_port: Option<u16>,
     rng: StdRng,
     clusters: BTreeMap<u16, Arc<Mutex<Cluster>>>,
+    // TODO(binier): move inside cluster state
+    locked_block_producer_keys: BTreeMap<u16, BTreeSet<AccountPublicKey>>,
 }
 
 impl AppStateInner {
-    pub fn new() -> Self {
+    pub fn new(host: Host, ssl_port: Option<u16>) -> Self {
         Self {
+            host,
+            ssl_port,
             rng: StdRng::seed_from_u64(0),
             clusters: Default::default(),
+            locked_block_producer_keys: Default::default(),
         }
     }
 }
@@ -117,8 +131,8 @@ impl AppStateInner {
 pub struct AppState(Arc<Mutex<AppStateInner>>);
 
 impl AppState {
-    pub fn new() -> Self {
-        Self(Arc::new(Mutex::new(AppStateInner::new())))
+    pub fn new(host: Host, ssl_port: Option<u16>) -> Self {
+        Self(Arc::new(Mutex::new(AppStateInner::new(host, ssl_port))))
     }
 
     pub async fn lock(&self) -> MutexGuard<'_, AppStateInner> {
@@ -129,20 +143,14 @@ impl AppState {
         &self,
         cluster_id: u16,
     ) -> Result<Arc<Mutex<Cluster>>, (StatusCode, String)> {
-        let state = self.lock().await;
-        state.clusters.get(&cluster_id).cloned().ok_or_else(|| {
-            (
-                StatusCode::BAD_REQUEST,
-                format!("cluster {cluster_id} not found"),
-            )
-        })
+        self.lock().await.cluster_mutex(cluster_id)
     }
 
     pub async fn cluster(
         &self,
         cluster_id: u16,
     ) -> Result<OwnedMutexGuard<Cluster>, (StatusCode, String)> {
-        Ok(self.cluster_mutex(cluster_id).await?.lock_owned().await)
+        self.lock().await.cluster(cluster_id).await
     }
 
     pub async fn cluster_create(
@@ -197,7 +205,27 @@ impl AppState {
     }
 
     pub async fn cluster_destroy(&self, cluster_id: u16) -> bool {
-        self.lock().await.clusters.remove(&cluster_id).is_some()
+        let mut this = self.lock().await;
+        this.locked_block_producer_keys.remove(&cluster_id);
+        this.clusters.remove(&cluster_id).is_some()
+    }
+}
+
+impl AppStateInner {
+    fn cluster_mutex(&self, cluster_id: u16) -> Result<Arc<Mutex<Cluster>>, (StatusCode, String)> {
+        self.clusters.get(&cluster_id).cloned().ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("cluster {cluster_id} not found"),
+            )
+        })
+    }
+
+    pub async fn cluster(
+        &self,
+        cluster_id: u16,
+    ) -> Result<OwnedMutexGuard<Cluster>, (StatusCode, String)> {
+        Ok(self.cluster_mutex(cluster_id)?.lock_owned().await)
     }
 }
 
@@ -433,21 +461,77 @@ async fn cluster_scenarios_reload(
         .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))
 }
 
+async fn cluster_webrtc_signal(
+    State(state): State<AppState>,
+    Path((cluster_id, offer)): Path<(u16, String)>,
+) -> Result<Json<P2pConnectionResponse>, (StatusCode, Json<P2pConnectionResponse>)> {
+    let offer: Offer = Err(())
+        .or_else(move |_| {
+            let json = bs58::decode(&offer).into_vec().or(Err(()))?;
+            serde_json::from_slice(&json).or(Err(()))
+        })
+        .map_err(|_| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(P2pConnectionResponse::SignalDecryptionFailed),
+            )
+        })?;
+
+    let internal_err = || {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(P2pConnectionResponse::InternalError),
+        )
+    };
+
+    let http_url = {
+        let cluster = state
+            .cluster(cluster_id)
+            .await
+            .map_err(|_| internal_err())?;
+        let node = cluster
+            .node_by_peer_id(offer.target_peer_id)
+            .ok_or_else(internal_err)?;
+        let http_url = match node.dial_addr() {
+            P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => signaling.http_url(),
+            _ => None,
+        };
+        http_url.ok_or_else(internal_err)?
+    };
+    let resp = webrtc_signal_send(&http_url, offer)
+        .await
+        .map_err(|_| internal_err())?;
+    Ok(Json(resp))
+}
+
 async fn cluster_seeds(
     State(state): State<AppState>,
     Path(cluster_id): Path<u16>,
-) -> Result<Json<Vec<P2pConnectionOutgoingInitOpts>>, (StatusCode, String)> {
-    state
-        .cluster(cluster_id)
-        .await
-        .map(|cluster| {
-            cluster
-                .nodes_iter()
-                .filter(|(_, node)| node.config().initial_peers.is_empty())
-                .map(|(_, node)| node.dial_addr())
-                .collect()
-        })
-        .map(Json)
+) -> Result<String, (StatusCode, String)> {
+    let state = state.lock().await;
+    let host = state.host.clone();
+    let ssl_port = state.ssl_port;
+    state.cluster(cluster_id).await.map(|cluster| {
+        let list = cluster
+            .nodes_iter()
+            .filter(|(_, node)| node.config().initial_peers.is_empty())
+            .map(|(_, node)| {
+                let mut addr = node.dial_addr();
+                if let P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } = &mut addr {
+                    if let SignalingMethod::Http(http) = signaling {
+                        if let Some(port) = ssl_port {
+                            http.host = host.clone();
+                            http.port = port;
+                            *signaling = SignalingMethod::HttpsProxy(cluster_id, http.clone());
+                        }
+                    }
+                }
+                addr = addr.to_string().parse().unwrap();
+                addr.to_string()
+            })
+            .collect::<Vec<_>>();
+        list.join("\n")
+    })
 }
 
 async fn cluster_genesis_config(

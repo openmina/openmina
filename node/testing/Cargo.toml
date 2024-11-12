@@ -39,6 +39,9 @@ vrf = { workspace = true }
 time = { version = "0.3", features = ["formatting"] }
 tracing = { version = "0.1", features = ["std"] }
 multihash = "0.18.1"
+hex = "0.4.3"
+bs58 = { version = "0.4" }
+base64 = "0.22"
 
 nix = { version = "0.27.1", features = ["process", "signal"] }
 ctrlc = "3.4.2"
@@ -51,7 +54,6 @@ openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
-hex = "0.4.3"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }

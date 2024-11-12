@@ -28,13 +28,20 @@ use crate::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use self::native::{
-    webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
-};
+mod imports {
+    pub use super::native::{
+        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+    };
+}
 #[cfg(target_arch = "wasm32")]
-use self::web::{
-    webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
-};
+mod imports {
+    pub use super::web::{
+        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+    };
+}
+
+use imports::*;
+pub use imports::{webrtc_signal_send, RTCSignalingError};
 
 use super::TaskSpawner;
 

@@ -56,6 +56,7 @@ pub enum P2pConnectionIncomingAction {
         peer_id: PeerId,
     },
     /// Error establishing incoming connection.
+    #[action_event(level = warn, fields(display(peer_id), display(error)))]
     Error {
         peer_id: PeerId,
         error: P2pConnectionIncomingError,
