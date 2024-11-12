@@ -104,6 +104,31 @@ impl BlockProducerEnabled {
                     };
                 }
             }
+            BlockProducerAction::WonSlotProduceInit => {
+                if let Some(won_slot) = state.current.won_slot() {
+                    if let Some(chain) = best_chain.last().map(|best_tip| {
+                        if best_tip.global_slot() == won_slot.global_slot() {
+                            // We are producing block which replaces current best tip
+                            // instead of extending it.
+                            best_chain
+                                .get(..best_chain.len().saturating_sub(1))
+                                .unwrap_or(&[])
+                                .to_vec()
+                        } else {
+                            best_chain.to_vec()
+                        }
+                    }) {
+                        state.current = BlockProducerCurrentState::WonSlotProduceInit {
+                            time: meta.time(),
+                            won_slot: won_slot.clone(),
+                            chain,
+                        };
+                    };
+                }
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerAction::WonSlotTransactionsGet);
+            }
             BlockProducerAction::WonSlotTransactionsGet => {
                 let BlockProducerCurrentState::WonSlotProduceInit {
                     won_slot, chain, ..
@@ -140,29 +165,6 @@ impl BlockProducerEnabled {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerAction::StagedLedgerDiffCreateInit);
-            }
-            BlockProducerAction::WonSlotProduceInit => {
-                if let Some(won_slot) = state.current.won_slot() {
-                    if let Some(chain) = best_chain.last().map(|best_tip| {
-                        if best_tip.global_slot() == won_slot.global_slot() {
-                            best_chain
-                                .get(..best_chain.len().saturating_sub(1))
-                                .unwrap_or(&[])
-                                .to_vec()
-                        } else {
-                            best_chain.to_vec()
-                        }
-                    }) {
-                        state.current = BlockProducerCurrentState::WonSlotProduceInit {
-                            time: meta.time(),
-                            won_slot: won_slot.clone(),
-                            chain,
-                        };
-                    };
-                }
-
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(BlockProducerAction::WonSlotTransactionsGet);
             }
             BlockProducerAction::StagedLedgerDiffCreateInit => {
                 let dispatcher = state_context.into_dispatcher();

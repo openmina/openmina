@@ -34,9 +34,22 @@ impl TransitionFrontierState {
                     block: genesis,
                     just_emitted_a_proof: true,
                 };
-                let new_chain = vec![genesis];
-                state.chain_diff = state.maybe_make_chain_diff(&new_chain);
-                state.best_chain = new_chain;
+                state.best_chain = vec![genesis];
+                state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
+            }
+            TransitionFrontierAction::GenesisProvenInject => {
+                let Some(genesis) = state.genesis.proven_block() else {
+                    return;
+                };
+                if let Some(block) = state.best_chain.get_mut(0) {
+                    block.block = genesis.clone();
+                } else {
+                    let genesis = AppliedBlock {
+                        block: genesis.clone(),
+                        just_emitted_a_proof: true,
+                    };
+                    state.best_chain = vec![genesis];
+                }
                 if !state.sync.is_pending() {
                     state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
                 }

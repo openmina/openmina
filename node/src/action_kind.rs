@@ -616,6 +616,7 @@ pub enum ActionKind {
     TransactionPoolVerifyError,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
+    TransitionFrontierGenesisProvenInject,
     TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -705,7 +706,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 590;
+    pub const COUNT: u16 = 591;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -859,6 +860,7 @@ impl ActionKindGet for TransitionFrontierAction {
             Self::GenesisEffect(a) => a.kind(),
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
+            Self::GenesisProvenInject => ActionKind::TransitionFrontierGenesisProvenInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
             Self::SyncFailed { .. } => ActionKind::TransitionFrontierSyncFailed,
         }
