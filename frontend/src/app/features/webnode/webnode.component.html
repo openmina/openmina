@@ -1,5 +1,5 @@
 @if (supported) {
   <mina-web-node-initialization></mina-web-node-initialization>
 } @else {
-  <mina-web-node-not-supported [isPhone]="isPhone"></mina-web-node-not-supported>
+  <mina-web-node-not-supported [isPhone]="isPhone" (bypassUnsupportedDevice)="supported = true"></mina-web-node-not-supported>
 }

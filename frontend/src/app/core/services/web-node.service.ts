@@ -101,7 +101,7 @@ export class WebNodeService {
         // }
         if (!this.sentryEvents.firstPeerConnected && peers.some((p: any) => p.connection_status === DashboardPeerStatus.CONNECTED)) {
           const seconds = (Date.now() - this.webNodeStartTime) / 1000;
-          sendSentryEvent(`WebNode connected in ${seconds.toFixed(1)}s`);
+          sendSentryEvent(`WebNode connected in ${seconds.toFixed(1)}s`, 'info');
           this.sentryEvents.firstPeerConnected = true;
           this.webnodeProgress$.next('Connected');
         }
