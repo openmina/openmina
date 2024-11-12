@@ -33,9 +33,18 @@ export class WebnodeComponent extends StoreDispatcher implements OnInit {
 
   private listenToRoute(): void {
     this.select(getMergedRoute, (route: MergedRoute) => {
-      const initial = Number(route.queryParams['initial']);
-      const maximum = Number(route.queryParams['maximum']);
-      const shared = route.queryParams['shared'] === 'true';
+      let initial = 174;
+      if (route.queryParams['initial']) {
+        initial = Number(route.queryParams['initial']);
+      }
+      let maximum = 65536;
+      if (route.queryParams['maximum']) {
+        maximum = Number(route.queryParams['maximum']);
+      }
+      let shared = true;
+      if (route.queryParams['shared']) {
+        shared = route.queryParams['shared'] === 'true';
+      }
       this.webNodeService.memory = new WebAssembly.Memory({ initial, maximum, shared });
     }, filter(Boolean));
   }
