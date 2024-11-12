@@ -54,7 +54,7 @@ export class WebNodeService {
   startWasm$(): Observable<any> {
     return of(any(window).webnode)
       .pipe(
-        switchMap((wasm: any) => from(wasm.default('assets/webnode/pkg/openmina_node_web_bg.wasm')).pipe(map(() => wasm))),
+        switchMap((wasm: any) => from(wasm.default()).pipe(map(() => wasm))),
         switchMap((wasm) => {
           this.webnodeProgress$.next('Loaded');
           return from(wasm.run(this.webNodeKeyPair.privateKey));
