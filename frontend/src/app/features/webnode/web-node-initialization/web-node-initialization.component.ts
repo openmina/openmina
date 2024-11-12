@@ -105,14 +105,14 @@ export class WebNodeInitializationComponent extends StoreDispatcher implements O
 				this.loading[1].status = WebNodeStepStatus.LOADING;
 				this.advanceProgressFor2ndStep();
 			} else if (state === 'Started') {
-				this.updateLoadingMessage('~2 seconds left');
+				this.updateLoadingMessage('~3 seconds left');
 				setTimeout(() => {
 					if (!this.hasError && this.loading[2].status !== WebNodeStepStatus.DONE) {
 						this.updateLoadingMessage('Slower than usual');
 						this.hasWarn = true;
 						this.detect();
 					}
-				}, 2000);
+				}, 3500);
 				clearInterval(this.secondStepInterval);
 				this.loading[0].loaded = true;
 				this.loading[1].loaded = true;
