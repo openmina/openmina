@@ -253,15 +253,15 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(*alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
-    let w0 = evals.w.map(|point| point.fst());
+    let w0 = evals.w.map(|point| point.zeta);
 
     let beta = *beta;
     let gamma = *gamma;
 
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L397
     let perm = evals.s.iter().enumerate().fold(
-        evals.z.snd() * beta * alpha_pow(PERM_ALPHA0) * zkp,
-        |accum, (index, elem)| accum * (gamma + (beta * elem.fst()) + w0[index]),
+        evals.z.zeta_omega * beta * alpha_pow(PERM_ALPHA0) * zkp,
+        |accum, (index, elem)| accum * (gamma + (beta * elem.zeta) + w0[index]),
     );
     let perm = -perm;
 
@@ -302,16 +302,16 @@ pub fn derive_plonk_checked<F: FieldWitness>(
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
-    let w0 = evals.w.map(|point| point.fst());
+    let w0 = evals.w.map(|point| point.zeta);
 
     let beta = minimal.beta;
     let gamma = minimal.gamma;
 
     let perm = evals.s.iter().enumerate().fold(
-        field::muls(&[evals.z.snd(), beta, alpha_pow(PERM_ALPHA0), zkp], w),
+        field::muls(&[evals.z.zeta_omega, beta, alpha_pow(PERM_ALPHA0), zkp], w),
         |accum, (index, elem)| {
             // We decompose this way because of OCaml evaluation order
-            let beta_elem = field::mul(beta, elem.fst(), w);
+            let beta_elem = field::mul(beta, elem.zeta, w);
             field::mul(accum, gamma + beta_elem + w0[index], w)
         },
     );
@@ -385,7 +385,7 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
 ) -> F {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
 
-    let e0_s: Vec<_> = evals.s.iter().map(|s| s.fst()).collect();
+    let e0_s: Vec<_> = evals.s.iter().map(|s| s.zeta).collect();
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
@@ -405,12 +405,12 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
         })
         .unwrap(); // Never fail, `p_eval0` is non-empty
 
-    let w0: Vec<_> = evals.w.iter().map(|w| w.fst()).collect();
+    let w0: Vec<_> = evals.w.iter().map(|w| w.zeta).collect();
 
     let ft_eval0 = {
         let a0 = alpha_pow(PERM_ALPHA0);
         let w_n = w0[PLONK_TYPES_PERMUTS_MINUS_1_N];
-        let init = (w_n + minimal.gamma) * evals.z.snd() * a0 * zkp;
+        let init = (w_n + minimal.gamma) * evals.z.zeta_omega * a0 * zkp;
         e0_s.iter().enumerate().fold(init, |acc, (i, s)| {
             ((minimal.beta * s) + w0[i] + minimal.gamma) * acc
         })
@@ -421,14 +421,14 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
 
     let ft_eval0 = ft_eval0
         - shifts.iter().enumerate().fold(
-            alpha_pow(PERM_ALPHA0) * zkp * evals.z.fst(),
+            alpha_pow(PERM_ALPHA0) * zkp * evals.z.zeta,
             |acc, (i, s)| acc * (minimal.gamma + (minimal.beta * minimal.zeta * s) + w0[i]),
         );
 
     let nominator =
         (zeta1m1 * alpha_pow(PERM_ALPHA0 + 1) * (minimal.zeta - env.omega_to_minus_zk_rows)
             + (zeta1m1 * alpha_pow(PERM_ALPHA0 + 2) * (minimal.zeta - F::one())))
-            * (F::one() - evals.z.fst());
+            * (F::one() - evals.z.zeta);
 
     let denominator = (minimal.zeta - env.omega_to_minus_zk_rows) * (minimal.zeta - F::one());
     let ft_eval0 = ft_eval0 + (nominator / denominator);
@@ -873,7 +873,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
 ) -> F {
     const PLONK_TYPES_PERMUTS_MINUS_1_N: usize = 6;
 
-    let e0_s: Vec<_> = evals.s.iter().map(|s| s.fst()).collect();
+    let e0_s: Vec<_> = evals.s.iter().map(|s| s.zeta).collect();
     let zkp = env.zk_polynomial;
     let powers_of_alpha = powers_of_alpha(minimal.alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
@@ -890,12 +890,12 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
             }
         })
         .unwrap(); // Never fail, `p_eval0` is non-empty
-    let w0: Vec<_> = evals.w.iter().map(|w| w.fst()).collect();
+    let w0: Vec<_> = evals.w.iter().map(|w| w.zeta).collect();
 
     let ft_eval0 = {
         let a0 = alpha_pow(PERM_ALPHA0);
         let w_n = w0[PLONK_TYPES_PERMUTS_MINUS_1_N];
-        let init = field::muls(&[(w_n + minimal.gamma), evals.z.snd(), a0, zkp], w);
+        let init = field::muls(&[(w_n + minimal.gamma), evals.z.zeta_omega, a0, zkp], w);
         e0_s.iter().enumerate().fold(init, |acc, (i, s)| {
             // We decompose this way because of OCaml evaluation order
             let beta_s = field::mul(minimal.beta, *s, w);
@@ -908,7 +908,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
 
     let ft_eval0 = ft_eval0
         - shifts.iter().enumerate().fold(
-            field::muls(&[alpha_pow(PERM_ALPHA0), zkp, evals.z.fst()], w),
+            field::muls(&[alpha_pow(PERM_ALPHA0), zkp, evals.z.zeta], w),
             |acc, (i, s)| {
                 let beta_zeta = field::mul(minimal.beta, minimal.zeta, w);
                 field::mul(acc, minimal.gamma + (beta_zeta * s) + w0[i], w)
@@ -932,7 +932,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
         ],
         w,
     );
-    let nominator = field::mul(a + b, F::one() - evals.z.fst(), w);
+    let nominator = field::mul(a + b, F::one() - evals.z.zeta, w);
 
     let denominator = field::mul(
         minimal.zeta - env.omega_to_minus_zk_rows,
