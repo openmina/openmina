@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub use archive::ArchiveConnector;
 
 #[cfg(test)]
-pub use archive::ArchiveConnectorForTest;
+pub use archive::raw_types::ArchiveConnectorForTest;
 
 use node::NodeData;
 use tokio::sync::RwLock;

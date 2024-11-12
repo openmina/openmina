@@ -1,7 +1,12 @@
+use postgres_types::ChainStatus;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
+pub mod postgres_types;
+pub mod raw_types;
 pub mod watchdog;
+
+use raw_types::*;
 
 #[derive(Debug, Clone)]
 pub struct ArchiveConnector {
@@ -98,34 +103,9 @@ impl ArchiveConnector {
     }
 }
 
-pub struct ArchiveConnectorForTest {
-    inner: ArchiveConnector,
-}
-
-impl ArchiveConnectorForTest {
-    pub async fn new(url: ArchiveUrl) -> Self {
-        Self {
-            inner: ArchiveConnector::connect(url).await,
-        }
-    }
-
-    // pub async fn all_blocks(&self) -> Result<(), sqlx::Error> {
-    //     let res = sqlx::query_file!("src/archive/sql/test/all_blocks.sql").fetch_all(&self.inner.pool).await;
-    //     Ok(())
-    // }
-}
-
 pub type StateHash = String;
 struct LatestBlock {
     state_hash: String,
-}
-
-#[derive(sqlx::Type, Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[sqlx(type_name = "chain_status_type", rename_all = "lowercase")]
-pub enum ChainStatus {
-    Canonical,
-    Orphaned,
-    Pending,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
