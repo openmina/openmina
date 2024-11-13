@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { Effect } from '@openmina/shared';
+import { Effect, isDesktop } from '@openmina/shared';
 import { EMPTY, map, switchMap } from 'rxjs';
 import { catchErrorAndRepeat2 } from '@shared/constants/store-functions';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
@@ -47,7 +47,8 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
           ? EMPTY
           : this.wonSlotsService.getSlots().pipe(
             switchMap(({ slots, epoch }) => {
-              const activeSlotRoute = state.blockProduction[BLOCK_PRODUCTION_WON_SLOTS_KEY].activeSlotRoute;
+              const bpState = state.blockProduction[BLOCK_PRODUCTION_WON_SLOTS_KEY];
+              const activeSlotRoute = bpState.activeSlotRoute;
               let newActiveSlot = slots.find(s => s.globalSlot.toString() === activeSlotRoute);
               if (!activeSlotRoute || (activeSlotRoute && !newActiveSlot)) {
                 newActiveSlot = slots.find(s => s.active)
@@ -56,7 +57,7 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
                   ?? null;
               }
               const routes: string[] = [Routes.BLOCK_PRODUCTION, Routes.WON_SLOTS];
-              if (newActiveSlot) {
+              if (newActiveSlot && isDesktop() || (activeSlotRoute && !bpState.activeSlot) || (activeSlotRoute && bpState.openSidePanel)) {
                 routes.push(newActiveSlot.globalSlot.toString());
               }
               return fromPromise(this.router.navigate(routes, { queryParamsHandling: 'merge' })).pipe(map(() => ({
