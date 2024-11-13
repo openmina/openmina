@@ -6,6 +6,7 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { getMergedRoute, MergedRoute } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { WebNodeService } from '@core/services/web-node.service';
+import { iOSversion } from '@shared/helpers/webnode.helper';
 
 @Component({
   selector: 'mina-webnode',
@@ -50,9 +51,8 @@ export class WebnodeComponent extends StoreDispatcher implements OnInit {
   }
 
   private checkIfDeviceIsSupported(): void {
-
     if (this.platform.IOS) {
-      this.supported = false;
+      this.supported = iOSversion()[0] >= 18;
       this.isPhone = true;
       return;
     }

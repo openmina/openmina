@@ -1,3 +1,5 @@
+@import 'openmina';
+
 .header {
   height: 56px;
 
@@ -9,6 +11,27 @@
 .phone-content,
 .browser-content {
   height: calc(100% - 56px);
+
+  .ios {
+    width: 96px;
+    height: 96px;
+    font-size: 30px;
+    border-radius: 100px;
+  }
+
+  .ios-box {
+    margin-top: 40px;
+    margin-bottom: 40px;
+    padding: 0 32px;
+  }
+
+  .learn-btn {
+    background-color: $base-background;
+    color: $base-primary;
+    max-width: 330px;
+    margin: 0 12px;
+    filter: invert(1);
+  }
 
   .headline {
     font-size: 20px;
