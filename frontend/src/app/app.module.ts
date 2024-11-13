@@ -1,5 +1,5 @@
 import { APP_INITIALIZER, ErrorHandler, Injectable, LOCALE_ID, NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
+import { BrowserModule, provideClientHydration } from '@angular/platform-browser';
 
 import { AppComponent } from './app.component';
 import { AppRouting } from './app.routing';
@@ -9,7 +9,7 @@ import {
   GlobalErrorHandlerService,
   HorizontalMenuComponent,
   NgrxRouterStoreModule,
-  OpenminaEagerSharedModule,
+  OpenminaEagerSharedModule, safelyExecuteInBrowser,
   THEME_PROVIDER,
 } from '@openmina/shared';
 import { CommonModule, registerLocaleData } from '@angular/common';
@@ -29,7 +29,7 @@ import { metaReducers, reducers } from '@app/app.setup';
 import { EffectsModule } from '@ngrx/effects';
 import { AppEffects } from '@app/app.effects';
 import { StoreDevtoolsModule } from '@ngrx/store-devtools';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, provideHttpClient, withFetch } from '@angular/common/http';
 import { NewNodeComponent } from './layout/new-node/new-node.component';
 import { ReactiveFormsModule } from '@angular/forms';
 import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
@@ -42,7 +42,9 @@ registerLocaleData(localeEn, 'en');
 @Injectable()
 export class AppGlobalErrorhandler implements ErrorHandler {
   constructor(private errorHandlerService: GlobalErrorHandlerService) {
-    this.setupErrorHandlers();
+    safelyExecuteInBrowser(() => {
+      this.setupErrorHandlers();
+    });
 
     if (WebAssembly) {
       this.interceptWebAssembly();
@@ -166,6 +168,8 @@ export class AppGlobalErrorhandler implements ErrorHandler {
       deps: [Sentry.TraceService],
       multi: true,
     },
+    provideClientHydration(),
+    provideHttpClient(withFetch()),
   ],
   bootstrap: [AppComponent],
 })

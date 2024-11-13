@@ -16,6 +16,7 @@ import { DashboardSplitsSet } from '@shared/types/network/splits/dashboard-split
 import { DashboardSplitsSetActivePeer } from '@network/splits/dashboard-splits.actions';
 import { eigs } from 'mathjs';
 import * as math from 'mathjs';
+import { getLocalStorage } from '@openmina/shared';
 
 type DashboardSplitsPeerSimulation = DashboardSplitsPeer & SimulationNodeDatum;
 type DashboardSplitsLinkSimulation = {
@@ -128,7 +129,7 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
         console.log('Laplacian Matrix:', laplacianMatrix);
 
         // check is same as localstorage
-        let item = localStorage.getItem('laplacianMatrix');
+        let item = getLocalStorage()?.getItem('laplacianMatrix');
         if (item) {
           let storedMatrix = JSON.parse(item);
           let storedMatrixString = JSON.stringify(storedMatrix);
@@ -139,7 +140,7 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
             console.log('Laplacian Matrix is different from the stored one');
           }
         }
-        localStorage.setItem('laplacianMatrix', JSON.stringify(laplacianMatrix));
+        getLocalStorage()?.setItem('laplacianMatrix', JSON.stringify(laplacianMatrix));
 
         const computeEigenvalues = async (matrix: number[][]): Promise<number[]> => {
           return eigs(matrix).values as number[];

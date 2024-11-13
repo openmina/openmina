@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, catchError, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, EMPTY, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import base from 'base-x';
-import { any } from '@openmina/shared';
+import { any, isBrowser, safelyExecuteInBrowser } from '@openmina/shared';
 import { HttpClient } from '@angular/common/http';
 import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
@@ -25,10 +25,12 @@ export class WebNodeService {
   constructor(private http: HttpClient) {
     FileProgressHelper.initDownloadProgress();
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
-    any(window)['bs58btc'] = {
-      encode: (buffer: Uint8Array | number[]) => 'z' + basex.encode(buffer),
-      decode: (string: string) => basex.decode(string.substring(1)),
-    };
+    safelyExecuteInBrowser(() => {
+      any(window)['bs58btc'] = {
+        encode: (buffer: Uint8Array | number[]) => 'z' + basex.encode(buffer),
+        decode: (string: string) => basex.decode(string.substring(1)),
+      };
+    });
   }
 
   hasWebNodeConfig(): boolean {
@@ -36,25 +38,32 @@ export class WebNodeService {
   }
 
   isWebNodeLoaded(): boolean {
-    return !!any(window).webnode;
+    if (isBrowser()) {
+      return !!any(window).webnode;
+    }
+    return false;
   }
 
   loadWasm$(): Observable<void> {
     this.webNodeStartTime = Date.now();
-    return merge(
-      of(any(window).webnode).pipe(filter(Boolean)),
-      fromEvent(window, 'webNodeLoaded'),
-    ).pipe(
-      switchMap(() => this.http.get<{ publicKey: string, privateKey: string }>('assets/webnode/web-node-secrets.json')),
-      tap(data => {
-        this.webNodeKeyPair = data;
-      }),
-      map(() => void 0),
-    );
+    if (isBrowser()) {
+      return merge(
+        of(any(window).webnode).pipe(filter(Boolean)),
+        fromEvent(window, 'webNodeLoaded'),
+      ).pipe(
+        switchMap(() => this.http.get<{ publicKey: string, privateKey: string }>('assets/webnode/web-node-secrets.json')),
+        tap(data => {
+          this.webNodeKeyPair = data;
+        }),
+        map(() => void 0),
+      );
+    }
+    return EMPTY;
   }
 
   startWasm$(): Observable<any> {
-    return of(any(window).webnode)
+    if (isBrowser()) {
+      return of(any(window).webnode)
       .pipe(
         switchMap((wasm: any) => from(wasm.default(undefined, new WebAssembly.Memory(this.memory))).pipe(map(() => wasm))),
         switchMap((wasm) => {
@@ -73,6 +82,8 @@ export class WebNodeService {
         switchMap(() => this.webnode$.asObservable()),
         filter(Boolean),
       );
+    }
+    return EMPTY;
   }
 
   get status$(): Observable<any> {

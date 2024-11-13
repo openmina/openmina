@@ -21,7 +21,7 @@ import {
   BenchmarksWalletTransactionStatus,
 } from '@shared/types/benchmarks/wallets/benchmarks-wallet.type';
 import { BenchmarksWalletTransaction } from '@shared/types/benchmarks/wallets/benchmarks-wallet-transaction.type';
-import { hasValue, lastItem, ONE_BILLION } from '@openmina/shared';
+import { getLocalStorage, hasValue, lastItem, ONE_BILLION } from '@openmina/shared';
 import { BenchmarksWalletsState } from '@benchmarks/wallets/benchmarks-wallets.state';
 import { getTimeFromMemo } from '@shared/helpers/transaction.helper';
 import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';
@@ -110,7 +110,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
           .map((wallet: BenchmarksWallet, i: number) => {
             const nonce = getNonceForWallet(wallet, state).toString();
             const counter = state.sentTxCount + i;
-            const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + localStorage.getItem('browserId');
+            const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + getLocalStorage()?.getItem('browserId');
             const payment = {
               from: wallet.publicKey,
               nonce,
@@ -133,7 +133,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
 
         txsToSend = Array(state.txSendingBatch).fill(void 0).map((_, i: number) => {
           const counter = state.sentTxCount + i;
-          const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + localStorage.getItem('browserId');
+          const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + getLocalStorage()?.getItem('browserId');
           const payment = {
             from: wallet.publicKey,
             nonce: nonce.toString(),
@@ -299,7 +299,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
           .map((wallet: BenchmarksWallet, i: number) => {
             const nonce = getNonceForWallet(wallet, state).toString();
             const counter = state.sentTxCount + i;
-            const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + localStorage.getItem('browserId');
+            const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + getLocalStorage()?.getItem('browserId');
             return {
               payerPublicKey: wallet.publicKey,
               payerPrivateKey: wallet.privateKey,
@@ -315,7 +315,7 @@ export function reducer(state: BenchmarksWalletsState = initialState, action: Be
 
         zkAppsToSend = Array(state.zkAppsSendingBatch).fill(void 0).map((_, i: number) => {
           const counter = state.sentTxCount + i;
-          const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + localStorage.getItem('browserId');
+          const memo = 'S.T.' + Date.now() + ',' + (counter + 1) + ',' + getLocalStorage()?.getItem('browserId');
           const payment = {
             payerPublicKey: wallet.publicKey,
             payerPrivateKey: wallet.privateKey,

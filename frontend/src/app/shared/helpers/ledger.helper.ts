@@ -5,10 +5,12 @@ import {
   Transport, TxType,
 } from '@shared/types/ledger/ledger.type';
 import { Buffer } from 'buffer';
-import { any } from '@openmina/shared';
+import { any, safelyExecuteInBrowser } from '@openmina/shared';
 
-// @ts-ignore
-window.Buffer = Buffer;
+safelyExecuteInBrowser(() => {
+  // @ts-ignore
+  window.Buffer = Buffer;
+});
 
 const CLA_LEDGER = 0xb0;
 const INS_LEDGER = {

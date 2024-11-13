@@ -11,6 +11,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
 import { ScanStateLeaf } from '@shared/types/snarks/scan-state/scan-state-leaf.type';
 import { AppSelectors } from '@app/app.state';
 import { getFeaturesConfig } from '@shared/constants/config';
+import { getWindow } from '@openmina/shared';
 
 @Component({
   selector: 'mina-scan-state-side-panel',
@@ -124,8 +125,8 @@ export class ScanStateSidePanelComponent extends StoreDispatcher implements OnIn
 
   goToWorkPool(): void {
     const queryParams = this.router.parseUrl(this.router.url).queryParams;
-    let url = `${window.location.origin}/${Routes.SNARKS}/${Routes.WORK_POOL}/${this.activeLeaf.bundle_job_id}`;
+    let url = `${getWindow()?.location.origin}/${Routes.SNARKS}/${Routes.WORK_POOL}/${this.activeLeaf.bundle_job_id}`;
     url += `?node=${queryParams['node']}`;
-    window.open(url, '_blank');
+    getWindow()?.open(url, '_blank');
   }
 }

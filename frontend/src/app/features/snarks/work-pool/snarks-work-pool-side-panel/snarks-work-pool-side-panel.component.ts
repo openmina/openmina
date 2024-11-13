@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
+import { getWindow } from '@openmina/shared';
 
 @Component({
   selector: 'mina-snarks-work-pool-side-panel',
@@ -89,9 +90,9 @@ export class SnarksWorkPoolSidePanelComponent extends StoreDispatcher implements
   goToScanState(): void {
     const queryParams = this.router.parseUrl(this.router.url).queryParams;
     const jobId = this.router.url.split('/').pop().split('?')[0];
-    let url = `${window.location.origin}/${Routes.SNARKS}/${Routes.SCAN_STATE}`;
+    let url = `${getWindow()?.location.origin}/${Routes.SNARKS}/${Routes.SCAN_STATE}`;
     url += `?node=${queryParams['node']}`;
     url += `&jobId=${jobId}`;
-    window.open(url, '_blank');
+    getWindow()?.open(url, '_blank');
   }
 }

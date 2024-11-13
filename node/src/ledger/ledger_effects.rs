@@ -417,7 +417,16 @@ fn propagate_read_response<S: redux::Service>(
                 return;
             }
             match table {
-                None => todo!("delegator table construction error handling"),
+                None => {
+                    // TODO(tizoc): Revise this, may be better to dispatch a different action here
+                    // and avoid running the VRF evaluator altogether when we know that the
+                    // table is empty.
+                    store.dispatch(
+                        BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
+                            delegator_table: Default::default(),
+                        },
+                    );
+                }
                 Some(table) => {
                     store.dispatch(
                         BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {

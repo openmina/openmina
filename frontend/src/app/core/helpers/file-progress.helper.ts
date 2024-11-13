@@ -1,4 +1,5 @@
 import { BehaviorSubject } from 'rxjs';
+import { safelyExecuteInBrowser } from '@openmina/shared';
 
 class AssetMonitor {
   readonly downloads: Map<string, any> = new Map();
@@ -6,7 +7,9 @@ class AssetMonitor {
 
   constructor(progress$: BehaviorSubject<any>) {
     this.progress$ = progress$;
-    this.setupInterceptor();
+    safelyExecuteInBrowser(() => {
+      this.setupInterceptor();
+    });
   }
 
   private setupInterceptor(): void {
