@@ -99,7 +99,7 @@ impl Default for P2pTimeouts {
             ),
             outgoing_connection_timeout: from_env_or(
                 "OUTGOING_CONNECTION_TIMEOUT",
-                Some(Duration::from_secs(10)),
+                Some(Duration::from_secs(15)),
             ),
             reconnect_timeout: from_env_or("RECONNECT_TIMEOUT", Some(Duration::from_secs(1))),
             incoming_error_reconnect_timeout: from_env_or(
@@ -112,15 +112,15 @@ impl Default for P2pTimeouts {
             ),
             best_tip_with_proof: from_env_or(
                 "BEST_TIP_WITH_PROOF_TIMEOUT",
-                Some(Duration::from_secs(10)),
+                Some(Duration::from_secs(15)),
             ),
-            ledger_query: from_env_or("LEDGER_QUERY_TIMEOUT", Some(Duration::from_secs(2))),
+            ledger_query: from_env_or("LEDGER_QUERY_TIMEOUT", Some(Duration::from_secs(4))),
             staged_ledger_aux_and_pending_coinbases_at_block: from_env_or(
                 "STAGED_LEDGER_AUX_AND_PENDING_COINBASES_AT_BLOCK_TIMEOUT",
-                Some(Duration::from_secs(120)),
+                Some(Duration::from_secs(180)),
             ),
-            block: from_env_or("BLOCK_TIMEOUT", Some(Duration::from_secs(5))),
-            snark: from_env_or("SNARK_TIMEOUT", Some(Duration::from_secs(5))),
+            block: from_env_or("BLOCK_TIMEOUT", Some(Duration::from_secs(8))),
+            snark: from_env_or("SNARK_TIMEOUT", Some(Duration::from_secs(8))),
             initial_peers: from_env_or("INITIAL_PEERS_TIMEOUT", Some(Duration::from_secs(5))),
             kademlia_bootstrap: from_env_or(
                 "KADEMLIA_BOOTSTRAP_TIMEOUT",
