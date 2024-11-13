@@ -3,7 +3,7 @@
 </div>
 @if (isPhone) {
   <div class="phone-content flex-column align-center flex-center">
-    <div class="ios fx-col-full-cent bg-warn-container f-400 warn-primary">iOS</div>
+    <div class="ios fx-col-full-cent bg-warn-container f-400 warn-primary" (click)="addDevKey2()">iOS</div>
     <div class="ios-box w-100 fx-col-vert-cent text-center">
       <div class="headline">Your iOS {{ iOSVersion ?? '' }} isn't supported</div>
       <div class="sub-headline tertiary">

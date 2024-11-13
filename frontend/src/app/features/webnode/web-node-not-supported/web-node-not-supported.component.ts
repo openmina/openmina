@@ -26,8 +26,17 @@ export class WebNodeNotSupportedComponent {
 
   constructor(private platform: Platform) {}
 
+  addDevKey2(): void {
+    this.codeVerifier.push(code[this.codeVerifier.length]);
+    this.checkCode();
+  }
+
   addDevKey(key: number): void {
     this.codeVerifier.push(key);
+    this.checkCode();
+  }
+
+  private checkCode(): void {
     if (this.codeVerifier.length === code.length) {
       if (this.codeVerifier.every((v, i) => v === code[i])) {
         this.devMode = true;
