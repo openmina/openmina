@@ -1,6 +1,8 @@
-use std::{fmt, str::FromStr};
+use std::{fmt, path::Path, str::FromStr};
 
+use base64::Engine;
 use ed25519_dalek::SigningKey as Ed25519SecretKey;
+use openmina_core::{EncryptedSecretKey, EncryptedSecretKeyFile, EncryptionError};
 use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +52,47 @@ impl SecretKey {
     pub fn to_x25519(&self) -> x25519_dalek::StaticSecret {
         self.0.to_scalar_bytes().into()
     }
+
+    pub fn from_encrypted_file(
+        path: impl AsRef<Path>,
+        password: &str,
+    ) -> Result<Self, EncryptionError> {
+        let encrypted = EncryptedSecretKeyFile::new(path)?;
+        let decrypted = Self::try_decrypt(&encrypted, password)?;
+
+        let keypair_string = String::from_utf8(decrypted.to_vec())
+            .map_err(|e| EncryptionError::Other(e.to_string()))?;
+
+        let parts: Vec<&str> = keypair_string.split(',').collect();
+
+        if parts.len() != 3 {
+            return Err(EncryptionError::Other(
+                "libp2p keypair string must have 3 parts".to_string(),
+            ));
+        }
+
+        let (secret_key_base64, _public_key_base64, _peer_id) = (parts[0], parts[1], parts[2]);
+
+        let key_bytes = base64::engine::general_purpose::STANDARD
+            .decode(secret_key_base64.as_bytes())
+            .map_err(|e| EncryptionError::Other(e.to_string()))?;
+
+        let key_bytes = key_bytes[4..36]
+            .try_into()
+            .map_err(|_| EncryptionError::Other("Invalid secret key length".to_string()))?;
+        Ok(Self::from_bytes(key_bytes))
+    }
+
+    pub fn to_encrypted_file(
+        &self,
+        _password: &str,
+        _path: impl AsRef<Path>,
+    ) -> Result<(), EncryptionError> {
+        todo!()
+    }
 }
+
+impl EncryptedSecretKey for SecretKey {}
 
 use aes_gcm::{
     aead::{Aead, AeadCore},
@@ -217,5 +259,19 @@ mod tests {
         let sk = s.parse::<SecretKey>().expect("should be parseable");
         let unparsed = sk.to_string();
         assert_eq!(s, &unparsed);
+    }
+
+    #[test]
+    fn test_libp2p_key_decrypt() {
+        let password = "total-secure-pass";
+        let key_path = "../tests/files/accounts/libp2p-key";
+
+        let expected_peer_id = "12D3KooWDxyuJKSsVEwNR13UVwf4PEfs4yHkk3ecZipBPv3Y3Sac";
+
+        let decrypted = SecretKey::from_encrypted_file(key_path, password)
+            .expect("Failed to decrypt secret key file");
+
+        let peer_id = decrypted.public_key().peer_id().to_libp2p_string();
+        assert_eq!(expected_peer_id, peer_id);
     }
 }

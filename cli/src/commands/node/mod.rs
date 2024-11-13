@@ -169,9 +169,9 @@ impl Node {
 
         // warning, this overrides `OPENMINA_P2P_SEC_KEY`
         if let (Some(key_file), Some(password)) = (&self.libp2p_keypair, &self.libp2p_password) {
-            match AccountSecretKey::from_encrypted_file(key_file, password) {
+            match SecretKey::from_encrypted_file(key_file, password) {
                 Ok(sk) => {
-                    node_builder.p2p_sec_key(SecretKey::from_bytes(sk.to_bytes()));
+                    node_builder.p2p_sec_key(sk.clone());
                     node::core::info!(
                         node::core::log::system_time();
                         summary = "read sercret key from file",

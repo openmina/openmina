@@ -23,6 +23,9 @@ pub use network::NetworkConfig;
 mod chain_id;
 pub use chain_id::*;
 
+pub mod encrypted_key;
+pub use encrypted_key::*;
+
 mod work_dir {
     use once_cell::sync::OnceCell;
     use std::path::PathBuf;
