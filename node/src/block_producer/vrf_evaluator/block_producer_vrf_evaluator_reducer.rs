@@ -304,6 +304,12 @@ impl BlockProducerVrfEvaluatorState {
                     return;
                 };
 
+                openmina_core::log::warn!(
+                    meta.time();
+                    kind = "BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction",
+                    message = "Empty delegator table, account may not exist yet in the staking ledger"
+                );
+
                 let mut staking_epoch_data = staking_epoch_data.clone();
                 staking_epoch_data.delegator_table = delegator_table.clone();
 
