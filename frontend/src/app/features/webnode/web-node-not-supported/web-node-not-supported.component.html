@@ -2,33 +2,16 @@
   <img class="mina-svg" src="assets/images/logo/text-logo-text.svg" height="40" width="346"/>
 </div>
 @if (isPhone) {
-  <div class="phone-content flex-column flex-around text-center">
-    <div class="w-100 fx-col-vert-cent">
-      <div class="headline">Your device isn't supported</div>
+  <div class="phone-content flex-column align-center flex-center">
+    <div class="ios fx-col-full-cent bg-warn-container f-400 warn-primary">iOS</div>
+    <div class="ios-box w-100 fx-col-vert-cent text-center">
+      <div class="headline">Your iOS {{ iOSVersion ?? '' }} isn't supported</div>
       <div class="sub-headline tertiary">
-        Unfortunately, iOS devices are not currently supported.
+        To use the Web Node please update your device to the latest iOS version.
       </div>
     </div>
 
-    <div class="w-100 fx-col-vert-cent sub-headline">
-      <div>Switch to one of the following platforms</div>
-      <div class="img-wrapper flex-row align-center w-100 flex-center">
-        <div class="fx-col-full-cent tertiary">
-          <img src="assets/images/web-node-demo/windows.svg" alt="" class="mb-8" (click)="addDevKey(1)">
-          Windows
-        </div>
-        <div class="fx-col-full-cent tertiary">
-          <img src="assets/images/web-node-demo/android.svg" alt="" class="mb-8" (click)="addDevKey(2)">
-          Android
-        </div>
-        <div class="fx-col-full-cent tertiary">
-          <img src="assets/images/web-node-demo/macos.svg" alt="" class="mb-8" (click)="addDevKey(3)">
-          MacOS
-        </div>
-      </div>
-    </div>
-
-    <div class="w-100 fx-col-vert-cent sub-headline">And use Chrome, Edge, Safari or Brave</div>
+    <button class="learn-btn w-100 f-600 f-14 h-xl fx-col-full-cent" (click)="howToUpdate()">Learn how to update</button>
   </div>
 } @else {
   <div class="browser-content flex-column flex-center text-center">

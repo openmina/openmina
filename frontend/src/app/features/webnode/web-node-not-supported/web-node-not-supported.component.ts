@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { Platform } from '@angular/cdk/platform';
-import { sendSentryEvent } from '@shared/helpers/webnode.helper';
+import { iOSversion, sendSentryEvent } from '@shared/helpers/webnode.helper';
+import { safelyExecuteInBrowser } from '@openmina/shared';
 
 const code = [1, 2, 3, 2];
 
@@ -19,6 +20,7 @@ export class WebNodeNotSupportedComponent {
 
   @Output() bypassUnsupportedDevice = new EventEmitter<void>();
 
+  iOSVersion: string = iOSversion().join('.');
   devMode: boolean = false;
   private codeVerifier: number[] = [];
 
@@ -41,13 +43,8 @@ export class WebNodeNotSupportedComponent {
       this.bypassUnsupportedDevice.emit();
     }
   }
-}
 
-function iOSversion(): number {
-  if (/iP(hone|od|ad)/.test(navigator.platform)) {
-    // supports iOS 2.0 and later: <http://bit.ly/TJjs1V>
-    const v = (navigator.appVersion).match(/OS (\d+)_(\d+)_?(\d+)?/);
-    return [parseInt(v[1], 10), parseInt(v[2], 10), parseInt(v[3] || '0', 10)][0];
+  howToUpdate(): void {
+    safelyExecuteInBrowser(() => window.open('https://support.apple.com/en-us/118575', '_blank'));
   }
-  return 0;
 }
