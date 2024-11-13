@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { any, getMergedRoute, MAX_WIDTH_700, MergedRoute } from '@openmina/shared';
+import { any, getMergedRoute, getWindow, MAX_WIDTH_700, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
@@ -33,10 +33,12 @@ export class AppComponent extends StoreDispatcher implements OnInit {
               private router: Router,
               private webNodeService: WebNodeService) {
     super();
-    if (any(window).Cypress) {
-      any(window).config = CONFIG;
-      any(window).store = this.store;
-    }
+    safelyExecuteInBrowser(() => {
+      if (any(window).Cypress) {
+        any(window).config = CONFIG;
+        any(window).store = this.store;
+      }
+    })
   }
 
   ngOnInit(): void {
@@ -65,7 +67,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
 
   private initAppFunctionalities(): void {
     if (this.webNodeService.hasWebNodeConfig() && !this.webNodeService.isWebNodeLoaded()) {
-      if (!window.location.href.includes(`/${Routes.LOADING_WEB_NODE}`)) {
+      if (!getWindow()?.location.href.includes(`/${Routes.LOADING_WEB_NODE}`)) {
         this.router.navigate([Routes.LOADING_WEB_NODE], { queryParamsHandling: 'preserve' });
       }
     }

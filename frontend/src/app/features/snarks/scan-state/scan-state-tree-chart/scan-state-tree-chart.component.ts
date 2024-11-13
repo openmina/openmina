@@ -4,7 +4,7 @@ import { ScanStateTree } from '@shared/types/snarks/scan-state/scan-state-tree.t
 import { ScanStateLeaf, ScanStateLeafStatus } from '@shared/types/snarks/scan-state/scan-state-leaf.type';
 import { debounceTime, delay, distinctUntilChanged, filter, fromEvent, skip, tap } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
-import { any, hasValue, isMobile } from '@openmina/shared';
+import { any, hasValue, isMobile, safelyExecuteInBrowser } from '@openmina/shared';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { ScanStateSetActiveLeaf } from '@snarks/scan-state/scan-state.actions';
 import { Router } from '@angular/router';
@@ -110,9 +110,11 @@ export class ScanStateTreeChartComponent extends StoreDispatcher implements OnIn
   }
 
   private handleResizing(): void {
-    fromEvent(window, 'resize')
-      .pipe(untilDestroyed(this), debounceTime(200))
-      .subscribe(() => this.redrawChart());
+    safelyExecuteInBrowser(() => {
+      fromEvent(window, 'resize')
+        .pipe(untilDestroyed(this), debounceTime(200))
+        .subscribe(() => this.redrawChart());
+    });
     this.select(selectScanStateSideBarResized, () => this.redrawChart(), filter(Boolean));
     this.select(selectScanStateOpenSidePanel, () => this.redrawChart(), delay(400), skip(1));
     this.select(AppSelectors.menu, () => this.redrawChart(),
@@ -372,9 +374,11 @@ export class ScanStateTreeChartComponent extends StoreDispatcher implements OnIn
     const chartLeft = this.chartContainer.nativeElement.getBoundingClientRect().left;
     let desiredLeft = Math.min(nodeRect.left + nodeRect.width / 2 - tooltipWidth / 2, chartLeft + this.width - tooltipWidth);
     desiredLeft = Math.max(desiredLeft, chartLeft);
-    selection
-      .style('left', `${desiredLeft}px`)
-      .style('top', `${nodeRect.bottom + window.scrollY + 12}px`);
+    safelyExecuteInBrowser(() => {
+      selection
+        .style('left', `${desiredLeft}px`)
+        .style('top', `${nodeRect.bottom + window.scrollY + 12}px`);
+    });
   }
 
   private mouseOutHandler(event: MouseEvent & { target: HTMLElement }, d: any): void {

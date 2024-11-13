@@ -6,6 +6,7 @@ import { AppSelectors } from '@app/app.state';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
 import { filter } from 'rxjs';
+import { safelyExecuteInBrowser } from '@openmina/shared';
 
 @Component({
   selector: 'mina-block-production-overview-slot-details',
@@ -32,6 +33,6 @@ export class BlockProductionOverviewSlotDetailsComponent extends StoreDispatcher
   viewInMinaExplorer(): void {
     const network = this.minaExplorer !== 'mainnet' ? (this.minaExplorer + '.') : '';
     const url = `https://${network}minaexplorer.com/block/${this.activeSlot.hash}`;
-    window.open(url, '_blank');
+    safelyExecuteInBrowser(() => window.open(url, '_blank'));
   }
 }

@@ -20,7 +20,7 @@ import {
   hasValue,
   isMobile,
   noMillisFormat,
-  ONE_THOUSAND,
+  ONE_THOUSAND, safelyExecuteInBrowser,
   SecDurationConfig,
   toReadableDate,
 } from '@openmina/shared';
@@ -119,7 +119,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   viewInMinaExplorer(): void {
     const network = this.minaExplorer !== 'mainnet' ? (this.minaExplorer + '.') : '';
     const url = `https://${network}minaexplorer.com/block/${this.slot.hash}`;
-    window.open(url, '_blank');
+    safelyExecuteInBrowser(() => window.open(url, '_blank'));
   }
 
   private get getVrfText(): string {

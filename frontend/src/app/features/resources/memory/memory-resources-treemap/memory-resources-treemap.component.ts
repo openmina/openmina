@@ -32,7 +32,7 @@ import { ResourcesSizePipe } from '@resources/memory/memory-resources.pipe';
 import { MemoryResourcesSetActiveResource } from '@resources/memory/memory-resources.actions';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
-import { isDesktop, TooltipService } from '@openmina/shared';
+import { isDesktop, safelyExecuteInBrowser, TooltipService } from '@openmina/shared';
 import { AppSelectors } from '@app/app.state';
 
 @Component({
@@ -83,9 +83,11 @@ export class MemoryResourcesTreemapComponent extends StoreDispatcher implements 
 
   private listenToResizeEvent(): void {
     this.ngZone.runOutsideAngular(() => {
-      fromEvent(window, 'resize')
-        .pipe(untilDestroyed(this), debounceTime(200))
-        .subscribe(() => this.redrawChart());
+      safelyExecuteInBrowser(() =>
+        fromEvent(window, 'resize')
+          .pipe(untilDestroyed(this), debounceTime(200))
+          .subscribe(() => this.redrawChart()),
+      );
       this.select(
         AppSelectors.menu,
         () => this.redrawChart(),
@@ -358,7 +360,10 @@ export class MemoryResourcesTreemapComponent extends StoreDispatcher implements 
     const x = event.clientX - tooltipWidth / 2 + xMargin;
     const y = event.clientY + yMargin;
 
-    const maxX = window.innerWidth - tooltipWidth - xMargin;
+    let maxX = 0;
+    safelyExecuteInBrowser(() => {
+      maxX = window.innerWidth - tooltipWidth - xMargin;
+    });
     if (x > maxX) {
       this.tooltip.style.left = maxX + 'px';
     } else {

@@ -4,7 +4,7 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  showWebNodeLandingPage: true,
+  showWebNodeLandingPage: false,
   globalConfig: {
     features: {
       dashboard: [],

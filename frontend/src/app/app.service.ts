@@ -5,6 +5,7 @@ import { CONFIG } from '@shared/constants/config';
 import { RustService } from '@core/services/rust.service';
 import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-details.type';
 import { getNetwork } from '@shared/helpers/mina.helper';
+import { getLocalStorage } from '@openmina/shared';
 
 @Injectable({
   providedIn: 'root',
@@ -23,7 +24,7 @@ export class AppService {
   getNodes(): Observable<MinaNode[]> {
     return of([
       ...CONFIG.configs,
-      ...JSON.parse(localStorage.getItem('custom_nodes') ?? '[]'),
+      ...JSON.parse(getLocalStorage()?.getItem('custom_nodes') ?? '[]'),
     ]);
   }
 

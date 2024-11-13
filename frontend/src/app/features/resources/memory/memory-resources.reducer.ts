@@ -8,13 +8,14 @@ import {
   MemoryResourcesActions,
 } from '@resources/memory/memory-resources.actions';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
+import { getLocalStorage, nanOrElse } from '@openmina/shared';
 
 const initialState: MemoryResourcesState = {
   resource: undefined,
   activeResource: undefined,
   breadcrumbs: [],
-  granularity: Number(localStorage.getItem('memory-granularity')) || 512,
-  treemapView: localStorage.getItem('memory-view') as TreemapView || TreemapView.BINARY,
+  granularity: nanOrElse(Number(getLocalStorage()?.getItem('memory-granularity')), 512),
+  treemapView: getLocalStorage()?.getItem('memory-view') as TreemapView || TreemapView.BINARY,
 };
 
 export function memoryResourcesReducer(state: MemoryResourcesState = initialState, action: MemoryResourcesActions): MemoryResourcesState {
@@ -51,7 +52,7 @@ export function memoryResourcesReducer(state: MemoryResourcesState = initialStat
     }
 
     case MEMORY_RESOURCES_SET_GRANULARITY: {
-      localStorage.setItem('memory-granularity', String(action.payload));
+      getLocalStorage()?.setItem('memory-granularity', String(action.payload));
       return {
         ...state,
         granularity: action.payload,
@@ -62,7 +63,7 @@ export function memoryResourcesReducer(state: MemoryResourcesState = initialStat
     }
 
     case MEMORY_RESOURCES_SET_TREEMAP_VIEW: {
-      localStorage.setItem('memory-view', String(action.payload));
+      getLocalStorage()?.setItem('memory-view', String(action.payload));
       return {
         ...state,
         treemapView: action.payload,

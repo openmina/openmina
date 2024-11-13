@@ -8,7 +8,7 @@ import {
   ZkappCommand,
 } from '@shared/types/mempool/mempool-transaction.type';
 import { decodeMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
-import { ONE_BILLION } from '@openmina/shared';
+import { getLocalStorage, ONE_BILLION } from '@openmina/shared';
 
 @Injectable({
   providedIn: 'root',
@@ -39,7 +39,7 @@ export class MempoolService {
             memo: removeUnicodeEscapes(memo),
             transactionData: tx.data[1],
             sentFromStressingTool: memo.includes('S.T.'),
-            sentByMyBrowser: memo.includes(localStorage.getItem('browserId')),
+            sentByMyBrowser: memo.includes(getLocalStorage()?.getItem('browserId')),
           } as MempoolTransaction;
         case MempoolTransactionResponseKind.ZkappCommand:
           const zkapp = tx.data[1] as ZkappCommand;
@@ -54,7 +54,7 @@ export class MempoolService {
             memo: removeUnicodeEscapes(zkMemo),
             transactionData: tx.data[1],
             sentFromStressingTool: zkMemo.includes('S.T.'),
-            sentByMyBrowser: zkMemo.includes(localStorage.getItem('browserId')),
+            sentByMyBrowser: zkMemo.includes(getLocalStorage()?.getItem('browserId')),
           } as MempoolTransaction;
       }
     });

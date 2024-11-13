@@ -1,6 +1,6 @@
 import { FeaturesConfig, FeatureType, MinaEnv, MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { environment } from '@environment/environment';
-import { hasValue } from '@openmina/shared';
+import { getOrigin, hasValue, isBrowser, safelyExecuteInBrowser } from '@openmina/shared';
 
 export const CONFIG: Readonly<MinaEnv> = {
   ...environment,
@@ -8,7 +8,7 @@ export const CONFIG: Readonly<MinaEnv> = {
     ...environment.globalConfig,
     graphQL: getURL(environment.globalConfig?.graphQL),
   },
-  configs: environment.configs.map((config) => ({
+  configs: !isBrowser() ? [] : environment.configs.map((config) => ({
     ...config,
     url: getURL(config.url),
     memoryProfiler: getURL(config.memoryProfiler),
@@ -16,13 +16,18 @@ export const CONFIG: Readonly<MinaEnv> = {
   })),
 };
 
-(window as any).config = CONFIG;
+safelyExecuteInBrowser(() => {
+  (window as any).config = CONFIG;
+});
 
 export function getAvailableFeatures(config: MinaNode): FeatureType[] {
   return Object.keys(getFeaturesConfig(config)) as FeatureType[];
 }
 
 export function getFirstFeature(config: MinaNode = CONFIG.configs[0]): FeatureType {
+  if (!isBrowser()) {
+    return '' as FeatureType;
+  }
   if (Array.isArray(config?.features)) {
     return config.features[0];
   }
@@ -48,12 +53,15 @@ export function isSubFeatureEnabled(config: MinaNode, feature: FeatureType, subF
 }
 
 export function getURL(pathOrUrl: string): string {
-  if (pathOrUrl) {
-    let href = new URL(pathOrUrl, origin).href;
-    if (href.endsWith('/')) {
-      href = href.slice(0, -1);
+  if (isBrowser()) {
+    if (pathOrUrl) {
+      let href = new URL(pathOrUrl, getOrigin()).href;
+      if (href.endsWith('/')) {
+        href = href.slice(0, -1);
+      }
+      return href;
     }
-    return href;
+    return pathOrUrl;
   }
   return pathOrUrl;
 }

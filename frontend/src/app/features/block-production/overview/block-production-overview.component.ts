@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
-import { getMergedRoute, isDesktop, MergedRoute } from '@openmina/shared';
+import { getMergedRoute, isDesktop, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
 import { debounceTime, filter, fromEvent, skip, take } from 'rxjs';
 import { isNaN } from 'mathjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
@@ -64,16 +64,18 @@ export class BlockProductionOverviewComponent extends StoreDispatcher implements
   }
 
   private listenToResize(): void {
-    fromEvent(window, 'resize')
-      .pipe(
-        debounceTime(100),
-        filter(() => this.showSidePanel !== isDesktop()),
-        untilDestroyed(this),
-      )
-      .subscribe(() => {
-        this.showSidePanel = isDesktop();
-        this.detect();
-      });
+    safelyExecuteInBrowser(() => {
+      fromEvent(window, 'resize')
+        .pipe(
+          debounceTime(100),
+          filter(() => this.showSidePanel !== isDesktop()),
+          untilDestroyed(this),
+        )
+        .subscribe(() => {
+          this.showSidePanel = isDesktop();
+          this.detect();
+        });
+    });
   }
 
   override ngOnDestroy(): void {

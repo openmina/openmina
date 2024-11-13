@@ -1,6 +1,6 @@
 import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 
-const env = (window as any).env;
+const env = typeof window !== 'undefined' ? (window as any).env : {};
 export const environment: Readonly<MinaEnv> = {
   production: true,
   configs: env.configs,
