@@ -56,7 +56,7 @@ export class WebNodeService {
   startWasm$(): Observable<any> {
     return of(any(window).webnode)
       .pipe(
-        switchMap((wasm: any) => from(wasm.default(undefined, this.memory)).pipe(map(() => wasm))),
+        switchMap((wasm: any) => from(wasm.default(undefined, new WebAssembly.Memory(this.memory))).pipe(map(() => wasm))),
         switchMap((wasm) => {
           this.webnodeProgress$.next('Loaded');
           return from(wasm.run(this.webNodeKeyPair.privateKey));
