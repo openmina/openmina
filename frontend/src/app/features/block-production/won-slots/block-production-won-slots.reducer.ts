@@ -1,6 +1,6 @@
 import { createReducer, on } from '@ngrx/store';
 import { BlockProductionWonSlotsState } from '@block-production/won-slots/block-production-won-slots.state';
-import { isMobile, sort, SortDirection, TableSort } from '@openmina/shared';
+import { isDesktop, isMobile, sort, SortDirection, TableSort } from '@openmina/shared';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import {
   BlockProductionWonSlotsSlot,
@@ -38,7 +38,7 @@ export const blockProductionWonSlotsReducer = createReducer(
     epoch,
     filteredSlots: filterSlots(sortSlots(slots, state.sort), state.filters),
     activeSlot,
-    openSidePanel: !!activeSlot,
+    openSidePanel: state.activeSlot ? state.openSidePanel : isDesktop(),
   })),
   on(BlockProductionWonSlotsActions.setActiveSlot, (state, { slot }) => ({
     ...state,
@@ -56,7 +56,12 @@ export const blockProductionWonSlotsReducer = createReducer(
     filters,
     filteredSlots: filterSlots(sortSlots(state.slots, state.sort), filters),
   })),
-  on(BlockProductionWonSlotsActions.toggleSidePanel, state => ({ ...state, openSidePanel: !state.openSidePanel })),
+  on(BlockProductionWonSlotsActions.toggleSidePanel, state => ({
+    ...state,
+    openSidePanel: !state.openSidePanel,
+    activeSlot: !state.openSidePanel ? state.activeSlot : undefined,
+    activeSlotRoute: !state.openSidePanel ? state.activeSlotRoute : undefined,
+  })),
   on(BlockProductionWonSlotsActions.close, () => initialState),
 );
 
