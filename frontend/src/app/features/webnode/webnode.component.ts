@@ -45,7 +45,7 @@ export class WebnodeComponent extends StoreDispatcher implements OnInit {
       if (route.queryParams['shared']) {
         shared = route.queryParams['shared'] === 'true';
       }
-      this.webNodeService.memory = new WebAssembly.Memory({ initial, maximum, shared });
+      this.webNodeService.memory = { initial, maximum, shared };
     }, filter(Boolean));
   }
 

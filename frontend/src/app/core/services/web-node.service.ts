@@ -20,7 +20,7 @@ export class WebNodeService {
 
   readonly webnodeProgress$: BehaviorSubject<string> = new BehaviorSubject<string>('');
 
-  memory: WebAssembly.Memory;
+  memory: WebAssembly.MemoryDescriptor;
 
   constructor(private http: HttpClient) {
     FileProgressHelper.initDownloadProgress();
