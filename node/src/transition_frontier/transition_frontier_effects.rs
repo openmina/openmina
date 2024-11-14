@@ -34,9 +34,11 @@ pub fn transition_frontier_effects<S: crate::Service>(
             // TODO(refactor): this should be handled by a callback and removed from here
             // whenever any of these is going to happen, genesisinject must happen first
             match &a {
-                TransitionFrontierGenesisAction::Produce
-                | TransitionFrontierGenesisAction::ProveSuccess { .. } => {
+                TransitionFrontierGenesisAction::Produce => {
                     store.dispatch(TransitionFrontierAction::GenesisInject);
+                }
+                TransitionFrontierGenesisAction::ProveSuccess { .. } => {
+                    store.dispatch(TransitionFrontierAction::GenesisProvenInject);
                 }
                 _ => {}
             }
@@ -46,6 +48,11 @@ pub fn transition_frontier_effects<S: crate::Service>(
         }
         TransitionFrontierAction::GenesisInject => {
             synced_effects(&meta, store);
+        }
+        TransitionFrontierAction::GenesisProvenInject => {
+            if store.state().transition_frontier.sync.is_synced() {
+                synced_effects(&meta, store);
+            }
         }
         TransitionFrontierAction::Sync(a) => {
             match a {

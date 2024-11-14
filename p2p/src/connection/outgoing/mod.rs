@@ -278,6 +278,17 @@ impl P2pConnectionOutgoingInitOpts {
                         (*peer_id).to_string().into_bytes().into(),
                     ),
                 }),
+                SignalingMethod::HttpsProxy(cluster_id, info) => {
+                    Some(v2::NetworkPeerPeerStableV1 {
+                        host: format!("https://{}/clusters/{cluster_id}", info.host)
+                            .as_bytes()
+                            .into(),
+                        libp2p_port: (info.port as u64).into(),
+                        peer_id: v2::NetworkPeerPeerIdStableV1(
+                            (*peer_id).to_string().into_bytes().into(),
+                        ),
+                    })
+                }
                 SignalingMethod::P2p { .. } => None,
             },
         }

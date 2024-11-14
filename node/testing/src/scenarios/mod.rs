@@ -168,7 +168,7 @@ impl Scenarios {
 
     async fn run<F>(self, cluster: &mut Cluster, add_step: F)
     where
-        F: FnMut(&ScenarioStep),
+        F: Send + FnMut(&ScenarioStep),
     {
         let runner = ClusterRunner::new(cluster, add_step);
         match self {

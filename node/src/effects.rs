@@ -37,6 +37,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             store.dispatch(TransitionFrontierGenesisAction::LedgerLoadInit);
             store.dispatch(ExternalSnarkWorkerAction::Start);
 
+            store.dispatch(TransitionFrontierGenesisAction::ProveInit);
+
             if store.state().p2p.ready().is_some() {
                 p2p_request_best_tip_if_needed(store);
                 p2p_request_transactions_if_needed(store);

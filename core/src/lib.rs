@@ -2,6 +2,10 @@ pub mod invariants;
 pub mod log;
 pub mod requests;
 
+// TODO(binier): refactor
+#[cfg(target_family = "wasm")]
+pub mod http;
+
 pub mod channels;
 pub mod thread;
 

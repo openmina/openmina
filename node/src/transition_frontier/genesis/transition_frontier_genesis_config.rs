@@ -78,7 +78,10 @@ pub struct GenesisConfigLoaded {
 }
 
 fn bp_num_delegators(i: usize) -> usize {
-    (i.saturating_add(1)).checked_mul(2).expect("overflow")
+    (i.saturating_add(1))
+        .checked_mul(2)
+        .expect("overflow")
+        .min(32)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -132,6 +135,17 @@ impl GenesisConfig {
                     DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS,
                 ))),
             Self::DaemonJsonFile(_) => todo!(),
+        }
+    }
+
+    pub fn override_genesis_state_timestamp(&mut self, timestamp: v2::BlockTimeTimeStableV1) {
+        match self {
+            Self::Counts { constants, .. }
+            | Self::BalancesDelegateTable { constants, .. }
+            | Self::AccountsBinProt { constants, .. } => {
+                constants.genesis_state_timestamp = timestamp;
+            }
+            _ => todo!(),
         }
     }
 
@@ -635,6 +649,43 @@ impl PrebuiltGenesisConfig {
         };
         masks.push(staking_ledger_mask);
         Ok((masks, load_result))
+    }
+
+    pub fn from_loaded(
+        (masks, data): (Vec<ledger::Mask>, GenesisConfigLoaded),
+    ) -> Result<Self, ()> {
+        let find_mask_by_hash = |hash: &v2::LedgerHash| {
+            masks
+                .iter()
+                .find(|&m| m.clone().merkle_root() == hash.to_field().unwrap())
+                .ok_or(())
+        };
+        let inner_hashes = |mask: &ledger::Mask| {
+            mask.get_raw_inner_hashes()
+                .into_iter()
+                .map(|(idx, hash)| (idx, v2::LedgerHash::from_fp(hash)))
+                .collect()
+        };
+        let genesis_mask = find_mask_by_hash(&data.genesis_ledger_hash)?;
+        let epoch_data = |hash: v2::LedgerHash, seed: v2::EpochSeed| {
+            find_mask_by_hash(&hash).map(|mask| PrebuiltGenesisEpochData {
+                accounts: mask.to_list().into_iter().map(Into::into).collect(),
+                ledger_hash: hash,
+                hashes: inner_hashes(mask),
+                seed,
+            })
+        };
+        Ok(Self {
+            constants: data.constants,
+            accounts: genesis_mask.to_list().into_iter().map(Into::into).collect(),
+            ledger_hash: data.genesis_ledger_hash,
+            hashes: inner_hashes(genesis_mask),
+            staking_epoch_data: epoch_data(
+                data.staking_epoch_ledger_hash,
+                data.staking_epoch_seed,
+            )?,
+            next_epoch_data: epoch_data(data.next_epoch_ledger_hash, data.next_epoch_seed)?,
+        })
     }
 }
 

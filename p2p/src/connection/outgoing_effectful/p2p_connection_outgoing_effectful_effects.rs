@@ -55,7 +55,9 @@ impl P2pConnectionOutgoingEffectfulAction {
                     _ => return,
                 };
                 match signaling_method {
-                    webrtc::SignalingMethod::Http(_) | webrtc::SignalingMethod::Https(_) => {
+                    webrtc::SignalingMethod::Http(_)
+                    | webrtc::SignalingMethod::Https(_)
+                    | webrtc::SignalingMethod::HttpsProxy(_, _) => {
                         let Some(url) = signaling_method.http_url() else {
                             return;
                         };
