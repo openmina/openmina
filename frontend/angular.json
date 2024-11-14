@@ -46,6 +46,7 @@
             "assets": [
               "src/assets"
             ],
+            "sourceMap": true,
             "styles": [
               "src/styles.scss"
             ],
