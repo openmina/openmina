@@ -17,7 +17,9 @@
     "serve:ssr": "node dist/frontend/server/main.js",
     "build:ssr": "ng build && ng run frontend:server",
     "prerender": "ng run frontend:prerender",
-    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org openmina-uv --project openmina ./dist/frontend/browser && sentry-cli sourcemaps upload --org openmina-uv --project openmina ./dist/frontend/browser"
+    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org openmina-uv --project openmina ./dist/frontend/browser && sentry-cli sourcemaps upload --org openmina-uv --project openmina ./dist/frontend/browser",
+    "copy-env": "cp dist/frontend/browser/assets/environments/webnode.js dist/frontend/browser/assets/environments/env.js",
+    "deploy": "npm run build:prod && npm run copy-env && firebase deploy"
   },
   "private": true,
   "dependencies": {
@@ -26,6 +28,7 @@
     "@angular/common": "^17.3.12",
     "@angular/compiler": "^17.3.12",
     "@angular/core": "^17.3.12",
+    "@angular/fire": "^17.1.0",
     "@angular/forms": "^17.3.12",
     "@angular/material": "^17.3.10",
     "@angular/platform-browser": "^17.3.12",
@@ -49,6 +52,7 @@
     "d3": "^7.8.4",
     "eigen": "^0.2.2",
     "express": "^4.18.2",
+    "firebase": "^11.0.1",
     "mathjs": "^12.3.0",
     "mina-signer": "^3.0.7",
     "ngx-json-viewer": "^3.2.1",

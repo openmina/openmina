@@ -9,6 +9,7 @@ RUN npm prune --production
 
 RUN echo "---------- USING APACHE ----------"
 
+
 FROM httpd:2.4
 
 RUN apt-get update && \

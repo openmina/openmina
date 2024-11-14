@@ -9,7 +9,8 @@ import {
   GlobalErrorHandlerService,
   HorizontalMenuComponent,
   NgrxRouterStoreModule,
-  OpenminaEagerSharedModule, safelyExecuteInBrowser,
+  OpenminaEagerSharedModule,
+  safelyExecuteInBrowser,
   THEME_PROVIDER,
 } from '@openmina/shared';
 import { CommonModule, registerLocaleData } from '@angular/common';
@@ -35,6 +36,9 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
 import * as Sentry from '@sentry/angular';
 import { Router } from '@angular/router';
+import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
+import { getAnalytics, provideAnalytics, ScreenTrackingService } from '@angular/fire/analytics';
+import { getPerformance, providePerformance } from '@angular/fire/performance';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -55,13 +59,13 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     const self = this;
 
     // Global error handler
-    window.onerror = function(msg, url, line, column, error) {
+    window.onerror = function (msg, url, line, column, error) {
       self.handleError(error || msg);
       return false;
     };
 
     // Unhandled promise rejections
-    window.onunhandledrejection = function(event) {
+    window.onunhandledrejection = function (event) {
       event.preventDefault();
       self.handleError(event.reason);
     };
@@ -89,7 +93,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
 
     const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
     if (originalInstantiateStreaming) {
-      WebAssembly.instantiateStreaming = async function(response: any, importObject?: any): Promise<any> {
+      WebAssembly.instantiateStreaming = async function (response: any, importObject?: any): Promise<any> {
         try {
           return await originalInstantiateStreaming.call(WebAssembly, response, importObject);
         } catch (error) {
@@ -100,7 +104,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     }
 
     const originalInstantiate = WebAssembly.instantiate;
-    WebAssembly.instantiate = async function(moduleObject: any, importObject?: any): Promise<any> {
+    WebAssembly.instantiate = async function (moduleObject: any, importObject?: any): Promise<any> {
       try {
         return await originalInstantiate.call(WebAssembly, moduleObject, importObject);
       } catch (error) {
@@ -170,6 +174,23 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     },
     provideClientHydration(),
     provideHttpClient(withFetch()),
+    provideFirebaseApp(() => initializeApp({
+      'projectId': 'openminawebnode',
+      'appId': '1:120031499786:web:9af56c50ebce25c619f1f3',
+      'storageBucket': 'openminawebnode.firebasestorage.app',
+      'apiKey': 'AIzaSyBreMkb5-8ANb5zL6yWKgRAk9owbDS1g9s',
+      'authDomain': 'openminawebnode.firebaseapp.com',
+      'messagingSenderId': '120031499786',
+      'measurementId': 'G-V0ZC81T9RQ',
+    })),
+    provideAnalytics(() => getAnalytics()),
+    ScreenTrackingService,
+    // provideAppCheck(() => {
+    //   // TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
+    //   const provider = new ReCaptchaEnterpriseProvider(/* reCAPTCHA Enterprise site key */);
+    //   return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
+    // }),
+    providePerformance(() => getPerformance()),
   ],
   bootstrap: [AppComponent],
 })

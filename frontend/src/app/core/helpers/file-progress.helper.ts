@@ -32,7 +32,7 @@ class AssetMonitor {
         url: resource.toString(),
         startTime,
         progress: 0,
-        totalSize: 0,
+        totalSize: 27355980,
         status: 'pending',
         endTime: 0,
         duration: 0,
@@ -44,8 +44,6 @@ class AssetMonitor {
       try {
         const response = await originalFetch(resource, options);
         const reader = response.clone().body.getReader();
-        const contentLength = +response.headers.get('Content-Length');
-        downloadInfo.totalSize = contentLength;
         let receivedLength = 0;
 
         while (true) {
@@ -57,7 +55,7 @@ class AssetMonitor {
             }
 
             receivedLength += value.length;
-            downloadInfo.progress = (receivedLength / contentLength) * 100;
+            downloadInfo.progress = (receivedLength / downloadInfo.totalSize) * 100;
             self.emitProgress(downloadInfo);
           } catch (error) {
             downloadInfo.status = 'error';
