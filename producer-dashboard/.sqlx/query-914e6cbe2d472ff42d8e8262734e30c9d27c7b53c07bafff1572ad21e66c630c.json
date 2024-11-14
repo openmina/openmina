@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    command_type AS \"command_type: UserCommandType\",\n    fee_payer_id,\n    source_id,\n    receiver_id,\n    nonce,\n    amount,\n    fee,\n    valid_until,\n    memo,\n    hash\nFROM user_commands;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "command_type: UserCommandType",
+        "type_info": {
+          "Custom": {
+            "name": "user_command_type",
+            "kind": {
+              "Enum": [
+                "payment",
+                "delegation"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "fee_payer_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "source_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "receiver_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "nonce",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "amount",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "fee",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "valid_until",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "memo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 10,
+        "name": "hash",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "914e6cbe2d472ff42d8e8262734e30c9d27c7b53c07bafff1572ad21e66c630c"
+}

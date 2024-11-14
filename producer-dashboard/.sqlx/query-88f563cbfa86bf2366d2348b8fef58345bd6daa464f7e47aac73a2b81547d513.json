@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    transaction,\n    network,\n    patch\nFROM protocol_versions;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "transaction",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "network",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "patch",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "88f563cbfa86bf2366d2348b8fef58345bd6daa464f7e47aac73a2b81547d513"
+}

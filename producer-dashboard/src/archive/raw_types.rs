@@ -1,10 +1,20 @@
 use serde::{Deserialize, Serialize};
 
 use super::{
-    postgres_types::{InternalCommandType, TransactionStatus},
+    postgres_types::{AuthorizationKind, InternalCommandType, MayUseToken, TransactionStatus, UserCommandType},
     ArchiveConnector, ArchiveUrl, ChainStatus,
 };
 
+
+macro_rules! fetch_all {
+    ($fn_name:ident, $struct_name:ty, $sql_file:expr) => {
+        pub async fn $fn_name(&self) -> Result<Vec<$struct_name>, sqlx::Error> {
+            sqlx::query_file_as!($struct_name, $sql_file)
+                .fetch_all(&self.inner.pool)
+                .await
+        }
+    };
+}
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RawBlock {
     id: i32,
@@ -108,6 +118,215 @@ pub struct RawInternalCommands {
     hash: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawProtocolVersion {
+    id: i32,
+    transaction: i32,
+    network: i32,
+    patch: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawPublicKeys {
+    id: i32,
+    value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawSnarkedLedgerHashes {
+    id: i32,
+    value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawTimingInfo {
+    id: i32,
+    account_identifier_id: i32,
+    initial_minimum_balance: String,
+    cliff_time: i64,
+    cliff_amount: String,
+    vesting_period: i64,
+    vesting_increment: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawTokenSymbols {
+    id: i32,
+    value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawTokens {
+    id: i32,
+    value: String,
+    owner_public_key_id: Option<i32>,
+    owner_token_id: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawUserCommands {
+    id: i32,
+    command_type: UserCommandType,
+    fee_payer_id: i32,
+    source_id: i32,
+    receiver_id: i32,
+    nonce: i64,
+    amount: Option<String>,
+    fee: String,
+    valid_until: Option<i64>,
+    memo: String,
+    hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawVotingFor {
+    id: i32,
+    value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappAccountPrecondition {
+    id: i32,
+    balance_id: Option<i32>,
+    nonce_id: Option<i32>,
+    receipt_chain_hash: Option<String>,
+    delegate_id: Option<i32>,
+    state_id: i32,
+    action_state_id: Option<i32>,
+    proved_state: Option<bool>,
+    is_new: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappAccountUpdate {
+    id: i32,
+    body_id: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappAccountUpdateBody {
+    id: i32,
+    account_identifier_id: i32,
+    update_id: i32,
+    balance_change: String,
+    increment_nonce: bool,
+    events_id: i32,
+    actions_id: i32,
+    call_data_id: i32,
+    call_depth: i32,
+    zkapp_network_precondition_id: i32,
+    zkapp_account_precondition_id: i32,
+    zkapp_valid_while_precondition_id: Option<i32>,
+    use_full_commitment: bool,
+    implicit_account_creation_fee: bool,
+    may_use_token: MayUseToken,
+    authorization_kind: AuthorizationKind,
+    verification_key_hash_id: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappAccountUpdateFailure {
+    id: i32,
+    index: i32,
+    failures: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappAccount {
+    id: i32,
+    app_state_id: i32,
+    verification_key_id: Option<i32>,
+    zkapp_version: i64,
+    action_state_id: i32,
+    last_action_slot: i64,
+    proved_state: bool,
+    zkapp_uri_id: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappActionState {
+    id: i32,
+    element0: i32,
+    element1: i32,
+    element2: i32,
+    element3: i32,
+    element4: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappAmountBounds {
+    id: i32,
+    amount_lower_bound: String,
+    amount_upper_bound: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappBalanceBounds {
+    id: i32,
+    balance_lower_bound: String,
+    balance_upper_bound: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappCommands {
+    id: i32,
+    zkapp_fee_payer_body_id: i32,
+    zkapp_account_updates_ids: Vec<i32>,
+    memo: String,
+    hash: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappEpochData {
+    id: i32,
+    epoch_ledger_id: Option<i32>,
+    epoch_seed: Option<String>,
+    start_checkpoint: Option<String>,
+    lock_checkpoint: Option<String>,
+    epoch_length_id: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappEpochLedger {
+    id: i32,
+    hash_id: Option<i32>,
+    total_currency_id: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappEvents {
+    id: i32,
+    element_ids: Vec<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappFeePayerBody {
+    id: i32,
+    public_key_id: i32,
+    fee: String,
+    valid_until: Option<i64>,
+    nonce: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappField {
+    id: i32,
+    field: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappFieldArray {
+    id: i32,
+    element_ids: Vec<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawZkappGlobalSlotBounds {
+    id: i32,
+    global_slot_lower_bound: i64,
+    global_slot_upper_bound: i64,
+}
+
 pub struct ArchiveConnectorForTest {
     inner: ArchiveConnector,
 }
@@ -119,84 +338,37 @@ impl ArchiveConnectorForTest {
         }
     }
 
-    pub async fn all_blocks(&self) -> Result<Vec<RawBlock>, sqlx::Error> {
-        sqlx::query_file_as!(RawBlock, "src/archive/sql/test/all_blocks.sql")
-            .fetch_all(&self.inner.pool)
-            .await
-    }
-
-    pub async fn all_account_identifiers(&self) -> Result<Vec<RawAccountIdentifier>, sqlx::Error> {
-        sqlx::query_file_as!(
-            RawAccountIdentifier,
-            "src/archive/sql/test/all_account_identifiers.sql"
-        )
-        .fetch_all(&self.inner.pool)
-        .await
-    }
-
-    pub async fn all_accounts_accessed(&self) -> Result<Vec<RawAccountsAccessed>, sqlx::Error> {
-        sqlx::query_file_as!(
-            RawAccountsAccessed,
-            "src/archive/sql/test/all_accounts_accessed.sql"
-        )
-        .fetch_all(&self.inner.pool)
-        .await
-    }
-
-    pub async fn all_accounts_created(&self) -> Result<Vec<RawAccountsCreated>, sqlx::Error> {
-        sqlx::query_file_as!(
-            RawAccountsCreated,
-            "src/archive/sql/test/all_accounts_created.sql"
-        )
-        .fetch_all(&self.inner.pool)
-        .await
-    }
-
-    pub async fn all_blocks_internal_commands(
-        &self,
-    ) -> Result<Vec<RawBlocksInternalCommands>, sqlx::Error> {
-        sqlx::query_file_as!(
-            RawBlocksInternalCommands,
-            "src/archive/sql/test/all_blocks_internal_commands.sql"
-        )
-        .fetch_all(&self.inner.pool)
-        .await
-    }
-
-    pub async fn all_blocks_user_commands(
-        &self,
-    ) -> Result<Vec<RawBlocksUserCommands>, sqlx::Error> {
-        sqlx::query_file_as!(
-            RawBlocksUserCommands,
-            "src/archive/sql/test/all_blocks_user_commands.sql"
-        )
-        .fetch_all(&self.inner.pool)
-        .await
-    }
-
-    pub async fn all_blocks_zkapp_commands(
-        &self,
-    ) -> Result<Vec<RawBlocksZkappCommands>, sqlx::Error> {
-        sqlx::query_file_as!(
-            RawBlocksZkappCommands,
-            "src/archive/sql/test/all_blocks_zkapp_commands.sql"
-        )
-        .fetch_all(&self.inner.pool)
-        .await
-    }
-
-    pub async fn all_epoch_data(&self) -> Result<Vec<RawEpochData>, sqlx::Error> {
-        sqlx::query_file_as!(RawEpochData, "src/archive/sql/test/all_epoch_data.sql")
-            .fetch_all(&self.inner.pool)
-            .await
-    }
-
-    pub async fn all_internal_commands(&self) -> Result<Vec<RawInternalCommands>, sqlx::Error> {
-        sqlx::query_file_as!(
-            RawInternalCommands,
-            "src/archive/sql/test/all_internal_commands.sql"
-        )
-        .fetch_all(&self.inner.pool)
-        .await
-    }
+    fetch_all!(all_blocks, RawBlock, "src/archive/sql/test/all_blocks.sql");
+    fetch_all!(all_account_identifiers, RawAccountIdentifier, "src/archive/sql/test/all_account_identifiers.sql");
+    fetch_all!(all_accounts_accessed, RawAccountsAccessed, "src/archive/sql/test/all_accounts_accessed.sql");
+    fetch_all!(all_accounts_created, RawAccountsCreated, "src/archive/sql/test/all_accounts_created.sql");
+    fetch_all!(all_blocks_internal_commands, RawBlocksInternalCommands, "src/archive/sql/test/all_blocks_internal_commands.sql");
+    fetch_all!(all_blocks_user_commands, RawBlocksUserCommands, "src/archive/sql/test/all_blocks_user_commands.sql");
+    fetch_all!(all_blocks_zkapp_commands, RawBlocksZkappCommands, "src/archive/sql/test/all_blocks_zkapp_commands.sql");
+    fetch_all!(all_epoch_data, RawEpochData, "src/archive/sql/test/all_epoch_data.sql");
+    fetch_all!(all_internal_commands, RawInternalCommands, "src/archive/sql/test/all_internal_commands.sql");
+    fetch_all!(all_protocol_versions, RawProtocolVersion, "src/archive/sql/test/all_protocol_versions.sql");
+    fetch_all!(all_public_keys, RawPublicKeys, "src/archive/sql/test/all_public_keys.sql");
+    fetch_all!(all_snarked_ledger_hashes, RawSnarkedLedgerHashes, "src/archive/sql/test/all_snarked_ledger_hashes.sql");
+    fetch_all!(all_timing_info, RawTimingInfo, "src/archive/sql/test/all_timing_info.sql");
+    fetch_all!(all_token_symbols, RawTokenSymbols, "src/archive/sql/test/all_token_symbols.sql");
+    fetch_all!(all_tokens, RawTokens, "src/archive/sql/test/all_tokens.sql");
+    fetch_all!(all_user_commands, RawUserCommands, "src/archive/sql/test/all_user_commands.sql");
+    fetch_all!(all_voting_for, RawVotingFor, "src/archive/sql/test/all_voting_for.sql");
+    fetch_all!(all_zkapp_account_preconditions, RawZkappAccountPrecondition, "src/archive/sql/test/all_zkapp_account_preconditions.sql");
+    fetch_all!(all_zkapp_account_updates, RawZkappAccountUpdate, "src/archive/sql/test/all_zkapp_account_updates.sql");
+    fetch_all!(all_zkapp_account_update_bodies, RawZkappAccountUpdateBody, "src/archive/sql/test/all_zkapp_account_update_bodies.sql");
+    fetch_all!(all_zkapp_account_update_failures, RawZkappAccountUpdateFailure, "src/archive/sql/test/all_zkapp_account_update_failures.sql");
+    fetch_all!(all_zkapp_accounts, RawZkappAccount, "src/archive/sql/test/all_zkapp_accounts.sql");
+    fetch_all!(all_zkapp_action_states, RawZkappActionState, "src/archive/sql/test/all_zkapp_action_states.sql");
+    fetch_all!(all_zkapp_amount_bounds, RawZkappAmountBounds, "src/archive/sql/test/all_zkapp_amount_bounds.sql");
+    fetch_all!(all_zkapp_balance_bounds, RawZkappBalanceBounds, "src/archive/sql/test/all_zkapp_balance_bounds.sql");
+    fetch_all!(all_zkapp_commands, RawZkappCommands, "src/archive/sql/test/all_zkapp_commands.sql");
+    fetch_all!(all_zkapp_epoch_data, RawZkappEpochData, "src/archive/sql/test/all_zkapp_epoch_data.sql");
+    fetch_all!(all_zkapp_epoch_ledger, RawZkappEpochLedger, "src/archive/sql/test/all_zkapp_epoch_ledger.sql");
+    fetch_all!(all_zkapp_events, RawZkappEvents, "src/archive/sql/test/all_zkapp_events.sql");
+    fetch_all!(all_zkapp_fee_payer_body, RawZkappFeePayerBody, "src/archive/sql/test/all_zkapp_fee_payer_body.sql");
+    fetch_all!(all_zkapp_field, RawZkappField, "src/archive/sql/test/all_zkapp_field.sql");
+    fetch_all!(all_zkapp_field_array, RawZkappFieldArray, "src/archive/sql/test/all_zkapp_field_array.sql");
+    fetch_all!(all_zkapp_global_slot_bounds, RawZkappGlobalSlotBounds, "src/archive/sql/test/all_zkapp_global_slot_bounds.sql");
 }

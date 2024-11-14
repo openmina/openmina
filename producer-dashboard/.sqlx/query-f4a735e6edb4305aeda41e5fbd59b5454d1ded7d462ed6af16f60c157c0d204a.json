@@ -1,0 +1,138 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    account_identifier_id,\n    update_id,\n    balance_change,\n    increment_nonce,\n    events_id,\n    actions_id,\n    call_data_id,\n    call_depth,\n    zkapp_network_precondition_id,\n    zkapp_account_precondition_id,\n    zkapp_valid_while_precondition_id,\n    use_full_commitment,\n    implicit_account_creation_fee,\n    may_use_token AS \"may_use_token: MayUseToken\",\n    authorization_kind AS \"authorization_kind: AuthorizationKind\",\n    verification_key_hash_id\nFROM zkapp_account_update_body;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "account_identifier_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "update_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "balance_change",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "increment_nonce",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 5,
+        "name": "events_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "actions_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "call_data_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "call_depth",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "zkapp_network_precondition_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 10,
+        "name": "zkapp_account_precondition_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "zkapp_valid_while_precondition_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 12,
+        "name": "use_full_commitment",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 13,
+        "name": "implicit_account_creation_fee",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 14,
+        "name": "may_use_token: MayUseToken",
+        "type_info": {
+          "Custom": {
+            "name": "may_use_token",
+            "kind": {
+              "Enum": [
+                "No",
+                "ParentsOwnToken",
+                "InheritFromParent"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "authorization_kind: AuthorizationKind",
+        "type_info": {
+          "Custom": {
+            "name": "authorization_kind_type",
+            "kind": {
+              "Enum": [
+                "None_given",
+                "Signature",
+                "Proof"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "verification_key_hash_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "f4a735e6edb4305aeda41e5fbd59b5454d1ded7d462ed6af16f60c157c0d204a"
+}
