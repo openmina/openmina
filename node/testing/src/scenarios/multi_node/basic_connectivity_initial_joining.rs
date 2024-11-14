@@ -44,8 +44,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 let node = runner.add_rust_node(
                     RustNodeTestingConfig::devnet_default()
                         .max_peers(MAX_PEERS_PER_NODE)
-                        .initial_peers(vec![seed_node.into()])
-                        .ask_initial_peers_interval(Duration::from_secs(10)),
+                        .initial_peers(vec![seed_node.into()]),
                 );
                 eprintln!("launch Openmina node, id: {node}, connects to {seed_node}");
 

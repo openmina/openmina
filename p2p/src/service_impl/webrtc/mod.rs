@@ -28,13 +28,20 @@ use crate::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use self::native::{
-    webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
-};
+mod imports {
+    pub use super::native::{
+        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+    };
+}
 #[cfg(target_arch = "wasm32")]
-use self::web::{
-    webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
-};
+mod imports {
+    pub use super::web::{
+        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+    };
+}
+
+use imports::*;
+pub use imports::{webrtc_signal_send, RTCSignalingError};
 
 use super::TaskSpawner;
 
@@ -142,11 +149,11 @@ pub struct RTCChannelConfig {
 impl Default for RTCConfigIceServers {
     fn default() -> Self {
         Self(vec![
-            // RTCConfigIceServer {
-            //     urls: vec!["stun:65.109.110.75:3478".to_owned()],
-            //     username: Some("openmina".to_owned()),
-            //     credential: Some("webrtc".to_owned()),
-            // },
+            RTCConfigIceServer {
+                urls: vec!["stun:65.109.110.75:3478".to_owned()],
+                username: Some("openmina".to_owned()),
+                credential: Some("webrtc".to_owned()),
+            },
             RTCConfigIceServer {
                 urls: vec![
                     "stun:stun.l.google.com:19302".to_owned(),

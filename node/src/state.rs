@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
 use rand::prelude::*;
@@ -333,17 +334,20 @@ impl State {
         )
     }
 
-    pub fn should_produce_blocks_after_genesis(&self) -> bool {
-        self.block_producer.is_enabled()
-            && self.genesis_block().map_or(false, |b| {
-                let slot = &b.consensus_state().curr_global_slot_since_hard_fork;
-                let epoch = slot
-                    .slot_number
-                    .as_u32()
-                    .checked_div(slot.slots_per_epoch.as_u32())
-                    .expect("division by 0");
-                self.current_epoch() <= Some(epoch)
-            })
+    pub fn producing_block_after_genesis(&self) -> bool {
+        #[allow(clippy::arithmetic_side_effects)]
+        let two_mins_in_future = self.time() + Duration::from_secs(2 * 60);
+        self.block_producer.with(false, |bp| {
+            bp.current.won_slot_should_produce(two_mins_in_future)
+        }) && self.genesis_block().map_or(false, |b| {
+            let slot = &b.consensus_state().curr_global_slot_since_hard_fork;
+            let epoch = slot
+                .slot_number
+                .as_u32()
+                .checked_div(slot.slots_per_epoch.as_u32())
+                .expect("division by 0");
+            self.current_epoch() <= Some(epoch)
+        })
     }
 
     pub fn should_log_node_id(&self) -> bool {

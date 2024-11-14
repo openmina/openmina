@@ -14,7 +14,6 @@ impl P2pReceiveBlock {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let config = RustNodeTestingConfig::devnet_default()
             // make sure it will not ask initial peers
-            .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(1)
             .initial_peers(vec![hosts::devnet()[0].clone()]);
         let retransmitter_openmina_node = runner.add_rust_node(config);
@@ -27,7 +26,6 @@ impl P2pReceiveBlock {
 
         let config = RustNodeTestingConfig::devnet_default()
             // make sure it will not ask initial peers
-            .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(1)
             .initial_peers(vec![retransmitter_openmina_node.into()]);
         let receiver_openmina_node = runner.add_rust_node(config);

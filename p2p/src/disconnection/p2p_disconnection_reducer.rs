@@ -55,41 +55,29 @@ impl P2pDisconnectedState {
                 dispatcher.push(P2pDisconnectionEffectfulAction::Init { peer_id });
                 Ok(())
             }
-            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pDisconnectionAction::PeerClosed { peer_id } => {
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pDisconnectionEffectfulAction::Init { peer_id });
+                Ok(())
+            }
             P2pDisconnectionAction::Finish { peer_id } => {
                 let Some(peer) = p2p_state.peers.get_mut(&peer_id) else {
                     bug_condition!("Invalid state for: `P2pDisconnectionAction::Finish`");
                     return Ok(());
                 };
-                peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
-
-                let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let p2p_state: &P2pState = state.substate()?;
-                dispatcher.push(P2pPeerAction::Remove { peer_id });
-
-                if let Some(callback) = &p2p_state.callbacks.on_p2p_disconnection_finish {
-                    dispatcher.push_callback(callback.clone(), peer_id);
-                }
-                Ok(())
-            }
-            #[cfg(feature = "p2p-libp2p")]
-            P2pDisconnectionAction::Finish { peer_id } => {
-                if p2p_state
-                    .network
-                    .scheduler
-                    .connections
-                    .iter()
-                    .any(|(_addr, conn_state)| {
-                        conn_state.peer_id() == Some(&peer_id) && conn_state.closed.is_none()
-                    })
+                if peer.is_libp2p()
+                    && p2p_state
+                        .network
+                        .scheduler
+                        .connections
+                        .iter()
+                        .any(|(_addr, conn_state)| {
+                            conn_state.peer_id() == Some(&peer_id) && conn_state.closed.is_none()
+                        })
                 {
                     return Ok(());
                 }
 
-                let Some(peer) = p2p_state.peers.get_mut(&peer_id) else {
-                    bug_condition!("Invalid state for: `P2pDisconnectionAction::Finish`");
-                    return Ok(());
-                };
                 peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -99,7 +87,6 @@ impl P2pDisconnectedState {
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_disconnection_finish {
                     dispatcher.push_callback(callback.clone(), peer_id);
                 }
-
                 Ok(())
             }
         }

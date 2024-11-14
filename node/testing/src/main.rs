@@ -1,5 +1,6 @@
 use clap::Parser;
 
+use node::p2p::webrtc::Host;
 use openmina_node_testing::cluster::{Cluster, ClusterConfig};
 use openmina_node_testing::scenario::Scenario;
 use openmina_node_testing::scenarios::Scenarios;
@@ -24,8 +25,13 @@ pub enum Command {
 
 #[derive(Debug, clap::Args)]
 pub struct CommandServer {
-    #[arg(long, short, env, default_value = "11000")]
+    #[arg(long, short, default_value = "127.0.0.1")]
+    pub host: Host,
+
+    #[arg(long, short, default_value = "11000")]
     pub port: u16,
+    #[arg(long, short)]
+    pub ssl_port: Option<u16>,
 }
 
 #[derive(Debug, clap::Args)]
@@ -66,7 +72,7 @@ impl Command {
 
         match self {
             Self::Server(args) => {
-                server(args.port);
+                server(rt, args.host, args.port, args.ssl_port);
                 Ok(())
             }
             Self::ScenariosGenerate(cmd) => {

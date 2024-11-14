@@ -15,6 +15,7 @@ export class WebNodeService {
 
   private readonly webnode$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private webNodeKeyPair: { publicKey: string, privateKey: string };
+  private webNodeNetwork: String;
   private webNodeStartTime: number;
   private sentryEvents: any = {};
 
@@ -46,14 +47,36 @@ export class WebNodeService {
 
   loadWasm$(): Observable<void> {
     this.webNodeStartTime = Date.now();
+    const args = (() => {
+      const raw = window.localStorage.getItem("webnodeArgs");
+      if (raw == null) {
+        return null;
+      }
+      return JSON.parse(atob(raw));
+    })();
     if (isBrowser()) {
       return merge(
         of(any(window).webnode).pipe(filter(Boolean)),
         fromEvent(window, 'webNodeLoaded'),
       ).pipe(
-        switchMap(() => this.http.get<{ publicKey: string, privateKey: string }>('assets/webnode/web-node-secrets.json')),
+        switchMap(() => {
+          const DEFAULT_NETWORK = "devnet";
+          if (!args) {
+            return this.http.get<{ publicKey: string, privateKey: string }>('assets/webnode/web-node-secrets.json')
+              .pipe(map(blockProducer => ({blockProducer, network: DEFAULT_NETWORK})));
+          }
+          const data = { network: args["network"] || DEFAULT_NETWORK, blockProducer: {} as any };
+          if (!!args["block_producer"]) {
+            data["blockProducer"] = {
+              privateKey: args["block_producer"].sec_key,
+              publicKey: args["block_producer"].pub_key,
+            };
+          }
+          return of(data);
+        }),
         tap(data => {
-          this.webNodeKeyPair = data;
+          this.webNodeKeyPair = data.blockProducer;
+          this.webNodeNetwork = data.network;
         }),
         map(() => void 0),
       );
@@ -68,7 +91,19 @@ export class WebNodeService {
         switchMap((wasm: any) => from(wasm.default(undefined, new WebAssembly.Memory(this.memory))).pipe(map(() => wasm))),
         switchMap((wasm) => {
           this.webnodeProgress$.next('Loaded');
-          return from(wasm.run(this.webNodeKeyPair.privateKey));
+          const urls = (() => {
+            if (typeof this.webNodeNetwork == 'number') {
+              const url = `${window.location.origin}/clusters/${this.webNodeNetwork}/`;
+              return {
+                seeds: url + 'seeds',
+                genesisConfig: url + 'genesis/config'
+              }
+            } else {
+              return {};
+            }
+          })();
+          console.log("webnode config:", !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
+          return from(wasm.run(this.webNodeKeyPair.privateKey, urls.seeds, urls.genesisConfig));
         }),
         tap((webnode: any) => {
           any(window)['webnode'] = webnode;
