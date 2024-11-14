@@ -24,7 +24,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.80
           rustup component add rustfmt
 
       # NOTE: the cache just hangs if the pipeline is completed, probably due to the node running in the background.
@@ -38,10 +38,11 @@ jobs:
         run: |
           cargo build --release --bin openmina
 
-      - name: Setup circuits
-        run: |
-          git clone --depth 1 https://github.com/openmina/circuit-blobs.git
-          ln -s -b $PWD/circuit-blobs/* ledger/
+      # NOTE: IIRC the circuits are handled automatically by the node now
+      # - name: Setup circuits
+      #   run: |
+      #     git clone --depth 1 https://github.com/openmina/circuit-blobs.git
+      #     ln -s -b $PWD/circuit-blobs/* ledger/
 
       - name: Run openmina node
         run: |
