@@ -33,7 +33,6 @@ use crate::{
 pub use GenesisConfig as TransitionFrontierGenesisConfig;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "kind")]
 pub enum GenesisConfig {
     Counts {
         whales: usize,

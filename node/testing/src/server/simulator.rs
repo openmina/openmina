@@ -84,7 +84,7 @@ async fn simulation_create(
             };
             while let Some(cluster_mutex) = cluster_mutex.upgrade() {
                 let mut cluster = cluster_mutex.lock().await;
-                let mut runner = ClusterRunner::new(&mut *cluster, |_| {});
+                let mut runner = ClusterRunner::new(&mut cluster, |_| {});
                 let _ =
                     tokio::time::timeout(Duration::from_millis(500), simulator.run(&mut runner))
                         .await;
@@ -93,5 +93,5 @@ async fn simulation_create(
     });
     let cluster_id = setup_rx.await.unwrap()?;
 
-    Ok(SimulationCreateResponse { cluster_id }).map(Json)
+    Ok(Json(SimulationCreateResponse { cluster_id }))
 }
