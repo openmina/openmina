@@ -44,9 +44,17 @@ jobs:
       #     git clone --depth 1 https://github.com/openmina/circuit-blobs.git
       #     ln -s -b $PWD/circuit-blobs/* ledger/
 
-      - name: Run openmina node
+      - name: Write secret to file
         run: |
-          nohup ./target/release/openmina node > node.out &
+          cat << EOF > ./producer_key
+          ${{ secrets.FRONTEND_PRODUCER_KEY }}
+          EOF
+
+      - name: Run openmina node
+        env:
+          MINA_PRIVKEY_PASS: ${{ secrets.FRONTEND_PRODUCER_PASSWORD }}
+        run: |
+          nohup ./target/release/openmina node --producer-key ./producer_key > node.out &
           sleep 5
 
       - name: Wait for node to sync up
