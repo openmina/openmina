@@ -160,7 +160,7 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
     }
 }
 
-fn keypair_from_bs58_string(str: &str) -> Keypair {
+pub fn keypair_from_bs58_string(str: &str) -> Keypair {
     let mut secret_hex_vec = bs58::decode(str).into_vec().unwrap();
     secret_hex_vec = secret_hex_vec[2..secret_hex_vec.len() - 4].to_vec();
     secret_hex_vec.reverse();
