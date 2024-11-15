@@ -49,10 +49,9 @@ macro_rules! respond_or_log {
 
 fn get_next_won_slot(state: &State) -> Option<BlockProductionAttemptWonSlot> {
     let best_tip = state.transition_frontier.best_tip()?;
+    let cur_global_slot = state.cur_global_slot()?;
     let vrf = state.block_producer.vrf_evaluator()?;
-    let (_, won_slot) = vrf.won_slots.first_key_value()?;
-
-    let won_slot = BlockProducerWonSlot::from_vrf_won_slot(won_slot, best_tip.genesis_timestamp());
+    let won_slot = vrf.next_won_slot(cur_global_slot, best_tip)?;
     Some((&won_slot).into())
 }
 
