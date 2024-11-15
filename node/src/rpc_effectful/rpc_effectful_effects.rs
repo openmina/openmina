@@ -17,10 +17,11 @@ use crate::{
         RpcTransactionInjectResponse, TransactionStatus,
     },
     snark_pool::SnarkPoolAction,
+    stats::block_producer::BlockProductionAttemptWonSlot,
     transition_frontier::sync::{
         ledger::TransitionFrontierSyncLedgerState, TransitionFrontierSyncState,
     },
-    Service, Store,
+    Service, State, Store,
 };
 use ledger::{
     scan_state::currency::{Balance, Magnitude},
@@ -46,6 +47,15 @@ macro_rules! respond_or_log {
     };
 }
 
+fn get_next_won_slot(state: &State) -> Option<BlockProductionAttemptWonSlot> {
+    let best_tip = state.transition_frontier.best_tip()?;
+    let vrf = state.block_producer.vrf_evaluator()?;
+    let (_, won_slot) = vrf.won_slots.first_key_value()?;
+
+    let won_slot = BlockProducerWonSlot::from_vrf_won_slot(won_slot, best_tip.genesis_timestamp());
+    Some((&won_slot).into())
+}
+
 pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcEffectfulAction>) {
     let (action, meta) = action.split();
 
@@ -64,6 +74,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     height: b.height(),
                     global_slot: b.global_slot(),
                 };
+            let next_won_slot = get_next_won_slot(state);
             let status = RpcNodeStatus {
                 chain_id,
                 transition_frontier: RpcNodeStatusTransitionFrontier {
@@ -89,6 +100,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 transaction_pool: RpcNodeStatusTransactionPool {
                     transactions: state.transaction_pool.size(),
                 },
+                next_won_slot,
             };
             let _ = store.service.respond_status_get(rpc_id, Some(status));
         }
