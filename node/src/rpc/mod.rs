@@ -453,7 +453,7 @@ pub struct RpcNodeStatus {
     pub peers: Vec<RpcPeerInfo>,
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
-    pub next_won_slot: Option<BlockProductionAttemptWonSlot>,
+    pub current_block_production_attempt: Option<BlockProductionAttempt>,
 }
 
 #[derive(Serialize, Debug, Clone)]
