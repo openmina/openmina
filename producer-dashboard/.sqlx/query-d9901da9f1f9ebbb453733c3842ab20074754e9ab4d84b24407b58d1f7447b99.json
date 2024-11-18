@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    length_lower_bound,\n    length_upper_bound\nFROM zkapp_length_bounds;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "length_lower_bound",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "length_upper_bound",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "d9901da9f1f9ebbb453733c3842ab20074754e9ab4d84b24407b58d1f7447b99"
+}
