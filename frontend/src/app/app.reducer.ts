@@ -22,6 +22,9 @@ const initialState: AppState = {
     upload: 0,
     transactions: 0,
     snarks: 0,
+    producingBlockAt: null,
+    producingBlockGlobalSlot: null,
+    producingBlockStatus: null,
   },
 };
 

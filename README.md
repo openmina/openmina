@@ -191,10 +191,10 @@ nvm install 20.11.1
 
 Download [Node.js v20.11.1](https://nodejs.org/) from the official website, open the installer and follow the prompts to complete the installation.
 
-### 2. Angular CLI v16.2.0
+### 2. Angular CLI v17.3.0
 
 ```bash
-npm install -g @angular/cli@16.2.0
+npm install -g @angular/cli@17.3.0
 ```
 
 ### 3. Installation

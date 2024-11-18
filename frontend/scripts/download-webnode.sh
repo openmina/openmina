@@ -36,7 +36,7 @@ download_circuit_files() {
         "wrap-wrap-proving-key-transaction-snark-b9a01295c8cc9bda6d12142a581cd305_internal_vars.bin"
         "wrap-wrap-proving-key-transaction-snark-b9a01295c8cc9bda6d12142a581cd305_rows_rev.bin"
     )
-    DOWNLOAD_DIR="/Users/teofil/teo/mina/openmina/frontend/dist/frontend/browser/assets/webnode/circuit-blobs/$CIRCUITS_VERSION"
+    DOWNLOAD_DIR="../src/assets/webnode/circuit-blobs/$CIRCUITS_VERSION"
 
     mkdir -p "$DOWNLOAD_DIR"
 

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { any, getMergedRoute, getWindow, MAX_WIDTH_700, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
+import { any, getMergedRoute, getWindow, isBrowser, MAX_WIDTH_700, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
@@ -38,14 +38,16 @@ export class AppComponent extends StoreDispatcher implements OnInit {
         any(window).config = CONFIG;
         any(window).store = this.store;
       }
-    })
+    });
   }
 
   ngOnInit(): void {
-    const args = new URLSearchParams(window.location.search).get("a");
-    if (!!args) {
-      window.localStorage.setItem("webnodeArgs", args);
-    } 
+    if (isBrowser()) {
+      const args = new URLSearchParams(window.location.search).get('a');
+      if (!!args) {
+        localStorage.setItem('webnodeArgs', args);
+      }
+    }
 
     this.select(
       getMergedRoute,

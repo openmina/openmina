@@ -1,0 +1,12 @@
+<div class="pill w-100 text-nowrap border-rad-6 fx-row-vert-cent pointer" (click)="goToWonSlots()">
+  <div class="pill-inside w-100 h-100 border-rad-6 fx-row-vert-cent pr-5">
+    <span class="mina-icon icon-300 f-18 mr-5">schedule</span>
+    <div class="bp">Block Production&nbsp;</div>
+    <div class="time">
+      @if (text) {
+        {{ text }}
+      } @else {
+        {{ producingIn ? ('in ' + producingIn) : 'in ...' }}
+      }</div>
+  </div>
+</div>
