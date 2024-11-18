@@ -566,11 +566,18 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
                 );
             }
 
-            for addr in entry.addrs {
+            let addrs = entry
+                .addrs
+                .into_iter()
+                .filter(|addr| !e.addrs.contains(addr))
+                .collect::<Vec<_>>();
+
+            for addr in addrs {
                 if e.addrs.len() >= P2pNetworkKadEntry::MAX_ADDRS {
                     openmina_core::warn!(
                         openmina_core::log::system_time();
                         kind = "P2pNetworkKadBucket insert",
+                        peer_id = e.peer_id.to_string(),
                         summary = format!("Skipping updates to Kad entry multiaddress list"),
                     );
                     break;
