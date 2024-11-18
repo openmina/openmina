@@ -39,6 +39,7 @@ import { Router } from '@angular/router';
 import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getAnalytics, provideAnalytics, ScreenTrackingService } from '@angular/fire/analytics';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
+import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -159,6 +160,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     ReactiveFormsModule,
     CopyComponent,
     WebNodeLandingPageComponent,
+    BlockProductionPillComponent,
   ],
   providers: [
     THEME_PROVIDER,

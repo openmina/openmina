@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.8.20",
+  "version": "1.0.16",
   "scripts": {
     "install:deps": "npm install",
     "start": "npm install && ng serve --configuration local --open",
@@ -12,14 +12,14 @@
     "tests:headless": "npx cypress run --headless --config baseUrl=http://localhost:4200",
     "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest",
     "start:bundle": "npx http-server dist/frontend -p 4200",
-    "prebuild": "node scripts/update-webnode-version.js",
+    "prebuild": "node scripts/update-frontend-version.js",
     "dev:ssr": "ng run frontend:serve-ssr",
     "serve:ssr": "node dist/frontend/server/main.js",
     "build:ssr": "ng build && ng run frontend:server",
     "prerender": "ng run frontend:prerender",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org openmina-uv --project openmina ./dist/frontend/browser && sentry-cli sourcemaps upload --org openmina-uv --project openmina ./dist/frontend/browser",
     "copy-env": "cp dist/frontend/browser/assets/environments/webnode.js dist/frontend/browser/assets/environments/env.js",
-    "deploy": "npm run build:prod && npm run copy-env && firebase deploy"
+    "deploy": "npm run prebuild && npm run build:prod && npm run copy-env && firebase deploy"
   },
   "private": true,
   "dependencies": {

@@ -47,29 +47,29 @@ export class WebNodeService {
 
   loadWasm$(): Observable<void> {
     this.webNodeStartTime = Date.now();
-    const args = (() => {
-      const raw = window.localStorage.getItem("webnodeArgs");
-      if (raw == null) {
-        return null;
-      }
-      return JSON.parse(atob(raw));
-    })();
     if (isBrowser()) {
+      const args = (() => {
+        const raw = localStorage.getItem('webnodeArgs');
+        if (raw === null) {
+          return null;
+        }
+        return JSON.parse(atob(raw));
+      })();
       return merge(
         of(any(window).webnode).pipe(filter(Boolean)),
         fromEvent(window, 'webNodeLoaded'),
       ).pipe(
         switchMap(() => {
-          const DEFAULT_NETWORK = "devnet";
+          const DEFAULT_NETWORK = 'devnet';
           if (!args) {
             return this.http.get<{ publicKey: string, privateKey: string }>('assets/webnode/web-node-secrets.json')
-              .pipe(map(blockProducer => ({blockProducer, network: DEFAULT_NETWORK})));
+              .pipe(map(blockProducer => ({ blockProducer, network: DEFAULT_NETWORK })));
           }
-          const data = { network: args["network"] || DEFAULT_NETWORK, blockProducer: {} as any };
-          if (!!args["block_producer"]) {
-            data["blockProducer"] = {
-              privateKey: args["block_producer"].sec_key,
-              publicKey: args["block_producer"].pub_key,
+          const data = { network: args['network'] || DEFAULT_NETWORK, blockProducer: {} as any };
+          if (!!args['block_producer']) {
+            data['blockProducer'] = {
+              privateKey: args['block_producer'].sec_key,
+              publicKey: args['block_producer'].pub_key,
             };
           }
           return of(data);
@@ -87,36 +87,36 @@ export class WebNodeService {
   startWasm$(): Observable<any> {
     if (isBrowser()) {
       return of(any(window).webnode)
-      .pipe(
-        switchMap((wasm: any) => from(wasm.default(undefined, new WebAssembly.Memory(this.memory))).pipe(map(() => wasm))),
-        switchMap((wasm) => {
-          this.webnodeProgress$.next('Loaded');
-          const urls = (() => {
-            if (typeof this.webNodeNetwork == 'number') {
-              const url = `${window.location.origin}/clusters/${this.webNodeNetwork}/`;
-              return {
-                seeds: url + 'seeds',
-                genesisConfig: url + 'genesis/config'
+        .pipe(
+          switchMap((wasm: any) => from(wasm.default(undefined, new WebAssembly.Memory(this.memory))).pipe(map(() => wasm))),
+          switchMap((wasm) => {
+            this.webnodeProgress$.next('Loaded');
+            const urls = (() => {
+              if (typeof this.webNodeNetwork === 'number') {
+                const url = `${window.location.origin}/clusters/${this.webNodeNetwork}/`;
+                return {
+                  seeds: url + 'seeds',
+                  genesisConfig: url + 'genesis/config',
+                };
+              } else {
+                return {};
               }
-            } else {
-              return {};
-            }
-          })();
-          console.log("webnode config:", !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
-          return from(wasm.run(this.webNodeKeyPair.privateKey, urls.seeds, urls.genesisConfig));
-        }),
-        tap((webnode: any) => {
-          any(window)['webnode'] = webnode;
-          this.webnode$.next(webnode);
-          this.webnodeProgress$.next('Started');
-        }),
-        catchError((error) => {
-          sendSentryEvent('WebNode failed to start: ' + error.message);
-          return throwError(() => new Error(error.message));
-        }),
-        switchMap(() => this.webnode$.asObservable()),
-        filter(Boolean),
-      );
+            })();
+            console.log('webnode config:', !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
+            return from(wasm.run(this.webNodeKeyPair.privateKey, urls.seeds, urls.genesisConfig));
+          }),
+          tap((webnode: any) => {
+            any(window)['webnode'] = webnode;
+            this.webnode$.next(webnode);
+            this.webnodeProgress$.next('Started');
+          }),
+          catchError((error) => {
+            sendSentryEvent('WebNode failed to start: ' + error.message);
+            return throwError(() => new Error(error.message));
+          }),
+          switchMap(() => this.webnode$.asObservable()),
+          filter(Boolean),
+        );
     }
     return EMPTY;
   }

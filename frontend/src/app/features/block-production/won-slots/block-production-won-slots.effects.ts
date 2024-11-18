@@ -57,7 +57,11 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
                   ?? null;
               }
               const routes: string[] = [Routes.BLOCK_PRODUCTION, Routes.WON_SLOTS];
-              if (newActiveSlot && isDesktop() || (activeSlotRoute && !bpState.activeSlot) || (activeSlotRoute && bpState.openSidePanel)) {
+              if (
+                newActiveSlot && isDesktop()
+                || (activeSlotRoute && !bpState.activeSlot)
+                || (activeSlotRoute && bpState.openSidePanel)
+              ) {
                 routes.push(newActiveSlot.globalSlot.toString());
               }
               return fromPromise(this.router.navigate(routes, { queryParamsHandling: 'merge' })).pipe(map(() => ({

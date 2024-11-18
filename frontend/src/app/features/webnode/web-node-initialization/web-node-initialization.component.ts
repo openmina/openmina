@@ -80,6 +80,14 @@ export class WebNodeInitializationComponent extends StoreDispatcher implements O
       window.dispatchEvent(new CustomEvent('startWebNode'));
     });
     this.stepsPercentages = this.getStepPercentages();
+    if (this.webNodeService.isWebNodeLoaded()) {
+      this.loading.forEach((step: WebNodeLoadingStep) => {
+        step.loaded = true;
+        step.status = WebNodeStepStatus.DONE;
+      });
+      this.ready = true;
+      return;
+    }
     this.fetchProgress();
     this.listenToErrorIssuing();
     this.checkWebNodeProgress();
@@ -197,6 +205,7 @@ export class WebNodeInitializationComponent extends StoreDispatcher implements O
         clearInterval(interval);
       }
     }, 30);
+    setTimeout(() => this.detect(), 500);
   }
 
   private fetchPeersInformation(): void {
@@ -326,6 +335,7 @@ export class WebNodeInitializationComponent extends StoreDispatcher implements O
       this.ready = true;
       newProgress = 100;
       this.detect();
+      setTimeout(() => this.detect(), 500);
     }
     this.progress = newProgress;
     this.arc.endAngle(Math.PI * 2 * (newProgress / 100));

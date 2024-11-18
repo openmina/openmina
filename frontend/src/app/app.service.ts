@@ -5,7 +5,8 @@ import { CONFIG } from '@shared/constants/config';
 import { RustService } from '@core/services/rust.service';
 import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-details.type';
 import { getNetwork } from '@shared/helpers/mina.helper';
-import { getLocalStorage } from '@openmina/shared';
+import { getLocalStorage, ONE_MILLION } from '@openmina/shared';
+import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 
 @Injectable({
   providedIn: 'root',
@@ -31,7 +32,7 @@ export class AppService {
   getActiveNodeDetails(): Observable<AppNodeDetails> {
     return this.rust.get<NodeDetailsResponse>('/status')
       .pipe(
-        map((data: NodeDetailsResponse) => ({
+        map((data: NodeDetailsResponse): AppNodeDetails => ({
           status: this.getStatus(data),
           blockHeight: data.transition_frontier.best_tip?.height,
           blockTime: data.transition_frontier.sync.time,
@@ -42,6 +43,9 @@ export class AppService {
           transactions: data.transaction_pool.transactions,
           chainId: data.chain_id,
           network: getNetwork(data.chain_id),
+          producingBlockAt: data.current_block_production_attempt?.won_slot.slot_time / ONE_MILLION,
+          producingBlockGlobalSlot: data.current_block_production_attempt?.won_slot.global_slot,
+          producingBlockStatus: data.current_block_production_attempt?.status,
         } as AppNodeDetails)),
       );
   }
@@ -66,7 +70,37 @@ export interface NodeDetailsResponse {
   peers: Peer[];
   snark_pool: SnarkPool;
   chain_id: string | undefined;
+  current_block_production_attempt: BlockProductionAttempt;
 }
+
+export interface BlockProductionAttempt {
+  won_slot: WonSlot;
+  block: any;
+  times: Times;
+  status: BlockProductionWonSlotsStatus;
+}
+
+export interface WonSlot {
+  slot_time: number;
+  global_slot: number;
+  epoch: number;
+  delegator: [string, number];
+  value_with_threshold: number[];
+}
+
+export interface Times {
+  scheduled: number;
+  staged_ledger_diff_create_start: any;
+  staged_ledger_diff_create_end: any;
+  produced: any;
+  proof_create_start: any;
+  proof_create_end: any;
+  block_apply_start: any;
+  block_apply_end: any;
+  committed: any;
+  discarded: any;
+}
+
 
 interface TransitionFrontier {
   best_tip: BestTip;

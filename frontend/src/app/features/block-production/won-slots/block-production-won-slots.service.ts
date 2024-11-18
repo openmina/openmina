@@ -14,7 +14,7 @@ import {
 } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
 
 @Injectable({
-  providedIn: BlockProductionModule,
+  providedIn: 'root',
 })
 export class BlockProductionWonSlotsService {
 

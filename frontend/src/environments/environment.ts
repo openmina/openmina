@@ -4,7 +4,7 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  showWebNodeLandingPage: true,
+  // showWebNodeLandingPage: true,
   globalConfig: {
     features: {
       dashboard: [],
@@ -39,35 +39,34 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'Producer-2',
     //   url: 'https://staging-devnet-openmina-bp-2-dashboard.minaprotocol.network',
     // },
-    // {
-    //   name: 'staging-devnet-bp-0',
-    //   url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
-    // },
-    // {
-    //   name: 'staging-devnet-bp-1',
-    //   url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
-    // },
-    // {
-    //   name: 'staging-devnet-bp-2',
-    //   url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
-    // },
-    // {
-    //   name: 'staging-devnet-bp-3',
-    //   url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
-    // },
     {
-      name: 'Web Node 1',
-      isWebNode: true,
+      name: 'staging-devnet-bp-0',
+      url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
     },
+    {
+      name: 'staging-devnet-bp-1',
+      url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-2',
+      url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-3',
+      url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
+    },
+    // {
+    //   name: 'Web Node 1',
+    //   isWebNode: true,
+    // },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',
     // },
-    // {
-    //   name: 'Local rust node',
-    //   url: 'http://127.0.0.1:3000',
-    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
-    // },
+    {
+      name: 'Local rust node',
+      url: 'http://127.0.0.1:3000',
+    },
     // {
     //   name: 'feat/frontend-api-peers',
     //   url: 'http://176.9.147.28:3000',
@@ -79,10 +78,10 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
-    // {
-    //   name: 'Docker 11010',
-    //   url: 'http://localhost:11010',
-    // },
+    {
+      name: 'Docker 11010',
+      url: 'http://localhost:11010',
+    },
     // {
     //   name: 'Docker 11012',
     //   url: 'http://localhost:11012',

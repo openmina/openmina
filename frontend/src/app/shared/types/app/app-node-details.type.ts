@@ -1,4 +1,5 @@
 import { MinaNetwork } from '@shared/types/core/mina/mina.type';
+import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 
 export interface AppNodeDetails {
   status: AppNodeStatus;
@@ -11,6 +12,10 @@ export interface AppNodeDetails {
 
   transactions: number;
   snarks: number;
+
+  producingBlockAt: number;
+  producingBlockGlobalSlot: number;
+  producingBlockStatus: BlockProductionWonSlotsStatus;
 
   chainId?: string;
   network?: MinaNetwork;
