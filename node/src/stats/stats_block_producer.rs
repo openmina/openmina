@@ -261,7 +261,7 @@ impl BlockProducerStats {
     }
 
     pub fn block_apply_start(&mut self, time: redux::Timestamp, hash: &BlockHash) {
-        if !self.is_our_block(hash) {
+        if !self.is_our_just_produced_block(hash) {
             return;
         }
 
@@ -315,11 +315,20 @@ impl BlockProducerStats {
         });
     }
 
-    pub fn is_our_block(&self, hash: &BlockHash) -> bool {
-        self.attempts
-            .back()
-            .and_then(|v| v.block.as_ref())
-            .map_or(false, |b| &b.hash == hash)
+    /// Returns `true` if this is a block we just produced
+    pub fn is_our_just_produced_block(&self, hash: &BlockHash) -> bool {
+        // For the block to be ours:
+        // - we must have an attempt to produce a block
+        // - we must have just produced the proof for that block
+        // - the hash must match
+        if let Some(attempt) = self.attempts.back() {
+            match (&attempt.status, attempt.block.as_ref()) {
+                (BlockProductionStatus::ProofCreateSuccess, Some(block)) => &block.hash == hash,
+                _ => false,
+            }
+        } else {
+            false
+        }
     }
 }
 

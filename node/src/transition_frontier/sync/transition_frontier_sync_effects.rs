@@ -253,7 +253,7 @@ impl TransitionFrontierSyncAction {
                     stats.block_producer().block_apply_start(meta.time(), &hash);
                     // TODO(tizoc): try a better approach that doesn't need
                     // to make use of the collected stats.
-                    is_our_block = stats.block_producer().is_our_block(&hash);
+                    is_our_block = stats.block_producer().is_our_just_produced_block(&hash);
                 } else {
                     is_our_block = false;
                 }
