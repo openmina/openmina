@@ -247,15 +247,23 @@ impl TransitionFrontierSyncAction {
                 };
                 let hash = block.hash.clone();
 
-                // During catchup, we skip the verificationf of completed work and zkApp txn proofs
-                // until get closer to the best tip, at which point full verification is enabled.
-                // TODO(tizoc): locally produced blocks shouldn't be verified either
-                let skip_verification = super::CATCHUP_BLOCK_VERIFY_TAIL_LENGTH
-                    < store.state().transition_frontier.sync.pending_count();
+                let is_our_block;
 
                 if let Some(stats) = store.service.stats() {
                     stats.block_producer().block_apply_start(meta.time(), &hash);
+                    // TODO(tizoc): try a better approach that doesn't need
+                    // to make use of the collected stats.
+                    is_our_block = stats.block_producer().is_our_block(&hash);
+                } else {
+                    is_our_block = false;
                 }
+
+                // During catchup, we skip the verificationf of completed work and zkApp txn proofs
+                // until get closer to the best tip, at which point full verification is enabled.
+                // We also skip verification of completed works if we produced this block.
+                let skip_verification = is_our_block
+                    || super::CATCHUP_BLOCK_VERIFY_TAIL_LENGTH
+                        < store.state().transition_frontier.sync.pending_count();
 
                 store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::BlockApply {

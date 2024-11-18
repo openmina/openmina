@@ -261,12 +261,7 @@ impl BlockProducerStats {
     }
 
     pub fn block_apply_start(&mut self, time: redux::Timestamp, hash: &BlockHash) {
-        let is_our_block = self
-            .attempts
-            .back()
-            .and_then(|v| v.block.as_ref())
-            .map_or(false, |b| &b.hash == hash);
-        if !is_our_block {
+        if !self.is_our_block(hash) {
             return;
         }
 
@@ -318,6 +313,13 @@ impl BlockProducerStats {
             attempt.times.discarded = Some(time);
             true
         });
+    }
+
+    pub fn is_our_block(&self, hash: &BlockHash) -> bool {
+        self.attempts
+            .back()
+            .and_then(|v| v.block.as_ref())
+            .map_or(false, |b| &b.hash == hash)
     }
 }
 
