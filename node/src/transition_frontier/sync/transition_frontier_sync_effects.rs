@@ -249,6 +249,7 @@ impl TransitionFrontierSyncAction {
 
                 // During catchup, we skip the verificationf of completed work and zkApp txn proofs
                 // until get closer to the best tip, at which point full verification is enabled.
+                // TODO(tizoc): locally produced blocks shouldn't be verified either
                 let skip_verification = super::CATCHUP_BLOCK_VERIFY_TAIL_LENGTH
                     < store.state().transition_frontier.sync.pending_count();
 

@@ -134,6 +134,7 @@ impl BlockProducerEnabled {
                     won_slot, chain, ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::WonSlotTransactionsGet` expected: `BlockProducerCurrentState::WonSlotProduceInit`, found: {:?}", state.current);
                     return;
                 };
 
@@ -153,6 +154,7 @@ impl BlockProducerEnabled {
                     won_slot, chain, ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::WonSlotTransactionsSuccess` expected: `BlockProducerCurrentState::WonSlotTransactionsGet`, found: {:?}", state.current);
                     return;
                 };
 
@@ -178,6 +180,7 @@ impl BlockProducerEnabled {
                     ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::StagedLedgerDiffCreatePending` expected: `BlockProducerCurrentState::WonSlotTransactionsSuccess`, found: {:?}", state.current);
                     return;
                 };
                 state.current = BlockProducerCurrentState::StagedLedgerDiffCreatePending {
@@ -194,6 +197,7 @@ impl BlockProducerEnabled {
                     ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::StagedLedgerDiffCreateSuccess` expected: `BlockProducerCurrentState::StagedLedgerDiffCreatePending`, found: {:?}", state.current);
                     return;
                 };
                 state.current = BlockProducerCurrentState::StagedLedgerDiffCreateSuccess {
@@ -223,6 +227,8 @@ impl BlockProducerEnabled {
                 dispatcher.push(BlockProducerEffectfulAction::BlockProveInit);
             }
             BlockProducerAction::BlockProvePending => {
+                let current_state = std::mem::take(&mut state.current);
+
                 if let BlockProducerCurrentState::BlockUnprovenBuilt {
                     won_slot,
                     chain,
@@ -233,7 +239,7 @@ impl BlockProducerEnabled {
                     block,
                     block_hash,
                     ..
-                } = std::mem::take(&mut state.current)
+                } = current_state
                 {
                     state.current = BlockProducerCurrentState::BlockProvePending {
                         time: meta.time(),
@@ -246,16 +252,20 @@ impl BlockProducerEnabled {
                         block,
                         block_hash,
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockProvePending` expected: `BlockProducerCurrentState::BlockUnprovenBuilt`, found: {:?}", current_state);
                 }
             }
             BlockProducerAction::BlockProveSuccess { proof } => {
+                let current_state = std::mem::take(&mut state.current);
+
                 if let BlockProducerCurrentState::BlockProvePending {
                     won_slot,
                     chain,
                     block,
                     block_hash,
                     ..
-                } = std::mem::take(&mut state.current)
+                } = current_state
                 {
                     state.current = BlockProducerCurrentState::BlockProveSuccess {
                         time: meta.time(),
@@ -265,12 +275,16 @@ impl BlockProducerEnabled {
                         block_hash,
                         proof: proof.clone(),
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockProveSuccess` expected: `BlockProducerCurrentState::BlockProvePending`, found: {:?}", current_state);
                 }
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerEffectfulAction::BlockProveSuccess);
             }
             BlockProducerAction::BlockProduced => {
+                let current_state = std::mem::take(&mut state.current);
+
                 if let BlockProducerCurrentState::BlockProveSuccess {
                     won_slot,
                     chain,
@@ -278,7 +292,7 @@ impl BlockProducerEnabled {
                     block_hash,
                     proof,
                     ..
-                } = std::mem::take(&mut state.current)
+                } = current_state
                 {
                     state.current = BlockProducerCurrentState::Produced {
                         time: meta.time(),
@@ -286,6 +300,8 @@ impl BlockProducerEnabled {
                         chain,
                         block: block.with_hash_and_proof(block_hash, *proof),
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockProduced` expected: `BlockProducerCurrentState::BlockProveSuccess`, found: {:?}", current_state);
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -301,6 +317,7 @@ impl BlockProducerEnabled {
                     let blocks_inbetween = iter.map(|b| b.hash().clone()).collect();
                     Some((best_tip.clone(), root_block.clone(), blocks_inbetween))
                 }) else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockInject`: did not find best_tip/root_block in block producer");
                     return;
                 };
 
@@ -336,6 +353,8 @@ impl BlockProducerEnabled {
                         chain: std::mem::take(chain),
                         block: block.clone(),
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockInjected` expected: `BlockProducerCurrentState::Produced`, found: {:?}", state.current);
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -349,6 +368,8 @@ impl BlockProducerEnabled {
         consensus_constants: &ConsensusConstants,
         time: Timestamp,
     ) {
+        let current_state = std::mem::take(&mut self.current);
+
         let BlockProducerCurrentState::StagedLedgerDiffCreateSuccess {
             won_slot,
             chain,
@@ -360,11 +381,13 @@ impl BlockProducerEnabled {
             pending_coinbase_witness,
             stake_proof_sparse_ledger,
             ..
-        } = std::mem::take(&mut self.current)
+        } = current_state
         else {
+            bug_condition!("Invalid state for `BlockProducerAction::BlockUnprovenBuild` expected: `BlockProducerCurrentState::StagedLedgerDiffCreateSuccess`, found: {:?}", current_state);
             return;
         };
         let Some(pred_block) = chain.last() else {
+            bug_condition!("Invalid state for `BlockProducerAction::BlockUnprovenBuild`: did not find predecessor block");
             return;
         };
 
