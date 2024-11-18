@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    element0,\n    element1,\n    element2,\n    element3,\n    element4,\n    element5,\n    element6,\n    element7\nFROM zkapp_states;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "element0",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "element1",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "element2",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "element3",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "element4",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "element5",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "element6",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "element7",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "dc6e8fcb2c5cf202cdb8752139a7da9fae1da7f24cdf36be294bed493473adf2"
+}

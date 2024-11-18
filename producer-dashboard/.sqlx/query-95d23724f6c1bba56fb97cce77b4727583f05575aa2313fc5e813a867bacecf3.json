@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    snarked_ledger_hash_id,\n    blockchain_length_id,\n    min_window_density_id,\n    total_currency_id,\n    global_slot_since_genesis,\n    staking_epoch_data_id,\n    next_epoch_data_id\nFROM zkapp_network_precondition;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "snarked_ledger_hash_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "blockchain_length_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "min_window_density_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "total_currency_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "global_slot_since_genesis",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "staking_epoch_data_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "next_epoch_data_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "95d23724f6c1bba56fb97cce77b4727583f05575aa2313fc5e813a867bacecf3"
+}
