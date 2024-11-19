@@ -27,6 +27,7 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
 
   readonly init$: Effect;
   readonly getSlots$: Effect;
+  readonly setActiveSlotNumber$: Effect;
 
   constructor(private router: Router,
               private actions$: Actions,
@@ -77,6 +78,14 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
         slots: [],
         epoch: undefined,
         activeSlot: undefined,
+      })),
+    ));
+
+    this.setActiveSlotNumber$ = createEffect(() => this.actions$.pipe(
+      ofType(BlockProductionWonSlotsActions.setActiveSlotNumber),
+      this.latestActionState(),
+      map(({ action, state }) => BlockProductionWonSlotsActions.setActiveSlot({
+        slot: state.blockProduction[BLOCK_PRODUCTION_WON_SLOTS_KEY].slots.find(s => s.globalSlot === action.slotNumber),
       })),
     ));
   }

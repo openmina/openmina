@@ -281,7 +281,7 @@ $raleway-font: 'Raleway', sans-serif;
 }
 
 /* SMALL - MOBILE LANDSCAPE */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
 	.flex-row-sm {
 		display: flex;
 		flex-direction: row;
@@ -620,7 +620,7 @@ $raleway-font: 'Raleway', sans-serif;
 	@extend .w-sm;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
 	.h-xs {
 		height: 24px !important;
 	}
@@ -1025,7 +1025,7 @@ textarea {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .cdk-virtual-scroll-content-wrapper {
     width: 100%;
   }
@@ -1638,7 +1638,7 @@ span.mina-icon {
 }
 
 /* SMALL - MOBILE LANDSCAPE */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
 	.d-none-sm {
 		display: none !important;
 	}

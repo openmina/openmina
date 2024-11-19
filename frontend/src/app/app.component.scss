@@ -44,7 +44,9 @@ mat-sidenav {
 }
 
 mat-sidenav-content {
-  transition: 200ms ease-out !important;
+  @media (min-width: 768px) {
+    transition: 200ms ease-out !important;
+  }
   overflow: hidden;
 }
 
@@ -69,14 +71,15 @@ mat-sidenav-content {
   &.mobile {
     $toolbar: 56px;
     $subMenus: 56px;
-    height: calc(100% - #{$toolbar} - #{$subMenus});
+    $tabs: 56px;
+    height: calc(100% - #{$toolbar} - #{$subMenus} - #{$tabs});
 
     &.no-toolbar {
-      height: calc(100% - #{$subMenus});
+      height: calc(100% - #{$subMenus} - #{$tabs});
     }
 
     &.no-submenus {
-      height: calc(100% - #{$toolbar});
+      height: calc(100% - #{$toolbar} - #{$tabs});
 
       &.no-toolbar {
         height: 100%;

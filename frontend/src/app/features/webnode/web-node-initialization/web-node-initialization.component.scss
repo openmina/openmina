@@ -63,20 +63,18 @@ $white: #000000;
   button {
     width: 158px;
     height: 48px !important;
-    background-color: $cta-container;
-    color: $base-background;
+    background-color: $base-background;
+    color: $base-primary;
+    filter: invert(1);
 
     &.disabled {
       opacity: 0.25;
       pointer-events: none;
     }
-
-    &:hover:not(.disabled) {
-      background-color: $selected-primary;
-    }
   }
 
   @media (max-width: 768px) {
+    border: none !important;
     > div {
       display: none;
     }

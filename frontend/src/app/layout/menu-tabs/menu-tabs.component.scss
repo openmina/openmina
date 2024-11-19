@@ -1,0 +1,24 @@
+@import 'openmina';
+
+:host {
+  height: 56px;
+
+  .menus {
+    gap: 12px;
+
+    .menu {
+      color: $base-tertiary;
+      min-width: 72px;
+      flex: 1 0 auto;
+
+      &.active {
+        color: $selected-primary;
+
+        .mina-icon {
+          color: $selected-primary;
+          font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+        }
+      }
+    }
+  }
+}

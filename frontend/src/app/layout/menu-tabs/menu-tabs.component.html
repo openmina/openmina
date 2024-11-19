@@ -1,0 +1,17 @@
+<mina-horizontal-menu [clz]="'pl-12 pr-12'"
+                      [template]="template"></mina-horizontal-menu>
+
+<ng-template #template>
+  <div class="menus fx-row-vert-cent flex-stretch h-100 w-100">
+    @for (menu of menuItems; track trackMenus) {
+      <div class="menu fx-col-full-cent"
+           [routerLink]="'/' + menu.name.toLowerCase().split(' ').join('-')"
+           [queryParams]="activeNode ? { node: activeNode.name } : null"
+           [class.active]="activeRoute === menu.name.toLowerCase().split(' ').join('-')"
+      >
+        <span class="mina-icon icon-200">{{ menu.icon }}</span>
+        <span class="text-nowrap truncate">{{ menu.name }}</span>
+      </div>
+    }
+  </div>
+</ng-template>

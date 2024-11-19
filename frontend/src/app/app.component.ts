@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { any, getMergedRoute, getWindow, isBrowser, MAX_WIDTH_700, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
+import { any, getMergedRoute, getWindow, isBrowser, isDesktop, MAX_WIDTH_700, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
@@ -26,6 +26,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
   loaded: boolean;
+  isDesktop: boolean = isDesktop();
 
   private nodeUpdateSubscription: Subscription | null = null;
 

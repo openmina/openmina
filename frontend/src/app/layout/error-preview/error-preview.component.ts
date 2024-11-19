@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ComponentRef, OnInit } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
-import { ManualDetection } from '@openmina/shared';
+import { isDesktop, isMobile, ManualDetection } from '@openmina/shared';
 import { selectErrorPreviewErrors } from '@error-preview/error-preview.state';
 import { filter, take } from 'rxjs';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
@@ -23,6 +23,7 @@ export class ErrorPreviewComponent extends ManualDetection implements OnInit {
   newError: MinaError;
   unreadErrors: boolean;
   openedOverlay: boolean;
+  isMobile: boolean = isMobile();
 
   private overlayRef: OverlayRef;
   private errorListComponent: ComponentRef<ErrorListComponent>;
