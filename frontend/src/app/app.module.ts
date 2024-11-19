@@ -40,6 +40,7 @@ import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getAnalytics, provideAnalytics, ScreenTrackingService } from '@angular/fire/analytics';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
+import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -161,6 +162,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     CopyComponent,
     WebNodeLandingPageComponent,
     BlockProductionPillComponent,
+    MenuTabsComponent,
   ],
   providers: [
     THEME_PROVIDER,
@@ -195,5 +197,8 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     providePerformance(() => getPerformance()),
   ],
   bootstrap: [AppComponent],
+  exports: [
+    MenuComponent,
+  ],
 })
 export class AppModule {}

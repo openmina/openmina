@@ -3,56 +3,159 @@
 $blue: #57d7ff;
 $pink: #fda2ff;
 $orange: #ff833d;
+@media (max-width: 767px) {
+  :host.h-sm {
+    height: 24px !important;
+  }
+}
 
 :host {
+  position: relative;
   min-width: 170px;
-  background-image: linear-gradient(25deg, rgba($blue, 0.8), rgba($pink, 0.8), rgba($orange, 0.8));
-  padding: 1px;
-  $h-sm: 24px;
-  height: calc($h-sm - 2px);
-  @media (max-width: 768px) {
-    $h-sm: 32px;
-    height: calc($h-sm - 2px);
-  }
-
-  &.hidden {
-    min-width: 0;
-    max-width: 0;
-    padding: 0;
-
-    > * {
-      display: none;
-    }
+  height: 26px;
+  @media (min-width: 768px) {
+    margin-right: 8px;
   }
 }
 
 .pill {
   background-color: $base-background;
   height: 100%;
-
-  .pill-inside {
-    padding-left: 3px;
-    background: linear-gradient(25deg, rgba($blue, 0.2), rgba($pink, 0.2), rgba($orange, 0.2));
-
-    .mina-icon,
-    .bp,
-    .time {
-      background: linear-gradient(12deg, $blue, $pink, $orange);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
+  min-width: 170px;
+  @media (max-width: 767px) {
+    font-size: 12px;
+    min-width: unset;
+    .pill-inside2 {
+      justify-content: center;
     }
+  }
 
-    &:hover {
+  .pill-inside1 {
+    position: absolute;
+    background-color: $base-background;
+    top: 1px;
+    left: 1px;
+    height: calc(100% - 2px);
+    width: calc(100% - 2px);
+
+    .pill-inside2 {
+      padding-left: 6px;
+      background: linear-gradient(25deg, rgba($blue, 0.2), rgba($pink, 0.2), rgba($orange, 0.2));
+
+      .mina-icon {
+        margin-top: 1px;
+      }
+
       .mina-icon,
       .bp,
       .time {
-        background: linear-gradient(100deg, $blue, $pink, $orange);
+        background: linear-gradient(12deg, $blue, $pink, $orange);
         -webkit-background-clip: text;
         background-clip: text;
         -webkit-text-fill-color: transparent;
       }
+
+      &:hover {
+        .mina-icon,
+        .bp,
+        .time {
+          background: linear-gradient(100deg, $blue, $pink, $orange);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+      }
     }
   }
+}
 
+
+.comet-border {
+  position: relative;
+  margin: auto;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.comet-border:before {
+  content: "";
+  background-image: conic-gradient(
+      $orange 5deg,
+      $pink 10deg,
+      $pink 50deg,
+      $blue 90deg,
+      transparent 140deg
+  );
+  height: 80px;
+  width: 80px;
+  position: absolute;
+  animation: rotate 8s infinite linear;
+}
+
+@media (min-width: 768px) {
+  @keyframes rotate {
+    /* From left bottom to right bottom */
+    0% {
+      left: -21%;
+      transform: rotate(-45deg);
+    }
+    5% {
+      left: -21%;
+      transform: rotate(-185deg);
+    }
+    /* Turn around */
+    15% {
+      transform: rotate(-235deg);
+    }
+    /* From right top to left top */
+    50% {
+      left: 71%;
+      transform: rotate(-235deg);
+    }
+    55% {
+      left: 65%;
+    }
+    /* No turn around. -405 = -45 visually */
+    62% {
+      transform: rotate(-405deg);
+    }
+    100% {
+      left: -21%;
+      transform: rotate(-405deg);
+    }
+  }
+}
+
+@media (max-width: 767px) {
+  @keyframes rotate {
+    0% {
+      left: -10%;
+      transform: rotate(-45deg);
+    }
+    5% {
+      left: -10%;
+      transform: rotate(-185deg);
+    }
+    15% {
+      transform: rotate(-255deg);
+    }
+    40% {
+      transform: rotate(-255deg);
+    }
+    45% {
+      left: 75%;
+      transform: rotate(-340deg);
+    }
+    50% {
+      transform: rotate(-405deg);
+    }
+    58% {
+      left: 50%;
+      transform: rotate(-405deg);
+    }
+    100% {
+      left: -10%;
+      transform: rotate(-405deg);
+    }
+  }
 }

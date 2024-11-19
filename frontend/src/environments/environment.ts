@@ -14,9 +14,9 @@ export const environment: Readonly<MinaEnv> = {
       snarks: ['scan-state', 'work-pool'],
       resources: ['memory'],
       'block-production': ['won-slots'],
-      mempool: [],
-      benchmarks: ['wallets'],
-      zk: ['test'],
+      // mempool: [],
+      // benchmarks: ['wallets'],
+      // zk: ['test'],
     },
     graphQL: 'https://adonagy.com/graphql',
     // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
@@ -39,26 +39,26 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'Producer-2',
     //   url: 'https://staging-devnet-openmina-bp-2-dashboard.minaprotocol.network',
     // },
-    {
-      name: 'staging-devnet-bp-0',
-      url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-1',
-      url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-2',
-      url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-3',
-      url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
-    },
     // {
-    //   name: 'Web Node 1',
-    //   isWebNode: true,
+    //   name: 'staging-devnet-bp-0',
+    //   url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
     // },
+    // {
+    //   name: 'staging-devnet-bp-1',
+    //   url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
+    // },
+    // {
+    //   name: 'staging-devnet-bp-2',
+    //   url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
+    // },
+    // {
+    //   name: 'staging-devnet-bp-3',
+    //   url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
+    // },
+    {
+      name: 'Web Node 1',
+      isWebNode: true,
+    },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',

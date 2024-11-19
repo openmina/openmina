@@ -102,22 +102,45 @@
     gap: 4px;
     margin-left: 4px;
   }
+
+  @media (max-width: 767px) {
+    width: 100%;
+    &.h-sm,
+    .h-sm {
+      height: 24px !important;
+    }
+  }
 }
 
 .node-status {
-  &.can-add-nodes {
-    .chip,
-    .chip::before {
-      border-bottom-right-radius: 0 !important;
-      border-top-right-radius: 0 !important;
+
+  @media (min-width: 768px) {
+    &.can-add-nodes {
+      .chip,
+      .chip::before {
+        border-bottom-right-radius: 0 !important;
+        border-top-right-radius: 0 !important;
+      }
+    }
+
+    .chip {
+      &,
+      &::before {
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+      }
     }
   }
-
-  .chip {
+  @media (max-width: 767px) {
+    font-size: 12px;
     &,
-    &::before {
-      border-top-right-radius: 0 !important;
-      border-bottom-right-radius: 0 !important;
+    .shine-parent,
+    .chip {
+      width: 100%;
+      margin: 0 !important;
+    }
+    .chip {
+      justify-content: center;
     }
   }
 

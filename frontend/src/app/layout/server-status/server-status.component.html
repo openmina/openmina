@@ -1,29 +1,26 @@
 <div class="wrapper fx-row-vert-cent"
      *ngIf="details"
      [ngClass]="switchForbidden ? AppNodeStatus.PENDING : details.status">
-  <ng-container *ngIf="!switchForbidden && !hideNodeStats">
+  <ng-container *ngIf="!switchForbidden && !hideNodeStats && !isMobile">
     <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
          #mempoolAnchor
          (mouseenter)="openTooltipDropdown(mempoolAnchor, mempool)"
          (mouseleave)="detachTooltipOverlay()">
       <span class="mina-icon icon-300 f-20">blur_circular</span>
-      <ng-container *ngIf="!isMobile">
-        <div>{{ details.transactions }} <span>Txs</span></div>
-        <div>{{ details.snarks }} <span>SNARKs</span></div>
-      </ng-container>
+      <div>{{ details.transactions }} <span>Txs</span></div>
+      <div>{{ details.snarks }} <span>SNARKs</span></div>
     </div>
     <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
          #peersAnchor
          (mouseenter)="openTooltipDropdown(peersAnchor, peers)"
          (mouseleave)="detachTooltipOverlay()">
       <span class="mina-icon icon-300 f-20">language</span>
-      @if (!isMobile) {
-        <div>{{ details.peers }} <span>Peers</span></div>
-        <div *ngIf="isOnline">{{ details.download }} / {{ details.upload }} <span>MBps</span></div>
-      }
+      <div>{{ details.peers }} <span>Peers</span></div>
+      <div *ngIf="isOnline">{{ details.download }} / {{ details.upload }} <span>MBps</span></div>
     </div>
   </ng-container>
   <div class="node-status fx-row-vert-cent bg-surface h-sm p-relative z-1 mr-5"
+       (click)="isMobile ? openNodePicker($event) : null"
        [class.can-add-nodes]="switchForbidden">
     <ng-container *ngIf="!switchForbidden && !hideNodeStats">
       <div class="shine-parent overflow-hidden p-absolute z-0 border-rad-6">
@@ -32,33 +29,35 @@
       </div>
       <div class="chip p-relative z-1 h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
            #blockAnchor
-           (mouseenter)="openTooltipDropdown(blockAnchor, block)"
+           (mouseenter)="!isMobile ? openTooltipDropdown(blockAnchor, block) : null"
            (mouseleave)="detachTooltipOverlay()">
-        <span class="mina-icon icon-300 f-20">dns</span>
-        <ng-container *ngIf="!isMobile">
-          <div>{{ details.status }}</div>
-          <span><span *ngIf="details.blockHeight">#</span>{{ details.blockHeight }}</span>
-          <span>{{ blockTimeAgo ? blockTimeAgo + ' ago' : '' }}</span>
-        </ng-container>
+        @if (!isMobile) {
+          <span class="mina-icon icon-300 f-20">dns</span>
+        }
+        <div>{{ details.status }}</div>
+        <span><span *ngIf="details.blockHeight">#</span>{{ details.blockHeight }}</span>
+        <span>{{ blockTimeAgo ? blockTimeAgo + ' ago' : '' }}</span>
       </div>
     </ng-container>
-    <div class="background-wrap p-relative fx-row-vert-cent h-100 pointer"
-         [class.hide-stats]="hideNodeStats"
-         [class.switch-forbidden]="switchForbidden"
-         (click)="openNodePicker($event)"
-         [globalTooltip]="false"
-         [tooltip]="'This page shows information about all your configured nodes.'"
-         [tooltipDisabled]="!switchForbidden">
-      <div class="node-switcher h-100 fx-row-vert-cent pl-5 pr-8"
-           [class.pl-8]="switchForbidden"
-           [class.border-rad-4]="switchForbidden"
-           #overlayOpener>
-        <ng-container *ngIf="!isMobile">
+    @if (!isMobile) {
+      <div class="background-wrap p-relative fx-row-vert-cent h-100 pointer"
+           [class.hide-stats]="hideNodeStats"
+           [class.switch-forbidden]="switchForbidden"
+           (click)="openNodePicker($event)"
+           [globalTooltip]="false"
+           [tooltip]="'This page shows information about all your configured nodes.'"
+           [tooltipDisabled]="!switchForbidden">
+        <div class="node-switcher h-100 fx-row-vert-cent pl-5 pr-8"
+             [class.pl-8]="switchForbidden"
+             [class.border-rad-4]="switchForbidden"
+             #overlayOpener>
           <span class="strong-text truncate">{{ !switchForbidden ? activeNode?.name : 'All Nodes' }}</span>
-        </ng-container>
-        <span class="mina-icon icon-300" *ngIf="!switchForbidden">arrow_drop_down</span>
+          @if (!switchForbidden && (canAddNodes || nodes.length > 1)) {
+            <span class="mina-icon icon-300">arrow_drop_down</span>
+          }
+        </div>
       </div>
-    </div>
+    }
   </div>
 </div>
 

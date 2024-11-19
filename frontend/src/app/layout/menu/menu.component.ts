@@ -19,13 +19,13 @@ import { filter, map, tap } from 'rxjs';
 import { CONFIG, getAvailableFeatures } from '@shared/constants/config';
 import { MinaNetwork } from '@shared/types/core/mina/mina.type';
 
-interface MenuItem {
+export interface MenuItem {
   name: string;
   icon: string;
   tooltip?: string;
 }
 
-const MENU_ITEMS: MenuItem[] = [
+export const MENU_ITEMS: MenuItem[] = [
   { name: 'Dashboard', icon: 'dashboard' },
   { name: 'Block Production', icon: 'library_add' },
   { name: 'Nodes', icon: 'margin' },

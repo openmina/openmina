@@ -103,7 +103,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .menu {
     .menu-toggle {
       height: 56px !important;
@@ -148,7 +148,7 @@
   transform: translate(0) rotate(0);
   animation: rotWithOpc 0.3s linear;
 
-  @media (min-width: 769px) {
+  @media (min-width: 768px) {
     left: 42px;
     &.collapsed {
       transform: translate(-75px, -76px) rotate(-90deg);
