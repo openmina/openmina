@@ -8,7 +8,7 @@ use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandV
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
-use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+use crate::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
 use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;

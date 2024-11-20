@@ -35,6 +35,7 @@ pub mod consensus;
 pub mod daemon_json;
 pub mod event_source;
 pub mod external_snark_worker;
+pub mod external_snark_worker_effectful;
 pub mod ledger;
 pub mod logger;
 pub mod p2p;

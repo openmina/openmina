@@ -22,6 +22,7 @@ use crate::block_producer_effectful::BlockProducerEffectfulAction;
 use crate::consensus::ConsensusAction;
 use crate::event_source::EventSourceAction;
 use crate::external_snark_worker::ExternalSnarkWorkerAction;
+use crate::external_snark_worker_effectful::ExternalSnarkWorkerEffectfulAction;
 use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::ledger::LedgerAction;
@@ -185,6 +186,10 @@ pub enum ActionKind {
     ExternalSnarkWorkerWorkError,
     ExternalSnarkWorkerWorkResult,
     ExternalSnarkWorkerWorkTimeout,
+    ExternalSnarkWorkerEffectfulCancelWork,
+    ExternalSnarkWorkerEffectfulKill,
+    ExternalSnarkWorkerEffectfulStart,
+    ExternalSnarkWorkerEffectfulSubmitWork,
     LedgerReadFindTodos,
     LedgerReadInit,
     LedgerReadPending,
@@ -706,7 +711,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 591;
+    pub const COUNT: u16 = 595;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -732,6 +737,7 @@ impl ActionKindGet for Action {
             Self::TransactionPool(a) => a.kind(),
             Self::TransactionPoolEffect(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
+            Self::ExternalSnarkWorkerEffects(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::BlockProducerEffectful(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -947,6 +953,17 @@ impl ActionKindGet for ExternalSnarkWorkerAction {
             Self::WorkCancelled => ActionKind::ExternalSnarkWorkerWorkCancelled,
             Self::PruneWork => ActionKind::ExternalSnarkWorkerPruneWork,
             Self::Error { .. } => ActionKind::ExternalSnarkWorkerError,
+        }
+    }
+}
+
+impl ActionKindGet for ExternalSnarkWorkerEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Start { .. } => ActionKind::ExternalSnarkWorkerEffectfulStart,
+            Self::Kill => ActionKind::ExternalSnarkWorkerEffectfulKill,
+            Self::SubmitWork { .. } => ActionKind::ExternalSnarkWorkerEffectfulSubmitWork,
+            Self::CancelWork => ActionKind::ExternalSnarkWorkerEffectfulCancelWork,
         }
     }
 }

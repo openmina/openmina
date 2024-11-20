@@ -1,7 +1,7 @@
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use serde::{Deserialize, Serialize};
 
-use super::{
+use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkResult, SnarkWorkSpec,
 };
 

@@ -21,7 +21,7 @@ use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
 use node::core::snark::{Snark, SnarkJobId};
-use node::external_snark_worker::ExternalSnarkWorkerEvent;
+use node::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
@@ -40,7 +40,8 @@ use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
-    external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
+    external_snark_worker::SnarkWorkSpec,
+    external_snark_worker_effectful::ExternalSnarkWorkerService,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState},
