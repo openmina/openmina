@@ -47,9 +47,7 @@ impl P2pNetworkSchedulerEffectfulAction {
                 });
             }
             P2pNetworkSchedulerEffectfulAction::IncomingDataIsReady { addr, limit } => {
-                store
-                    .service()
-                    .send_mio_cmd(MioCmd::Recv(addr, vec![0; limit].into_boxed_slice()));
+                store.service().send_mio_cmd(MioCmd::Recv(addr, limit));
             }
             P2pNetworkSchedulerEffectfulAction::NoiseSelectDone { addr, incoming } => {
                 let ephemeral_sk = Sk::from_random(store.service().ephemeral_sk());
