@@ -9,13 +9,14 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectErrorPreviewErrors } from '@error-preview/error-preview.state';
 import { MinaError } from '@shared/types/error-preview/mina-error.type';
 import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
+import { Routes } from '@shared/enums/routes.enum';
 
 @Component({
   selector: 'mina-toolbar',
   templateUrl: './toolbar.component.html',
   styleUrls: ['./toolbar.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex-row align-center border-bottom' },
+  host: { class: 'flex-row align-center' },
 })
 export class ToolbarComponent extends StoreDispatcher implements OnInit {
 
@@ -23,12 +24,14 @@ export class ToolbarComponent extends StoreDispatcher implements OnInit {
   isMobile: boolean;
   errors: MinaError[] = [];
   haveNextBP: boolean;
+  isAllNodesPage: boolean;
 
   @ViewChild('loadingRef') private loadingRef: ElementRef<HTMLDivElement>;
 
   constructor(private tooltipService: TooltipService) { super(); }
 
   ngOnInit(): void {
+    this.isAllNodesPage = location.pathname.includes(Routes.NODES + '/' + Routes.OVERVIEW);
     this.listenToRouterChange();
     this.listenToMenuChange();
     this.listenToLoading();

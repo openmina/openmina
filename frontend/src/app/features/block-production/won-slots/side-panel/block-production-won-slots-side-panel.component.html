@@ -1,12 +1,18 @@
-<div class="h-xl fx-row-vert-cent flex-between pl-12 pr-12 f-600 p-relative">
-  <span class="secondary">{{ title }}</span>
+<div class="h-lg top fx-row-vert-cent flex-between pr-12 f-600 p-relative"
+     [class.pl-12]="!isMobile">
+  <div class="fx-row-vert-cent">
+    @if (isMobile) {
+      <div class="fx-row-vert-cent p-8" (click)="closeSidePanel()">
+        <div class="mr-8 bg-container border-rad-6 fx-row-full-cent">
+          <span class="mina-icon pointer tertiary primary-hover f-18">arrow_back</span>
+        </div>
+      </div>
+    }
+    <span class="secondary" [ngClass]="title">{{ title }}</span>
+  </div>
   <div class="fx-row-vert-cent">
     @if (percentage !== null && percentage !== undefined) {
       <div class="percentage success-primary">{{ percentage }}%</div>
-    }
-    @if (isMobile) {
-      <span class="mina-icon pointer tertiary primary-hover f-18"
-            (click)="closeSidePanel()">close</span>
     }
   </div>
   <div *ngIf="percentage > 0" [style.width.%]="percentage"
@@ -15,7 +21,7 @@
     <div class="progress p-absolute w-100"></div>
   </div>
 </div>
-<div class="h-minus-xl pb-10 flex-column overflow-auto">
+<div class="h-minus-lg pb-10 flex-column overflow-auto">
   <div class="flex-column pl-12 pr-12 border-bottom">
     <div class="fx-row-vert-cent flex-between h-lg">
       <span class="tertiary">Global slot</span>

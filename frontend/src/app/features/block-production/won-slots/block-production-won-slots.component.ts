@@ -16,6 +16,7 @@ import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/bl
 export class BlockProductionWonSlotsComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
   showSidePanel: boolean = isDesktop();
+  isDesktop: boolean = isDesktop();
 
   constructor(protected el: ElementRef) { super(); }
 

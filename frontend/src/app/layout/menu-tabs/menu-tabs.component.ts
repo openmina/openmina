@@ -1,9 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { getMergedRoute, HorizontalMenuComponent, ManualDetection, MergedRoute, removeParamsFromURL } from '@openmina/shared';
+import { getMergedRoute, HorizontalMenuComponent, MergedRoute, removeParamsFromURL } from '@openmina/shared';
 import { getAvailableFeatures } from '@shared/constants/config';
 import { MENU_ITEMS, MenuItem } from '@app/layout/menu/menu.component';
-import { Store } from '@ngrx/store';
-import { MinaState } from '@app/app.setup';
 import { filter, map, tap } from 'rxjs';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';

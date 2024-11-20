@@ -12,7 +12,8 @@
       <div class="font-16 tertiary f-300"
            [class.aware-primary]="hasWarn && !hasError"
            [class.warn-primary]="hasError"
-           [@messageChange]="loadingMessage">{{ loadingMessage || downloadingMessage }}</div>
+           [@messageChange]="loadingMessage">{{ loadingMessage || downloadingMessage }}
+      </div>
     </div>
 
     <div #progress class="progress w-100 fx-row-full-cent"></div>
@@ -35,21 +36,6 @@
     </div>
   </div>
 
-<!--  @if (!loading[loading.length - 1].loaded && errors.length) {-->
-<!--    <div class="errors flex-column w-100 pl-10 pr-10 mt-10">-->
-<!--      <div class="flex-column w-100 bg-surface p-12 border-rad-6">-->
-<!--        <div class="w-100 font-16 flex-row flex-column-md flex-between align-center flex-start-md"-->
-<!--             [ngClass]="errors.length ? 'warn-primary' : 'aware-primary'">-->
-<!--          <div>It appears there are some errors.</div>-->
-<!--        </div>-->
-<!--        <div class="flex-column border-rad-8 warn-secondary monospace break-word">-->
-<!--          @for (error of errors; track $index) {-->
-<!--            <div class="lh-sm">{{ error }}</div>-->
-<!--          }-->
-<!--        </div>-->
-<!--      </div>-->
-<!--    </div>-->
-<!--  }-->
 </div>
 <div class="footer fx-row-vert-cent flex-between w-100 pl-10 pr-10">
   <div class="fx-row-vert-cent mr-10">

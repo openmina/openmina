@@ -7,7 +7,7 @@ import {
   BlockProductionWonSlotTimes,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { getTimeDiff } from '@shared/helpers/date.helper';
-import { any, hasValue, isMobile, noMillisFormat, ONE_THOUSAND, safelyExecuteInBrowser, SecDurationConfig, toReadableDate } from '@openmina/shared';
+import { any, hasValue, isDesktop, isMobile, noMillisFormat, ONE_THOUSAND, safelyExecuteInBrowser, SecDurationConfig, toReadableDate } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
@@ -20,6 +20,7 @@ import { Routes } from '@shared/enums/routes.enum';
   templateUrl: './block-production-won-slots-side-panel.component.html',
   styleUrls: ['./block-production-won-slots-side-panel.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'flex-column h-100' },
 })
 export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
@@ -194,4 +195,5 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
     super.ngOnDestroy();
     clearInterval(this.timer);
   }
+
 }

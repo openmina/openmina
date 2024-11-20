@@ -3,7 +3,6 @@ import { DashboardPeersStats } from '@shared/types/dashboard/dashboard-peers-sta
 import { selectDashboardPeersStats } from '@dashboard/dashboard.state';
 import { skip } from 'rxjs';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { NodesOverviewLedgerStepState } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 
 @Component({
   selector: 'mina-dashboard-network',

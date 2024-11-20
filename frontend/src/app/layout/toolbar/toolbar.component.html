@@ -1,12 +1,12 @@
-<div class="toolbar h-100 flex-row flex-stretch align-stretch w-100 p-relative"
-     [class.pl-12]="!isMobile">
+<div class="toolbar bg-base h-100 flex-row flex-stretch align-stretch w-100 p-relative flex-column-reverse-sm"
+     [ngClass]="isMobile ? 'pl-8 pr-8 pt-8' : ''">
   <div class="flex-row align-center flex-grow overflow-hidden">
     <!--    <button *ngIf="isMobile" (click)="toggleMenu()"-->
     <!--            class="mobile-toggle btn-transparent h-xl flex-row align-center flex-center">-->
     <!--      <span class="mina-icon f-22 icon-200 primary">menu</span>-->
     <!--    </button>-->
+    <span class="title f-600 f-big shrink-0 text-capitalize pr-12">{{ title }}</span>
     @if (!isMobile) {
-      <span class="f-600 f-big shrink-0 text-capitalize pr-12">{{ title }}</span>
       <mina-submenu-tabs class="pl-12 h-xl overflow-hidden"></mina-submenu-tabs>
     }
   </div>
@@ -14,9 +14,9 @@
     @if (!isMobile || (isMobile && errors.length)) {
       <mina-error-preview></mina-error-preview>
     }
-    <div class="server-pill flex-row flex-end align-center flex-grow" [class.bootstrapping]="!haveNextBP">
+    <div class="server-pill flex-row flex-end align-center flex-grow" [class.bootstrapping]="!haveNextBP || isAllNodesPage">
       <mina-server-status></mina-server-status>
-      @if (haveNextBP) {
+      @if (haveNextBP && !isAllNodesPage) {
         <mina-block-production-pill></mina-block-production-pill>
       }
     </div>

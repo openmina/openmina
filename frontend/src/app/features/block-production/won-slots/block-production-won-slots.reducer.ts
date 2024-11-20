@@ -59,8 +59,8 @@ export const blockProductionWonSlotsReducer = createReducer(
   on(BlockProductionWonSlotsActions.toggleSidePanel, state => ({
     ...state,
     openSidePanel: !state.openSidePanel,
-    activeSlot: !state.openSidePanel ? state.activeSlot : undefined,
-    activeSlotRoute: !state.openSidePanel ? state.activeSlotRoute : undefined,
+    activeSlot: state.openSidePanel ? undefined : state.activeSlot,
+    activeSlotRoute: state.openSidePanel ? undefined : state.activeSlotRoute,
   })),
   on(BlockProductionWonSlotsActions.close, () => initialState),
 );

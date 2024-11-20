@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { Effect, isDesktop } from '@openmina/shared';
+import { Effect, isDesktop, isMobile } from '@openmina/shared';
 import { EMPTY, map, switchMap } from 'rxjs';
 import { catchErrorAndRepeat2 } from '@shared/constants/store-functions';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
@@ -9,13 +9,8 @@ import { Store } from '@ngrx/store';
 import { BaseEffect } from '@shared/base-classes/mina-rust-base.effect';
 import { BlockProductionModule } from '@block-production/block-production.module';
 import { BlockProductionWonSlotsService } from '@block-production/won-slots/block-production-won-slots.service';
-import {
-  BLOCK_PRODUCTION_WON_SLOTS_KEY,
-  BlockProductionWonSlotsActions,
-} from '@block-production/won-slots/block-production-won-slots.actions';
-import {
-  BlockProductionWonSlotsStatus,
-} from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import { BLOCK_PRODUCTION_WON_SLOTS_KEY, BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
+import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { fromPromise } from 'rxjs/internal/observable/innerFrom';
@@ -51,11 +46,15 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
               const bpState = state.blockProduction[BLOCK_PRODUCTION_WON_SLOTS_KEY];
               const activeSlotRoute = bpState.activeSlotRoute;
               let newActiveSlot = slots.find(s => s.globalSlot.toString() === activeSlotRoute);
-              if (!activeSlotRoute || (activeSlotRoute && !newActiveSlot)) {
+              if (
+                (isDesktop() && !activeSlotRoute)
+                || (activeSlotRoute && !newActiveSlot)
+                || (isMobile() && !activeSlotRoute && bpState.slots.length === 0)
+              ) {
                 newActiveSlot = slots.find(s => s.active)
                   ?? slots.find(s => s.status === BlockProductionWonSlotsStatus.Committed)
                   ?? slots.find(s => s.status === BlockProductionWonSlotsStatus.Scheduled)
-                  ?? null;
+                  ?? slots.find(s => !s.status);
               }
               const routes: string[] = [Routes.BLOCK_PRODUCTION, Routes.WON_SLOTS];
               if (

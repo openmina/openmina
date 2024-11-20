@@ -1,12 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  TemplateRef,
-  ViewChild,
-  ViewContainerRef,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, TemplateRef, ViewChild, ViewContainerRef } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectDashboardNodesAndRpcStats } from '@dashboard/dashboard.state';
 import {
@@ -15,7 +7,6 @@ import {
   NodesOverviewLedgerStepState,
   NodesOverviewRootStagedLedgerStep,
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
-import { filter } from 'rxjs';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { ONE_MILLION, SecDurationConfig } from '@openmina/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';

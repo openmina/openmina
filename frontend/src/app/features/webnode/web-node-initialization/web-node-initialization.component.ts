@@ -5,7 +5,7 @@ import { WebNodeService } from '@core/services/web-node.service';
 import { any, GlobalErrorHandlerService, safelyExecuteInBrowser } from '@openmina/shared';
 import { NgClass, NgForOf, NgIf, NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
-import { getFirstFeature } from '@shared/constants/config';
+import { CONFIG, getFirstFeature } from '@shared/constants/config';
 import { animate, style, transition, trigger } from '@angular/animations';
 import { filter, switchMap, timer } from 'rxjs';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
@@ -76,6 +76,10 @@ export class WebNodeInitializationComponent extends StoreDispatcher implements O
               private router: Router) { super(); }
 
   ngOnInit(): void {
+    if (!this.webNodeService.hasWebNodeConfig()) {
+      this.router.navigate([getFirstFeature()]);
+      return;
+    }
     safelyExecuteInBrowser(() => {
       window.dispatchEvent(new CustomEvent('startWebNode'));
     });
