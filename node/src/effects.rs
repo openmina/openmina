@@ -4,7 +4,7 @@ use rand::prelude::*;
 use crate::block_producer::BlockProducerAction;
 use crate::block_producer_effectful::block_producer_effects;
 use crate::event_source::event_source_effects;
-use crate::external_snark_worker::external_snark_worker_effects;
+use crate::external_snark_worker_effectful::external_snark_worker_effectful_effects;
 use crate::ledger::ledger_effects;
 use crate::ledger::read::LedgerReadAction;
 use crate::logger::logger_effects;
@@ -88,8 +88,11 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::BlockProducerEffectful(action) => {
             block_producer_effects(store, meta.with_action(action));
         }
-        Action::ExternalSnarkWorker(action) => {
-            external_snark_worker_effects(store, meta.with_action(action));
+        Action::ExternalSnarkWorker(_) => {
+            // Handled by reducer
+        }
+        Action::ExternalSnarkWorkerEffects(action) => {
+            external_snark_worker_effectful_effects(store, meta.with_action(action));
         }
         Action::Rpc(_) => {
             // Handled by reducer
