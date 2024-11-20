@@ -83,8 +83,9 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                     let Some(p2p) = state.p2p.ready() else {
                         return false;
                     };
-                    let iter = p2p.ready_rpc_peers_iter();
-                    staged.filter_available_peers(iter).next().is_some()
+                    staged.fetch_attempts().map_or(false, |attempts| {
+                        attempts.is_empty() || attempts.iter().all(|(_, s)| s.is_error())
+                    }) && p2p.ready_rpc_peers_iter().next().is_some()
                 }),
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending { .. } => state
                 .transition_frontier

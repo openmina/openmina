@@ -6,6 +6,7 @@ use node::{
 };
 
 use crate::{
+    cluster::ClusterConfig,
     node::RustNodeTestingConfig,
     scenarios::{ClusterRunner, DynEffectsData, RunCfg},
 };
@@ -16,6 +17,14 @@ use crate::{
 pub struct P2pSignaling;
 
 impl P2pSignaling {
+    pub fn default_cluster_config(
+        self,
+        mut config: ClusterConfig,
+    ) -> Result<ClusterConfig, anyhow::Error> {
+        config.set_all_rust_to_rust_use_webrtc();
+        Ok(config)
+    }
+
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const NODES_N: usize = 4;
 

@@ -132,19 +132,6 @@ impl TransitionFrontierSyncLedgerStagedState {
         }
     }
 
-    pub fn filter_available_peers<'a>(
-        &'a self,
-        iter: impl 'a + Iterator<Item = (PeerId, P2pRpcId)>,
-    ) -> impl 'a + Iterator<Item = (PeerId, P2pRpcId)> {
-        let attempts = self.fetch_attempts();
-        iter.filter(move |(peer_id, _)| {
-            attempts.map_or(false, |attempts| {
-                !attempts.contains_key(peer_id)
-                    && (attempts.is_empty() || attempts.iter().all(|(_, s)| s.is_error()))
-            })
-        })
-    }
-
     pub fn parts_fetch_rpc_id(&self, peer_id: &PeerId) -> Option<P2pRpcId> {
         self.fetch_attempts()?.get(peer_id)?.fetch_pending_rpc_id()
     }

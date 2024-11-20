@@ -42,7 +42,7 @@ impl ClusterConfig {
         })
     }
 
-    pub fn use_debugger(mut self) -> Self {
+    pub fn use_debugger(&mut self) -> &mut Self {
         self.use_debugger = true;
         self
     }
@@ -51,7 +51,7 @@ impl ClusterConfig {
         self.use_debugger
     }
 
-    pub fn set_replay(mut self) -> Self {
+    pub fn set_replay(&mut self) -> &mut Self {
         self.is_replay = true;
         self
     }
@@ -65,7 +65,7 @@ impl ClusterConfig {
         (range.0)..=(range.1)
     }
 
-    pub fn set_all_rust_to_rust_use_webrtc(mut self) -> Self {
+    pub fn set_all_rust_to_rust_use_webrtc(&mut self) -> &mut Self {
         assert!(cfg!(feature = "p2p-webrtc"));
         self.all_rust_to_rust_use_webrtc = true;
         self
@@ -84,7 +84,7 @@ impl ClusterConfig {
         self.proof_kind
     }
 
-    pub fn set_ocaml_node_executable(mut self, executable: OcamlNodeExecutable) -> Self {
+    pub fn set_ocaml_node_executable(&mut self, executable: OcamlNodeExecutable) -> &mut Self {
         self.ocaml_node_executable = Some(executable);
         self
     }

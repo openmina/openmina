@@ -126,10 +126,28 @@ fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
 }
 use mina_p2p_messages::v2::StateHash;
 
-fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: Option<StateHash>) {
+fn request_best_tip<S: Service>(store: &mut Store<S>, consensus_best_tip_hash: Option<StateHash>) {
     let p2p = p2p_ready!(store.state().p2p, "request_best_tip", system_time());
 
-    let peers = p2p.ready_rpc_peers_iter().collect::<Vec<_>>();
+    let (ready_peers, ready_peers_matching_best_tip) = p2p.ready_rpc_peers_iter().fold(
+        (Vec::new(), Vec::new()),
+        |(mut all, mut matching), (peer_id, peer)| {
+            let rpc_id = peer.channels.next_local_rpc_id();
+            if peer.best_tip.as_ref().map(|b| b.hash()) == consensus_best_tip_hash.as_ref() {
+                matching.push((*peer_id, rpc_id));
+            } else if matching.is_empty() {
+                all.push((*peer_id, rpc_id));
+            }
+            (all, matching)
+        },
+    );
+
+    let peers = if !ready_peers_matching_best_tip.is_empty() {
+        ready_peers_matching_best_tip
+    } else {
+        ready_peers
+    };
+
     if let Some((peer_id, id)) = peers.choose(&mut store.state().pseudo_rng()) {
         store.dispatch(P2pChannelsRpcAction::RequestSend {
             peer_id: *peer_id,
