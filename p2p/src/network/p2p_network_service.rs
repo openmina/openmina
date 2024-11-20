@@ -14,8 +14,8 @@ pub enum MioCmd {
     Refuse(SocketAddr),
     /// Create a new outgoing connection to the socket.
     Connect(SocketAddr),
-    /// Receive some data from the connection in the buffer.
-    Recv(ConnectionAddr, Box<[u8]>),
+    /// Receive some data from the connection.
+    Recv(ConnectionAddr, usize),
     /// Send the data in the connection.
     Send(ConnectionAddr, Box<[u8]>),
     /// Disconnect the remote peer.
