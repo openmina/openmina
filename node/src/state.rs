@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
+use openmina_core::constants::PROTOCOL_VERSION;
 use rand::prelude::*;
 
 use openmina_core::block::BlockWithHash;
@@ -73,8 +74,27 @@ pub struct State {
     applied_actions_count: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum BlockPrevalidationError {
+    GenesisNotReady,
+    ReceivedTooEarly {
+        current_global_slot: u32,
+        block_global_slot: u32,
+    },
+    ReceivedTooLate {
+        current_global_slot: u32,
+        block_global_slot: u32,
+        delta: u32,
+    },
+    InvalidGenesisProtocolState,
+    InvalidProtocolVersion,
+    MismatchedProtocolVersion,
+    ConsantsMismatch,
+    InvalidDeltaBlockChainProof,
+}
+
 // Substate accessors that will be used in reducers
-use openmina_core::{impl_substate_access, SubstateAccess};
+use openmina_core::{bug_condition, impl_substate_access, SubstateAccess};
 
 impl_substate_access!(State, SnarkState, snark);
 impl_substate_access!(State, SnarkBlockVerifyState, snark.block_verify);
@@ -356,7 +376,10 @@ impl State {
         })
     }
 
-    pub fn prevalidate_block(&self, block: &ArcBlockWithHash) -> bool {
+    pub fn prevalidate_block(
+        &self,
+        block: &ArcBlockWithHash,
+    ) -> Result<(), BlockPrevalidationError> {
         let Some((genesis, cur_global_slot)) =
             None.or_else(|| Some((self.genesis_block()?, self.cur_global_slot()?)))
         else {
@@ -364,7 +387,8 @@ impl State {
             // because we don't even know chain_id before we have genesis
             // block, so we can't be connected to any peers from which
             // we would receive a block.
-            return false;
+            bug_condition!("Tried to prevalidate a block before the genesis block was ready");
+            return Err(BlockPrevalidationError::GenesisNotReady);
         };
 
         // received_at_valid_time
@@ -375,23 +399,60 @@ impl State {
             let delta = genesis.constants().delta.as_u32();
             if cur_global_slot < block_global_slot {
                 // Too_early
-                return false;
+                return Err(BlockPrevalidationError::ReceivedTooEarly {
+                    current_global_slot: cur_global_slot,
+                    block_global_slot,
+                });
             } else if cur_global_slot.saturating_sub(block_global_slot) > delta {
                 // Too_late
-                return false;
+                return Err(BlockPrevalidationError::ReceivedTooLate {
+                    current_global_slot: cur_global_slot,
+                    block_global_slot,
+                    delta,
+                });
             }
         }
 
-        if block.constants() != genesis.constants() {
-            return false;
-        }
-
         if block.header().genesis_state_hash() != genesis.hash() {
-            return false;
+            return Err(BlockPrevalidationError::InvalidGenesisProtocolState);
         }
 
-        // TODO(binier): more checks.
-        true
+        let (protocol_versions_are_valid, protocol_version_matches_daemon) = {
+            let min_transaction_version = 1.into();
+            let v = &block.header().current_protocol_version;
+            let nv = block
+                .header()
+                .proposed_protocol_version_opt
+                .as_ref()
+                .unwrap_or(v);
+
+            // Our version values are unsigned, so there is no need to check that the
+            // other parts are not negative.
+            let valid = v.transaction >= min_transaction_version
+                && nv.transaction >= min_transaction_version;
+            let compatible = v.transaction == PROTOCOL_VERSION.transaction
+                && v.network == PROTOCOL_VERSION.network;
+
+            (valid, compatible)
+        };
+
+        if !protocol_versions_are_valid {
+            return Err(BlockPrevalidationError::InvalidProtocolVersion);
+        } else if !protocol_version_matches_daemon {
+            return Err(BlockPrevalidationError::MismatchedProtocolVersion);
+        }
+
+        // NOTE: currently these cannot change between blocks, but that
+        // may not always be true?
+        if block.constants() != genesis.constants() {
+            return Err(BlockPrevalidationError::ConsantsMismatch);
+        }
+
+        // TODO(tizoc): check for InvalidDeltaBlockChainProof
+        // https://github.com/MinaProtocol/mina/blob/d800da86a764d8d37ffb8964dd8d54d9f522b358/src/lib/mina_block/validation.ml#L369
+        // https://github.com/MinaProtocol/mina/blob/d800da86a764d8d37ffb8964dd8d54d9f522b358/src/lib/transition_chain_verifier/transition_chain_verifier.ml
+
+        Ok(())
     }
 
     pub fn should_log_node_id(&self) -> bool {

@@ -162,6 +162,8 @@ pub enum ActionKind {
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
+    ConsensusBlockPrevalidateError,
+    ConsensusBlockPrevalidateSuccess,
     ConsensusBlockReceived,
     ConsensusBlockSnarkVerifyError,
     ConsensusBlockSnarkVerifyPending,
@@ -716,7 +718,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 599;
+    pub const COUNT: u16 = 601;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -857,6 +859,8 @@ impl ActionKindGet for ConsensusAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::BlockReceived { .. } => ActionKind::ConsensusBlockReceived,
+            Self::BlockPrevalidateSuccess { .. } => ActionKind::ConsensusBlockPrevalidateSuccess,
+            Self::BlockPrevalidateError { .. } => ActionKind::ConsensusBlockPrevalidateError,
             Self::BlockChainProofUpdate { .. } => ActionKind::ConsensusBlockChainProofUpdate,
             Self::BlockSnarkVerifyPending { .. } => ActionKind::ConsensusBlockSnarkVerifyPending,
             Self::BlockSnarkVerifySuccess { .. } => ActionKind::ConsensusBlockSnarkVerifySuccess,
