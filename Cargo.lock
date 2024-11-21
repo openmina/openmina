@@ -4921,7 +4921,6 @@ dependencies = [
  "gloo-utils",
  "hex",
  "hkdf",
- "hyper 0.14.27",
  "js-sys",
  "libc",
  "libp2p-identity",
