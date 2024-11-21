@@ -35,9 +35,7 @@ pub enum RTCSignalingError {
     #[error("serialization failed: {0}")]
     Serialize(serde_json::Error),
     #[error("http request failed: {0}")]
-    Hyper(hyper::Error),
-    #[error("http request failed: {0}")]
-    Http(hyper::http::Error),
+    Http(reqwest::Error),
 }
 
 impl RTCConnection {
@@ -165,11 +163,15 @@ pub async fn webrtc_signal_send(
     url: &str,
     offer: Offer,
 ) -> std::result::Result<P2pConnectionResponse, RTCSignalingError> {
-    let client = hyper::Client::new();
-    let req = hyper::Request::post(url).body(serde_json::to_string(&offer)?.into())?;
-    let body = client.request(req).await?.into_body();
-    let bytes = hyper::body::to_bytes(body).await?;
-    Ok(serde_json::from_slice(bytes.as_ref())?)
+    let client = reqwest::Client::new();
+    let res = client
+        .post(url)
+        .body(serde_json::to_string(&offer)?)
+        .send()
+        .await?
+        .json()
+        .await?;
+    Ok(res)
 }
 
 impl Clone for RTCConnection {
