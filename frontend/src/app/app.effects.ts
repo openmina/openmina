@@ -89,7 +89,6 @@ export class AppEffects extends BaseEffect {
       filter(() => !this.requestInProgress),
       tap(() => this.requestInProgress = true),
       switchMap(() => this.appService.getActiveNodeDetails()),
-      tap(() => this.requestInProgress = false),
       map(details => AppActions.getNodeDetailsSuccess({ details })),
       catchErrorAndRepeat2(MinaErrorType.GENERIC, AppActions.getNodeDetailsSuccess({
         details: {
@@ -106,6 +105,7 @@ export class AppEffects extends BaseEffect {
           producingBlockStatus: null,
         },
       })),
+      tap(() => this.requestInProgress = false),
     ));
   }
 }

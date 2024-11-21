@@ -6,7 +6,7 @@
       *ngIf="row.active || row.status === BlockProductionWonSlotsStatus.Committed; else icon"></mina-loading-spinner>
     <ng-template #icon>
       <span *ngIf="row.status === BlockProductionWonSlotsStatus.Scheduled; else circle"
-            class="mina-icon icon-200 f-20">schedule</span>
+            class="schedule mina-icon icon-200 f-20">schedule</span>
       <ng-template #circle>
         <span class="mina-icon icon-200 f-big">circle</span>
       </ng-template>

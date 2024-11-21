@@ -2,9 +2,8 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectDashboardNodesAndPeers } from '@dashboard/dashboard.state';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { filter } from 'rxjs';
 import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
-import { lastItem, ONE_MILLION } from '@openmina/shared';
+import { isDesktop, lastItem, ONE_MILLION } from '@openmina/shared';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
 
 const PENDING = 'Pending';
@@ -28,6 +27,7 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
   bestTipBlockSyncedText: string = PENDING;
   targetBlock: number;
   syncProgress: string;
+  isDesktop: boolean = isDesktop();
 
   ngOnInit(): void {
     this.listenToNodesChanges();

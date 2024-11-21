@@ -20,6 +20,7 @@ import {
   BlockProductionWonSlotsCardsComponent,
 } from '@block-production/won-slots/cards/block-production-won-slots-cards.component';
 import { SharedModule } from '@shared/shared.module';
+import { BlockProductionWonSlotsEpochComponent } from '@block-production/won-slots/block-production-won-slots-epoch/block-production-won-slots-epoch.component';
 
 
 @NgModule({
@@ -29,6 +30,7 @@ import { SharedModule } from '@shared/shared.module';
     BlockProductionWonSlotsSidePanelComponent,
     BlockProductionWonSlotsFiltersComponent,
     BlockProductionWonSlotsCardsComponent,
+    BlockProductionWonSlotsEpochComponent,
   ],
   imports: [
     CommonModule,

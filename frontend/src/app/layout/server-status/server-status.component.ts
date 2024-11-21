@@ -62,8 +62,7 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
   protected readonly AppNodeStatus = AppNodeStatus;
   protected readonly canAddNodes = CONFIG.canAddNodes;
 
-  @Input() switchForbidden: boolean;
-
+  switchForbidden: boolean;
   isMobile: boolean;
   activeNode: MinaNode;
   details: AppNodeDetails;

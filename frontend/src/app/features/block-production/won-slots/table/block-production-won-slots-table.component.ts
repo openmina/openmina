@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, TemplateRef, ViewChild } from '@angular/core';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
-import { getMergedRoute, MergedRoute, SecDurationConfig, TableColumnList } from '@openmina/shared';
+import { getMergedRoute, isDesktop, MergedRoute, SecDurationConfig, TableColumnList } from '@openmina/shared';
 import { Router } from '@angular/router';
 import { SnarksWorkPoolToggleSidePanel } from '@snarks/work-pool/snarks-work-pool.actions';
 import { filter, take } from 'rxjs';
@@ -57,7 +57,7 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [210, 140, 90, 140, 120, 120, 120, 120, 150, 150];
+    this.table.gridTemplateColumns = isDesktop() ? [210, 140, 90, 142, 120, 120, 120, 124, 159, 150] : [150, 100, 90, 130, 100, 105, 100, 114, 139, 130];
     this.table.propertyForActiveCheck = 'globalSlot';
     this.table.thGroupsTemplate = this.thGroupsTemplate;
     this.table.sortAction = BlockProductionWonSlotsActions.sort;
@@ -96,7 +96,7 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
       this.table.activeRow = slot;
       this.table.detect();
       this.detect();
-    }, filter(Boolean));
+    });
   }
 
   private scrollToElement(): void {
@@ -107,11 +107,11 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
     this.onRowClick(this.table.rows[i]);
   }
 
-  protected override onRowClick(slot: BlockProductionWonSlotsSlot): void {
+  protected override onRowClick(slot: BlockProductionWonSlotsSlot, isRealClick?: boolean): void {
     if (!slot) {
       return;
     }
-    if (this.table.activeRow?.globalSlot !== slot?.globalSlot) {
+    if (this.table.activeRow?.globalSlot !== slot?.globalSlot || isRealClick) {
       this.dispatch2(BlockProductionWonSlotsActions.setActiveSlot({ slot }));
       this.router.navigate([Routes.BLOCK_PRODUCTION, Routes.WON_SLOTS, slot.globalSlot], { queryParamsHandling: 'merge' });
     }

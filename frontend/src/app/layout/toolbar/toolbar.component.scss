@@ -3,7 +3,7 @@
 :host {
   height: 40px;
   @media (max-width: 767px) {
-    height: 56px;
+    height: 96px;
   }
 }
 
@@ -34,7 +34,6 @@
   .server-pill {
     @media (max-width: 767px) {
       flex-direction: row-reverse;
-      margin: 0 8px;
       gap: 8px;
       mina-server-status,
       mina-block-production-pill {
@@ -73,9 +72,9 @@
 @media (max-width: 767px) {
   :host {
     border: none !important;
-  }
 
-  .toolbar {
-    background-color: $base-surface;
+    .title {
+      font-size: 24px !important;
+    }
   }
 }

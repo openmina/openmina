@@ -1,12 +1,14 @@
-<div class="flex-column w-100 bg-surface border-rad-6">
-  <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
-    <div>Ledgers</div>
-    <div class="tertiary f-400">{{ progress }}</div>
-    <div *ngIf="stakingProgress > 0" [style.width.%]="totalProgress"
-         class="progress-bar p-absolute">
-      <div class="highlight p-absolute" *ngIf="totalProgress < 100"></div>
-      <div class="progress p-absolute w-100"></div>
+<div class="flex-column w-100 border-rad-6" [ngClass]="totalProgress === 100 ? 'bg-surface' : 'border'">
+  <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 border-bottom">
+    <div class="fx-row-vert-cent">
+      @if (totalProgress === 100) {
+        <span class="mina-icon f-20 success-primary">check_circle</span>
+      } @else {
+        <mina-loading-spinner></mina-loading-spinner>
+      }
+      <div class="ml-8" [class.success-primary]="totalProgress === 100">Ledgers</div>
     </div>
+    <div class="tertiary f-400">{{ progress }}</div>
   </div>
   <div class="flex-column h-minus-xl primary pl-12 pr-12">
     <div class="group flex-column"

@@ -1,3 +1,14 @@
-mina-block-production-won-slots-cards + div {
+@media (max-width: 767px) {
+  :host ::ng-deep mina-horizontal-resizable-container aside {
+    right: unset !important;
+    transition: left .4s cubic-bezier(.22, 1, .36, 1) !important;
 
+    &.in-view {
+      left: 0;
+    }
+
+    &:not(.in-view) {
+      left: -100%;
+    }
+  }
 }

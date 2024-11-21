@@ -2,7 +2,7 @@
 
 mat-sidenav {
   width: 160px;
-  border-right: 1px solid $base-divider;
+  border-right: none;
   background-color: $base-background;
   transition: 200ms ease-out !important;
   visibility: visible !important;
@@ -55,7 +55,7 @@ mat-sidenav-content {
   color: inherit;
   background-color: $base-surface;
 
-  @media (max-width: 699px) {
+  @media (max-width: 767px) {
     background-color: $base-background;
   }
 }
@@ -63,16 +63,23 @@ mat-sidenav-content {
 .mina-content {
   $toolbar: 40px;
   height: calc(100% - #{$toolbar});
+  border-top-left-radius: 6px;
+  overflow: hidden;
+  background-color: $base-surface;
 
   &.no-toolbar {
     height: 100%;
   }
 
   &.mobile {
-    $toolbar: 56px;
+    $toolbar: 96px;
     $subMenus: 56px;
     $tabs: 56px;
     height: calc(100% - #{$toolbar} - #{$subMenus} - #{$tabs});
+    margin-left: 4px;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    border-top-right-radius: 6px;
 
     &.no-toolbar {
       height: calc(100% - #{$subMenus} - #{$tabs});

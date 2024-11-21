@@ -1,5 +1,9 @@
 @import 'openmina';
 
+$blue: #57d7ff;
+$pink: #fda2ff;
+$orange: #ff833d;
+
 .mina-icon.f-big {
   font-variation-settings: 'FILL' 1, 'wght' 400 !important;
 }
@@ -35,6 +39,21 @@
   .mina-table .row.active mina-loading-spinner span {
     border-color: $selected-primary !important;
     border-top-color: transparent !important;
+  }
+
+  .schedule,
+  .Scheduled,
+  .Producing {
+    background: linear-gradient(5deg, $blue 30%, $pink 55%, $orange 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .schedule {
+    @media (max-width: 767px) {
+      font-size: 16px !important;
+    }
   }
 }
 

@@ -11,10 +11,11 @@ $orange: #ff833d;
 
 :host {
   position: relative;
-  min-width: 170px;
-  height: 26px;
+  min-width: 178px;
+  height: 34px;
   @media (min-width: 768px) {
     margin-right: 8px;
+    height: 26px;
   }
 }
 
@@ -89,18 +90,18 @@ $orange: #ff833d;
   height: 80px;
   width: 80px;
   position: absolute;
-  animation: rotate 8s infinite linear;
+  animation: rotate 5s infinite linear;
 }
 
 @media (min-width: 768px) {
   @keyframes rotate {
     /* From left bottom to right bottom */
     0% {
-      left: -21%;
+      left: -10%;
       transform: rotate(-45deg);
     }
     5% {
-      left: -21%;
+      left: -10%;
       transform: rotate(-185deg);
     }
     /* Turn around */
@@ -115,12 +116,18 @@ $orange: #ff833d;
     55% {
       left: 65%;
     }
-    /* No turn around. -405 = -45 visually */
     62% {
-      transform: rotate(-405deg);
+      transform: rotate(-420deg);
     }
+    80% {
+      transform: rotate(-420deg);
+    }
+    95% {
+      left: 0;
+    }
+    /* No turn around. -405 = -45 visually */
     100% {
-      left: -21%;
+      left: -10%;
       transform: rotate(-405deg);
     }
   }

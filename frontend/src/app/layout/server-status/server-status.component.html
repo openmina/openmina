@@ -39,15 +39,15 @@
         <span>{{ blockTimeAgo ? blockTimeAgo + ' ago' : '' }}</span>
       </div>
     </ng-container>
-    @if (!isMobile) {
-      <div class="background-wrap p-relative fx-row-vert-cent h-100 pointer"
+    @if (!isMobile || (isMobile && switchForbidden)) {
+      <div class="background-wrap w-100 p-relative fx-row-full-cent h-100 pointer"
            [class.hide-stats]="hideNodeStats"
            [class.switch-forbidden]="switchForbidden"
            (click)="openNodePicker($event)"
            [globalTooltip]="false"
            [tooltip]="'This page shows information about all your configured nodes.'"
            [tooltipDisabled]="!switchForbidden">
-        <div class="node-switcher h-100 fx-row-vert-cent pl-5 pr-8"
+        <div class="node-switcher h-100 w-100 fx-row-full-cent pl-5 pr-8"
              [class.pl-8]="switchForbidden"
              [class.border-rad-4]="switchForbidden"
              #overlayOpener>
