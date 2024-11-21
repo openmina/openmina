@@ -10,6 +10,11 @@ impl BlockProducerVrfEvaluatorEffectfulAction {
             BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlot { vrf_input } => {
                 store.service.evaluate(vrf_input);
             }
+            BlockProducerVrfEvaluatorEffectfulAction::SlotEvaluated { epoch } => {
+                if let Some(stats) = store.service.stats() {
+                    stats.block_producer().increment_slot_evaluated(epoch);
+                }
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2;
@@ -15,6 +15,7 @@ const MAX_HISTORY: usize = 2048;
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct BlockProducerStats {
     pub(super) attempts: VecDeque<BlockProductionAttempt>,
+    pub vrf_evaluator: BTreeMap<u32, VrfEvaluatorStats>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -88,6 +89,22 @@ pub struct ProducedBlockTransactions {
     pub payments: u16,
     pub delegations: u16,
     pub zkapps: u16,
+}
+
+// TODO(adonagy): distinguish between current and next epoch
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VrfEvaluatorStats {
+    pub total_slots: u32,
+    pub evaluated_slots: u32,
+}
+
+impl Default for VrfEvaluatorStats {
+    fn default() -> Self {
+        Self {
+            total_slots: 7140, // TODO(adonagy): get this from constants
+            evaluated_slots: 0,
+        }
+    }
 }
 
 impl BlockProducerStats {
@@ -329,6 +346,17 @@ impl BlockProducerStats {
         } else {
             false
         }
+    }
+
+    pub fn increment_slot_evaluated(&mut self, epoch: u32) {
+        self.vrf_evaluator
+            .entry(epoch)
+            .and_modify(|v| v.evaluated_slots = v.evaluated_slots.checked_add(1).expect("overflow"))
+            .or_insert_with(|| {
+                let mut stats = VrfEvaluatorStats::default();
+                stats.evaluated_slots = 1;
+                stats
+            });
     }
 }
 

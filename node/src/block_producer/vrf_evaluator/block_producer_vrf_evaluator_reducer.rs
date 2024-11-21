@@ -64,6 +64,9 @@ impl BlockProducerVrfEvaluatorState {
 
                 if let Some(vrf_evaluator_state) = state.block_producer.vrf_evaluator() {
                     if let Some(pending_evaluation) = vrf_evaluator_state.current_evaluation() {
+                        dispatcher.push(BlockProducerVrfEvaluatorEffectfulAction::SlotEvaluated {
+                            epoch: pending_evaluation.epoch_number,
+                        });
                         dispatcher.push(BlockProducerVrfEvaluatorAction::CheckEpochBounds {
                             epoch_number: pending_evaluation.epoch_number,
                             latest_evaluated_global_slot: vrf_output.global_slot(),

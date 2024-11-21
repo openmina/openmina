@@ -45,7 +45,9 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
 use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
-use crate::stats::block_producer::{BlockProductionAttempt, BlockProductionAttemptWonSlot};
+use crate::stats::block_producer::{
+    BlockProductionAttempt, BlockProductionAttemptWonSlot, VrfEvaluatorStats,
+};
 use crate::stats::sync::SyncStatsSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -492,10 +494,13 @@ pub struct RpcNodeStatusSnarkPool {
 pub struct RpcBlockProducerStats {
     pub current_time: redux::Timestamp,
     pub current_global_slot: Option<u32>,
+    pub current_epoch: Option<u32>,
     pub epoch_start: Option<u32>,
     pub epoch_end: Option<u32>,
     pub attempts: Vec<BlockProductionAttempt>,
     pub future_won_slots: Vec<BlockProductionAttemptWonSlot>,
+    pub current_epoch_vrf_stats: Option<VrfEvaluatorStats>,
+    pub vrf_stats: BTreeMap<u32, VrfEvaluatorStats>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
