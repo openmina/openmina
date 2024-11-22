@@ -13,6 +13,7 @@ use ::node::account::AccountSecretKey;
 use ::node::core::thread;
 use ::node::snark::{BlockVerifier, TransactionVerifier};
 use anyhow::Context;
+use gloo_utils::format::JsValueSerdeExt;
 use ledger::proofs::provers::BlockProver;
 use openmina_node_common::rpc::RpcSender;
 use wasm_bindgen::prelude::*;
@@ -29,6 +30,11 @@ fn main() {
 
         init_rayon().await.unwrap();
     });
+}
+
+#[wasm_bindgen]
+pub fn build_env() -> JsValue {
+    JsValue::from_serde(&::node::BuildEnv::get()).unwrap_or_default()
 }
 
 #[wasm_bindgen]

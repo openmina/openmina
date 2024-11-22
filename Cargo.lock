@@ -4785,6 +4785,7 @@ dependencies = [
  "bytes",
  "console_error_panic_hook",
  "derive_more",
+ "gloo-utils",
  "jsonpath-rust",
  "libp2p-identity",
  "mina-p2p-messages",
