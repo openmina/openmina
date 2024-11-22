@@ -11,6 +11,7 @@ pub mod runner;
 use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
@@ -21,6 +22,7 @@ use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::consensus::ConsensusConstants;
 use node::core::constants::constraint_constants;
+use node::core::invariants::InvariantsState;
 use node::core::log::system_time;
 use node::core::requests::RpcId;
 use node::core::{thread, warn};
@@ -134,6 +136,7 @@ pub struct Cluster {
     work_verifier_index: TransactionVerifier,
 
     debugger: Option<Debugger>,
+    invariants_state: Arc<StdMutex<InvariantsState>>,
 }
 
 #[derive(Serialize)]
@@ -174,6 +177,7 @@ impl Cluster {
             work_verifier_index: TransactionVerifier::make(),
 
             debugger,
+            invariants_state: Arc::new(StdMutex::new(Default::default())),
         }
     }
 
@@ -342,7 +346,9 @@ impl Cluster {
             })
             .unwrap();
 
-        let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
+        let invariants_state = self.invariants_state.clone();
+        let mut service =
+            NodeTestingService::new(real_service, node_id, invariants_state, shutdown_rx);
 
         service.set_proof_kind(self.config.proof_kind());
         if self.config.all_rust_to_rust_use_webrtc() {
@@ -365,6 +371,9 @@ impl Cluster {
             for (invariant, res) in Invariants::check_all(store, &action) {
                 // TODO(binier): record instead of panicing.
                 match res {
+                    InvariantResult::Ignored(reason) => {
+                        unreachable!("No invariant should be ignored! ignore reason: {reason:?}");
+                    }
                     InvariantResult::Violation(violation) => {
                         panic!(
                             "Invariant({}) violated! violation: {violation}",

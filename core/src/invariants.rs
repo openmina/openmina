@@ -1,7 +1,22 @@
 use std::any::Any;
 
 pub trait InvariantService: redux::Service {
+    type ClusterInvariantsState<'a>: 'a + std::ops::DerefMut<Target = InvariantsState>
+    where
+        Self: 'a;
+
+    fn node_id(&self) -> usize {
+        0
+    }
+
     fn invariants_state(&mut self) -> &mut InvariantsState;
+
+    fn cluster_invariants_state<'a>(&'a mut self) -> Option<Self::ClusterInvariantsState<'a>>
+    where
+        Self: 'a,
+    {
+        None
+    }
 }
 
 #[derive(Default)]

@@ -1,5 +1,5 @@
 mod invariant_result;
-pub use invariant_result::InvariantResult;
+pub use invariant_result::{InvariantIgnoreReason, InvariantResult};
 
 pub mod no_recursion;
 use no_recursion::*;
@@ -11,7 +11,7 @@ pub use node::core::invariants::{InvariantService, InvariantsState};
 
 use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 
-use node::{ActionKind, ActionWithMeta, Store};
+use node::{ActionKind, ActionWithMeta, Service, Store};
 
 pub trait Invariant {
     /// Internal state of the invariant.
@@ -20,6 +20,11 @@ pub trait Invariant {
     /// this is the place.
     type InternalState: 'static + Send + Default;
 
+    /// Whether or not invariant is cluster-wide, or for just local node.
+    fn is_global(&self) -> bool {
+        false
+    }
+
     /// Invariant triggers define a list actions, which should cause
     /// `Invariant::check` to be called.
     ///
@@ -27,11 +32,11 @@ pub trait Invariant {
     fn triggers(&self) -> &[ActionKind];
 
     /// Checks the state for invariant violation.
-    fn check<S: redux::Service>(
+    fn check<S: Service>(
         self,
         internal_state: &mut Self::InternalState,
         store: &Store<S>,
-        _action: &ActionWithMeta,
+        action: &ActionWithMeta,
     ) -> InvariantResult;
 }
 
@@ -48,21 +53,49 @@ macro_rules! define_invariants_enum {
                 InvariantsDiscriminants::from(self) as usize
             }
 
+            pub fn is_global(&self) -> bool {
+                match self {
+                    $(Self::$invariant(invariant) => invariant.is_global(),)*
+                }
+            }
+
             pub fn triggers(&self) -> &[ActionKind] {
                 match self {
                     $(Self::$invariant(invariant) => invariant.triggers(),)*
                 }
             }
 
-            pub fn check<S: InvariantService>(self, store: &mut Store<S>, action: &ActionWithMeta) -> InvariantResult {
-                let mut invariants_state = store.service.invariants_state().take();
+            pub fn check<S: Service + InvariantService>(
+                self,
+                store: &mut Store<S>,
+                action: &ActionWithMeta,
+            ) -> InvariantResult {
+                let mut invariants_state = if self.is_global() {
+                    match store.service.cluster_invariants_state() {
+                        Some(mut v) => v.take(),
+                        None => return InvariantResult::Ignored(InvariantIgnoreReason::GlobalInvariantNotInTestingCluster),
+                    }
+                } else {
+                    store.service.invariants_state().take()
+                };
+
                 let res = match self {
                     $(Self::$invariant(invariant) => {
                         let invariant_state = invariants_state.get(self.index());
                         invariant.check(invariant_state, store, action)
                     })*
                 };
-                *store.service.invariants_state() = invariants_state;
+
+                if self.is_global() {
+                    match store.service.cluster_invariants_state() {
+                        Some(mut s) =>
+                        *s = invariants_state,
+                        None => unreachable!("function should have returned above"),
+                    }
+                } else {
+                    *store.service.invariants_state() = invariants_state;
+                };
+
                 res
             }
         }
@@ -94,7 +127,7 @@ impl Invariants {
         <Self as strum::IntoEnumIterator>::iter()
     }
 
-    pub fn check_all<'a, S: InvariantService>(
+    pub fn check_all<'a, S: Service + InvariantService>(
         store: &'a mut Store<S>,
         action: &'a ActionWithMeta,
     ) -> impl 'a + Iterator<Item = (Self, InvariantResult)> {
