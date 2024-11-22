@@ -2010,14 +2010,14 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         .collect();
 
     let challenges_digest = {
-        let mut sponge = poseidon::ArithmeticSponge::<Fp>::new();
+        let mut sponge = poseidon::ArithmeticSponge::<Fp>::default();
         for old_bulletproof_challenges in &old_bulletproof_challenges {
             sponge.absorb(old_bulletproof_challenges);
         }
         sponge.squeeze()
     };
 
-    let mut sponge = poseidon::FqSponge::new();
+    let mut sponge = poseidon::FqSponge::default();
     sponge.absorb_fq(&[four_u64_to_field(
         &proof_state.sponge_digest_before_evaluations,
     )?]);

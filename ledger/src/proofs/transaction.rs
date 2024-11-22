@@ -2594,7 +2594,7 @@ pub mod transaction_snark {
             use crate::param_to_field;
             use ::poseidon::ArithmeticSponge;
 
-            let mut sponge = ArithmeticSponge::<Fp>::new();
+            let mut sponge = ArithmeticSponge::<Fp>::default();
             sponge.absorb(&[param_to_field(param)]);
             sponge.squeeze();
             sponge.state
@@ -2613,7 +2613,7 @@ pub mod transaction_snark {
             use crate::param_to_field;
             use ::poseidon::ArithmeticSponge;
 
-            let mut sponge = ArithmeticSponge::<Fp>::new();
+            let mut sponge = ArithmeticSponge::<Fp>::default();
             sponge.absorb(&[param_to_field(param)]);
             sponge.squeeze();
             sponge.state

@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing, clippy::arithmetic_side_effects)]
+
 use std::marker::PhantomData;
 
 use ark_ff::{BigInteger256, Field};
@@ -49,10 +51,7 @@ impl SpongeConstants for PlonkSpongeConstantsLegacy {
     const PERM_INITIAL_ARK: bool = true;
 }
 
-fn apply_mds_matrix<F: Field, SC: SpongeConstants>(
-    params: &ArithmeticSpongeParams<F>,
-    state: &[F],
-) -> [F; 3] {
+fn apply_mds_matrix<F: Field>(params: &ArithmeticSpongeParams<F>, state: &[F]) -> [F; 3] {
     let mut new_state = [F::zero(); 3];
 
     for (i, sub_params) in params.mds.iter().enumerate() {
@@ -72,7 +71,7 @@ pub fn full_round<F: Field, SC: SpongeConstants>(
     for state_i in state.iter_mut() {
         *state_i = sbox::<F, SC>(*state_i);
     }
-    *state = apply_mds_matrix::<F, SC>(params, state);
+    *state = apply_mds_matrix::<F>(params, state);
     for (i, x) in params.round_constants[r].iter().enumerate() {
         state[i].add_assign(x);
     }
@@ -151,13 +150,9 @@ pub struct ArithmeticSponge<F: Field, C: SpongeConstants = PlonkSpongeConstantsK
     constants: PhantomData<C>,
 }
 
-impl<F: Field, C: SpongeConstants> ArithmeticSponge<F, C> {
-    pub fn full_round(&mut self, r: usize) {
-        full_round::<F, C>(self.params, &mut self.state, r);
-    }
-
-    fn poseidon_block_cipher(&mut self) {
-        poseidon_block_cipher::<F, C>(self.params, &mut self.state);
+impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> Default for ArithmeticSponge<F, C> {
+    fn default() -> Self {
+        Self::new_with_params(F::get_params())
     }
 }
 
@@ -170,10 +165,6 @@ impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> ArithmeticSponge<F,
             params,
             constants: PhantomData,
         }
-    }
-
-    pub fn new() -> ArithmeticSponge<F, C> {
-        Self::new_with_params(F::get_params())
     }
 
     pub fn absorb(&mut self, x: &[F]) {
@@ -215,8 +206,6 @@ impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> ArithmeticSponge<F,
     }
 
     pub fn squeeze(&mut self) -> F {
-        // assert_eq!(self.state.len(), 3);
-        // elog!("NSTATE={:?}", self.state.len());
         match self.sponge_state {
             SpongeState::Squeezed(n) => {
                 if n == self.rate {
@@ -235,23 +224,28 @@ impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> ArithmeticSponge<F,
             }
         }
     }
+
+    fn poseidon_block_cipher(&mut self) {
+        poseidon_block_cipher::<F, C>(self.params, &mut self.state);
+    }
 }
 
 #[derive(Clone)]
 pub struct FqSponge<F: Field> {
     sponge: ArithmeticSponge<F>,
-    // sponge: ArithmeticSponge<F, PlonkSpongeConstantsKimchi, 55>,
     last_squeezed: Vec<u64>,
 }
 
-impl<F: Field + SpongeParamsForField<F> + Into<BigInteger256>> FqSponge<F> {
-    pub fn new() -> Self {
+impl<F: Field + SpongeParamsForField<F> + Into<BigInteger256>> Default for FqSponge<F> {
+    fn default() -> Self {
         Self {
-            sponge: ArithmeticSponge::new(),
+            sponge: ArithmeticSponge::default(),
             last_squeezed: Vec::with_capacity(8),
         }
     }
+}
 
+impl<F: Field + SpongeParamsForField<F> + Into<BigInteger256>> FqSponge<F> {
     pub fn absorb_fq(&mut self, x: &[F]) {
         self.last_squeezed.clear();
         for fe in x {
@@ -262,10 +256,9 @@ impl<F: Field + SpongeParamsForField<F> + Into<BigInteger256>> FqSponge<F> {
     pub fn squeeze_limbs<const NUM_LIMBS: usize>(&mut self) -> [u64; NUM_LIMBS] {
         const HIGH_ENTROPY_LIMBS: usize = 2;
 
-        if self.last_squeezed.len() >= NUM_LIMBS {
+        if let Some(nremains) = self.last_squeezed.len().checked_sub(NUM_LIMBS) {
             let limbs = std::array::from_fn(|i| self.last_squeezed[i]);
 
-            let nremains = self.last_squeezed.len() - NUM_LIMBS;
             self.last_squeezed.copy_within(NUM_LIMBS.., 0);
             self.last_squeezed.truncate(nremains);
 

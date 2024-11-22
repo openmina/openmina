@@ -469,14 +469,14 @@ fn param_to_field(param: &str, pad: &[u8; 32]) -> Fp {
 }
 
 pub fn hash_noinputs(param: &str) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp>::new();
+    let mut sponge = ArithmeticSponge::<Fp>::default();
 
     sponge.absorb(&[param_to_field(param, NO_INPUT_PARAMS)]);
     sponge.squeeze()
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp>::new();
+    let mut sponge = ArithmeticSponge::<Fp>::default();
 
     sponge.absorb(&[param_to_field(param, INPUT_PARAMS)]);
     sponge.squeeze();

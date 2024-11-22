@@ -212,7 +212,7 @@ fn param_to_field_noinputs(param: &str) -> Fp {
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp>::new();
+    let mut sponge = ArithmeticSponge::<Fp>::default();
 
     sponge.absorb(&[param_to_field(param)]);
     sponge.squeeze();
@@ -222,14 +222,14 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
 }
 
 pub fn hash_fields<F: Field + SpongeParamsForField<F>>(fields: &[F]) -> F {
-    let mut sponge = ArithmeticSponge::<F>::new();
+    let mut sponge = ArithmeticSponge::<F>::default();
 
     sponge.absorb(fields);
     sponge.squeeze()
 }
 
 pub fn hash_noinputs(param: &str) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp>::new();
+    let mut sponge = ArithmeticSponge::<Fp>::default();
     // ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
 
     sponge.absorb(&[param_to_field_noinputs(param)]);
