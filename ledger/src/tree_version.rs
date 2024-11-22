@@ -26,7 +26,7 @@ impl TreeVersion for V2 {
     fn hash_node(height: usize, left: Fp, right: Fp) -> Fp {
         let param = format!("MinaMklTree{height:03}");
 
-        crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
+        poseidon::hash::hash_with_kimchi(param.as_str(), &[left, right])
     }
 
     fn hash_leaf(leaf: &Self::Account) -> Fp {

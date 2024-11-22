@@ -545,7 +545,7 @@ macro_rules! impl_number {
         }
 
         impl crate::ToInputs for $name {
-            fn to_inputs(&self, inputs: &mut crate::Inputs) {
+            fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
                 inputs.$append_name(self.0);
             }
         }

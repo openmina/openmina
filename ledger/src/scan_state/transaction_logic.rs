@@ -10,19 +10,19 @@ use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransact
 use mina_signer::CompressedPubKey;
 use openmina_core::constants::ConstraintConstants;
 use openmina_macros::SerdeYojsonEnum;
+use poseidon::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
 use crate::zkapps::non_snark::{LedgerNonSnark, ZkappNonSnark};
 use crate::{
-    hash_with_kimchi, zkapps, AccountIdOrderable, BaseLedger, ControlTag, Inputs,
-    VerificationKeyWire,
-};
-use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},
     Account, AccountId, ReceiptChainHash, Timing, TokenId,
+};
+use crate::{
+    zkapps, AccountIdOrderable, AppendToInputs, BaseLedger, ControlTag, VerificationKeyWire,
 };
 
 use self::zkapp_command::AccessedOrNot;
@@ -926,7 +926,7 @@ pub mod zkapp_command {
     use rand::{seq::SliceRandom, Rng};
 
     use crate::{
-        dummy, gen_compressed, gen_keypair, hash_noinputs,
+        dummy, gen_compressed, gen_keypair,
         proofs::{
             field::{Boolean, ToBoolean},
             to_field_elements::ToFieldElements,

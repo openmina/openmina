@@ -6,6 +6,7 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 use openmina_core::constants::{constraint_constants, ForkConstants};
+use poseidon::hash::Inputs;
 
 use crate::{
     dummy,
@@ -36,7 +37,7 @@ use crate::{
     },
     staged_ledger::hash::StagedLedgerHash,
     zkapps::intefaces::{SignedAmountBranchParam, SignedAmountInterface},
-    Inputs, ToInputs,
+    ToInputs,
 };
 
 use super::{
@@ -619,7 +620,7 @@ mod vrf {
         },
         scan_state::currency::{Amount, Balance},
         sparse_ledger::SparseLedger,
-        AccountIndex, Address,
+        AccountIndex, Address, AppendToInputs,
     };
 
     use super::*;

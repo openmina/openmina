@@ -3,6 +3,7 @@ use std::{cell::Cell, fmt::Write, marker::PhantomData};
 use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use poseidon::hash::Inputs;
 
 use crate::{
     checked_equal_compressed_key, checked_equal_compressed_key_const_and,
@@ -36,7 +37,7 @@ use crate::{
     },
     sparse_ledger::SparseLedger,
     zkapps::zkapp_logic,
-    Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ReceiptChainHash,
+    Account, AccountId, AppendToInputs, AuthRequired, AuthRequiredEncoded, MyCow, ReceiptChainHash,
     ToInputs, TokenId, VerificationKey, VerificationKeyWire, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 

@@ -1,10 +1,7 @@
 use mina_hasher::Fp;
 
-use crate::{
-    hash::{hash_with_kimchi, Inputs},
-    proofs::block::ProtocolState,
-    ToInputs,
-};
+use crate::{proofs::block::ProtocolState, ToInputs};
+use poseidon::hash::{hash_with_kimchi, Inputs};
 
 pub trait MinaHash {
     fn hash(&self) -> Fp;

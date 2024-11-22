@@ -24,10 +24,10 @@ use ark_ff::{fields::arithmetic::InvalidBigInt, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use openmina_core::constants::constraint_constants;
+use poseidon::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    hash_noinputs, hash_with_kimchi,
     proofs::{
         field::{field, Boolean},
         numbers::{
@@ -38,7 +38,7 @@ use crate::{
         witness::Witness,
     },
     staged_ledger::hash::PendingCoinbaseAux,
-    Address, Inputs, MerklePath, ToInputs,
+    Address, AppendToInputs as _, MerklePath, ToInputs,
 };
 
 use self::merkle_tree::MiniMerkleTree;
@@ -480,7 +480,7 @@ impl merkle_tree::TreeHasher<Stack> for StackHasher {
     fn merge_hash(depth: usize, left: Fp, right: Fp) -> Fp {
         let param = format!("MinaCbMklTree{:03}", depth);
 
-        crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
+        poseidon::hash::hash_with_kimchi(param.as_str(), &[left, right])
     }
 
     fn empty_value() -> Stack {

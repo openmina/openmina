@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use ark_ff::{BigInteger256, Field};
 use mina_curves::pasta::{Fp, Fq};
 
+pub mod hash;
 mod params;
 
 pub use params::*;
@@ -51,7 +52,7 @@ impl SpongeConstants for PlonkSpongeConstantsLegacy {
     const PERM_INITIAL_ARK: bool = true;
 }
 
-fn apply_mds_matrix<F: Field>(params: &ArithmeticSpongeParams<F>, state: &[F]) -> [F; 3] {
+fn apply_mds_matrix<F: Field>(params: &SpongeParams<F>, state: &[F]) -> [F; 3] {
     let mut new_state = [F::zero(); 3];
 
     for (i, sub_params) in params.mds.iter().enumerate() {
@@ -64,7 +65,7 @@ fn apply_mds_matrix<F: Field>(params: &ArithmeticSpongeParams<F>, state: &[F]) -
 }
 
 pub fn full_round<F: Field, SC: SpongeConstants>(
-    params: &ArithmeticSpongeParams<F>,
+    params: &SpongeParams<F>,
     state: &mut [F; 3],
     r: usize,
 ) {
@@ -78,7 +79,7 @@ pub fn full_round<F: Field, SC: SpongeConstants>(
 }
 
 pub fn poseidon_block_cipher<F: Field, SC: SpongeConstants>(
-    params: &ArithmeticSpongeParams<F>,
+    params: &SpongeParams<F>,
     state: &mut [F; 3],
 ) {
     if SC::PERM_INITIAL_ARK {
@@ -120,45 +121,45 @@ pub enum SpongeState {
 }
 
 #[derive(Debug)]
-pub struct ArithmeticSpongeParams<F: Field> {
+pub struct SpongeParams<F: Field> {
     pub round_constants: Box<[[F; 3]]>,
     pub mds: [[F; 3]; 3],
 }
 
 pub trait SpongeParamsForField<F: Field> {
-    fn get_params() -> &'static ArithmeticSpongeParams<F>;
+    fn get_params() -> &'static SpongeParams<F>;
 }
 
 impl SpongeParamsForField<Fp> for Fp {
-    fn get_params() -> &'static ArithmeticSpongeParams<Fp> {
+    fn get_params() -> &'static SpongeParams<Fp> {
         fp::params()
     }
 }
 
 impl SpongeParamsForField<Fq> for Fq {
-    fn get_params() -> &'static ArithmeticSpongeParams<Fq> {
+    fn get_params() -> &'static SpongeParams<Fq> {
         fq::params()
     }
 }
 
 #[derive(Clone)]
-pub struct ArithmeticSponge<F: Field, C: SpongeConstants = PlonkSpongeConstantsKimchi> {
+pub struct Sponge<F: Field, C: SpongeConstants = PlonkSpongeConstantsKimchi> {
     pub sponge_state: SpongeState,
     rate: usize,
     pub state: [F; 3],
-    params: &'static ArithmeticSpongeParams<F>,
+    params: &'static SpongeParams<F>,
     constants: PhantomData<C>,
 }
 
-impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> Default for ArithmeticSponge<F, C> {
+impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> Default for Sponge<F, C> {
     fn default() -> Self {
         Self::new_with_params(F::get_params())
     }
 }
 
-impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> ArithmeticSponge<F, C> {
-    pub fn new_with_params(params: &'static ArithmeticSpongeParams<F>) -> ArithmeticSponge<F, C> {
-        ArithmeticSponge {
+impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> Sponge<F, C> {
+    pub fn new_with_params(params: &'static SpongeParams<F>) -> Sponge<F, C> {
+        Sponge {
             state: [F::zero(); 3],
             rate: C::SPONGE_RATE,
             sponge_state: SpongeState::Absorbed(0),
@@ -232,14 +233,14 @@ impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> ArithmeticSponge<F,
 
 #[derive(Clone)]
 pub struct FqSponge<F: Field> {
-    sponge: ArithmeticSponge<F>,
+    sponge: Sponge<F>,
     last_squeezed: Vec<u64>,
 }
 
 impl<F: Field + SpongeParamsForField<F> + Into<BigInteger256>> Default for FqSponge<F> {
     fn default() -> Self {
         Self {
-            sponge: ArithmeticSponge::default(),
+            sponge: Sponge::default(),
             last_squeezed: Vec::with_capacity(8),
         }
     }

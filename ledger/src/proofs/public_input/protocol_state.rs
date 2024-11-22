@@ -2,14 +2,14 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaBaseProtocolConstantsCheckedValueStableV1;
 
 use crate::{
-    hash::Inputs,
     proofs::block::{
         consensus::{CheckedConsensusState, ConsensusState},
         ProtocolStateBody,
     },
     scan_state::transaction_logic::protocol_state::{EpochData, EpochLedger},
-    ToInputs,
+    AppendToInputs as _, ToInputs,
 };
+use poseidon::hash::Inputs;
 
 impl ToInputs for crate::proofs::block::BlockchainState {
     fn to_inputs(&self, inputs: &mut Inputs) {

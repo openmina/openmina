@@ -170,7 +170,7 @@ impl SparseLedgerImpl<AccountId, Account> {
             param.clear();
             write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
 
-            current = crate::hash::hash_with_kimchi(param.as_str(), &hashes);
+            current = poseidon::hash::hash_with_kimchi(param.as_str(), &hashes);
 
             addr = addr.parent().unwrap();
         }

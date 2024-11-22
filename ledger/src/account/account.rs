@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     gen_compressed,
-    hash::{hash_noinputs, hash_with_kimchi, Inputs},
     proofs::{
         field::{Boolean, FieldWitness, ToBoolean},
         numbers::{
@@ -33,8 +32,9 @@ use crate::{
         transaction_logic::account_min_balance_at_slot,
     },
     zkapps::snark::FlaggedOption,
-    MerklePath, MyCow, ToInputs,
+    AppendToInputs as _, MerklePath, MyCow, ToInputs,
 };
+use poseidon::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use super::common::*;
 
@@ -1713,7 +1713,7 @@ fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
             param.clear();
             write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
 
-            crate::hash::hash_with_kimchi(param.as_str(), &hashes)
+            hash_with_kimchi(param.as_str(), &hashes)
         })
 }
 

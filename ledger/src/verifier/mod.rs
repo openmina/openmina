@@ -232,9 +232,10 @@ pub mod common {
 
     use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
     use mina_signer::{CompressedPubKey, PubKey, Signature};
+    use poseidon::hash::hash_with_kimchi;
 
     use crate::{
-        decompress_pk, hash_with_kimchi,
+        decompress_pk,
         scan_state::transaction_logic::{
             valid, verifiable,
             zkapp_command::{self, valid::of_verifiable, AccountUpdate},

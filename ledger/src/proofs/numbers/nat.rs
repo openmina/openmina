@@ -255,7 +255,7 @@ macro_rules! impl_nat {
         }
 
         impl<F: FieldWitness> ToInputs for $name<F> {
-            fn to_inputs(&self, inputs: &mut crate::Inputs) {
+            fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
                 self.to_inner().to_inputs(inputs)
             }
         }

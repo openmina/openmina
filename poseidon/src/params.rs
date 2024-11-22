@@ -3,13 +3,13 @@ use std::str::FromStr;
 use mina_curves::pasta::{Fp, Fq};
 use once_cell::sync::Lazy;
 
-use crate::ArithmeticSpongeParams;
+use crate::SpongeParams;
 
 pub mod fq {
     use super::*;
 
-    fn make_params() -> ArithmeticSpongeParams<Fq> {
-        ArithmeticSpongeParams {
+    fn make_params() -> SpongeParams<Fq> {
+        SpongeParams {
             mds: [
                 [
                     Fq::from_str(
@@ -829,8 +829,8 @@ pub mod fq {
         }
     }
 
-    pub fn params() -> &'static ArithmeticSpongeParams<Fq> {
-        static PARAMS: Lazy<ArithmeticSpongeParams<Fq>> = Lazy::new(make_params);
+    pub fn params() -> &'static SpongeParams<Fq> {
+        static PARAMS: Lazy<SpongeParams<Fq>> = Lazy::new(make_params);
         &PARAMS
     }
 }
@@ -838,8 +838,8 @@ pub mod fq {
 pub mod fp {
     use super::*;
 
-    fn make_params() -> ArithmeticSpongeParams<Fp> {
-        ArithmeticSpongeParams {
+    fn make_params() -> SpongeParams<Fp> {
+        SpongeParams {
             mds: [
                 [
                     Fp::from_str(
@@ -1660,8 +1660,8 @@ pub mod fp {
     }
     }
 
-    pub fn params() -> &'static ArithmeticSpongeParams<Fp> {
-        static PARAMS: Lazy<ArithmeticSpongeParams<Fp>> = Lazy::new(make_params);
+    pub fn params() -> &'static SpongeParams<Fp> {
+        static PARAMS: Lazy<SpongeParams<Fp>> = Lazy::new(make_params);
         &PARAMS
     }
 }
@@ -1669,8 +1669,8 @@ pub mod fp {
 pub mod fp_legacy {
     use super::*;
 
-    fn make_params() -> ArithmeticSpongeParams<Fp> {
-        ArithmeticSpongeParams {
+    fn make_params() -> SpongeParams<Fp> {
+        SpongeParams {
             mds: [
                 [
                     Fp::from_str(
@@ -3120,8 +3120,8 @@ pub mod fp_legacy {
         }
     }
 
-    pub fn params() -> &'static ArithmeticSpongeParams<Fp> {
-        static PARAMS: Lazy<ArithmeticSpongeParams<Fp>> = Lazy::new(make_params);
+    pub fn params() -> &'static SpongeParams<Fp> {
+        static PARAMS: Lazy<SpongeParams<Fp>> = Lazy::new(make_params);
         &PARAMS
     }
 }

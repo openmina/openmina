@@ -5,9 +5,9 @@ use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
+use poseidon::hash::hash_with_kimchi;
 
 use crate::{
-    hash_with_kimchi,
     proofs::{
         constants::{
             make_step_zkapp_data, StepMergeProof, StepZkappOptSignedOptSignedProof,

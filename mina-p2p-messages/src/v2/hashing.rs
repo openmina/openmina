@@ -1,22 +1,18 @@
 use std::{fmt, io};
 
-use ark_ff::{fields::arithmetic::InvalidBigInt, FromBytes};
+use ark_ff::fields::arithmetic::InvalidBigInt;
 use binprot::BinProtWrite;
 use binprot_derive::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
 use mina_hasher::Fp;
-use poseidon::ArithmeticSponge;
+use poseidon::hash::{hash_with_kimchi, Inputs};
 use serde::{Deserialize, Serialize};
 use sha2::{
     digest::{generic_array::GenericArray, typenum::U32},
     Digest, Sha256,
 };
 
-use crate::{
-    bigint::BigInt,
-    hash::MinaHash,
-    hash_input::{Inputs, ToInput},
-};
+use crate::{bigint::BigInt, hash::MinaHash, hash_input::FailableToInputs};
 
 use super::{
     generated, ConsensusBodyReferenceStableV1, ConsensusGlobalSlotStableV1,
@@ -447,45 +443,7 @@ impl MinaHash for MinaStateProtocolStateValueStableV2 {
     }
 }
 
-fn param_to_field_impl(param: &str, default: &[u8; 32]) -> Fp {
-    let param_bytes = param.as_bytes();
-    let len = param_bytes.len();
-
-    let mut fp = *default;
-    fp[..len].copy_from_slice(param_bytes);
-
-    Fp::read(&fp[..]).expect("fp read failed")
-}
-
-const INPUT_PARAMS: &[u8; 32] = b"********************\0\0\0\0\0\0\0\0\0\0\0\0";
-const NO_INPUT_PARAMS: &[u8; 32] = &[0; 32];
-
-fn param_to_field(param: &str, pad: &[u8; 32]) -> Fp {
-    if param.len() > 20 {
-        panic!("must be 20 byte maximum");
-    }
-
-    param_to_field_impl(param, pad)
-}
-
-pub fn hash_noinputs(param: &str) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp>::default();
-
-    sponge.absorb(&[param_to_field(param, NO_INPUT_PARAMS)]);
-    sponge.squeeze()
-}
-
-pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp>::default();
-
-    sponge.absorb(&[param_to_field(param, INPUT_PARAMS)]);
-    sponge.squeeze();
-
-    sponge.absorb(fields);
-    sponge.squeeze()
-}
-
-impl ToInput for MinaStateProtocolStateBodyValueStableV2 {
+impl FailableToInputs for MinaStateProtocolStateBodyValueStableV2 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash,
@@ -502,7 +460,7 @@ impl ToInput for MinaStateProtocolStateBodyValueStableV2 {
     }
 }
 
-impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
+impl FailableToInputs for MinaBaseProtocolConstantsCheckedValueStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseProtocolConstantsCheckedValueStableV1 {
             k,
@@ -523,7 +481,7 @@ impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
     }
 }
 
-impl ToInput for MinaStateBlockchainStateValueStableV2 {
+impl FailableToInputs for MinaStateBlockchainStateValueStableV2 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2 {
             staged_ledger_hash,
@@ -543,7 +501,7 @@ impl ToInput for MinaStateBlockchainStateValueStableV2 {
     }
 }
 
-impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+impl FailableToInputs for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             blockchain_length,
@@ -581,7 +539,7 @@ impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     }
 }
 
-impl ToInput for MinaBaseStagedLedgerHashStableV1 {
+impl FailableToInputs for MinaBaseStagedLedgerHashStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseStagedLedgerHashStableV1 {
             non_snark,
@@ -593,14 +551,14 @@ impl ToInput for MinaBaseStagedLedgerHashStableV1 {
     }
 }
 
-impl ToInput for MinaBaseStagedLedgerHashNonSnarkStableV1 {
+impl FailableToInputs for MinaBaseStagedLedgerHashNonSnarkStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         inputs.append_bytes(self.sha256().as_ref());
         Ok(())
     }
 }
 
-impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatement {
+impl FailableToInputs for MinaStateBlockchainStateValueStableV2LedgerProofStatement {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2LedgerProofStatement {
             source,
@@ -621,14 +579,14 @@ impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatement {
     }
 }
 
-impl ToInput for ConsensusBodyReferenceStableV1 {
+impl FailableToInputs for ConsensusBodyReferenceStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         inputs.append_bytes(self.as_ref());
         Ok(())
     }
 }
 
-impl ToInput for ConsensusVrfOutputTruncatedStableV1 {
+impl FailableToInputs for ConsensusVrfOutputTruncatedStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let vrf: &[u8] = self.as_ref();
         inputs.append_bytes(&vrf[..31]);
@@ -641,7 +599,7 @@ impl ToInput for ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-impl ToInput for ConsensusGlobalSlotStableV1 {
+impl FailableToInputs for ConsensusGlobalSlotStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusGlobalSlotStableV1 {
             slot_number,
@@ -653,7 +611,7 @@ impl ToInput for ConsensusGlobalSlotStableV1 {
     }
 }
 
-impl ToInput for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+impl FailableToInputs for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
             ledger,
@@ -671,7 +629,7 @@ impl ToInput for ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueSta
     }
 }
 
-impl ToInput for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+impl FailableToInputs for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
             ledger,
@@ -689,7 +647,7 @@ impl ToInput for ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStable
     }
 }
 
-impl ToInput for NonZeroCurvePointUncompressedStableV1 {
+impl FailableToInputs for NonZeroCurvePointUncompressedStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let NonZeroCurvePointUncompressedStableV1 { x, is_odd } = self;
         x.to_input(inputs)?;
@@ -698,7 +656,7 @@ impl ToInput for NonZeroCurvePointUncompressedStableV1 {
     }
 }
 
-impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
+impl FailableToInputs for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
             first_pass_ledger,
@@ -714,7 +672,7 @@ impl ToInput for MinaStateBlockchainStateValueStableV2LedgerProofStatementSource
     }
 }
 
-impl ToInput for SignedAmount {
+impl FailableToInputs for SignedAmount {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let SignedAmount { magnitude, sgn } = self;
         magnitude.to_input(inputs)?;
@@ -723,7 +681,7 @@ impl ToInput for SignedAmount {
     }
 }
 
-impl ToInput for MinaBaseFeeExcessStableV1 {
+impl FailableToInputs for MinaBaseFeeExcessStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseFeeExcessStableV1(left, right) = self;
         left.to_input(inputs)?;
@@ -732,7 +690,7 @@ impl ToInput for MinaBaseFeeExcessStableV1 {
     }
 }
 
-impl ToInput for TokenFeeExcess {
+impl FailableToInputs for TokenFeeExcess {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let TokenFeeExcess { token, amount } = self;
         token.to_input(inputs)?;
@@ -741,7 +699,7 @@ impl ToInput for TokenFeeExcess {
     }
 }
 
-impl ToInput for MinaBaseEpochLedgerValueStableV1 {
+impl FailableToInputs for MinaBaseEpochLedgerValueStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBaseEpochLedgerValueStableV1 {
             hash,
@@ -753,7 +711,7 @@ impl ToInput for MinaBaseEpochLedgerValueStableV1 {
     }
 }
 
-impl ToInput for MinaBasePendingCoinbaseStackVersionedStableV1 {
+impl FailableToInputs for MinaBasePendingCoinbaseStackVersionedStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBasePendingCoinbaseStackVersionedStableV1 { data, state } = self;
         data.to_input(inputs)?;
@@ -762,7 +720,7 @@ impl ToInput for MinaBasePendingCoinbaseStackVersionedStableV1 {
     }
 }
 
-impl ToInput for MinaBasePendingCoinbaseStateStackStableV1 {
+impl FailableToInputs for MinaBasePendingCoinbaseStateStackStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaBasePendingCoinbaseStateStackStableV1 { init, curr } = self;
         init.to_input(inputs)?;
@@ -771,7 +729,7 @@ impl ToInput for MinaBasePendingCoinbaseStateStackStableV1 {
     }
 }
 
-impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
+impl FailableToInputs for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
             stack_frame,
@@ -800,14 +758,14 @@ impl ToInput for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
     }
 }
 
-impl ToInput for SgnStableV1 {
+impl FailableToInputs for SgnStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         inputs.append_bool(self == &SgnStableV1::Pos);
         Ok(())
     }
 }
 
-impl ToInput for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+impl FailableToInputs for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(v) => v.to_input(inputs),
@@ -815,7 +773,7 @@ impl ToInput for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
     }
 }
 
-impl ToInput for MinaStateBlockchainStateValueStableV2SignedAmount {
+impl FailableToInputs for MinaStateBlockchainStateValueStableV2SignedAmount {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         let MinaStateBlockchainStateValueStableV2SignedAmount { magnitude, sgn } = self;
         magnitude.to_input(inputs)?;
@@ -824,7 +782,7 @@ impl ToInput for MinaStateBlockchainStateValueStableV2SignedAmount {
     }
 }
 
-impl ToInput for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+impl FailableToInputs for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(v) => v.to_input(inputs),
@@ -832,7 +790,7 @@ impl ToInput for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
     }
 }
 
-impl ToInput for MinaNumbersGlobalSlotSpanStableV1 {
+impl FailableToInputs for MinaNumbersGlobalSlotSpanStableV1 {
     fn to_input(&self, inputs: &mut Inputs) -> Result<(), InvalidBigInt> {
         match self {
             MinaNumbersGlobalSlotSpanStableV1::GlobalSlotSpan(v) => v.to_input(inputs),

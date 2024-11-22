@@ -40,7 +40,7 @@ use crate::{
         transaction_logic::{local_state::LocalState, transaction_union_payload},
     },
     verifier::get_srs_mut,
-    Account, MyCow, ReceiptChainHash, TimingAsRecord, TokenId, TokenSymbol,
+    Account, AppendToInputs, MyCow, ReceiptChainHash, TimingAsRecord, TokenId, TokenSymbol,
 };
 
 use super::{
@@ -692,7 +692,7 @@ impl PlonkVerificationKeyEvals<Fp> {
 }
 
 impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
-    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+    fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
         let Self {
             sigma,
             coefficients,
@@ -1220,7 +1220,7 @@ impl<F: FieldWitness> std::fmt::Debug for InnerCurve<F> {
 }
 
 impl crate::ToInputs for InnerCurve<Fp> {
-    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+    fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
         let GroupAffine::<Fp> { x, y, .. } = self.to_affine();
         inputs.append_field(x);
         inputs.append_field(y);
@@ -1673,9 +1673,7 @@ pub mod legacy_input {
 pub mod poseidon {
     use std::marker::PhantomData;
 
-    use ::poseidon::{
-        ArithmeticSpongeParams, PlonkSpongeConstantsKimchi, SpongeConstants, SpongeState,
-    };
+    use ::poseidon::{PlonkSpongeConstantsKimchi, SpongeConstants, SpongeParams, SpongeState};
 
     use super::*;
 
@@ -1683,7 +1681,7 @@ pub mod poseidon {
     pub struct Sponge<F: FieldWitness, C: SpongeConstants = PlonkSpongeConstantsKimchi> {
         pub state: [F; 3],
         pub sponge_state: SpongeState,
-        params: &'static ArithmeticSpongeParams<F>,
+        params: &'static SpongeParams<F>,
         nabsorb: usize,
         _constants: PhantomData<C>,
     }
@@ -1703,10 +1701,7 @@ pub mod poseidon {
         F: FieldWitness,
         C: SpongeConstants,
     {
-        pub fn new_with_state_params(
-            state: [F; 3],
-            params: &'static ArithmeticSpongeParams<F>,
-        ) -> Self {
+        pub fn new_with_state_params(state: [F; 3], params: &'static SpongeParams<F>) -> Self {
             Self {
                 state,
                 sponge_state: SpongeState::Absorbed(0),
@@ -1963,7 +1958,7 @@ pub mod poseidon {
     }
 
     fn apply_mds_matrix<F: Field, C: SpongeConstants>(
-        params: &ArithmeticSpongeParams<F>,
+        params: &SpongeParams<F>,
         state: &[F; 3],
     ) -> [F; 3] {
         if C::PERM_FULL_MDS {
@@ -2294,8 +2289,9 @@ pub mod transaction_snark {
         },
         sparse_ledger::SparseLedger,
         zkapps::intefaces::{SignedAmountBranchParam, SignedAmountInterface},
-        AccountId, Inputs, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
+        AccountId, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
+    use ::poseidon::hash::Inputs;
     use ark_ff::Zero;
 
     use crate::scan_state::{
@@ -2570,14 +2566,15 @@ pub mod transaction_snark {
 
     pub fn checked_legacy_hash(param: &str, inputs: LegacyInput<Fp>, w: &mut Witness<Fp>) -> Fp {
         use ::poseidon::fp_legacy::params;
+        use ::poseidon::hash::param_to_field;
         use ::poseidon::PlonkSpongeConstantsLegacy as Constants;
 
         // We hash the parameter first, without introducing values to the witness
         let initial_state: [Fp; 3] = {
-            use ::poseidon::ArithmeticSponge;
+            use ::poseidon::Sponge;
 
-            let mut sponge = ArithmeticSponge::<Fp, Constants>::new_with_params(params());
-            sponge.absorb(&[crate::param_to_field(param)]);
+            let mut sponge = Sponge::<Fp, Constants>::new_with_params(params());
+            sponge.absorb(&[param_to_field(param)]);
             sponge.squeeze();
             sponge.state
         };
@@ -2591,10 +2588,10 @@ pub mod transaction_snark {
     pub fn checked_hash(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
         // We hash the parameter first, without introducing values to the witness
         let initial_state: [Fp; 3] = {
-            use crate::param_to_field;
-            use ::poseidon::ArithmeticSponge;
+            use ::poseidon::hash::param_to_field;
+            use ::poseidon::Sponge;
 
-            let mut sponge = ArithmeticSponge::<Fp>::default();
+            let mut sponge = Sponge::<Fp>::default();
             sponge.absorb(&[param_to_field(param)]);
             sponge.squeeze();
             sponge.state
@@ -2610,10 +2607,10 @@ pub mod transaction_snark {
     pub fn checked_hash3(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
         // We hash the parameter first, without introducing values to the witness
         let initial_state: [Fp; 3] = {
-            use crate::param_to_field;
-            use ::poseidon::ArithmeticSponge;
+            use ::poseidon::hash::param_to_field;
+            use ::poseidon::Sponge;
 
-            let mut sponge = ArithmeticSponge::<Fp>::default();
+            let mut sponge = Sponge::<Fp>::default();
             sponge.absorb(&[param_to_field(param)]);
             sponge.squeeze();
             sponge.state
@@ -3813,7 +3810,7 @@ impl MessagesForNextStepProof<'_> {
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
     pub fn hash(&self) -> [u64; 4] {
         let fields: Vec<Fp> = self.to_fields();
-        let field: Fp = crate::hash_fields(&fields);
+        let field: Fp = ::poseidon::hash::hash_fields(&fields);
 
         let bigint: BigInteger256 = field.into_repr();
         bigint.0

@@ -544,7 +544,7 @@ impl CoinbaseStackData {
     pub fn empty() -> Self {
         // In OCaml: https://github.com/MinaProtocol/mina/blob/68b49fdaafabed0f2cd400c4c69f91e81db681e7/src/lib/mina_base/pending_coinbase.ml#L186
         // let empty = Random_oracle.salt "CoinbaseStack" |> Random_oracle.digest
-        let empty = super::hashing::hash_noinputs("CoinbaseStack");
+        let empty = poseidon::hash::hash_noinputs("CoinbaseStack");
         MinaBasePendingCoinbaseCoinbaseStackStableV1(empty.into()).into()
     }
 }

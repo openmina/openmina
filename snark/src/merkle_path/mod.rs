@@ -24,7 +24,7 @@ pub fn calc_merkle_root_hash(
         param.clear();
         write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
 
-        child_hash = ledger::hash_with_kimchi(param.as_str(), &hashes)
+        child_hash = poseidon::hash::hash_with_kimchi(param.as_str(), &hashes)
     }
 
     Ok(child_hash.into())

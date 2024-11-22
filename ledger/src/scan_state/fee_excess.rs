@@ -33,6 +33,7 @@
 
 use ark_ff::{BigInteger, BigInteger256, Zero};
 use mina_hasher::Fp;
+use poseidon::hash::Inputs;
 
 use crate::{
     proofs::{
@@ -40,7 +41,7 @@ use crate::{
         numbers::currency::{CheckedFee, CheckedSigned},
         witness::Witness,
     },
-    ToInputs, TokenId,
+    AppendToInputs, ToInputs, TokenId,
 };
 
 use super::{
@@ -66,7 +67,7 @@ pub struct CheckedFeeExcess<F: FieldWitness> {
 
 impl ToInputs for FeeExcess {
     /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_base/fee_excess.ml#L162
-    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+    fn to_inputs(&self, inputs: &mut Inputs) {
         let Self {
             fee_token_l,
             fee_excess_l,
