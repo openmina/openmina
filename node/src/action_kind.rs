@@ -193,7 +193,6 @@ pub enum ActionKind {
     ExternalSnarkWorkerEffectfulSubmitWork,
     LedgerEffectfulReadInit,
     LedgerEffectfulWriteInit,
-    LedgerEffectfulWriteSuccess,
     LedgerReadFindTodos,
     LedgerReadInit,
     LedgerReadPending,
@@ -715,7 +714,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 598;
+    pub const COUNT: u16 = 597;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -834,7 +833,6 @@ impl ActionKindGet for LedgerEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::WriteInit { .. } => ActionKind::LedgerEffectfulWriteInit,
-            Self::WriteSuccess => ActionKind::LedgerEffectfulWriteSuccess,
             Self::ReadInit { .. } => ActionKind::LedgerEffectfulReadInit,
         }
     }

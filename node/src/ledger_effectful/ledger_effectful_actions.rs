@@ -12,7 +12,6 @@ pub enum LedgerEffectfulAction {
         request: LedgerWriteRequest,
         on_init: Callback<LedgerWriteRequest>,
     },
-    WriteSuccess,
     ReadInit {
         request: LedgerReadRequest,
         callback: LedgerReadInitCallback,

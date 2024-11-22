@@ -6,10 +6,7 @@ use crate::{
         write::LedgerWriteAction,
         LedgerService,
     },
-    transition_frontier::sync::{
-        ledger::staged::TransitionFrontierSyncLedgerStagedAction, TransitionFrontierSyncAction,
-    },
-    BlockProducerAction, Store,
+    Store,
 };
 
 use super::LedgerEffectfulAction;
@@ -27,13 +24,6 @@ pub fn ledger_effectful_effects<S>(
             store.service.write_init(request.clone());
             store.dispatch(LedgerWriteAction::Pending);
             store.dispatch_callback(on_init, request);
-        }
-        LedgerEffectfulAction::WriteSuccess => {
-            if store.dispatch(BlockProducerAction::StagedLedgerDiffCreateInit) {
-            } else if store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
-            } else if store.dispatch(TransitionFrontierSyncAction::CommitInit) {
-            } else if store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructInit) {
-            }
         }
         LedgerEffectfulAction::ReadInit {
             request,

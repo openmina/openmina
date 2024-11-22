@@ -1,5 +1,5 @@
 use mina_p2p_messages::v2;
-use openmina_core::requests::RequestId;
+use openmina_core::{bug_condition, requests::RequestId};
 use p2p::{
     channels::{
         rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest, P2pRpcResponse},
@@ -23,7 +23,7 @@ use super::{
 impl LedgerReadState {
     pub fn reducer(mut state_context: Substate<Self>, action: LedgerReadActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
-        let Ok(ledger_read_state) = state_context.get_substate_mut() else {
+        let Ok(state) = state_context.get_substate_mut() else {
             return;
         };
 
@@ -46,17 +46,17 @@ impl LedgerReadState {
                 });
             }
             LedgerReadAction::Pending { request, .. } => {
-                ledger_read_state.add(meta.time(), request.clone());
+                state.add(meta.time(), request.clone());
             }
             LedgerReadAction::Success { id, response } => {
-                ledger_read_state.add_response(*id, meta.time(), response.clone());
+                state.add_response(*id, meta.time(), response.clone());
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 Self::propagate_read_response(dispatcher, state, *id, response.clone());
                 dispatcher.push(LedgerReadAction::Prune { id: *id });
             }
             LedgerReadAction::Prune { id } => {
-                ledger_read_state.remove(*id);
+                state.remove(*id);
             }
         }
     }
@@ -68,6 +68,7 @@ impl LedgerReadState {
         response: LedgerReadResponse,
     ) {
         let Some(request) = state.ledger.read.get(id) else {
+            bug_condition!("Request with id: {} not found", id);
             return;
         };
 
@@ -80,7 +81,7 @@ impl LedgerReadState {
                 if !expected.map_or(false, |(expected_hash, producer)| {
                     ledger_hash == expected_hash && pub_key == producer
                 }) {
-                    eprintln!("delegator table unexpected");
+                    bug_condition!("delegator table unexpected");
                     return;
                 }
                 match table {
@@ -202,7 +203,8 @@ impl LedgerReadState {
     }
 
     fn next_read_requests_init(dispatcher: &mut Dispatcher<Action, State>, state: &State) {
-        // fetching delegator table
+        // fetching delegator table, this is required because delegator table construction requires reading from ledger.
+        // It could be that ledger read quota was reached when vrf tried to initiate that read, so we need to "retry" it if that's the case
         dispatcher.push(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
 
         // p2p rpcs

@@ -15,13 +15,13 @@ use super::{
 impl LedgerWriteState {
     pub fn reducer(mut state_context: Substate<Self>, action: LedgerWriteActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
-        let Ok(ledger_write_state) = state_context.get_substate_mut() else {
+        let Ok(state) = state_context.get_substate_mut() else {
             return;
         };
 
         match action {
             LedgerWriteAction::Init { request, on_init } => {
-                *ledger_write_state = Self::Init {
+                *state = Self::Init {
                     time: meta.time(),
                     request: request.clone(),
                 };
@@ -33,16 +33,16 @@ impl LedgerWriteState {
                 });
             }
             LedgerWriteAction::Pending => {
-                if let Self::Init { request, .. } = ledger_write_state {
-                    *ledger_write_state = Self::Pending {
+                if let Self::Init { request, .. } = state {
+                    *state = Self::Pending {
                         time: meta.time(),
                         request: request.clone(),
                     };
                 }
             }
             LedgerWriteAction::Success { response } => {
-                if let Self::Pending { request, .. } = ledger_write_state {
-                    *ledger_write_state = Self::Success {
+                if let Self::Pending { request, .. } = state {
+                    *state = Self::Success {
                         time: meta.time(),
                         request: request.clone(),
                         response: response.clone(),
@@ -51,7 +51,10 @@ impl LedgerWriteState {
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 Self::propagate_write_response(dispatcher, state, response.clone());
-                dispatcher.push(LedgerEffectfulAction::WriteSuccess);
+                dispatcher.push(BlockProducerAction::StagedLedgerDiffCreateInit);
+                dispatcher.push(TransitionFrontierSyncAction::BlocksNextApplyInit);
+                dispatcher.push(TransitionFrontierSyncAction::CommitInit);
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::ReconstructInit);
             }
         }
     }
