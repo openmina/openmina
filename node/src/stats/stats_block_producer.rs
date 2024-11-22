@@ -348,14 +348,24 @@ impl BlockProducerStats {
         }
     }
 
+    /// In case a new run, when the current epoch has less than `slots_per_epoch` slots to evaluate.
+    pub fn new_epoch_evaluation(&mut self, epoch: u32, remaining_slots: u32) {
+        self.vrf_evaluator.insert(
+            epoch,
+            VrfEvaluatorStats {
+                total_slots: remaining_slots,
+                evaluated_slots: 0,
+            },
+        );
+    }
+
     pub fn increment_slot_evaluated(&mut self, epoch: u32) {
         self.vrf_evaluator
             .entry(epoch)
             .and_modify(|v| v.evaluated_slots = v.evaluated_slots.checked_add(1).expect("overflow"))
-            .or_insert_with(|| {
-                let mut stats = VrfEvaluatorStats::default();
-                stats.evaluated_slots = 1;
-                stats
+            .or_insert_with(|| VrfEvaluatorStats {
+                evaluated_slots: 1,
+                ..Default::default()
             });
     }
 }

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum BlockProducerVrfEvaluatorEffectfulAction {
     EvaluateSlot { vrf_input: VrfEvaluatorInput },
     SlotEvaluated { epoch: u32 },
+    InitializeStats { epoch: u32, initial_slot: u32 },
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEffectfulAction {

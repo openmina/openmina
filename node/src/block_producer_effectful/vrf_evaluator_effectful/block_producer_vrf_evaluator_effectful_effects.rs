@@ -15,6 +15,22 @@ impl BlockProducerVrfEvaluatorEffectfulAction {
                     stats.block_producer().increment_slot_evaluated(epoch);
                 }
             }
+            BlockProducerVrfEvaluatorEffectfulAction::InitializeStats {
+                epoch,
+                initial_slot,
+            } => {
+                if let Some(stats) = store.service.stats() {
+                    let slots_per_epoch =
+                        store.state.get().config.consensus_constants.slots_per_epoch;
+                    // We subtract 1 because the slots are indexed from 0
+                    let remaining_slots = slots_per_epoch
+                        .saturating_sub(initial_slot)
+                        .saturating_sub(1);
+                    stats
+                        .block_producer()
+                        .new_epoch_evaluation(epoch, remaining_slots);
+                }
+            }
         }
     }
 }

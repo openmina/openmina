@@ -156,6 +156,8 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorSelectInitialSlot,
     BlockProducerVrfEvaluatorWaitForNextEvaluation,
     BlockProducerVrfEvaluatorEffectfulEvaluateSlot,
+    BlockProducerVrfEvaluatorEffectfulInitializeStats,
+    BlockProducerVrfEvaluatorEffectfulSlotEvaluated,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -711,7 +713,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 595;
+    pub const COUNT: u16 = 597;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1537,6 +1539,12 @@ impl ActionKindGet for BlockProducerVrfEvaluatorEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::EvaluateSlot { .. } => ActionKind::BlockProducerVrfEvaluatorEffectfulEvaluateSlot,
+            Self::SlotEvaluated { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorEffectfulSlotEvaluated
+            }
+            Self::InitializeStats { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorEffectfulInitializeStats
+            }
         }
     }
 }

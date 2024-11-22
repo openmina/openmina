@@ -250,6 +250,10 @@ impl BlockProducerVrfEvaluatorState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
+                dispatcher.push(BlockProducerVrfEvaluatorEffectfulAction::InitializeStats {
+                    epoch: *best_tip_epoch,
+                    initial_slot: *best_tip_slot,
+                });
             }
             BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction => {
                 let BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
