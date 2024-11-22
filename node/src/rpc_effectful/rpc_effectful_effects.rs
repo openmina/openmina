@@ -143,6 +143,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 });
 
                 let cur_global_slot = state.cur_global_slot();
+                let current_epoch = state.current_epoch();
                 let slots_per_epoch = best_tip.constants().slots_per_epoch.as_u32();
                 let epoch_start = cur_global_slot.map(|slot| {
                     (slot.checked_div(slots_per_epoch).expect("division by 0"))
@@ -150,9 +151,16 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                         .expect("overflow")
                 });
 
+                let current_epoch_vrf_stats = current_epoch
+                    .and_then(|epoch| stats.block_producer().vrf_evaluator.get(&epoch).cloned());
+                let vrf_stats = stats.block_producer().vrf_evaluator.clone();
+
                 Some(RpcBlockProducerStats {
                     current_time: meta.time(),
                     current_global_slot: cur_global_slot,
+                    current_epoch,
+                    current_epoch_vrf_stats,
+                    vrf_stats,
                     epoch_start,
                     epoch_end: epoch_start
                         .map(|slot| slot.checked_add(slots_per_epoch).expect("overflow")),

@@ -78,6 +78,7 @@ pub enum BlockProducerVrfEvaluatorAction {
     #[action_event(level = info, fields(current_global_slot, best_tip_height))]
     SelectInitialSlot {
         current_global_slot: u32,
+        current_slot: u32,
         best_tip_slot: u32,
         best_tip_global_slot: u32,
         best_tip_epoch: u32,
