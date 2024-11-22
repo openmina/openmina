@@ -3,12 +3,8 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 // use oracle::{poseidon::{ArithmeticSponge, Sponge}, constants::PlonkSpongeConstantsKimchi, pasta::fp_kimchi::static_params};
-use crate::{
-    poseidon::{static_params, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge},
-    proofs::witness::Witness,
-    scan_state::currency,
-    FpExt, SpongeParamsForField,
-};
+use crate::{proofs::witness::Witness, scan_state::currency, FpExt};
+use poseidon::{ArithmeticSponge, SpongeParamsForField};
 
 enum Item {
     Bool(bool),
@@ -216,7 +212,7 @@ fn param_to_field_noinputs(param: &str) -> Fp {
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+    let mut sponge = ArithmeticSponge::<Fp>::new();
 
     sponge.absorb(&[param_to_field(param)]);
     sponge.squeeze();
@@ -226,14 +222,14 @@ pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
 }
 
 pub fn hash_fields<F: Field + SpongeParamsForField<F>>(fields: &[F]) -> F {
-    let mut sponge = ArithmeticSponge::<F, PlonkSpongeConstantsKimchi>::new(F::get_params());
+    let mut sponge = ArithmeticSponge::<F>::new();
 
     sponge.absorb(fields);
     sponge.squeeze()
 }
 
 pub fn hash_noinputs(param: &str) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+    let mut sponge = ArithmeticSponge::<Fp>::new();
     // ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
 
     sponge.absorb(&[param_to_field_noinputs(param)]);

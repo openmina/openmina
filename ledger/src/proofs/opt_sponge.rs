@@ -1,4 +1,4 @@
-use crate::ArithmeticSpongeParams;
+use poseidon::ArithmeticSpongeParams;
 
 use super::{
     field::{field, Boolean, CircuitVar, FieldWitness},
@@ -48,13 +48,13 @@ impl<F: FieldWitness> OptSponge<F> {
         } = sponge;
 
         match sponge_state {
-            mina_poseidon::poseidon::SpongeState::Squeezed(n) => Self {
+            ::poseidon::SpongeState::Squeezed(n) => Self {
                 state,
                 params: F::get_params(),
                 needs_final_permute_if_empty: true,
                 sponge_state: SpongeState::Squeezed(n),
             },
-            mina_poseidon::poseidon::SpongeState::Absorbed(n) => {
+            ::poseidon::SpongeState::Absorbed(n) => {
                 let abs = |i: Boolean| Self {
                     state,
                     params: F::get_params(),

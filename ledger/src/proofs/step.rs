@@ -16,7 +16,6 @@ use crate::{
         },
     },
     verifier::{get_srs, get_srs_mut},
-    SpongeParamsForField,
 };
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, One, Zero};
 use ark_poly::{
@@ -682,7 +681,7 @@ pub mod step_verifier {
                         sponge.absorb(zeta_omega, w);
 
                         // TODO: Does it panic in OCaml ?
-                        use mina_poseidon::poseidon::SpongeState::{Absorbed, Squeezed};
+                        use ::poseidon::SpongeState::{Absorbed, Squeezed};
                         match (sponge_state_before, &sponge.sponge_state) {
                             (Absorbed(x), Absorbed(y)) => assert_eq!(x, *y),
                             (Squeezed(x), Squeezed(y)) => assert_eq!(x, *y),
@@ -2011,19 +2010,14 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         .collect();
 
     let challenges_digest = {
-        use crate::Sponge;
-        let mut sponge = crate::ArithmeticSponge::<Fp, crate::PlonkSpongeConstantsKimchi>::new(
-            crate::static_params(),
-        );
+        let mut sponge = poseidon::ArithmeticSponge::<Fp>::new();
         for old_bulletproof_challenges in &old_bulletproof_challenges {
             sponge.absorb(old_bulletproof_challenges);
         }
         sponge.squeeze()
     };
 
-    use mina_poseidon::FqSponge;
-
-    let mut sponge = <Fq as FieldWitness>::FqSponge::new(Fp::get_params2());
+    let mut sponge = poseidon::FqSponge::new();
     sponge.absorb_fq(&[four_u64_to_field(
         &proof_state.sponge_digest_before_evaluations,
     )?]);
@@ -2035,10 +2029,10 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         sponge.absorb_fq(zeta);
         sponge.absorb_fq(zeta_omega);
     });
-    let xi_chal = sponge.squeeze_limbs(2);
-    let r_chal = sponge.squeeze_limbs(2);
+    let xi_chal: [u64; 2] = sponge.squeeze_limbs();
+    let r_chal: [u64; 2] = sponge.squeeze_limbs();
 
-    let xi = ScalarChallenge::from(xi_chal.clone()).to_field(&endo);
+    let xi = ScalarChallenge::from(xi_chal).to_field(&endo);
     let r = ScalarChallenge::from(r_chal).to_field(&endo);
 
     let public_input = &evals.evals.public_input;
@@ -2082,7 +2076,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         plonk,
         combined_inner_product: to_shifted(combined_inner_product_actual),
         b: to_shifted(b_actual),
-        xi: xi_chal.try_into().unwrap(), // Never fail, `xi_chal` is 2 limbs
+        xi: xi_chal,
         bulletproof_challenges,
         branch_data: proof_state.deferred_values.branch_data.clone(),
     })
