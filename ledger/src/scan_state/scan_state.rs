@@ -2365,7 +2365,7 @@ impl ScanState {
     }
 }
 
-pub fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
+pub fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + 'a
 where
     F: Fn(&'a T) -> R + 'a,
 {
