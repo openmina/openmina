@@ -11,6 +11,7 @@ pub use crate::event_source::EventSourceAction;
 pub use crate::external_snark_worker::ExternalSnarkWorkerAction;
 use crate::external_snark_worker_effectful::ExternalSnarkWorkerEffectfulAction;
 pub use crate::ledger::LedgerAction;
+use crate::ledger_effectful::LedgerEffectfulAction;
 use crate::p2p::callbacks::P2pCallbacksAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
@@ -41,6 +42,7 @@ pub enum Action {
     P2pCallbacks(P2pCallbacksAction),
 
     Ledger(LedgerAction),
+    LedgerEffects(LedgerEffectfulAction),
     Snark(SnarkAction),
     Consensus(ConsensusAction),
     TransitionFrontier(TransitionFrontierAction),
@@ -89,6 +91,7 @@ impl redux::EnablingCondition<crate::State> for Action {
                 .ready()
                 .map_or(false, |state| a.is_enabled(state, time)),
             Action::Ledger(a) => a.is_enabled(state, time),
+            Action::LedgerEffects(a) => a.is_enabled(state, time),
             Action::Snark(a) => a.is_enabled(&state.snark, time),
             Action::Consensus(a) => a.is_enabled(state, time),
             Action::TransitionFrontier(a) => a.is_enabled(state, time),

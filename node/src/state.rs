@@ -29,6 +29,8 @@ use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorState;
 pub use crate::block_producer::BlockProducerState;
 pub use crate::consensus::ConsensusState;
 use crate::external_snark_worker::{ExternalSnarkWorker, ExternalSnarkWorkers};
+use crate::ledger::read::LedgerReadState;
+use crate::ledger::write::LedgerWriteState;
 pub use crate::ledger::LedgerState;
 use crate::p2p::callbacks::P2pCallbacksAction;
 pub use crate::p2p::P2pState;
@@ -98,6 +100,9 @@ impl_substate_access!(State, BlockProducerState, block_producer);
 impl_substate_access!(State, RpcState, rpc);
 impl_substate_access!(State, WatchedAccountsState, watched_accounts);
 impl_substate_access!(State, ExternalSnarkWorker, external_snark_worker.0);
+impl_substate_access!(State, LedgerState, ledger);
+impl_substate_access!(State, LedgerReadState, ledger.read);
+impl_substate_access!(State, LedgerWriteState, ledger.write);
 
 impl openmina_core::SubstateAccess<P2pState> for State {
     fn substate(&self) -> openmina_core::SubstateResult<&P2pState> {

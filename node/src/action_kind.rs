@@ -26,6 +26,7 @@ use crate::external_snark_worker_effectful::ExternalSnarkWorkerEffectfulAction;
 use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::ledger::LedgerAction;
+use crate::ledger_effectful::LedgerEffectfulAction;
 use crate::p2p::callbacks::P2pCallbacksAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::best_tip_effectful::P2pChannelsBestTipEffectfulAction;
@@ -192,6 +193,8 @@ pub enum ActionKind {
     ExternalSnarkWorkerEffectfulKill,
     ExternalSnarkWorkerEffectfulStart,
     ExternalSnarkWorkerEffectfulSubmitWork,
+    LedgerEffectfulReadInit,
+    LedgerEffectfulWriteInit,
     LedgerReadFindTodos,
     LedgerReadInit,
     LedgerReadPending,
@@ -731,6 +734,7 @@ impl ActionKindGet for Action {
             Self::P2pEffectful(a) => a.kind(),
             Self::P2pCallbacks(a) => a.kind(),
             Self::Ledger(a) => a.kind(),
+            Self::LedgerEffects(a) => a.kind(),
             Self::Snark(a) => a.kind(),
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
@@ -823,6 +827,15 @@ impl ActionKindGet for LedgerAction {
         match self {
             Self::Write(a) => a.kind(),
             Self::Read(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for LedgerEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::WriteInit { .. } => ActionKind::LedgerEffectfulWriteInit,
+            Self::ReadInit { .. } => ActionKind::LedgerEffectfulReadInit,
         }
     }
 }

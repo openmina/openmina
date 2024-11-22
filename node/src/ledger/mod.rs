@@ -16,11 +16,9 @@ pub use ledger_state::*;
 
 mod ledger_reducer;
 
-mod ledger_effects;
-pub use ledger_effects::*;
-
 mod ledger_service;
 pub use ledger_service::*;
+
 pub mod ledger_manager;
 
 pub use ledger::AccountIndex as LedgerAccountIndex;
