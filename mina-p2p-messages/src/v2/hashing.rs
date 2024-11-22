@@ -5,11 +5,7 @@ use binprot::BinProtWrite;
 use binprot_derive::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
 use mina_hasher::Fp;
-use mina_poseidon::{
-    constants::PlonkSpongeConstantsKimchi,
-    pasta::fp_kimchi::static_params,
-    poseidon::{ArithmeticSponge, Sponge},
-};
+use poseidon::ArithmeticSponge;
 use serde::{Deserialize, Serialize};
 use sha2::{
     digest::{generic_array::GenericArray, typenum::U32},
@@ -473,14 +469,14 @@ fn param_to_field(param: &str, pad: &[u8; 32]) -> Fp {
 }
 
 pub fn hash_noinputs(param: &str) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+    let mut sponge = ArithmeticSponge::<Fp>::new();
 
     sponge.absorb(&[param_to_field(param, NO_INPUT_PARAMS)]);
     sponge.squeeze()
 }
 
 pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-    let mut sponge = ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(static_params());
+    let mut sponge = ArithmeticSponge::<Fp>::new();
 
     sponge.absorb(&[param_to_field(param, INPUT_PARAMS)]);
     sponge.squeeze();
