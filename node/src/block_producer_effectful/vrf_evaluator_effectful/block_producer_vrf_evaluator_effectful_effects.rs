@@ -22,10 +22,13 @@ impl BlockProducerVrfEvaluatorEffectfulAction {
                 if let Some(stats) = store.service.stats() {
                     let slots_per_epoch =
                         store.state.get().config.consensus_constants.slots_per_epoch;
-                    // We subtract 1 because the slots are indexed from 0
-                    let remaining_slots = slots_per_epoch
-                        .saturating_sub(initial_slot)
-                        .saturating_sub(1);
+                    // We add 1 because the evaluation starts from the next slot, except for the first slot 0
+                    let initial_slot = if initial_slot == 0 {
+                        0
+                    } else {
+                        initial_slot.saturating_add(1)
+                    };
+                    let remaining_slots = slots_per_epoch.saturating_sub(initial_slot);
                     stats
                         .block_producer()
                         .new_epoch_evaluation(epoch, remaining_slots);

@@ -250,10 +250,6 @@ impl BlockProducerVrfEvaluatorState {
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
-                dispatcher.push(BlockProducerVrfEvaluatorEffectfulAction::InitializeStats {
-                    epoch: *best_tip_epoch,
-                    initial_slot: *best_tip_slot,
-                });
             }
             BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction => {
                 let BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
@@ -334,13 +330,15 @@ impl BlockProducerVrfEvaluatorState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let get_slot_and_status = || {
                     let cur_global_slot = state.cur_global_slot()?;
+                    let current_slot = state.current_slot()?;
                     let status = &state.block_producer.vrf_evaluator()?.status;
 
-                    Some((cur_global_slot, status))
+                    Some((cur_global_slot, current_slot, status))
                 };
 
                 let Some((
                     current_global_slot,
+                    current_slot,
                     BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess {
                         best_tip_epoch,
                         best_tip_slot,
@@ -357,6 +355,7 @@ impl BlockProducerVrfEvaluatorState {
 
                 dispatcher.push(BlockProducerVrfEvaluatorAction::SelectInitialSlot {
                     current_global_slot,
+                    current_slot,
                     best_tip_epoch: *best_tip_epoch,
                     best_tip_slot: *best_tip_slot,
                     best_tip_global_slot: *best_tip_global_slot,
@@ -433,26 +432,35 @@ impl BlockProducerVrfEvaluatorState {
             BlockProducerVrfEvaluatorAction::SelectInitialSlot {
                 best_tip_epoch,
                 current_global_slot,
+                current_slot,
                 next_epoch_first_slot,
                 best_tip_slot: current_best_tip_slot,
                 best_tip_global_slot: current_best_tip_global_slot,
                 staking_epoch_data,
             } => {
-                let (epoch_number, initial_slot) = match state.epoch_context() {
-                    super::EpochContext::Current(_) => (*best_tip_epoch, *current_global_slot),
+                let (epoch_number, initial_global_slot, initial_slot) = match state.epoch_context()
+                {
+                    super::EpochContext::Current(_) => {
+                        (*best_tip_epoch, *current_global_slot, *current_slot)
+                    }
                     super::EpochContext::Next(_) => (
                         best_tip_epoch.checked_add(1).expect("overflow"),
                         next_epoch_first_slot.checked_sub(1).expect("underflow"),
+                        0,
                     ),
                     super::EpochContext::Waiting => todo!(),
                 };
                 state.status = BlockProducerVrfEvaluatorStatus::InitialSlotSelection {
                     time: meta.time(),
                     epoch_number,
-                    initial_slot,
+                    initial_slot: initial_global_slot,
                 };
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                dispatcher.push(BlockProducerVrfEvaluatorEffectfulAction::InitializeStats {
+                    epoch: epoch_number,
+                    initial_slot,
+                });
                 if let Some(initial_slot) = state
                     .block_producer
                     .vrf_evaluator()

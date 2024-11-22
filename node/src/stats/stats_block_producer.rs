@@ -91,7 +91,6 @@ pub struct ProducedBlockTransactions {
     pub zkapps: u16,
 }
 
-// TODO(adonagy): distinguish between current and next epoch
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct VrfEvaluatorStats {
     pub total_slots: u32,
@@ -101,7 +100,7 @@ pub struct VrfEvaluatorStats {
 impl Default for VrfEvaluatorStats {
     fn default() -> Self {
         Self {
-            total_slots: 7140, // TODO(adonagy): get this from constants
+            total_slots: 7140,
             evaluated_slots: 0,
         }
     }
