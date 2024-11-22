@@ -1,5 +1,5 @@
 use ::node::{ActionWithMeta, Store};
-use openmina_node_invariants::{InvariantResult, Invariants};
+use openmina_node_invariants::{InvariantIgnoreReason, InvariantResult, Invariants};
 use openmina_node_native::NodeService;
 
 pub mod ret {
@@ -33,6 +33,8 @@ extern "C" fn replay_dynamic_effects(
 ) -> u8 {
     for (invariant, res) in Invariants::check_all(store, action) {
         match res {
+            InvariantResult::Ignored(InvariantIgnoreReason::GlobalInvariantNotInTestingCluster) => {
+            }
             InvariantResult::Violation(violation) => {
                 eprintln!(
                     "Invariant({}) violated! violation: {violation}",
