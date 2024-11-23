@@ -4580,6 +4580,7 @@ dependencies = [
  "once_cell",
  "openmina-fuzzer",
  "openmina-macros",
+ "poseidon",
  "redux",
  "serde",
  "serde_json",

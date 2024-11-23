@@ -1,7 +1,7 @@
 use ark_ff::{BigInteger as _, BigInteger256, Field, FromBytes as _};
 use mina_curves::pasta::Fp;
 
-use crate::{Sponge, SpongeParamsForField};
+use crate::{PlonkSpongeConstantsKimchi, Sponge, SpongeParamsForField};
 
 enum Item {
     Bool(bool),
@@ -198,11 +198,18 @@ fn param_to_field_noinputs(param: &str) -> Fp {
     param_to_field_impl(param, DEFAULT)
 }
 
-pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-    let mut sponge = Sponge::<Fp>::default();
+pub fn hash_with_kimchi(param: &LazyParam, fields: &[Fp]) -> Fp {
+    let LazyParam {
+        sponge_state,
+        state,
+        ..
+    } = param;
 
-    sponge.absorb(&[param_to_field(param)]);
-    sponge.squeeze();
+    let mut sponge = Sponge {
+        sponge_state: sponge_state.clone(),
+        state: *state,
+        ..Sponge::<Fp, PlonkSpongeConstantsKimchi>::default()
+    };
 
     sponge.absorb(fields);
     sponge.squeeze()
@@ -215,12 +222,198 @@ pub fn hash_fields<F: Field + SpongeParamsForField<F>>(fields: &[F]) -> F {
     sponge.squeeze()
 }
 
-pub fn hash_noinputs(param: &str) -> Fp {
-    let mut sponge = Sponge::<Fp>::default();
-    // ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(pasta::fp_kimchi::static_params());
+pub fn hash_noinputs(param: &LazyParam) -> Fp {
+    let LazyParam { last_squeezed, .. } = param;
 
-    sponge.absorb(&[param_to_field_noinputs(param)]);
-    sponge.squeeze()
+    *last_squeezed
+}
+
+pub struct LazyParam {
+    sponge_state: crate::SpongeState,
+    state: [Fp; 3],
+    last_squeezed: Fp,
+    pub string: &'static str,
+}
+
+pub mod params {
+    use once_cell::sync::Lazy;
+
+    use super::*;
+
+    macro_rules! impl_params {
+        ($({$name:tt, $string:tt}),*) => ($(
+            pub static $name: Lazy<Box<LazyParam>> = Lazy::new(|| {
+                let mut sponge = Sponge::<Fp>::default();
+                sponge.absorb(&[param_to_field($string)]);
+                let last_squeezed = sponge.squeeze();
+                Box::new(LazyParam {
+                    sponge_state: sponge.sponge_state,
+                    state: sponge.state,
+                    last_squeezed,
+                    string: $string,
+                })
+            });
+        )*)
+    }
+
+    impl_params!(
+        {MINA_ACCOUNT, "MinaAccount"},
+        {MINA_PROTO_STATE, "MinaProtoState"},
+        {MINA_PROTO_STATE_BODY, "MinaProtoStateBody"},
+        {MINA_DERIVE_TOKEN_ID, "MinaDeriveTokenId"},
+        {MINA_EPOCH_SEED, "MinaEpochSeed"},
+        {MINA_SIDELOADED_VK, "MinaSideLoadedVk"},
+
+        {CODA_RECEIPT_UC, "CodaReceiptUC"},
+        {COINBASE_STACK, "CoinbaseStack"},
+
+        {MINA_ACCOUNT_UPDATE_CONS, "MinaAcctUpdateCons"},
+        {MINA_ACCOUNT_UPDATE_NODE, "MinaAcctUpdateNode"},
+        {MINA_ACCOUNT_UPDATE_STACK_FRAME, "MinaAcctUpdStckFrm"},
+
+        {MINA_ZKAPP_ACCOUNT, "MinaZkappAccount"},
+        {MINA_ZKAPP_MEMO, "MinaZkappMemo"},
+        {MINA_ZKAPP_URI, "MinaZkappUri"},
+        {MINA_ZKAPP_EVENT, "MinaZkappEvent"},
+        {MINA_ZKAPP_EVENTS, "MinaZkappEvents"},
+        {MINA_ZKAPP_SEQ_EVENTS, "MinaZkappSeqEvents"},
+
+        // devnet
+        {CODA_SIGNATURE, "CodaSignature"},
+        {TESTNET_ZKAPP_BODY, "TestnetZkappBody"},
+        // mainnet
+        {MINA_SIGNATURE_MAINNET, "MinaSignatureMainnet"},
+        {MAINNET_ZKAPP_BODY, "MainnetZkappBody"},
+
+        {MINA_MERKLE_TREE_0, "MinaMklTree000"},
+        {MINA_MERKLE_TREE_1, "MinaMklTree001"},
+        {MINA_MERKLE_TREE_2, "MinaMklTree002"},
+        {MINA_MERKLE_TREE_3, "MinaMklTree003"},
+        {MINA_MERKLE_TREE_4, "MinaMklTree004"},
+        {MINA_MERKLE_TREE_5, "MinaMklTree005"},
+        {MINA_MERKLE_TREE_6, "MinaMklTree006"},
+        {MINA_MERKLE_TREE_7, "MinaMklTree007"},
+        {MINA_MERKLE_TREE_8, "MinaMklTree008"},
+        {MINA_MERKLE_TREE_9, "MinaMklTree009"},
+        {MINA_MERKLE_TREE_10, "MinaMklTree010"},
+        {MINA_MERKLE_TREE_11, "MinaMklTree011"},
+        {MINA_MERKLE_TREE_12, "MinaMklTree012"},
+        {MINA_MERKLE_TREE_13, "MinaMklTree013"},
+        {MINA_MERKLE_TREE_14, "MinaMklTree014"},
+        {MINA_MERKLE_TREE_15, "MinaMklTree015"},
+        {MINA_MERKLE_TREE_16, "MinaMklTree016"},
+        {MINA_MERKLE_TREE_17, "MinaMklTree017"},
+        {MINA_MERKLE_TREE_18, "MinaMklTree018"},
+        {MINA_MERKLE_TREE_19, "MinaMklTree019"},
+        {MINA_MERKLE_TREE_20, "MinaMklTree020"},
+        {MINA_MERKLE_TREE_21, "MinaMklTree021"},
+        {MINA_MERKLE_TREE_22, "MinaMklTree022"},
+        {MINA_MERKLE_TREE_23, "MinaMklTree023"},
+        {MINA_MERKLE_TREE_24, "MinaMklTree024"},
+        {MINA_MERKLE_TREE_25, "MinaMklTree025"},
+        {MINA_MERKLE_TREE_26, "MinaMklTree026"},
+        {MINA_MERKLE_TREE_27, "MinaMklTree027"},
+        {MINA_MERKLE_TREE_28, "MinaMklTree028"},
+        {MINA_MERKLE_TREE_29, "MinaMklTree029"},
+        {MINA_MERKLE_TREE_30, "MinaMklTree030"},
+        {MINA_MERKLE_TREE_31, "MinaMklTree031"},
+        {MINA_MERKLE_TREE_32, "MinaMklTree032"},
+        {MINA_MERKLE_TREE_33, "MinaMklTree033"},
+        {MINA_MERKLE_TREE_34, "MinaMklTree034"},
+        {MINA_MERKLE_TREE_35, "MinaMklTree035"},
+
+        {MINA_CB_MERKLE_TREE_0, "MinaCbMklTree000"},
+        {MINA_CB_MERKLE_TREE_1, "MinaCbMklTree001"},
+        {MINA_CB_MERKLE_TREE_2, "MinaCbMklTree002"},
+        {MINA_CB_MERKLE_TREE_3, "MinaCbMklTree003"},
+        {MINA_CB_MERKLE_TREE_4, "MinaCbMklTree004"},
+        {MINA_CB_MERKLE_TREE_5, "MinaCbMklTree005"}
+    );
+
+    pub fn get_coinbase_param_for_height(height: usize) -> &'static LazyParam {
+        static ARRAY: [&Lazy<Box<LazyParam>>; 6] = [
+            &MINA_CB_MERKLE_TREE_0,
+            &MINA_CB_MERKLE_TREE_1,
+            &MINA_CB_MERKLE_TREE_2,
+            &MINA_CB_MERKLE_TREE_3,
+            &MINA_CB_MERKLE_TREE_4,
+            &MINA_CB_MERKLE_TREE_5,
+        ];
+
+        ARRAY[height]
+    }
+
+    pub fn get_merkle_param_for_height(height: usize) -> &'static LazyParam {
+        static ARRAY: [&Lazy<Box<LazyParam>>; 36] = [
+            &MINA_MERKLE_TREE_0,
+            &MINA_MERKLE_TREE_1,
+            &MINA_MERKLE_TREE_2,
+            &MINA_MERKLE_TREE_3,
+            &MINA_MERKLE_TREE_4,
+            &MINA_MERKLE_TREE_5,
+            &MINA_MERKLE_TREE_6,
+            &MINA_MERKLE_TREE_7,
+            &MINA_MERKLE_TREE_8,
+            &MINA_MERKLE_TREE_9,
+            &MINA_MERKLE_TREE_10,
+            &MINA_MERKLE_TREE_11,
+            &MINA_MERKLE_TREE_12,
+            &MINA_MERKLE_TREE_13,
+            &MINA_MERKLE_TREE_14,
+            &MINA_MERKLE_TREE_15,
+            &MINA_MERKLE_TREE_16,
+            &MINA_MERKLE_TREE_17,
+            &MINA_MERKLE_TREE_18,
+            &MINA_MERKLE_TREE_19,
+            &MINA_MERKLE_TREE_20,
+            &MINA_MERKLE_TREE_21,
+            &MINA_MERKLE_TREE_22,
+            &MINA_MERKLE_TREE_23,
+            &MINA_MERKLE_TREE_24,
+            &MINA_MERKLE_TREE_25,
+            &MINA_MERKLE_TREE_26,
+            &MINA_MERKLE_TREE_27,
+            &MINA_MERKLE_TREE_28,
+            &MINA_MERKLE_TREE_29,
+            &MINA_MERKLE_TREE_30,
+            &MINA_MERKLE_TREE_31,
+            &MINA_MERKLE_TREE_32,
+            &MINA_MERKLE_TREE_33,
+            &MINA_MERKLE_TREE_34,
+            &MINA_MERKLE_TREE_35,
+        ];
+
+        ARRAY[height]
+    }
+
+    macro_rules! impl_params_noinput {
+        ($({$name:tt, $string:tt}),*) => ($(
+            pub static $name: Lazy<Box<LazyParam>> = Lazy::new(|| {
+                let mut sponge = Sponge::<Fp>::default();
+                sponge.absorb(&[param_to_field_noinputs($string)]);
+                let last_squeezed = sponge.squeeze();
+                Box::new(LazyParam {
+                    sponge_state: sponge.sponge_state,
+                    state: sponge.state,
+                    last_squeezed,
+                    string: $string,
+                })
+            });
+        )*)
+    }
+
+    impl_params_noinput!(
+        {NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT, "MinaZkappActionStateEmptyElt"},
+        {NO_INPUT_COINBASE_STACK, "CoinbaseStack"},
+        {NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY, "MinaZkappEventsEmpty"},
+        {NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY, "MinaZkappActionsEmpty"},
+
+        {NO_INPUT_MINA_PROTO_STATE, "MinaProtoState"},
+        {NO_INPUT_MINA_PROTO_STATE_BODY, "MinaProtoStateBody"},
+        {NO_INPUT_MINA_DERIVE_TOKEN_ID, "MinaDeriveTokenId"},
+        {NO_INPUT_MINA_EPOCH_SEED, "MinaEpochSeed"},
+        {NO_INPUT_MINA_SIDELOADED_VK, "MinaSideLoadedVk"}
+    );
 }
 
 pub mod legacy {
@@ -303,13 +496,53 @@ pub mod legacy {
         }
     }
 
-    pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
-        let mut sponge = Sponge::new_legacy();
+    pub fn hash_with_kimchi(param: &LazyParam, fields: &[Fp]) -> Fp {
+        let LazyParam {
+            sponge_state,
+            state,
+            ..
+        } = param;
 
-        sponge.absorb(&[param_to_field(param)]);
-        sponge.squeeze();
+        let mut sponge = Sponge {
+            sponge_state: sponge_state.clone(),
+            state: *state,
+            ..Sponge::new_legacy()
+        };
 
         sponge.absorb(fields);
         sponge.squeeze()
+    }
+
+    pub mod params {
+        use once_cell::sync::Lazy;
+
+        use super::*;
+
+        macro_rules! impl_params {
+            ($({$name:tt, $string:tt}),*) => ($(
+                pub static $name: Lazy<Box<LazyParam>> = Lazy::new(|| {
+                    let mut sponge = Sponge::new_legacy();
+                    sponge.absorb(&[param_to_field($string)]);
+                    let last_squeezed = sponge.squeeze();
+                    Box::new(LazyParam {
+                        sponge_state: sponge.sponge_state,
+                        state: sponge.state,
+                        last_squeezed,
+                        string: $string,
+                    })
+                });
+            )*)
+        }
+
+        impl_params!(
+            {CODA_RECEIPT_UC, "CodaReceiptUC"},
+
+            // devnet
+            {CODA_SIGNATURE, "CodaSignature"},
+            {TESTNET_ZKAPP_BODY, "TestnetZkappBody"},
+            // mainnet
+            {MINA_SIGNATURE_MAINNET, "MinaSignatureMainnet"},
+            {MAINNET_ZKAPP_BODY, "MainnetZkappBody"}
+        );
     }
 }

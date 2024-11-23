@@ -5,7 +5,11 @@ use binprot::BinProtWrite;
 use binprot_derive::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
 use mina_hasher::Fp;
-use poseidon::hash::{hash_with_kimchi, Inputs};
+use poseidon::hash::{
+    hash_with_kimchi,
+    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
+    Inputs,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{
     digest::{generic_array::GenericArray, typenum::U32},
@@ -362,7 +366,7 @@ fn fp_state_hash_from_fp_hashes(previous_state_hash: Fp, body_hash: Fp) -> Fp {
     let mut inputs = Inputs::new();
     inputs.append_field(previous_state_hash);
     inputs.append_field(body_hash);
-    hash_with_kimchi("MinaProtoState", &inputs.to_fields())
+    hash_with_kimchi(&MINA_PROTO_STATE, &inputs.to_fields())
 }
 
 impl StateHash {
@@ -430,7 +434,10 @@ impl MinaHash for MinaStateProtocolStateBodyValueStableV2 {
     fn try_hash(&self) -> Result<mina_hasher::Fp, InvalidBigInt> {
         let mut inputs = Inputs::new();
         self.to_input(&mut inputs)?;
-        Ok(hash_with_kimchi("MinaProtoStateBody", &inputs.to_fields()))
+        Ok(hash_with_kimchi(
+            &MINA_PROTO_STATE_BODY,
+            &inputs.to_fields(),
+        ))
     }
 }
 

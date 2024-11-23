@@ -1,7 +1,6 @@
-use std::fmt::Write;
-
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::{bigint::BigInt, v2::MerkleTreeNode};
+use poseidon::hash::params::get_merkle_param_for_height;
 
 /// Computes the root hash of the merkle tree with an account and its merkle path
 ///
@@ -13,7 +12,6 @@ pub fn calc_merkle_root_hash(
 ) -> Result<BigInt, InvalidBigInt> {
     let account: ledger::Account = account.try_into()?;
     let mut child_hash = account.hash();
-    let mut param = String::with_capacity(16);
 
     for (depth, path) in merkle_path.iter().enumerate() {
         let hashes = match path {
@@ -21,10 +19,8 @@ pub fn calc_merkle_root_hash(
             MerkleTreeNode::Right(left) => [left.to_field()?, child_hash],
         };
 
-        param.clear();
-        write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
-
-        child_hash = poseidon::hash::hash_with_kimchi(param.as_str(), &hashes)
+        let param = get_merkle_param_for_height(depth);
+        child_hash = poseidon::hash::hash_with_kimchi(param, &hashes)
     }
 
     Ok(child_hash.into())

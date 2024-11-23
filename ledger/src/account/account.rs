@@ -34,7 +34,14 @@ use crate::{
     zkapps::snark::FlaggedOption,
     AppendToInputs as _, MerklePath, MyCow, ToInputs,
 };
-use poseidon::hash::{hash_noinputs, hash_with_kimchi, Inputs};
+use poseidon::hash::{
+    hash_noinputs, hash_with_kimchi,
+    params::{
+        get_merkle_param_for_height, MINA_ACCOUNT, MINA_DERIVE_TOKEN_ID, MINA_SIDELOADED_VK,
+        MINA_ZKAPP_ACCOUNT, MINA_ZKAPP_URI, NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT,
+    },
+    Inputs,
+};
 
 use super::common::*;
 
@@ -550,7 +557,7 @@ impl VerificationKey {
     }
 
     pub fn hash(&self) -> Fp {
-        self.hash_with_param(Self::HASH_PARAM)
+        self.hash_with_param(&MINA_SIDELOADED_VK)
     }
 
     pub fn gen() -> Self {
@@ -629,7 +636,7 @@ impl ZkAppUri {
             }
         }
 
-        hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
+        hash_with_kimchi(&MINA_ZKAPP_URI, &inputs.to_fields())
     }
 }
 
@@ -883,12 +890,12 @@ impl ZkAppAccount {
     pub const HASH_PARAM: &'static str = "MinaZkappAccount";
 
     pub fn hash(&self) -> Fp {
-        self.hash_with_param(Self::HASH_PARAM)
+        self.hash_with_param(&MINA_ZKAPP_ACCOUNT)
     }
 
     /// empty_state_element
     pub fn empty_action_state() -> Fp {
-        cache_one!(Fp, { hash_noinputs("MinaZkappActionStateEmptyElt") })
+        hash_noinputs(&NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT)
     }
 
     pub fn is_default(&self) -> bool {
@@ -1050,7 +1057,7 @@ impl AccountId {
         };
 
         TokenId(hash_with_kimchi(
-            Self::DERIVE_TOKEN_ID_HASH_PARAM,
+            &MINA_DERIVE_TOKEN_ID,
             &[self.public_key.x, self.token_id.0, is_odd_field],
         ))
     }
@@ -1516,7 +1523,7 @@ impl Account {
 
     pub fn hash(&self) -> Fp {
         let inputs = self.to_inputs_owned();
-        hash_with_kimchi("MinaAccount", &inputs.to_fields())
+        hash_with_kimchi(&MINA_ACCOUNT, &inputs.to_fields())
     }
 
     pub fn checked_hash(&self, w: &mut Witness<Fp>) -> Fp {
@@ -1699,7 +1706,6 @@ impl ToInputs for Account {
 
 fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
     let account_hash = account.hash();
-    let mut param = String::with_capacity(16);
 
     merkle_path
         .iter()
@@ -1709,11 +1715,8 @@ fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
                 MerklePath::Left(right) => [accum, *right],
                 MerklePath::Right(left) => [*left, accum],
             };
-
-            param.clear();
-            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
-
-            hash_with_kimchi(param.as_str(), &hashes)
+            let param = get_merkle_param_for_height(depth);
+            hash_with_kimchi(param, &hashes)
         })
 }
 

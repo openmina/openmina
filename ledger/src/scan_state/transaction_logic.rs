@@ -10,6 +10,7 @@ use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransact
 use mina_signer::CompressedPubKey;
 use openmina_core::constants::ConstraintConstants;
 use openmina_macros::SerdeYojsonEnum;
+use poseidon::hash::params::{CODA_RECEIPT_UC, MINA_ZKAPP_MEMO};
 use poseidon::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use crate::proofs::witness::Witness;
@@ -625,7 +626,7 @@ impl Memo {
         // For some reason we are mixing legacy inputs and "new" hashing
         let mut inputs = legacy::Inputs::new();
         inputs.append_bytes(&self.0);
-        hash_with_kimchi("MinaZkappMemo", &inputs.to_fields())
+        hash_with_kimchi(&MINA_ZKAPP_MEMO, &inputs.to_fields())
     }
 
     pub fn as_slice(&self) -> &[u8] {
@@ -904,6 +905,10 @@ pub mod zkapp_command {
     use ark_ff::UniformRand;
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
     use mina_signer::Signature;
+    use poseidon::hash::params::{
+        MINA_ACCOUNT_UPDATE_CONS, MINA_ACCOUNT_UPDATE_NODE, MINA_ZKAPP_EVENT, MINA_ZKAPP_EVENTS,
+        MINA_ZKAPP_SEQ_EVENTS, NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY, NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY,
+    };
     use rand::{seq::SliceRandom, Rng};
 
     use crate::{
@@ -932,7 +937,7 @@ pub mod zkapp_command {
             Self(Vec::new())
         }
         pub fn hash(&self) -> Fp {
-            hash_with_kimchi("MinaZkappEvent", &self.0[..])
+            hash_with_kimchi(&MINA_ZKAPP_EVENT, &self.0[..])
         }
         pub fn len(&self) -> usize {
             let Self(list) = self;
@@ -962,12 +967,16 @@ pub mod zkapp_command {
             .collect()
     }
 
+    use poseidon::hash::LazyParam;
+
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
     pub trait MakeEvents {
         const SALT_PHRASE: &'static str;
         const HASH_PREFIX: &'static str;
         const DERIVER_NAME: (); // Unused here for now
 
+        fn get_salt_phrase() -> &'static LazyParam;
+        fn get_hash_prefix() -> &'static LazyParam;
         fn events(&self) -> &[Event];
         fn empty_hash() -> Fp;
     }
@@ -977,6 +986,12 @@ pub mod zkapp_command {
         const SALT_PHRASE: &'static str = "MinaZkappEventsEmpty";
         const HASH_PREFIX: &'static str = "MinaZkappEvents";
         const DERIVER_NAME: () = ();
+        fn get_salt_phrase() -> &'static LazyParam {
+            &NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY
+        }
+        fn get_hash_prefix() -> &'static poseidon::hash::LazyParam {
+            &MINA_ZKAPP_EVENTS
+        }
         fn events(&self) -> &[Event] {
             self.0.as_slice()
         }
@@ -990,6 +1005,12 @@ pub mod zkapp_command {
         const SALT_PHRASE: &'static str = "MinaZkappActionsEmpty";
         const HASH_PREFIX: &'static str = "MinaZkappSeqEvents";
         const DERIVER_NAME: () = ();
+        fn get_salt_phrase() -> &'static LazyParam {
+            &NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY
+        }
+        fn get_hash_prefix() -> &'static poseidon::hash::LazyParam {
+            &MINA_ZKAPP_SEQ_EVENTS
+        }
         fn events(&self) -> &[Event] {
             self.0.as_slice()
         }
@@ -1003,10 +1024,10 @@ pub mod zkapp_command {
     where
         E: MakeEvents,
     {
-        let init = hash_noinputs(E::SALT_PHRASE);
+        let init = hash_noinputs(E::get_salt_phrase());
 
         e.events().iter().rfold(init, |accum, elem| {
-            hash_with_kimchi(E::HASH_PREFIX, &[accum, elem.hash()])
+            hash_with_kimchi(E::get_hash_prefix(), &[accum, elem.hash()])
         })
     }
 
@@ -1164,17 +1185,17 @@ pub mod zkapp_command {
         }
 
         pub fn push_event(acc: Fp, event: Event) -> Fp {
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, event.hash()])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, event.hash()])
         }
 
         pub fn push_events(&self, acc: Fp) -> Fp {
             let hash = self
                 .0
                 .iter()
-                .rfold(hash_noinputs(Self::SALT_PHRASE), |acc, e| {
+                .rfold(hash_noinputs(Self::get_salt_phrase()), |acc, e| {
                     Self::push_event(acc, e.clone())
                 });
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, hash])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, hash])
         }
     }
 
@@ -1188,17 +1209,17 @@ pub mod zkapp_command {
         }
 
         pub fn push_event(acc: Fp, event: Event) -> Fp {
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, event.hash()])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, event.hash()])
         }
 
         pub fn push_events(&self, acc: Fp) -> Fp {
             let hash = self
                 .0
                 .iter()
-                .rfold(hash_noinputs(Self::SALT_PHRASE), |acc, e| {
+                .rfold(hash_noinputs(Self::get_salt_phrase()), |acc, e| {
                     Self::push_event(acc, e.clone())
                 });
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, hash])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, hash])
         }
     }
 
@@ -2816,7 +2837,9 @@ pub mod zkapp_command {
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
         pub fn digest(&self) -> Fp {
-            self.hash_with_param(openmina_core::NetworkConfig::global().account_update_hash_param)
+            self.hash_with_param(
+                (openmina_core::NetworkConfig::global().account_update_hash_param)()
+            )
         }
 
         pub fn timing(&self) -> SetOrKeep<Timing> {
@@ -3126,7 +3149,10 @@ pub mod zkapp_command {
                 None => Fp::zero(),
             };
             let account_update_digest = self.account_update_digest.get().unwrap();
-            hash_with_kimchi(Self::HASH_PARAM, &[account_update_digest, stack_hash])
+            hash_with_kimchi(
+                &MINA_ACCOUNT_UPDATE_NODE,
+                &[account_update_digest, stack_hash],
+            )
         }
 
         fn fold<F>(&self, init: Vec<AccountId>, f: &mut F) -> Vec<AccountId>
@@ -3239,7 +3265,7 @@ pub mod zkapp_command {
             let hash = tree.digest();
             let h_tl = self.hash();
 
-            let stack_hash = hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl]);
+            let stack_hash = hash_with_kimchi(&MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl]);
             let node = WithStackHash::<AccUpdate> {
                 elt: tree,
                 stack_hash: MutableFp::new(stack_hash),
@@ -3439,7 +3465,7 @@ pub mod zkapp_command {
         pub fn accumulate_hashes(&self) {
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293
             fn cons(hash: Fp, h_tl: Fp) -> Fp {
-                hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl])
+                hash_with_kimchi(&MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl])
             }
 
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561
@@ -4172,8 +4198,10 @@ pub mod zkapp_command {
 }
 
 pub mod zkapp_statement {
+    use poseidon::hash::params::MINA_ACCOUNT_UPDATE_CONS;
+
     use super::{
-        zkapp_command::{CallForest, Tree, ACCOUNT_UPDATE_CONS_HASH_PARAM},
+        zkapp_command::{CallForest, Tree},
         *,
     };
 
@@ -4189,7 +4217,7 @@ pub mod zkapp_statement {
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368
         pub fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
             Self(hash_with_kimchi(
-                ACCOUNT_UPDATE_CONS_HASH_PARAM,
+                &MINA_ACCOUNT_UPDATE_CONS,
                 &[memo_hash, fee_payer_hash, self.0],
             ))
         }
@@ -5078,6 +5106,8 @@ pub mod protocol_state {
 pub mod local_state {
     use std::{cell::RefCell, rc::Rc};
 
+    use poseidon::hash::params::MINA_ACCOUNT_UPDATE_STACK_FRAME;
+
     use crate::{
         proofs::{
             field::{field, Boolean, ToBoolean},
@@ -5284,7 +5314,7 @@ pub mod local_state {
             };
             inputs.append_field(field);
 
-            hash_with_kimchi("MinaAcctUpdStckFrm", &inputs.to_fields())
+            hash_with_kimchi(&MINA_ACCOUNT_UPDATE_STACK_FRAME, &inputs.to_fields())
         }
 
         pub fn digest(&self) -> Fp {
@@ -7506,7 +7536,7 @@ pub fn cons_signed_command_payload(
 
     let mut inputs = union.to_input_legacy();
     inputs.append_field(last_receipt_chain_hash);
-    let hash = legacy::hash_with_kimchi(ReceiptChainHash::HASH_PREFIX, &inputs.to_fields());
+    let hash = legacy::hash_with_kimchi(&legacy::params::CODA_RECEIPT_UC, &inputs.to_fields());
 
     ReceiptChainHash(hash)
 }
@@ -7544,10 +7574,7 @@ pub fn cons_zkapp_command_commitment(
     inputs.append_field(x.0);
     inputs.append(receipt_hash);
 
-    ReceiptChainHash(hash_with_kimchi(
-        ReceiptChainHash::HASH_PREFIX,
-        &inputs.to_fields(),
-    ))
+    ReceiptChainHash(hash_with_kimchi(&CODA_RECEIPT_UC, &inputs.to_fields()))
 }
 
 fn validate_nonces(txn_nonce: Nonce, account_nonce: Nonce) -> Result<(), String> {

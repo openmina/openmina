@@ -2,7 +2,7 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{proofs::witness::Witness, scan_state::currency};
-use poseidon::hash::{hash_with_kimchi, Inputs};
+use poseidon::hash::{hash_with_kimchi, Inputs, LazyParam};
 
 pub trait ToInputs {
     fn to_inputs(&self, inputs: &mut Inputs);
@@ -13,7 +13,7 @@ pub trait ToInputs {
         inputs
     }
 
-    fn hash_with_param(&self, param: &str) -> Fp {
+    fn hash_with_param(&self, param: &LazyParam) -> Fp {
         let mut inputs = Inputs::new();
         self.to_inputs(&mut inputs);
         hash_with_kimchi(param, &inputs.to_fields())

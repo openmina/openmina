@@ -2582,8 +2582,8 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
-        let hash = checked_legacy_hash(signature_prefix, inputs, w);
+        let signature_prefix = (openmina_core::NetworkConfig::global().signature_prefix)();
+        let hash = checked_legacy_hash(signature_prefix.string, inputs, w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
@@ -2644,8 +2644,8 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
-        let hash = checked_hash(signature_prefix, &inputs.to_fields(), w);
+        let signature_prefix = (openmina_core::NetworkConfig::global().signature_prefix)();
+        let hash = checked_hash(signature_prefix.string, &inputs.to_fields(), w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }

@@ -24,7 +24,13 @@ use ark_ff::{fields::arithmetic::InvalidBigInt, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use openmina_core::constants::constraint_constants;
-use poseidon::hash::{hash_noinputs, hash_with_kimchi, Inputs};
+use poseidon::hash::{
+    hash_noinputs, hash_with_kimchi,
+    params::{
+        get_coinbase_param_for_height, COINBASE_STACK, MINA_PROTO_STATE, NO_INPUT_COINBASE_STACK,
+    },
+    Inputs,
+};
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -149,7 +155,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = hash_with_kimchi("CoinbaseStack", &inputs.to_fields());
+        let hash = hash_with_kimchi(&COINBASE_STACK, &inputs.to_fields());
         Self(hash)
     }
 
@@ -173,7 +179,7 @@ impl CoinbaseStack {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
     pub fn empty() -> Self {
-        Self(hash_noinputs("CoinbaseStack"))
+        Self(hash_noinputs(&NO_INPUT_COINBASE_STACK))
     }
 
     /// Used for tests/debug only
@@ -220,7 +226,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = hash_with_kimchi("MinaProtoState", &inputs.to_fields());
+        let hash = hash_with_kimchi(&MINA_PROTO_STATE, &inputs.to_fields());
 
         Self {
             init: self.init,
@@ -474,13 +480,12 @@ impl merkle_tree::TreeHasher<Stack> for StackHasher {
         inputs.append_field(value.state.init);
         inputs.append_field(value.state.curr);
 
-        hash_with_kimchi("CoinbaseStack", &inputs.to_fields())
+        hash_with_kimchi(&COINBASE_STACK, &inputs.to_fields())
     }
 
-    fn merge_hash(depth: usize, left: Fp, right: Fp) -> Fp {
-        let param = format!("MinaCbMklTree{:03}", depth);
-
-        poseidon::hash::hash_with_kimchi(param.as_str(), &[left, right])
+    fn merge_hash(height: usize, left: Fp, right: Fp) -> Fp {
+        let param = get_coinbase_param_for_height(height);
+        poseidon::hash::hash_with_kimchi(param, &[left, right])
     }
 
     fn empty_value() -> Stack {
