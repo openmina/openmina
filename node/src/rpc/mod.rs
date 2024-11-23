@@ -412,7 +412,7 @@ impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
                             // fee_token: signedcmd.fee_token(),
                             from: signedcmd.fee_payer_pk().clone().into(),
                             to: payment.receiver_pk.clone().into(),
-                            hash: TransactionHash::from(value.hash.as_ref()).to_string(),
+                            hash: value.hash.to_string(),
                             is_delegation: false,
                             // memo: signedcmd.payload.common.memo.clone(),
                             memo: signedcmd.payload.common.memo.to_string(),

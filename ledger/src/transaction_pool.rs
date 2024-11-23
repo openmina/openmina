@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::{Borrow, Cow},
     collections::{hash_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
-    sync::Arc,
 };
 
 use itertools::Itertools;
@@ -198,7 +197,7 @@ mod consensus {
 /// Fee increase required to replace a transaction.
 const REPLACE_FEE: Fee = Fee::of_nanomina_int_exn(1);
 
-pub type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
+pub type ValidCommandWithHash = WithHash<valid::UserCommand, v2::TransactionHash>;
 
 pub mod diff {
     use super::*;
@@ -611,7 +610,7 @@ pub struct IndexedPool {
     all_by_sender: HashMap<AccountId, (VecDeque<ValidCommandWithHash>, Amount)>,
     /// All transactions in the pool indexed by fee per weight unit.
     all_by_fee: HashMap<FeeRate, HashSet<ValidCommandWithHash>>,
-    all_by_hash: HashMap<BlakeHash, ValidCommandWithHash>,
+    all_by_hash: HashMap<v2::TransactionHash, ValidCommandWithHash>,
     /// Only transactions that have an expiry
     transactions_with_expiration: HashMap<Slot, HashSet<ValidCommandWithHash>>,
     size: usize,
@@ -1395,7 +1394,7 @@ impl IndexedPool {
                 .unwrap();
 
             // TODO: Check if OCaml compare using `hash` (order)
-            let txn = set.iter().min_by_key(|b| &*b.hash).cloned().unwrap();
+            let txn = set.iter().min_by_key(|b| &b.hash).cloned().unwrap();
 
             {
                 set.remove(&txn);
@@ -1456,7 +1455,7 @@ impl IndexedPool {
                 .unwrap();
 
             // TODO: Check if OCaml compare using `hash` (order)
-            let txn = set.iter().min_by_key(|b| &*b.hash).cloned().unwrap();
+            let txn = set.iter().min_by_key(|b| &b.hash).cloned().unwrap();
 
             {
                 set.remove(&txn);
@@ -1537,60 +1536,22 @@ fn currency_consumed(cmd: &UserCommand) -> Result<Amount, CommandError> {
         .ok_or(CommandError::InvalidCurrencyConsumed)
 }
 
-type BlakeHash = Arc<[u8; 32]>;
-
 pub mod transaction_hash {
-    use blake2::{
-        digest::{Update, VariableOutput},
-        Blake2bVar,
-    };
-    use mina_signer::Signature;
-
-    use crate::scan_state::transaction_logic::{
-        signed_command::SignedCommand, zkapp_command::AccountUpdate,
-    };
-
     use super::*;
 
     pub fn hash_command(cmd: valid::UserCommand) -> ValidCommandWithHash {
-        use mina_p2p_messages::binprot::BinProtWrite;
-
-        fn to_binprot<T: Into<V>, V: BinProtWrite>(v: T) -> Vec<u8> {
-            let value = v.into();
-            let mut buffer = Vec::with_capacity(32 * 1024);
-            value.binprot_write(&mut buffer).unwrap();
-            buffer
-        }
-
-        let buffer: Vec<u8> = match &cmd {
+        let hash = match &cmd {
             valid::UserCommand::SignedCommand(cmd) => {
-                let mut cmd: SignedCommand = (**cmd).clone();
-                cmd.signature = Signature::dummy();
-                to_binprot::<_, v2::MinaBaseSignedCommandStableV2>(&cmd)
+                v2::MinaBaseSignedCommandStableV2::from(&**cmd)
+                    .hash()
+                    .unwrap()
             }
             valid::UserCommand::ZkAppCommand(cmd) => {
-                let mut cmd = cmd.clone().forget();
-                cmd.fee_payer.authorization = Signature::dummy();
-                cmd.account_updates = cmd.account_updates.map_to(|account_update| {
-                    let dummy_auth = account_update.authorization.dummy();
-                    AccountUpdate {
-                        authorization: dummy_auth,
-                        ..account_update.clone()
-                    }
-                });
-                to_binprot::<_, v2::MinaBaseZkappCommandTStableV1WireStableV1>(&cmd)
+                let cmd = cmd.clone().forget();
+                v2::MinaBaseZkappCommandTStableV1WireStableV1::from(&cmd)
+                    .hash()
+                    .unwrap()
             }
-        };
-
-        let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
-        hasher.update(&buffer);
-
-        let hash: Arc<[u8; 32]> = {
-            let mut buffer = [0; 32];
-            hasher
-                .finalize_variable(&mut buffer)
-                .expect("Invalid buffer size"); // Never occur
-            Arc::from(buffer)
         };
 
         WithHash { data: cmd, hash }
@@ -1661,7 +1622,7 @@ impl TransactionPool {
         &mut self,
         global_slot_since_genesis: Slot,
         accounts: &BTreeMap<AccountId, Account>,
-    ) -> Result<(), CommandError> {
+    ) -> Result<Vec<ValidCommandWithHash>, CommandError> {
         let dropped = self.pool.revalidate(
             global_slot_since_genesis,
             RevalidateKind::EntirePool,
@@ -1695,7 +1656,7 @@ impl TransactionPool {
             );
         }
 
-        Ok(())
+        Ok(dropped)
     }
 
     fn has_sufficient_fee(&self, pool_max_size: usize, cmd: &valid::UserCommand) -> bool {
@@ -1852,7 +1813,7 @@ impl TransactionPool {
         };
 
         let (committed_commands, dropped_commit_conflicts): (Vec<_>, Vec<_>) = {
-            let command_hashes: HashSet<BlakeHash> =
+            let command_hashes: HashSet<v2::TransactionHash> =
                 new_commands.iter().map(|cmd| cmd.hash.clone()).collect();
 
             dropped_commands
@@ -2026,11 +1987,11 @@ impl TransactionPool {
                 .decrement_hashed(all_dropped_cmds.iter().copied());
         };
 
-        let dropped_for_add_hashes: HashSet<&BlakeHash> =
+        let dropped_for_add_hashes: HashSet<&v2::TransactionHash> =
             dropped_for_add.iter().map(|cmd| &cmd.hash).collect();
-        let dropped_for_size_hashes: HashSet<&BlakeHash> =
+        let dropped_for_size_hashes: HashSet<&v2::TransactionHash> =
             dropped_for_size.iter().map(|cmd| &cmd.hash).collect();
-        let all_dropped_cmd_hashes: HashSet<&BlakeHash> = dropped_for_add_hashes
+        let all_dropped_cmd_hashes: HashSet<&v2::TransactionHash> = dropped_for_add_hashes
             .union(&dropped_for_size_hashes)
             .copied()
             .collect();
