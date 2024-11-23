@@ -1514,6 +1514,7 @@ pub mod legacy_input {
     use crate::scan_state::transaction_logic::transaction_union_payload::{
         Body, Common, TransactionUnionPayload,
     };
+    use ::poseidon::hash::legacy;
 
     use super::*;
 
@@ -1552,65 +1553,12 @@ pub mod legacy_input {
     }
 
     pub trait CheckedLegacyInput<F: FieldWitness> {
-        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<F>, w: &mut Witness<F>);
+        fn to_checked_legacy_input(&self, inputs: &mut legacy::Inputs<F>, w: &mut Witness<F>);
 
-        fn to_checked_legacy_input_owned(&self, w: &mut Witness<F>) -> LegacyInput<F> {
-            let mut inputs = LegacyInput::new();
+        fn to_checked_legacy_input_owned(&self, w: &mut Witness<F>) -> legacy::Inputs<F> {
+            let mut inputs = legacy::Inputs::new();
             self.to_checked_legacy_input(&mut inputs, w);
             inputs
-        }
-    }
-
-    #[derive(Clone, Debug)]
-    pub struct LegacyInput<F: FieldWitness> {
-        fields: Vec<F>,
-        bits: Vec<bool>,
-    }
-
-    impl<F: FieldWitness> Default for LegacyInput<F> {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl<F: FieldWitness> LegacyInput<F> {
-        pub fn new() -> Self {
-            Self {
-                fields: Vec::with_capacity(256),
-                bits: Vec::with_capacity(1024),
-            }
-        }
-
-        pub fn append_bit(&mut self, bit: bool) {
-            self.bits.push(bit);
-        }
-
-        pub fn append_bits(&mut self, bits: &[bool]) {
-            self.bits.extend(bits);
-        }
-
-        pub fn append_field(&mut self, field: F) {
-            self.fields.push(field);
-        }
-
-        pub fn to_fields(mut self) -> Vec<F> {
-            const NBITS: usize = 255 - 1;
-
-            self.fields.reserve(self.bits.len() / NBITS);
-            self.fields.extend(self.bits.chunks(NBITS).map(|bits| {
-                assert!(bits.len() <= NBITS);
-
-                let mut field = [0u64; 4];
-
-                for (index, bit) in bits.iter().enumerate() {
-                    let limb_index = index / 64;
-                    let bit_index = index % 64;
-                    field[limb_index] |= (*bit as u64) << bit_index;
-                }
-
-                F::try_from(BigInteger256::new(field)).unwrap() // Never fail
-            }));
-            self.fields
         }
     }
 
@@ -1621,7 +1569,7 @@ pub mod legacy_input {
     };
 
     impl CheckedLegacyInput<Fp> for TransactionUnionPayload {
-        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<Fp>, w: &mut Witness<Fp>) {
+        fn to_checked_legacy_input(&self, inputs: &mut legacy::Inputs<Fp>, w: &mut Witness<Fp>) {
             let Self {
                 common:
                     Common {
@@ -2298,10 +2246,11 @@ pub mod transaction_snark {
         currency,
         transaction_logic::transaction_union_payload::{TransactionUnion, TransactionUnionPayload},
     };
+    use ::poseidon::hash::legacy;
     use mina_signer::Signature;
     use openmina_core::constants::constraint_constants;
 
-    use super::{legacy_input::LegacyInput, *};
+    use super::*;
 
     mod user_command_failure {
         use crate::scan_state::{
@@ -2564,7 +2513,7 @@ pub mod transaction_snark {
         }
     }
 
-    pub fn checked_legacy_hash(param: &str, inputs: LegacyInput<Fp>, w: &mut Witness<Fp>) -> Fp {
+    pub fn checked_legacy_hash(param: &str, inputs: legacy::Inputs<Fp>, w: &mut Witness<Fp>) -> Fp {
         use ::poseidon::fp_legacy::params;
         use ::poseidon::hash::param_to_field;
         use ::poseidon::PlonkSpongeConstantsLegacy as Constants;
@@ -2622,7 +2571,7 @@ pub mod transaction_snark {
     }
 
     fn checked_legacy_signature_hash(
-        mut inputs: LegacyInput<Fp>,
+        mut inputs: legacy::Inputs<Fp>,
         signer: &PubKey,
         signature: &Signature,
         w: &mut Witness<Fp>,
@@ -2643,7 +2592,7 @@ pub mod transaction_snark {
         shifted: &InnerCurve<Fp>,
         signer: &PubKey,
         signature: &Signature,
-        inputs: LegacyInput<Fp>,
+        inputs: legacy::Inputs<Fp>,
         w: &mut Witness<Fp>,
     ) -> Boolean {
         let hash = checked_legacy_signature_hash(inputs, signer, signature, w);

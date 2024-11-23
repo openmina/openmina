@@ -222,3 +222,94 @@ pub fn hash_noinputs(param: &str) -> Fp {
     sponge.absorb(&[param_to_field_noinputs(param)]);
     sponge.squeeze()
 }
+
+pub mod legacy {
+    use ark_ff::fields::arithmetic::InvalidBigInt;
+
+    use super::*;
+
+    #[derive(Clone, Debug)]
+    pub struct Inputs<F: Field> {
+        fields: Vec<F>,
+        bits: Vec<bool>,
+    }
+
+    impl<F: Field> Default for Inputs<F> {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl<F: Field> Inputs<F> {
+        pub fn new() -> Self {
+            Self {
+                fields: Vec::with_capacity(256),
+                bits: Vec::with_capacity(512),
+            }
+        }
+
+        pub fn append_bit(&mut self, bit: bool) {
+            self.bits.push(bit);
+        }
+
+        pub fn append_bool(&mut self, value: bool) {
+            self.append_bit(value);
+        }
+
+        pub fn append_bits(&mut self, bits: &[bool]) {
+            self.bits.extend(bits);
+        }
+
+        pub fn append_bytes(&mut self, bytes: &[u8]) {
+            const BITS: [u8; 8] = [1, 2, 4, 8, 16, 32, 64, 128];
+
+            self.bits.reserve(bytes.len() * 8);
+
+            for byte in bytes {
+                for bit in BITS {
+                    self.append_bit(byte & bit != 0);
+                }
+            }
+        }
+
+        pub fn append_u64(&mut self, value: u64) {
+            self.append_bytes(&value.to_le_bytes());
+        }
+
+        pub fn append_u32(&mut self, value: u32) {
+            self.append_bytes(&value.to_le_bytes());
+        }
+
+        pub fn append_field(&mut self, field: F) {
+            self.fields.push(field);
+        }
+    }
+
+    impl<F: Field + TryFrom<BigInteger256, Error = InvalidBigInt>> Inputs<F> {
+        pub fn to_fields(mut self) -> Vec<F> {
+            const NBITS: usize = 255 - 1;
+
+            self.fields.reserve(self.bits.len() / NBITS);
+            self.fields.extend(self.bits.chunks(NBITS).map(|bits| {
+                let mut field = [0u64; 4];
+                for (index, bit) in bits.iter().enumerate() {
+                    let limb_index = index / 64;
+                    let bit_index = index % 64;
+                    field[limb_index] |= (*bit as u64) << bit_index;
+                }
+                F::try_from(BigInteger256::new(field)).unwrap() // Never fail
+            }));
+            self.fields
+        }
+    }
+
+    pub fn hash_with_kimchi(param: &str, fields: &[Fp]) -> Fp {
+        let mut sponge = Sponge::new_legacy();
+
+        sponge.absorb(&[param_to_field(param)]);
+        sponge.squeeze();
+
+        sponge.absorb(fields);
+        sponge.squeeze()
+    }
+}

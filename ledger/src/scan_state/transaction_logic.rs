@@ -4,7 +4,7 @@ use std::fmt::Display;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
-use mina_hasher::{create_kimchi, Fp};
+use mina_hasher::Fp;
 use mina_p2p_messages::binprot;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
@@ -620,31 +620,12 @@ impl Memo {
     }
 
     pub fn hash(&self) -> Fp {
-        use mina_hasher::ROInput as LegacyInput;
+        use ::poseidon::hash::{hash_with_kimchi, legacy};
 
-        let inputs = LegacyInput::new();
-        let inputs = inputs.append_bytes(&self.0);
-
-        use mina_hasher::{Hashable, Hasher, ROInput};
-
-        #[derive(Clone)]
-        struct MyInput(LegacyInput);
-
-        impl Hashable for MyInput {
-            type D = ();
-
-            fn to_roinput(&self) -> ROInput {
-                self.0.clone()
-            }
-
-            fn domain_string(_: Self::D) -> Option<String> {
-                Some("MinaZkappMemo".to_string())
-            }
-        }
-
-        let mut hasher = create_kimchi::<MyInput>(());
-        hasher.update(&MyInput(inputs));
-        hasher.digest()
+        // For some reason we are mixing legacy inputs and "new" hashing
+        let mut inputs = legacy::Inputs::new();
+        inputs.append_bytes(&self.0);
+        hash_with_kimchi("MinaZkappMemo", &inputs.to_fields())
     }
 
     pub fn as_slice(&self) -> &[u8] {
@@ -4218,24 +4199,6 @@ pub mod zkapp_statement {
         }
     }
 
-    impl mina_hasher::Hashable for TransactionCommitment {
-        type D = mina_signer::NetworkId;
-
-        fn to_roinput(&self) -> mina_hasher::ROInput {
-            mina_hasher::ROInput::new().append_field(self.0)
-        }
-
-        fn domain_string(network_id: mina_signer::NetworkId) -> Option<String> {
-            // Domain strings must have length <= 20
-            match network_id {
-                mina_signer::NetworkId::MAINNET => "MinaSignatureMainnet",
-                mina_signer::NetworkId::TESTNET => "CodaSignature",
-            }
-            .to_string()
-            .into()
-        }
-    }
-
     #[derive(Clone, Debug)]
     pub struct ZkappStatement {
         pub account_update: TransactionCommitment,
@@ -4289,7 +4252,6 @@ pub mod verifiable {
     use std::ops::Neg;
 
     use ark_ff::{BigInteger, PrimeField};
-    use mina_signer::Signer;
 
     use super::*;
 
@@ -4328,13 +4290,7 @@ pub mod verifiable {
         let payload = TransactionUnionPayload::of_user_command_payload(payload);
         let pubkey = compressed_to_pubkey(pubkey);
 
-        let network_id = match openmina_core::NetworkConfig::global().network_id {
-            openmina_core::network::NetworkId::TESTNET => mina_signer::NetworkId::TESTNET,
-            openmina_core::network::NetworkId::MAINNET => mina_signer::NetworkId::MAINNET,
-        };
-        let mut signer = mina_signer::create_legacy(network_id);
-
-        if signer.verify(signature, &pubkey, &payload) {
+        if crate::verifier::common::legacy_verify_signature(signature, &pubkey, &payload) {
             Ok(valid::UserCommand::SignedCommand(cmd))
         } else {
             Err(cmd)
@@ -7353,32 +7309,32 @@ pub mod transaction_union_payload {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_union_payload.ml#L309
-        pub fn to_input_legacy(&self) -> LegacyInput {
-            let mut roi = LegacyInput::new();
+        pub fn to_input_legacy(&self) -> ::poseidon::hash::legacy::Inputs<Fp> {
+            let mut roi = ::poseidon::hash::legacy::Inputs::new();
 
             // Self.common
             {
-                roi = roi.append_u64(self.common.fee.0);
+                roi.append_u64(self.common.fee.0);
 
                 // TokenId.default
                 // https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L19
-                roi = roi.append_bool(true);
+                roi.append_bool(true);
                 for _ in 0..63 {
-                    roi = roi.append_bool(false);
+                    roi.append_bool(false);
                 }
 
                 // fee_payer_pk
-                roi = roi.append_field(self.common.fee_payer_pk.x);
-                roi = roi.append_bool(self.common.fee_payer_pk.is_odd);
+                roi.append_field(self.common.fee_payer_pk.x);
+                roi.append_bool(self.common.fee_payer_pk.is_odd);
 
                 // nonce
-                roi = roi.append_u32(self.common.nonce.0);
+                roi.append_u32(self.common.nonce.0);
 
                 // valid_until
-                roi = roi.append_u32(self.common.valid_until.0);
+                roi.append_u32(self.common.valid_until.0);
 
                 // memo
-                roi = roi.append_bytes(&self.common.memo.0);
+                roi.append_bytes(&self.common.memo.0);
             }
 
             // Self.body
@@ -7386,25 +7342,25 @@ pub mod transaction_union_payload {
                 // tag
                 let tag = self.body.tag.clone() as u8;
                 for bit in [4, 2, 1] {
-                    roi = roi.append_bool(tag & bit != 0);
+                    roi.append_bool(tag & bit != 0);
                 }
 
                 // source_pk
-                roi = roi.append_field(self.body.source_pk.x);
-                roi = roi.append_bool(self.body.source_pk.is_odd);
+                roi.append_field(self.body.source_pk.x);
+                roi.append_bool(self.body.source_pk.is_odd);
 
                 // receiver_pk
-                roi = roi.append_field(self.body.receiver_pk.x);
-                roi = roi.append_bool(self.body.receiver_pk.is_odd);
+                roi.append_field(self.body.receiver_pk.x);
+                roi.append_bool(self.body.receiver_pk.is_odd);
 
                 // default token_id
-                roi = roi.append_u64(1);
+                roi.append_u64(1);
 
                 // amount
-                roi = roi.append_u64(self.body.amount.0);
+                roi.append_u64(self.body.amount.0);
 
                 // token_locked
-                roi = roi.append_bool(false);
+                roi.append_bool(false);
             }
 
             roi
@@ -7541,35 +7497,18 @@ pub fn cons_signed_command_payload(
     command_payload: &SignedCommandPayload,
     last_receipt_chain_hash: ReceiptChainHash,
 ) -> ReceiptChainHash {
-    // Note: Not sure why the use the legacy way of hashing here
+    // Note: Not sure why they use the legacy way of hashing here
 
-    use mina_hasher::ROInput as LegacyInput;
+    use ::poseidon::hash::legacy;
 
+    let ReceiptChainHash(last_receipt_chain_hash) = last_receipt_chain_hash;
     let union = TransactionUnionPayload::of_user_command_payload(command_payload);
 
-    let inputs = union.to_input_legacy();
-    let inputs = inputs.append_field(last_receipt_chain_hash.0);
+    let mut inputs = union.to_input_legacy();
+    inputs.append_field(last_receipt_chain_hash);
+    let hash = legacy::hash_with_kimchi(ReceiptChainHash::HASH_PREFIX, &inputs.to_fields());
 
-    use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
-
-    #[derive(Clone)]
-    struct MyInput(LegacyInput);
-
-    impl Hashable for MyInput {
-        type D = ();
-
-        fn to_roinput(&self) -> ROInput {
-            self.0.clone()
-        }
-
-        fn domain_string(_: Self::D) -> Option<String> {
-            Some(ReceiptChainHash::HASH_PREFIX.to_string())
-        }
-    }
-
-    let mut hasher = create_legacy::<MyInput>(());
-    hasher.update(&MyInput(inputs));
-    ReceiptChainHash(hasher.digest())
+    ReceiptChainHash(hash)
 }
 
 /// Returns the new `receipt_chain_hash`

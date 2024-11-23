@@ -231,6 +231,13 @@ impl<F: Field + SpongeParamsForField<F>, C: SpongeConstants> Sponge<F, C> {
     }
 }
 
+impl Sponge<Fp, PlonkSpongeConstantsLegacy> {
+    pub fn new_legacy() -> Self {
+        use params::fp_legacy::params;
+        Sponge::<Fp, PlonkSpongeConstantsLegacy>::new_with_params(params())
+    }
+}
+
 #[derive(Clone)]
 pub struct FqSponge<F: Field> {
     sponge: Sponge<F>,
