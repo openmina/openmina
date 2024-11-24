@@ -156,7 +156,7 @@ impl SparseLedgerImpl<AccountId, Account> {
         let mut current = account.hash();
 
         // Go back from the account to root, to compute missing hashes
-        for (depth, path) in merkle_path.iter().enumerate() {
+        for (height, path) in merkle_path.iter().enumerate() {
             set_hash(addr.clone(), &current);
 
             let hashes = match path {
@@ -164,7 +164,7 @@ impl SparseLedgerImpl<AccountId, Account> {
                 MerklePath::Right(left) => [*left, current],
             };
 
-            let param = get_merkle_param_for_height(depth);
+            let param = get_merkle_param_for_height(height);
             current = poseidon::hash::hash_with_kimchi(param, &hashes);
 
             addr = addr.parent().unwrap();

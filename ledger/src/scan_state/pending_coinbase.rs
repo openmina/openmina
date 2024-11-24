@@ -165,7 +165,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = checked_hash("CoinbaseStack", &inputs.to_fields(), w);
+        let hash = checked_hash(&COINBASE_STACK, &inputs.to_fields(), w);
         Self(hash)
     }
 
@@ -246,7 +246,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = checked_hash("MinaProtoState", &inputs.to_fields(), w);
+        let hash = checked_hash(&MINA_PROTO_STATE, &inputs.to_fields(), w);
 
         Self {
             init: self.init,
@@ -457,7 +457,7 @@ impl Stack {
     }
 
     fn hash_var(&self, w: &mut Witness<Fp>) -> Fp {
-        checked_hash("CoinbaseStack", &self.to_inputs_owned().to_fields(), w)
+        checked_hash(&COINBASE_STACK, &self.to_inputs_owned().to_fields(), w)
     }
 }
 
@@ -880,22 +880,19 @@ pub fn checked_verify_merkle_path(
     w: &mut Witness<Fp>,
 ) -> Fp {
     let account_hash = account.hash_var(w);
-    let mut param = String::with_capacity(16);
 
     let hash = merkle_path
         .iter()
         .enumerate()
-        .fold(account_hash, |accum, (depth, path)| {
+        .fold(account_hash, |accum, (height, path)| {
             let hashes = match path {
                 MerklePath::Left(right) => [accum, *right],
                 MerklePath::Right(left) => [*left, accum],
             };
-
-            param.clear();
-            write!(&mut param, "MinaCbMklTree{:03}", depth).unwrap();
-
             w.exists(hashes);
-            checked_hash(param.as_str(), &hashes, w)
+
+            let param = get_coinbase_param_for_height(height);
+            checked_hash(param, &hashes, w)
         });
 
     hash

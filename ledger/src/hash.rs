@@ -19,7 +19,7 @@ pub trait ToInputs {
         hash_with_kimchi(param, &inputs.to_fields())
     }
 
-    fn checked_hash_with_param(&self, param: &str, w: &mut Witness<Fp>) -> Fp {
+    fn checked_hash_with_param(&self, param: &LazyParam, w: &mut Witness<Fp>) -> Fp {
         use crate::proofs::transaction::transaction_snark::checked_hash;
 
         let inputs = self.to_inputs_owned();

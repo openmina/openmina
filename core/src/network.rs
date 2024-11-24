@@ -2,7 +2,6 @@ use once_cell::sync::OnceCell;
 use poseidon::hash::{
     legacy,
     params::{CODA_SIGNATURE, MAINNET_ZKAPP_BODY, MINA_SIGNATURE_MAINNET, TESTNET_ZKAPP_BODY},
-    LazyParam,
 };
 
 use crate::constants::ConstraintConstants;
@@ -21,9 +20,9 @@ pub enum NetworkId {
 pub struct NetworkConfig {
     pub name: &'static str,
     pub network_id: NetworkId,
-    pub signature_prefix: fn() -> &'static poseidon::hash::LazyParam,
-    pub legacy_signature_prefix: fn() -> &'static poseidon::hash::LazyParam,
-    pub account_update_hash_param: fn() -> &'static poseidon::hash::LazyParam,
+    pub signature_prefix: &'static poseidon::hash::LazyParam,
+    pub legacy_signature_prefix: &'static poseidon::hash::LazyParam,
+    pub account_update_hash_param: &'static poseidon::hash::LazyParam,
     pub constraint_system_digests: &'static [[u8; 16]; 3],
     pub default_peers: Vec<&'static str>,
     pub circuits_config: &'static CircuitsConfig,
@@ -79,21 +78,12 @@ impl NetworkConfig {
     }
 
     fn mainnet_config() -> Self {
-        fn get_sig() -> &'static LazyParam {
-            &MINA_SIGNATURE_MAINNET
-        }
-        fn get_legacy_sig() -> &'static LazyParam {
-            &legacy::params::MINA_SIGNATURE_MAINNET
-        }
-        fn get_zkapp_body() -> &'static LazyParam {
-            &MAINNET_ZKAPP_BODY
-        }
         Self {
             name: mainnet::NAME,
             network_id: mainnet::NETWORK_ID,
-            signature_prefix: get_sig,
-            legacy_signature_prefix: get_legacy_sig,
-            account_update_hash_param: get_zkapp_body,
+            signature_prefix: &MINA_SIGNATURE_MAINNET,
+            legacy_signature_prefix: &legacy::params::MINA_SIGNATURE_MAINNET,
+            account_update_hash_param: &MAINNET_ZKAPP_BODY,
             constraint_system_digests: &mainnet::CONSTRAINT_SYSTEM_DIGESTS,
             default_peers: mainnet::default_peers(),
             circuits_config: &mainnet::CIRCUITS_CONFIG,
@@ -102,21 +92,12 @@ impl NetworkConfig {
     }
 
     fn devnet_config() -> Self {
-        fn get_sig() -> &'static LazyParam {
-            &CODA_SIGNATURE
-        }
-        fn get_legacy_sig() -> &'static LazyParam {
-            &legacy::params::CODA_SIGNATURE
-        }
-        fn get_zkapp_body() -> &'static LazyParam {
-            &TESTNET_ZKAPP_BODY
-        }
         Self {
             name: devnet::NAME,
             network_id: devnet::NETWORK_ID,
-            signature_prefix: get_sig,
-            legacy_signature_prefix: get_legacy_sig,
-            account_update_hash_param: get_zkapp_body,
+            signature_prefix: &CODA_SIGNATURE,
+            legacy_signature_prefix: &legacy::params::CODA_SIGNATURE,
+            account_update_hash_param: &TESTNET_ZKAPP_BODY,
             constraint_system_digests: &devnet::CONSTRAINT_SYSTEM_DIGESTS,
             default_peers: devnet::default_peers(),
             circuits_config: &devnet::CIRCUITS_CONFIG,

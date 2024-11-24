@@ -228,11 +228,19 @@ pub fn hash_noinputs(param: &LazyParam) -> Fp {
     *last_squeezed
 }
 
+#[derive(Debug)]
+#[allow(dead_code)] // `string` is never read
 pub struct LazyParam {
     sponge_state: crate::SpongeState,
     state: [Fp; 3],
     last_squeezed: Fp,
-    pub string: &'static str,
+    string: &'static str,
+}
+
+impl LazyParam {
+    pub fn state(&self) -> [Fp; 3] {
+        self.state
+    }
 }
 
 pub mod params {
@@ -263,6 +271,8 @@ pub mod params {
         {MINA_DERIVE_TOKEN_ID, "MinaDeriveTokenId"},
         {MINA_EPOCH_SEED, "MinaEpochSeed"},
         {MINA_SIDELOADED_VK, "MinaSideLoadedVk"},
+        {MINA_VRF_MESSAGE, "MinaVrfMessage"},
+        {MINA_VRF_OUTPUT, "MinaVrfOutput"},
 
         {CODA_RECEIPT_UC, "CodaReceiptUC"},
         {COINBASE_STACK, "CoinbaseStack"},
@@ -270,6 +280,7 @@ pub mod params {
         {MINA_ACCOUNT_UPDATE_CONS, "MinaAcctUpdateCons"},
         {MINA_ACCOUNT_UPDATE_NODE, "MinaAcctUpdateNode"},
         {MINA_ACCOUNT_UPDATE_STACK_FRAME, "MinaAcctUpdStckFrm"},
+        {MINA_ACCOUNT_UPDATE_STACK_FRAME_CONS, "MinaActUpStckFrmCons"},
 
         {MINA_ZKAPP_ACCOUNT, "MinaZkappAccount"},
         {MINA_ZKAPP_MEMO, "MinaZkappMemo"},

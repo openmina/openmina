@@ -388,7 +388,7 @@ pub mod common {
         let Pallas { x, y, .. } = pubkey.point();
         let Signature { rx, s } = signature;
 
-        let signature_prefix = (openmina_core::NetworkConfig::global().signature_prefix)();
+        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
         let hash = hash_with_kimchi(signature_prefix, &[**msg, *x, *y, *rx]);
         let hash: Fq = Fq::try_from(hash.into_repr()).unwrap(); // Never fail, `Fq` is larger than `Fp`
 
@@ -419,7 +419,7 @@ pub mod common {
         let Pallas { x, y, .. } = pubkey.point();
         let Signature { rx, s } = signature;
 
-        let signature_prefix = (openmina_core::NetworkConfig::global().legacy_signature_prefix)();
+        let signature_prefix = openmina_core::NetworkConfig::global().legacy_signature_prefix;
 
         let mut inputs = msg.to_input_legacy();
         inputs.append_field(*x);

@@ -13,13 +13,13 @@ pub fn calc_merkle_root_hash(
     let account: ledger::Account = account.try_into()?;
     let mut child_hash = account.hash();
 
-    for (depth, path) in merkle_path.iter().enumerate() {
+    for (height, path) in merkle_path.iter().enumerate() {
         let hashes = match path {
             MerkleTreeNode::Left(right) => [child_hash, right.to_field()?],
             MerkleTreeNode::Right(left) => [left.to_field()?, child_hash],
         };
 
-        let param = get_merkle_param_for_height(depth);
+        let param = get_merkle_param_for_height(height);
         child_hash = poseidon::hash::hash_with_kimchi(param, &hashes)
     }
 

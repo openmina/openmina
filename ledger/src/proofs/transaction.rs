@@ -2239,7 +2239,7 @@ pub mod transaction_snark {
         zkapps::intefaces::{SignedAmountBranchParam, SignedAmountInterface},
         AccountId, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
-    use ::poseidon::hash::Inputs;
+    use ::poseidon::hash::{params::MINA_PROTO_STATE_BODY, Inputs, LazyParam};
     use ark_ff::Zero;
 
     use crate::scan_state::{
@@ -2513,58 +2513,30 @@ pub mod transaction_snark {
         }
     }
 
-    pub fn checked_legacy_hash(param: &str, inputs: legacy::Inputs<Fp>, w: &mut Witness<Fp>) -> Fp {
+    pub fn checked_legacy_hash(
+        param: &LazyParam,
+        inputs: legacy::Inputs<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> Fp {
         use ::poseidon::fp_legacy::params;
-        use ::poseidon::hash::param_to_field;
         use ::poseidon::PlonkSpongeConstantsLegacy as Constants;
 
-        // We hash the parameter first, without introducing values to the witness
-        let initial_state: [Fp; 3] = {
-            use ::poseidon::Sponge;
-
-            let mut sponge = Sponge::<Fp, Constants>::new_with_params(params());
-            sponge.absorb(&[param_to_field(param)]);
-            sponge.squeeze();
-            sponge.state
-        };
-
+        let initial_state: [Fp; 3] = param.state();
         let mut sponge =
             poseidon::Sponge::<Fp, Constants>::new_with_state_params(initial_state, params());
         sponge.absorb(&inputs.to_fields(), w);
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
-        // We hash the parameter first, without introducing values to the witness
-        let initial_state: [Fp; 3] = {
-            use ::poseidon::hash::param_to_field;
-            use ::poseidon::Sponge;
-
-            let mut sponge = Sponge::<Fp>::default();
-            sponge.absorb(&[param_to_field(param)]);
-            sponge.squeeze();
-            sponge.state
-        };
-
-        // dbg!(inputs);
-
+    pub fn checked_hash(param: &LazyParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+        let initial_state: [Fp; 3] = param.state();
         let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
         sponge.absorb(inputs, w);
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash3(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
-        // We hash the parameter first, without introducing values to the witness
-        let initial_state: [Fp; 3] = {
-            use ::poseidon::hash::param_to_field;
-            use ::poseidon::Sponge;
-
-            let mut sponge = Sponge::<Fp>::default();
-            sponge.absorb(&[param_to_field(param)]);
-            sponge.squeeze();
-            sponge.state
-        };
-
+    pub fn checked_hash3(param: &LazyParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+        let initial_state: [Fp; 3] = param.state();
         let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
         sponge.absorb3(inputs, w);
         sponge.squeeze(w)
@@ -2582,8 +2554,8 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        let signature_prefix = (openmina_core::NetworkConfig::global().signature_prefix)();
-        let hash = checked_legacy_hash(signature_prefix.string, inputs, w);
+        let signature_prefix = openmina_core::NetworkConfig::global().legacy_signature_prefix;
+        let hash = checked_legacy_hash(signature_prefix, inputs, w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
@@ -2644,8 +2616,8 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        let signature_prefix = (openmina_core::NetworkConfig::global().signature_prefix)();
-        let hash = checked_hash(signature_prefix.string, &inputs.to_fields(), w);
+        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
+        let hash = checked_hash(signature_prefix, &inputs.to_fields(), w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
@@ -2874,7 +2846,7 @@ pub mod transaction_snark {
         fee_payer.checked_equal(&source, w);
         current_global_slot.lte(&payload.common.valid_until.to_checked(), w);
 
-        let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
+        let state_body_hash = state_body.checked_hash_with_param(&MINA_PROTO_STATE_BODY, w);
 
         let pending_coinbase_stack_with_state =
             pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
@@ -4156,6 +4128,7 @@ mod tests_with_wasm {
 pub(super) mod tests {
     use std::path::Path;
 
+    use ::poseidon::hash::params::MINA_ZKAPP_EVENT;
     use mina_p2p_messages::binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
@@ -4482,11 +4455,11 @@ pub(super) mod tests {
             "6963060754718463299978089777716994949151371320681588566338620419071140958308";
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash("MinaZkappEvent", &[], &mut w);
+        let hash = transaction_snark::checked_hash(&MINA_ZKAPP_EVENT, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash3("MinaZkappEvent", &[], &mut w);
+        let hash = transaction_snark::checked_hash3(&MINA_ZKAPP_EVENT, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
     }
 

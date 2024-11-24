@@ -971,8 +971,6 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
     pub trait MakeEvents {
-        const SALT_PHRASE: &'static str;
-        const HASH_PREFIX: &'static str;
         const DERIVER_NAME: (); // Unused here for now
 
         fn get_salt_phrase() -> &'static LazyParam;
@@ -983,8 +981,6 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L100
     impl MakeEvents for Events {
-        const SALT_PHRASE: &'static str = "MinaZkappEventsEmpty";
-        const HASH_PREFIX: &'static str = "MinaZkappEvents";
         const DERIVER_NAME: () = ();
         fn get_salt_phrase() -> &'static LazyParam {
             &NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY
@@ -1002,8 +998,6 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L156
     impl MakeEvents for Actions {
-        const SALT_PHRASE: &'static str = "MinaZkappActionsEmpty";
-        const HASH_PREFIX: &'static str = "MinaZkappSeqEvents";
         const DERIVER_NAME: () = ();
         fn get_salt_phrase() -> &'static LazyParam {
             &NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY
@@ -2837,9 +2831,7 @@ pub mod zkapp_command {
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
         pub fn digest(&self) -> Fp {
-            self.hash_with_param(
-                (openmina_core::NetworkConfig::global().account_update_hash_param)()
-            )
+            self.hash_with_param(openmina_core::NetworkConfig::global().account_update_hash_param)
         }
 
         pub fn timing(&self) -> SetOrKeep<Timing> {
@@ -3140,8 +3132,6 @@ pub mod zkapp_command {
     }
 
     impl<AccUpdate: Clone + AccountUpdateRef> Tree<AccUpdate> {
-        pub const HASH_PARAM: &'static str = "MinaAcctUpdateNode";
-
         // TODO: Cache this result somewhere ?
         pub fn digest(&self) -> Fp {
             let stack_hash = match self.calls.0.first() {
@@ -3192,8 +3182,6 @@ pub mod zkapp_command {
         caller: TokenId,
         this: TokenId,
     }
-
-    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &str = "MinaAcctUpdateCons";
 
     pub trait AccountUpdateRef {
         fn account_update_ref(&self) -> &AccountUpdate;
@@ -5359,10 +5347,10 @@ pub mod local_state {
 
             if self.is_default {
                 use crate::proofs::transaction::transaction_snark::checked_hash3;
-                checked_hash3("MinaAcctUpdStckFrm", &fields, w)
+                checked_hash3(&MINA_ACCOUNT_UPDATE_STACK_FRAME, &fields, w)
             } else {
                 use crate::proofs::transaction::transaction_snark::checked_hash;
-                checked_hash("MinaAcctUpdStckFrm", &fields, w)
+                checked_hash(&MINA_ACCOUNT_UPDATE_STACK_FRAME, &fields, w)
             }
         }
     }
@@ -7549,11 +7537,12 @@ pub fn checked_cons_signed_command_payload(
 ) -> ReceiptChainHash {
     use crate::proofs::transaction::legacy_input::CheckedLegacyInput;
     use crate::proofs::transaction::transaction_snark::checked_legacy_hash;
+    use ::poseidon::hash::legacy;
 
     let mut inputs = payload.to_checked_legacy_input_owned(w);
     inputs.append_field(last_receipt_chain_hash.0);
 
-    let receipt_chain_hash = checked_legacy_hash(ReceiptChainHash::HASH_PREFIX, inputs, w);
+    let receipt_chain_hash = checked_legacy_hash(&legacy::params::CODA_RECEIPT_UC, inputs, w);
 
     ReceiptChainHash(receipt_chain_hash)
 }
