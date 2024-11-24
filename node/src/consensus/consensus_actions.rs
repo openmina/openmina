@@ -9,6 +9,7 @@ use snark::block_verify::SnarkBlockVerifyError;
 
 use crate::consensus::ConsensusBlockStatus;
 use crate::snark::block_verify::SnarkBlockVerifyId;
+use crate::state::BlockPrevalidationError;
 
 pub type ConsensusActionWithMeta = redux::ActionWithMeta<ConsensusAction>;
 pub type ConsensusActionWithMetaRef<'a> = redux::ActionWithMeta<&'a ConsensusAction>;
@@ -23,6 +24,13 @@ pub enum ConsensusAction {
         hash: StateHash,
         block: Arc<MinaBlockBlockStableV2>,
         chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
+    },
+    BlockPrevalidateSuccess {
+        hash: StateHash,
+    },
+    BlockPrevalidateError {
+        hash: StateHash,
+        error: BlockPrevalidationError,
     },
     BlockChainProofUpdate {
         hash: StateHash,
@@ -71,6 +79,12 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                 };
                 !block.is_genesis() && !state.consensus.blocks.contains_key(hash)
             },
+            ConsensusAction::BlockPrevalidateSuccess { hash }
+            | ConsensusAction::BlockPrevalidateError { hash, .. } => state
+                .consensus
+                .blocks
+                .get(hash)
+                .map_or(false, |block| block.status.is_received()),
             ConsensusAction::BlockChainProofUpdate { hash, .. } => {
                 (state.consensus.best_tip.as_ref() == Some(hash)
                     && state.consensus.best_tip_chain_proof.is_none())
@@ -85,7 +99,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     .consensus
                     .blocks
                     .get(hash)
-                    .map_or(false, |block| block.status.is_received())
+                    .map_or(false, |block| block.status.is_prevalidated())
                     && state.snark.block_verify.jobs.contains(*req_id)
             },
             ConsensusAction::BlockSnarkVerifySuccess { hash } => {

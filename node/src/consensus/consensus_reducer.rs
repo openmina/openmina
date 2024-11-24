@@ -1,5 +1,5 @@
 use openmina_core::{
-    block::BlockHash,
+    block::{ArcBlockWithHash, BlockHash},
     bug_condition,
     consensus::{is_short_range_fork, long_range_fork_take, short_range_fork_take},
 };
@@ -48,9 +48,33 @@ impl ConsensusState {
                 );
 
                 // Dispatch
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+
+                let hash = hash.clone();
+                let block = ArcBlockWithHash {
+                    hash: hash.clone(),
+                    block: block.clone(),
+                };
+                match state.prevalidate_block(&block) {
+                    Ok(()) => {
+                        dispatcher.push(ConsensusAction::BlockPrevalidateSuccess { hash });
+                    }
+                    Err(error) => {
+                        dispatcher.push(ConsensusAction::BlockPrevalidateError { hash, error });
+                    }
+                }
+            }
+            ConsensusAction::BlockPrevalidateSuccess { hash } => {
+                let Some(block) = state.blocks.get_mut(hash) else {
+                    return;
+                };
+                block.status = ConsensusBlockStatus::Prevalidated;
+
+                // Dispatch
+                let block = (hash.clone(), block.block.clone()).into();
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(SnarkBlockVerifyAction::Init {
-                    block: (hash.clone(), block.clone()).into(),
+                    block,
                     on_init: redux::callback!(
                         on_received_block_snark_verify_init((hash: BlockHash, req_id: SnarkBlockVerifyId)) -> crate::Action {
                             ConsensusAction::BlockSnarkVerifyPending { hash, req_id }
@@ -64,6 +88,9 @@ impl ConsensusState {
                             ConsensusAction::BlockSnarkVerifyError { hash, error }
                         }),
                 });
+            }
+            ConsensusAction::BlockPrevalidateError { hash, .. } => {
+                state.blocks.remove(hash);
             }
             ConsensusAction::BlockChainProofUpdate { hash, chain_proof } => {
                 if state.best_tip.as_ref() == Some(hash) {
