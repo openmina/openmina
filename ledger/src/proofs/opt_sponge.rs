@@ -1,4 +1,4 @@
-use crate::ArithmeticSpongeParams;
+use poseidon::SpongeParams;
 
 use super::{
     field::{field, Boolean, CircuitVar, FieldWitness},
@@ -20,7 +20,7 @@ pub enum SpongeState<F: FieldWitness> {
 
 pub struct OptSponge<F: FieldWitness> {
     pub state: [F; M],
-    params: &'static ArithmeticSpongeParams<F>,
+    params: &'static SpongeParams<F>,
     needs_final_permute_if_empty: bool,
     pub sponge_state: SpongeState<F>,
 }
@@ -48,13 +48,13 @@ impl<F: FieldWitness> OptSponge<F> {
         } = sponge;
 
         match sponge_state {
-            mina_poseidon::poseidon::SpongeState::Squeezed(n) => Self {
+            ::poseidon::SpongeState::Squeezed(n) => Self {
                 state,
                 params: F::get_params(),
                 needs_final_permute_if_empty: true,
                 sponge_state: SpongeState::Squeezed(n),
             },
-            mina_poseidon::poseidon::SpongeState::Absorbed(n) => {
+            ::poseidon::SpongeState::Absorbed(n) => {
                 let abs = |i: Boolean| Self {
                     state,
                     params: F::get_params(),
@@ -162,7 +162,7 @@ where
 struct ConsumeParams<'a, F: FieldWitness> {
     needs_final_permute_if_empty: bool,
     start_pos: CircuitVar<Boolean>,
-    params: &'static ArithmeticSpongeParams<F>,
+    params: &'static SpongeParams<F>,
     input: &'a [(CircuitVar<Boolean>, F)],
     state: [F; 3],
 }
@@ -268,7 +268,7 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
 
 fn block_cipher<F: FieldWitness>(
     mut state: [F; M],
-    params: &ArithmeticSpongeParams<F>,
+    params: &SpongeParams<F>,
     w: &mut Witness<F>,
 ) -> [F; M] {
     w.exists(state);
@@ -281,7 +281,7 @@ fn block_cipher<F: FieldWitness>(
 fn full_round<F: FieldWitness>(
     state: &mut [F; M],
     r: usize,
-    params: &ArithmeticSpongeParams<F>,
+    params: &SpongeParams<F>,
     w: &mut Witness<F>,
 ) {
     for state_i in state.iter_mut() {
@@ -301,7 +301,7 @@ fn sbox<F: FieldWitness>(x: F) -> F {
     res * x
 }
 
-fn apply_mds_matrix<F: FieldWitness>(params: &ArithmeticSpongeParams<F>, state: &[F; 3]) -> [F; 3] {
+fn apply_mds_matrix<F: FieldWitness>(params: &SpongeParams<F>, state: &[F; 3]) -> [F; 3] {
     std::array::from_fn(|i| {
         state
             .iter()

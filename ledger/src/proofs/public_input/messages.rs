@@ -10,7 +10,7 @@ use mina_curves::{pasta::Fq, pasta::Pallas};
 use mina_hasher::Fp;
 use poly_commitment::PolyComm;
 
-use crate::hash::hash_fields;
+use poseidon::hash::hash_fields;
 
 impl<'a> From<&'a VerifierIndex<Fq>> for PlonkVerificationKeyEvals<Fp> {
     fn from(verifier_index: &'a VerifierIndex<Fq>) -> Self {

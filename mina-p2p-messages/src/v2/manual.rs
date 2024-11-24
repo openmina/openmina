@@ -4,6 +4,7 @@ use ark_ff::BigInteger256;
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
+use poseidon::hash::params::NO_INPUT_COINBASE_STACK;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
 use time::OffsetDateTime;
 
@@ -544,7 +545,7 @@ impl CoinbaseStackData {
     pub fn empty() -> Self {
         // In OCaml: https://github.com/MinaProtocol/mina/blob/68b49fdaafabed0f2cd400c4c69f91e81db681e7/src/lib/mina_base/pending_coinbase.ml#L186
         // let empty = Random_oracle.salt "CoinbaseStack" |> Random_oracle.digest
-        let empty = super::hashing::hash_noinputs("CoinbaseStack");
+        let empty = poseidon::hash::hash_noinputs(&NO_INPUT_COINBASE_STACK);
         MinaBasePendingCoinbaseCoinbaseStackStableV1(empty.into()).into()
     }
 }

@@ -734,7 +734,7 @@ pub fn peer_is_ready(
     )
 }
 
-pub fn get_p2p_state<'a>(cluster: &'a ClusterRunner<'a>, node_id: ClusterNodeId) -> &P2pState {
+pub fn get_p2p_state<'a>(cluster: &'a ClusterRunner<'a>, node_id: ClusterNodeId) -> &'a P2pState {
     cluster
         .node(node_id)
         .expect("node should exist")

@@ -27,6 +27,7 @@ kimchi = { workspace = true }
 mina-poseidon = { workspace = true }
 poly-commitment = { workspace = true }
 juniper = { workspace = true }
+poseidon = { workspace = true }
 openmina-macros = { path = "../macros" }
 strum = "0.26.2"
 strum_macros = "0.26.4"

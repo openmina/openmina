@@ -25,6 +25,7 @@ hex = "0.4"
 redux = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
+poseidon = { workspace = true }
 sha2 = "0.10"
 num-bigint = "0.4"
 thiserror = "1.0.50"

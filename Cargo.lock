@@ -2393,7 +2393,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2902,7 +2902,7 @@ dependencies = [
 [[package]]
 name = "internal-tracing"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 
 [[package]]
 name = "io-lifetimes"
@@ -3065,7 +3065,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3729,7 +3729,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3738,7 +3738,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3767,11 +3767,11 @@ dependencies = [
  "lazy_static",
  "mina-curves",
  "mina-hasher",
- "mina-poseidon",
  "mina-signer",
  "num-bigint",
  "o1-utils",
  "openmina-macros",
+ "poseidon",
  "rsexp",
  "rsexp-derive",
  "serde",
@@ -3791,7 +3791,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3808,7 +3808,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3871,6 +3871,7 @@ dependencies = [
  "openmina-core",
  "openmina-macros",
  "poly-commitment",
+ "poseidon",
  "postcard",
  "rand",
  "rand_pcg",
@@ -4192,6 +4193,7 @@ dependencies = [
  "openmina-core",
  "openmina-node-account",
  "p2p",
+ "poseidon",
  "postcard",
  "rand",
  "redux",
@@ -4425,7 +4427,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4578,6 +4580,7 @@ dependencies = [
  "once_cell",
  "openmina-fuzzer",
  "openmina-macros",
+ "poseidon",
  "redux",
  "serde",
  "serde_json",
@@ -5283,7 +5286,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5356,6 +5359,15 @@ name = "portable-atomic"
 version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
+
+[[package]]
+name = "poseidon"
+version = "0.1.0"
+dependencies = [
+ "ark-ff",
+ "mina-curves",
+ "once_cell",
+]
 
 [[package]]
 name = "postcard"
@@ -6632,6 +6644,7 @@ dependencies = [
  "once_cell",
  "openmina-core",
  "poly-commitment",
+ "poseidon",
  "rand",
  "rayon",
  "redux",
@@ -7644,7 +7657,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=2fdb5a7#2fdb5a75c61e2ac1db452bd813aa12fd9fb77527"
+source = "git+https://github.com/openmina/proof-systems?rev=d0cd63b#d0cd63b360aa0681fe649596779dab507a0a4f3f"
 dependencies = [
  "ark-ff",
  "hex",
@@ -7895,6 +7908,7 @@ dependencies = [
  "num",
  "o1-utils",
  "openmina-node-account",
+ "poseidon",
  "rand",
  "redux",
  "serde",

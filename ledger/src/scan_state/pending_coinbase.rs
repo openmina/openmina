@@ -24,10 +24,16 @@ use ark_ff::{fields::arithmetic::InvalidBigInt, Zero};
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 use openmina_core::constants::constraint_constants;
+use poseidon::hash::{
+    hash_noinputs, hash_with_kimchi,
+    params::{
+        get_coinbase_param_for_height, COINBASE_STACK, MINA_PROTO_STATE, NO_INPUT_COINBASE_STACK,
+    },
+    Inputs,
+};
 use sha2::{Digest, Sha256};
 
 use crate::{
-    hash_noinputs, hash_with_kimchi,
     proofs::{
         field::{field, Boolean},
         numbers::{
@@ -38,7 +44,7 @@ use crate::{
         witness::Witness,
     },
     staged_ledger::hash::PendingCoinbaseAux,
-    Address, Inputs, MerklePath, ToInputs,
+    Address, AppendToInputs as _, MerklePath, ToInputs,
 };
 
 use self::merkle_tree::MiniMerkleTree;
@@ -149,7 +155,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = hash_with_kimchi("CoinbaseStack", &inputs.to_fields());
+        let hash = hash_with_kimchi(&COINBASE_STACK, &inputs.to_fields());
         Self(hash)
     }
 
@@ -159,7 +165,7 @@ impl CoinbaseStack {
         inputs.append(&CoinbaseData::of_coinbase(cb));
         inputs.append_field(self.0);
 
-        let hash = checked_hash("CoinbaseStack", &inputs.to_fields(), w);
+        let hash = checked_hash(&COINBASE_STACK, &inputs.to_fields(), w);
         Self(hash)
     }
 
@@ -173,7 +179,7 @@ impl CoinbaseStack {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/pending_coinbase.ml#L188
     pub fn empty() -> Self {
-        Self(hash_noinputs("CoinbaseStack"))
+        Self(hash_noinputs(&NO_INPUT_COINBASE_STACK))
     }
 
     /// Used for tests/debug only
@@ -220,7 +226,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = hash_with_kimchi("MinaProtoState", &inputs.to_fields());
+        let hash = hash_with_kimchi(&MINA_PROTO_STATE, &inputs.to_fields());
 
         Self {
             init: self.init,
@@ -240,7 +246,7 @@ impl StateStack {
         inputs.append_field(state_body_hash);
         inputs.append_field(global_slot.to_field());
 
-        let hash = checked_hash("MinaProtoState", &inputs.to_fields(), w);
+        let hash = checked_hash(&MINA_PROTO_STATE, &inputs.to_fields(), w);
 
         Self {
             init: self.init,
@@ -451,7 +457,7 @@ impl Stack {
     }
 
     fn hash_var(&self, w: &mut Witness<Fp>) -> Fp {
-        checked_hash("CoinbaseStack", &self.to_inputs_owned().to_fields(), w)
+        checked_hash(&COINBASE_STACK, &self.to_inputs_owned().to_fields(), w)
     }
 }
 
@@ -474,13 +480,12 @@ impl merkle_tree::TreeHasher<Stack> for StackHasher {
         inputs.append_field(value.state.init);
         inputs.append_field(value.state.curr);
 
-        hash_with_kimchi("CoinbaseStack", &inputs.to_fields())
+        hash_with_kimchi(&COINBASE_STACK, &inputs.to_fields())
     }
 
-    fn merge_hash(depth: usize, left: Fp, right: Fp) -> Fp {
-        let param = format!("MinaCbMklTree{:03}", depth);
-
-        crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
+    fn merge_hash(height: usize, left: Fp, right: Fp) -> Fp {
+        let param = get_coinbase_param_for_height(height);
+        poseidon::hash::hash_with_kimchi(param, &[left, right])
     }
 
     fn empty_value() -> Stack {
@@ -875,22 +880,19 @@ pub fn checked_verify_merkle_path(
     w: &mut Witness<Fp>,
 ) -> Fp {
     let account_hash = account.hash_var(w);
-    let mut param = String::with_capacity(16);
 
     let hash = merkle_path
         .iter()
         .enumerate()
-        .fold(account_hash, |accum, (depth, path)| {
+        .fold(account_hash, |accum, (height, path)| {
             let hashes = match path {
                 MerklePath::Left(right) => [accum, *right],
                 MerklePath::Right(left) => [*left, accum],
             };
-
-            param.clear();
-            write!(&mut param, "MinaCbMklTree{:03}", depth).unwrap();
-
             w.exists(hashes);
-            checked_hash(param.as_str(), &hashes, w)
+
+            let param = get_coinbase_param_for_height(height);
+            checked_hash(param, &hashes, w)
         });
 
     hash

@@ -2429,14 +2429,13 @@ pub mod wrap_verifier {
 
         let mut sponge = {
             use crate::proofs::opt_sponge::SpongeState as OptSpongeState;
-            use mina_poseidon::pasta::fq_kimchi::static_params;
-            use mina_poseidon::poseidon::SpongeState;
+            use ::poseidon::SpongeState;
 
             let OptSpongeState::Squeezed(n_squeezed) = sponge.sponge_state else {
                 // We just called `sample_scalar`
                 panic!("OCaml panics too")
             };
-            let mut sponge = Sponge::<Fq>::new_with_state(sponge.state, static_params());
+            let mut sponge = Sponge::<Fq>::new_with_state(sponge.state);
             sponge.sponge_state = SpongeState::Squeezed(n_squeezed);
             sponge
         };

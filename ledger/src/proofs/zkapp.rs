@@ -5,9 +5,12 @@ use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
+use poseidon::hash::{
+    hash_with_kimchi,
+    params::{MINA_ACCOUNT_UPDATE_CONS, MINA_PROTO_STATE_BODY},
+};
 
 use crate::{
-    hash_with_kimchi,
     proofs::{
         constants::{
             make_step_zkapp_data, StepMergeProof, StepZkappOptSignedOptSignedProof,
@@ -37,10 +40,7 @@ use crate::{
                 LocalState, LocalStateEnv, LocalStateSkeleton, StackFrame, StackFrameChecked,
             },
             protocol_state::{protocol_state_body_view, GlobalStateSkeleton},
-            zkapp_command::{
-                AccountUpdate, CallForest, Control, WithHash, ZkAppCommand,
-                ACCOUNT_UPDATE_CONS_HASH_PARAM,
-            },
+            zkapp_command::{AccountUpdate, CallForest, Control, WithHash, ZkAppCommand},
             zkapp_statement::{TransactionCommitment, ZkappStatement},
             TransactionFailure,
         },
@@ -407,7 +407,7 @@ fn accumulate_call_stack_hashes(
                 0,
                 WithStackHash {
                     elt: f.clone(),
-                    stack_hash: hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[h_f, h_tl]),
+                    stack_hash: hash_with_kimchi(&MINA_ACCOUNT_UPDATE_CONS, &[h_f, h_tl]),
                 },
             );
 
@@ -961,7 +961,7 @@ fn check_protocol_state(params: CheckProtocolStateParams, w: &mut Witness<Fp>) {
         state_body,
     } = params;
 
-    let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
+    let state_body_hash = state_body.checked_hash_with_param(&MINA_PROTO_STATE_BODY, w);
     let global_slot = block_global_slot;
     let computed_pending_coinbase_stack_after =
         pending_coinbase_stack_init.checked_push_state(state_body_hash, global_slot, w);

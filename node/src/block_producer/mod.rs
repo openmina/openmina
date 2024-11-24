@@ -17,6 +17,7 @@ mod block_producer_reducer;
 use ledger::AccountIndex;
 use mina_p2p_messages::{list::List, v2};
 use openmina_core::block::ArcBlockWithHash;
+use poseidon::hash::params::MINA_EPOCH_SEED;
 use serde::{Deserialize, Serialize};
 use vrf::output::VrfOutput;
 
@@ -213,6 +214,6 @@ pub fn calc_epoch_seed(
 ) -> v2::EpochSeed {
     // TODO(adonagy): fix this unwrap
     let old_seed = prev_epoch_seed.to_field().unwrap();
-    let new_seed = ledger::hash_with_kimchi("MinaEpochSeed", &[old_seed, vrf_hash]);
+    let new_seed = poseidon::hash::hash_with_kimchi(&MINA_EPOCH_SEED, &[old_seed, vrf_hash]);
     v2::MinaBaseEpochSeedStableV1(new_seed.into()).into()
 }

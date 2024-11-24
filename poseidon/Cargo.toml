@@ -1,0 +1,12 @@
+[package]
+name = "poseidon"
+version = "0.1.0"
+edition = "2021"
+
+[lints]
+workspace = true
+
+[dependencies]
+mina-curves = { workspace = true }
+once_cell = "1"
+ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }

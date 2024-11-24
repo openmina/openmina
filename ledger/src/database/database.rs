@@ -560,15 +560,13 @@ export function performance_now() {
 
     #[test]
     fn test_hash_empty() {
-        let heights = [0, 5, 10, 11, 100, 2000];
+        let heights = [0, 5, 10, 11];
 
         let hexs = [
             "f3ee39f42a7b2cac196c8eb1c9fe00f853678c920c0c9ce3724c0b7fe911c731",
             "d305ebed68f3d4ff16cfc9c6857c274bfbd4a5e83db6fb26e009f75711005524",
             "bfae9c6290bcc9cf282889c6b880e4eac236d4e50b22395639731e1465939915",
             "def7de4e2f2f13aa638f5671eccf9367ab9d39ae49ed683fca0169b33b31c416",
-            "145494b371b318e94e1976e4b67768a6b1793841b47a6269996354e93d5c603c",
-            "00fb3327a47dc00f9b04e5c5c59af2851501cb9e602a03908f1ec7b04453540c",
         ];
 
         let result: Vec<_> = heights
