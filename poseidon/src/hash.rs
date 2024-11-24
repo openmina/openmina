@@ -417,13 +417,7 @@ pub mod params {
         {NO_INPUT_ZKAPP_ACTION_STATE_EMPTY_ELT, "MinaZkappActionStateEmptyElt"},
         {NO_INPUT_COINBASE_STACK, "CoinbaseStack"},
         {NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY, "MinaZkappEventsEmpty"},
-        {NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY, "MinaZkappActionsEmpty"},
-
-        {NO_INPUT_MINA_PROTO_STATE, "MinaProtoState"},
-        {NO_INPUT_MINA_PROTO_STATE_BODY, "MinaProtoStateBody"},
-        {NO_INPUT_MINA_DERIVE_TOKEN_ID, "MinaDeriveTokenId"},
-        {NO_INPUT_MINA_EPOCH_SEED, "MinaEpochSeed"},
-        {NO_INPUT_MINA_SIDELOADED_VK, "MinaSideLoadedVk"}
+        {NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY, "MinaZkappActionsEmpty"}
     );
 }
 

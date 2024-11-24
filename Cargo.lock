@@ -7907,6 +7907,7 @@ dependencies = [
  "num",
  "o1-utils",
  "openmina-node-account",
+ "poseidon",
  "rand",
  "redux",
  "serde",

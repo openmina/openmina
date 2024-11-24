@@ -1516,8 +1516,7 @@ impl Account {
     }
 
     pub fn hash(&self) -> Fp {
-        let inputs = self.to_inputs_owned();
-        hash_with_kimchi(&MINA_ACCOUNT, &inputs.to_fields())
+        self.hash_with_param(&MINA_ACCOUNT)
     }
 
     pub fn checked_hash(&self, w: &mut Witness<Fp>) -> Fp {
