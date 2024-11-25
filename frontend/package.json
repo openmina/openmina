@@ -11,7 +11,7 @@
     "tests": "npx cypress open --config baseUrl=http://localhost:4200",
     "tests:headless": "npx cypress run --headless --config baseUrl=http://localhost:4200",
     "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest",
-    "start:bundle": "npx http-server dist/frontend -p 4200",
+    "start:bundle": "serve dist/frontend/browser -s -l 4200",
     "prebuild": "node scripts/update-frontend-version.js",
     "dev:ssr": "ng run frontend:serve-ssr",
     "serve:ssr": "node dist/frontend/server/main.js",
