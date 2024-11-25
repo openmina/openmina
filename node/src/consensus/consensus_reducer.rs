@@ -55,7 +55,9 @@ impl ConsensusState {
                     hash: hash.clone(),
                     block: block.clone(),
                 };
-                match state.prevalidate_block(&block) {
+                let allow_block_too_late = allow_block_too_late(state, &block);
+
+                match state.prevalidate_block(&block, allow_block_too_late) {
                     Ok(()) => {
                         dispatcher.push(ConsensusAction::BlockPrevalidateSuccess { hash });
                     }
@@ -333,4 +335,27 @@ impl ConsensusState {
             }
         }
     }
+}
+
+/// Decide if the time-reception check should be done for this block or not.
+///
+/// The check is skipped if the block's global_slot is greater than the
+/// current best tip and the difference greater than 2.
+///
+/// Ideally we would differentiate between requested blocks and blocks
+/// received from gossip, but this difference doesn't really exist
+/// in the WebRTC transport, hence this heuristic.
+fn allow_block_too_late(state: &crate::State, block: &ArcBlockWithHash) -> bool {
+    let (has_greater_blobal_slot, diff_with_best_tip) = state
+        .transition_frontier
+        .best_tip()
+        .map(|b| {
+            (
+                block.global_slot() > b.global_slot(),
+                b.global_slot().abs_diff(block.global_slot()),
+            )
+        })
+        .unwrap_or((false, 0));
+
+    has_greater_blobal_slot && diff_with_best_tip > 2
 }

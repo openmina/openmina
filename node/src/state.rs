@@ -379,6 +379,7 @@ impl State {
     pub fn prevalidate_block(
         &self,
         block: &ArcBlockWithHash,
+        allow_block_too_late: bool,
     ) -> Result<(), BlockPrevalidationError> {
         let Some((genesis, cur_global_slot)) =
             None.or_else(|| Some((self.genesis_block()?, self.cur_global_slot()?)))
@@ -403,7 +404,9 @@ impl State {
                     current_global_slot: cur_global_slot,
                     block_global_slot,
                 });
-            } else if cur_global_slot.saturating_sub(block_global_slot) > delta {
+            } else if !allow_block_too_late
+                && cur_global_slot.saturating_sub(block_global_slot) > delta
+            {
                 // Too_late
                 return Err(BlockPrevalidationError::ReceivedTooLate {
                     current_global_slot: cur_global_slot,
