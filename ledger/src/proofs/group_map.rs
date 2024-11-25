@@ -109,7 +109,10 @@ fn sqrt_exn<F: FieldWitness>(x: F, w: &mut Witness<F>) -> F {
 }
 
 fn is_square<F: FieldWitness>(x: F) -> bool {
-    let s = x.pow(F::Params::MODULUS_MINUS_ONE_DIV_TWO);
+    use ark_ff::BigInteger;
+
+    let modulus_minus_one_div_two = F::Params::MODULUS_MINUS_ONE_DIV_TWO.to_64x4();
+    let s = x.pow(modulus_minus_one_div_two);
     s.is_zero() || s.is_one()
 }
 

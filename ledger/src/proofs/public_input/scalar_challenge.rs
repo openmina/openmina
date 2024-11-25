@@ -12,7 +12,8 @@ pub struct ScalarChallenge {
 impl<F: FieldWitness> From<F> for ScalarChallenge {
     fn from(value: F) -> Self {
         let bigint: BigInteger256 = value.into();
-        Self::new(bigint.0[0], bigint.0[1])
+        let bigint = bigint.to_64x4();
+        Self::new(bigint[0], bigint[1])
     }
 }
 

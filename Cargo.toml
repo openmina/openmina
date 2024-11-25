@@ -45,13 +45,16 @@ indexing_slicing = "warn"
 mina-p2p-messages = { path = "mina-p2p-messages" }
 poseidon = { path = "poseidon" }
 ledger = { path = "ledger", package = "mina-tree" }
-mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "d0cd63b" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "d0cd63b" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "d0cd63b" }
-o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "d0cd63b" }
-kimchi = { git = "https://github.com/openmina/proof-systems", rev = "d0cd63b" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "d0cd63b"}
-poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "d0cd63b"}
+
+mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+# mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "c478b19", features = [ "32x9" ] }
+o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+kimchi = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
 openmina-node-account = { path = "node/account" }
@@ -62,6 +65,9 @@ serde_with = { version = "3.7.0", features = ["hex"] }
 linkme = "0.3.22"
 static_assertions = "1.1.0"
 juniper = { version = "0.16" }
+
+ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+# ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std", "32x9" ] }
 
 
 [profile.fuzz]
@@ -76,10 +82,10 @@ incremental = false
 codegen-units = 1
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
-ark-ec = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
-ark-poly = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
-ark-serialize = { git = "https://github.com/openmina/algebra", rev = "33a1de2" } # branch: fix-openmina
+ark-ff = { git = "https://github.com/openmina/algebra", rev = "f42a8ec" } # branch: fix-openmina-webnode
+ark-ec = { git = "https://github.com/openmina/algebra", rev = "f42a8ec" } # branch: fix-openmina-webnode
+ark-poly = { git = "https://github.com/openmina/algebra", rev = "f42a8ec" } # branch: fix-openmina-webnode
+ark-serialize = { git = "https://github.com/openmina/algebra", rev = "f42a8ec" } # branch: fix-openmina-webnode
 
 [profile.test.package."*"]
 opt-level = 3

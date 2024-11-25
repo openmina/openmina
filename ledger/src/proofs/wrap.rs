@@ -339,7 +339,8 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let zeta = oracle.zeta();
 
     let to_bytes = |f: Fp| {
-        let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
+        let bigint: BigInteger256 = f.into();
+        let [a, b, c, d] = bigint.to_64x4();
         assert_eq!([c, d], [0, 0]);
         [a, b]
     };
@@ -499,17 +500,18 @@ fn make_public_input(
         unfinalized_proofs.to_field_elements(&mut fields);
     }
 
-    let to_fp = |v: [u64; 4]| Fp::try_from(BigInteger256(v)).unwrap(); // Never fail, `messages_for_next_step_proof_hash` was a `Fp`
+    let to_fp = |v: [u64; 4]| Fp::try_from(BigInteger256::from_64x4(v)).unwrap(); // Never fail, `messages_for_next_step_proof_hash` was a `Fp`
     to_fp(messages_for_next_step_proof_hash).to_field_elements(&mut fields);
 
     // `messages_for_next_wrap_proof_hash` were `Fq` previously, so we have to
     // build a `Fp` from them with care: they can overflow
     let to_fp = |v: [u64; 4]| {
-        match Fp::try_from(BigInteger256(v)) {
+        match Fp::try_from(BigInteger256::from_64x4(v)) {
             Ok(fp) => fp, // fast-path: we get the `Fp` without modulo/reducing
             Err(_) => {
                 // slow path: we build the `Fp` bit by bit, so it will reduce it
-                let bits = crate::proofs::transaction::bigint_to_bits::<255>(BigInteger256(v));
+                let bits =
+                    crate::proofs::transaction::bigint_to_bits::<255>(BigInteger256::from_64x4(v));
                 super::util::field_of_bits(&bits)
             }
         }
@@ -683,7 +685,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
         prover_index: step_prover_index,
     });
 
-    let to_fq = |[a, b]: [u64; 2]| Fq::try_from(BigInteger256([a, b, 0, 0])).unwrap(); // Never fail with 2 limbs
+    let to_fq = |[a, b]: [u64; 2]| Fq::try_from(BigInteger256::from_64x4([a, b, 0, 0])).unwrap(); // Never fail with 2 limbs
     let to_fqs = |v: &[[u64; 2]]| v.iter().copied().map(to_fq).collect::<Vec<_>>();
 
     let messages_for_next_wrap_proof = MessagesForNextWrapProof {
@@ -761,7 +763,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
                     .proof_state
                     .sponge_digest_before_evaluations
                     .into();
-                bigint.0
+                bigint.to_64x4()
             },
             messages_for_next_wrap_proof: messages_for_next_wrap_proof_prepared.hash(),
         },
@@ -1563,7 +1565,8 @@ pub mod wrap_verifier {
         let (_, endo) = endos::<F::Scalar>();
 
         let (lo, hi): (F, F) = w.exists({
-            let BigInteger256([a, b, c, d]) = f.into();
+            let bigint: BigInteger256 = f.into();
+            let [a, b, c, d] = bigint.to_64x4();
             (two_u64_to_field(&[a, b]), two_u64_to_field(&[c, d]))
         });
 
@@ -1672,7 +1675,8 @@ pub mod wrap_verifier {
         let r = to_field_checked::<Fq, 128>(r_actual, endo, w);
 
         let to_bytes = |f: Fq| {
-            let BigInteger256([a, b, c, d]) = f.into();
+            let bigint: BigInteger256 = f.into();
+            let [a, b, c, d] = bigint.to_64x4();
             [a, b, c, d]
         };
 
@@ -1967,7 +1971,8 @@ pub mod wrap_verifier {
         let s_parts = w.exists({
             // TODO: Here `s` is a `F` but needs to be read as a `F::Scalar`
             let bigint: BigInteger256 = s.into();
-            let s_odd = bigint.0[0] & 1 != 0;
+            let bigint: [u64; 4] = bigint.to_64x4();
+            let s_odd = bigint[0] & 1 != 0;
             let v = if s_odd { s - F::one() } else { s };
             (v / F::from(2u64), s_odd.to_boolean())
         });
@@ -2758,8 +2763,9 @@ fn pack_statement(
 
 fn split_field(x: Fq, w: &mut Witness<Fq>) -> (Fq, Boolean) {
     let n: BigInteger256 = x.into();
+    let n: [u64; 4] = n.to_64x4();
 
-    let is_odd = n.0[0] & 1 != 0;
+    let is_odd = n[0] & 1 != 0;
 
     let y = if is_odd { x - Fq::one() } else { x };
     let y = y / Fq::from(2u64);

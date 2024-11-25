@@ -319,7 +319,7 @@ impl FeeExcess {
             let bigint: BigInteger256 = excess.into();
             let is_neg = bigint.get_bit(255 - 1);
             let sgn = if is_neg { Sgn::Neg } else { Sgn::Pos };
-            let magnitude = Fee::from_u64(bigint.0[0]);
+            let magnitude = Fee::from_u64(bigint.to_64x4()[0]);
             Signed::create(magnitude, sgn)
         };
 

@@ -14,6 +14,7 @@ use crate::ToInputs;
 
 use super::common::{range_check, ForZkappCheck};
 
+#[derive(Debug)]
 pub enum RangeCheckFlaggedKind {
     Add,
     Sub,

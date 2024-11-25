@@ -33,7 +33,7 @@ mina-signer = { workspace = true }
 poseidon = { workspace = true }
 o1-utils = { workspace = true }
 
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ] }
+ark-ff = { workspace = true }
 rsexp = "0.2.3"
 rsexp-derive = "0.2.3"
 

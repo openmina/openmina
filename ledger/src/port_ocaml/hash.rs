@@ -90,14 +90,15 @@ fn hash_field(f: &Fp) -> u32 {
     let mut acc = 0;
 
     let bigint: BigInteger256 = (*f).into();
-    let nignore: usize = bigint.0.iter().rev().take_while(|&b| *b == 0).count();
+    let bigint = bigint.to_64x4();
+    let nignore: usize = bigint.iter().rev().take_while(|&b| *b == 0).count();
 
-    for bigint in bigint.0.iter().take(BigInteger256::NUM_LIMBS - nignore) {
+    for bigint in bigint.iter().take(BigInteger256::NUM_LIMBS - nignore) {
         acc = mix(acc, (bigint & 0xFFFF_FFFF) as u32);
         acc = mix(acc, (bigint >> 32) as u32);
     }
 
-    if bigint.0.last().unwrap() & 0x8000_0000_0000_0000 != 0 {
+    if bigint.last().unwrap() & 0x8000_0000_0000_0000 != 0 {
         // TODO: Not sure if that condition is correct
         acc += 1;
     }

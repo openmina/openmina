@@ -713,8 +713,8 @@ pub mod step_verifier {
         let r = to_field_checked::<Fp, 128>(r_actual, endo, w);
 
         let to_bytes = |f: Fp| {
-            let BigInteger256([a, b, c, d]) = f.into();
-            [a, b, c, d]
+            let bigint: BigInteger256 = f.into();
+            bigint.to_64x4()
         };
 
         let plonk_mininal = PlonkMinimal::<Fp, 4> {
@@ -1063,7 +1063,8 @@ pub mod step_verifier {
         let s_parts = w.exists({
             // TODO: Here `s` is a `F` but needs to be read as a `F::Scalar`
             let bigint: BigInteger256 = s.into();
-            let s_odd = bigint.0[0] & 1 != 0;
+            let bigint = bigint.to_64x4();
+            let s_odd = bigint[0] & 1 != 0;
             let v = if s_odd { s - F2::one() } else { s };
             // TODO: Remove this ugly hack
             let v: BigInteger256 = (v / F2::from(2u64)).into();
@@ -1915,8 +1916,8 @@ fn verify_one(
 }
 
 fn to_bytes(f: Fp) -> [u64; 4] {
-    let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
-    [a, b, c, d]
+    let bigint: BigInteger256 = f.into();
+    bigint.to_64x4()
 }
 
 fn to_4limbs(v: [u64; 2]) -> [u64; 4] {
@@ -2301,7 +2302,8 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
     let zeta = oracle.zeta();
 
     let to_bytes = |f: Fq| {
-        let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
+        let bigint: BigInteger256 = f.into();
+        let [a, b, c, d] = bigint.to_64x4();
         assert_eq!([c, d], [0, 0]);
         [a, b]
     };
@@ -2403,8 +2405,8 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
         let zeta = to_field(plonk0.zeta_bytes);
 
         let to_bytes = |f: Fq| {
-            let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
-            [a, b, c, d]
+            let bigint: BigInteger256 = f.into();
+            bigint.to_64x4()
         };
 
         PlonkMinimal {
@@ -2476,9 +2478,8 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
         },
         should_finalize: must_verify.value().as_bool(),
         sponge_digest_before_evaluations: {
-            let BigInteger256([a, b, c, d]): BigInteger256 =
-                sponge_digest_before_evaluations.into();
-            [a, b, c, d]
+            let bigint: BigInteger256 = sponge_digest_before_evaluations.into();
+            bigint.to_64x4()
         },
     };
 
