@@ -7,6 +7,7 @@ import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-detail
 import { getNetwork } from '@shared/helpers/mina.helper';
 import { getLocalStorage, ONE_MILLION } from '@openmina/shared';
 import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
 
 @Injectable({
   providedIn: 'root',
@@ -29,6 +30,10 @@ export class AppService {
     ]);
   }
 
+  getEnvBuild(): Observable<AppEnvBuild> {
+    return this.rust.get<AppEnvBuild>('/build_env');
+  }
+
   getActiveNodeDetails(): Observable<AppNodeDetails> {
     return this.rust.get<NodeDetailsResponse>('/status')
       .pipe(
@@ -36,9 +41,9 @@ export class AppService {
           status: this.getStatus(data),
           blockHeight: data.transition_frontier.best_tip?.height,
           blockTime: data.transition_frontier.sync.time,
-          peers: data.peers.filter(p => p.connection_status === 'Connected').length,
-          download: 0,
-          upload: 0,
+          peersConnected: data.peers.filter(p => p.connection_status === 'Connected').length,
+          peersDisconnected: data.peers.filter(p => p.connection_status === 'Disconnected').length,
+          peersConnecting: data.peers.filter(p => p.connection_status === 'Connecting').length,
           snarks: data.snark_pool.snarks,
           transactions: data.transaction_pool.transactions,
           chainId: data.chain_id,

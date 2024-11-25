@@ -1,24 +1,55 @@
-<mina-horizontal-resizable-container [leftTemplate]="left"
-                                     [rightTemplate]="right"
-                                     [show]="showSidePanel"
-                                     [minWidth]="360"
-                                     [maxWidthElement]="el.nativeElement"
-                                     localStorageKey="bp-won-slots-spw">
-</mina-horizontal-resizable-container>
-
-<ng-template #left>
-  <div class="flex-column h-100">
-    <mina-block-production-won-slots-epoch></mina-block-production-won-slots-epoch>
-    @if (isDesktop) {
-      <mina-block-production-won-slots-cards></mina-block-production-won-slots-cards>
-    }
-    <div class="flex-column flex-1">
-      <mina-block-production-won-slots-filters></mina-block-production-won-slots-filters>
-      <mina-block-production-won-slots-table class="h-minus-xl"></mina-block-production-won-slots-table>
+@if (isPending || nodeIsBootstrapping || isCalculatingVRF || isLoading) {
+  <div class="w-100 h-100 fx-col-full-cent"
+       @fadeInOut>
+    <mina-loading-spinner [size]="50" [borderWidth]="2"></mina-loading-spinner>
+    <div class="fx-col-full-cent">
+      @if (isPending || isLoading) {
+        <div class="f-600 f-18 mt-16 mb-10">Loading</div>
+      } @else if (nodeIsBootstrapping) {
+        <div class="f-600 f-18 mt-16 mb-10">Waiting For Sync</div>
+        <div class="secondary f-16">Only a synced node can calculate block production rights</div>
+      } @else {
+        <div class="f-600 f-18 mt-16 mb-10">Calculating Block Producing Rights</div>
+        <div class="secondary f-16" [class.opacity-0]="!epoch">
+          Epoch {{ epoch }} - Slot {{ vrfStats?.evaluated }}/{{ vrfStats?.total }}
+        </div>
+      }
     </div>
   </div>
-</ng-template>
+} @else {
+  <mina-horizontal-resizable-container [leftTemplate]="left"
+                                       [rightTemplate]="right"
+                                       [show]="showSidePanel"
+                                       [minWidth]="360"
+                                       [maxWidthElement]="el.nativeElement"
+                                       localStorageKey="bp-won-slots-spw"
+                                       @fadeInOut>
+  </mina-horizontal-resizable-container>
 
-<ng-template #right>
-  <mina-block-production-won-slots-side-panel></mina-block-production-won-slots-side-panel>
-</ng-template>
+  <ng-template #left>
+    <div class="flex-column h-100">
+      <mina-block-production-won-slots-epoch></mina-block-production-won-slots-epoch>
+      @if (isDesktop) {
+        <mina-block-production-won-slots-cards></mina-block-production-won-slots-cards>
+      }
+      <div class="flex-column flex-1">
+        <mina-block-production-won-slots-filters></mina-block-production-won-slots-filters>
+        @if (!emptySlots) {
+          <mina-block-production-won-slots-table class="h-minus-xl"></mina-block-production-won-slots-table>
+        } @else {
+          <div class="h-minus-xl fx-col-full-cent">
+            <span class="mina-icon mb-16 f-40">cancel_presentation</span>
+            <div class="f-600 f-big">No won slots yet</div>
+            <div class="tertiary mt-8 text-center">
+              New won slots will appear here when the node receives them
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </ng-template>
+
+  <ng-template #right>
+    <mina-block-production-won-slots-side-panel></mina-block-production-won-slots-side-panel>
+  </ng-template>
+}

@@ -17,15 +17,16 @@ const initialState: AppState = {
     status: AppNodeStatus.PENDING,
     blockHeight: null,
     blockTime: null,
-    peers: 0,
-    download: 0,
-    upload: 0,
+    peersConnected: 0,
+    peersDisconnected: 0,
+    peersConnecting: 0,
     transactions: 0,
     snarks: 0,
     producingBlockAt: null,
     producingBlockGlobalSlot: null,
     producingBlockStatus: null,
   },
+  envBuild: undefined,
 };
 
 export const appReducer = createReducer(
@@ -53,4 +54,5 @@ export const appReducer = createReducer(
     const nodes = state.nodes.filter(n => n.name !== node.name);
     return { ...state, nodes, activeNode: state.activeNode?.name === node.name ? nodes[0] : state.activeNode };
   }),
+  on(AppActions.getNodeEnvBuildSuccess, (state, { envBuild }) => ({ ...state, envBuild })),
 );

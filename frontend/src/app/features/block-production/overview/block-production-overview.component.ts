@@ -2,16 +2,13 @@ import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } fro
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
 import { getMergedRoute, isDesktop, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
-import { debounceTime, filter, fromEvent, skip, take } from 'rxjs';
+import { debounceTime, filter, fromEvent, take } from 'rxjs';
 import { isNaN } from 'mathjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import { SLOTS_PER_EPOCH } from '@shared/constants/mina';
-import {
-  BlockProductionOverviewEpoch,
-} from '@shared/types/block-production/overview/block-production-overview-epoch.type';
+import { BlockProductionOverviewEpoch } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
 import { AppSelectors } from '@app/app.state';
-import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 
 @Component({
   selector: 'mina-block-production-overview',

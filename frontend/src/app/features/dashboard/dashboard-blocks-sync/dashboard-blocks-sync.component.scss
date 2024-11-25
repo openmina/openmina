@@ -1,9 +1,16 @@
-.mina-icon {
-  font-variation-settings: 'FILL' 1, 'wght' 300 !important;
-}
 
-@media (max-width: 767px) {
-  .mobile mina-card {
-    width: 33%;
+:host {
+  .mina-icon {
+    font-variation-settings: 'FILL' 1, 'wght' 300 !important;
+  }
+
+  @media (max-width: 767px) {
+    .mobile mina-card {
+      width: 33.333%;
+
+      &:not(:first-child) {
+        padding-left: 10px !important;
+      }
+    }
   }
 }

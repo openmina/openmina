@@ -52,19 +52,23 @@ export class DashboardService {
     );
   }
 
-  private mapMessageProgressResponse(response: MessageProgressResponse): DashboardRpcStats {
-    const peerResponses = Object.keys(response.messages_stats).map(peerId => ({
+  private mapMessageProgressResponse(progress: MessageProgressResponse): DashboardRpcStats {
+    const peerResponses = Object.keys(progress.messages_stats).map(peerId => ({
       peerId,
       requestsMade: Object
-        .keys(response.messages_stats[peerId].responses)
-        .reduce((sum: number, curr: string) => sum + response.messages_stats[peerId].responses[curr], 0),
+        .keys(progress.messages_stats[peerId].responses)
+        .reduce((sum: number, curr: string) => sum + progress.messages_stats[peerId].responses[curr], 0),
     } as DashboardPeerRpcResponses));
 
     return {
       peerResponses,
-      stakingLedger: response.staking_ledger_sync,
-      nextLedger: response.next_epoch_ledger_sync,
-      rootLedger: response.root_ledger_sync,
+      stakingLedger: progress.staking_ledger_sync,
+      nextLedger: progress.next_epoch_ledger_sync,
+      snarkedRootLedger: progress.root_ledger_sync,
+      stagedRootLedger: {
+        fetched: progress.root_ledger_sync?.staged?.fetched,
+        estimation: progress.root_ledger_sync?.staged?.total,
+      },
     };
   }
 }
@@ -84,7 +88,12 @@ export interface MessageProgressResponse {
   messages_stats: MessagesStats;
   staking_ledger_sync: Estimation;
   next_epoch_ledger_sync: Estimation;
-  root_ledger_sync: Estimation;
+  root_ledger_sync: Estimation & {
+    staged: {
+      fetched: number;
+      total: number;
+    }
+  };
 }
 
 export interface MessagesStats {

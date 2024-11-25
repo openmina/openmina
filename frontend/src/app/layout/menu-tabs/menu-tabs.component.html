@@ -7,11 +7,62 @@
       <div class="menu fx-col-full-cent"
            [routerLink]="'/' + menu.name.toLowerCase().split(' ').join('-')"
            [queryParams]="activeNode ? { node: activeNode.name } : null"
-           [class.active]="activeRoute === menu.name.toLowerCase().split(' ').join('-')"
-      >
+           [class.active]="activeRoute === menu.name.toLowerCase().split(' ').join('-')">
         <span class="mina-icon icon-200">{{ menu.icon }}</span>
         <span class="text-nowrap truncate">{{ menu.name }}</span>
       </div>
     }
+    <div class="menu fx-col-full-cent" #anchor (click)="$event.stopPropagation(); openMore(anchor)" [class.active]="isOpenMore">
+      <span class="mina-icon icon-200">more_horiz</span>
+      <span class="text-nowrap truncate">More</span>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #dropdown>
+  <div class="flex-column w-100 border-rad-6 border bg-surface-top" (clickOutside)="closeOverlay()">
+    <div class="w-100 flex-row align-center flex-between p-relative h-xl pl-12 pr-12"
+         (click)="openEnvBuildModal()">
+      <div class="fx-row-vert-cent secondary">
+        <span class="mina-icon f-18 mr-5">commit</span>
+        Build
+      </div>
+      <div class="tertiary fx-row-vert-cent">
+        <span>{{ envBuild ? envBuild.git.commit_hash.slice(0, 6) : '' }}..</span>
+        <span class="mina-icon icon-200 f-18 ml-5">open_in_full</span>
+      </div>
+    </div>
+    <div class="border-bottom w-100 flex-row align-center flex-between p-relative h-xl pl-12 pr-12"
+         [copyToClipboard]="chainId"
+         (click)="closeOverlay()">
+      <div class="fx-row-vert-cent secondary">
+        <span class="mina-icon f-18 mr-5">wifi_tethering</span>
+        {{ network }}
+      </div>
+      <div class="tertiary fx-row-vert-cent">
+        <span>{{ chainId?.slice(0, 6) }}..</span>
+        <span class="mina-icon icon-200 f-18 ml-5">content_copy</span>
+      </div>
+    </div>
+    <div class="w-100 flex-row align-center flex-between p-relative h-xl pl-12 pr-12"
+         (click)="changeTheme(ThemeType.LIGHT)">
+      <div class="fx-row-vert-cent secondary">
+        <span class="theme mina-icon f-18 mr-5">wb_sunny</span>
+        Light
+      </div>
+      @if (currentTheme === ThemeType.LIGHT) {
+        <span class="mina-icon icon-400 f-16 selected-primary">check</span>
+      }
+    </div>
+    <div class="w-100 flex-row align-center flex-between p-relative h-xl pl-12 pr-12"
+         (click)="changeTheme(ThemeType.DARK)">
+      <div class="fx-row-vert-cent secondary">
+        <span class="theme mina-icon f-18 mr-5">dark_mode</span>
+        Dark
+      </div>
+      @if (currentTheme === ThemeType.DARK) {
+        <span class="mina-icon icon-400 f-16 selected-primary">check</span>
+      }
+    </div>
   </div>
 </ng-template>

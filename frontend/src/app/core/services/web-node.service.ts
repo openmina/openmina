@@ -14,6 +14,7 @@ import { CONFIG } from '@shared/constants/config';
 export class WebNodeService {
 
   private readonly webnode$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
+  private readonly wasm$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private webNodeKeyPair: { publicKey: string, privateKey: string };
   private webNodeNetwork: String;
   private webNodeStartTime: number;
@@ -27,7 +28,7 @@ export class WebNodeService {
     FileProgressHelper.initDownloadProgress();
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
     safelyExecuteInBrowser(() => {
-      any(window)['bs58btc'] = {
+      any(window).bs58btc = {
         encode: (buffer: Uint8Array | number[]) => 'z' + basex.encode(buffer),
         decode: (string: string) => basex.decode(string.substring(1)),
       };
@@ -47,6 +48,7 @@ export class WebNodeService {
 
   loadWasm$(): Observable<void> {
     this.webNodeStartTime = Date.now();
+
     if (isBrowser()) {
       const args = (() => {
         const raw = localStorage.getItem('webnodeArgs');
@@ -88,7 +90,11 @@ export class WebNodeService {
     if (isBrowser()) {
       return of(any(window).webnode)
         .pipe(
-          switchMap((wasm: any) => from(wasm.default(undefined, new WebAssembly.Memory(this.memory))).pipe(map(() => wasm))),
+          switchMap((wasm: any) => {
+            this.wasm$.next(wasm);
+            return from(wasm.default(undefined, new WebAssembly.Memory(this.memory)))
+              .pipe(map(() => wasm));
+          }),
           switchMap((wasm) => {
             this.webnodeProgress$.next('Loaded');
             const urls = (() => {
@@ -99,14 +105,16 @@ export class WebNodeService {
                   genesisConfig: url + 'genesis/config',
                 };
               } else {
-                return {};
+                return {
+                  seeds: 'https://bootnodes.minaprotocol.com/networks/devnet-webrtc.txt',
+                };
               }
             })();
             console.log('webnode config:', !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
             return from(wasm.run(this.webNodeKeyPair.privateKey, urls.seeds, urls.genesisConfig));
           }),
           tap((webnode: any) => {
-            any(window)['webnode'] = webnode;
+            any(window).webnode = webnode;
             this.webnode$.next(webnode);
             this.webnodeProgress$.next('Started');
           }),
@@ -115,7 +123,6 @@ export class WebNodeService {
             return throwError(() => new Error(error.message));
           }),
           switchMap(() => this.webnode$.asObservable()),
-          filter(Boolean),
         );
     }
     return EMPTY;
@@ -196,6 +203,13 @@ export class WebNodeService {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
       switchMap(handle => from(any(handle).transaction_pool().get())),
+    );
+  }
+
+  get envBuildDetails$(): Observable<any> {
+    return this.wasm$.asObservable().pipe(
+      filter(Boolean),
+      map(handle => handle.build_env()),
     );
   }
 }

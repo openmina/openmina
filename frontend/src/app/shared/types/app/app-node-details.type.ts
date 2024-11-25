@@ -6,9 +6,9 @@ export interface AppNodeDetails {
   blockHeight: number;
   blockTime: number;
 
-  peers: number;
-  download: number;
-  upload: number;
+  peersConnected: number;
+  peersDisconnected: number;
+  peersConnecting: number;
 
   transactions: number;
   snarks: number;

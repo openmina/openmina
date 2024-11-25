@@ -2,7 +2,8 @@ export interface DashboardRpcStats {
   peerResponses: DashboardPeerRpcResponses[];
   stakingLedger: DashboardLedgerStepStats;
   nextLedger: DashboardLedgerStepStats;
-  rootLedger: DashboardLedgerStepStats;
+  snarkedRootLedger: DashboardLedgerStepStats;
+  stagedRootLedger: DashboardLedgerStepStats;
 }
 
 export interface DashboardPeerRpcResponses {

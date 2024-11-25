@@ -4,7 +4,7 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  // showWebNodeLandingPage: true,
+  showWebNodeLandingPage: false,
   globalConfig: {
     features: {
       dashboard: [],
@@ -24,8 +24,8 @@ export const environment: Readonly<MinaEnv> = {
   },
   configs: [
     // {
-    //   name: 'http://116.202.128.230:11010',
-    //   url: 'http://116.202.128.230:11010',
+    //   name: 'http://localhost:8070',
+    //   url: 'http://127.0.0.1:8070/openmina-node',
     // },
     // {
     //   name: 'Producer-0',
@@ -43,18 +43,18 @@ export const environment: Readonly<MinaEnv> = {
       name: 'staging-devnet-bp-0',
       url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
     },
-    {
-      name: 'staging-devnet-bp-1',
-      url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-2',
-      url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-3',
-      url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
-    },
+    // {
+    //   name: 'staging-devnet-bp-1',
+    //   url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
+    // },
+    // {
+    //   name: 'staging-devnet-bp-2',
+    //   url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
+    // },
+    // {
+    //   name: 'staging-devnet-bp-3',
+    //   url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
+    // },
     // {
     //   name: 'Web Node 1',
     //   isWebNode: true,

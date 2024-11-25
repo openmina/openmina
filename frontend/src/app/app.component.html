@@ -21,7 +21,7 @@
       @if (!hideToolbar) {
         <mina-toolbar></mina-toolbar>
       }
-      <div class="mina-content"
+      <div id="mina-content"
            [class.no-toolbar]="hideToolbar"
            [class.no-submenus]="subMenusLength < 2"
            [class.mobile]="menu.isMobile">

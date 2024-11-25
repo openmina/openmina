@@ -62,7 +62,7 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
                 || (activeSlotRoute && !bpState.activeSlot)
                 || (activeSlotRoute && bpState.openSidePanel)
               ) {
-                routes.push(newActiveSlot.globalSlot.toString());
+                routes.push(newActiveSlot?.globalSlot.toString() ?? '');
               }
               return fromPromise(this.router.navigate(routes, { queryParamsHandling: 'merge' })).pipe(map(() => ({
                 slots,
