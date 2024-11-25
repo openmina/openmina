@@ -379,6 +379,7 @@ impl State {
     pub fn prevalidate_block(
         &self,
         block: &ArcBlockWithHash,
+        allow_block_too_late: bool,
     ) -> Result<(), BlockPrevalidationError> {
         let Some((genesis, cur_global_slot)) =
             None.or_else(|| Some((self.genesis_block()?, self.cur_global_slot()?)))
@@ -403,7 +404,9 @@ impl State {
                     current_global_slot: cur_global_slot,
                     block_global_slot,
                 });
-            } else if cur_global_slot.saturating_sub(block_global_slot) > delta {
+            } else if !allow_block_too_late
+                && cur_global_slot.saturating_sub(block_global_slot) > delta
+            {
                 // Too_late
                 return Err(BlockPrevalidationError::ReceivedTooLate {
                     current_global_slot: cur_global_slot,
@@ -513,7 +516,10 @@ impl P2p {
         P2pCallbacks {
             on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
                 on_p2p_channels_transaction_libp2p_received(transaction: Box<MinaBaseUserCommandStableV2>) -> crate::Action{
-                    TransactionPoolAction::StartVerify { commands: std::iter::once(*transaction).collect(), from_rpc: None }
+                    TransactionPoolAction::StartVerify {
+                        commands: std::iter::once(*transaction).collect(),
+                        from_rpc: None
+                    }
                 }
             )),
             on_p2p_channels_snark_job_commitment_received: Some(redux::callback!(
@@ -527,7 +533,7 @@ impl P2p {
                 }
             )),
             on_p2p_channels_snark_libp2p_received: Some(redux::callback!(
-                on_p2p_channels_snark_received((peer_id: PeerId, snark: Box<Snark>)) -> crate::Action{
+                on_p2p_channels_snark_libp2p_received((peer_id: PeerId, snark: Box<Snark>)) -> crate::Action{
                     SnarkPoolCandidateAction::WorkReceived { peer_id, work: *snark }
                 }
             )),
@@ -573,12 +579,12 @@ impl P2p {
             )),
             on_p2p_peer_best_tip_update: Some(redux::callback!(
                 on_p2p_peer_best_tip_update(best_tip: BlockWithHash<Arc<MinaBlockBlockStableV2>>) -> crate::Action{
-                    ConsensusAction::P2pBestTipUpdate{best_tip}
+                    ConsensusAction::P2pBestTipUpdate { best_tip }
                 }
             )),
             on_p2p_channels_rpc_ready: Some(redux::callback!(
                 on_p2p_channels_rpc_ready(peer_id: PeerId) -> crate::Action{
-                    P2pCallbacksAction::P2pChannelsRpcReady {peer_id}
+                    P2pCallbacksAction::P2pChannelsRpcReady { peer_id }
                 }
             )),
             on_p2p_channels_rpc_timeout: Some(redux::callback!(
@@ -588,17 +594,17 @@ impl P2p {
             )),
             on_p2p_channels_rpc_response_received: Some(redux::callback!(
                 on_p2p_channels_rpc_response_received((peer_id: PeerId, id: P2pRpcId, response: Option<Box<P2pRpcResponse>>)) -> crate::Action{
-                    P2pCallbacksAction::P2pChannelsRpcResponseReceived {peer_id, id, response}
+                    P2pCallbacksAction::P2pChannelsRpcResponseReceived { peer_id, id, response }
                 }
             )),
             on_p2p_channels_rpc_request_received: Some(redux::callback!(
                 on_p2p_channels_rpc_request_received((peer_id: PeerId, id: P2pRpcId, request: Box<P2pRpcRequest>)) -> crate::Action{
-                    P2pCallbacksAction::P2pChannelsRpcRequestReceived {peer_id, id, request}
+                    P2pCallbacksAction::P2pChannelsRpcRequestReceived { peer_id, id, request }
                 }
             )),
             on_p2p_channels_streaming_rpc_response_received: Some(redux::callback!(
                 on_p2p_channels_streaming_rpc_response_received((peer_id: PeerId, id: P2pRpcId, response: Option<P2pStreamingRpcResponseFull>)) -> crate::Action{
-                    P2pCallbacksAction::P2pChannelsStreamingRpcResponseReceived {peer_id, id, response}
+                    P2pCallbacksAction::P2pChannelsStreamingRpcResponseReceived { peer_id, id, response }
                 }
             )),
             on_p2p_channels_streaming_rpc_timeout: Some(redux::callback!(
