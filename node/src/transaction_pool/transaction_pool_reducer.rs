@@ -1,12 +1,14 @@
 use ledger::{
-    scan_state::transaction_logic::UserCommand,
+    scan_state::transaction_logic::{GenericCommand, UserCommand},
     transaction_pool::{
         diff::{self, DiffVerified},
         transaction_hash, ApplyDecision, TransactionPoolErrors,
     },
     Account, AccountId,
 };
-use openmina_core::{bug_condition, constants::constraint_constants, requests::RpcId};
+use openmina_core::{
+    bug_condition, constants::constraint_constants, requests::RpcId, transaction::Transaction,
+};
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
 use std::collections::{BTreeMap, BTreeSet};
@@ -15,7 +17,7 @@ use crate::{BlockProducerAction, RpcAction};
 
 use super::{
     PendingId, TransactionPoolAction, TransactionPoolActionWithMetaRef,
-    TransactionPoolEffectfulAction, TransactionPoolState,
+    TransactionPoolEffectfulAction, TransactionPoolState, TransactionState,
 };
 
 impl TransactionPoolState {
@@ -157,11 +159,16 @@ impl TransactionPoolState {
                 });
             }
             TransactionPoolAction::BestTipChangedWithAccounts { accounts } => {
-                if let Err(e) = substate
+                match substate
                     .pool
                     .on_new_best_tip(global_slot_from_genesis, accounts)
                 {
-                    bug_condition!("transaction pool::on_new_best_tip failed: {:?}", e);
+                    Err(e) => bug_condition!("transaction pool::on_new_best_tip failed: {:?}", e),
+                    Ok(dropped) => {
+                        for tx in dropped {
+                            substate.dpool.remove(&tx.hash);
+                        }
+                    }
                 }
             }
             TransactionPoolAction::ApplyVerifiedDiff {
@@ -210,7 +217,16 @@ impl TransactionPoolState {
                     accounts,
                     is_sender_local,
                 ) {
-                    Ok((ApplyDecision::Accept, accepted, rejected)) => {
+                    Ok((ApplyDecision::Accept, accepted, rejected, dropped)) => {
+                        for hash in dropped {
+                            substate.dpool.remove(&hash);
+                        }
+                        for tx in &accepted {
+                            substate.dpool.insert(TransactionState {
+                                time: meta.time(),
+                                hash: tx.hash.clone(),
+                            });
+                        }
                         if let Some(rpc_id) = from_rpc {
                             let dispatcher = state.into_dispatcher();
 
@@ -222,7 +238,7 @@ impl TransactionPoolState {
                                 .push(TransactionPoolAction::Rebroadcast { accepted, rejected });
                         }
                     }
-                    Ok((ApplyDecision::Reject, accepted, rejected)) => {
+                    Ok((ApplyDecision::Reject, accepted, rejected, _)) => {
                         if let Some(rpc_id) = from_rpc {
                             let dispatcher = state.into_dispatcher();
 
@@ -334,6 +350,38 @@ impl TransactionPoolState {
 
                 dispatcher.push(BlockProducerAction::WonSlotTransactionsSuccess {
                     transactions_by_fee,
+                });
+            }
+            TransactionPoolAction::P2pSendAll => {
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                for peer_id in global_state.p2p.ready_peers() {
+                    dispatcher.push(TransactionPoolAction::P2pSend { peer_id });
+                }
+            }
+            TransactionPoolAction::P2pSend { peer_id } => {
+                let peer_id = *peer_id;
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let Some(peer) = global_state.p2p.get_ready_peer(&peer_id) else {
+                    return;
+                };
+
+                // Send commitments.
+                let index_and_limit = peer.channels.transaction.next_send_index_and_limit();
+                let (transactions, first_index, last_index) = global_state
+                    .transaction_pool
+                    .dpool
+                    .next_messages_to_send(index_and_limit, |state| {
+                        let tx = global_state.transaction_pool.get(&state.hash)?;
+                        let tx = tx.clone().forget();
+                        // TODO(binier): avoid conversion
+                        Some((&Transaction::from(&tx)).into())
+                    });
+
+                dispatcher.push(P2pChannelsTransactionAction::ResponseSend {
+                    peer_id,
+                    transactions,
+                    first_index,
+                    last_index,
                 });
             }
         }

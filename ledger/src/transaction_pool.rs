@@ -671,6 +671,10 @@ impl IndexedPool {
         self.all_by_hash.contains_key(&cmd.hash)
     }
 
+    pub fn get(&self, hash: &v2::TransactionHash) -> Option<&ValidCommandWithHash> {
+        self.all_by_hash.get(hash)
+    }
+
     fn check_expiry(
         &self,
         global_slot_since_genesis: Slot,
@@ -1901,6 +1905,7 @@ impl TransactionPool {
             ApplyDecision,
             Vec<ValidCommandWithHash>,
             Vec<(ValidCommandWithHash, diff::Error)>,
+            HashSet<v2::TransactionHash>,
         ),
         String,
     > {
@@ -1991,9 +1996,9 @@ impl TransactionPool {
             dropped_for_add.iter().map(|cmd| &cmd.hash).collect();
         let dropped_for_size_hashes: HashSet<&v2::TransactionHash> =
             dropped_for_size.iter().map(|cmd| &cmd.hash).collect();
-        let all_dropped_cmd_hashes: HashSet<&v2::TransactionHash> = dropped_for_add_hashes
+        let all_dropped_cmd_hashes: HashSet<v2::TransactionHash> = dropped_for_add_hashes
             .union(&dropped_for_size_hashes)
-            .copied()
+            .map(|hash| (*hash).clone())
             .collect();
 
         // let locally_generated_dropped = all_dropped_cmds
@@ -2039,7 +2044,7 @@ impl TransactionPool {
             ApplyDecision::Accept
         };
 
-        Ok((decision, accepted, rejected))
+        Ok((decision, accepted, rejected, all_dropped_cmd_hashes))
     }
 
     pub fn unsafe_apply(
@@ -2055,10 +2060,11 @@ impl TransactionPool {
             ApplyDecision,
             Vec<ValidCommandWithHash>,
             Vec<(ValidCommandWithHash, diff::Error)>,
+            HashSet<v2::TransactionHash>,
         ),
         String,
     > {
-        let (decision, accepted, rejected) = self.apply(
+        let (decision, accepted, rejected, dropped) = self.apply(
             time,
             global_slot_since_genesis,
             current_global_slot,
@@ -2066,7 +2072,7 @@ impl TransactionPool {
             accounts,
             is_sender_local,
         )?;
-        Ok((decision, accepted, rejected))
+        Ok((decision, accepted, rejected, dropped))
     }
 
     fn register_locally_generated(&mut self, time: redux::Timestamp, cmd: &ValidCommandWithHash) {

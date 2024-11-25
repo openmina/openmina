@@ -593,6 +593,8 @@ pub enum ActionKind {
     TransactionPoolBestTipChanged,
     TransactionPoolBestTipChangedWithAccounts,
     TransactionPoolCollectTransactionsByFee,
+    TransactionPoolP2pSend,
+    TransactionPoolP2pSendAll,
     TransactionPoolRebroadcast,
     TransactionPoolStartVerify,
     TransactionPoolStartVerifyWithAccounts,
@@ -689,7 +691,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 580;
+    pub const COUNT: u16 = 582;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -915,6 +917,8 @@ impl ActionKindGet for TransactionPoolAction {
             }
             Self::Rebroadcast { .. } => ActionKind::TransactionPoolRebroadcast,
             Self::CollectTransactionsByFee => ActionKind::TransactionPoolCollectTransactionsByFee,
+            Self::P2pSendAll => ActionKind::TransactionPoolP2pSendAll,
+            Self::P2pSend { .. } => ActionKind::TransactionPoolP2pSend,
         }
     }
 }
