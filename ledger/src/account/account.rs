@@ -7,7 +7,7 @@ use mina_p2p_messages::{
     v2,
 };
 use mina_signer::CompressedPubKey;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use openmina_core::constants::PROTOCOL_VERSION;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
@@ -601,6 +601,16 @@ impl std::fmt::Debug for ZkAppUri {
     }
 }
 
+fn default_zkapp_uri_hash() -> Fp {
+    static HASH: Lazy<Fp> = Lazy::new(|| {
+        let mut inputs = Inputs::new();
+        inputs.append(&Fp::zero());
+        inputs.append(&Fp::zero());
+        hash_with_kimchi(&MINA_ZKAPP_URI, &inputs.to_fields())
+    });
+    *HASH
+}
+
 impl ZkAppUri {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -617,23 +627,16 @@ impl ZkAppUri {
     }
 
     fn opt_to_field(opt: Option<&ZkAppUri>) -> Fp {
+        let Some(zkapp_uri) = opt else {
+            return default_zkapp_uri_hash();
+        };
         let mut inputs = Inputs::new();
-
-        match opt {
-            Some(zkapp_uri) => {
-                for c in zkapp_uri.0.as_slice() {
-                    for j in 0..8 {
-                        inputs.append_bool((c & (1 << j)) != 0);
-                    }
-                }
-                inputs.append_bool(true);
-            }
-            None => {
-                inputs.append_field(Fp::zero());
-                inputs.append_field(Fp::zero());
+        for c in zkapp_uri.0.as_slice() {
+            for j in 0..8 {
+                inputs.append_bool((c & (1 << j)) != 0);
             }
         }
-
+        inputs.append_bool(true);
         hash_with_kimchi(&MINA_ZKAPP_URI, &inputs.to_fields())
     }
 }
@@ -1635,6 +1638,14 @@ impl Account {
     }
 }
 
+pub fn default_zkapp_hash() -> Fp {
+    static HASH: Lazy<Fp> = Lazy::new(|| {
+        let default = ZkAppAccount::default();
+        default.hash()
+    });
+    *HASH
+}
+
 impl ToInputs for Account {
     fn to_inputs(&self, inputs: &mut Inputs) {
         let Self {
@@ -1652,11 +1663,11 @@ impl ToInputs for Account {
         } = self;
 
         // Self::zkapp
-        let field_zkapp = {
-            let zkapp = MyCow::borrow_or_default(zkapp);
-            zkapp.hash()
+        let field_zkapp = match zkapp.as_ref() {
+            Some(zkapp) => zkapp.hash(),
+            None => default_zkapp_hash(),
         };
-        inputs.append_field(field_zkapp);
+        inputs.append(&field_zkapp);
         inputs.append(permissions);
 
         // Self::timing

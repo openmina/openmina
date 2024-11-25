@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
-use crate::proofs::{public_input::plonk_checks::ShiftingValue, util::four_u64_to_field};
+use crate::{
+    default_zkapp_hash,
+    proofs::{public_input::plonk_checks::ShiftingValue, util::four_u64_to_field},
+};
 use ark_ff::{Field, One, Zero};
 use kimchi::proof::{PointEvaluations, ProofEvaluations, ProverCommitments, ProverProof};
 use mina_curves::pasta::Fq;
@@ -704,9 +707,11 @@ impl ToFieldElements<Fp> for Box<Account> {
         voting_for.to_field_elements(fields);
         timing.to_field_elements(fields);
         permissions.to_field_elements(fields);
-        MyCow::borrow_or_default(zkapp)
-            .hash()
-            .to_field_elements(fields);
+        match zkapp.as_ref() {
+            Some(zkapp) => zkapp.hash(),
+            None => default_zkapp_hash(),
+        }
+        .to_field_elements(fields);
     }
 }
 
