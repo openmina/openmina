@@ -1,0 +1,160 @@
+name: Archive Comparison
+
+# TODO: Add proper triggers
+on:
+  workflow_dispatch:
+
+env:
+  PG_PORT: 5432
+  PG_DB: archive
+  # TODO: Add proper secrets
+  # POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+  POSTGRES_PASSWORD: mina-testnet
+  ARCHIVE_OUTPUT_DIR: ./archive-outputs
+  ARCHIVE_PORT: 3086
+  P2P_PORT: 8302
+  CLIENT_PORT: 8301
+  RPC_PORT: 5000
+  PEER_LIST_URL: https://bootnodes.minaprotocol.com/networks/devnet.txt
+
+jobs:
+  compare-archives:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres-ocaml:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 10
+
+      postgres-openmina:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create output directories
+        run: |
+          mkdir -p ${{ github.workspace }}/archive-outputs/ocaml
+          mkdir -p ${{ github.workspace }}/archive-outputs/openmina
+
+      - name: Initialize Databases
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+          # Initialize OCaml database
+          psql postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-ocaml:${{ env.PG_PORT }}/${{ env.PG_DB }} -c "CREATE DATABASE ${{ env.PG_DB }};"
+          psql postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-ocaml:${{ env.PG_PORT }}/${{ env.PG_DB }} -c "
+            ALTER SYSTEM SET max_connections = 500;
+            ALTER SYSTEM SET max_locks_per_transaction = 100;
+            ALTER SYSTEM SET max_pred_locks_per_relation = 100;
+            ALTER SYSTEM SET max_pred_locks_per_transaction = 5000;
+          "
+          psql postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-ocaml:${{ env.PG_PORT }}/${{ env.PG_DB }} \
+            -f producer-dashboard/src/archive/sql/archive_schema.sql
+
+          # Initialize OpenMina database
+          psql postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-openmina:${{ env.PG_PORT }}/${{ env.PG_DB }} -c "CREATE DATABASE ${{ env.PG_DB }};"
+          psql postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-openmina:${{ env.PG_PORT }}/${{ env.PG_DB }} -c "
+            ALTER SYSTEM SET max_connections = 500;
+            ALTER SYSTEM SET max_locks_per_transaction = 100;
+            ALTER SYSTEM SET max_pred_locks_per_relation = 100;
+            ALTER SYSTEM SET max_pred_locks_per_transaction = 5000;
+          "
+          psql postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-openmina:${{ env.PG_PORT }}/${{ env.PG_DB }} \
+            -f producer-dashboard/src/archive/sql/archive_schema.sql
+
+      - name: Start OCaml Archive
+        uses: docker://adrnagy/mina-archive
+        with:
+          args: >
+            mina-archive run
+            --postgres-uri postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-ocaml:${{ env.PG_PORT }}/${{ env.PG_DB }}
+            --server-port ${{ env.ARCHIVE_PORT }}
+            --output-dir /data
+        options: >-
+          --name archive-ocaml
+          --network ${{ job.container.network }}
+          -v ${{ github.workspace }}/archive-outputs/ocaml:/data
+          -d
+
+      - name: Start OpenMina Archive
+        uses: docker://adrnagy/mina-archive
+        with:
+          args: >
+            mina-archive run
+            --postgres-uri postgres://postgres:${{ env.POSTGRES_PASSWORD }}@postgres-openmina:${{ env.PG_PORT }}/${{ env.PG_DB }}
+            --server-port ${{ env.ARCHIVE_PORT }}
+            --output-dir /data
+        options: >-
+          --name archive-openmina
+          --network ${{ job.container.network }}
+          -v ${{ github.workspace }}/archive-outputs/openmina:/data
+          -d
+
+      - name: Wait for Archive processes
+        run: |
+          sleep 10  # Replace with proper health check
+
+      - name: Start OCaml Node
+        uses: docker://gcr.io/o1labs-192920/mina-daemon:3.0.0-dc6bf78-bullseye-devnet
+        with:
+          args: >
+            daemon
+            --archive-address archive-ocaml:${{ env.ARCHIVE_PORT }}
+            --insecure-rest-server
+            --log-level Info
+        options: >-
+          --name node-ocaml
+          --network ${{ job.container.network }}
+          -e MINA_CLIENT_TRUSTLIST="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+          -d
+
+      - name: Start OpenMina Node
+        uses: docker://adrnagy/openmina:archive-test
+        with:
+          args: >
+            node
+            --archive-address archive-openmina:${{ env.ARCHIVE_PORT }}
+        options: >-
+          --name node-openmina
+          --network ${{ job.container.network }}
+          -d
+
+      - name: Wait for nodes to be ready
+        run: |
+          # Add health check for nodes
+          sleep 10  # Replace with proper health check
+
+      - name: Build comparison tool
+        run: |
+          cargo build --release -p archive-breadcrumb-compare
+
+      - name: Run comparison
+        env:
+          OCAML_NODE_GRAPHQL: http://node-ocaml:3085/graphql
+          OPENMINA_NODE_GRAPHQL: http://node-openmina:3085/graphql
+          OCAML_NODE_DIR: ${{ github.workspace }}/archive-outputs/ocaml
+          OPENMINA_NODE_DIR: ${{ github.workspace }}/archive-outputs/openmina
+        run: |
+          ./target/release/archive-breadcrumb-compare
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparison-results
+          path: ${{ github.workspace }}/archive-outputs
