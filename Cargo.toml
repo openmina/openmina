@@ -29,6 +29,7 @@ members = [
     "tools/ledger-tool",
     "tools/salsa-simple",
     "tools/fuzzing",
+    "tools/archive-breadcrumb-compare",
     "producer-dashboard",
 
     "fuzzer",

@@ -4872,6 +4872,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
+name = "openmina-archive-breadcrumb-compare"
+version = "0.11.0"
+dependencies = [
+ "anyhow",
+ "binprot",
+ "clap 4.5.20",
+ "mina-p2p-messages",
+ "reqwest 0.11.24",
+ "serde",
+ "tokio",
+]
+
+[[package]]
 name = "openmina-bootstrap-sandbox"
 version = "0.13.0"
 dependencies = [
