@@ -7,23 +7,16 @@ pub mod identity;
 use bootstrap::P2pNetworkKadBootstrapState;
 use channels::{
     best_tip::P2pChannelsBestTipAction,
-    best_tip_effectful::P2pChannelsBestTipEffectfulAction,
     rpc::P2pChannelsRpcAction,
-    rpc_effectful::P2pChannelsRpcEffectfulAction,
     signaling::{
         discovery::P2pChannelsSignalingDiscoveryAction,
-        discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
         exchange::P2pChannelsSignalingExchangeAction,
-        exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
     },
     snark::P2pChannelsSnarkAction,
-    snark_effectful::P2pChannelsSnarkEffectfulAction,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-    snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
     streaming_rpc::P2pChannelsStreamingRpcAction,
-    streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
     transaction::P2pChannelsTransactionAction,
-    transaction_effectful::P2pChannelsTransactionEffectfulAction,
+    P2pChannelsEffectfulAction,
 };
 use connection::{
     incoming::P2pConnectionIncomingAction,
@@ -136,9 +129,7 @@ pub trait P2pActionTrait<State>:
     + From<P2pNetworkPubsubAction>
     + From<P2pNetworkPubsubEffectfulAction>
     + From<P2pChannelsSignalingExchangeAction>
-    + From<P2pChannelsSignalingExchangeEffectfulAction>
     + From<P2pChannelsSignalingDiscoveryAction>
-    + From<P2pChannelsSignalingDiscoveryEffectfulAction>
     + From<P2pChannelsTransactionAction>
     + From<P2pChannelsSnarkAction>
     + From<P2pNetworkRpcAction>
@@ -151,12 +142,9 @@ pub trait P2pActionTrait<State>:
     + From<P2pConnectionIncomingEffectfulAction>
     + From<P2pConnectionOutgoingEffectfulAction>
     + From<P2pDisconnectionEffectfulAction>
-    + From<P2pChannelsBestTipEffectfulAction>
-    + From<P2pChannelsTransactionEffectfulAction>
-    + From<P2pChannelsStreamingRpcEffectfulAction>
-    + From<P2pChannelsSnarkJobCommitmentEffectfulAction>
-    + From<P2pChannelsRpcEffectfulAction>
-    + From<P2pChannelsSnarkEffectfulAction>
     + From<P2pNetworkKadEffectfulAction>
+    + From<P2pChannelsEffectfulAction>
 {
 }
+
+pub trait Action: From<P2pChannelsEffectfulAction> {}

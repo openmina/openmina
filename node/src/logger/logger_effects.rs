@@ -1,7 +1,6 @@
 use openmina_core::log::inner::field::{display, DisplayValue};
 use openmina_core::log::inner::Value;
 use openmina_core::log::{time_to_str, ActionEvent, EventContext};
-use p2p::channels::P2pChannelsEffectfulAction;
 use p2p::connection::P2pConnectionEffectfulAction;
 use p2p::{P2pNetworkConnectionError, P2pNetworkSchedulerAction, PeerId};
 
@@ -106,22 +105,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
         },
         Action::P2pEffectful(action) => match action {
-            p2p::P2pEffectfulAction::Channels(action) => match action {
-                P2pChannelsEffectfulAction::SignalingDiscovery(action) => {
-                    action.action_event(&context)
-                }
-                P2pChannelsEffectfulAction::SignalingExchange(action) => {
-                    action.action_event(&context)
-                }
-                P2pChannelsEffectfulAction::BestTip(action) => action.action_event(&context),
-                P2pChannelsEffectfulAction::Rpc(action) => action.action_event(&context),
-                P2pChannelsEffectfulAction::StreamingRpc(action) => action.action_event(&context),
-                P2pChannelsEffectfulAction::SnarkJobCommitment(action) => {
-                    action.action_event(&context)
-                }
-                P2pChannelsEffectfulAction::Snark(action) => action.action_event(&context),
-                P2pChannelsEffectfulAction::Transaction(action) => action.action_event(&context),
-            },
+            p2p::P2pEffectfulAction::Channels(action) => action.action_event(&context),
             p2p::P2pEffectfulAction::Connection(action) => match action {
                 P2pConnectionEffectfulAction::Outgoing(action) => action.action_event(&context),
                 P2pConnectionEffectfulAction::Incoming(action) => action.action_event(&context),

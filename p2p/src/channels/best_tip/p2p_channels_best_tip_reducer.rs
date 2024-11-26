@@ -2,11 +2,14 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::best_tip_effectful::P2pChannelsBestTipEffectfulAction, P2pNetworkPubsubAction,
-    P2pPeerAction, P2pState,
+    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsEffectfulAction},
+    P2pNetworkPubsubAction, P2pPeerAction, P2pState, PeerId,
 };
 
-use super::{BestTipPropagationState, P2pChannelsBestTipAction, P2pChannelsBestTipState};
+use super::{
+    BestTipPropagationChannelMsg, BestTipPropagationState, P2pChannelsBestTipAction,
+    P2pChannelsBestTipState,
+};
 
 impl P2pChannelsBestTipState {
     /// Substate is accessed
@@ -33,7 +36,16 @@ impl P2pChannelsBestTipState {
                 *best_tip_state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsBestTipEffectfulAction::Init { peer_id });
+
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::BestTipPropagation,
+                    on_success: redux::callback!(
+                        on_best_tip_channel_init(peer_id: PeerId) -> crate::P2pAction {
+                            P2pChannelsBestTipAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsBestTipAction::Pending { .. } => {
@@ -69,7 +81,11 @@ impl P2pChannelsBestTipState {
                 *local = BestTipPropagationState::Requested { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsBestTipEffectfulAction::RequestSend { peer_id });
+                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                    peer_id,
+                    msg_id: MsgId::first(),
+                    msg: ChannelMsg::BestTipPropagation(BestTipPropagationChannelMsg::GetNext),
+                });
                 Ok(())
             }
             P2pChannelsBestTipAction::Received { best_tip, .. } => {
@@ -136,9 +152,12 @@ impl P2pChannelsBestTipState {
                 let dispatcher = state_context.into_dispatcher();
 
                 if !is_libp2p {
-                    dispatcher.push(P2pChannelsBestTipEffectfulAction::ResponseSend {
+                    dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
                         peer_id,
-                        best_tip,
+                        msg_id: MsgId::first(),
+                        msg: ChannelMsg::BestTipPropagation(BestTipPropagationChannelMsg::BestTip(
+                            best_tip.block,
+                        )),
                     });
                     return Ok(());
                 }

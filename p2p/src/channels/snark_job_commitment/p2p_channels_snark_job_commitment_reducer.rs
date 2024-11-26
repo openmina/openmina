@@ -2,13 +2,13 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
+    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsEffectfulAction},
     P2pState,
 };
 
 use super::{
     P2pChannelsSnarkJobCommitmentAction, P2pChannelsSnarkJobCommitmentState,
-    SnarkJobCommitmentPropagationState,
+    SnarkJobCommitmentPropagationChannelMsg, SnarkJobCommitmentPropagationState,
 };
 
 const LIMIT: u8 = 16;
@@ -37,7 +37,15 @@ impl P2pChannelsSnarkJobCommitmentState {
                 *snark_job_state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkJobCommitmentAction::Pending { peer_id });
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::SnarkJobCommitmentPropagation,
+                    on_success: redux::callback!(
+                        on_snark_job_commitment_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
+                            P2pChannelsSnarkJobCommitmentAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsSnarkJobCommitmentAction::Pending { .. } => {
@@ -197,10 +205,22 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkJobCommitmentEffectfulAction::ResponseSend {
+                let message = SnarkJobCommitmentPropagationChannelMsg::WillSend { count };
+                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
                     peer_id,
-                    commitments,
+                    msg_id: MsgId::first(),
+                    msg: ChannelMsg::SnarkJobCommitmentPropagation(message),
                 });
+
+                for commitment in commitments {
+                    let message = SnarkJobCommitmentPropagationChannelMsg::Commitment(commitment);
+                    dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                        peer_id,
+                        msg_id: MsgId::first(),
+                        msg: ChannelMsg::SnarkJobCommitmentPropagation(message),
+                    });
+                }
+
                 Ok(())
             }
         }

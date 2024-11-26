@@ -16,9 +16,7 @@
 //! 7. [discovery] Relayer relays the answer to the dialer.
 
 pub mod discovery;
-pub mod discovery_effectful;
 pub mod exchange;
-pub mod exchange_effectful;
 
 mod p2p_channels_signaling_state;
 pub use p2p_channels_signaling_state::*;
