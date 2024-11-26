@@ -2,7 +2,7 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsEffectfulAction},
+    channels::{ChannelId, MsgId, P2pChannelsEffectfulAction},
     P2pNetworkPubsubAction, P2pState,
 };
 
@@ -78,12 +78,10 @@ impl P2pChannelsSnarkState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::SnarkPropagation(SnarkPropagationChannelMsg::GetNext {
-                        limit,
-                    }),
+                    msg: SnarkPropagationChannelMsg::GetNext { limit }.into(),
                 });
                 Ok(())
             }
@@ -197,19 +195,17 @@ impl P2pChannelsSnarkState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::SnarkPropagation(SnarkPropagationChannelMsg::WillSend {
-                        count,
-                    }),
+                    msg: SnarkPropagationChannelMsg::WillSend { count }.into(),
                 });
 
                 for snark in snarks {
-                    dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                         peer_id,
                         msg_id: MsgId::first(),
-                        msg: ChannelMsg::SnarkPropagation(SnarkPropagationChannelMsg::Snark(snark)),
+                        msg: SnarkPropagationChannelMsg::Snark(snark).into(),
                     });
                 }
                 Ok(())

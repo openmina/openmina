@@ -42,7 +42,7 @@ pub enum P2pChannelsEffectfulAction {
         id: ChannelId,
         on_success: Callback<PeerId>,
     },
-    RequestSend {
+    MessageSend {
         peer_id: PeerId,
         msg_id: MsgId,
         msg: ChannelMsg,

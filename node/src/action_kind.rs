@@ -214,7 +214,7 @@ pub enum ActionKind {
     P2pChannelsBestTipRequestSend,
     P2pChannelsBestTipResponseSend,
     P2pChannelsEffectfulInitChannel,
-    P2pChannelsEffectfulRequestSend,
+    P2pChannelsEffectfulMessageSend,
     P2pChannelsEffectfulSignalingDiscoveryAnswerDecrypt,
     P2pChannelsEffectfulSignalingDiscoveryOfferEncryptAndSend,
     P2pChannelsEffectfulSignalingExchangeAnswerEncryptAndSend,
@@ -1255,7 +1255,7 @@ impl ActionKindGet for P2pChannelsEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::InitChannel { .. } => ActionKind::P2pChannelsEffectfulInitChannel,
-            Self::RequestSend { .. } => ActionKind::P2pChannelsEffectfulRequestSend,
+            Self::MessageSend { .. } => ActionKind::P2pChannelsEffectfulMessageSend,
             Self::SignalingDiscoveryAnswerDecrypt { .. } => {
                 ActionKind::P2pChannelsEffectfulSignalingDiscoveryAnswerDecrypt
             }

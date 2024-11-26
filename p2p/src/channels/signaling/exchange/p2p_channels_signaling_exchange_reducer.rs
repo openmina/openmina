@@ -3,7 +3,7 @@ use redux::ActionWithMeta;
 
 use crate::{
     channels::{
-        signaling::discovery::P2pChannelsSignalingDiscoveryAction, ChannelId, ChannelMsg, MsgId,
+        signaling::discovery::P2pChannelsSignalingDiscoveryAction, ChannelId, MsgId,
         P2pChannelsEffectfulAction,
     },
     connection::{
@@ -82,11 +82,12 @@ impl P2pChannelsSignalingExchangeState {
                 *local = SignalingExchangeState::Requested { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingExchangeChannelMsg::GetNext;
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+
+                let msg = SignalingExchangeChannelMsg::GetNext.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::SignalingExchange(message),
+                    msg,
                 });
                 Ok(())
             }
@@ -214,14 +215,16 @@ impl P2pChannelsSignalingExchangeState {
                     offerer_pub_key: offerer_pub_key.clone(),
                 };
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingExchangeChannelMsg::OfferToYou {
-                    offerer_pub_key: offerer_pub_key.clone(),
-                    offer: offer.clone(),
-                };
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                let msg = SignalingExchangeChannelMsg::OfferToYou {
+                    offerer_pub_key,
+                    offer,
+                }
+                .into();
+
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::SignalingExchange(message),
+                    msg,
                 });
                 Ok(())
             }

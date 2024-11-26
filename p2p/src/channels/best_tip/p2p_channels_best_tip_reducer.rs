@@ -81,7 +81,7 @@ impl P2pChannelsBestTipState {
                 *local = BestTipPropagationState::Requested { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
                     msg: ChannelMsg::BestTipPropagation(BestTipPropagationChannelMsg::GetNext),
@@ -152,7 +152,7 @@ impl P2pChannelsBestTipState {
                 let dispatcher = state_context.into_dispatcher();
 
                 if !is_libp2p {
-                    dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                         peer_id,
                         msg_id: MsgId::first(),
                         msg: ChannelMsg::BestTipPropagation(BestTipPropagationChannelMsg::BestTip(

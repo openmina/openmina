@@ -207,13 +207,11 @@ impl P2pConnectionOutgoingState {
                 if let Some(relay_peer_id) = opts.webrtc_p2p_relay_peer_id() {
                     dispatcher.push(P2pChannelsSignalingDiscoveryAction::DiscoveredAccept {
                         peer_id: relay_peer_id,
-                        offer: offer.clone(),
+                        offer,
                     });
                 } else {
-                    dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferSend {
-                        peer_id,
-                        offer: offer.clone(),
-                    });
+                    dispatcher
+                        .push(P2pConnectionOutgoingEffectfulAction::OfferSend { peer_id, offer });
                 }
                 Ok(())
             }

@@ -12,7 +12,7 @@ use super::{
 };
 
 impl P2pChannelsEffectfulAction {
-    pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
@@ -26,7 +26,7 @@ impl P2pChannelsEffectfulAction {
                 store.service().channel_open(peer_id, id);
                 store.dispatch_callback(on_success, peer_id);
             }
-            P2pChannelsEffectfulAction::RequestSend {
+            P2pChannelsEffectfulAction::MessageSend {
                 peer_id,
                 msg_id,
                 msg,
@@ -60,21 +60,22 @@ impl P2pChannelsEffectfulAction {
                 peer_id,
                 pub_key,
                 offer,
-            } => {
-                match store.service().encrypt(&pub_key, offer.as_ref()) {
-                    Err(_) => {
-                        // todo!("Failed to encrypt webrtc offer. Handle it.")
-                    }
-                    Ok(offer) => {
-                        let message = SignalingDiscoveryChannelMsg::DiscoveredAccept(offer);
-                        store.service().channel_send(
-                            peer_id,
-                            super::MsgId::first(),
-                            message.into(),
-                        );
-                    }
+            } => match store.service().encrypt(&pub_key, offer.as_ref()) {
+                Err(_) => {
+                    // TODO: handle
+                    openmina_core::error!(
+                        meta.time();
+                        summary = "Failed to encrypt webrtc offer",
+                        peer_id = peer_id.to_string()
+                    );
                 }
-            }
+                Ok(offer) => {
+                    let message = SignalingDiscoveryChannelMsg::DiscoveredAccept(offer);
+                    store
+                        .service()
+                        .channel_send(peer_id, super::MsgId::first(), message.into());
+                }
+            },
             P2pChannelsEffectfulAction::SignalingExchangeOfferDecrypt {
                 peer_id,
                 pub_key,

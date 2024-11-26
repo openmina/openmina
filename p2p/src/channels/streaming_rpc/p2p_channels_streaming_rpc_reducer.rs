@@ -99,13 +99,10 @@ impl P2pChannelsStreamingRpcState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::StreamingRpc(StreamingRpcChannelMsg::Request(
-                        id,
-                        *request.clone(),
-                    )),
+                    msg: StreamingRpcChannelMsg::Request(id, *request.clone()).into(),
                 });
                 if let Some(callback) = on_init {
                     dispatcher.push_callback(callback, (peer_id, id, *request));
@@ -141,7 +138,7 @@ impl P2pChannelsStreamingRpcState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
                     msg: ChannelMsg::StreamingRpc(StreamingRpcChannelMsg::Next(id)),
@@ -288,11 +285,11 @@ impl P2pChannelsStreamingRpcState {
 
                 let dispatcher = state_context.into_dispatcher();
                 if response.is_none() {
-                    let message = StreamingRpcChannelMsg::Response(id, None);
-                    dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                    let msg = StreamingRpcChannelMsg::Response(id, None).into();
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                         peer_id,
                         msg_id: MsgId::first(),
-                        msg: ChannelMsg::StreamingRpc(message),
+                        msg,
                     });
                     dispatcher.push(P2pChannelsStreamingRpcAction::ResponseSent { peer_id, id });
                     return Ok(());
@@ -394,11 +391,12 @@ impl P2pChannelsStreamingRpcState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                let message = StreamingRpcChannelMsg::Response(id, Some(*response));
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+
+                let msg = StreamingRpcChannelMsg::Response(id, Some(*response)).into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::StreamingRpc(message),
+                    msg,
                 });
                 dispatcher.push(P2pChannelsStreamingRpcAction::ResponseSent { peer_id, id });
                 Ok(())

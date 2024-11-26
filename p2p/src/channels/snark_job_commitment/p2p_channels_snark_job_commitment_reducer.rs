@@ -2,7 +2,7 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsEffectfulAction},
+    channels::{ChannelId, MsgId, P2pChannelsEffectfulAction},
     P2pState,
 };
 
@@ -205,19 +205,20 @@ impl P2pChannelsSnarkJobCommitmentState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                let message = SnarkJobCommitmentPropagationChannelMsg::WillSend { count };
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                let msg = SnarkJobCommitmentPropagationChannelMsg::WillSend { count }.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::SnarkJobCommitmentPropagation(message),
+                    msg,
                 });
 
                 for commitment in commitments {
-                    let message = SnarkJobCommitmentPropagationChannelMsg::Commitment(commitment);
-                    dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                    let msg =
+                        SnarkJobCommitmentPropagationChannelMsg::Commitment(commitment).into();
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                         peer_id,
                         msg_id: MsgId::first(),
-                        msg: ChannelMsg::SnarkJobCommitmentPropagation(message),
+                        msg,
                     });
                 }
 

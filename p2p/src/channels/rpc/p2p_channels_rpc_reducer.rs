@@ -38,7 +38,6 @@ impl P2pChannelsRpcState {
 
                 let dispatcher = state_context.into_dispatcher();
 
-                // TODO(akoptelov): open a new stream, if we decide not to forcibly do that on connection established
                 dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
                     peer_id,
                     id: ChannelId::Rpc,
@@ -114,7 +113,7 @@ impl P2pChannelsRpcState {
                     return Ok(());
                 }
 
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
                     msg: ChannelMsg::Rpc(RpcChannelMsg::Request(id, *request.clone())),
@@ -248,7 +247,7 @@ impl P2pChannelsRpcState {
                     return Ok(());
                 }
 
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
                     msg: ChannelMsg::Rpc(RpcChannelMsg::Response(id, response.map(|v| *v))),

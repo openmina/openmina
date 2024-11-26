@@ -3,7 +3,7 @@ use super::{
     TransactionPropagationState,
 };
 use crate::{
-    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsEffectfulAction},
+    channels::{ChannelId, MsgId, P2pChannelsEffectfulAction},
     P2pNetworkPubsubAction, P2pState,
 };
 use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
@@ -75,12 +75,10 @@ impl P2pChannelsTransactionState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::TransactionPropagation(
-                        TransactionPropagationChannelMsg::GetNext { limit },
-                    ),
+                    msg: TransactionPropagationChannelMsg::GetNext { limit }.into(),
                 });
                 Ok(())
             }
@@ -186,19 +184,19 @@ impl P2pChannelsTransactionState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                let message = TransactionPropagationChannelMsg::WillSend { count };
-                dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                let msg = TransactionPropagationChannelMsg::WillSend { count }.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
                     msg_id: MsgId::first(),
-                    msg: ChannelMsg::TransactionPropagation(message),
+                    msg,
                 });
 
                 for tx in transactions {
-                    let message = TransactionPropagationChannelMsg::Transaction(tx);
-                    dispatcher.push(P2pChannelsEffectfulAction::RequestSend {
+                    let msg = TransactionPropagationChannelMsg::Transaction(tx).into();
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                         peer_id,
                         msg_id: MsgId::first(),
-                        msg: ChannelMsg::TransactionPropagation(message),
+                        msg,
                     });
                 }
                 Ok(())
