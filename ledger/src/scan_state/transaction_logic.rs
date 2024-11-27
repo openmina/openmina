@@ -4,10 +4,11 @@ use std::fmt::Display;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
-use mina_hasher::Fp;
+use mina_hasher::{Fp, Hashable, ROInput};
 use mina_p2p_messages::binprot;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
+use mina_signer::NetworkId;
 use openmina_core::constants::ConstraintConstants;
 use openmina_macros::SerdeYojsonEnum;
 use poseidon::hash::params::{CODA_RECEIPT_UC, MINA_ZKAPP_MEMO};
@@ -4212,6 +4213,25 @@ pub mod zkapp_statement {
 
         pub fn empty() -> Self {
             Self(Fp::zero())
+        }
+    }
+
+    impl Hashable for TransactionCommitment {
+        type D = NetworkId;
+
+        fn to_roinput(&self) -> ROInput {
+            let mut roi = ROInput::new();
+            roi = roi.append_field(self.0);
+            roi
+        }
+
+        fn domain_string(network_id: NetworkId) -> Option<String> {
+            match network_id {
+                NetworkId::MAINNET => openmina_core::network::mainnet::SIGNATURE_PREFIX,
+                NetworkId::TESTNET => openmina_core::network::devnet::SIGNATURE_PREFIX,
+            }
+            .to_string()
+            .into()
         }
     }
 
