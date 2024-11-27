@@ -273,6 +273,8 @@ impl P2pNetworkPubsubState {
                     );
                     return Ok(());
                 };
+                std::hint::black_box((0..1000).map(|_| msg.clone()).collect::<Vec<_>>());
+                dbg!(&msg);
 
                 let dispatcher = state_context.into_dispatcher();
                 let mut data = vec![];
