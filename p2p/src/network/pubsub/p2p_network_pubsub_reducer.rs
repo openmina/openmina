@@ -123,7 +123,7 @@ impl P2pNetworkPubsubState {
                 if mesh_size < config.meshsub.outbound_degree_desired {
                     dispatcher.push(P2pNetworkPubsubAction::Graft {
                         peer_id,
-                        topic_id: dbg!(TOPIC.to_owned()),
+                        topic_id: TOPIC.to_owned(),
                     });
                 }
 
@@ -168,10 +168,7 @@ impl P2pNetworkPubsubState {
                     if !could_accept {
                         if let Some(topic_state) = map.get(&peer_id) {
                             if topic_state.on_mesh() {
-                                dispatcher.push(P2pNetworkPubsubAction::Prune {
-                                    peer_id,
-                                    topic_id: dbg!(topic_id),
-                                })
+                                dispatcher.push(P2pNetworkPubsubAction::Prune { peer_id, topic_id })
                             }
                         }
                     }
