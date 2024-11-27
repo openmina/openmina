@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 ark-serialize = "0.4.2"
+poseidon = { workspace = true }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 mina-curves = { workspace = true }

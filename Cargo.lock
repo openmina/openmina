@@ -7547,6 +7547,7 @@ dependencies = [
  "object 0.36.5",
  "once_cell",
  "openmina-core",
+ "poseidon",
  "rand",
  "ring_buffer",
  "rsprocmaps",
