@@ -181,6 +181,14 @@ pub enum P2pNetworkPubsubClientMeshAddingState {
     Added,
 }
 
+impl P2pNetworkPubsubClientState {
+    pub fn message_is_empty(&self) -> bool {
+        self.message.subscriptions.is_empty()
+            && self.message.publish.is_empty()
+            && self.message.control.is_none()
+    }
+}
+
 impl P2pNetworkPubsubClientTopicState {
     pub fn on_mesh(&self) -> bool {
         matches!(&self.mesh, P2pNetworkPubsubClientMeshAddingState::Added)

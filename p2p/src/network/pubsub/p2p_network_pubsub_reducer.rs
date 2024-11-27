@@ -100,6 +100,13 @@ impl P2pNetworkPubsubState {
                     .or_default()
                     .insert(peer_id, Default::default());
 
+                if let Some(state) = pubsub_state.clients.get_mut(&peer_id) {
+                    state.message.subscriptions.push(pb::rpc::SubOpts {
+                        subscribe: Some(true),
+                        topic_id: Some(TOPIC.to_owned()),
+                    });
+                }
+
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let config: &P2pConfig = state.substate()?;
                 let state: &P2pNetworkPubsubState = state.substate()?;
@@ -108,17 +115,7 @@ impl P2pNetworkPubsubState {
                     // must have this topic already
                     return Ok(());
                 };
-                dispatcher.push(P2pNetworkPubsubAction::OutgoingMessage {
-                    msg: pb::Rpc {
-                        subscriptions: vec![pb::rpc::SubOpts {
-                            subscribe: Some(true),
-                            topic_id: Some(TOPIC.to_owned()),
-                        }],
-                        publish: vec![],
-                        control: None,
-                    },
-                    peer_id,
-                });
+                dispatcher.push(P2pNetworkPubsubAction::OutgoingMessage { peer_id });
                 let mesh_size = map.values().filter(|s| s.on_mesh()).count();
                 if mesh_size < config.meshsub.outbound_degree_desired {
                     dispatcher.push(P2pNetworkPubsubAction::Graft {
@@ -217,24 +214,25 @@ impl P2pNetworkPubsubState {
                 else {
                     return Ok(());
                 };
-
                 state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
 
-                let dispatcher = state_context.into_dispatcher();
-                let msg = pb::Rpc {
-                    subscriptions: vec![],
-                    publish: vec![],
-                    control: Some(pb::ControlMessage {
-                        ihave: vec![],
-                        iwant: vec![],
-                        graft: vec![pb::ControlGraft {
-                            topic_id: Some(topic_id),
-                        }],
-                        prune: vec![],
-                    }),
-                };
+                if let Some(state) = pubsub_state.clients.get_mut(&peer_id) {
+                    let control = state
+                        .message
+                        .control
+                        .get_or_insert_with(|| pb::ControlMessage {
+                            ihave: vec![],
+                            iwant: vec![],
+                            graft: vec![],
+                            prune: vec![],
+                        });
+                    control.graft.push(pb::ControlGraft {
+                        topic_id: Some(topic_id),
+                    });
+                }
 
-                dispatcher.push(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pNetworkPubsubAction::OutgoingMessage { peer_id });
                 Ok(())
             }
             P2pNetworkPubsubAction::Prune { peer_id, topic_id } => {
@@ -246,54 +244,58 @@ impl P2pNetworkPubsubState {
                     bug_condition!("State not found for action: `P2pNetworkPubsubAction::Prune`");
                     return Ok(());
                 };
-
                 state.mesh = P2pNetworkPubsubClientMeshAddingState::WeRefused;
 
-                let dispatcher = state_context.into_dispatcher();
-                let msg = pb::Rpc {
-                    subscriptions: vec![],
-                    publish: vec![],
-                    control: Some(pb::ControlMessage {
-                        ihave: vec![],
-                        iwant: vec![],
-                        graft: vec![],
-                        prune: vec![pb::ControlPrune {
-                            topic_id: Some(topic_id),
-                            peers: vec![pb::PeerInfo {
-                                peer_id: None,
-                                signed_peer_record: None,
-                            }],
-                            backoff: None,
+                if let Some(state) = pubsub_state.clients.get_mut(&peer_id) {
+                    let control = state
+                        .message
+                        .control
+                        .get_or_insert_with(|| pb::ControlMessage {
+                            ihave: vec![],
+                            iwant: vec![],
+                            graft: vec![],
+                            prune: vec![],
+                        });
+                    control.prune.push(pb::ControlPrune {
+                        topic_id: Some(topic_id),
+                        peers: vec![pb::PeerInfo {
+                            peer_id: None,
+                            signed_peer_record: None,
                         }],
-                    }),
-                };
+                        backoff: None,
+                    });
+                }
 
-                dispatcher.push(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pNetworkPubsubAction::OutgoingMessage { peer_id });
                 Ok(())
             }
-            P2pNetworkPubsubAction::OutgoingMessage { peer_id, msg } => {
-                if let Some(v) = pubsub_state.clients.get_mut(&peer_id) {
-                    v.message.subscriptions.clear();
-                    v.message.publish.clear();
-                    v.message.control = None;
+            P2pNetworkPubsubAction::OutgoingMessage { peer_id } => {
+                let msg = if let Some(v) = pubsub_state.clients.get_mut(&peer_id) {
+                    std::mem::replace(
+                        &mut v.message,
+                        pb::Rpc {
+                            subscriptions: vec![],
+                            publish: vec![],
+                            control: None,
+                        },
+                    )
                 } else {
                     bug_condition!(
                         "Invalid state for action: `P2pNetworkPubsubAction::OutgoingMessage`"
                     );
-                }
+                    return Ok(());
+                };
 
                 let dispatcher = state_context.into_dispatcher();
-                if !message_is_empty(&msg) {
-                    let mut data = vec![];
-                    if prost::Message::encode_length_delimited(&msg, &mut data).is_err() {
-                        dispatcher
-                            .push(P2pNetworkPubsubAction::OutgoingMessageError { msg, peer_id });
-                    } else {
-                        dispatcher.push(P2pNetworkPubsubAction::OutgoingData {
-                            data: Data::from(data),
-                            peer_id,
-                        });
-                    }
+                let mut data = vec![];
+                if prost::Message::encode_length_delimited(&msg, &mut data).is_err() {
+                    dispatcher.push(P2pNetworkPubsubAction::OutgoingMessageError { msg, peer_id });
+                } else {
+                    dispatcher.push(P2pNetworkPubsubAction::OutgoingData {
+                        data: Data::from(data),
+                        peer_id,
+                    });
                 }
                 Ok(())
             }
@@ -601,10 +603,6 @@ impl P2pNetworkPubsubState {
     }
 }
 
-fn message_is_empty(msg: &pb::Rpc) -> bool {
-    msg.subscriptions.is_empty() && msg.publish.is_empty() && msg.control.is_none()
-}
-
 fn broadcast<Action, State>(
     dispatcher: &mut Dispatcher<Action, State>,
     state: &State,
@@ -618,11 +616,8 @@ where
     state
         .clients
         .iter()
-        .filter(|(_, state)| !message_is_empty(&state.message))
-        .map(|(peer_id, state)| P2pNetworkPubsubAction::OutgoingMessage {
-            msg: state.message.clone(),
-            peer_id: *peer_id,
-        })
+        .filter(|(_, s)| !s.message_is_empty())
+        .map(|(peer_id, _)| P2pNetworkPubsubAction::OutgoingMessage { peer_id: *peer_id })
         .for_each(|action| dispatcher.push(action));
 
     Ok(())
