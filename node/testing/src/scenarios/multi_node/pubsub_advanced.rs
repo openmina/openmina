@@ -50,26 +50,27 @@ impl MultiNodePubsubPropagateBlock {
 
                 match action.action() {
                     Action::P2p(P2pAction::Network(P2pNetworkAction::Pubsub(
-                        P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id },
+                        P2pNetworkPubsubAction::OutgoingMessage { peer_id },
                     ))) => {
-                        for publish_message in &msg.publish {
-                            let mut slice = &publish_message.data()[8..];
-                            if let Ok(gossip::GossipNetMessageV2::NewState(block)) =
-                                gossip::GossipNetMessageV2::binprot_read(&mut slice)
-                            {
-                                let height = block
-                                    .header
-                                    .protocol_state
-                                    .body
-                                    .consensus_state
-                                    .global_slot();
-                                let mut lock = graph.lock().unwrap();
-                                *lock = format!(
-                                    "{lock}  \"{this}\" -> \"{}\" [label=\"{height}\"];\n",
-                                    cut(peer_id)
-                                );
-                            }
-                        }
+                        // TODO: reimplement without msg in action
+                        //for publish_message in &msg.publish {
+                        //    let mut slice = &publish_message.data()[8..];
+                        //    if let Ok(gossip::GossipNetMessageV2::NewState(block)) =
+                        //        gossip::GossipNetMessageV2::binprot_read(&mut slice)
+                        //    {
+                        //        let height = block
+                        //            .header
+                        //            .protocol_state
+                        //            .body
+                        //            .consensus_state
+                        //            .global_slot();
+                        //        let mut lock = graph.lock().unwrap();
+                        //        *lock = format!(
+                        //            "{lock}  \"{this}\" -> \"{}\" [label=\"{height}\"];\n",
+                        //            cut(peer_id)
+                        //        );
+                        //    }
+                        //}
                         false
                     }
                     _ => false,
