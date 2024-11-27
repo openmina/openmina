@@ -273,7 +273,6 @@ impl P2pNetworkPubsubState {
                     );
                     return Ok(());
                 };
-                std::hint::black_box((0..1000).map(|_| msg.clone()).collect::<Vec<_>>());
                 dbg!(&msg);
 
                 let dispatcher = state_context.into_dispatcher();
@@ -392,6 +391,7 @@ impl P2pNetworkPubsubState {
         Ok(())
     }
 
+    #[inline(never)]
     fn reduce_incoming_message(
         &mut self,
         peer_id: PeerId,
@@ -401,11 +401,15 @@ impl P2pNetworkPubsubState {
         self.incoming_transactions.clear();
         self.incoming_snarks.clear();
 
+        self.incoming_transactions.shrink_to(0x20);
+        self.incoming_snarks.shrink_to(0x20);
+
         let Some(state) = self.clients.get_mut(&peer_id) else {
             bug_condition!("State not found for action P2pNetworkPubsubAction::IncomingMessage");
             return Ok(());
         };
         state.incoming_messages.clear();
+        state.incoming_messages.shrink_to(0x20);
 
         let message_id = self.mcache.put(message.clone());
 
@@ -496,6 +500,7 @@ impl P2pNetworkPubsubState {
         match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
             Ok(v) => {
                 state.buffer.clear();
+                state.buffer.shrink_to(0x2000);
                 // println!(
                 //     "(pubsub) this <- {peer_id}, {:?}, {:?}, {}",
                 //     v.subscriptions,
