@@ -75,6 +75,12 @@ pub use tree::*;
 pub use tree_version::*;
 pub use util::*;
 
+// Run with:
+//
+// export RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals,+simd128 -C link-arg=--max-memory=4294967296"
+// export CC=gcc CXX=g++ RUST_BACKTRACE=1 LD_LIBRARY_PATH=(pwd)/_build/default/src/lib/mina_tree/:(pwd)/_build/default/src/lib/snarky/stacktrace/ DUNE_PROFILE=devnet
+// rustup run nightly wasm-pack build --target web -- . -Z build-std=std,panic_abort && python3 -m http.server 8080
+
 #[cfg(target_family = "wasm")]
 mod wasm_tests {
     use super::*;
@@ -253,23 +259,29 @@ mod wasm_tests {
 
         let now6 = instant_now();
         let root = ledger.merkle_root();
-        log(&format!("root={:?}", root));
-        // let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-        //     (),
-        //     openmina_core::constants::constraint_constants(),
-        //     Verifier,
-        //     scan_state,
-        //     ledger,
-        //     LocalState::empty(),
-        //     staged_ledger_hash,
-        //     pending_coinbase,
-        //     |key| states.get(&key).cloned().unwrap(),
-        // )
-        // .unwrap();
-
         let now7 = instant_now();
-
         let ms = std::time::Duration::from_millis(now7 as u64 - now6 as u64);
+        log(&format!("compute merkle_root: {:?}", ms));
+        log(&format!("root_hash={:?}", root));
+
+        let now8 = instant_now();
+
+        let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+            (),
+            openmina_core::constants::constraint_constants(),
+            Verifier,
+            scan_state,
+            ledger,
+            LocalState::empty(),
+            staged_ledger_hash,
+            pending_coinbase,
+            |key| states.get(&key).cloned().unwrap(),
+        )
+        .unwrap();
+
+        let now9 = instant_now();
+
+        let ms = std::time::Duration::from_millis(now9 as u64 - now8 as u64);
         log(&format!("reconstruct: {:?}", ms));
 
         // eprintln!("time to reconstruct: {:?}", now.elapsed());

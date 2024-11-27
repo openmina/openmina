@@ -3855,6 +3855,7 @@ dependencies = [
  "getrandom",
  "hex",
  "itertools 0.10.5",
+ "js-sys",
  "juniper",
  "kimchi",
  "lazy_static",
