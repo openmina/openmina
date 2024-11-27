@@ -99,7 +99,7 @@ impl P2pNetworkPubsubState {
                     .entry(TOPIC.to_owned())
                     .or_default()
                     .insert(peer_id, Default::default());
-                
+
                 if let Some(state) = pubsub_state.clients.get_mut(&peer_id) {
                     state.message.subscriptions.push(pb::rpc::SubOpts {
                         subscribe: Some(true),
