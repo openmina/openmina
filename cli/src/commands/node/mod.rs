@@ -1,4 +1,4 @@
-use std::{fs::File, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{fs::File, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use ledger::proofs::provers::BlockProver;
@@ -140,7 +140,7 @@ pub struct Node {
 
     /// Enable archive mode (seding blocks to the archive process).
     #[arg(long, env)]
-    pub archive_address: Option<SocketAddr>,
+    pub archive_address: Option<Url>,
 }
 
 impl Node {
@@ -278,7 +278,15 @@ impl Node {
                 summary = "Archive mode enabled",
                 address = address.to_string()
             );
-            node_builder.archive(address);
+            // Convert URL to SocketAddr
+            let socket_addrs = address
+                .socket_addrs(|| None)
+                .expect("Invalid URL");
+
+            let socket_addr = socket_addrs
+                .first()
+                .expect("No socket address found");
+            node_builder.archive(*socket_addr);
         }
 
         if let Some(sec_key) = self.run_snarker {
