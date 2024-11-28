@@ -2,10 +2,14 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::snark_effectful::P2pChannelsSnarkEffectfulAction, P2pNetworkPubsubAction, P2pState,
+    channels::{ChannelId, MsgId, P2pChannelsEffectfulAction},
+    P2pNetworkPubsubAction, P2pState,
 };
 
-use super::{P2pChannelsSnarkAction, P2pChannelsSnarkState, SnarkPropagationState};
+use super::{
+    P2pChannelsSnarkAction, P2pChannelsSnarkState, SnarkPropagationChannelMsg,
+    SnarkPropagationState,
+};
 use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
 
 impl P2pChannelsSnarkState {
@@ -32,7 +36,16 @@ impl P2pChannelsSnarkState {
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkEffectfulAction::Init { peer_id });
+
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::SnarkPropagation,
+                    on_success: redux::callback!(
+                        on_snark_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
+                            P2pChannelsSnarkAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsSnarkAction::Pending { .. } => {
@@ -65,7 +78,11 @@ impl P2pChannelsSnarkState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkEffectfulAction::RequestSend { peer_id, limit });
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
+                    peer_id,
+                    msg_id: MsgId::first(),
+                    msg: SnarkPropagationChannelMsg::GetNext { limit }.into(),
+                });
                 Ok(())
             }
             P2pChannelsSnarkAction::PromiseReceived { promised_count, .. } => {
@@ -178,7 +195,19 @@ impl P2pChannelsSnarkState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSnarkEffectfulAction::ResponseSend { peer_id, snarks });
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
+                    peer_id,
+                    msg_id: MsgId::first(),
+                    msg: SnarkPropagationChannelMsg::WillSend { count }.into(),
+                });
+
+                for snark in snarks {
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
+                        peer_id,
+                        msg_id: MsgId::first(),
+                        msg: SnarkPropagationChannelMsg::Snark(snark).into(),
+                    });
+                }
                 Ok(())
             }
             #[cfg(feature = "p2p-libp2p")]

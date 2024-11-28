@@ -1,13 +1,16 @@
 use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
-use crate::{channels::streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction, P2pState};
+use crate::{
+    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsEffectfulAction},
+    P2pState,
+};
 
 use super::{
     staged_ledger_parts::{StagedLedgerPartsReceiveProgress, StagedLedgerPartsSendProgress},
     P2pChannelsStreamingRpcAction, P2pChannelsStreamingRpcState, P2pStreamingRpcLocalState,
     P2pStreamingRpcRemoteState, P2pStreamingRpcRequest, P2pStreamingRpcResponseFull,
-    P2pStreamingRpcSendProgress,
+    P2pStreamingRpcSendProgress, StreamingRpcChannelMsg,
 };
 
 impl P2pChannelsStreamingRpcState {
@@ -36,7 +39,15 @@ impl P2pChannelsStreamingRpcState {
                 *streaming_rpc_state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::Init { peer_id });
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::StreamingRpc,
+                    on_success: redux::callback!(
+                        on_streaming_rpc_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
+                            P2pChannelsStreamingRpcAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::Pending { .. } => {
@@ -88,12 +99,14 @@ impl P2pChannelsStreamingRpcState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    id,
-                    request,
-                    on_init,
+                    msg_id: MsgId::first(),
+                    msg: StreamingRpcChannelMsg::Request(id, *request.clone()).into(),
                 });
+                if let Some(callback) = on_init {
+                    dispatcher.push_callback(callback, (peer_id, id, *request));
+                }
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::Timeout { id, .. } => {
@@ -125,9 +138,11 @@ impl P2pChannelsStreamingRpcState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(
-                    P2pChannelsStreamingRpcEffectfulAction::ResponseNextPartGet { peer_id, id },
-                );
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
+                    peer_id,
+                    msg_id: MsgId::first(),
+                    msg: ChannelMsg::StreamingRpc(StreamingRpcChannelMsg::Next(id)),
+                });
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::ResponsePartReceived { response, id, .. } => {
@@ -269,11 +284,19 @@ impl P2pChannelsStreamingRpcState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::ResponseSendInit {
-                    peer_id,
-                    id,
-                    response,
-                });
+                if response.is_none() {
+                    let msg = StreamingRpcChannelMsg::Response(id, None).into();
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
+                        peer_id,
+                        msg_id: MsgId::first(),
+                        msg,
+                    });
+                    dispatcher.push(P2pChannelsStreamingRpcAction::ResponseSent { peer_id, id });
+                    return Ok(());
+                }
+
+                dispatcher
+                    .push(P2pChannelsStreamingRpcAction::ResponsePartNextSend { peer_id, id });
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::ResponsePartNextSend { id, .. } => {
@@ -368,11 +391,14 @@ impl P2pChannelsStreamingRpcState {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsStreamingRpcEffectfulAction::ResponsePartSend {
+
+                let msg = StreamingRpcChannelMsg::Response(id, Some(*response)).into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    id,
-                    response,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
+                dispatcher.push(P2pChannelsStreamingRpcAction::ResponseSent { peer_id, id });
                 Ok(())
             }
             P2pChannelsStreamingRpcAction::ResponseSent { id, .. } => {

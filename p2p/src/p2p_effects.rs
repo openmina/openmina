@@ -1,7 +1,4 @@
-use crate::{
-    channels::P2pChannelsEffectfulAction, connection::P2pConnectionEffectfulAction,
-    P2pEffectfulAction, P2pStore,
-};
+use crate::{connection::P2pConnectionEffectfulAction, P2pEffectfulAction, P2pStore};
 use redux::ActionMeta;
 
 impl P2pEffectfulAction {
@@ -12,22 +9,7 @@ impl P2pEffectfulAction {
     {
         match self {
             P2pEffectfulAction::Initialize => {}
-            P2pEffectfulAction::Channels(action) => match action {
-                P2pChannelsEffectfulAction::SignalingDiscovery(action) => {
-                    action.effects(&meta, store)
-                }
-                P2pChannelsEffectfulAction::SignalingExchange(action) => {
-                    action.effects(&meta, store)
-                }
-                P2pChannelsEffectfulAction::BestTip(action) => action.effects(&meta, store),
-                P2pChannelsEffectfulAction::Transaction(action) => action.effects(&meta, store),
-                P2pChannelsEffectfulAction::StreamingRpc(action) => action.effects(&meta, store),
-                P2pChannelsEffectfulAction::SnarkJobCommitment(action) => {
-                    action.effects(&meta, store)
-                }
-                P2pChannelsEffectfulAction::Rpc(action) => action.effects(&meta, store),
-                P2pChannelsEffectfulAction::Snark(action) => action.effects(&meta, store),
-            },
+            P2pEffectfulAction::Channels(action) => action.effects(&meta, store),
             P2pEffectfulAction::Connection(action) => match action {
                 P2pConnectionEffectfulAction::Outgoing(action) => action.effects(&meta, store),
                 P2pConnectionEffectfulAction::Incoming(action) => action.effects(&meta, store),

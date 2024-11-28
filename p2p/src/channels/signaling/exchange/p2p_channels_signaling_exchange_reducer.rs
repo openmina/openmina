@@ -2,9 +2,9 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::signaling::{
-        discovery::P2pChannelsSignalingDiscoveryAction,
-        exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
+    channels::{
+        signaling::discovery::P2pChannelsSignalingDiscoveryAction, ChannelId, MsgId,
+        P2pChannelsEffectfulAction,
     },
     connection::{
         incoming::{
@@ -45,7 +45,15 @@ impl P2pChannelsSignalingExchangeState {
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSignalingExchangeEffectfulAction::Init { peer_id });
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::SignalingExchange,
+                    on_success: redux::callback!(
+                        on_signaling_exchange_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
+                            P2pChannelsSignalingExchangeAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsSignalingExchangeAction::Pending { .. } => {
@@ -74,10 +82,12 @@ impl P2pChannelsSignalingExchangeState {
                 *local = SignalingExchangeState::Requested { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingExchangeChannelMsg::GetNext;
-                dispatcher.push(P2pChannelsSignalingExchangeEffectfulAction::MessageSend {
+
+                let msg = SignalingExchangeChannelMsg::GetNext.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    message,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
                 Ok(())
             }
@@ -100,7 +110,7 @@ impl P2pChannelsSignalingExchangeState {
 
                 let dispatcher = state_context.into_dispatcher();
                 let offer = offer.clone();
-                dispatcher.push(P2pChannelsSignalingExchangeEffectfulAction::OfferDecrypt {
+                dispatcher.push(P2pChannelsEffectfulAction::SignalingExchangeOfferDecrypt {
                     peer_id,
                     pub_key: offerer_pub_key.clone(),
                     offer,
@@ -162,7 +172,7 @@ impl P2pChannelsSignalingExchangeState {
                 let answer = answer.clone();
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(
-                    P2pChannelsSignalingExchangeEffectfulAction::AnswerEncryptAndSend {
+                    P2pChannelsEffectfulAction::SignalingExchangeAnswerEncryptAndSend {
                         peer_id,
                         pub_key: offerer_pub_key.clone(),
                         answer: Some(answer),
@@ -205,13 +215,16 @@ impl P2pChannelsSignalingExchangeState {
                     offerer_pub_key: offerer_pub_key.clone(),
                 };
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingExchangeChannelMsg::OfferToYou {
-                    offerer_pub_key: offerer_pub_key.clone(),
-                    offer: offer.clone(),
-                };
-                dispatcher.push(P2pChannelsSignalingExchangeEffectfulAction::MessageSend {
+                let msg = SignalingExchangeChannelMsg::OfferToYou {
+                    offerer_pub_key,
+                    offer,
+                }
+                .into();
+
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    message,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
                 Ok(())
             }

@@ -113,6 +113,9 @@ impl redux::EnablingCondition<crate::State> for Action {
 
 impl From<redux::AnyAction> for Action {
     fn from(action: redux::AnyAction) -> Self {
-        *action.0.downcast::<Self>().expect("Downcast failed")
+        match action.0.downcast() {
+            Ok(action) => *action,
+            Err(action) => Self::P2p(*action.downcast().expect("Downcast failed")),
+        }
     }
 }
