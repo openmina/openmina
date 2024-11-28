@@ -92,7 +92,8 @@ async fn setup_node(
         node_builder.initial_peers(
             String::from_utf8_lossy(&peers)
                 .split("\n")
-                .map(|s| s.parse().expect("failed to parse seed node addr")),
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| s.trim().parse().expect("failed to parse seed node addr")),
         );
     }
 
