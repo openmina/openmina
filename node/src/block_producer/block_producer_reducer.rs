@@ -337,11 +337,6 @@ impl BlockProducerEnabled {
                         }
                     )),
                 });
-
-                #[cfg(feature = "p2p-libp2p")]
-                dispatcher.push(p2p::P2pNetworkPubsubAction::BroadcastBlock {
-                    block: best_tip.block,
-                });
             }
             BlockProducerAction::BlockInjected => {
                 if let BlockProducerCurrentState::Produced {

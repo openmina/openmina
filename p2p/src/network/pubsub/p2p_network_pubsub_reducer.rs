@@ -285,21 +285,6 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::OutgoingMessageError { .. } => Ok(()),
-            P2pNetworkPubsubAction::BroadcastBlock { block } => {
-                let mut buffer = vec![0; 9];
-
-                // NewState tag is 0
-                buffer[8] = 0;
-                if binprot::BinProtWrite::binprot_write(&*block, &mut buffer).is_err() {
-                    bug_condition!("binprot serialization error");
-                    return Ok(());
-                }
-
-                let len = buffer.len() - 8;
-                buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
-
-                Self::prepare_to_sign(state_context, buffer)
-            }
             P2pNetworkPubsubAction::Broadcast { message } => {
                 let mut buffer = vec![0; 8];
 
