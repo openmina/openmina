@@ -74,7 +74,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.80
+          rustup default 1.83
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -100,7 +100,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.80
+          rustup default 1.83
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -160,7 +160,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.80
+          rustup default 1.83
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -196,7 +196,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.80
+          rustup default 1.83
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -351,7 +351,7 @@ jobs:
         with:
           pattern: tests*
           merge-multiple: true
-      
+
       - name: Download tests
         uses: actions/download-artifact@v4
         with:
