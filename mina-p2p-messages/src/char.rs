@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for Char {
         }
         if deserializer.is_human_readable() {
             struct V;
-            impl<'de> Visitor<'de> for V {
+            impl Visitor<'_> for V {
                 type Value = u8;
 
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

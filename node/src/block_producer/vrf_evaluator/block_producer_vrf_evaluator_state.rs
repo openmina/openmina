@@ -154,7 +154,6 @@ impl BlockProducerVrfEvaluatorState {
     ///
     /// Returns:
     /// - `Option<u32>`: The epoch number of the last evaluated epoch, or `None` if no epoch has been evaluated yet.
-
     pub fn last_evaluated_epoch(&self) -> Option<u32> {
         self.last_evaluated_epoch
     }

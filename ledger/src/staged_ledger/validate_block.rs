@@ -185,7 +185,8 @@ fn required_bitswap_block_count(max_block_size: usize, data_length: usize) -> us
     } else {
         let n1 = data_length - LINK_SIZE;
         let n2 = max_block_size - LINK_SIZE - 2;
-        (n1 + n2 - 1) / n2
+        // (n1 + n2 - 1) / n2
+        n1.div_ceil(n2)
     }
 }
 

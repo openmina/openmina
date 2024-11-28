@@ -16,7 +16,7 @@ pub fn short_backtrace() -> String {
         .map(|sym| (sym.filename(), sym.name(), sym.lineno()))
         .enumerate()
         .filter(|(_, (filename, name, _))| {
-            return !(filename
+            !(filename
                 .map(|filename| {
                     filename.ends_with("ledger/src/util/backtrace.rs")
                         || filename
@@ -34,7 +34,7 @@ pub fn short_backtrace() -> String {
                             || name.starts_with("camlCamlinternalLazy__")
                             || name.starts_with("camlO1trace__") // This belongs to the mina repo, but useless to us
                     })
-                    .unwrap_or(false));
+                    .unwrap_or(false))
         })
         .take_while(|(_, (_, name, _))| {
             name.as_ref().and_then(|n| n.as_str()) != Some("caml_program")

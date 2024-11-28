@@ -32,7 +32,7 @@ pub struct RecordedInitialState<'a> {
     pub state: Cow<'a, State>,
 }
 
-impl<'a> RecordedInitialState<'a> {
+impl RecordedInitialState<'_> {
     pub fn write_to<W: Write>(&self, writer: &mut W) -> postcard::Result<()> {
         postcard::to_io(self, writer).and(Ok(()))
     }
@@ -49,7 +49,7 @@ pub struct RecordedActionWithMeta<'a> {
     pub action: Option<Cow<'a, Action>>,
 }
 
-impl<'a> RecordedActionWithMeta<'a> {
+impl RecordedActionWithMeta<'_> {
     pub fn encode(&self) -> postcard::Result<Vec<u8>> {
         postcard::to_stdvec(self)
     }

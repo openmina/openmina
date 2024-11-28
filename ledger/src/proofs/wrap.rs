@@ -1848,7 +1848,8 @@ pub mod wrap_verifier {
     pub const OPS_BITS_PER_CHUNK: usize = 5;
 
     pub fn chunks_needed(num_bits: usize) -> usize {
-        (num_bits + (OPS_BITS_PER_CHUNK - 1)) / OPS_BITS_PER_CHUNK
+        // (num_bits + (OPS_BITS_PER_CHUNK - 1)) / OPS_BITS_PER_CHUNK
+        num_bits.div_ceil(OPS_BITS_PER_CHUNK)
     }
 
     fn lagrange_with_correction(

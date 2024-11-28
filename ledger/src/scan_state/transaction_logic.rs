@@ -5428,10 +5428,10 @@ pub mod local_state {
         }
     }
 
-    /// NOTE: It looks like there are different instances of the polymorphic LocalEnv type
-    /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
-    /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
-    /// Maybe a better solution is to keep the LocalState name and put it under a different module
+    // NOTE: It looks like there are different instances of the polymorphic LocalEnv type
+    // One with concrete types for the stack frame, call stack, and ledger. Created from the Env
+    // And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
+    // Maybe a better solution is to keep the LocalState name and put it under a different module
     // pub type LocalStateEnv<L> = LocalStateSkeleton<
     //     L,                            // ledger
     //     StackFrame,                   // stack_frame

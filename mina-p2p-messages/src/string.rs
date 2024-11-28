@@ -241,7 +241,7 @@ impl<'de, const MAX_LENGTH: usize> Deserialize<'de> for BoundedCharString<MAX_LE
             return Vec::<u8>::deserialize(deserializer).map(|cs| Self(cs, PhantomData));
         }
         struct V;
-        impl<'de> Visitor<'de> for V {
+        impl Visitor<'_> for V {
             type Value = Vec<u8>;
 
             fn expecting(
