@@ -563,6 +563,21 @@ impl P2pNetworkSchedulerState {
                                     peer_id,
                                     addr,
                                     stream_id,
+                                    callback: redux::callback!(
+                                        on_p2p_network_kad_request_stream_ready((
+                                            addr: ConnectionAddr,
+                                            peer_id: PeerId,
+                                            stream_id: StreamId,
+                                            data: P2pNetworkKademliaRpcRequest
+                                        )) -> crate::P2pAction{
+                                            P2pNetworkKademliaStreamAction::SendRequest {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                                data
+                                            }
+                                        }
+                                    ),
                                 });
                             }
                         }

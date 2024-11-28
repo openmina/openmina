@@ -1,11 +1,12 @@
 use openmina_core::{
     block::AppliedBlock,
     bug_condition,
-    requests::{RequestId, RpcIdType},
+    requests::{RequestId, RpcId, RpcIdType},
 };
 use p2p::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     webrtc::P2pConnectionResponse,
+    PeerId,
 };
 use redux::ActionWithMeta;
 
@@ -79,11 +80,21 @@ impl RpcState {
                 state.requests.insert(*rpc_id, rpc_state);
 
                 let dispatcher = state_context.into_dispatcher();
+
+                let callback = redux::callback!(
+                    on_p2p_connection_outgoing_rpc_connection_success((peer_id: PeerId, rpc_id: Option<RpcId>)) -> crate::Action {
+                        let Some(rpc_id) = rpc_id else {
+                            panic!("RPC ID not provided");
+                        };
+
+                        RpcAction::P2pConnectionOutgoingPending{ rpc_id }
+                    }
+                );
                 dispatcher.push(P2pConnectionOutgoingAction::Init {
                     opts: opts.clone(),
                     rpc_id: Some(*rpc_id),
+                    on_success: Some(callback),
                 });
-                dispatcher.push(RpcAction::P2pConnectionOutgoingPending { rpc_id: *rpc_id });
             }
             RpcAction::P2pConnectionOutgoingPending { rpc_id } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {

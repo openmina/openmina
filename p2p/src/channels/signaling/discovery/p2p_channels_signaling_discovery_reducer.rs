@@ -269,6 +269,7 @@ impl P2pChannelsSignalingDiscoveryState {
                         },
                     },
                     rpc_id: None,
+                    on_success: None,
                 };
                 let accepted = redux::EnablingCondition::is_enabled(&action, state, meta.time());
                 if accepted {

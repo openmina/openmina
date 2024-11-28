@@ -31,6 +31,7 @@ impl P2pPeerState {
                         status: P2pPeerStatus::Disconnected {
                             time: Timestamp::ZERO,
                         },
+                        on_connect_success: None,
                     });
 
                 if let Some(dial_opts) = dial_opts {

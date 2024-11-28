@@ -40,7 +40,11 @@ impl P2pConnectionOutgoingState {
                 dispatcher.push(P2pConnectionOutgoingEffectfulAction::RandomInit);
                 Ok(())
             }
-            P2pConnectionOutgoingAction::Init { opts, rpc_id } => {
+            P2pConnectionOutgoingAction::Init {
+                opts,
+                rpc_id,
+                on_success,
+            } => {
                 let peer_state =
                     p2p_state
                         .peers
@@ -52,7 +56,12 @@ impl P2pConnectionOutgoingState {
                                 &opts,
                             )),
                             identify: None,
+                            on_connect_success: None,
                         });
+
+                if let Some(on_connect_success) = on_success {
+                    peer_state.on_connect_success = Some(on_connect_success);
+                }
 
                 peer_state.status =
                     P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(Self::Init {
@@ -509,18 +518,29 @@ impl P2pConnectionOutgoingState {
                     return Ok(());
                 }
 
+                let Some(peer_state) = p2p_state.peers.get_mut(&peer_id) else {
+                    bug_condition!("Outgoing peer state not found for: {}", peer_id);
+                    return Ok(());
+                };
+                let callback = peer_state.on_connect_success.take();
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
+
                 dispatcher.push(P2pPeerAction::Ready {
                     peer_id,
                     incoming: false,
                 });
 
-                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
+                let rpc_id = p2p_state.peer_connection_rpc_id(&peer_id);
+                if let Some(rpc_id) = rpc_id {
                     if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_outgoing_success
                     {
                         dispatcher.push_callback(callback.clone(), rpc_id);
                     }
+                }
+
+                if let Some(callback) = callback {
+                    dispatcher.push_callback(callback, (peer_id, rpc_id));
                 }
                 Ok(())
             }
