@@ -277,15 +277,15 @@ jobs:
     # TODO: query cluster for actual addresses, or specify then on deployment
     env:
       PEERS: |
-        /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWS4TMSjrAS4Cj31PgjZ9KgeHh5goLP65M5GSriF28d7Jx
-        /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWK92cYz26JqBE9vM9s9Jd9pJKcNxLd7VVRupU7YG5NupU
-        /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWSU1DYZYVA7wAYLvLsH6yVS8oV1sMJUcC7VtUxCgtsWkJ
-        /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWM5m9QqHpDkPJi54GPP6rGFpzo7E274husrModPSLQ7tn
-        /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWCk2QSmQH2XbtpDXiSPUq6wb2LB2JaExHRXkJggmEfN4J
-        /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWQ1642Dzm57Kr8tmTwS9NRFaJPy4ysaQ2ne3ZYwQn5qCk
-        /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWHK67syE2LeTz5EnNqCe5ZFf9SoZRFN4AdHVZsL31WkMn
-        /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWDwxrG5u12FzXAFyK7vd8aHnEQf4dwoboBJ72FUS179xK
-        /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWEowA3VakSddUjZuBTK3HJhNM7sRqwWDbqtPtwymAMCcy
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40101/p2p/12D3KooWNGY3guz8pYHrVEqs8se4MSnnmpgguyQYDazMbVCyrMnS
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40102/p2p/12D3KooWSqZ4qtysb8Du4yVpcc5SYc3gsRuNqgMomggw6hekATWg
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40103/p2p/12D3KooWSHiGavQpamDPEc6rPaqT4PoS1Lr9aDfrfg5dKM2V6x3H
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40104/p2p/12D3KooWA3yPrTaLXsggVSCG4mr7c33YNdz5DSs87LszRUVt9vLT
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40105/p2p/12D3KooWCLcUWCdU4VstETztxE3feQyS57dVDdzBhmkj5tiCaha8
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40106/p2p/12D3KooWNZWqEoCuhMrc9tTMxtEsfxmeFhjh2agUcmzJFNKxQnNA
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40107/p2p/12D3KooWAMSP94SM3icSeAXeBmPUuZ5JvwrZ5w87fpRHVeJkdboe
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40108/p2p/12D3KooWL5gPf5CrARVPhBi6KsDHmB1gsJKZ4vWrcLweWyMjpB5e
+        /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40109/p2p/12D3KooWT1nNJLGE8jWcshPSq3FmSXmmNn2MzfmvJcWYZ1HrtHnZ
     outputs:
       peers: ${{ steps.peers.outputs.peers }}
     steps:
