@@ -14,8 +14,8 @@ use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
 use crate::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
-use crate::ledger::read::LedgerReadAction;
-use crate::ledger::write::LedgerWriteAction;
+use crate::ledger::read::{LedgerReadAction, LedgerReadId, LedgerReadResponse};
+use crate::ledger::write::{LedgerWriteAction, LedgerWriteResponse};
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
@@ -305,12 +305,26 @@ fn handle_channel_event<S: Service>(store: &mut Store<S>, meta: ActionMeta, e: P
 fn handle_ledger_event<S: Service>(store: &mut Store<S>, event: LedgerEvent) {
     match event {
         LedgerEvent::Write(response) => {
-            store.dispatch(LedgerWriteAction::Success { response });
+            handle_ledger_write(store, response);
         }
         LedgerEvent::Read(id, response) => {
-            store.dispatch(LedgerReadAction::Success { id, response });
+            handle_ledger_read(store, id, response);
         }
     }
+}
+
+#[inline(never)]
+fn handle_ledger_write<S: Service>(store: &mut Store<S>, response: LedgerWriteResponse) {
+    store.dispatch(LedgerWriteAction::Success { response });
+}
+
+#[inline(never)]
+fn handle_ledger_read<S: Service>(
+    store: &mut Store<S>,
+    id: LedgerReadId,
+    response: LedgerReadResponse,
+) {
+    store.dispatch(LedgerReadAction::Success { id, response });
 }
 
 #[inline(never)]
