@@ -43,6 +43,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {
                 let mut retry_addresses: Vec<_> = state.sync_address_retry_iter().collect();
                 let mut addresses: Vec<_> = state.sync_address_query_iter().collect();
+                let is_num_accounts_pending = matches!(state, Self::NumAccountsPending { .. });
 
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
 
@@ -55,24 +56,26 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     .collect::<Vec<_>>();
                 peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
 
-                // If this dispatches, we can avoid even trying the following steps because we will
-                // not query address unless we have completed the Num_accounts request first.
-                if let Some((peer_id, _)) = peer_ids.first() {
-                    if dispatcher.push_if_enabled(
-                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit {
-                            peer_id: *peer_id,
-                        },
-                        global_state,
-                        meta.time(),
-                    ) || dispatcher.push_if_enabled(
-                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsRetry {
-                            peer_id: *peer_id,
-                        },
-                        global_state,
-                        meta.time(),
-                    ) {
-                        return;
+                if is_num_accounts_pending {
+                    for (peer_id, _) in peer_ids {
+                        if dispatcher.push_if_enabled(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit {
+                                peer_id,
+                            },
+                            global_state,
+                            meta.time(),
+                        ) || dispatcher.push_if_enabled(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsRetry {
+                                peer_id,
+                            },
+                            global_state,
+                            meta.time(),
+                        ) {
+                            return;
+                        }
                     }
+                    // we will not query addresses unless we have num accounts.
+                    return;
                 }
 
                 for (peer_id, _) in peer_ids {
