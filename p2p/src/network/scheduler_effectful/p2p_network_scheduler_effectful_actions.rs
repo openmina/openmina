@@ -3,10 +3,7 @@ use std::net::{IpAddr, SocketAddr};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    disconnection::P2pDisconnectionReason, select::SelectKind, ConnectionAddr,
-    P2pNetworkConnectionError, P2pState,
-};
+use crate::{ConnectionAddr, P2pNetworkConnectionCloseReason, P2pState};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(ip), display(listener), display(addr), debug(result), select_kind = debug(kind), display(error)))]
@@ -17,6 +14,7 @@ pub enum P2pNetworkSchedulerEffectfulAction {
     },
     IncomingConnectionIsReady {
         listener: SocketAddr,
+        should_accept: bool,
     },
     #[action_event(fields(debug(addr), debug(result)))]
     IncomingDidAccept {
@@ -39,26 +37,12 @@ pub enum P2pNetworkSchedulerEffectfulAction {
         addr: ConnectionAddr,
         incoming: bool,
     },
-    SelectError {
-        addr: ConnectionAddr,
-        kind: SelectKind,
-        error: String,
-    },
     /// Action that initiate the specified peer disconnection.
     Disconnect {
         /// Connection address.
         addr: ConnectionAddr,
         /// Reason why disconnection is triggered.
-        reason: P2pDisconnectionReason,
-    },
-
-    /// Fatal connection error.
-    #[action_event(level = debug)]
-    Error {
-        /// Connection address.
-        addr: ConnectionAddr,
-        /// Reason why disconnection is triggered.
-        error: P2pNetworkConnectionError,
+        reason: P2pNetworkConnectionCloseReason,
     },
 }
 

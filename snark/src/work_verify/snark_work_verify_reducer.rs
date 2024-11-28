@@ -46,7 +46,6 @@ pub fn reducer<State, Action>(
             let dispatcher = state_context.into_dispatcher();
             dispatcher.push(SnarkWorkVerifyEffectfulAction::Init {
                 req_id: *req_id,
-                sender: sender.clone(),
                 batch: batch.clone(),
                 verifier_index,
                 verifier_srs,

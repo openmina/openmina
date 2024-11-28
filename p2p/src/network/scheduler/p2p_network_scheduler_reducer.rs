@@ -213,7 +213,7 @@ impl P2pNetworkSchedulerState {
                 Self::forward_select_done(dispatcher, p2p_state, protocol, addr, incoming, kind);
                 Ok(())
             }
-            P2pNetworkSchedulerAction::SelectError { addr, kind, error } => {
+            P2pNetworkSchedulerAction::SelectError { addr, kind, .. } => {
                 let dispatcher = state_context.into_dispatcher();
 
                 match kind {
@@ -239,10 +239,11 @@ impl P2pNetworkSchedulerState {
                     }
                 }
 
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::SelectError {
+                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Disconnect {
                     addr,
-                    kind,
-                    error,
+                    reason: P2pNetworkConnectionCloseReason::Error(
+                        P2pNetworkConnectionError::SelectError,
+                    ),
                 });
 
                 Ok(())
@@ -296,7 +297,10 @@ impl P2pNetworkSchedulerState {
                 conn_state.closed = Some(reason.clone().into());
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Disconnect { addr, reason });
+                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Disconnect {
+                    addr,
+                    reason: P2pNetworkConnectionCloseReason::Disconnect(reason),
+                });
 
                 Ok(())
             }
@@ -316,7 +320,10 @@ impl P2pNetworkSchedulerState {
                 conn_state.closed = Some(error.clone().into());
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Error { addr, error });
+                dispatcher.push(P2pNetworkSchedulerEffectfulAction::Disconnect {
+                    addr,
+                    reason: P2pNetworkConnectionCloseReason::Error(error),
+                });
                 Ok(())
             }
             P2pNetworkSchedulerAction::Disconnected { addr, reason } => {
@@ -328,7 +335,7 @@ impl P2pNetworkSchedulerState {
                 };
                 if cn.closed.is_none() {
                     bug_condition!(
-                        "P2pNetworkSchedulerAction::Disconnect: {addr} is not disconnecting"
+                        "P2pNetworkSchedulerAction::Disconnect: {addr} is not disconnected"
                     );
                 }
 
@@ -376,7 +383,6 @@ impl P2pNetworkSchedulerState {
                                 dispatcher.push(P2pDisconnectionAction::Finish { peer_id });
                             }
                         }
-                        dispatcher.push(P2pNetworkSchedulerAction::PruneStreams { peer_id });
                     }
                     None => {
                         // sanity check, should be incoming connection
@@ -397,8 +403,6 @@ impl P2pNetworkSchedulerState {
                 }
                 Ok(())
             }
-            // TODO: remove the action
-            P2pNetworkSchedulerAction::PruneStreams { .. } => Ok(()),
             P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id } => {
                 let Some((_, conn_state)) = scheduler_state
                     .connections
@@ -416,9 +420,17 @@ impl P2pNetworkSchedulerState {
                 Ok(())
             }
             P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => {
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                let should_accept = p2p_state.network.scheduler.connections.len()
+                    < p2p_state.config.limits.max_connections();
+
                 dispatcher.push(
-                    P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener },
+                    P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady {
+                        listener,
+                        should_accept,
+                    },
                 );
                 Ok(())
             }

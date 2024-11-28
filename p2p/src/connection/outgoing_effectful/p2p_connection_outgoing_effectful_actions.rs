@@ -6,7 +6,7 @@ use openmina_core::requests::RpcId;
 use crate::{
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionEffectfulAction},
     identity::PublicKey,
-    webrtc::{self, ConnectionAuth},
+    webrtc::{self, ConnectionAuth, SignalingMethod},
     P2pState, PeerId,
 };
 
@@ -15,7 +15,9 @@ use crate::{
 pub enum P2pConnectionOutgoingEffectfulAction {
     /// Initialize connection to a random peer.
     #[action_event(level = trace)]
-    RandomInit,
+    RandomInit {
+        peers: Vec<P2pConnectionOutgoingInitOpts>,
+    },
     /// Initialize connection to a new peer.
     #[action_event(level = info)]
     Init {
@@ -25,6 +27,7 @@ pub enum P2pConnectionOutgoingEffectfulAction {
     OfferSend {
         peer_id: PeerId,
         offer: Box<webrtc::Offer>,
+        signaling_method: SignalingMethod,
     },
     AnswerSet {
         peer_id: PeerId,

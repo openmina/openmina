@@ -17,14 +17,14 @@ impl P2pNetworkSchedulerEffectfulAction {
                     .service()
                     .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(ip, port)));
             }
-            P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady { listener } => {
-                let state = store.state();
-                if state.network.scheduler.connections.len()
-                    >= state.config.limits.max_connections()
-                {
-                    store.service().send_mio_cmd(MioCmd::Refuse(listener));
-                } else {
+            P2pNetworkSchedulerEffectfulAction::IncomingConnectionIsReady {
+                listener,
+                should_accept,
+            } => {
+                if should_accept {
                     store.service().send_mio_cmd(MioCmd::Accept(listener));
+                } else {
+                    store.service().send_mio_cmd(MioCmd::Refuse(listener));
                 }
             }
             P2pNetworkSchedulerEffectfulAction::IncomingDidAccept { addr, .. } => {
@@ -64,16 +64,9 @@ impl P2pNetworkSchedulerEffectfulAction {
                     signature,
                 });
             }
-            // TODO: remove state access
-            P2pNetworkSchedulerEffectfulAction::SelectError { addr, .. }
-            | P2pNetworkSchedulerEffectfulAction::Disconnect { addr, .. }
-            | P2pNetworkSchedulerEffectfulAction::Error { addr, .. } => {
-                if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
-                    if let Some(reason) = conn_state.closed.clone() {
-                        store.service().send_mio_cmd(MioCmd::Disconnect(addr));
-                        store.dispatch(P2pNetworkSchedulerAction::Disconnected { addr, reason });
-                    }
-                }
+            P2pNetworkSchedulerEffectfulAction::Disconnect { addr, reason } => {
+                store.service().send_mio_cmd(MioCmd::Disconnect(addr));
+                store.dispatch(P2pNetworkSchedulerAction::Disconnected { addr, reason });
             }
         }
     }

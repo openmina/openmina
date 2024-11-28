@@ -351,7 +351,8 @@ pub enum ActionKind {
     P2pNetworkIdentifyStreamNew,
     P2pNetworkIdentifyStreamPrune,
     P2pNetworkIdentifyStreamRemoteClose,
-    P2pNetworkIdentifyStreamEffectfulSendIdentify,
+    P2pNetworkIdentifyStreamSendIdentify,
+    P2pNetworkIdentifyStreamEffectfulGetListenAddresses,
     P2pNetworkKadBootstrapAppendRequest,
     P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapFinalizeRequests,
@@ -435,12 +436,10 @@ pub enum ActionKind {
     P2pNetworkSchedulerOutgoingDidConnect,
     P2pNetworkSchedulerPrune,
     P2pNetworkSchedulerPruneStream,
-    P2pNetworkSchedulerPruneStreams,
     P2pNetworkSchedulerSelectDone,
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
     P2pNetworkSchedulerEffectfulDisconnect,
-    P2pNetworkSchedulerEffectfulError,
     P2pNetworkSchedulerEffectfulIncomingConnectionIsReady,
     P2pNetworkSchedulerEffectfulIncomingDataIsReady,
     P2pNetworkSchedulerEffectfulIncomingDidAccept,
@@ -448,7 +447,6 @@ pub enum ActionKind {
     P2pNetworkSchedulerEffectfulNoiseSelectDone,
     P2pNetworkSchedulerEffectfulOutgoingConnect,
     P2pNetworkSchedulerEffectfulOutgoingDidConnect,
-    P2pNetworkSchedulerEffectfulSelectError,
     P2pNetworkSelectIncomingData,
     P2pNetworkSelectIncomingDataAuth,
     P2pNetworkSelectIncomingDataMux,
@@ -688,7 +686,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 579;
+    pub const COUNT: u16 = 577;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1804,7 +1802,6 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::Error { .. } => ActionKind::P2pNetworkSchedulerError,
             Self::Disconnected { .. } => ActionKind::P2pNetworkSchedulerDisconnected,
             Self::Prune { .. } => ActionKind::P2pNetworkSchedulerPrune,
-            Self::PruneStreams { .. } => ActionKind::P2pNetworkSchedulerPruneStreams,
             Self::PruneStream { .. } => ActionKind::P2pNetworkSchedulerPruneStream,
         }
     }
@@ -1925,7 +1922,7 @@ impl ActionKindGet for P2pNetworkRpcAction {
 impl ActionKindGet for P2pConnectionOutgoingEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::RandomInit => ActionKind::P2pConnectionOutgoingEffectfulRandomInit,
+            Self::RandomInit { .. } => ActionKind::P2pConnectionOutgoingEffectfulRandomInit,
             Self::Init { .. } => ActionKind::P2pConnectionOutgoingEffectfulInit,
             Self::OfferSend { .. } => ActionKind::P2pConnectionOutgoingEffectfulOfferSend,
             Self::AnswerSet { .. } => ActionKind::P2pConnectionOutgoingEffectfulAnswerSet,
@@ -1973,9 +1970,7 @@ impl ActionKindGet for P2pNetworkSchedulerEffectfulAction {
                 ActionKind::P2pNetworkSchedulerEffectfulIncomingDataIsReady
             }
             Self::NoiseSelectDone { .. } => ActionKind::P2pNetworkSchedulerEffectfulNoiseSelectDone,
-            Self::SelectError { .. } => ActionKind::P2pNetworkSchedulerEffectfulSelectError,
             Self::Disconnect { .. } => ActionKind::P2pNetworkSchedulerEffectfulDisconnect,
-            Self::Error { .. } => ActionKind::P2pNetworkSchedulerEffectfulError,
         }
     }
 }
@@ -2034,6 +2029,7 @@ impl ActionKindGet for P2pNetworkIdentifyStreamAction {
             Self::Close { .. } => ActionKind::P2pNetworkIdentifyStreamClose,
             Self::RemoteClose { .. } => ActionKind::P2pNetworkIdentifyStreamRemoteClose,
             Self::Prune { .. } => ActionKind::P2pNetworkIdentifyStreamPrune,
+            Self::SendIdentify { .. } => ActionKind::P2pNetworkIdentifyStreamSendIdentify,
         }
     }
 }
@@ -2102,7 +2098,9 @@ impl ActionKindGet for P2pNetworkKademliaStreamAction {
 impl ActionKindGet for P2pNetworkIdentifyStreamEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::SendIdentify { .. } => ActionKind::P2pNetworkIdentifyStreamEffectfulSendIdentify,
+            Self::GetListenAddresses { .. } => {
+                ActionKind::P2pNetworkIdentifyStreamEffectfulGetListenAddresses
+            }
         }
     }
 }

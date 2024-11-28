@@ -16,31 +16,26 @@ impl P2pNetworkPubsubEffectfulAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pCryptoService,
     {
-        let state = &store.state().network.scheduler.broadcast_state;
-
         match self {
-            P2pNetworkPubsubEffectfulAction::Sign { author, topic } => {
-                if let Some(to_sign) = state.to_sign.front() {
-                    let mut publication = vec![];
-                    if prost::Message::encode(to_sign, &mut publication).is_err() {
-                        store.dispatch(P2pNetworkPubsubAction::SignError { author, topic });
-                    } else {
-                        let signature = store.service().sign_publication(&publication).into();
-                        store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
-                    }
+            P2pNetworkPubsubEffectfulAction::Sign {
+                author,
+                topic,
+                message,
+            } => {
+                let mut publication = vec![];
+                if prost::Message::encode(&message, &mut publication).is_err() {
+                    store.dispatch(P2pNetworkPubsubAction::SignError { author, topic });
+                } else {
+                    let signature = store.service().sign_publication(&publication).into();
+                    store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
                 }
             }
             P2pNetworkPubsubEffectfulAction::IncomingData {
                 peer_id,
                 seen_limit,
+                addr,
+                messages,
             } => {
-                let Some(state) = state.clients.get(&peer_id) else {
-                    // TODO: investigate, cannot reproduce this
-                    // bug_condition!("{:?} not found in state.clients", peer_id);
-                    return;
-                };
-                let messages = state.incoming_messages.clone();
-
                 for message in messages {
                     let result = if let Some(signature) = message.signature.clone() {
                         if let Ok(Some(pk)) = originator(&message) {
@@ -73,14 +68,8 @@ impl P2pNetworkPubsubEffectfulAction {
                     };
 
                     if let Err(error) = result {
-                        let Some((addr, _)) = store.state().network.scheduler.find_peer(&peer_id)
-                        else {
-                            bug_condition!("{:?} not found in scheduler state", peer_id);
-                            return;
-                        };
-
                         store.dispatch(P2pNetworkSchedulerAction::Error {
-                            addr: *addr,
+                            addr,
                             error: P2pNetworkConnectionError::PubSubError(error.to_string()),
                         });
 

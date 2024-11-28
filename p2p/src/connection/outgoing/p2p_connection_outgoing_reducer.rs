@@ -36,8 +36,10 @@ impl P2pConnectionOutgoingState {
 
         match action {
             P2pConnectionOutgoingAction::RandomInit => {
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionOutgoingEffectfulAction::RandomInit);
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+                let peers = p2p_state.disconnected_peers().collect::<Vec<_>>();
+                dispatcher.push(P2pConnectionOutgoingEffectfulAction::RandomInit { peers });
                 Ok(())
             }
             P2pConnectionOutgoingAction::Init {
@@ -219,8 +221,17 @@ impl P2pConnectionOutgoingState {
                         offer,
                     });
                 } else {
-                    dispatcher
-                        .push(P2pConnectionOutgoingEffectfulAction::OfferSend { peer_id, offer });
+                    let signaling_method = match opts {
+                        P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => signaling,
+                        #[allow(unreachable_patterns)]
+                        _ => return Ok(()),
+                    };
+
+                    dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferSend {
+                        peer_id,
+                        offer,
+                        signaling_method,
+                    });
                 }
                 Ok(())
             }
