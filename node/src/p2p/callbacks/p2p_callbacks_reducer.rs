@@ -74,6 +74,13 @@ impl crate::State {
                 };
 
                 dispatcher.push(
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
+                        peer_id,
+                        rpc_id,
+                        error: PeerLedgerQueryError::Timeout,
+                    },
+                );
+                dispatcher.push(
                     TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
                         peer_id,
                         rpc_id,
@@ -373,6 +380,13 @@ impl crate::State {
     ) {
         match response.as_deref() {
             None => {
+                dispatcher.push(
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
+                        peer_id,
+                        rpc_id: id,
+                        error: PeerLedgerQueryError::DataUnavailable,
+                    },
+                );
                 dispatcher.push(
                     TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
                         peer_id,
