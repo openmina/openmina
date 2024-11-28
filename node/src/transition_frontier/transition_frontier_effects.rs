@@ -278,6 +278,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
     }
 }
 
+#[inline(never)]
 fn synced_effects<S: crate::Service>(
     meta: &redux::ActionMeta,
     store: &mut redux::Store<crate::State, S, crate::Action>,
@@ -327,6 +328,7 @@ fn synced_effects<S: crate::Service>(
 // happens here. These are part of the bootstrap process and should not happen
 // again unless the node needs to re-bootstrap (either because of a reorg or
 // a long desync).
+#[inline(never)]
 fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
     action: TransitionFrontierSyncLedgerAction,
     meta: &redux::ActionMeta,
