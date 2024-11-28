@@ -278,10 +278,10 @@ impl P2pNetworkPubsubState {
             }
             P2pNetworkPubsubAction::OutgoingMessageError { .. } => Ok(()),
             P2pNetworkPubsubAction::Broadcast { message } => {
-                let peer_publish_counts = pubsub_state.clients.iter().map(|(id, s)| {
-                    (id, s.message.publish.len())
-                }).collect::<Vec<_>>();
-                openmina_core::log::inner::info!("[debug_mem] peer_publish_counts({}): {peer_publish_counts:#?}", peer_publish_counts.len());
+                //let peer_publish_counts = pubsub_state.clients.iter().map(|(id, s)| {
+                //    (id, s.message.publish.len())
+                //}).collect::<Vec<_>>();
+                //openmina_core::log::inner::info!("[debug_mem] peer_publish_counts({}): {peer_publish_counts:#?}", peer_publish_counts.len());
 
                 let mut seqno = pubsub_state.seq;
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
