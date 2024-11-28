@@ -1,0 +1,159 @@
+services:
+  postgres-ocaml:
+    image: postgres
+    container_name: postgres-ocaml
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U postgres -d archive -tAc \"SELECT COUNT(*) FROM pg_database WHERE datname='archive';\" | grep -q '^1$'"]
+      # test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - /tmp/archive-data-ocaml:/var/lib/postgresql/data
+    # ports:
+    #   - "127.0.0.1:3333:${PG_PORT}"
+
+  postgres-openmina:
+    image: postgres
+    container_name: postgres-openmina
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U postgres -d archive -tAc \"SELECT COUNT(*) FROM pg_database WHERE datname='archive';\" | grep -q '^1$'"]
+      # test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - /tmp/archive-data-openmina:/var/lib/postgresql/data
+    # ports:
+    #   - "127.0.0.1:4444:${PG_PORT}"
+
+  create-db:
+    image: postgres
+    container_name: create-dbs
+    env_file:
+      - .env
+    command: >
+      bash -c '
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-ocaml:${PG_PORT} -c "CREATE DATABASE ${PG_DB};";
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT} -c "CREATE DATABASE ${PG_DB};";
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-ocaml:${PG_PORT}/${PG_DB} -c "
+      ALTER SYSTEM SET max_connections = 500;
+      ALTER SYSTEM SET max_locks_per_transaction = 100;
+      ALTER SYSTEM SET max_pred_locks_per_relation = 100;
+      ALTER SYSTEM SET max_pred_locks_per_transaction = 5000;
+      ";
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB} -c "
+      ALTER SYSTEM SET max_connections = 500;
+      ALTER SYSTEM SET max_locks_per_transaction = 100;
+      ALTER SYSTEM SET max_pred_locks_per_relation = 100;
+      ALTER SYSTEM SET max_pred_locks_per_transaction = 5000;
+      ";
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-ocaml:${PG_PORT}/${PG_DB} -f /sql/archive_schema.sql;
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB} -f /sql/archive_schema.sql;
+      '
+    volumes:
+      - ./producer-dashboard/src/archive/sql:/sql
+    depends_on:
+      postgres-ocaml:
+        condition: service_started
+      postgres-openmina:
+        condition: service_started
+
+  archive-ocaml:
+    image: adrnagy/mina-archive
+    container_name: archive-ocaml
+    volumes:
+      - /tmp/archive-outputs/ocaml:/data
+    entrypoint: ["mina-archive"]
+    command: >
+      run
+      --postgres-uri postgres://postgres:${POSTGRES_PASSWORD}@postgres-ocaml:${PG_PORT}/${PG_DB}
+      --server-port 3086
+      --output-dir /data
+    depends_on:
+      postgres-ocaml:
+        condition: service_healthy
+
+  archive-openmina:
+    image: adrnagy/mina-archive
+    container_name: archive-openmina
+    env_file:
+      - .env
+    volumes:
+      - /tmp/archive-outputs/openmina:/data
+    entrypoint: ["mina-archive"]
+    command: >
+      run
+      --postgres-uri postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB}
+      --server-port 3086
+      --output-dir /data
+    depends_on:
+      postgres-openmina:
+        condition: service_healthy
+
+  generate-libp2p-keys:
+    image: gcr.io/o1labs-192920/mina-daemon:3.0.0-dc6bf78-bullseye-devnet
+    container_name: generate-libp2p-keys
+    environment:
+      MINA_LIBP2P_PASS: v3rys3cr3t
+      VERBOSE: true
+    command: >
+      libp2p generate-keypair --privkey-path /keys/mina-privkey
+    volumes:
+      - /tmp/ocaml-node-keys:/keys
+    depends_on:
+      archive-ocaml:
+        condition: service_started
+
+  libp2p-keys-permissions:
+    image: gcr.io/o1labs-192920/mina-daemon:3.0.0-dc6bf78-bullseye-devnet
+    container_name: libp2p-keys-permissions
+    entrypoint: >
+      bash -c "chmod 600 /keys/mina-privkey && chmod 700 /keys"
+    volumes:
+      - /tmp/ocaml-node-keys:/keys
+    depends_on:
+      generate-libp2p-keys:
+        condition: service_completed_successfully
+
+  node-ocaml:
+    image: gcr.io/o1labs-192920/mina-daemon:3.0.0-dc6bf78-bullseye-devnet
+    container_name: node-ocaml
+    environment:
+      MINA_CLIENT_TRUSTLIST: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      VERBOSE: true
+      LOG_LEVEL: Info
+      MINA_LIBP2P_PASS: v3rys3cr3t
+    command: >
+      daemon
+      --libp2p-keypair /keys/mina-privkey
+      --archive-address archive-ocaml:3086
+      --insecure-rest-server
+      --rest-port 5000
+      --enable-peer-exchange true
+      --peer-list-url https://bootnodes.minaprotocol.com/networks/devnet.txt
+    volumes:
+      - /tmp/ocaml-node-keys:/keys
+    ports:
+      - 8302:8302
+      - 8301:8301
+      - 5000:5000
+    depends_on:
+      libp2p-keys-permissions:
+        condition: service_completed_successfully
+
+  node-openmina:
+    image: adrnagy/openmina:archive-test
+    container_name: node-openmina
+    command: >
+      node
+      --archive-address http://archive-openmina:3086
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      archive-openmina:
+        condition: service_started
