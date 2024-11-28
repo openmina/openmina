@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::{From, TryInto};
 use serde::{Deserialize, Serialize};
@@ -9,7 +11,7 @@ use crate::{number::Int32, v2};
 )]
 #[serde(tag = "type", content = "message", rename_all = "snake_case")]
 pub enum GossipNetMessageV2 {
-    NewState(v2::MinaBlockBlockStableV2),
+    NewState(Arc<v2::MinaBlockBlockStableV2>),
     SnarkPoolDiff {
         message: v2::NetworkPoolSnarkPoolDiffVersionedStableV2,
         nonce: Int32,
