@@ -165,7 +165,7 @@ impl P2pChannelsBestTipState {
                 #[cfg(feature = "p2p-libp2p")]
                 {
                     use mina_p2p_messages::gossip::GossipNetMessageV2;
-                    let block = (*best_tip.block).clone();
+                    let block = best_tip.block.clone();
                     let message = Box::new(GossipNetMessageV2::NewState(block));
                     // TODO(vlad): `P2pChannelsBestTipAction::ResponseSend`
                     // action is dispatched for each peer. So `P2pNetworkPubsubAction::Broadcast`

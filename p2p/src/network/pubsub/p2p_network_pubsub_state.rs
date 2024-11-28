@@ -3,6 +3,7 @@ use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
 use std::{
     collections::{BTreeMap, VecDeque},
+    sync::Arc,
     time::Duration,
 };
 
@@ -20,7 +21,7 @@ pub struct P2pNetworkPubsubState {
     pub to_sign: VecDeque<pb::Message>,
     pub seen: VecDeque<Vec<u8>>,
     pub mcache: P2pNetworkPubsubMessageCache,
-    pub incoming_block: Option<(PeerId, v2::MinaBlockBlockStableV2)>,
+    pub incoming_block: Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
     pub incoming_transactions: Vec<(Transaction, u32)>,
     pub incoming_snarks: Vec<(Snark, u32)>,
     pub topics: BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientTopicState>>,

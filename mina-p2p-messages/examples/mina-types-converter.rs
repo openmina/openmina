@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{self, Read, Write},
     path::PathBuf,
+    sync::Arc,
 };
 
 use anyhow::{bail, format_err, Result};
@@ -244,7 +245,7 @@ macro_rules! converter {
 fn converters() -> Vec<Converter> {
     vec![
         converter!("gossip", GossipNetMessageV2 =>
-                   ("new-state", MinaBlockBlockStableV2),
+                   ("new-state", Arc<MinaBlockBlockStableV2>),
                    ("snark-pool-diff", NetworkPoolSnarkPoolDiffVersionedStableV2),
                    ("tx-pool-diff", NetworkPoolTransactionPoolDiffVersionedStableV2),
         ),
