@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use super::pb;
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, Data, P2pState, PeerId, StreamId};
-use mina_p2p_messages::gossip::GossipNetMessageV2;
+use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
@@ -35,6 +37,9 @@ pub enum P2pNetworkPubsubAction {
     },
     Broadcast {
         message: Box<GossipNetMessageV2>,
+    },
+    BroadcastBlock {
+        block: Arc<v2::MinaBlockBlockStableV2>,
     },
     Sign {
         seqno: u64,

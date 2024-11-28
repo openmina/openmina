@@ -285,12 +285,22 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::OutgoingMessageError { .. } => Ok(()),
-            P2pNetworkPubsubAction::Broadcast { message } => {
-                let mut seqno = pubsub_state.seq;
-                let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let config: &P2pConfig = state.substate()?;
-                seqno += config.meshsub.initial_time.as_nanos() as u64;
+            P2pNetworkPubsubAction::BroadcastBlock { block } => {
+                let mut buffer = vec![0; 9];
 
+                // NewState tag is 0
+                buffer[8] = 0;
+                if binprot::BinProtWrite::binprot_write(&*block, &mut buffer).is_err() {
+                    bug_condition!("binprot serialization error");
+                    return Ok(());
+                }
+
+                let len = buffer.len() - 8;
+                buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
+
+                Self::prepare_to_sign(state_context, buffer)
+            }
+            P2pNetworkPubsubAction::Broadcast { message } => {
                 let mut buffer = vec![0; 8];
 
                 if binprot::BinProtWrite::binprot_write(&message, &mut buffer).is_err() {
@@ -301,14 +311,7 @@ impl P2pNetworkPubsubState {
                 let len = buffer.len() - 8;
                 buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
 
-                dispatcher.push(P2pNetworkPubsubAction::Sign {
-                    seqno,
-                    author: config.identity_pub_key.peer_id(),
-                    data: buffer.into(),
-                    topic: super::TOPIC.to_owned(),
-                });
-
-                Ok(())
+                Self::prepare_to_sign(state_context, buffer)
             }
             P2pNetworkPubsubAction::Sign {
                 seqno,
@@ -373,6 +376,31 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
         }
+    }
+
+    fn prepare_to_sign<Action, State>(
+        mut state_context: Substate<Action, State, Self>,
+        buffer: Vec<u8>,
+    ) -> Result<(), String>
+    where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
+        let pubsub_state = state_context.get_substate_mut()?;
+
+        let mut seqno = pubsub_state.seq;
+        let (dispatcher, state) = state_context.into_dispatcher_and_state();
+        let config: &P2pConfig = state.substate()?;
+        seqno += config.meshsub.initial_time.as_nanos() as u64;
+
+        dispatcher.push(P2pNetworkPubsubAction::Sign {
+            seqno,
+            author: config.identity_pub_key.peer_id(),
+            data: buffer.into(),
+            topic: super::TOPIC.to_owned(),
+        });
+
+        Ok(())
     }
 
     fn reduce_incoming_message(

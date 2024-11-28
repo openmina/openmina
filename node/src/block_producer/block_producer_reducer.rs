@@ -304,24 +304,8 @@ impl BlockProducerEnabled {
                     bug_condition!("Invalid state for `BlockProducerAction::BlockProduced` expected: `BlockProducerCurrentState::BlockProveSuccess`, found: {:?}", current_state);
                 }
 
-                #[cfg(feature = "p2p-libp2p")]
-                let to_broadcast =
-                    if let BlockProducerCurrentState::Produced { block, .. } = &state.current {
-                        Some(v2::MinaBlockBlockStableV2::clone(&block.block))
-                    } else {
-                        None
-                    };
-
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerAction::BlockInject);
-
-                #[cfg(feature = "p2p-libp2p")]
-                if let Some(block) = to_broadcast {
-                    use mina_p2p_messages::gossip::GossipNetMessageV2;
-
-                    let message = Box::new(GossipNetMessageV2::NewState(block));
-                    dispatcher.push(p2p::P2pNetworkPubsubAction::Broadcast { message });
-                }
             }
             BlockProducerAction::BlockInject => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -352,6 +336,11 @@ impl BlockProducerEnabled {
                             BlockProducerAction::BlockInjected
                         }
                     )),
+                });
+
+                #[cfg(feature = "p2p-libp2p")]
+                dispatcher.push(p2p::P2pNetworkPubsubAction::BroadcastBlock {
+                    block: best_tip.block,
                 });
             }
             BlockProducerAction::BlockInjected => {
