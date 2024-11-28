@@ -1,4 +1,4 @@
-use std::{collections::btree_map::Entry, sync::Arc};
+use std::collections::btree_map::Entry;
 
 use binprot::BinProtRead;
 use mina_p2p_messages::{gossip, v2};
@@ -189,7 +189,7 @@ impl P2pNetworkPubsubState {
 
                 broadcast(dispatcher, global_state)?;
                 if let Some((_, block)) = incoming_block {
-                    let best_tip = BlockWithHash::try_new(Arc::new(block))?;
+                    let best_tip = BlockWithHash::try_new(block)?;
                     dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
                 }
                 for (transaction, nonce) in incoming_transactions {

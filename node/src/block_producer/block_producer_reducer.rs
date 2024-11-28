@@ -9,6 +9,7 @@ use openmina_core::{
         global_sub_window, in_same_checkpoint_window, in_seed_update_range, relative_sub_window,
     },
 };
+use p2p::P2pNetworkPubsubAction;
 use redux::{callback, Dispatcher, Timestamp};
 
 use crate::{
@@ -337,6 +338,13 @@ impl BlockProducerEnabled {
                         }
                     )),
                 });
+
+                #[cfg(feature = "p2p-libp2p")]
+                {
+                    use mina_p2p_messages::gossip::GossipNetMessageV2;
+                    let message = Box::new(GossipNetMessageV2::NewState(best_tip.block.clone()));
+                    dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
+                }
             }
             BlockProducerAction::BlockInjected => {
                 if let BlockProducerCurrentState::Produced {
@@ -358,6 +366,7 @@ impl BlockProducerEnabled {
                 }
 
                 let dispatcher = state_context.into_dispatcher();
+
                 dispatcher.push(BlockProducerAction::WonSlotSearch);
             }
         }
