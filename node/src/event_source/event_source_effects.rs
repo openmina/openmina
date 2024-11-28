@@ -1,9 +1,12 @@
+use std::net::{IpAddr, SocketAddr};
+
 use openmina_core::requests::{RequestId, RpcIdType};
 use p2p::channels::signaling::discovery::P2pChannelsSignalingDiscoveryAction;
 use p2p::channels::signaling::exchange::P2pChannelsSignalingExchangeAction;
 use p2p::channels::snark::P2pChannelsSnarkAction;
 use p2p::channels::streaming_rpc::P2pChannelsStreamingRpcAction;
 use p2p::channels::transaction::P2pChannelsTransactionAction;
+use p2p::ConnectionAddr;
 use redux::ActionMeta;
 use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
 
@@ -36,11 +39,7 @@ use super::{
 };
 
 #[inline(never)]
-fn handle_p2p_event<S: Service>(
-    store: &mut Store<S>,
-    meta: ActionMeta,
-    e: P2pEvent,
-) {
+fn handle_p2p_event<S: Service>(store: &mut Store<S>, meta: ActionMeta, e: P2pEvent) {
     match e {
         #[cfg(not(feature = "p2p-libp2p"))]
         P2pEvent::MioEvent(_) => {}
@@ -52,110 +51,152 @@ fn handle_p2p_event<S: Service>(
 }
 
 #[inline(never)]
-fn handle_mio_event<S: Service>(
+fn handle_interface_detected<S: Service>(store: &mut Store<S>, ip: IpAddr) {
+    store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
+}
+
+#[inline(never)]
+fn handle_interface_expired<S: Service>(store: &mut Store<S>, ip: IpAddr) {
+    store.dispatch(P2pNetworkSchedulerAction::InterfaceExpired { ip });
+}
+
+#[inline(never)]
+fn handle_listener_ready<S: Service>(store: &mut Store<S>, listener: SocketAddr) {
+    store.dispatch(P2pNetworkSchedulerAction::ListenerReady { listener });
+}
+
+#[inline(never)]
+fn handle_listener_error<S: Service>(store: &mut Store<S>, listener: SocketAddr, error: String) {
+    store.dispatch(P2pNetworkSchedulerAction::ListenerError { listener, error });
+}
+
+#[inline(never)]
+fn handle_incoming_connection_ready<S: Service>(store: &mut Store<S>, listener: SocketAddr) {
+    store.dispatch(P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener });
+}
+
+#[inline(never)]
+fn handle_incoming_connection_did_accept<S: Service>(
     store: &mut Store<S>,
-    _meta: ActionMeta,
-    e: MioEvent,
+    addr: Option<ConnectionAddr>,
+    result: Result<(), String>,
 ) {
-    match e {
-        MioEvent::InterfaceDetected(ip) => {
-            store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
-        }
-        MioEvent::InterfaceExpired(ip) => {
-            store.dispatch(P2pNetworkSchedulerAction::InterfaceExpired { ip });
-        }
-        MioEvent::ListenerReady { listener } => {
-            store.dispatch(P2pNetworkSchedulerAction::ListenerReady { listener });
-        }
-        MioEvent::ListenerError { listener, error } => {
-            store.dispatch(P2pNetworkSchedulerAction::ListenerError { listener, error });
-        }
-        MioEvent::IncomingConnectionIsReady { listener } => {
-            store.dispatch(P2pNetworkSchedulerAction::IncomingConnectionIsReady {
-                listener,
-            });
-        }
-        MioEvent::IncomingConnectionDidAccept(addr, result) => {
-            store.dispatch(P2pNetworkSchedulerAction::IncomingDidAccept {
-                addr,
-                result,
-            });
-        }
-        MioEvent::OutgoingConnectionDidConnect(addr, result) => {
-            store.dispatch(P2pNetworkSchedulerAction::OutgoingDidConnect {
-                addr,
-                result,
-            });
-        }
-        MioEvent::IncomingDataIsReady(addr) => {
-            store.dispatch(P2pNetworkSchedulerAction::IncomingDataIsReady { addr });
-        }
-        MioEvent::IncomingDataDidReceive(addr, result) => {
-            store.dispatch(P2pNetworkSchedulerAction::IncomingDataDidReceive {
-                addr,
-                result: result.map(From::from),
-            });
-        }
-        MioEvent::OutgoingDataDidSend(_, _result) => {}
-        MioEvent::ConnectionDidClose(addr, result) => {
-            if let Err(e) = result {
-                store.dispatch(P2pNetworkSchedulerAction::Error {
-                    addr,
-                    error: p2p::P2pNetworkConnectionError::MioError(e),
-                });
-            } else {
-                store.dispatch(P2pNetworkSchedulerAction::Error {
-                    addr,
-                    error: p2p::P2pNetworkConnectionError::RemoteClosed,
-                });
-            }
-        }
-        MioEvent::ConnectionDidCloseOnDemand(addr) => {
-            store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
-        }
+    store.dispatch(P2pNetworkSchedulerAction::IncomingDidAccept { addr, result });
+}
+
+#[inline(never)]
+fn handle_outgoing_connection_did_connect<S: Service>(
+    store: &mut Store<S>,
+    addr: ConnectionAddr,
+    result: Result<(), String>,
+) {
+    store.dispatch(P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result });
+}
+
+#[inline(never)]
+fn handle_incoming_data_is_ready<S: Service>(store: &mut Store<S>, addr: ConnectionAddr) {
+    store.dispatch(P2pNetworkSchedulerAction::IncomingDataIsReady { addr });
+}
+
+#[inline(never)]
+fn handle_incoming_data_did_receive<S: Service>(
+    store: &mut Store<S>,
+    addr: ConnectionAddr,
+    result: Result<p2p::Data, String>,
+) {
+    store.dispatch(P2pNetworkSchedulerAction::IncomingDataDidReceive {
+        addr,
+        result: result.map(From::from),
+    });
+}
+
+#[inline(never)]
+fn handle_connection_did_close<S: Service>(
+    store: &mut Store<S>,
+    addr: ConnectionAddr,
+    result: Result<(), String>,
+) {
+    if let Err(e) = result {
+        store.dispatch(P2pNetworkSchedulerAction::Error {
+            addr,
+            error: p2p::P2pNetworkConnectionError::MioError(e),
+        });
+    } else {
+        store.dispatch(P2pNetworkSchedulerAction::Error {
+            addr,
+            error: p2p::P2pNetworkConnectionError::RemoteClosed,
+        });
     }
 }
 
 #[inline(never)]
-fn handle_connection_event<S: Service>(
-    store: &mut Store<S>,
-    e: P2pConnectionEvent,
-) {
+fn handle_connection_did_close_on_demand<S: Service>(store: &mut Store<S>, addr: ConnectionAddr) {
+    store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
+}
+
+#[inline(never)]
+fn handle_mio_event<S: Service>(store: &mut Store<S>, _meta: ActionMeta, e: MioEvent) {
+    match e {
+        MioEvent::InterfaceDetected(ip) => {
+            handle_interface_detected(store, ip);
+        }
+        MioEvent::InterfaceExpired(ip) => {
+            handle_interface_expired(store, ip);
+        }
+        MioEvent::ListenerReady { listener } => {
+            handle_listener_ready(store, listener);
+        }
+        MioEvent::ListenerError { listener, error } => {
+            handle_listener_error(store, listener, error);
+        }
+        MioEvent::IncomingConnectionIsReady { listener } => {
+            handle_incoming_connection_ready(store, listener);
+        }
+        MioEvent::IncomingConnectionDidAccept(addr, result) => {
+            handle_incoming_connection_did_accept(store, addr, result);
+        }
+        MioEvent::OutgoingConnectionDidConnect(addr, result) => {
+            handle_outgoing_connection_did_connect(store, addr, result);
+        }
+        MioEvent::IncomingDataIsReady(addr) => {
+            handle_incoming_data_is_ready(store, addr);
+        }
+        MioEvent::IncomingDataDidReceive(addr, result) => {
+            handle_incoming_data_did_receive(store, addr, result);
+        }
+        MioEvent::OutgoingDataDidSend(_, _) => {}
+        MioEvent::ConnectionDidClose(addr, result) => {
+            handle_connection_did_close(store, addr, result);
+        }
+        MioEvent::ConnectionDidCloseOnDemand(addr) => {
+            handle_connection_did_close_on_demand(store, addr);
+        }
+    }
+}
+#[inline(never)]
+fn handle_connection_event<S: Service>(store: &mut Store<S>, e: P2pConnectionEvent) {
     match e {
         P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {
             Err(error) => {
-                store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreateError {
-                    peer_id,
-                    error,
-                });
+                store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreateError { peer_id, error });
             }
             Ok(sdp) => {
-                store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreateSuccess {
-                    peer_id,
-                    sdp,
-                });
+                store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreateSuccess { peer_id, sdp });
             }
         },
         P2pConnectionEvent::AnswerSdpReady(peer_id, res) => match res {
             Err(error) => {
-                store.dispatch(P2pConnectionIncomingAction::AnswerSdpCreateError {
-                    peer_id,
-                    error,
-                });
+                store
+                    .dispatch(P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, error });
             }
             Ok(sdp) => {
-                store.dispatch(P2pConnectionIncomingAction::AnswerSdpCreateSuccess {
-                    peer_id,
-                    sdp,
-                });
+                store
+                    .dispatch(P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, sdp });
             }
         },
         P2pConnectionEvent::AnswerReceived(peer_id, res) => match res {
             P2pConnectionResponse::Accepted(answer) => {
-                store.dispatch(P2pConnectionOutgoingAction::AnswerRecvSuccess {
-                    peer_id,
-                    answer,
-                });
+                store.dispatch(P2pConnectionOutgoingAction::AnswerRecvSuccess { peer_id, answer });
             }
             P2pConnectionResponse::Rejected(reason) => {
                 store.dispatch(P2pConnectionOutgoingAction::AnswerRecvError {
@@ -182,21 +223,16 @@ fn handle_connection_event<S: Service>(
                     peer_id,
                     error: error.clone(),
                 });
-                store.dispatch(P2pConnectionIncomingAction::FinalizeError {
-                    peer_id,
-                    error,
-                });
+                store.dispatch(P2pConnectionIncomingAction::FinalizeError { peer_id, error });
             }
             Ok(auth) => {
                 let _ = store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess {
                     peer_id,
                     remote_auth: Some(auth.clone()),
-                }) || store.dispatch(
-                    P2pConnectionIncomingAction::FinalizeSuccess {
-                        peer_id,
-                        remote_auth: auth.clone(),
-                    },
-                );
+                }) || store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
+                    peer_id,
+                    remote_auth: auth.clone(),
+                });
             }
         },
         P2pConnectionEvent::Closed(peer_id) => {
@@ -206,11 +242,7 @@ fn handle_connection_event<S: Service>(
 }
 
 #[inline(never)]
-fn handle_channel_event<S: Service>(
-    store: &mut Store<S>,
-    meta: ActionMeta,
-    e: P2pChannelEvent,
-) {
+fn handle_channel_event<S: Service>(store: &mut Store<S>, meta: ActionMeta, e: P2pChannelEvent) {
     match e {
         P2pChannelEvent::Opened(peer_id, chan_id, res) => match res {
             Err(err) => {
@@ -219,14 +251,10 @@ fn handle_channel_event<S: Service>(
             }
             Ok(_) => match chan_id {
                 ChannelId::SignalingDiscovery => {
-                    store.dispatch(P2pChannelsSignalingDiscoveryAction::Ready {
-                        peer_id,
-                    });
+                    store.dispatch(P2pChannelsSignalingDiscoveryAction::Ready { peer_id });
                 }
                 ChannelId::SignalingExchange => {
-                    store.dispatch(P2pChannelsSignalingExchangeAction::Ready {
-                        peer_id,
-                    });
+                    store.dispatch(P2pChannelsSignalingExchangeAction::Ready { peer_id });
                 }
                 ChannelId::BestTipPropagation => {
                     store.dispatch(P2pChannelsBestTipAction::Ready { peer_id });
@@ -238,9 +266,7 @@ fn handle_channel_event<S: Service>(
                     store.dispatch(P2pChannelsSnarkAction::Ready { peer_id });
                 }
                 ChannelId::SnarkJobCommitmentPropagation => {
-                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::Ready {
-                        peer_id,
-                    });
+                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::Ready { peer_id });
                 }
                 ChannelId::Rpc => {
                     store.dispatch(P2pChannelsRpcAction::Ready { peer_id });
@@ -276,10 +302,7 @@ fn handle_channel_event<S: Service>(
 }
 
 #[inline(never)]
-fn handle_ledger_event<S: Service>(
-    store: &mut Store<S>,
-    event: LedgerEvent,
-) {
+fn handle_ledger_event<S: Service>(store: &mut Store<S>, event: LedgerEvent) {
     match event {
         LedgerEvent::Write(response) => {
             store.dispatch(LedgerWriteAction::Success { response });
@@ -291,10 +314,7 @@ fn handle_ledger_event<S: Service>(
 }
 
 #[inline(never)]
-fn handle_snark_event<S: Service>(
-    store: &mut Store<S>,
-    event: SnarkEvent,
-) {
+fn handle_snark_event<S: Service>(store: &mut Store<S>, event: SnarkEvent) {
     match event {
         SnarkEvent::BlockVerify(req_id, result) => match result {
             Err(error) => {
@@ -450,10 +470,7 @@ fn handle_external_snark_worker_event<S: Service>(
 }
 
 #[inline(never)]
-fn handle_block_producer_event<S: Service>(
-    store: &mut Store<S>,
-    e: BlockProducerEvent,
-) {
+fn handle_block_producer_event<S: Service>(store: &mut Store<S>, e: BlockProducerEvent) {
     match e {
         BlockProducerEvent::VrfEvaluator(vrf_e) => match vrf_e {
             BlockProducerVrfEvaluatorEvent::Evaluated(vrf_output_with_hash) => {
@@ -466,9 +483,9 @@ fn handle_block_producer_event<S: Service>(
             }
         },
         BlockProducerEvent::BlockProve(block_hash, res) => match res {
-            Err(err) => todo!(
-                "error while trying to produce block proof for block {block_hash} - {err}"
-            ),
+            Err(err) => {
+                todo!("error while trying to produce block proof for block {block_hash} - {err}")
+            }
             Ok(proof) => {
                 if store
                     .state()
@@ -500,11 +517,7 @@ fn handle_genesis_load_event<S: Service>(
 }
 
 #[inline(never)]
-fn handle_new_event<S: Service>(
-    store: &mut Store<S>,
-    meta: ActionMeta,
-    event: Event,
-) {
+fn handle_new_event<S: Service>(store: &mut Store<S>, meta: ActionMeta, event: Event) {
     match event {
         Event::P2p(e) => handle_p2p_event(store, meta, e),
         Event::Ledger(event) => handle_ledger_event(store, event),
