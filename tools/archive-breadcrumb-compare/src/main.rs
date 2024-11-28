@@ -5,21 +5,22 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
 use tokio::time::{interval, Duration, timeout};
+use serde_json::Value;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// OCaml Node GraphQL endpoint
-    #[arg(env = "OCAML_NODE_GRAPHQL", required = true)]
-    ocaml_node_graphql: String,
+    #[arg(env = "OCAML_NODE_GRAPHQL")]
+    ocaml_node_graphql: Option<String>,
 
     /// OCaml Node directory path
     #[arg(env = "OCAML_NODE_DIR", required = true)]
     ocaml_node_dir: PathBuf,
 
     /// Openmina Node GraphQL endpoint
-    #[arg(env = "OPENMINA_NODE_GRAPHQL", required = true)]
-    openmina_node_graphql: String,
+    #[arg(env = "OPENMINA_NODE_GRAPHQL")]
+    openmina_node_graphql: Option<String>,
 
     /// Openmina Node directory path
     #[arg(env = "OPENMINA_NODE_DIR", required = true)]
@@ -186,43 +187,86 @@ async fn compare_binary_diffs(
 ) -> Result<Vec<DiffMismatch>> {
     let mut mismatches = Vec::new();
 
-    for state_hash in state_hashes {
-        let ocaml_path = ocaml_dir.join(format!("{}.bin", state_hash));
-        let openmina_path = openmina_dir.join(format!("{}.bin", state_hash));
+    if state_hashes.is_empty() {
+        println!("No state hashes provided, comparing all diffs");
+        let files = openmina_dir.read_dir()?;
+        files.for_each(|file| {
+            let file = file.unwrap();
+            let file_name = file.file_name();
+            let file_name_str = file_name.to_str().unwrap();
+            let ocaml_path = ocaml_dir.join(file_name_str);
+            let openmina_path = openmina_dir.join(file_name_str);
 
-        // Load and deserialize both files
-        let ocaml_diff = match load_and_deserialize(&ocaml_path) {
-            Ok(diff) => diff,
-            Err(e) => {
+            // Load and deserialize both files
+            let ocaml_diff = match load_and_deserialize(&ocaml_path) {
+                Ok(diff) => diff,
+                Err(e) => {
+                    mismatches.push(DiffMismatch {
+                        state_hash: file_name_str.to_string(),
+                        reason: format!("Failed to load OCaml diff: {}", e),
+                    });
+                    return;
+                }
+            };
+    
+            let openmina_diff = match load_and_deserialize(&openmina_path) {
+                Ok(diff) => diff,
+                Err(e) => {
+                    mismatches.push(DiffMismatch {
+                            state_hash: file_name_str.to_string(),
+                        reason: format!("Failed to load Openmina diff: {}", e),
+                    });
+                    return;
+                }
+            };
+    
+            // Compare the diffs
+            if let Some(reason) = compare_diffs(&ocaml_diff, &openmina_diff) {
+                mismatches.push(DiffMismatch {
+                    state_hash: file_name_str.to_string(),
+                    reason,
+                });
+            }
+        });
+        Ok(mismatches)
+    } else {
+        for state_hash in state_hashes {
+            let ocaml_path = ocaml_dir.join(format!("{}.bin", state_hash));
+            let openmina_path = openmina_dir.join(format!("{}.bin", state_hash));
+    
+            // Load and deserialize both files
+            let ocaml_diff = match load_and_deserialize(&ocaml_path) {
+                Ok(diff) => diff,
+                Err(e) => {
+                    mismatches.push(DiffMismatch {
+                        state_hash: state_hash.clone(),
+                        reason: format!("Failed to load OCaml diff: {}", e),
+                    });
+                    continue;
+                }
+            };
+    
+            let openmina_diff = match load_and_deserialize(&openmina_path) {
+                Ok(diff) => diff,
+                Err(e) => {
+                    mismatches.push(DiffMismatch {
+                        state_hash: state_hash.clone(),
+                        reason: format!("Failed to load Openmina diff: {}", e),
+                    });
+                    continue;
+                }
+            };
+    
+            // Compare the diffs
+            if let Some(reason) = compare_diffs(&ocaml_diff, &openmina_diff) {
                 mismatches.push(DiffMismatch {
                     state_hash: state_hash.clone(),
-                    reason: format!("Failed to load OCaml diff: {}", e),
+                    reason,
                 });
-                continue;
             }
-        };
-
-        let openmina_diff = match load_and_deserialize(&openmina_path) {
-            Ok(diff) => diff,
-            Err(e) => {
-                mismatches.push(DiffMismatch {
-                    state_hash: state_hash.clone(),
-                    reason: format!("Failed to load Openmina diff: {}", e),
-                });
-                continue;
-            }
-        };
-
-        // Compare the diffs
-        if let Some(reason) = compare_diffs(&ocaml_diff, &openmina_diff) {
-            mismatches.push(DiffMismatch {
-                state_hash: state_hash.clone(),
-                reason,
-            });
         }
+        Ok(mismatches)
     }
-
-    Ok(mismatches)
 }
 
 fn load_and_deserialize(path: &PathBuf) -> Result<ArchiveTransitionFronntierDiff> {
@@ -241,23 +285,37 @@ fn compare_diffs(
             ArchiveTransitionFronntierDiff::BreadcrumbAdded { block: b2, accounts_accessed: a2, accounts_created: c2, tokens_used: t2, sender_receipt_chains_from_parent_ledger: s2 }
         ) => {
             if b1 != b2 {
-                return Some("Block data mismatch".to_string());
+                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(b1).unwrap()).unwrap();
+                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(b2).unwrap()).unwrap();
+                return Some(format!("Block data mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
             }
             if a1 != a2 {
-                return Some("Accounts accessed mismatch".to_string());
+                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(a1).unwrap()).unwrap();
+                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(a2).unwrap()).unwrap();
+                return Some(format!("Accounts accessed mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
             }
             if c1 != c2 {
-                return Some("Accounts created mismatch".to_string());
+                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(c1).unwrap()).unwrap();
+                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(c2).unwrap()).unwrap();
+                return Some(format!("Accounts created mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
             }
             if t1 != t2 {
-                return Some("Tokens used mismatch".to_string());
+                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(t1).unwrap()).unwrap();
+                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(t2).unwrap()).unwrap();
+                return Some(format!("Tokens used mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
             }
             if s1 != s2 {
-                return Some("Sender receipt chains mismatch".to_string());
+                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(s1).unwrap()).unwrap();
+                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(s2).unwrap()).unwrap();
+                return Some(format!("Sender receipt chains mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
             }
             None
         }
-        _ => Some("Different diff types".to_string()),
+        _ => {
+            let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(ocaml).unwrap()).unwrap();
+            let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(openmina).unwrap()).unwrap();
+            Some(format!("Different diff types:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json))
+        }
     }
 }
 
@@ -265,16 +323,22 @@ fn compare_diffs(
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Wait for both nodes to be synced
-    println!("Waiting for nodes to sync...");
-    wait_for_sync(&args.ocaml_node_graphql, "OCaml Node").await?;
-    wait_for_sync(&args.openmina_node_graphql, "Openmina Node").await?;
-    println!("Both nodes are synced! ✅\n");
+    let mut best_chain = Vec::new();
 
-    // Compare chains with retry logic
-    let best_chain = compare_chains(&args.ocaml_node_graphql, &args.openmina_node_graphql).await?;
+    if let (Some(ocaml_graphql), Some(openmina_graphql)) = (args.ocaml_node_graphql, args.openmina_node_graphql) {
+        // Wait for both nodes to be synced
+        println!("Waiting for nodes to sync...");
+        wait_for_sync(&ocaml_graphql, "OCaml Node").await?;
+        wait_for_sync(&openmina_graphql, "Openmina Node").await?;
+        println!("Both nodes are synced! ✅\n");
+         // Compare chains with retry logic
+        let bc = compare_chains(&ocaml_graphql, &openmina_graphql).await?;
+        println!("Comparing binary diffs for {} blocks...", bc.len());
+        best_chain.extend_from_slice(&bc);
+    } else {
+        println!("No graphql endpoints provided, skipping chain comparison");
+    }
 
-    println!("Comparing binary diffs for {} blocks...", best_chain.len());
     let mismatches = compare_binary_diffs(
         args.ocaml_node_dir,
         args.openmina_node_dir,

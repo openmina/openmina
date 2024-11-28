@@ -4881,6 +4881,7 @@ dependencies = [
  "mina-p2p-messages",
  "reqwest 0.11.24",
  "serde",
+ "serde_json",
  "tokio",
 ]
 
