@@ -20,6 +20,7 @@ impl P2pConnectionState {
             time: Timestamp::ZERO,
             opts: opts.clone(),
             rpc_id: None,
+            on_success: None,
         })
     }
 

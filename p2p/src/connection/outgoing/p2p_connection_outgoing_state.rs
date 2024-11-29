@@ -1,9 +1,9 @@
-use redux::Timestamp;
+use redux::{Callback, Timestamp};
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
 
-use crate::{connection::RejectionReason, webrtc, P2pTimeouts};
+use crate::{connection::RejectionReason, webrtc, P2pTimeouts, PeerId};
 
 use super::P2pConnectionOutgoingInitOpts;
 
@@ -13,35 +13,41 @@ pub enum P2pConnectionOutgoingState {
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferSdpCreatePending {
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferSdpCreateSuccess {
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         sdp: String,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferReady {
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferSendSuccess {
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     AnswerRecvPending {
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     AnswerRecvSuccess {
         time: Timestamp,
@@ -49,6 +55,7 @@ pub enum P2pConnectionOutgoingState {
         offer: Box<webrtc::Offer>,
         answer: Box<webrtc::Answer>,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     FinalizePending {
         time: Timestamp,
@@ -56,6 +63,7 @@ pub enum P2pConnectionOutgoingState {
         offer: Option<Box<webrtc::Offer>>,
         answer: Option<Box<webrtc::Answer>>,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     FinalizeSuccess {
         time: Timestamp,
@@ -63,6 +71,7 @@ pub enum P2pConnectionOutgoingState {
         offer: Option<Box<webrtc::Offer>>,
         answer: Option<Box<webrtc::Answer>>,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     Error {
         time: Timestamp,

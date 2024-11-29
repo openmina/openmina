@@ -137,6 +137,7 @@ impl P2pNetworkPubsubState {
                     return Ok(());
                 };
 
+                // TODO: try to reuse data instead of cloning all message
                 let messages = state.incoming_messages.clone();
                 dispatcher.push(P2pNetworkPubsubEffectfulAction::IncomingData {
                     peer_id,

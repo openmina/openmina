@@ -102,7 +102,6 @@ impl P2pState {
                             time: Timestamp::ZERO,
                         },
                         identify: None,
-                        on_connect_success: None,
                     },
                 )
             })
@@ -362,7 +361,6 @@ pub struct P2pPeerState {
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
     pub status: P2pPeerStatus,
     pub identify: Option<P2pNetworkIdentify>,
-    pub on_connect_success: Option<Callback<(PeerId, Option<RpcId>)>>,
 }
 
 impl P2pPeerState {

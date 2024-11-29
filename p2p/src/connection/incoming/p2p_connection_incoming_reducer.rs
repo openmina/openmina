@@ -60,7 +60,6 @@ impl P2pConnectionIncomingState {
                         }),
                         status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(&opts)),
                         identify: None,
-                        on_connect_success: None,
                     });
 
                 state.status =
@@ -428,7 +427,6 @@ impl P2pConnectionIncomingState {
                             )),
                             status: P2pPeerStatus::Disconnected { time: meta.time() },
                             identify: None,
-                            on_connect_success: None,
                         });
 
                     Self::reduce_finalize_libp2p_pending(state, addr, time, my_id, peer_id);
