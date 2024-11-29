@@ -49,7 +49,7 @@ ledger = { path = "ledger", package = "mina-tree" }
 mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
 mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
 mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
-# mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "c478b19", features = [ "32x9" ] }
+# UNCOMMENTED_IN_CI mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "c478b19", features = [ "32x9" ] }
 o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
 kimchi = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
 mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
@@ -67,7 +67,7 @@ static_assertions = "1.1.0"
 juniper = { version = "0.16" }
 
 ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
-# ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std", "32x9" ] }
+# UNCOMMENTED_IN_CI ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std", "32x9" ] }
 
 
 [profile.fuzz]
