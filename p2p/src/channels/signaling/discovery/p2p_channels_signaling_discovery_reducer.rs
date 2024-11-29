@@ -49,7 +49,7 @@ impl P2pChannelsSignalingDiscoveryState {
                     id: ChannelId::SignalingDiscovery,
                     on_success: redux::callback!(
                         on_signaling_discovery_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
-                            P2pChannelsSignalingExchangeAction::Pending { peer_id }
+                            P2pChannelsSignalingDiscoveryAction::Pending { peer_id }
                         }
                     ),
                 });
