@@ -46,7 +46,13 @@ impl ArchiveService {
 impl node::transition_frontier::archive::archive_service::ArchiveService for NodeService {
     fn send_to_archive(&mut self, data: ArchiveTransitionFronntierDiff) {
         if let Some(archive) = self.archive.as_mut() {
-            let _ = archive.archive_sender.send(data);
+            if let Err(e) = archive.archive_sender.send(data) {
+                node::core::warn!(
+                    node::core::log::system_time();
+                    summary = "Failed sending diff to archive",
+                    error = e.to_string()
+                )
+            }
         }
     }
 }
