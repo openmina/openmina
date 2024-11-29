@@ -7273,8 +7273,8 @@ pub mod transaction_union_payload {
                 arbitrary values different from the default token-id, for this
                 we will extract the LS u64 of the token-id.
             */
-            let fee_token_id = self.common.fee_token.0.into_repr().0[0];
-            let token_id = self.body.token_id.0.into_repr().0[0];
+            let fee_token_id = self.common.fee_token.0.into_repr().to_64x4()[0];
+            let token_id = self.body.token_id.0.into_repr().to_64x4()[0];
 
             let mut roi = LegacyInput::new()
                 .append_field(self.common.fee_payer_pk.x)

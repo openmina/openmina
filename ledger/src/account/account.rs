@@ -1760,6 +1760,8 @@ mod tests {
 
     #[test]
     fn test_size_account() {
+        const SIZE_WITH_9LIMBS: usize = 296;
+
         #[cfg(not(target_family = "wasm"))]
         const SIZE: usize = 280;
 
@@ -1767,7 +1769,11 @@ mod tests {
         #[cfg(target_family = "wasm")]
         const SIZE: usize = 280;
 
-        assert_eq!(std::mem::size_of::<Account>(), SIZE);
+        if std::mem::size_of::<BigInteger256>() == 9 * 4 {
+            assert_eq!(std::mem::size_of::<Account>(), SIZE_WITH_9LIMBS);
+        } else {
+            assert_eq!(std::mem::size_of::<Account>(), SIZE);
+        }
     }
 
     #[test]

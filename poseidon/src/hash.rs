@@ -1,4 +1,4 @@
-use ark_ff::{BigInteger as _, BigInteger256, Field, FromBytes as _};
+use ark_ff::{BigInteger256, Field, FromBytes as _};
 use mina_curves::pasta::Fp;
 
 use crate::{PlonkSpongeConstantsKimchi, Sponge, SpongeParamsForField};
@@ -37,24 +37,18 @@ impl Item {
         }
     }
 
-    fn as_bigint(&self) -> BigInteger256 {
+    fn as_bigint(&self) -> u64 {
         match self {
-            Item::Bool(v) => {
-                if *v {
-                    1.into()
-                } else {
-                    0.into()
-                }
-            }
-            Item::U2(v) => (*v as u64).into(),
-            Item::U8(v) => (*v as u64).into(),
-            Item::U32(v) => (*v as u64).into(),
+            Item::Bool(v) => *v as u64,
+            Item::U2(v) => *v as u64,
+            Item::U8(v) => *v as u64,
+            Item::U32(v) => *v as u64,
             Item::U48(v) => {
                 let mut bytes = <[u8; 32]>::default();
                 bytes[..6].copy_from_slice(&v[..]);
-                BigInteger256::read(&bytes[..]).unwrap() // Never fail with only 6 bytes
+                BigInteger256::read(&bytes[..]).unwrap().to_64x4()[0] // Never fail with only 6 bytes
             }
-            Item::U64(v) => (*v).into(),
+            Item::U64(v) => *v,
         }
     }
 }
@@ -76,6 +70,31 @@ impl std::fmt::Debug for Inputs {
             .field(&format!("fields[{:?}]", self.fields.len()), &self.fields)
             .field(&format!("packeds[{:?}]", self.packeds.len()), &self.packeds)
             .finish()
+    }
+}
+
+#[allow(clippy::needless_range_loop)]
+fn shl(bigint: &mut [u64; 4], mut n: u32) {
+    if n >= 64 * 4 {
+        *bigint = [0, 0, 0, 0];
+        return;
+    }
+    while n >= 64 {
+        let mut t = 0;
+        for i in 0..4 {
+            core::mem::swap(&mut t, &mut bigint[i]);
+        }
+        n -= 64;
+    }
+    if n > 0 {
+        let mut t = 0;
+        for i in 0..4 {
+            let a = &mut bigint[i];
+            let t2 = *a >> (64 - n);
+            *a <<= n;
+            *a |= t;
+            t = t2;
+        }
     }
 }
 
@@ -137,31 +156,28 @@ impl Inputs {
     #[allow(clippy::wrong_self_convention)]
     pub fn to_fields(mut self) -> Vec<Fp> {
         let mut nbits = 0;
-        let mut current: BigInteger256 = 0.into();
+        let mut current: [u64; 4] = [0, 0, 0, 0];
 
         for (item, item_nbits) in self.packeds.iter().map(|i| (i.as_bigint(), i.nbits())) {
             nbits += item_nbits;
 
             if nbits < 255 {
-                current.muln(item_nbits);
+                shl(&mut current, item_nbits);
 
                 // Addition, but we use 'bitwise or' because we know bits of
                 // `current` are zero (we just shift-left them)
-                current = BigInteger256([
-                    current.0[0] | item.0[0],
-                    current.0[1] | item.0[1],
-                    current.0[2] | item.0[2],
-                    current.0[3] | item.0[3],
-                ]);
+                current[0] |= item;
             } else {
-                self.fields.push(current.try_into().unwrap()); // Never fail
-                current = item;
+                self.fields
+                    .push(BigInteger256::from_64x4(current).try_into().unwrap()); // Never fail
+                current = [item, 0, 0, 0];
                 nbits = item_nbits;
             }
         }
 
         if nbits > 0 {
-            self.fields.push(current.try_into().unwrap()); // Never fail
+            self.fields
+                .push(BigInteger256::from_64x4(current).try_into().unwrap()); // Never fail
         }
 
         self.fields
@@ -495,7 +511,7 @@ pub mod legacy {
                     let bit_index = index % 64;
                     field[limb_index] |= (*bit as u64) << bit_index;
                 }
-                F::try_from(BigInteger256::new(field)).unwrap() // Never fail
+                F::try_from(BigInteger256::from_64x4(field)).unwrap() // Never fail
             }));
             self.fields
         }

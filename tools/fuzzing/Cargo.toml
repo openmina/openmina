@@ -11,6 +11,7 @@ mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 mina-curves = { workspace = true }
 mina-p2p-messages = { workspace = true }
+ark-ff = { workspace = true }
 openmina-core = { path = "../../core" }
 ledger = { path = "../../ledger", package = "mina-tree", features = ["fuzzing"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -24,7 +25,6 @@ rsprocmaps = "0.3.2"
 leb128 = "0.2.1"
 rand = { version = "0.8.5", features = ["small_rng"] }
 ring_buffer = "2.0.2"
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
 ark-ec = { version = "0.3.0", features = [ "std" ] }
 #ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
 #ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }

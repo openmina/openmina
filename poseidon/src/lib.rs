@@ -52,6 +52,7 @@ impl SpongeConstants for PlonkSpongeConstantsLegacy {
     const PERM_INITIAL_ARK: bool = true;
 }
 
+#[inline(always)]
 fn apply_mds_matrix<F: Field>(params: &SpongeParams<F>, state: &[F]) -> [F; 3] {
     let mut new_state = [F::zero(); 3];
 
@@ -273,6 +274,7 @@ impl<F: Field + SpongeParamsForField<F> + Into<BigInteger256>> FqSponge<F> {
             limbs
         } else {
             let x: BigInteger256 = self.sponge.squeeze().into();
+            let x: [u64; 4] = x.to_64x4();
             self.last_squeezed
                 .extend(&x.as_ref()[0..HIGH_ENTROPY_LIMBS]);
             self.squeeze_limbs::<NUM_LIMBS>()

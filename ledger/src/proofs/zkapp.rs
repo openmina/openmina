@@ -1504,7 +1504,8 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                                     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
                                         prechallenge: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
                                             inner: {
-                                                let BigInteger256(bigint) = bulletproof_challenges[i].into();
+                                                let bigint: BigInteger256 = bulletproof_challenges[i].into();
+                                                let bigint = bigint.to_64x4();
                                                 PaddedSeq([v2::LimbVectorConstantHex64StableV1(bigint[0].into()), v2::LimbVectorConstantHex64StableV1(bigint[1].into())])
                                             },
                                         },
@@ -1515,8 +1516,9 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                         },
                         sponge_digest_before_evaluations:
                             v2::CompositionTypesDigestConstantStableV1({
-                                let BigInteger256(bigint) =
+                                let bigint: BigInteger256 =
                                     (*sponge_digest_before_evaluations).into();
+                                let bigint = bigint.to_64x4();
                                 PaddedSeq(
                                     bigint
                                         .each_ref()
@@ -1535,7 +1537,8 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                                     PaddedSeq(array::from_fn(|j| v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
                                         prechallenge: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
                                             inner: {
-                                                let BigInteger256(bigint) = old_bulletproof_challenges[i][j].into();
+                                                let bigint: BigInteger256 = old_bulletproof_challenges[i][j].into();
+                                                let bigint = bigint.to_64x4();
                                                 PaddedSeq([v2::LimbVectorConstantHex64StableV1(bigint[0].into()), v2::LimbVectorConstantHex64StableV1(bigint[1].into())])
                                             },
                                         },
@@ -1562,7 +1565,8 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                             PaddedSeq(array::from_fn(|i| v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
                                 prechallenge: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
                                     inner: {
-                                        let BigInteger256(bigint) = v[i].into();
+                                        let bigint: BigInteger256 = v[i].into();
+                                        let bigint = bigint.to_64x4();
                                         PaddedSeq([v2::LimbVectorConstantHex64StableV1(bigint[0].into()), v2::LimbVectorConstantHex64StableV1(bigint[1].into())])
                                     },
                                 },

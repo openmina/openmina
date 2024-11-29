@@ -67,7 +67,7 @@ pub trait Check<F: FieldWitness> {
 
 struct FieldBitsIterator {
     index: usize,
-    bigint: BigInteger256,
+    bigint: [u64; 4],
 }
 
 impl Iterator for FieldBitsIterator {
@@ -80,13 +80,17 @@ impl Iterator for FieldBitsIterator {
         let limb_index = index / 64;
         let bit_index = index % 64;
 
-        let limb = self.bigint.0.get(limb_index)?;
+        let limb = self.bigint.get(limb_index)?;
         Some(limb & (1 << bit_index) != 0)
     }
 }
 
 pub fn bigint_to_bits<const NBITS: usize>(bigint: BigInteger256) -> [bool; NBITS] {
-    let mut bits = FieldBitsIterator { index: 0, bigint }.take(NBITS);
+    let mut bits = FieldBitsIterator {
+        index: 0,
+        bigint: bigint.to_64x4(),
+    }
+    .take(NBITS);
     std::array::from_fn(|_| bits.next().unwrap())
 }
 
@@ -100,7 +104,12 @@ where
 
 /// Difference with `bigint_to_bits`: the number of bits isn't a constant
 fn bigint_to_bits2(bigint: BigInteger256, nbits: usize) -> Box<[bool]> {
-    FieldBitsIterator { index: 0, bigint }.take(nbits).collect()
+    FieldBitsIterator {
+        index: 0,
+        bigint: bigint.to_64x4(),
+    }
+    .take(nbits)
+    .collect()
 }
 
 /// Difference with `field_to_bits`: the number of bits isn't a constant
@@ -1250,6 +1259,7 @@ impl<F: FieldWitness> InnerCurve<F> {
         S: Into<BigInteger256>,
     {
         let scale: BigInteger256 = scale.into();
+        let scale = scale.to_64x4();
         Self {
             inner: self.inner.mul(scale),
         }
@@ -3667,7 +3677,7 @@ pub fn messages_for_next_wrap_proof_padding() -> Fp {
             old_bulletproof_challenges: vec![], // Filled with padding, in `hash()` below
         };
         let hash: [u64; 4] = msg.hash();
-        Fp::try_from(BigInteger256(hash)).unwrap() // Never fail
+        Fp::try_from(BigInteger256::from_64x4(hash)).unwrap() // Never fail
     })
 }
 
@@ -3734,7 +3744,7 @@ impl MessagesForNextStepProof<'_> {
         let field: Fp = ::poseidon::hash::hash_fields(&fields);
 
         let bigint: BigInteger256 = field.into_repr();
-        bigint.0
+        bigint.to_64x4()
     }
 
     /// Implementation of `to_field_elements`

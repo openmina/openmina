@@ -316,17 +316,17 @@ mod floating_point {
     }
 
     const COEFFICIENTS: [(Sgn, BigInteger256); 11] = [
-        (Sgn::Pos, BigInteger256::new([405058, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([1007582, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([465602, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([161365, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([44739, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([10337, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([2047, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([354, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([54, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([7, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([0, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([405058, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([1007582, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([465602, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([161365, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([44739, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([10337, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([2047, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([354, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([54, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([7, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([0, 0, 0, 0])),
     ];
 
     pub struct Params {
