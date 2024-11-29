@@ -1,0 +1,9 @@
+<div class="fx-row-vert-cent w-100 flex-between h-lg pl-12">
+  <div class="primary f-600">Build Details</div>
+  <div class="fx-row-full-cent h-lg w-lg pointer tertiary primary-hover" (click)="close.emit()">
+    <span class="mina-icon icon-200">close</span>
+  </div>
+</div>
+<div class="flex-column flex-grow h-minus-lg overflow-auto">
+  <mina-json-viewer [expanded]="true" [json]="envBuild || {}"></mina-json-viewer>
+</div>

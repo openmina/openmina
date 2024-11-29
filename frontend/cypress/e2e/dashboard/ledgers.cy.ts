@@ -88,7 +88,7 @@ describe('DASHBOARD LEDGERS', () => {
           cy.get('mina-dashboard-ledger > div:first-child > div.h-minus-xl > .group:nth-child(3) div.primary')
             .then((el: any) => {
               let progress;
-              progress = state.rpcStats.rootLedger?.fetched / state.rpcStats.rootLedger?.estimation * 100 || 0;
+              progress = state.rpcStats.snarkedRootLedger?.fetched / state.rpcStats.snarkedRootLedger?.estimation * 100 || 0;
               progress = Math.round(progress);
 
               if (state.nodes[0].ledgers.rootSnarked.state === 'success') {

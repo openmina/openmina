@@ -24,6 +24,7 @@ const initialState: BlockProductionWonSlotsState = {
     sortBy: 'slotTime',
     sortDirection: SortDirection.ASC,
   },
+  serverResponded: false,
 };
 
 export const blockProductionWonSlotsReducer = createReducer(
@@ -31,6 +32,7 @@ export const blockProductionWonSlotsReducer = createReducer(
   on(BlockProductionWonSlotsActions.init, (state, { activeSlotRoute }) => ({
     ...state,
     activeSlotRoute,
+    serverResponded: false,
   })),
   on(BlockProductionWonSlotsActions.getSlotsSuccess, (state, { slots, epoch, activeSlot }) => ({
     ...state,
@@ -39,6 +41,7 @@ export const blockProductionWonSlotsReducer = createReducer(
     filteredSlots: filterSlots(sortSlots(slots, state.sort), state.filters),
     activeSlot,
     openSidePanel: state.activeSlot ? state.openSidePanel : isDesktop(),
+    serverResponded: true,
   })),
   on(BlockProductionWonSlotsActions.setActiveSlot, (state, { slot }) => ({
     ...state,

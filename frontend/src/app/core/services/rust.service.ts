@@ -68,6 +68,8 @@ export class RustService {
         return this.webNodeService.accounts$;
       case '/best-chain-user-commands':
         return this.webNodeService.bestChainUserCommands$;
+      case '/build_env':
+        return this.webNodeService.envBuildDetails$;
       default:
         throw new Error(`Web node doesn't support "${path}" path!`);
     }

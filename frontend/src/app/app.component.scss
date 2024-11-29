@@ -53,14 +53,10 @@ mat-sidenav-content {
 mat-sidenav-container,
 mat-sidenav-content {
   color: inherit;
-  background-color: $base-surface;
-
-  @media (max-width: 767px) {
-    background-color: $base-background;
-  }
+  background-color: $base-background;
 }
 
-.mina-content {
+#mina-content {
   $toolbar: 40px;
   height: calc(100% - #{$toolbar});
   border-top-left-radius: 6px;

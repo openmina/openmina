@@ -22,7 +22,7 @@ export class BlockProductionWonSlotsService {
       .pipe(
         map((response: WonSlotResponse) => {
           if (!response) {
-            throw new Error('Empty response from /stats/block_producer');
+            return { slots: [], epoch: undefined };
           }
           const attemptsSlots = response.attempts.map((attempt: Attempt) => {
             attempt.won_slot.slot_time = Math.floor(attempt.won_slot.slot_time / ONE_MILLION); // converted to milliseconds
@@ -99,10 +99,15 @@ export class BlockProductionWonSlotsService {
           return {
             slots: [...attemptsSlots, ...futureWonSlots],
             epoch: {
+              epochNumber: response.current_epoch,
               start: response.epoch_start,
               end: response.epoch_end,
               currentGlobalSlot: response.current_global_slot,
               currentTime: response.current_time,
+              vrfStats: {
+                evaluated: response.current_epoch_vrf_stats?.evaluated_slots,
+                total: response.current_epoch_vrf_stats?.total_slots,
+              },
             },
           };
         }),
@@ -155,6 +160,17 @@ export interface WonSlotResponse {
   current_time: number;
   epoch_end: number;
   epoch_start: number;
+  current_epoch: number;
+  current_epoch_vrf_stats: {
+    evaluated_slots: number;
+    total_slots: number;
+  };
+  vrf_stats: {
+    [epochNumber: string]: {
+      evaluated_slots: number;
+      total_slots: number;
+    };
+  };
 }
 
 interface Attempt {

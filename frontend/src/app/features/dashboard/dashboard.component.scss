@@ -7,10 +7,6 @@
 .comps {
   gap: 8px;
   padding-right: 8px;
-
-  @media (max-width: 767px) {
-    padding: 0 8px;
-  }
 }
 
 mina-dashboard-network {
@@ -25,7 +21,7 @@ mina-dashboard-ledger {
 
 mina-dashboard-blocks-sync {
   width: 100%;
-  max-width: 640px;
+  max-width: 644px;
 }
 
 @media (max-width: 767px) {
@@ -49,7 +45,7 @@ mina-dashboard-blocks-sync {
       height: 8px !important;
     }
     .primary {
-      padding-left: 8px;
+      padding-left: 4px;
     }
   }
 }

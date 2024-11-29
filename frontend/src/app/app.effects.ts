@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { createNonDispatchableEffect, Effect, NonDispatchableEffect, removeParamsFromURL } from '@openmina/shared';
-import { filter, from, map, switchMap, tap } from 'rxjs';
+import { createNonDispatchableEffect, Effect, removeParamsFromURL } from '@openmina/shared';
+import { filter, map, mergeMap, of, switchMap, tap } from 'rxjs';
 import { AppActions } from '@app/app.actions';
 import { Router } from '@angular/router';
 import { FeatureType, MinaNode } from '@shared/types/core/environment/mina-env.type';
@@ -22,9 +22,10 @@ import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
 export class AppEffects extends BaseEffect {
 
   readonly init$: Effect;
-  readonly initSuccess$: NonDispatchableEffect;
+  readonly initSuccess$: Effect;
   readonly onNodeChange$: Effect;
   readonly getNodeDetails$: Effect;
+  readonly getNodeEnvBuild$: Effect;
 
   private requestInProgress: boolean = false;
 
@@ -46,7 +47,7 @@ export class AppEffects extends BaseEffect {
       map((payload: { activeNode: MinaNode, nodes: MinaNode[] }) => AppActions.initSuccess(payload)),
     ));
 
-    this.initSuccess$ = createNonDispatchableEffect(() => this.actions$.pipe(
+    this.initSuccess$ = createEffect(() => this.actions$.pipe(
       ofType(AppActions.initSuccess),
       this.latestActionState(),
       switchMap(({ state }) => {
@@ -55,8 +56,9 @@ export class AppEffects extends BaseEffect {
             switchMap(() => this.webNodeService.startWasm$()),
           );
         }
-        return from([]);
+        return of({});
       }),
+      map(() => AppActions.getNodeEnvBuild()),
     ));
 
     this.onNodeChange$ = createNonDispatchableEffect(() => this.actions$.pipe(
@@ -79,9 +81,16 @@ export class AppEffects extends BaseEffect {
             switchMap(() => this.webNodeService.startWasm$()),
           );
         }
-        return from([]);
+        return of({});
       }),
-      map(() => AppActions.getNodeDetails()),
+      switchMap(() => [AppActions.getNodeDetails(), AppActions.getNodeEnvBuild()]),
+    ));
+
+    this.getNodeEnvBuild$ = createEffect(() => this.actions$.pipe(
+      ofType(AppActions.getNodeEnvBuild),
+      mergeMap(() => this.appService.getEnvBuild()),
+      map(envBuild => AppActions.getNodeEnvBuildSuccess({ envBuild })),
+      catchErrorAndRepeat2(MinaErrorType.RUST, AppActions.getNodeEnvBuildSuccess({ envBuild: undefined })),
     ));
 
     this.getNodeDetails$ = createEffect(() => this.actions$.pipe(
@@ -95,9 +104,9 @@ export class AppEffects extends BaseEffect {
           status: AppNodeStatus.OFFLINE,
           blockHeight: null,
           blockTime: null,
-          peers: 0,
-          download: 0,
-          upload: 0,
+          peersConnected: 0,
+          peersDisconnected: 0,
+          peersConnecting: 0,
           transactions: 0,
           snarks: 0,
           producingBlockAt: null,

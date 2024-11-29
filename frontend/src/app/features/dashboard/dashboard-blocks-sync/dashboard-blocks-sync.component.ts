@@ -28,6 +28,7 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
   targetBlock: number;
   syncProgress: string;
   isDesktop: boolean = isDesktop();
+  remaining: number;
 
   ngOnInit(): void {
     this.listenToNodesChanges();
@@ -47,6 +48,32 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
         this.targetBlock = undefined;
         this.syncProgress = undefined;
       } else {
+        const blocks = nodes[0].blocks;
+
+        const blocksFetched = blocks.filter(b => b.fetchEnd).length;
+        const blocksApplied = blocks.filter(b => b.applyEnd).length;
+        if (blocksApplied < 291) {
+
+          const syncStart = Math.min(...blocks.map(b => b.fetchStart).filter(Boolean)) / ONE_MILLION;
+          const now = Date.now();
+          const secondsPassed = (now - syncStart) / 1000;
+
+          const fetchWeight = 1;
+          const applyWeight = 5;
+
+          // Apply weights: 1 for each fetched block, and 5 for each applied block
+          const weightedBlocksTotal = (blocksFetched * fetchWeight) + (blocksApplied * applyWeight);
+          const blocksPerSecond = weightedBlocksTotal / secondsPassed;
+
+          if (blocksPerSecond > 0) {
+            const weightedBlocksRemaining = (291 * fetchWeight) + (291 * applyWeight) - weightedBlocksTotal;
+            const secondsRemaining = weightedBlocksRemaining / blocksPerSecond;
+            this.remaining = Math.ceil(secondsRemaining);
+          }
+        } else {
+          this.remaining = null;
+        }
+
         this.extractNodesData(nodes);
         this.extractPeersData(peers);
       }
@@ -69,6 +96,9 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
       this.bestTipBlock = blocks[0].height;
       this.bestTipBlockSyncedText = 'Fetched ' + this.calculateProgressTime(nodes[0].bestTipReceivedTimestamp * ONE_MILLION).slice(7);
       this.syncProgress = this.bestTipBlockSyncedText.slice(8);
+      if (lastItem(blocks).status !== NodesOverviewNodeBlockStatus.APPLIED) {
+        this.syncProgress = 'Pending';
+      }
     }
 
     if (blocks.length === 291) {

@@ -4,7 +4,7 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-FY2FWHFD8F"></script>
   <script defer>
     if (typeof window !== 'undefined') {
-      if (window.env?.production) {
+      if (window.env?.production && location.href.includes('openmina')) {
         window.dataLayer = window.dataLayer || [];
 
         function gtag() {
@@ -49,13 +49,13 @@
 <body class="f-base">
 <script>
   const deployment = {
-    dateUTC: '2024-11-21T19:37:25.376Z',
-    deviceIp: '82.76.192.102',
+    dateUTC: '2024-11-29T11:11:49.710Z',
+    deviceIp: '5.13.60.20',
     deviceOS: 'macOS',
     deviceOSVersion: '23.5.0',
-    version: '1.0.21',
-  };
-  window.deployment = deployment;
+    version: '1.0.44',
+};
+window.deployment = deployment;
 </script>
 <script type="module" defer>
   if (typeof window !== 'undefined') {
