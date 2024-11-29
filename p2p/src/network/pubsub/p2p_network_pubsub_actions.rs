@@ -53,6 +53,9 @@ pub enum P2pNetworkPubsubAction {
     OutgoingMessage {
         peer_id: PeerId,
     },
+    OutgoingMessageClear {
+        peer_id: PeerId,
+    },
     #[action_event(level = warn, fields(display(peer_id), debug(msg)))]
     OutgoingMessageError {
         msg: pb::Rpc,

@@ -407,6 +407,7 @@ pub enum ActionKind {
     P2pNetworkPubsubNewStream,
     P2pNetworkPubsubOutgoingData,
     P2pNetworkPubsubOutgoingMessage,
+    P2pNetworkPubsubOutgoingMessageClear,
     P2pNetworkPubsubOutgoingMessageError,
     P2pNetworkPubsubPrune,
     P2pNetworkPubsubSign,
@@ -686,7 +687,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 577;
+    pub const COUNT: u16 = 578;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1898,6 +1899,7 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::SignError { .. } => ActionKind::P2pNetworkPubsubSignError,
             Self::BroadcastSigned { .. } => ActionKind::P2pNetworkPubsubBroadcastSigned,
             Self::OutgoingMessage { .. } => ActionKind::P2pNetworkPubsubOutgoingMessage,
+            Self::OutgoingMessageClear { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageClear,
             Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
         }

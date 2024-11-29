@@ -272,14 +272,7 @@ impl P2pNetworkPubsubState {
             }
             P2pNetworkPubsubAction::OutgoingMessage { peer_id } => {
                 let msg = if let Some(v) = pubsub_state.clients.get_mut(&peer_id) {
-                    std::mem::replace(
-                        &mut v.message,
-                        pb::Rpc {
-                            subscriptions: vec![],
-                            publish: vec![],
-                            control: None,
-                        },
-                    )
+                    &v.message
                 } else {
                     bug_condition!(
                         "Invalid state for action: `P2pNetworkPubsubAction::OutgoingMessage`"
@@ -287,16 +280,43 @@ impl P2pNetworkPubsubState {
                     return Ok(());
                 };
 
-                let dispatcher = state_context.into_dispatcher();
                 let mut data = vec![];
-                if prost::Message::encode_length_delimited(&msg, &mut data).is_err() {
-                    dispatcher.push(P2pNetworkPubsubAction::OutgoingMessageError { msg, peer_id });
-                } else {
-                    dispatcher.push(P2pNetworkPubsubAction::OutgoingData {
-                        data: Data::from(data),
-                        peer_id,
-                    });
+                let result = prost::Message::encode_length_delimited(msg, &mut data)
+                    .map(|_| data)
+                    .map_err(|_| msg.clone());
+
+                let dispatcher = state_context.into_dispatcher();
+
+                match result {
+                    Err(msg) => {
+                        dispatcher
+                            .push(P2pNetworkPubsubAction::OutgoingMessageError { msg, peer_id });
+                    }
+                    Ok(data) => {
+                        dispatcher.push(P2pNetworkPubsubAction::OutgoingData {
+                            data: Data::from(data),
+                            peer_id,
+                        });
+                    }
                 }
+
+                // Important to avoid leaking state
+                dispatcher.push(P2pNetworkPubsubAction::OutgoingMessageClear { peer_id });
+
+                Ok(())
+            }
+            P2pNetworkPubsubAction::OutgoingMessageClear { peer_id } => {
+                if let Some(v) = pubsub_state.clients.get_mut(&peer_id) {
+                    v.message = pb::Rpc {
+                        subscriptions: vec![],
+                        publish: vec![],
+                        control: None,
+                    };
+                } else {
+                    bug_condition!(
+                        "Invalid state for action: `P2pNetworkPubsubAction::OutgoingMessageClear`"
+                    );
+                };
                 Ok(())
             }
             P2pNetworkPubsubAction::OutgoingMessageError { .. } => Ok(()),
