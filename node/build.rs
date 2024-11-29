@@ -255,7 +255,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             if !k.is_empty() {
                 s.push_str(&format!("{}::", k.join("::")));
             }
-            s += &format!("{{{}}};", v.join(", "));
+            s.push_str(&format!("{{{}}};", v.join(", ")));
             s
         })
         .collect::<Vec<_>>()

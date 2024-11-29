@@ -224,7 +224,7 @@ pub struct BlockRef<'a> {
     pub status: &'a ConsensusBlockStatus,
 }
 
-impl<'a> BlockRef<'a> {
+impl BlockRef<'_> {
     pub fn height(&self) -> u32 {
         self.header
             .protocol_state

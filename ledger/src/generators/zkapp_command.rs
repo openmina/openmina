@@ -47,8 +47,8 @@ use crate::{
 
 use super::{Failure, NotPermitedOf, Role};
 
-/// Value when we run `dune runtest src/lib/staged_ledger -f`
-//const ACCOUNT_CREATION_FEE: Fee = Fee::from_u64(1000000000);
+// /// Value when we run `dune runtest src/lib/staged_ledger -f`
+// const ACCOUNT_CREATION_FEE: Fee = Fee::from_u64(1000000000);
 
 /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_generators/zkapp_command_generators.ml#L443
 fn gen_invalid_protocol_state_precondition(psv: &ProtocolStateView) -> ZkAppPreconditions {

@@ -268,7 +268,7 @@ impl<'de> Deserialize<'de> for BigInt {
                 .map_err(|_| serde::de::Error::custom("failed to convert vec to array".to_string()))
         } else {
             struct V;
-            impl<'de> serde::de::Visitor<'de> for V {
+            impl serde::de::Visitor<'_> for V {
                 type Value = [u8; 32];
 
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {

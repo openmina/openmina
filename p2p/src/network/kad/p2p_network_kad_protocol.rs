@@ -119,7 +119,7 @@ pub(super) fn peer_id_try_from_bytes(
     Ok((libp2p_identity::PeerId::from_bytes(bytes.as_ref())?).try_into()?)
 }
 
-impl<'a> TryFrom<&PeerId> for Cow<'a, [u8]> {
+impl TryFrom<&PeerId> for Cow<'_, [u8]> {
     type Error = DecodingError;
 
     fn try_from(value: &PeerId) -> Result<Self, Self::Error> {

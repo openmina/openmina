@@ -507,7 +507,7 @@ mod wrapper {
     use serde::{Deserialize, Serialize};
     use zeroize::Zeroize;
 
-    impl<'a, 'b> Mul<&'b Pk> for &'a Sk {
+    impl<'b> Mul<&'b Pk> for &Sk {
         type Output = [u8; 32];
 
         fn mul(self, rhs: &'b Pk) -> Self::Output {

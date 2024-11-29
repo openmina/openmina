@@ -636,7 +636,7 @@ mod vrf {
         delegator_bits: [bool; 35],
     }
 
-    impl<'a> ToInputs for Message<'a> {
+    impl ToInputs for Message<'_> {
         fn to_inputs(&self, inputs: &mut Inputs) {
             let Self {
                 global_slot,

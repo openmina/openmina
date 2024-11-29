@@ -343,7 +343,7 @@ mod helpers {
 
         struct V<const N: usize>;
 
-        impl<'de, const N: usize> de::Visitor<'de> for V<N> {
+        impl<const N: usize> de::Visitor<'_> for V<N> {
             type Value = [u8; N];
 
             fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {

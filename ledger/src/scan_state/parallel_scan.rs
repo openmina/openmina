@@ -422,7 +422,7 @@ where
             Merge(&'a merge::Merge<M>),
         }
 
-        impl<'a, B, M> Debug for BaseOrMerge<'a, B, M>
+        impl<B, M> Debug for BaseOrMerge<'_, B, M>
         where
             B: Debug,
             M: Debug,
@@ -818,7 +818,7 @@ pub struct JobValueWithIndex<'a> {
     pub job: JobValue<'a>,
 }
 
-impl<'a> JobValueWithIndex<'a> {
+impl JobValueWithIndex<'_> {
     pub fn index(&self) -> usize {
         self.index
     }
