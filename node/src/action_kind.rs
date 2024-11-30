@@ -404,6 +404,7 @@ pub enum ActionKind {
     P2pNetworkPubsubGraft,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubIncomingMessage,
+    P2pNetworkPubsubIncomingMessageCleanup,
     P2pNetworkPubsubNewStream,
     P2pNetworkPubsubOutgoingData,
     P2pNetworkPubsubOutgoingMessage,
@@ -687,7 +688,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 578;
+    pub const COUNT: u16 = 579;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1892,6 +1893,9 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::NewStream { .. } => ActionKind::P2pNetworkPubsubNewStream,
             Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubIncomingData,
             Self::IncomingMessage { .. } => ActionKind::P2pNetworkPubsubIncomingMessage,
+            Self::IncomingMessageCleanup { .. } => {
+                ActionKind::P2pNetworkPubsubIncomingMessageCleanup
+            }
             Self::Graft { .. } => ActionKind::P2pNetworkPubsubGraft,
             Self::Prune { .. } => ActionKind::P2pNetworkPubsubPrune,
             Self::Broadcast { .. } => ActionKind::P2pNetworkPubsubBroadcast,

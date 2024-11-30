@@ -25,6 +25,9 @@ pub enum P2pNetworkPubsubAction {
         message: pb::Message,
         seen_limit: usize,
     },
+    IncomingMessageCleanup {
+        peer_id: PeerId,
+    },
     Graft {
         peer_id: PeerId,
         topic_id: String,
