@@ -372,6 +372,13 @@ impl BlockProducerCurrentState {
         }
     }
 
+    pub fn injected_block(&self) -> Option<&ArcBlockWithHash> {
+        match self {
+            Self::Injected { block, .. } => Some(block),
+            _ => None,
+        }
+    }
+
     pub fn produced_block_with_chain(&self) -> Option<(&ArcBlockWithHash, &[AppliedBlock])> {
         match self {
             Self::Produced { chain, block, .. } => Some((block, chain)),
