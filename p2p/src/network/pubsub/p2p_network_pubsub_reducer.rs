@@ -163,6 +163,9 @@ impl P2pNetworkPubsubState {
                 pubsub_state.reduce_incoming_message(peer_id, message, seen_limit)?;
 
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
+
+                dispatcher.push(P2pNetworkPubsubAction::IncomingMessageCleanup { peer_id });
+
                 let state: &Self = global_state.substate()?;
                 let config: &P2pConfig = global_state.substate()?;
 
@@ -204,6 +207,26 @@ impl P2pNetworkPubsubState {
                         nonce,
                     });
                 }
+                Ok(())
+            }
+            P2pNetworkPubsubAction::IncomingMessageCleanup { peer_id } => {
+                pubsub_state.incoming_transactions.clear();
+                pubsub_state.incoming_snarks.clear();
+
+                pubsub_state.incoming_transactions.shrink_to(0x20);
+                pubsub_state.incoming_snarks.shrink_to(0x20);
+
+                pubsub_state.incoming_block = None;
+
+                let Some(client_state) = pubsub_state.clients.get_mut(&peer_id) else {
+                    bug_condition!(
+                        "State not found for action P2pNetworkPubsubAction::IncomingMessageCleanup"
+                    );
+                    return Ok(());
+                };
+                client_state.incoming_messages.clear();
+                client_state.incoming_messages.shrink_to(0x20);
+
                 Ok(())
             }
             // we want to add peer to our mesh
@@ -441,19 +464,6 @@ impl P2pNetworkPubsubState {
         message: Message,
         seen_limit: usize,
     ) -> Result<(), String> {
-        self.incoming_transactions.clear();
-        self.incoming_snarks.clear();
-
-        self.incoming_transactions.shrink_to(0x20);
-        self.incoming_snarks.shrink_to(0x20);
-
-        let Some(state) = self.clients.get_mut(&peer_id) else {
-            bug_condition!("State not found for action P2pNetworkPubsubAction::IncomingMessage");
-            return Ok(());
-        };
-        state.incoming_messages.clear();
-        state.incoming_messages.shrink_to(0x20);
-
         let topic = self.topics.entry(message.topic.clone()).or_default();
 
         if let Some(signature) = &message.signature {
