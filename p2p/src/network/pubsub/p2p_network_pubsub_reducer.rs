@@ -160,51 +160,55 @@ impl P2pNetworkPubsubState {
                 message,
                 seen_limit,
             } => {
-                pubsub_state.reduce_incoming_message(peer_id, message, seen_limit)?;
+                // Check result later to ensure we always dispatch the cleanup action
+                let reduce_incoming_result =
+                    pubsub_state.reduce_incoming_message(peer_id, message, seen_limit);
 
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
 
                 dispatcher.push(P2pNetworkPubsubAction::IncomingMessageCleanup { peer_id });
 
+                reduce_incoming_result?;
+
                 let state: &Self = global_state.substate()?;
                 let config: &P2pConfig = global_state.substate()?;
 
-                let incoming_block = state.incoming_block.as_ref().cloned();
-                let incoming_transactions = state.incoming_transactions.clone();
-                let incoming_snarks = state.incoming_snarks.clone();
-                let topics = state.topics.clone();
-
-                for (topic_id, map) in topics {
+                for (topic_id, map) in &state.topics {
                     let mesh_size = map.values().filter(|s| s.on_mesh()).count();
                     let could_accept = mesh_size < config.meshsub.outbound_degree_high;
 
                     if !could_accept {
                         if let Some(topic_state) = map.get(&peer_id) {
                             if topic_state.on_mesh() {
+                                let topic_id = topic_id.clone();
                                 dispatcher.push(P2pNetworkPubsubAction::Prune { peer_id, topic_id })
                             }
                         }
                     }
                 }
 
-                broadcast(dispatcher, global_state)?;
+                if let Err(error) = broadcast(dispatcher, global_state) {
+                    bug_condition!(
+                        "Failure when trying to broadcast incoming pubsub message: {error}"
+                    );
+                };
 
-                if let Some((_, block)) = incoming_block {
-                    let best_tip = BlockWithHash::try_new(block)?;
+                if let Some((_, block)) = state.incoming_block.as_ref() {
+                    let best_tip = BlockWithHash::try_new(block.clone())?;
                     dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
                 }
-                for (transaction, nonce) in incoming_transactions {
+                for (transaction, nonce) in &state.incoming_transactions {
                     dispatcher.push(P2pChannelsTransactionAction::Libp2pReceived {
                         peer_id,
-                        transaction: Box::new(transaction),
-                        nonce,
+                        transaction: Box::new(transaction.clone()),
+                        nonce: *nonce,
                     });
                 }
-                for (snark, nonce) in incoming_snarks {
+                for (snark, nonce) in &state.incoming_snarks {
                     dispatcher.push(P2pChannelsSnarkAction::Libp2pReceived {
                         peer_id,
-                        snark: Box::new(snark),
-                        nonce,
+                        snark: Box::new(snark.clone()),
+                        nonce: *nonce,
                     });
                 }
                 Ok(())
