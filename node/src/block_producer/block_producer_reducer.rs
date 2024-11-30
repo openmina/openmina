@@ -9,6 +9,7 @@ use openmina_core::{
         global_sub_window, in_same_checkpoint_window, in_seed_update_range, relative_sub_window,
     },
 };
+use p2p::P2pNetworkPubsubAction;
 use redux::{callback, Dispatcher, Timestamp};
 
 use crate::{
@@ -357,7 +358,11 @@ impl BlockProducerEnabled {
                     bug_condition!("Invalid state for `BlockProducerAction::BlockInjected` expected: `BlockProducerCurrentState::Produced`, found: {:?}", state.current);
                 }
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
+
+                #[cfg(feature = "p2p-libp2p")]
+                broadcast_injected_block(global_state, dispatcher);
+
                 dispatcher.push(BlockProducerAction::WonSlotSearch);
             }
         }
@@ -746,6 +751,24 @@ impl BlockProducerEnabled {
             dispatcher.push(BlockProducerAction::WonSlotSearch);
         }
     }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+fn broadcast_injected_block(global_state: &State, dispatcher: &mut Dispatcher<Action, State>) {
+    use mina_p2p_messages::gossip::GossipNetMessageV2;
+
+    let Some(block) = global_state
+        .block_producer
+        .as_ref()
+        .and_then(|bp| bp.current.injected_block())
+        .map(|pb| pb.block.clone())
+    else {
+        // Should be impossible, we call this immediately after having injected the block.
+        return;
+    };
+
+    let message = Box::new(GossipNetMessageV2::NewState(block));
+    dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
 }
 
 fn can_apply_supercharged_coinbase(

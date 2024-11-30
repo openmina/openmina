@@ -51,7 +51,9 @@ pub enum P2pNetworkPubsubAction {
         signature: Data,
     },
     OutgoingMessage {
-        msg: pb::Rpc,
+        peer_id: PeerId,
+    },
+    OutgoingMessageClear {
         peer_id: PeerId,
     },
     #[action_event(level = warn, fields(display(peer_id), debug(msg)))]
@@ -72,7 +74,16 @@ impl From<P2pNetworkPubsubAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkPubsubAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
+        match self {
+            P2pNetworkPubsubAction::OutgoingMessage { peer_id } => state
+                .network
+                .scheduler
+                .broadcast_state
+                .clients
+                .get(peer_id)
+                .map_or(false, |s| !s.message_is_empty()),
+            _ => true,
+        }
     }
 }

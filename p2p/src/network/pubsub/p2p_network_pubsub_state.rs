@@ -2,7 +2,8 @@ use super::pb;
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    sync::Arc,
     time::Duration,
 };
 
@@ -20,7 +21,7 @@ pub struct P2pNetworkPubsubState {
     pub to_sign: VecDeque<pb::Message>,
     pub seen: VecDeque<Vec<u8>>,
     pub mcache: P2pNetworkPubsubMessageCache,
-    pub incoming_block: Option<(PeerId, v2::MinaBlockBlockStableV2)>,
+    pub incoming_block: Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
     pub incoming_transactions: Vec<(Transaction, u32)>,
     pub incoming_snarks: Vec<(Snark, u32)>,
     pub topics: BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientTopicState>>,
@@ -91,8 +92,33 @@ pub struct P2pNetworkPubsubClientState {
     pub addr: ConnectionAddr,
     pub outgoing_stream_id: Option<StreamId>,
     pub message: pb::Rpc,
+    pub cache: P2pNetworkPubsubRecentlyPublishCache,
     pub buffer: Vec<u8>,
     pub incoming_messages: Vec<pb::Message>,
+}
+
+impl P2pNetworkPubsubClientState {
+    pub fn publish(&mut self, message: &pb::Message) {
+        let Some(id) = compute_message_id(message) else {
+            self.message.publish.push(message.clone());
+            return;
+        };
+        if self.cache.map.insert(id.clone()) {
+            self.message.publish.push(message.clone());
+        }
+        self.cache.queue.push_back(id);
+        if self.cache.queue.len() > 50 {
+            if let Some(id) = self.cache.queue.pop_front() {
+                self.cache.map.remove(&id);
+            }
+        }
+    }
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkPubsubRecentlyPublishCache {
+    pub map: BTreeSet<Vec<u8>>,
+    pub queue: VecDeque<Vec<u8>>,
 }
 
 // TODO: store blocks, snarks and txs separately
@@ -110,7 +136,7 @@ impl P2pNetworkPubsubMessageCache {
         self.map.insert(id.clone(), message);
         self.queue.push_back(id.clone());
         if self.queue.len() > Self::CAPACITY {
-            if let Some(id) = self.queue.pop_back() {
+            if let Some(id) = self.queue.pop_front() {
                 self.map.remove(&id);
             }
         }
@@ -153,6 +179,14 @@ pub enum P2pNetworkPubsubClientMeshAddingState {
     TheyRefused,
     WeRefused,
     Added,
+}
+
+impl P2pNetworkPubsubClientState {
+    pub fn message_is_empty(&self) -> bool {
+        self.message.subscriptions.is_empty()
+            && self.message.publish.is_empty()
+            && self.message.control.is_none()
+    }
 }
 
 impl P2pNetworkPubsubClientTopicState {
