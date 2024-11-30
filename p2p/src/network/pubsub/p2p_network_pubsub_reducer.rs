@@ -185,6 +185,7 @@ impl P2pNetworkPubsubState {
                 }
 
                 broadcast(dispatcher, global_state)?;
+
                 if let Some((_, block)) = incoming_block {
                     let best_tip = BlockWithHash::try_new(block)?;
                     dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
@@ -453,8 +454,6 @@ impl P2pNetworkPubsubState {
         state.incoming_messages.clear();
         state.incoming_messages.shrink_to(0x20);
 
-        let message_id = self.mcache.put(message.clone());
-
         let topic = self.topics.entry(message.topic.clone()).or_default();
 
         if let Some(signature) = &message.signature {
@@ -469,27 +468,6 @@ impl P2pNetworkPubsubState {
                 return Ok(());
             }
         }
-
-        self.clients
-            .iter_mut()
-            .filter(|(c, _)| {
-                // don't send back to who sent this
-                *c != &peer_id
-            })
-            .for_each(|(c, state)| {
-                let Some(topic_state) = topic.get(c) else {
-                    return;
-                };
-                if topic_state.on_mesh() {
-                    state.publish(&message)
-                } else {
-                    let ctr = state.message.control.get_or_insert_with(Default::default);
-                    ctr.ihave.push(pb::ControlIHave {
-                        topic_id: Some(message.topic.clone()),
-                        message_ids: message_id.clone().into_iter().collect(),
-                    })
-                }
-            });
 
         if let Some(data) = &message.data {
             if data.len() > 8 {
@@ -516,6 +494,31 @@ impl P2pNetworkPubsubState {
                 }
             }
         }
+
+        let message_id = self.mcache.put(message.clone());
+
+        // TODO: this should only happen after the contents have been validated.
+        // The only validation that has happened so far is that the message can be parsed.
+        self.clients
+            .iter_mut()
+            .filter(|(c, _)| {
+                // don't send back to who sent this
+                *c != &peer_id
+            })
+            .for_each(|(c, state)| {
+                let Some(topic_state) = topic.get(c) else {
+                    return;
+                };
+                if topic_state.on_mesh() {
+                    state.publish(&message)
+                } else {
+                    let ctr = state.message.control.get_or_insert_with(Default::default);
+                    ctr.ihave.push(pb::ControlIHave {
+                        topic_id: Some(message.topic.clone()),
+                        message_ids: message_id.clone().into_iter().collect(),
+                    })
+                }
+            });
 
         Ok(())
     }
