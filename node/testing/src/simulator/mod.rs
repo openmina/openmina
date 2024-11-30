@@ -246,6 +246,10 @@ impl Simulator {
         self.set_up_block_producer_nodes(runner).await;
     }
 
+    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+        self.run_with_listener(runner, || |_, _, _, _| false).await;
+    }
+
     pub async fn run_with_listener<'a, AL, ALF>(
         &mut self,
         runner: &mut ClusterRunner<'a>,
