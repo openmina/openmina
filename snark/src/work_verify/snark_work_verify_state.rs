@@ -49,11 +49,15 @@ pub enum SnarkWorkVerifyStatus {
         // TODO(binier): move p2p/src/identity to shared crate and use
         // `PeerId` here.
         sender: String,
+        on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String)>,
     },
     Pending {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
+        on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String)>,
     },
     Error {
         time: redux::Timestamp,

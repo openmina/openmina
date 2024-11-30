@@ -46,12 +46,8 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkWorkVerifyAction {
                 .jobs
                 .get(*req_id)
                 .map_or(false, |v| v.is_init()),
-            SnarkWorkVerifyAction::Error { req_id, .. } => state
-                .work_verify
-                .jobs
-                .get(*req_id)
-                .map_or(false, |v| v.is_pending()),
-            SnarkWorkVerifyAction::Success { req_id } => state
+            SnarkWorkVerifyAction::Error { req_id, .. }
+            | SnarkWorkVerifyAction::Success { req_id } => state
                 .work_verify
                 .jobs
                 .get(*req_id)

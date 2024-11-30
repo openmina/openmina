@@ -8,7 +8,7 @@ use redux::{Dispatcher, Timestamp};
 use crate::{
     channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
     peer::P2pPeerAction,
-    Data, P2pConfig, P2pNetworkYamuxAction, PeerId,
+    Data, P2pConfig, P2pNetworkYamuxAction, P2pState, PeerId,
 };
 
 use super::{
@@ -123,14 +123,27 @@ impl P2pNetworkPubsubState {
                 peer_id,
                 data,
                 seen_limit,
+                addr,
                 ..
             } => {
                 pubsub_state.reduce_incoming_data(&peer_id, data, meta.time())?;
 
-                let dispatcher: &mut Dispatcher<Action, State> = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+                let state = &p2p_state.network.scheduler.broadcast_state;
+                let Some(state) = state.clients.get(&peer_id) else {
+                    // TODO: investigate, cannot reproduce this
+                    // bug_condition!("{:?} not found in state.clients", peer_id);
+                    return Ok(());
+                };
+
+                // TODO: try to reuse data instead of cloning all message
+                let messages = state.incoming_messages.clone();
                 dispatcher.push(P2pNetworkPubsubEffectfulAction::IncomingData {
                     peer_id,
                     seen_limit,
+                    addr,
+                    messages,
                 });
 
                 Ok(())
@@ -319,8 +332,18 @@ impl P2pNetworkPubsubState {
                     key: None,
                 });
 
+                let to_sign = pubsub_state.to_sign.front().cloned();
+                let Some(message) = to_sign else {
+                    bug_condition!("Message not found");
+                    return Ok(());
+                };
+
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkPubsubEffectfulAction::Sign { author, topic });
+                dispatcher.push(P2pNetworkPubsubEffectfulAction::Sign {
+                    author,
+                    topic,
+                    message,
+                });
                 Ok(())
             }
             P2pNetworkPubsubAction::SignError { .. } => {

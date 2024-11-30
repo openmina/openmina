@@ -36,11 +36,17 @@ impl P2pConnectionOutgoingState {
 
         match action {
             P2pConnectionOutgoingAction::RandomInit => {
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pConnectionOutgoingEffectfulAction::RandomInit);
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+                let peers = p2p_state.disconnected_peers().collect::<Vec<_>>();
+                dispatcher.push(P2pConnectionOutgoingEffectfulAction::RandomInit { peers });
                 Ok(())
             }
-            P2pConnectionOutgoingAction::Init { opts, rpc_id } => {
+            P2pConnectionOutgoingAction::Init {
+                opts,
+                rpc_id,
+                on_success,
+            } => {
                 let peer_state =
                     p2p_state
                         .peers
@@ -59,6 +65,7 @@ impl P2pConnectionOutgoingState {
                         time,
                         opts: opts.clone(),
                         rpc_id,
+                        on_success,
                     }));
 
                 let dispatcher = state_context.into_dispatcher();
@@ -98,6 +105,7 @@ impl P2pConnectionOutgoingState {
                         time,
                         opts: opts.clone(),
                         rpc_id,
+                        on_success: None,
                     }));
 
                 let dispatcher = state_context.into_dispatcher();
@@ -131,11 +139,18 @@ impl P2pConnectionOutgoingState {
                     .outgoing_peer_connection_mut(&peer_id)
                     .ok_or("Missing connection state for: `P2pConnectionOutgoingAction::OfferSdpCreatePending`")?;
 
-                if let Self::Init { opts, rpc_id, .. } = state {
+                if let Self::Init {
+                    opts,
+                    rpc_id,
+                    on_success,
+                    ..
+                } = state
+                {
                     *state = Self::OfferSdpCreatePending {
                         time,
                         opts: opts.clone(),
                         rpc_id: rpc_id.take(),
+                        on_success: on_success.take(),
                     };
                 } else {
                     bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreatePending`: {:?}", state);
@@ -157,12 +172,19 @@ impl P2pConnectionOutgoingState {
                     .outgoing_peer_connection_mut(&peer_id)
                     .ok_or("Missing peer connection for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`")?;
 
-                if let Self::OfferSdpCreatePending { opts, rpc_id, .. } = state {
+                if let Self::OfferSdpCreatePending {
+                    opts,
+                    rpc_id,
+                    on_success,
+                    ..
+                } = state
+                {
                     *state = Self::OfferSdpCreateSuccess {
                         time,
                         opts: opts.clone(),
                         sdp: sdp.clone(),
                         rpc_id: rpc_id.take(),
+                        on_success: on_success.take(),
                     };
                 } else {
                     bug_condition!("Invalid state for `P2pConnectionOutgoingAction::OfferSdpCreateSuccess`: {:?}", state);
@@ -187,7 +209,13 @@ impl P2pConnectionOutgoingState {
                     .outgoing_peer_connection_mut(&peer_id)
                     .ok_or("Invalid state for `P2pConnectionOutgoingAction::OfferReady`")?;
 
-                let Self::OfferSdpCreateSuccess { opts, rpc_id, .. } = state else {
+                let Self::OfferSdpCreateSuccess {
+                    opts,
+                    rpc_id,
+                    on_success,
+                    ..
+                } = state
+                else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::OfferReady`: {:?}",
                         state
@@ -200,6 +228,7 @@ impl P2pConnectionOutgoingState {
                     opts: opts.clone(),
                     offer: offer.clone(),
                     rpc_id: rpc_id.take(),
+                    on_success: on_success.take(),
                 };
 
                 let dispatcher = state_context.into_dispatcher();
@@ -210,8 +239,17 @@ impl P2pConnectionOutgoingState {
                         offer,
                     });
                 } else {
-                    dispatcher
-                        .push(P2pConnectionOutgoingEffectfulAction::OfferSend { peer_id, offer });
+                    let signaling_method = match opts {
+                        P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => signaling,
+                        #[allow(unreachable_patterns)]
+                        _ => return Ok(()),
+                    };
+
+                    dispatcher.push(P2pConnectionOutgoingEffectfulAction::OfferSend {
+                        peer_id,
+                        offer,
+                        signaling_method,
+                    });
                 }
                 Ok(())
             }
@@ -223,6 +261,7 @@ impl P2pConnectionOutgoingState {
                     opts,
                     offer,
                     rpc_id,
+                    on_success,
                     ..
                 } = state
                 {
@@ -231,6 +270,7 @@ impl P2pConnectionOutgoingState {
                         opts: opts.clone(),
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
+                        on_success: on_success.take(),
                     };
                 } else {
                     bug_condition!(
@@ -252,6 +292,7 @@ impl P2pConnectionOutgoingState {
                     opts,
                     offer,
                     rpc_id,
+                    on_success,
                     ..
                 } = state
                 {
@@ -260,6 +301,7 @@ impl P2pConnectionOutgoingState {
                         opts: opts.clone(),
                         offer: offer.clone(),
                         rpc_id: rpc_id.take(),
+                        on_success: on_success.take(),
                     };
                 } else {
                     bug_condition!(
@@ -297,6 +339,7 @@ impl P2pConnectionOutgoingState {
                     opts,
                     offer,
                     rpc_id,
+                    on_success,
                     ..
                 } = state
                 {
@@ -306,6 +349,7 @@ impl P2pConnectionOutgoingState {
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
+                        on_success: on_success.take(),
                     };
                 } else {
                     bug_condition!(
@@ -325,13 +369,19 @@ impl P2pConnectionOutgoingState {
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
 
                 let (auth, other_pub_key) = match state {
-                    Self::Init { opts, rpc_id, .. } => {
+                    Self::Init {
+                        opts,
+                        rpc_id,
+                        on_success,
+                        ..
+                    } => {
                         *state = Self::FinalizePending {
                             time,
                             opts: opts.clone(),
                             offer: None,
                             answer: None,
                             rpc_id: rpc_id.take(),
+                            on_success: on_success.take(),
                         };
                         return Ok(());
                     }
@@ -340,6 +390,7 @@ impl P2pConnectionOutgoingState {
                         offer,
                         answer,
                         rpc_id,
+                        on_success,
                         ..
                     } => {
                         let auth = offer.conn_auth(answer);
@@ -351,6 +402,7 @@ impl P2pConnectionOutgoingState {
                             offer: Some(offer.clone()),
                             answer: Some(answer.clone()),
                             rpc_id: rpc_id.take(),
+                            on_success: on_success.take(),
                         };
 
                         (auth, other_pub_key)
@@ -394,6 +446,7 @@ impl P2pConnectionOutgoingState {
                     offer,
                     answer,
                     rpc_id,
+                    on_success,
                     ..
                 } = state
                 {
@@ -411,6 +464,7 @@ impl P2pConnectionOutgoingState {
                         offer: offer.clone(),
                         answer: answer.clone(),
                         rpc_id: rpc_id.take(),
+                        on_success: on_success.take(),
                     };
                     values
                 } else {
@@ -488,39 +542,48 @@ impl P2pConnectionOutgoingState {
                     .outgoing_peer_connection_mut(&peer_id)
                     .ok_or_else(|| format!("Invalid state: {:?}", action))?;
 
-                if let Self::FinalizeSuccess {
+                let Self::FinalizeSuccess {
                     offer,
                     answer,
                     rpc_id,
+                    on_success,
                     ..
                 } = state
-                {
-                    *state = Self::Success {
-                        time,
-                        offer: offer.clone(),
-                        answer: answer.clone(),
-                        rpc_id: rpc_id.take(),
-                    };
-                } else {
+                else {
                     bug_condition!(
                         "Invalid state for `P2pConnectionOutgoingAction::Success`: {:?}",
                         state
                     );
                     return Ok(());
-                }
+                };
+
+                let callback = on_success.take();
+
+                *state = Self::Success {
+                    time,
+                    offer: offer.clone(),
+                    answer: answer.clone(),
+                    rpc_id: rpc_id.take(),
+                };
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
+
                 dispatcher.push(P2pPeerAction::Ready {
                     peer_id,
                     incoming: false,
                 });
 
-                if let Some(rpc_id) = p2p_state.peer_connection_rpc_id(&peer_id) {
+                let rpc_id = p2p_state.peer_connection_rpc_id(&peer_id);
+                if let Some(rpc_id) = rpc_id {
                     if let Some(callback) = &p2p_state.callbacks.on_p2p_connection_outgoing_success
                     {
                         dispatcher.push_callback(callback.clone(), rpc_id);
                     }
+                }
+
+                if let Some(callback) = callback {
+                    dispatcher.push_callback(callback, (peer_id, rpc_id));
                 }
                 Ok(())
             }

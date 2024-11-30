@@ -1,10 +1,20 @@
 use std::net::SocketAddr;
 
 use openmina_core::ActionEvent;
-use redux::EnablingCondition;
+use redux::{Callback, EnablingCondition};
 use serde::{Deserialize, Serialize};
 
-use crate::{ConnectionAddr, P2pAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId};
+use crate::{
+    ConnectionAddr, P2pAction, P2pNetworkKadEntry, P2pNetworkKademliaRpcRequest, P2pState, PeerId,
+    StreamId,
+};
+
+type StreamReadyCallback = Callback<(
+    ConnectionAddr,
+    PeerId,
+    StreamId,
+    P2pNetworkKademliaRpcRequest,
+)>;
 
 #[derive(Clone, Debug, Serialize, Deserialize, ActionEvent)]
 #[action_event(fields(display(peer_id), display(addr), display(key), stream_id, error))]
@@ -29,6 +39,7 @@ pub enum P2pNetworkKadRequestAction {
         peer_id: PeerId,
         stream_id: StreamId,
         addr: ConnectionAddr,
+        callback: StreamReadyCallback,
     },
     RequestSent {
         peer_id: PeerId,

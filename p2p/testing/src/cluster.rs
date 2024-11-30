@@ -485,6 +485,7 @@ impl Cluster {
                     .dispatch_action(P2pConnectionOutgoingAction::Init {
                         opts: dial_opts,
                         rpc_id: None,
+                        on_success: None,
                     });
             }
             NodeId::Libp2p(id) => {
