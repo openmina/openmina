@@ -30,7 +30,7 @@ impl P2pNetworkPubsubEffectfulAction {
                     store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
                 }
             }
-            P2pNetworkPubsubEffectfulAction::IncomingData {
+            P2pNetworkPubsubEffectfulAction::ValidateIncomingMessages {
                 peer_id,
                 seen_limit,
                 addr,
@@ -73,6 +73,9 @@ impl P2pNetworkPubsubEffectfulAction {
                             error: P2pNetworkConnectionError::PubSubError(error.to_string()),
                         });
 
+                        // TODO: should this error short-circuit the whole batch?
+                        // if yes, shouldn't every message be verified first before
+                        // dispatching `P2pNetworkPubsubAction::IncomingMessage`?
                         return;
                     }
                 }

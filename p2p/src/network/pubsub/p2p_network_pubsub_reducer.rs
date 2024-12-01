@@ -8,7 +8,7 @@ use redux::{Dispatcher, Timestamp};
 use crate::{
     channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
     peer::P2pPeerAction,
-    Data, P2pConfig, P2pNetworkYamuxAction, P2pState, PeerId,
+    Data, P2pConfig, P2pNetworkYamuxAction, PeerId,
 };
 
 use super::{
@@ -135,18 +135,31 @@ impl P2pNetworkPubsubState {
             } => {
                 pubsub_state.reduce_incoming_data(&peer_id, data, meta.time())?;
 
-                let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let p2p_state: &P2pState = state.substate()?;
-                let state = &p2p_state.network.scheduler.broadcast_state;
-                let Some(state) = state.clients.get(&peer_id) else {
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(P2pNetworkPubsubAction::ValidateIncomingMessages {
+                    peer_id,
+                    seen_limit,
+                    addr,
+                });
+
+                Ok(())
+            }
+            P2pNetworkPubsubAction::ValidateIncomingMessages {
+                peer_id,
+                seen_limit,
+                addr,
+            } => {
+                let Some(state) = pubsub_state.clients.get_mut(&peer_id) else {
                     // TODO: investigate, cannot reproduce this
                     // bug_condition!("{:?} not found in state.clients", peer_id);
                     return Ok(());
                 };
+                let messages = std::mem::take(&mut state.incoming_messages);
 
-                // TODO: try to reuse data instead of cloning all message
-                let messages = state.incoming_messages.clone();
-                dispatcher.push(P2pNetworkPubsubEffectfulAction::IncomingData {
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(P2pNetworkPubsubEffectfulAction::ValidateIncomingMessages {
                     peer_id,
                     seen_limit,
                     addr,

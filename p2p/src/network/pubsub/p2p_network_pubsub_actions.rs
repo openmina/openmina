@@ -42,7 +42,14 @@ pub enum P2pNetworkPubsubAction {
         seen_limit: usize,
     },
 
-    /// Handle a fully decoded message received from a peer.
+    /// Validate a batch of decoded incoming messages.
+    ValidateIncomingMessages {
+        peer_id: PeerId,
+        seen_limit: usize,
+        addr: ConnectionAddr,
+    },
+
+    /// Handle a fully decoded and validated message received from a peer.
     ///
     /// **Fields:**
     /// - `message`: The decoded protobuf message.
