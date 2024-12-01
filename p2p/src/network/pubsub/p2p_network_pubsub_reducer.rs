@@ -566,9 +566,7 @@ impl P2pNetworkPubsubState {
 
         match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
             Ok(decoded) => {
-                client_state.buffer.clear();
-                client_state.buffer.shrink_to(0x2000);
-
+                client_state.clear_buffer();
                 client_state.incoming_messages.extend(decoded.publish);
 
                 let subscriptions = decoded.subscriptions;
@@ -585,10 +583,11 @@ impl P2pNetworkPubsubState {
                 if err.to_string().contains("buffer underflow") && client_state.buffer.is_empty() {
                     // Incomplete data, keep in buffer, should be completed later
                     client_state.buffer = data.to_vec();
+                } else {
+                    // Clear the buffer for other decoding errors, otherwise this will cause issues
+                    // with any data we receive later.
+                    client_state.clear_buffer();
                 }
-
-                // TODO: handle other errors
-                // TODO: if the error is not a buffer underflow, buffer needs to be cleared.
             }
         }
 

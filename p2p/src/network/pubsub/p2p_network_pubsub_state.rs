@@ -113,6 +113,11 @@ impl P2pNetworkPubsubClientState {
             }
         }
     }
+
+    pub fn clear_buffer(&mut self) {
+        self.buffer.clear();
+        self.buffer.shrink_to(0x2000);
+    }
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
