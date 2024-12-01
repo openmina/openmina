@@ -548,7 +548,7 @@ impl P2pNetworkPubsubState {
     }
 
     /// Processes incoming data from a peer, handling subscriptions, control messages,
-    /// and message dissemination within the P2P pubsub system.
+    /// and message broadcasting within the P2P pubsub system.
     fn reduce_incoming_data(
         &mut self,
         peer_id: &PeerId,
