@@ -116,6 +116,16 @@ impl P2pNetworkPubsubState {
             }
         }
     }
+
+    pub fn clear_incoming(&mut self) {
+        self.incoming_transactions.clear();
+        self.incoming_snarks.clear();
+
+        self.incoming_transactions.shrink_to(0x20);
+        self.incoming_snarks.shrink_to(0x20);
+
+        self.incoming_block = None;
+    }
 }
 
 /// State of a pubsub client connected to a peer.
@@ -180,6 +190,11 @@ impl P2pNetworkPubsubClientState {
     pub fn clear_buffer(&mut self) {
         self.buffer.clear();
         self.buffer.shrink_to(0x2000);
+    }
+
+    pub fn clear_incoming(&mut self) {
+        self.incoming_messages.clear();
+        self.incoming_messages.shrink_to(0x20)
     }
 }
 

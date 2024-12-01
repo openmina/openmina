@@ -214,13 +214,7 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::IncomingMessageCleanup { peer_id } => {
-                pubsub_state.incoming_transactions.clear();
-                pubsub_state.incoming_snarks.clear();
-
-                pubsub_state.incoming_transactions.shrink_to(0x20);
-                pubsub_state.incoming_snarks.shrink_to(0x20);
-
-                pubsub_state.incoming_block = None;
+                pubsub_state.clear_incoming();
 
                 let Some(client_state) = pubsub_state.clients.get_mut(&peer_id) else {
                     bug_condition!(
@@ -228,8 +222,8 @@ impl P2pNetworkPubsubState {
                     );
                     return Ok(());
                 };
-                client_state.incoming_messages.clear();
-                client_state.incoming_messages.shrink_to(0x20);
+
+                client_state.clear_incoming();
 
                 Ok(())
             }
