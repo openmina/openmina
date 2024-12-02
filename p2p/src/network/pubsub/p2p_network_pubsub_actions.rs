@@ -73,7 +73,7 @@ pub enum P2pNetworkPubsubAction {
     ///
     /// **Fields:**
     /// - `message`: The gossip network message to broadcast.
-    Broadcast { message: Box<GossipNetMessageV2> },
+    Broadcast { message: GossipNetMessageV2 },
 
     /// Prepare a message for signing before broadcasting.
     ///

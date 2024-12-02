@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, time::Duration};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2;
@@ -81,7 +81,7 @@ pub enum BlockProducerCurrentState {
         /// `protocol_state.blockchain_state.body_reference`
         diff_hash: v2::ConsensusBodyReferenceStableV1,
         staged_ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
-        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        emitted_ledger_proof: Option<Arc<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
         stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
@@ -91,7 +91,7 @@ pub enum BlockProducerCurrentState {
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<AppliedBlock>,
-        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        emitted_ledger_proof: Option<Arc<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
         stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
@@ -103,7 +103,7 @@ pub enum BlockProducerCurrentState {
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<AppliedBlock>,
-        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        emitted_ledger_proof: Option<Arc<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
         stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
@@ -117,7 +117,7 @@ pub enum BlockProducerCurrentState {
         chain: Vec<AppliedBlock>,
         block: BlockWithoutProof,
         block_hash: v2::StateHash,
-        proof: Box<v2::MinaBaseProofStableV2>,
+        proof: Arc<v2::MinaBaseProofStableV2>,
     },
     Produced {
         time: redux::Timestamp,

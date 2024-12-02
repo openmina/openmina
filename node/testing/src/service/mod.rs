@@ -501,7 +501,7 @@ impl BlockProducerVrfEvaluatorService for NodeTestingService {
 
 use std::cell::RefCell;
 thread_local! {
-    static GENESIS_PROOF: RefCell<Option<(StateHash, Box<MinaBaseProofStableV2>)>> = const { RefCell::new(None)};
+    static GENESIS_PROOF: RefCell<Option<(StateHash, Arc<MinaBaseProofStableV2>)>> = const { RefCell::new(None)};
 }
 
 impl BlockProducerService for NodeTestingService {

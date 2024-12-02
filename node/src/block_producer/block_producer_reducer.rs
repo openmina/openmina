@@ -299,7 +299,7 @@ impl BlockProducerEnabled {
                         time: meta.time(),
                         won_slot,
                         chain,
-                        block: block.with_hash_and_proof(block_hash, *proof),
+                        block: block.with_hash_and_proof(block_hash, proof),
                     };
                 } else {
                     bug_condition!("Invalid state for `BlockProducerAction::BlockProduced` expected: `BlockProducerCurrentState::BlockProveSuccess`, found: {:?}", current_state);
@@ -767,7 +767,7 @@ fn broadcast_injected_block(global_state: &State, dispatcher: &mut Dispatcher<Ac
         return;
     };
 
-    let message = Box::new(GossipNetMessageV2::NewState(block));
+    let message = GossipNetMessageV2::NewState(block);
     dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
 }
 

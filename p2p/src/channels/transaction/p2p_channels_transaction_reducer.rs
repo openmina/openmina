@@ -223,7 +223,7 @@ impl P2pChannelsTransactionState {
                     std::iter::once(*transaction).collect(),
                 );
                 let nonce = nonce.into();
-                let message = Box::new(GossipNetMessageV2::TransactionPoolDiff { message, nonce });
+                let message = GossipNetMessageV2::TransactionPoolDiff { message, nonce };
                 dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
                 Ok(())
             }

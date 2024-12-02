@@ -1855,7 +1855,7 @@ pub(super) fn generate_block_proof(
     } = params;
 
     let (txn_snark_statement, txn_snark_proof) =
-        ledger_proof_opt(ledger_proof.as_ref(), next_state)?;
+        ledger_proof_opt(ledger_proof.as_deref(), next_state)?;
     let prev_state_proof = &chain.proof;
 
     let (new_state_hash, previous_proof_statements) = block_main(

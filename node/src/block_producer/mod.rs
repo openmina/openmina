@@ -1,6 +1,8 @@
 pub mod vrf_evaluator;
 
 mod block_producer_config;
+use std::sync::Arc;
+
 pub use block_producer_config::*;
 
 mod block_producer_state;
@@ -188,7 +190,7 @@ impl BlockWithoutProof {
     pub fn with_hash_and_proof(
         self,
         hash: v2::StateHash,
-        proof: v2::MinaBaseProofStableV2,
+        proof: Arc<v2::MinaBaseProofStableV2>,
     ) -> ArcBlockWithHash {
         let block = v2::MinaBlockBlockStableV2 {
             header: v2::MinaBlockHeaderStableV2 {
