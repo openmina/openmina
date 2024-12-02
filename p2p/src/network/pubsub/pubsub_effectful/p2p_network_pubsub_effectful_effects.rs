@@ -1,5 +1,3 @@
-use openmina_core::bug_condition;
-
 use libp2p_identity::{DecodingError, PublicKey};
 
 use super::super::pb;
@@ -10,17 +8,17 @@ use crate::{
 
 use super::P2pNetworkPubsubEffectfulAction;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum PubSubError {
-    /// The message does not contain a signature.
+    #[error("Message does not contain a signature.")]
     MissingSignature,
-    /// The message does not contain a verifying key.
+    #[error("Message does not contain a verifying key.")]
     MissingVerifyingKey,
-    /// Failed to retrieve the originator's public key.
+    #[error("Failed to retrieve the originator's public key.")]
     OriginatorFailed,
-    /// Serialization of the message without signature and key failed.
+    #[error("Message serialization failed.")]
     SerializationError,
-    /// The message's signature is invalid.
+    #[error("Message's signature is invalid.")]
     InvalidSignature,
 }
 
@@ -56,29 +54,9 @@ impl P2pNetworkPubsubEffectfulAction {
                     match validate_message(message, store) {
                         Ok(valid_msg) => valid_messages.push(valid_msg),
                         Err(error) => {
-                            let error_msg = match error {
-                                PubSubError::MissingSignature => {
-                                    "message doesn't contain signature"
-                                }
-                                PubSubError::MissingVerifyingKey => {
-                                    "message doesn't contain verifying key"
-                                }
-                                PubSubError::OriginatorFailed => "originator function failed",
-                                PubSubError::InvalidSignature => "invalid signature",
-                                PubSubError::SerializationError => {
-                                    // Should never happen;
-                                    // We just decoded this message, so it should encode
-                                    // without errors.
-                                    bug_condition!("serialization error");
-                                    "serialization error"
-                                }
-                            };
-
                             store.dispatch(P2pNetworkSchedulerAction::Error {
                                 addr,
-                                error: P2pNetworkConnectionError::PubSubError(
-                                    error_msg.to_string(),
-                                ),
+                                error: P2pNetworkConnectionError::PubSubError(error.to_string()),
                             });
 
                             return; // Early exit, no need to process the rest
