@@ -413,8 +413,9 @@ pub enum ActionKind {
     P2pNetworkPubsubPrune,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
-    P2pNetworkPubsubEffectfulIncomingData,
+    P2pNetworkPubsubValidateIncomingMessages,
     P2pNetworkPubsubEffectfulSign,
+    P2pNetworkPubsubEffectfulValidateIncomingMessages,
     P2pNetworkRpcHeartbeatSend,
     P2pNetworkRpcIncomingData,
     P2pNetworkRpcIncomingMessage,
@@ -688,7 +689,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 579;
+    pub const COUNT: u16 = 580;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1892,6 +1893,9 @@ impl ActionKindGet for P2pNetworkPubsubAction {
         match self {
             Self::NewStream { .. } => ActionKind::P2pNetworkPubsubNewStream,
             Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubIncomingData,
+            Self::ValidateIncomingMessages { .. } => {
+                ActionKind::P2pNetworkPubsubValidateIncomingMessages
+            }
             Self::IncomingMessage { .. } => ActionKind::P2pNetworkPubsubIncomingMessage,
             Self::IncomingMessageCleanup { .. } => {
                 ActionKind::P2pNetworkPubsubIncomingMessageCleanup
@@ -1994,7 +1998,9 @@ impl ActionKindGet for P2pNetworkPubsubEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Sign { .. } => ActionKind::P2pNetworkPubsubEffectfulSign,
-            Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubEffectfulIncomingData,
+            Self::ValidateIncomingMessages { .. } => {
+                ActionKind::P2pNetworkPubsubEffectfulValidateIncomingMessages
+            }
         }
     }
 }

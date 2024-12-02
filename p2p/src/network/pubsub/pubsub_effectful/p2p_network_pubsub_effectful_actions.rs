@@ -2,14 +2,29 @@ use crate::{pubsub::pb::Message, ConnectionAddr, P2pState, PeerId};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
+/// Eeffectful actions within the P2P Network PubSub system.
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum P2pNetworkPubsubEffectfulAction {
+    /// Initiate the signing of a message before broadcasting.
+    ///
+    /// **Fields:**
+    /// - `author`: The identifier of the peer authoring the message.
+    /// - `topic`: The topic under which the message is published.
+    /// - `message`: The protobuf message to be signed.
     Sign {
         author: PeerId,
         topic: String,
         message: Message,
     },
-    IncomingData {
+
+    /// Validate a batch of incoming messages from a peer.
+    ///
+    /// **Fields:**
+    /// - `peer_id`: The identifier of the peer sending the messages.
+    /// - `seen_limit`: The limit for tracking seen messages to prevent duplication.
+    /// - `addr`: The connection address of the peer.
+    /// - `messages`: Decoded protobuf messages.
+    ValidateIncomingMessages {
         peer_id: PeerId,
         seen_limit: usize,
         addr: ConnectionAddr,

@@ -14,17 +14,49 @@ use serde::{Deserialize, Serialize};
 
 pub const IWANT_TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 
+/// State of the P2P Network PubSub system.
+///
+/// This struct maintains information about connected peers, message sequencing,
+/// message caching, and topic subscriptions. It handles incoming and outgoing
+/// messages, manages the mesh network topology, and ensures efficient message
+/// broadcasting across the network.
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubState {
+    /// State of each connected peer.
     pub clients: BTreeMap<PeerId, P2pNetworkPubsubClientState>,
+
+    /// Current message sequence number.
+    ///
+    /// Increments with each new message to ensure proper ordering and uniqueness.
     pub seq: u64,
+
+    /// Messages awaiting cryptographic signing.
     pub to_sign: VecDeque<pb::Message>,
+
+    /// Recently seen message identifiers to prevent duplication.
+    ///
+    /// Keeps a limited history of message signatures to avoid processing
+    /// the same message multiple times.
     pub seen: VecDeque<Vec<u8>>,
+
+    /// Cache of published messages for efficient retrieval and broadcasting.
+    ///
+    /// For quick access and reducing redundant data transmission across peers.
     pub mcache: P2pNetworkPubsubMessageCache,
+
+    /// Incoming block from a peer, if any.
     pub incoming_block: Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
+
+    /// Incoming transactions from peers along with their nonces.
     pub incoming_transactions: Vec<(Transaction, u32)>,
+
+    /// Incoming snarks from peers along with their nonces.
     pub incoming_snarks: Vec<(Snark, u32)>,
+
+    /// Topics and their subscribed peers.
     pub topics: BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientTopicState>>,
+
+    /// `iwant` requests, tracking the number of times peers have expressed interest in specific messages.
     pub iwant: VecDeque<P2pNetworkPubsubIwantRequestCount>,
 }
 
@@ -84,16 +116,57 @@ impl P2pNetworkPubsubState {
             }
         }
     }
+
+    pub fn clear_incoming(&mut self) {
+        self.incoming_transactions.clear();
+        self.incoming_snarks.clear();
+
+        self.incoming_transactions.shrink_to(0x20);
+        self.incoming_snarks.shrink_to(0x20);
+
+        self.incoming_block = None;
+    }
 }
 
+/// State of a pubsub client connected to a peer.
+///
+/// This struct maintains essential information about the client's protocol,
+/// connection details, message buffers, and caching mechanisms. It facilitates
+/// efficient message handling and broadcasting within the pubsub system.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubClientState {
+    /// Broadcast algorithm used for this client.
     pub protocol: BroadcastAlgorithm,
+
+    /// Connection address of the peer.
     pub addr: ConnectionAddr,
+
+    /// Outgoing stream identifier, if any.
+    ///
+    /// - `Some(StreamId)`: Indicates an active outgoing stream.
+    /// - `None`: No outgoing stream is currently established.
     pub outgoing_stream_id: Option<StreamId>,
+
+    /// Current RPC message being constructed or processed.
+    ///
+    /// - `subscriptions`: List of subscription options for various topics.
+    /// - `publish`: Messages queued for publishing.
+    /// - `control`: Control commands for managing the mesh network.
     pub message: pb::Rpc,
+
+    /// Cache of recently published messages.
     pub cache: P2pNetworkPubsubRecentlyPublishCache,
+
+    /// Buffer for incoming data fragments.
+    ///
+    /// Stores partial data received from peers, facilitating the assembly of complete
+    /// messages when all fragments are received.
     pub buffer: Vec<u8>,
+
+    /// Collection of incoming messages from the peer.
+    ///
+    /// Holds fully decoded `pb::Message` instances received from the peer,
+    /// ready for further handling such as validation, caching, and broadcasting.
     pub incoming_messages: Vec<pb::Message>,
 }
 
@@ -112,6 +185,16 @@ impl P2pNetworkPubsubClientState {
                 self.cache.map.remove(&id);
             }
         }
+    }
+
+    pub fn clear_buffer(&mut self) {
+        self.buffer.clear();
+        self.buffer.shrink_to(0x2000);
+    }
+
+    pub fn clear_incoming(&mut self) {
+        self.incoming_messages.clear();
+        self.incoming_messages.shrink_to(0x20)
     }
 }
 

@@ -8,14 +8,14 @@ use redux::{Dispatcher, Timestamp};
 use crate::{
     channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
     peer::P2pPeerAction,
-    Data, P2pConfig, P2pNetworkYamuxAction, P2pState, PeerId,
+    Data, P2pConfig, P2pNetworkYamuxAction, PeerId,
 };
 
 use super::{
     p2p_network_pubsub_state::P2pNetworkPubsubClientMeshAddingState,
     pb::{self, Message},
-    P2pNetworkPubsubAction, P2pNetworkPubsubClientState, P2pNetworkPubsubClientTopicState,
-    P2pNetworkPubsubEffectfulAction, P2pNetworkPubsubState, TOPIC,
+    P2pNetworkPubsubAction, P2pNetworkPubsubClientState, P2pNetworkPubsubEffectfulAction,
+    P2pNetworkPubsubState, TOPIC,
 };
 
 impl P2pNetworkPubsubState {
@@ -135,18 +135,31 @@ impl P2pNetworkPubsubState {
             } => {
                 pubsub_state.reduce_incoming_data(&peer_id, data, meta.time())?;
 
-                let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let p2p_state: &P2pState = state.substate()?;
-                let state = &p2p_state.network.scheduler.broadcast_state;
-                let Some(state) = state.clients.get(&peer_id) else {
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(P2pNetworkPubsubAction::ValidateIncomingMessages {
+                    peer_id,
+                    seen_limit,
+                    addr,
+                });
+
+                Ok(())
+            }
+            P2pNetworkPubsubAction::ValidateIncomingMessages {
+                peer_id,
+                seen_limit,
+                addr,
+            } => {
+                let Some(state) = pubsub_state.clients.get_mut(&peer_id) else {
                     // TODO: investigate, cannot reproduce this
                     // bug_condition!("{:?} not found in state.clients", peer_id);
                     return Ok(());
                 };
+                let messages = std::mem::take(&mut state.incoming_messages);
 
-                // TODO: try to reuse data instead of cloning all message
-                let messages = state.incoming_messages.clone();
-                dispatcher.push(P2pNetworkPubsubEffectfulAction::IncomingData {
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(P2pNetworkPubsubEffectfulAction::ValidateIncomingMessages {
                     peer_id,
                     seen_limit,
                     addr,
@@ -187,7 +200,7 @@ impl P2pNetworkPubsubState {
                     }
                 }
 
-                if let Err(error) = broadcast(dispatcher, global_state) {
+                if let Err(error) = Self::broadcast(dispatcher, global_state) {
                     bug_condition!(
                         "Failure when trying to broadcast incoming pubsub message: {error}"
                     );
@@ -214,13 +227,7 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::IncomingMessageCleanup { peer_id } => {
-                pubsub_state.incoming_transactions.clear();
-                pubsub_state.incoming_snarks.clear();
-
-                pubsub_state.incoming_transactions.shrink_to(0x20);
-                pubsub_state.incoming_snarks.shrink_to(0x20);
-
-                pubsub_state.incoming_block = None;
+                pubsub_state.clear_incoming();
 
                 let Some(client_state) = pubsub_state.clients.get_mut(&peer_id) else {
                     bug_condition!(
@@ -228,8 +235,8 @@ impl P2pNetworkPubsubState {
                     );
                     return Ok(());
                 };
-                client_state.incoming_messages.clear();
-                client_state.incoming_messages.shrink_to(0x20);
+
+                client_state.clear_incoming();
 
                 Ok(())
             }
@@ -408,7 +415,7 @@ impl P2pNetworkPubsubState {
                 }
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                broadcast(dispatcher, state)
+                Self::broadcast(dispatcher, state)
             }
             P2pNetworkPubsubAction::OutgoingData { mut data, peer_id } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -537,66 +544,80 @@ impl P2pNetworkPubsubState {
         Ok(())
     }
 
+    fn combined_with_pending_buffer<'a>(buffer: &'a mut Vec<u8>, data: &'a [u8]) -> &'a [u8] {
+        if buffer.is_empty() {
+            // Nothing pending, we can use the data directly
+            data
+        } else {
+            buffer.extend_from_slice(data);
+            buffer.as_slice()
+        }
+    }
+
+    /// Processes incoming data from a peer, handling subscriptions, control messages,
+    /// and message broadcasting within the P2P pubsub system.
     fn reduce_incoming_data(
         &mut self,
         peer_id: &PeerId,
         data: Data,
         timestamp: Timestamp,
     ) -> Result<(), String> {
-        let Some(state) = self.clients.get_mut(peer_id) else {
+        let Some(client_state) = self.clients.get_mut(peer_id) else {
             // TODO: investigate, cannot reproduce this
             // bug_condition!("State not found for action: P2pNetworkPubsubAction::IncomingData");
             return Ok(());
         };
-        let slice = if state.buffer.is_empty() {
-            &*data
-        } else {
-            state.buffer.extend_from_slice(&data);
-            &state.buffer
-        };
-        let mut subscriptions = vec![];
-        let mut control = pb::ControlMessage::default();
-        match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
-            Ok(v) => {
-                state.buffer.clear();
-                state.buffer.shrink_to(0x2000);
-                // println!(
-                //     "(pubsub) this <- {peer_id}, {:?}, {:?}, {}",
-                //     v.subscriptions,
-                //     v.control,
-                //     v.publish.len()
-                // );
 
-                subscriptions.extend_from_slice(&v.subscriptions);
-                state.incoming_messages.extend_from_slice(&v.publish);
-                if let Some(v) = v.control {
-                    control.graft.extend_from_slice(&v.graft);
-                    control.prune.extend_from_slice(&v.prune);
-                    control.ihave.extend_from_slice(&v.ihave);
-                    control.iwant.extend_from_slice(&v.iwant);
-                }
+        // Data may be part of a partial message we received before.
+        let slice = Self::combined_with_pending_buffer(&mut client_state.buffer, &data);
+
+        match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
+            Ok(decoded) => {
+                client_state.clear_buffer();
+                client_state.incoming_messages.extend(decoded.publish);
+
+                let subscriptions = decoded.subscriptions;
+                let control = decoded.control.unwrap_or_default();
+
+                self.update_subscriptions(peer_id, subscriptions);
+                self.apply_control_commands(peer_id, &control);
+                self.respond_to_iwant_requests(peer_id, &control.iwant);
+                self.process_ihave_messages(peer_id, control.ihave, timestamp);
             }
             Err(err) => {
-                // bad way to check the error, but `prost` doesn't provide better
-                if err.to_string().contains("buffer underflow") && state.buffer.is_empty() {
-                    state.buffer = data.to_vec();
+                // NOTE: not the ideal way to check for errors, but `prost` doesn't provide
+                // a better alternative, so we must check the message contents.
+                if err.to_string().contains("buffer underflow") && client_state.buffer.is_empty() {
+                    // Incomplete data, keep in buffer, should be completed later
+                    client_state.buffer = data.to_vec();
+                } else {
+                    // Clear the buffer for other decoding errors, otherwise this will cause issues
+                    // with any data we receive later.
+                    client_state.clear_buffer();
                 }
             }
         }
 
+        Ok(())
+    }
+
+    fn update_subscriptions(&mut self, peer_id: &PeerId, subscriptions: Vec<pb::rpc::SubOpts>) {
+        // Update subscription status based on incoming subscription requests.
         for subscription in &subscriptions {
             let topic_id = subscription.topic_id().to_owned();
             let topic = self.topics.entry(topic_id).or_default();
 
             if subscription.subscribe() {
-                if let Entry::Vacant(v) = topic.entry(*peer_id) {
-                    v.insert(P2pNetworkPubsubClientTopicState::default());
-                }
+                topic.entry(*peer_id).or_default();
             } else {
                 topic.remove(peer_id);
             }
         }
+    }
 
+    /// Applies control commands (`graft` and `prune`) to manage the peer's mesh states within topics.
+    fn apply_control_commands(&mut self, peer_id: &PeerId, control: &pb::ControlMessage) {
+        // Apply graft commands to add the peer to specific topic meshes.
         for graft in &control.graft {
             if let Some(mesh_state) = self
                 .topics
@@ -606,6 +627,8 @@ impl P2pNetworkPubsubState {
                 mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
             }
         }
+
+        // Apply prune commands to remove the peer from specific topic meshes.
         for prune in &control.prune {
             if let Some(mesh_state) = self
                 .topics
@@ -615,7 +638,11 @@ impl P2pNetworkPubsubState {
                 mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::TheyRefused;
             }
         }
-        for iwant in &control.iwant {
+    }
+
+    fn respond_to_iwant_requests(&mut self, peer_id: &PeerId, iwant_requests: &[pb::ControlIWant]) {
+        // Respond to iwant requests by publishing available messages from the cache.
+        for iwant in iwant_requests {
             for msg_id in &iwant.message_ids {
                 if let Some(msg) = self.mcache.map.get(msg_id) {
                     if let Some(client) = self.clients.get_mut(peer_id) {
@@ -624,8 +651,16 @@ impl P2pNetworkPubsubState {
                 }
             }
         }
+    }
 
-        for ihave in control.ihave {
+    fn process_ihave_messages(
+        &mut self,
+        peer_id: &PeerId,
+        ihave_messages: Vec<pb::ControlIHave>,
+        timestamp: Timestamp,
+    ) {
+        // Process ihave messages by determining which available messages the client wants.
+        for ihave in ihave_messages {
             if self.clients.contains_key(peer_id) {
                 let message_ids = ihave
                     .message_ids
@@ -634,34 +669,36 @@ impl P2pNetworkPubsubState {
                     .collect::<Vec<_>>();
 
                 let Some(client) = self.clients.get_mut(peer_id) else {
-                    bug_condition!("State not found for {}", peer_id);
-                    return Ok(());
+                    bug_condition!("process_ihave_messages: State not found for {}", peer_id);
+                    return;
                 };
 
+                // Queue the desired message IDs for the client to request.
                 let ctr = client.message.control.get_or_insert_with(Default::default);
                 ctr.iwant.push(pb::ControlIWant { message_ids })
             }
         }
+    }
+
+    fn broadcast<Action, State>(
+        dispatcher: &mut Dispatcher<Action, State>,
+        state: &State,
+    ) -> Result<(), String>
+    where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
+        let state: &P2pNetworkPubsubState = state.substate()?;
+
+        for peer_id in state
+            .clients
+            .iter()
+            .filter(|(_, s)| !s.message_is_empty())
+            .map(|(peer_id, _)| *peer_id)
+        {
+            dispatcher.push(P2pNetworkPubsubAction::OutgoingMessage { peer_id });
+        }
+
         Ok(())
     }
-}
-
-fn broadcast<Action, State>(
-    dispatcher: &mut Dispatcher<Action, State>,
-    state: &State,
-) -> Result<(), String>
-where
-    State: crate::P2pStateTrait,
-    Action: crate::P2pActionTrait<State>,
-{
-    let state: &P2pNetworkPubsubState = state.substate()?;
-
-    state
-        .clients
-        .iter()
-        .filter(|(_, s)| !s.message_is_empty())
-        .map(|(peer_id, _)| P2pNetworkPubsubAction::OutgoingMessage { peer_id: *peer_id })
-        .for_each(|action| dispatcher.push(action));
-
-    Ok(())
 }
