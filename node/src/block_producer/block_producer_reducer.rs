@@ -767,7 +767,7 @@ fn broadcast_injected_block(global_state: &State, dispatcher: &mut Dispatcher<Ac
         return;
     };
 
-    let message = Box::new(GossipNetMessageV2::NewState(block));
+    let message = GossipNetMessageV2::NewState(block);
     dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
 }
 
