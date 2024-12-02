@@ -55,7 +55,7 @@ impl ArchiveService {
                 }
             }
             // Sleep for a bit to avoid flooding the archive
-            std::thread::sleep(std::time::Duration::from_millis(1000));
+            // std::thread::sleep(std::time::Duration::from_millis(1000));
         }
     }
 
@@ -236,9 +236,10 @@ mod rpc {
                     Ok(_) => {
                         println!("[archive-service] Message sent");
                         connection.flush()?;
-                        registry.deregister(connection)?;
-                        connection.shutdown(std::net::Shutdown::Both)?;
-                        return Ok(HandleResult::MessageSent);
+                        // registry.deregister(connection)?;
+                        // connection.shutdown(std::net::Shutdown::Both)?;
+                        registry.reregister(connection, event.token(), Interest::READABLE)?;
+                        return Ok(HandleResult::ConnectionAlive);
                     }
                     Err(ref err) if would_block(err) => {
                         println!("[archive-service] Message would block");
@@ -286,6 +287,15 @@ mod rpc {
                                 )?;
                                 break;
                             }
+                        } else if bytes_read >= 13 {
+                            // or is this heartbeat?
+                            let close_msg = [5, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 1, 0];
+                            if received_data[..13] == close_msg {
+                                println!("[archive-service] Received close message");
+                                registry.deregister(connection)?;
+                                connection.shutdown(std::net::Shutdown::Both)?;
+                                return Ok(HandleResult::MessageSent);
+                            }
                         }
                         if bytes_read == received_data.len() {
                             received_data.resize(received_data.len() + 1024, 0);
@@ -299,6 +309,8 @@ mod rpc {
                     Err(err) => return Err(err),
                 }
             }
+
+            println!("[archive-service] Received data: {:?}", received_data);
 
             if connection_closed {
                 registry.deregister(connection)?;
