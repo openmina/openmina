@@ -34,7 +34,7 @@ use mina_signer::{CompressedPubKey, Keypair};
 use openmina_core::constants::ConstraintConstants;
 use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
 use ring_buffer::RingBuffer;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::Debug;
 use std::{fs, str::FromStr};
 
@@ -313,7 +313,7 @@ pub struct FuzzerCtx {
 
 impl FuzzerCtx {
     #[coverage(off)]
-    fn get_ledger_inner(&self) -> &Mask {
+    pub fn get_ledger_inner(&self) -> &Mask {
         match &self.state.ledger {
             LedgerKind::Mask(ledger) => ledger,
             LedgerKind::Staged(ledger, _) => ledger.ledger_ref(),
@@ -612,15 +612,10 @@ impl FuzzerCtx {
     // }
 
     #[coverage(off)]
-    fn save_fuzzcase(&self, tx: &Transaction, filename: &String) {
+    pub fn save_fuzzcase(&self, transactions: &VecDeque<(Mask, UserCommand)>, filename: &String) {
         let filename = self.fuzzcases_path.clone() + &filename + ".fuzzcase";
 
         println!("Saving fuzzcase: {}", filename);
-
-        let user_command = match tx {
-            Transaction::Command(user_command) => user_command.clone(),
-            _ => unimplemented!(),
-        };
 
         let mut file = fs::OpenOptions::new()
             .write(true)
@@ -629,14 +624,20 @@ impl FuzzerCtx {
             .open(filename)
             .unwrap();
 
-        serialize(&(self.get_ledger_accounts(), user_command), &mut file);
+        let ledger = &transactions[0].0;
+        let commands: Vec<_> = transactions
+            .iter()
+            .map(|(_, user_command)| user_command.clone())
+            .collect();
+
+        serialize(&(self.get_ledger_accounts(ledger), commands), &mut file);
     }
 
     #[coverage(off)]
-    pub fn load_fuzzcase(&mut self, file_path: &String) -> UserCommand {
+    pub fn load_fuzzcase(&mut self, file_path: &String) -> Vec<UserCommand> {
         println!("Loading fuzzcase: {}", file_path);
         let bytes = fs::read(file_path).unwrap();
-        let (accounts, user_command): (Vec<Account>, UserCommand) =
+        let (accounts, user_commands): (Vec<Account>, Vec<UserCommand>) =
             deserialize(&mut bytes.as_slice());
 
         let depth = self.constraint_constants.ledger_depth as usize;
@@ -650,7 +651,7 @@ impl FuzzerCtx {
                 .unwrap();
         }
 
-        user_command
+        user_commands
     }
 
     // #[coverage(off)]
@@ -1070,12 +1071,11 @@ impl FuzzerCtx {
     #[coverage(off)]
     pub fn apply_transaction(
         &mut self,
+        ledger: &mut Mask,
         user_command: &UserCommand,
         expected_apply_result: &ApplyTxResult,
-    ) -> Result<(), ()> {
+    ) -> Result<(), String> {
         self.gen.nonces.clear();
-
-        let mut ledger = self.get_ledger_inner().make_child();
 
         // If we called apply_transaction it means we passed the tx pool check, so add tx to the cache
         if let UserCommand::ZkAppCommand(command) = user_command {
@@ -1092,7 +1092,7 @@ impl FuzzerCtx {
             &self.constraint_constants,
             self.txn_state_view.global_slot_since_genesis,
             &self.txn_state_view,
-            &mut ledger,
+            ledger,
             &[tx.clone()],
         );
 
@@ -1126,25 +1126,15 @@ impl FuzzerCtx {
                 }
 
                 if expected_apply_result.apply_result.len() != 1 {
-                    println!(
-                        "!!! Apply failed in OCaml (error: {}) but it didn't in Rust: {:?}",
+                    return Err(format!(
+                        "Apply failed in OCaml (error: {}) but it didn't in Rust: {:?}",
                         expected_apply_result.error, applied
-                    );
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
-                } else {
-                    if applied != &expected_apply_result.apply_result[0] {
-                        println!(
-                            "!!! Apply result mismatch between OCaml and Rust\n{}\n",
-                            self.diagnostic(applied, &expected_apply_result.apply_result[0])
-                        );
-
-                        let bigint: num_bigint::BigUint =
-                            LedgerIntf::merkle_root(&mut ledger).into();
-                        self.save_fuzzcase(&tx, &bigint.to_string());
-                        return Err(());
-                    }
+                    ));
+                } else if applied != &expected_apply_result.apply_result[0] {
+                    return Err(format!(
+                        "Apply result mismatch between OCaml and Rust\n{}\n",
+                        self.diagnostic(applied, &expected_apply_result.apply_result[0])
+                    ));
                 }
 
                 // Save applied transactions in the cache for later use (mutation)
@@ -1199,33 +1189,25 @@ impl FuzzerCtx {
             Err(error_string) => {
                 // Currently disabled until invariants are fixed
                 if error_string.starts_with("Invariant violation") {
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
+                    return Err(error_string);
                 }
 
                 if expected_apply_result.apply_result.len() == 1 {
-                    println!(
-                        "!!! Apply failed in Rust (error: {}) but it didn't in OCaml: {:?}",
+                    return Err(format!(
+                        "Apply failed in Rust (error: {}) but it didn't in OCaml: {:?}",
                         error_string, &expected_apply_result.apply_result[0]
-                    );
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
+                    ));
                 }
             }
         }
 
-        let rust_ledger_root_hash = LedgerIntf::merkle_root(&mut ledger);
+        let rust_ledger_root_hash = LedgerIntf::merkle_root(ledger);
 
-        if &expected_apply_result.root_hash != &rust_ledger_root_hash {
-            println!(
+        if expected_apply_result.root_hash != rust_ledger_root_hash {
+            Err(format!(
                 "Ledger hash mismatch: {:?} != {:?} (expected)",
                 rust_ledger_root_hash, expected_apply_result.root_hash
-            );
-            let bigint: num_bigint::BigUint = rust_ledger_root_hash.into();
-            self.save_fuzzcase(&tx, &bigint.to_string());
-            Err(())
+            ))
         } else {
             ledger.commit();
             Ok(())
@@ -1238,13 +1220,13 @@ impl FuzzerCtx {
     }
 
     #[coverage(off)]
-    pub fn get_ledger_accounts(&self) -> Vec<Account> {
-        let locations = self.get_ledger_inner().account_locations();
+    pub fn get_ledger_accounts(&self, ledger: &Mask) -> Vec<Account> {
+        let locations = ledger.account_locations();
         locations
             .iter()
             .map(
                 #[coverage(off)]
-                |x| *(LedgerIntf::get(self.get_ledger_inner(), x).unwrap()),
+                |x| *(LedgerIntf::get(ledger, x).unwrap()),
             )
             .collect()
     }

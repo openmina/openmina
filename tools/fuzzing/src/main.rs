@@ -21,12 +21,16 @@ pub mod transaction_fuzzer {
     };
     use ledger::{
         scan_state::transaction_logic::{transaction_applied, UserCommand},
+        sparse_ledger::LedgerIntf,
         Account,
     };
     use mina_hasher::Fp;
     use mina_p2p_messages::bigint::BigInt;
     use openmina_core::constants::ConstraintConstantsUnversioned;
-    use std::io::{Read, Write};
+    use std::{
+        collections::VecDeque,
+        io::{Read, Write},
+    };
     use std::{
         env,
         process::{ChildStdin, ChildStdout},
@@ -126,7 +130,7 @@ pub mod transaction_fuzzer {
         stdin: &mut ChildStdin,
         stdout: &mut ChildStdout,
     ) -> Fp {
-        let action = Action::SetInitialAccounts(ctx.get_ledger_accounts());
+        let action = Action::SetInitialAccounts(ctx.get_ledger_accounts(ctx.get_ledger_inner()));
         serialize(&action, stdin);
         let output: ActionOutput = deserialize(stdout);
         let ocaml_ledger_root_hash = match output {
@@ -201,15 +205,21 @@ pub mod transaction_fuzzer {
         *invariants::BREAK.write().unwrap() = break_on_invariant;
         let mut cov_stats = CoverageStats::new();
         let mut ctx = FuzzerCtxBuilder::new()
-            .seed(seed as u64)
-            .minimum_fee(minimum_fee as u64)
+            .seed(seed)
+            .minimum_fee(minimum_fee)
             .initial_accounts(10)
             .fuzzcases_path(env::var("FUZZCASES_PATH").unwrap_or("/tmp/".to_string()))
             .build();
 
+        let keep_tx_num: usize = env::var("FUZZCASE_TX_NUM")
+            .unwrap_or_else(|_| "50".to_string())
+            .parse()
+            .unwrap();
+
         ocaml_set_constraint_constants(&mut ctx, stdin, stdout);
         ocaml_set_initial_accounts(&mut ctx, stdin, stdout);
 
+        let mut transactions = VecDeque::with_capacity(keep_tx_num);
         let mut fuzzer_made_progress = false;
 
         for iteration in 0.. {
@@ -238,13 +248,25 @@ pub mod transaction_fuzzer {
             }
 
             let user_command: UserCommand = ctx.random_user_command();
+
+            if transactions.len() == keep_tx_num {
+                transactions.pop_front();
+            }
+
+            let mut ledger = ctx.get_ledger_inner().make_child();
+            transactions.push_back((ledger.copy(), user_command.clone()));
+
             let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
 
             // Apply transaction on the Rust side
-            if ctx
-                .apply_transaction(&user_command, &ocaml_apply_result)
-                .is_err()
+            if let Err(error) =
+                ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result)
             {
+                println!("!!! {}", error);
+
+                let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
+                ctx.save_fuzzcase(&transactions, &bigint.to_string());
+
                 // Exiting due to inconsistent state
                 std::process::exit(0);
             }
@@ -254,15 +276,20 @@ pub mod transaction_fuzzer {
     #[coverage(off)]
     pub fn reproduce(stdin: &mut ChildStdin, stdout: &mut ChildStdout, fuzzcase: &String) {
         let mut ctx = FuzzerCtxBuilder::new().build();
-        let user_command = ctx.load_fuzzcase(fuzzcase);
+        let user_commands = ctx.load_fuzzcase(fuzzcase);
 
         ocaml_set_constraint_constants(&mut ctx, stdin, stdout);
         ocaml_set_initial_accounts(&mut ctx, stdin, stdout);
 
-        let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
-        let rust_apply_result = ctx.apply_transaction(&user_command, &ocaml_apply_result);
+        let mut ledger = ctx.get_ledger_inner().make_child();
 
-        println!("apply_transaction: {:?}", rust_apply_result);
+        for (i, user_command) in user_commands.iter().enumerate() {
+            let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
+            let rust_apply_result =
+                ctx.apply_transaction(&mut ledger, user_command, &ocaml_apply_result);
+
+            println!("apply_transaction #{i}: {:?}", rust_apply_result);
+        }
     }
 }
 
