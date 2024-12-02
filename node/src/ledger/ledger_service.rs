@@ -684,7 +684,7 @@ impl LedgerCtx {
                 &Verifier,
                 &prev_state_view,
                 prev_protocol_state.hashes(),
-                coinbase_receiver,
+                coinbase_receiver.clone(),
                 supercharge_coinbase,
             )
             .map_err(|err| format!("{err:?}"))?;
@@ -716,12 +716,18 @@ impl LedgerCtx {
 
         // TODO(adonagy): put behind flag only for archive?
 
-        let senders = block.body().transactions().filter_map(|tx| {
-            // TODO(adonagy): Do not ignore the error from try_from
-            UserCommand::try_from(tx).ok().map(|cmd| cmd.fee_payer())
-        });
+        let senders = block
+            .body()
+            .transactions()
+            .filter_map(|tx| {
+                // TODO(adonagy): Do not ignore the error from try_from
+                UserCommand::try_from(tx).ok().map(|cmd| cmd.fee_payer())
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter();
 
-        let account_ids_accessed: BTreeSet<_> = block
+        let coinbase_receiver_id = AccountId::new(coinbase_receiver, TokenId::default());
+        let mut account_ids_accessed: BTreeSet<_> = block
             .body()
             .transactions()
             .flat_map(|tx| {
@@ -731,6 +737,9 @@ impl LedgerCtx {
             })
             .flatten()
             .collect();
+
+        // Coinbase receiver is always accessed
+        account_ids_accessed.insert(coinbase_receiver_id);
 
         // TODO(adonagy): Create a struct instead of tuple
         let accounts_accessed: Vec<(AccountIndex, Account)> = account_ids_accessed

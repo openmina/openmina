@@ -8,6 +8,8 @@ pub struct ArchiveService {
     archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>,
 }
 
+const ARCHIVE_SEND_RETRIES: u8 = 3;
+
 impl ArchiveService {
     fn new(archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>) -> Self {
         Self { archive_sender }
@@ -18,13 +20,42 @@ impl ArchiveService {
         address: SocketAddr,
     ) {
         while let Some(breadcrumb) = archive_receiver.blocking_recv() {
-            if let Err(e) = rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb)) {
-                node::core::warn!(
-                    node::core::log::system_time();
-                    summary = "Failed sending diff to archive",
-                    error = e.to_string()
-                )
+            println!("[archive-service] Received breadcrumb, sending to archive...");
+            let mut retries = ARCHIVE_SEND_RETRIES;
+            while retries > 0 {
+                // if let Err(e) = rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
+                //     node::core::warn!(
+                //     node::core::log::system_time();
+                //         summary = "Failed sending diff to archive",
+                //         error = e.to_string()
+                //     );
+                //     retries -= 1;
+                // } else {
+                //     node::core::warn!(
+                //         node::core::log::system_time();
+                //         summary = "Successfully sent diff to archive",
+                //     );
+                //     break;
+                // }
+
+                match rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
+                    Ok(result) => {
+                        if result.should_retry() {
+                            node::core::warn!(node::core::log::system_time(); summary = "Archive suddenly closed connection, retrying...");
+                            retries -= 1;
+                        } else {
+                            node::core::warn!(node::core::log::system_time(); summary = "Successfully sent diff to archive");
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        node::core::warn!(node::core::log::system_time(); summary = "Failed sending diff to archive", error = e.to_string(), retries = retries);
+                        retries -= 1;
+                    }
+                }
             }
+            // Sleep for a bit to avoid flooding the archive
+            std::thread::sleep(std::time::Duration::from_millis(1000));
         }
     }
 
@@ -46,12 +77,12 @@ impl ArchiveService {
 impl node::transition_frontier::archive::archive_service::ArchiveService for NodeService {
     fn send_to_archive(&mut self, data: ArchiveTransitionFronntierDiff) {
         if let Some(archive) = self.archive.as_mut() {
-            if let Err(e) = archive.archive_sender.send(data) {
+            if let Err(e) = archive.archive_sender.send(data.clone()) {
                 node::core::warn!(
                     node::core::log::system_time();
-                    summary = "Failed sending diff to archive",
+                    summary = "Failed sending diff to archive service",
                     error = e.to_string()
-                )
+                );
             }
         }
     }
@@ -70,7 +101,19 @@ mod rpc {
 
     const HANDSHAKE_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
 
-    pub fn send_diff(address: SocketAddr, data: v2::ArchiveRpc) -> io::Result<()> {
+    pub enum HandleResult {
+        MessageSent,
+        ConnectionClosed,
+        ConnectionAlive,
+    }
+
+    impl HandleResult {
+        pub fn should_retry(&self) -> bool {
+            matches!(self, Self::ConnectionClosed)
+        }
+    }
+
+    pub fn send_diff(address: SocketAddr, data: v2::ArchiveRpc) -> io::Result<HandleResult> {
         let rpc = encode_to_rpc(data);
         process_rpc(address, &rpc)
     }
@@ -101,9 +144,11 @@ mod rpc {
         v
     }
 
-    fn process_rpc(address: SocketAddr, data: &[u8]) -> io::Result<()> {
+    fn process_rpc(address: SocketAddr, data: &[u8]) -> io::Result<HandleResult> {
+        println!("[archive-service] Data length: {}", data.len());
         let mut poll = Poll::new()?;
         let mut events = Events::with_capacity(128);
+        let mut event_count = 0;
 
         // We still need a token even for one connection
         const TOKEN: Token = Token(0);
@@ -125,9 +170,11 @@ mod rpc {
             }
 
             for event in events.iter() {
+                event_count += 1;
+                println!("[archive-service] Event: {:?}", event_count);
                 match event.token() {
                     TOKEN => {
-                        if handle_connection_event(
+                        match handle_connection_event(
                             poll.registry(),
                             &mut stream,
                             event,
@@ -135,7 +182,11 @@ mod rpc {
                             &mut handshake_received,
                             &mut handshake_sent,
                         )? {
-                            return Ok(());
+                                HandleResult::MessageSent => return Ok(HandleResult::MessageSent),
+                                HandleResult::ConnectionClosed => return Ok(HandleResult::ConnectionClosed),
+                                HandleResult::ConnectionAlive => {
+                                    continue;
+                                },
                         }
                     }
                     _ => unreachable!(),
@@ -152,16 +203,19 @@ mod rpc {
         data: &[u8],
         handshake_received: &mut bool,
         handshake_sent: &mut bool,
-    ) -> io::Result<bool> {
+    ) -> io::Result<HandleResult> {
         if event.is_writable() {
             if !*handshake_sent {
                 match connection.write(&HANDSHAKE_MSG) {
                     Ok(n) if n < HANDSHAKE_MSG.len() => return Err(io::ErrorKind::WriteZero.into()),
                     Ok(_) => {
+                        println!("[archive-service] Handshake sent");
+                        *handshake_sent = true;
                         registry.reregister(connection, event.token(), Interest::READABLE)?;
                     }
                     Err(ref err) if would_block(err) => {}
                     Err(ref err) if interrupted(err) => {
+                        println!("[archive-service] Handshake interrupted");
                         return handle_connection_event(
                             registry,
                             connection,
@@ -174,21 +228,24 @@ mod rpc {
                     // Other errors we'll consider fatal.
                     Err(err) => return Err(err),
                 }
-                *handshake_sent = true;
-                return Ok(false);
+                return Ok(HandleResult::ConnectionAlive);
             }
 
             if *handshake_received && *handshake_sent {
-                match connection.write(data) {
-                    Ok(n) if n < data.len() => return Err(io::ErrorKind::WriteZero.into()),
+                match connection.write_all(data) {
                     Ok(_) => {
+                        println!("[archive-service] Message sent");
+                        connection.flush()?;
                         registry.deregister(connection)?;
                         connection.shutdown(std::net::Shutdown::Both)?;
-                        return Ok(true);
+                        return Ok(HandleResult::MessageSent);
                     }
-                    Err(ref err) if would_block(err) => {}
+                    Err(ref err) if would_block(err) => {
+                        println!("[archive-service] Message would block");
+                    }
                     // Try again if interrupted
                     Err(ref err) if interrupted(err) => {
+                        println!("[archive-service] Message interrupted");
                         return handle_connection_event(
                             registry,
                             connection,
@@ -221,6 +278,7 @@ mod rpc {
                             let handshake = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
                             if received_data[..15] == handshake {
                                 *handshake_received = true;
+                                println!("[archive-service] Handshake received");
                                 registry.reregister(
                                     connection,
                                     event.token(),
@@ -244,12 +302,13 @@ mod rpc {
 
             if connection_closed {
                 registry.deregister(connection)?;
+                println!("[archive-service] Remote closed connection");
                 connection.shutdown(std::net::Shutdown::Both)?;
-                return Ok(true);
+                return Ok(HandleResult::ConnectionClosed);
             }
         }
 
-        Ok(false)
+        Ok(HandleResult::ConnectionAlive)
     }
 
     fn would_block(err: &io::Error) -> bool {
