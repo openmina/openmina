@@ -1049,7 +1049,7 @@ impl LedgerCtx {
             emitted_ledger_proof: res
                 .ledger_proof
                 .map(|(proof, ..)| (&proof).into())
-                .map(Box::new),
+                .map(Arc::new),
             pending_coinbase_update: (&res.pending_coinbase_update.1).into(),
             pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2 {
                 pending_coinbases: pending_coinbase_witness,

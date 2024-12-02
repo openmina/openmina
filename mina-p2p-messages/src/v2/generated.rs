@@ -271,7 +271,7 @@ pub struct ProverExtendBlockchainInputStableV2 {
     pub chain: BlockchainSnarkBlockchainStableV2,
     pub next_state: MinaStateProtocolStateValueStableV2,
     pub block: MinaStateSnarkTransitionValueStableV2,
-    pub ledger_proof: Option<LedgerProofProdStableV2>,
+    pub ledger_proof: Option<Arc<LedgerProofProdStableV2>>,
     pub prover_state: ConsensusStakeProofStableV2,
     pub pending_coinbase: MinaBasePendingCoinbaseWitnessStableV2,
 }

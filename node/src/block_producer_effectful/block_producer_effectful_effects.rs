@@ -164,7 +164,7 @@ pub fn block_producer_effects<S: crate::Service>(
                             .clone(),
                         pending_coinbase_update: pending_coinbase_update.clone(),
                     },
-                    ledger_proof: emitted_ledger_proof.as_ref().map(|proof| (**proof).clone()),
+                    ledger_proof: emitted_ledger_proof.clone(),
                     prover_state: ConsensusStakeProofStableV2 {
                         delegator: won_slot.delegator.1.into(),
                         delegator_pk: won_slot.delegator.0.clone(),
