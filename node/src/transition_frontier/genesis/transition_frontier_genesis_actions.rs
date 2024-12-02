@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use mina_p2p_messages::v2;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
@@ -25,7 +27,7 @@ pub enum TransitionFrontierGenesisAction {
     /// Genesis block proved.
     #[action_event(level = info)]
     ProveSuccess {
-        proof: Box<v2::MinaBaseProofStableV2>,
+        proof: Arc<v2::MinaBaseProofStableV2>,
     },
     // TODO(refactor): add prove error
 }

@@ -138,7 +138,7 @@ impl TransitionFrontierGenesisState {
                 let input = v2::ProverExtendBlockchainInputStableV2 {
                     chain: v2::BlockchainSnarkBlockchainStableV2 {
                         state: negative_one.clone(),
-                        proof: (*dummy_blockchain_proof()).clone(),
+                        proof: dummy_blockchain_proof().clone(),
                     },
                     next_state: genesis.clone(),
                     block: v2::MinaStateSnarkTransitionValueStableV2 {
@@ -212,7 +212,7 @@ impl TransitionFrontierGenesisState {
                 let block = v2::MinaBlockBlockStableV2 {
                     header: v2::MinaBlockHeaderStableV2 {
                         protocol_state: genesis.clone(),
-                        protocol_state_proof: (**proof).clone(),
+                        protocol_state_proof: proof.clone(),
                         delta_block_chain_proof: (
                             genesis_hash.clone(),
                             std::iter::empty().collect(),

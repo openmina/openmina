@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, time::Duration};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2;
@@ -117,7 +117,7 @@ pub enum BlockProducerCurrentState {
         chain: Vec<AppliedBlock>,
         block: BlockWithoutProof,
         block_hash: v2::StateHash,
-        proof: Box<v2::MinaBaseProofStableV2>,
+        proof: Arc<v2::MinaBaseProofStableV2>,
     },
     Produced {
         time: redux::Timestamp,

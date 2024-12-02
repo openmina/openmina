@@ -3,6 +3,7 @@ use derive_more::Deref;
 use openmina_macros::SerdeYojsonEnum;
 use rsexp_derive::{OfSexp, SexpOf};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
 
@@ -243,7 +244,7 @@ pub struct TrustSystemPeerStatusStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct BlockchainSnarkBlockchainStableV2 {
     pub state: MinaStateProtocolStateValueStableV2,
-    pub proof: MinaBaseProofStableV2,
+    pub proof: Arc<MinaBaseProofStableV2>,
 }
 
 /// **OCaml name**: `Transaction_witness.Stable.V2`
@@ -3199,7 +3200,7 @@ pub struct TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBlockHeaderStableV2 {
     pub protocol_state: MinaStateProtocolStateValueStableV2,
-    pub protocol_state_proof: MinaBaseProofStableV2,
+    pub protocol_state_proof: Arc<MinaBaseProofStableV2>,
     pub delta_block_chain_proof: (StateHash, List<StateBodyHash>),
     pub current_protocol_version: ProtocolVersionStableV2,
     pub proposed_protocol_version_opt: Option<ProtocolVersionStableV2>,

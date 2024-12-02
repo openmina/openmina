@@ -53,13 +53,13 @@ pub enum BlockProducerAction {
     StagedLedgerDiffCreateInit,
     StagedLedgerDiffCreatePending,
     StagedLedgerDiffCreateSuccess {
-        output: Box<StagedLedgerDiffCreateOutput>,
+        output: Arc<StagedLedgerDiffCreateOutput>,
     },
     BlockUnprovenBuild,
     BlockProveInit,
     BlockProvePending,
     BlockProveSuccess {
-        proof: Box<MinaBaseProofStableV2>,
+        proof: Arc<MinaBaseProofStableV2>,
     },
     BlockProduced,
     #[action_event(level = trace)]

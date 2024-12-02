@@ -830,15 +830,16 @@ impl LedgerCtx {
             })
             .unwrap_or_default();
 
-        let available_jobs = self
-            .staged_ledger_mut(new_best_tip.staged_ledger_hashes())
-            .map(|l| {
-                l.scan_state()
-                    .all_job_pairs_iter()
-                    .map(|job| job.map(|single| AvailableJobMessage::from(single)))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let available_jobs = Arc::new(
+            self.staged_ledger_mut(new_best_tip.staged_ledger_hashes())
+                .map(|l| {
+                    l.scan_state()
+                        .all_job_pairs_iter()
+                        .map(|job| job.map(|single| AvailableJobMessage::from(single)))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        );
 
         CommitResult {
             available_jobs,

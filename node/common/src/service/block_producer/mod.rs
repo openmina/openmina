@@ -1,5 +1,7 @@
 mod vrf_evaluator;
 
+use std::sync::Arc;
+
 use ledger::proofs::{
     block::BlockParams, generate_block_proof, provers::BlockProver, transaction::ProofError,
 };
@@ -67,7 +69,7 @@ pub fn prove(
     mut input: Box<ProverExtendBlockchainInputStableV2>,
     keypair: AccountSecretKey,
     only_verify_constraints: bool,
-) -> Result<Box<MinaBaseProofStableV2>, ProofError> {
+) -> Result<Arc<MinaBaseProofStableV2>, ProofError> {
     let height = input
         .next_state
         .body

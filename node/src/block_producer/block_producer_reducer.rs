@@ -299,7 +299,7 @@ impl BlockProducerEnabled {
                         time: meta.time(),
                         won_slot,
                         chain,
-                        block: block.with_hash_and_proof(block_hash, *proof),
+                        block: block.with_hash_and_proof(block_hash, proof),
                     };
                 } else {
                     bug_condition!("Invalid state for `BlockProducerAction::BlockProduced` expected: `BlockProducerCurrentState::BlockProveSuccess`, found: {:?}", current_state);
