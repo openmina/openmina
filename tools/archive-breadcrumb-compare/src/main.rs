@@ -1,11 +1,11 @@
-use std::path::PathBuf;
 use mina_p2p_messages::v2::ArchiveTransitionFronntierDiff;
+use std::{collections::HashSet, path::PathBuf};
 
+use anyhow::Result;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
-use tokio::time::{interval, Duration, timeout};
 use serde_json::Value;
+use tokio::time::{interval, timeout, Duration};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -25,6 +25,10 @@ struct Args {
     /// Openmina Node directory path
     #[arg(env = "OPENMINA_NODE_DIR", required = true)]
     openmina_node_dir: PathBuf,
+
+    /// Check for missing breadcrumbs
+    #[arg(long)]
+    check_missing: bool,
 }
 
 #[derive(Serialize)]
@@ -38,11 +42,13 @@ struct SyncStatusResponse {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct SyncStatusData {
     sync_status: String,
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct BlockInfo {
     state_hash: String,
 }
@@ -53,13 +59,14 @@ struct BestChainResponse {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct BestChainData {
     best_chain: Vec<BlockInfo>,
 }
 
 async fn check_sync_status(endpoint: &str) -> Result<String> {
     let client = reqwest::Client::new();
-    
+
     let query = GraphQLQuery {
         query: "query MyQuery { syncStatus }".to_string(),
     };
@@ -77,7 +84,7 @@ async fn check_sync_status(endpoint: &str) -> Result<String> {
 
 async fn get_best_chain(endpoint: &str) -> Result<Vec<String>> {
     let client = reqwest::Client::new();
-    
+
     let query = GraphQLQuery {
         query: "query MyQuery { bestChain(maxLength: 290) { stateHash } }".to_string(),
     };
@@ -90,7 +97,12 @@ async fn get_best_chain(endpoint: &str) -> Result<Vec<String>> {
         .json::<BestChainResponse>()
         .await?;
 
-    Ok(response.data.best_chain.into_iter().map(|block| block.state_hash).collect())
+    Ok(response
+        .data
+        .best_chain
+        .into_iter()
+        .map(|block| block.state_hash)
+        .collect())
 }
 
 async fn wait_for_sync(endpoint: &str, node_name: &str) -> Result<()> {
@@ -99,24 +111,28 @@ async fn wait_for_sync(endpoint: &str, node_name: &str) -> Result<()> {
 
     let sync_check = async {
         let mut interval = interval(CHECK_INTERVAL);
-        
+
         loop {
             interval.tick().await;
-            
+
             let status = check_sync_status(endpoint).await?;
             println!("{} sync status: {}", node_name, status);
-            
+
             if status == "SYNCED" {
                 return Ok(());
             }
-            
+
             println!("Waiting for {} to sync...", node_name);
         }
     };
 
-    timeout(TIMEOUT_DURATION, sync_check)
-        .await
-        .map_err(|_| anyhow::anyhow!("Timeout waiting for {} to sync after {:?}", node_name, TIMEOUT_DURATION))?
+    timeout(TIMEOUT_DURATION, sync_check).await.map_err(|_| {
+        anyhow::anyhow!(
+            "Timeout waiting for {} to sync after {:?}",
+            node_name,
+            TIMEOUT_DURATION
+        )
+    })?
 }
 
 async fn compare_chains(ocaml_endpoint: &str, openmina_endpoint: &str) -> Result<Vec<String>> {
@@ -125,8 +141,11 @@ async fn compare_chains(ocaml_endpoint: &str, openmina_endpoint: &str) -> Result
     let mut interval = interval(RETRY_INTERVAL);
 
     for attempt in 1..=MAX_RETRIES {
-        println!("\nAttempting chain comparison (attempt {}/{})", attempt, MAX_RETRIES);
-        
+        println!(
+            "\nAttempting chain comparison (attempt {}/{})",
+            attempt, MAX_RETRIES
+        );
+
         let ocaml_chain = get_best_chain(ocaml_endpoint).await?;
         let openmina_chain = get_best_chain(openmina_endpoint).await?;
 
@@ -154,18 +173,20 @@ async fn compare_chains(ocaml_endpoint: &str, openmina_endpoint: &str) -> Result
 fn compare_chain_data(ocaml_chain: &[String], openmina_chain: &[String]) -> Result<()> {
     if ocaml_chain.len() != openmina_chain.len() {
         anyhow::bail!(
-            "Chain lengths don't match! OCaml: {}, Openmina: {}", 
-            ocaml_chain.len(), 
+            "Chain lengths don't match! OCaml: {}, Openmina: {}",
+            ocaml_chain.len(),
             openmina_chain.len()
         );
     }
 
-    for (i, (ocaml_hash, openmina_hash)) in ocaml_chain.iter().zip(openmina_chain.iter()).enumerate() {
+    for (i, (ocaml_hash, openmina_hash)) in
+        ocaml_chain.iter().zip(openmina_chain.iter()).enumerate()
+    {
         if ocaml_hash != openmina_hash {
             anyhow::bail!(
-                "Chain mismatch at position {}: \nOCaml: {}\nOpenmina: {}", 
-                i, 
-                ocaml_hash, 
+                "Chain mismatch at position {}: \nOCaml: {}\nOpenmina: {}",
+                i,
+                ocaml_hash,
                 openmina_hash
             );
         }
@@ -208,18 +229,18 @@ async fn compare_binary_diffs(
                     return;
                 }
             };
-    
+
             let openmina_diff = match load_and_deserialize(&openmina_path) {
                 Ok(diff) => diff,
                 Err(e) => {
                     mismatches.push(DiffMismatch {
-                            state_hash: file_name_str.to_string(),
+                        state_hash: file_name_str.to_string(),
                         reason: format!("Failed to load Openmina diff: {}", e),
                     });
                     return;
                 }
             };
-    
+
             // Compare the diffs
             if let Some(reason) = compare_diffs(&ocaml_diff, &openmina_diff) {
                 mismatches.push(DiffMismatch {
@@ -233,7 +254,7 @@ async fn compare_binary_diffs(
         for state_hash in state_hashes {
             let ocaml_path = ocaml_dir.join(format!("{}.bin", state_hash));
             let openmina_path = openmina_dir.join(format!("{}.bin", state_hash));
-    
+
             // Load and deserialize both files
             let ocaml_diff = match load_and_deserialize(&ocaml_path) {
                 Ok(diff) => diff,
@@ -245,7 +266,7 @@ async fn compare_binary_diffs(
                     continue;
                 }
             };
-    
+
             let openmina_diff = match load_and_deserialize(&openmina_path) {
                 Ok(diff) => diff,
                 Err(e) => {
@@ -256,7 +277,7 @@ async fn compare_binary_diffs(
                     continue;
                 }
             };
-    
+
             // Compare the diffs
             if let Some(reason) = compare_diffs(&ocaml_diff, &openmina_diff) {
                 mismatches.push(DiffMismatch {
@@ -281,42 +302,120 @@ fn compare_diffs(
 ) -> Option<String> {
     match (ocaml, openmina) {
         (
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded { block: b1, accounts_accessed: a1, accounts_created: c1, tokens_used: t1, sender_receipt_chains_from_parent_ledger: s1 },
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded { block: b2, accounts_accessed: a2, accounts_created: c2, tokens_used: t2, sender_receipt_chains_from_parent_ledger: s2 }
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+                block: b1,
+                accounts_accessed: a1,
+                accounts_created: c1,
+                tokens_used: t1,
+                sender_receipt_chains_from_parent_ledger: s1,
+            },
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+                block: b2,
+                accounts_accessed: a2,
+                accounts_created: c2,
+                tokens_used: t2,
+                sender_receipt_chains_from_parent_ledger: s2,
+            },
         ) => {
             if b1 != b2 {
-                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(b1).unwrap()).unwrap();
-                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(b2).unwrap()).unwrap();
-                return Some(format!("Block data mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
+                let ocaml_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(b1).unwrap()).unwrap();
+                let openmina_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(b2).unwrap()).unwrap();
+                return Some(format!(
+                    "Block data mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
+                    ocaml_json, openmina_json
+                ));
             }
             if a1 != a2 {
-                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(a1).unwrap()).unwrap();
-                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(a2).unwrap()).unwrap();
-                return Some(format!("Accounts accessed mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
+                let ocaml_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(a1).unwrap()).unwrap();
+                let openmina_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(a2).unwrap()).unwrap();
+                return Some(format!(
+                    "Accounts accessed mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
+                    ocaml_json, openmina_json
+                ));
             }
             if c1 != c2 {
-                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(c1).unwrap()).unwrap();
-                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(c2).unwrap()).unwrap();
-                return Some(format!("Accounts created mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
+                let ocaml_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(c1).unwrap()).unwrap();
+                let openmina_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(c2).unwrap()).unwrap();
+                return Some(format!(
+                    "Accounts created mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
+                    ocaml_json, openmina_json
+                ));
             }
             if t1 != t2 {
-                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(t1).unwrap()).unwrap();
-                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(t2).unwrap()).unwrap();
-                return Some(format!("Tokens used mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
+                let ocaml_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(t1).unwrap()).unwrap();
+                let openmina_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(t2).unwrap()).unwrap();
+                return Some(format!(
+                    "Tokens used mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
+                    ocaml_json, openmina_json
+                ));
             }
             if s1 != s2 {
-                let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(s1).unwrap()).unwrap();
-                let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(s2).unwrap()).unwrap();
-                return Some(format!("Sender receipt chains mismatch:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json));
+                let ocaml_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(s1).unwrap()).unwrap();
+                let openmina_json =
+                    serde_json::to_string_pretty(&serde_json::to_value(s2).unwrap()).unwrap();
+                return Some(format!(
+                    "Sender receipt chains mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
+                    ocaml_json, openmina_json
+                ));
             }
             None
         }
         _ => {
-            let ocaml_json = serde_json::to_string_pretty(&serde_json::to_value(ocaml).unwrap()).unwrap();
-            let openmina_json = serde_json::to_string_pretty(&serde_json::to_value(openmina).unwrap()).unwrap();
-            Some(format!("Different diff types:\nOCaml:\n{}\nOpenmina:\n{}", ocaml_json, openmina_json))
+            let ocaml_json =
+                serde_json::to_string_pretty(&serde_json::to_value(ocaml).unwrap()).unwrap();
+            let openmina_json =
+                serde_json::to_string_pretty(&serde_json::to_value(openmina).unwrap()).unwrap();
+            Some(format!(
+                "Different diff types:\nOCaml:\n{}\nOpenmina:\n{}",
+                ocaml_json, openmina_json
+            ))
         }
     }
+}
+
+async fn check_missing_breadcrumbs(openmina_node_dir: PathBuf, openmina_endpoint: &str) -> Result<()> {
+    let files = openmina_node_dir.read_dir()?;
+    let best_chain = get_best_chain(openmina_endpoint).await?;
+    let mut missing_breadcrumbs = Vec::new();
+
+    let file_names = files
+        .map(|file| {
+            file.unwrap()
+                .file_name()
+                .to_str()
+                .unwrap()
+                .to_string()
+                .strip_suffix(".bin")
+                .unwrap()
+                .to_owned()
+        })
+        .collect::<HashSet<String>>();
+
+    for best_chain_hash in best_chain {
+        if !file_names.contains(&best_chain_hash.to_string()) {
+            missing_breadcrumbs.push(best_chain_hash.to_string());
+        }
+    }
+
+    if !missing_breadcrumbs.is_empty() {
+        println!("❌ Found {} missing breadcrumbs:", missing_breadcrumbs.len());
+        for missing_breadcrumb in missing_breadcrumbs {
+            println!("{}", missing_breadcrumb);
+        }
+    } else {
+        println!("✅ All breadcrumbs present!");
+    }
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -325,13 +424,24 @@ async fn main() -> Result<()> {
 
     let mut best_chain = Vec::new();
 
-    if let (Some(ocaml_graphql), Some(openmina_graphql)) = (args.ocaml_node_graphql, args.openmina_node_graphql) {
+    if args.check_missing {
+        check_missing_breadcrumbs(
+            args.openmina_node_dir,
+            args.openmina_node_graphql.as_deref().unwrap(),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    if let (Some(ocaml_graphql), Some(openmina_graphql)) =
+        (args.ocaml_node_graphql, args.openmina_node_graphql)
+    {
         // Wait for both nodes to be synced
         println!("Waiting for nodes to sync...");
         wait_for_sync(&ocaml_graphql, "OCaml Node").await?;
         wait_for_sync(&openmina_graphql, "Openmina Node").await?;
         println!("Both nodes are synced! ✅\n");
-         // Compare chains with retry logic
+        // Compare chains with retry logic
         let bc = compare_chains(&ocaml_graphql, &openmina_graphql).await?;
         println!("Comparing binary diffs for {} blocks...", bc.len());
         best_chain.extend_from_slice(&bc);
@@ -339,11 +449,8 @@ async fn main() -> Result<()> {
         println!("No graphql endpoints provided, skipping chain comparison");
     }
 
-    let mismatches = compare_binary_diffs(
-        args.ocaml_node_dir,
-        args.openmina_node_dir,
-        &best_chain,
-    ).await?;
+    let mismatches =
+        compare_binary_diffs(args.ocaml_node_dir, args.openmina_node_dir, &best_chain).await?;
 
     if mismatches.is_empty() {
         println!("✅ All binary diffs match perfectly!");
@@ -351,7 +458,7 @@ async fn main() -> Result<()> {
         println!("\n❌ Found {} mismatches:", mismatches.len());
         for (i, mismatch) in mismatches.iter().enumerate() {
             println!(
-                "\nMismatch #{}: \nState Hash: {}\nReason: {}", 
+                "\nMismatch #{}: \nState Hash: {}\nReason: {}",
                 i + 1,
                 mismatch.state_hash,
                 mismatch.reason

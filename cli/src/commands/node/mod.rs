@@ -279,13 +279,9 @@ impl Node {
                 address = address.to_string()
             );
             // Convert URL to SocketAddr
-            let socket_addrs = address
-                .socket_addrs(|| None)
-                .expect("Invalid URL");
+            let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
 
-            let socket_addr = socket_addrs
-                .first()
-                .expect("No socket address found");
+            let socket_addr = socket_addrs.first().expect("No socket address found");
             node_builder.archive(*socket_addr);
         }
 
