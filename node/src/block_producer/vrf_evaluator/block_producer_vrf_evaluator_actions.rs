@@ -86,11 +86,12 @@ pub enum BlockProducerVrfEvaluatorAction {
         next_epoch_first_slot: u32,
     },
     /// Starting epoch evaluation.
-    #[action_event(level = info, fields(best_tip_epoch, best_tip_slot, best_tip_global_slot))]
+    #[action_event(level = info, fields(evaluation_epoch, best_tip_epoch, best_tip_slot, best_tip_global_slot))]
     BeginEpochEvaluation {
         best_tip_slot: u32,
         best_tip_global_slot: u32,
         best_tip_epoch: u32,
+        evaluation_epoch: u32,
         staking_epoch_data: EpochData,
         latest_evaluated_global_slot: u32,
     },
