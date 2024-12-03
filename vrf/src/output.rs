@@ -157,7 +157,7 @@ mod test {
         let converted = ConsensusVrfOutputTruncatedStableV1::from(vrf_output);
         let converted_string = serde_json::to_string_pretty(&converted).unwrap();
         let converted_string_deser: String = serde_json::from_str(&converted_string).unwrap();
-        let expected = String::from("48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C");
+        let expected = String::from("39cyg4ZmMtnb_aFUIerNAoAJV8qtkfOpq0zFzPspjgM=");
 
         assert_eq!(expected, converted_string_deser);
     }

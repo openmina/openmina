@@ -1,6 +1,6 @@
 use ark_ff::{One, SquareRootField, Zero};
 
-use ledger::ToInputs;
+use ledger::{proofs::transaction::legacy_input::to_bits, ToInputs};
 use mina_curves::pasta::curves::pallas::Pallas as CurvePoint;
 use mina_p2p_messages::v2::EpochSeed;
 use o1_utils::FieldHelpers;
@@ -98,13 +98,9 @@ impl ToInputs for VrfMessage {
             }
         };
         inputs.append_field(epoch_seed);
-        for i in (0..LEDGER_DEPTH).rev() {
-            if self.delegator_index >> i & 1u64 == 1 {
-                inputs.append_bool(true);
-            } else {
-                inputs.append_bool(false);
-            }
-        }
         inputs.append_u32(self.global_slot);
+        for bit in to_bits::<_, LEDGER_DEPTH>(self.delegator_index) {
+            inputs.append_bool(bit);
+        }
     }
 }
