@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { MinaState, selectMinaState } from '@app/app.setup';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Effect } from '@openmina/shared';
-import { EMPTY, forkJoin, map, switchMap } from 'rxjs';
+import { combineLatest, EMPTY, map, switchMap } from 'rxjs';
 import { Store } from '@ngrx/store';
 import {
   BENCHMARKS_WALLETS_CLOSE,
@@ -11,8 +11,11 @@ import {
   BENCHMARKS_WALLETS_GET_WALLETS,
   BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
   BENCHMARKS_WALLETS_SEND_TX_SUCCESS,
-  BENCHMARKS_WALLETS_SEND_TXS, BENCHMARKS_WALLETS_SEND_ZKAPPS, BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS,
-  BenchmarksWalletsActions, BenchmarksWalletsClose,
+  BENCHMARKS_WALLETS_SEND_TXS,
+  BENCHMARKS_WALLETS_SEND_ZKAPPS,
+  BENCHMARKS_WALLETS_SEND_ZKAPPS_SUCCESS,
+  BenchmarksWalletsActions,
+  BenchmarksWalletsClose,
   BenchmarksWalletsGetWallets,
   BenchmarksWalletsSendTxs,
 } from '@benchmarks/wallets/benchmarks-wallets.actions';
@@ -74,7 +77,7 @@ export class BenchmarksWalletsEffects extends MinaRustBaseEffect<BenchmarksWalle
     this.getAllTxs$ = createEffect(() => this.actions$.pipe(
       ofType(BENCHMARKS_WALLETS_GET_ALL_TXS),
       switchMap(() =>
-        forkJoin([
+        combineLatest([
           this.mempoolService.getTransactionPool(),
           this.benchmarksService.getAllIncludedTransactions(),
         ]),

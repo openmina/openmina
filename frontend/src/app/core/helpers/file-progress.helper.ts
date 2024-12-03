@@ -32,7 +32,7 @@ class AssetMonitor {
         url: resource.toString(),
         startTime,
         progress: 0,
-        totalSize: 27355980,
+        totalSize: 30111552,
         status: 'pending',
         endTime: 0,
         duration: 0,

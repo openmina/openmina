@@ -31,7 +31,7 @@ export class MempoolService {
           const memo = decodeMemo(tx.data[1].payload.common.memo);
           return {
             kind: MempoolTransactionKind.PAYMENT,
-            txHash: tx.hash.join(''),
+            txHash: tx.hash,
             sender: tx.data[1].payload.common.fee_payer_pk,
             fee: Number(tx.data[1].payload.common.fee),
             amount: Number(tx.data[1].payload.body[1].amount) / ONE_BILLION,
@@ -46,7 +46,7 @@ export class MempoolService {
           const zkMemo = decodeMemo(zkapp.memo);
           return {
             kind: MempoolTransactionKind.ZK_APP,
-            txHash: tx.hash.join(''),
+            txHash: tx.hash,
             sender: zkapp.fee_payer.body.public_key,
             fee: Number(zkapp.fee_payer.body.fee),
             amount: null,
@@ -64,7 +64,7 @@ export class MempoolService {
 
 export interface MempoolTransactionResponse {
   data: [MempoolTransactionResponseKind, SignedCommand | ZkappCommand];
-  hash: number[];
+  hash: string;
 }
 
 export enum MempoolTransactionResponseKind {

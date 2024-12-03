@@ -39,10 +39,10 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'Producer-2',
     //   url: 'https://staging-devnet-openmina-bp-2-dashboard.minaprotocol.network',
     // },
-    {
-      name: 'staging-devnet-bp-0',
-      url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
-    },
+    // {
+    //   name: 'staging-devnet-bp-0',
+    //   url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
+    // },
     // {
     //   name: 'staging-devnet-bp-1',
     //   url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
@@ -55,18 +55,18 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'staging-devnet-bp-3',
     //   url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
     // },
-    // {
-    //   name: 'Web Node 1',
-    //   isWebNode: true,
-    // },
+    {
+      name: 'Web Node 1',
+      isWebNode: true,
+    },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',
     // },
-    {
-      name: 'Local rust node',
-      url: 'http://127.0.0.1:3000',
-    },
+    // {
+    //   name: 'Local rust node',
+    //   url: 'http://127.0.0.1:3000',
+    // },
     // {
     //   name: 'feat/frontend-api-peers',
     //   url: 'http://176.9.147.28:3000',

@@ -18,6 +18,10 @@ export class RustService {
     this.node = node;
   }
 
+  get activeNodeIsWebNode(): boolean {
+    return this.node.isWebNode;
+  }
+
   get URL(): string {
     return this.node.url;
   }
