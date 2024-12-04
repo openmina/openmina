@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2024-12-04
+
+### Fixed
+
+- Properly handle time in cases in which the system goes to sleep.
+- Various corner cases in block proof production.
+- Improved ledgers sync during bootstrap (be smarter about which peers to query).
+- **P2P**: More efficient memory usage when managing the p2p state.
+- **P2P**: Lower outgoing traffic by being more conservative about what is broadcasted to each peer.
+- **P2P**: Better handling of disconnections.
+- **VRF**: Correctly handle cases in which the delegator table is empty.
+- **Webnode**: Peer connection handling improvements.
+
+### Changed
+
+- **Webnode**: Reduced startup time by loading prover indexes in parallel to the bootstrap process.
+- **Webnode**: Faster field operations (faster hashing and proving).
+- Improved hashing performance by caching and reusing common prefixes.
+- Added more pre-validation checks for blocks received from the network.
+
+### Added
+
+- **Webnode**: Transaction propagation
+- **P2P**: Support for specifying the external ip to be advertised.
+
 ## [0.11.0] - 2024-10-31
 
 ### Added
@@ -305,24 +330,25 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.11.0...develop
-[0.11.0]: https://github.com/openmina/openmina/releases/tag/v0.10.3...v0.11.0
-[0.10.3]: https://github.com/openmina/openmina/releases/tag/v0.10.0...v0.10.3
-[0.10.0]: https://github.com/openmina/openmina/releases/tag/v0.9.0...v0.10.0
-[0.9.0]: https://github.com/openmina/openmina/releases/tag/v0.8.14...v0.9.0
-[0.8.14]: https://github.com/openmina/openmina/releases/tag/v0.8.13...v0.8.14
-[0.8.13]: https://github.com/openmina/openmina/releases/tag/v0.8.3...v0.8.13
-[0.8.3]: https://github.com/openmina/openmina/releases/tag/v0.8.2...v0.8.3
-[0.8.2]: https://github.com/openmina/openmina/releases/tag/v0.8.1...v0.8.2
-[0.8.1]: https://github.com/openmina/openmina/releases/tag/v0.8.0...v0.8.1
-[0.8.0]: https://github.com/openmina/openmina/releases/tag/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/openmina/openmina/releases/tag/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/openmina/openmina/releases/tag/v0.5.1...v0.6.0
-[0.5.1]: https://github.com/openmina/openmina/releases/tag/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/openmina/openmina/releases/tag/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/openmina/openmina/releases/tag/v0.3.0...v0.4.0
-[0.3.1]: https://github.com/openmina/openmina/releases/tag/v0.3.0...v0.3.1
-[0.3.0]: https://github.com/openmina/openmina/releases/tag/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/openmina/openmina/releases/tag/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/openmina/openmina/releases/tag/v0.0.1...v0.1.0
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.12.0...develop
+[0.12.0]: https://github.com/openmina/openmina/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/openmina/openmina/compare/v0.10.3...v0.11.0
+[0.10.3]: https://github.com/openmina/openmina/compare/v0.10.0...v0.10.3
+[0.10.0]: https://github.com/openmina/openmina/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/openmina/openmina/compare/v0.8.14...v0.9.0
+[0.8.14]: https://github.com/openmina/openmina/compare/v0.8.13...v0.8.14
+[0.8.13]: https://github.com/openmina/openmina/compare/v0.8.3...v0.8.13
+[0.8.3]: https://github.com/openmina/openmina/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/openmina/openmina/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/openmina/openmina/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/openmina/openmina/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/openmina/openmina/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/openmina/openmina/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/openmina/openmina/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/openmina/openmina/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/openmina/openmina/compare/v0.3.0...v0.4.0
+[0.3.1]: https://github.com/openmina/openmina/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/openmina/openmina/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/openmina/openmina/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/openmina/openmina/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/openmina/openmina/releases/tag/v0.0.1
