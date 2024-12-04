@@ -60,9 +60,12 @@ pub enum TransactionPoolCandidateAction {
 impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
     fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
-            TransactionPoolCandidateAction::InfoReceived { info, .. } => {
+            TransactionPoolCandidateAction::InfoReceived { peer_id, info } => {
                 !state.transaction_pool.contains(&info.hash)
-                    && !state.transaction_pool.candidates.contains(&info.hash)
+                    && !state
+                        .transaction_pool
+                        .candidates
+                        .peer_contains(*peer_id, &info.hash)
             }
             TransactionPoolCandidateAction::FetchAll => state.p2p.ready().is_some(),
             TransactionPoolCandidateAction::FetchInit { peer_id, hash } => {

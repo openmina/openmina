@@ -249,7 +249,7 @@ impl TransactionPoolState {
                         (rpc_action, accepted, rejected)
                     }
                     Err(e) => {
-                        bug_condition!("unsafe_apply error: {:?}", e);
+                        crate::core::warn!(meta.time(); kind = "TransactionPoolUnsafeApplyError", summary = e);
                         return;
                     }
                 };

@@ -68,6 +68,12 @@ impl TransactionPoolCandidatesState {
         self.by_hash.contains_key(hash)
     }
 
+    pub fn peer_contains(&self, peer_id: PeerId, hash: &TransactionHash) -> bool {
+        self.by_peer
+            .get(&peer_id)
+            .map_or(false, |txs| txs.contains_key(hash))
+    }
+
     pub fn get(
         &self,
         peer_id: PeerId,
