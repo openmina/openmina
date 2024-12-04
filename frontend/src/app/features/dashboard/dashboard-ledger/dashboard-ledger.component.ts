@@ -14,6 +14,7 @@ import { TemplatePortal } from '@angular/cdk/portal';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
 import { AppSelectors } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
+import { SentryService } from '@core/services/sentry.service';
 
 type LedgerConfigMap = {
   stakingEpoch: SecDurationConfig,
@@ -80,11 +81,14 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
   totalProgress: number;
   isWebNode: boolean;
 
+  private startSync: number = Date.now();
+
   @ViewChild('tooltipRef') private tooltipRef: TemplateRef<{ start: number, end: number }>;
   private overlayRef: OverlayRef;
 
   constructor(private overlay: Overlay,
-              private viewContainerRef: ViewContainerRef) {
+              private viewContainerRef: ViewContainerRef,
+              private sentryService: SentryService) {
     super();
   }
 
@@ -229,6 +233,8 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
           this.rootStagedProgress = 100;
         }
         this.totalProgress = (this.stakingProgress + this.nextProgress + this.rootSnarkedProgress + this.rootStagedProgress) / 4;
+
+        this.sentryService.updateLedgerSyncStatus(this.ledgers);
       }
       this.detect();
     });
@@ -272,9 +278,7 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
   }
 
   hide(): void {
-    if (this.overlayRef?.hasAttached()) {
-      this.overlayRef.detach();
-    }
+    this.overlayRef?.dispose();
   }
 
   private get emptyConfig(): SecDurationConfig {
@@ -292,11 +296,6 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
       color: false,
       undefinedAlternative: '-',
     };
-  }
-
-  override ngOnDestroy(): void {
-    super.ngOnDestroy();
-    this.hide();
   }
 
   private setProgressTime(): void {
@@ -326,5 +325,10 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
     } else {
       return `${action} <1m ago`;
     }
+  }
+
+  override ngOnDestroy(): void {
+    super.ngOnDestroy();
+    this.hide();
   }
 }

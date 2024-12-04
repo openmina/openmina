@@ -5,6 +5,7 @@ import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-
 import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import { isDesktop, lastItem, ONE_MILLION } from '@openmina/shared';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
+import { SentryService } from '@core/services/sentry.service';
 
 const PENDING = 'Pending';
 const SYNCED = 'Synced';
@@ -29,6 +30,10 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
   syncProgress: string;
   isDesktop: boolean = isDesktop();
   remaining: number;
+
+  private syncStartTime: number = Date.now();
+
+  constructor(private sentryService: SentryService) {super();}
 
   ngOnInit(): void {
     this.listenToNodesChanges();
@@ -76,6 +81,8 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
 
         this.extractNodesData(nodes);
         this.extractPeersData(peers);
+
+        this.sentryService.updateBlockSyncStatus(nodes[0].blocks, this.syncStartTime);
       }
       this.detect();
     });
@@ -115,8 +122,8 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
 
     this.fetched = blocks.filter(b => ![NodesOverviewNodeBlockStatus.MISSING, NodesOverviewNodeBlockStatus.FETCHING].includes(b.status)).length;
     this.applied = blocks.filter(b => b.status === NodesOverviewNodeBlockStatus.APPLIED).length;
-    this.fetchedPercentage = Math.round(this.fetched * 100 / 291) + '%';
-    this.appliedPercentage = Math.round(this.applied * 100 / 291);
+    this.fetchedPercentage = Math.round(this.fetched * 100 / 290) + '%';
+    this.appliedPercentage = Math.round(this.applied * 100 / 290);
   }
 
   private calculateProgressTime(timestamp: number): string {

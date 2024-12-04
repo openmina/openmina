@@ -38,7 +38,7 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
     total: number;
   };
   epoch: number;
-  emptySlots: boolean = false;
+  emptySlots: boolean = true;
   isLoading: boolean = true;
 
   constructor(protected el: ElementRef) { super(); }
@@ -82,8 +82,9 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
 
   private listenToActiveEpoch(): void {
     this.select(BlockProductionWonSlotsSelectors.epoch, (activeEpoch) => {
-      this.epoch = activeEpoch.epochNumber;
+      this.epoch = activeEpoch?.epochNumber;
       this.vrfStats = activeEpoch.vrfStats;
+      this.isCalculatingVRF = activeEpoch.vrfStats?.evaluated < activeEpoch.vrfStats?.total;
       this.detect();
     });
   }

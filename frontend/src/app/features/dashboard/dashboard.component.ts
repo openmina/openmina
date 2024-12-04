@@ -31,7 +31,6 @@ export class DashboardComponent extends StoreDispatcher implements OnInit, OnDes
   timer: Subscription;
   lastStatus: AppNodeStatus;
 
-
   ngOnInit(): void {
     // this.document.getElementById('mina-content').style.borderTopLeftRadius = '0';
     this.updateAction = 'Connecting to peers';

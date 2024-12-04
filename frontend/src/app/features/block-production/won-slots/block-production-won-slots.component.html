@@ -1,4 +1,4 @@
-@if (isPending || nodeIsBootstrapping || isCalculatingVRF || isLoading) {
+@if ((isPending || nodeIsBootstrapping || isCalculatingVRF || isLoading) && emptySlots) {
   <div class="w-100 h-100 fx-col-full-cent"
        @fadeInOut>
     <mina-loading-spinner [size]="50" [borderWidth]="2"></mina-loading-spinner>

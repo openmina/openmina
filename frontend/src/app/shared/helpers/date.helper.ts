@@ -39,11 +39,23 @@ export function getTimeDiff(time: number, config?: { withSecs?: boolean, only1un
 
   if (config?.only1unit) {
     if (days > 0) {
-      timeAgo += `${days}d `;
+      if (hours >= 12) {
+        timeAgo += `<${days + 1}d `;
+      } else {
+        timeAgo += `~${days}d `;
+      }
     } else if (hours > 0) {
-      timeAgo += `${hours}h `;
+      if (minutes >= 30) {
+        timeAgo += `<${hours + 1}h `;
+      } else {
+        timeAgo += `~${hours}h `;
+      }
     } else if (minutes > 0) {
-      timeAgo += `${minutes}m `;
+      if (seconds >= 30) {
+        timeAgo += `<${minutes + 1}m `;
+      } else {
+        timeAgo += `~${minutes}m `;
+      }
     } else {
       if (config?.withSecs) {
         timeAgo += `${seconds}s `;
@@ -53,6 +65,7 @@ export function getTimeDiff(time: number, config?: { withSecs?: boolean, only1un
     }
     return { diff: timeAgo.trim(), inFuture };
   }
+
   if (days > 0) {
     timeAgo += `${days}d `;
   }

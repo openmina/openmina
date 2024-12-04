@@ -26,7 +26,7 @@ export class BlockProductionWonSlotsService {
           }
           const attemptsSlots = response.attempts.map((attempt: Attempt) => {
             attempt.won_slot.slot_time = Math.floor(attempt.won_slot.slot_time / ONE_MILLION); // converted to milliseconds
-            attempt.active = BlockProductionWonSlotsService.getActive(attempt);
+            attempt.active = this.getActive(attempt);
             let slot = {
               epoch: attempt.won_slot.epoch,
               message: this.getMessage(attempt),
@@ -114,7 +114,7 @@ export class BlockProductionWonSlotsService {
       );
   }
 
-  private static getActive(attempt: Attempt): boolean {
+  private getActive(attempt: Attempt): boolean {
     const slotTime = attempt.won_slot.slot_time;
     const now = Date.now();
     return slotTime <= now && (now < 3 * 60 * 1000 + slotTime) && !attempt.times?.discarded;

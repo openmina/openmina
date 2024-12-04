@@ -2,7 +2,7 @@
      *ngIf="details"
      [ngClass]="switchForbidden ? AppNodeStatus.PENDING : details.status">
   <ng-container *ngIf="!switchForbidden && !hideNodeStats && !isMobile">
-    <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
+    <div class="chip mr-8 p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
          #mempoolAnchor
          (mouseenter)="openTooltipDropdown(mempoolAnchor, mempool)"
          (mouseleave)="detachTooltipOverlay()">
@@ -10,7 +10,7 @@
       <div>{{ details.transactions }} <span>Tx{{ details.transactions | plural }}</span></div>
       <div>{{ details.snarks }} <span>SNARK{{ details.snarks | plural }}</span></div>
     </div>
-    <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
+    <div class="chip mr-8 p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
          #peersAnchor
          (mouseenter)="openTooltipDropdown(peersAnchor, peers)"
          (mouseleave)="detachTooltipOverlay()">
@@ -18,7 +18,7 @@
       <div>{{ details.peersConnected }} <span>Peer{{ details.peersConnected | plural }}</span></div>
     </div>
   </ng-container>
-  <div class="node-status fx-row-vert-cent h-sm p-relative z-1 mr-5"
+  <div class="node-status fx-row-vert-cent h-sm p-relative z-1 mr-8"
        (click)="isMobile ? openNodePicker($event) : null"
        [class.can-add-nodes]="switchForbidden">
     <ng-container *ngIf="!switchForbidden && !hideNodeStats">
