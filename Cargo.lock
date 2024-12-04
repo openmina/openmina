@@ -3849,6 +3849,7 @@ dependencies = [
  "bitvec",
  "blake2",
  "bs58 0.4.0",
+ "console_error_panic_hook",
  "crc32fast",
  "derive_more",
  "fraction",

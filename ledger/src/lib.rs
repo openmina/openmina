@@ -75,17 +75,259 @@ pub use tree::*;
 pub use tree_version::*;
 pub use util::*;
 
+
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+extern "C" {
+    // Use `js_namespace` here to bind `console.log(..)` instead of just
+    // `log(..)`
+    #[wasm_bindgen(js_namespace = console)]
+    fn log(s: &str);
+
+    // The `console.log` is quite polymorphic, so we can bind it with multiple
+    // signatures. Note that we need to use `js_name` to ensure we always call
+    // `log` in JS.
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_u32(a: u32);
+
+    // Multiple arguments too!
+    #[wasm_bindgen(js_namespace = console, js_name = log)]
+    fn log_many(a: &str, b: &str);
+
+    // #[wasm_bindgen]
+    // extern "C" {
+
+    // #[wasm_bindgen(js_namespace = performance, js_name = now)]
+    // fn now() -> f64;
+
+    // #[no_mangle]
+    // #[used]
+    // static performance: web_sys::Performance;
+    // }
+}
+
+#[cfg(target_family = "wasm")]
+mod prover {
+
+    use std::{collections::HashMap, sync::Arc};
+
+    use kimchi::circuits::gate::CircuitGate;
+    use mina_curves::pasta::Fq;
+    use mina_hasher::Fp;
+    use proofs::{constants::{ProofConstants, StepBlockProof, WrapBlockProof, WrapTransactionProof}, field::FieldWitness, provers::{decode_constraints_data, BlockProver}, transaction::{make_prover_index, InternalVars, Prover, V}};
+
+    use super::*;
+
+    fn decode_gates_file<F: FieldWitness>(
+        reader: impl std::io::Read,
+    ) -> std::io::Result<Vec<CircuitGate<F>>> {
+        #[serde_with::serde_as]
+        #[derive(serde::Deserialize)]
+        struct GatesFile<F: ark_ff::PrimeField> {
+            public_input_size: usize,
+            #[serde_as(as = "Vec<_>")]
+            gates: Vec<CircuitGate<F>>,
+        }
+        let data: GatesFile<F> = serde_json::from_reader(reader)?;
+        Ok(data.gates)
+    }
+
+    fn read_gates_file<F: FieldWitness>(
+        gates_bytes: &[u8],
+    ) -> std::io::Result<Vec<CircuitGate<F>>> {
+        decode_gates_file(gates_bytes)
+    }
+
+    fn read_constraints_data<F: FieldWitness>(
+        internal_vars_bytes: &[u8],
+        rows_rev_bytes: &[u8],
+    ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
+        decode_constraints_data(internal_vars_bytes, rows_rev_bytes)
+    }
+
+    fn make_gates<F: FieldWitness>(
+        internal_vars_bytes: &[u8],
+        gates_bytes: &[u8],
+        rows_rev_bytes: &[u8],
+    ) -> (
+        HashMap<usize, (Vec<(F, V)>, Option<F>)>,
+        Vec<Vec<Option<V>>>,
+        Vec<CircuitGate<F>>,
+    ) {
+        let gates: Vec<CircuitGate<F>> = read_gates_file(&gates_bytes).unwrap();
+        let (internal_vars_path, rows_rev_path) =
+            read_constraints_data::<F>(&internal_vars_bytes, &rows_rev_bytes).unwrap();
+        (internal_vars_path, rows_rev_path, gates)
+    }
+
+    fn get<C: ProofConstants, F: FieldWitness>(
+        internal_vars_bytes: &[u8],
+        gates_bytes: &[u8],
+        rows_rev_bytes: &[u8],
+    ) -> Arc<Prover<F>> {
+        let (internal_vars, rows_rev, gates) = make_gates::<F>(internal_vars_bytes, gates_bytes, rows_rev_bytes);
+
+        let index = make_prover_index::<C, _>(gates, None);
+        Arc::new(Prover {
+            internal_vars,
+            rows_rev,
+            index,
+        })
+    }
+
+    pub fn get_block_prover() -> BlockProver {
+        log(&format!("AAA"));
+        let block_step_prover = get::<StepBlockProof, Fp>(
+            include_bytes!("../3.0.1devnet/step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60_internal_vars.bin"),
+            include_bytes!("../3.0.1devnet/step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60_gates.json"),
+            include_bytes!("../3.0.1devnet/step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60_rows_rev.bin"),
+        );
+        log(&format!("BBB"));
+        let block_wrap_prover = get::<WrapBlockProof, Fq>(
+            include_bytes!("../3.0.1devnet/wrap-wrap-proving-key-blockchain-snark-bbecaf158ca543ec8ac9e7144400e669_internal_vars.bin"),
+            include_bytes!("../3.0.1devnet/wrap-wrap-proving-key-blockchain-snark-bbecaf158ca543ec8ac9e7144400e669_gates.json"),
+            include_bytes!("../3.0.1devnet/wrap-wrap-proving-key-blockchain-snark-bbecaf158ca543ec8ac9e7144400e669_rows_rev.bin"),
+        );
+        log(&format!("CCC"));
+        let tx_wrap_prover = get::<WrapTransactionProof, Fq>(
+            include_bytes!("../3.0.1devnet/wrap-wrap-proving-key-transaction-snark-b9a01295c8cc9bda6d12142a581cd305_internal_vars.bin"),
+            include_bytes!("../3.0.1devnet/wrap-wrap-proving-key-transaction-snark-b9a01295c8cc9bda6d12142a581cd305_gates.json"),
+            include_bytes!("../3.0.1devnet/wrap-wrap-proving-key-transaction-snark-b9a01295c8cc9bda6d12142a581cd305_rows_rev.bin"),
+        );
+
+        BlockProver {
+            block_step_prover,
+            block_wrap_prover,
+            tx_wrap_prover,
+        }
+    }
+}
+
 // Run with:
 //
 // export RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals,+simd128 -C link-arg=--max-memory=4294967296"
-// export CC=gcc CXX=g++ RUST_BACKTRACE=1 LD_LIBRARY_PATH=(pwd)/_build/default/src/lib/mina_tree/:(pwd)/_build/default/src/lib/snarky/stacktrace/ DUNE_PROFILE=devnet
 // rustup run nightly wasm-pack build --target web -- . -Z build-std=std,panic_abort && python3 -m http.server 8080
+//
+// To profile more than 5 seconds in chrome:
+// https://stackoverflow.com/questions/54278305/when-does-start-profiling-and-reload-page-decide-to-stop-the-automatic-recordi
 
 #[cfg(target_family = "wasm")]
 mod wasm_tests {
     use super::*;
 
+    use proofs::provers::BlockProver;
     use wasm_bindgen::prelude::*;
+
+    use ::openmina_core::thread;
+    use wasm_bindgen::JsValue;
+
+    /// This method must be called to initialize rayon.
+    /// This is an async function, and the verification code must be called only after `init_rayon` returned.
+    /// This must not be called from the main thread.
+    pub async fn init_rayon() -> Result<(), JsValue> {
+        let num_cpus = thread::available_parallelism()
+            .map_err(|err| format!("failed to get available parallelism: {err}"))?
+            .get();
+
+        thread::spawn(move || {
+            rayon::ThreadPoolBuilder::new()
+                .spawn_handler(|thread| {
+                    thread::spawn(move || thread.run());
+                    Ok(())
+                })
+                .num_threads(num_cpus.max(2) - 1)
+                .build_global()
+                .map_err(|e| format!("{:?}", e))
+        })
+            .join_async()
+            .await
+            .unwrap()?;
+
+        Ok(())
+    }
+
+    fn run_prover_impl() {
+        // https://github.com/rustwasm/wasm-bindgen/issues/1752
+        let performance = js_sys::Reflect::get(&js_sys::global(), &"performance".into())
+            .expect("failed to get performance from global object")
+            .unchecked_into::<web_sys::Performance>();
+        let instant_now = || {
+            performance.now()
+        };
+
+        let now = instant_now();
+        let BlockProver {
+            block_step_prover,
+            block_wrap_prover,
+            tx_wrap_prover,
+        } = prover::get_block_prover();
+        let now2 = instant_now();
+        let ms = std::time::Duration::from_millis(now2 as u64 - now as u64);
+        log(&format!("get_block_prover: {:?}", ms));
+
+        let data = include_bytes!("../3.0.1devnet/tests/block_input-2483246-0.bin");
+
+        use crate::proofs::wrap::WrapProof;
+        use crate::proofs::block::BlockParams;
+        use crate::proofs::util::sha256_sum;
+        use crate::proofs::generate_block_proof;
+
+        let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
+            read_binprot(&mut data.as_slice());
+
+        let now = instant_now();
+        let WrapProof { proof, .. } = generate_block_proof(
+            BlockParams {
+                input: &blockchain_input,
+                block_step_prover: &block_step_prover,
+                block_wrap_prover: &block_wrap_prover,
+                tx_wrap_prover: &tx_wrap_prover,
+                only_verify_constraints: false,
+                expected_step_proof: None,
+                ocaml_wrap_witness: None,
+                // expected_step_proof: Some(
+                //     "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
+                // ),
+                // ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
+            },
+            // &mut witnesses,
+        )
+            .unwrap();
+        let now2 = instant_now();
+        let ms = std::time::Duration::from_millis(now2 as u64 - now as u64);
+        log(&format!("prove block: {:?}", ms));
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+        let _sum = dbg!(sha256_sum(&proof_json));
+
+        let now = instant_now();
+        let WrapProof { proof, .. } = generate_block_proof(
+            BlockParams {
+                input: &blockchain_input,
+                block_step_prover: &block_step_prover,
+                block_wrap_prover: &block_wrap_prover,
+                tx_wrap_prover: &tx_wrap_prover,
+                only_verify_constraints: false,
+                expected_step_proof: None,
+                ocaml_wrap_witness: None,
+                // expected_step_proof: Some(
+                //     "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
+                // ),
+                // ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
+            },
+            // &mut witnesses,
+        )
+            .unwrap();
+        let now2 = instant_now();
+        let ms = std::time::Duration::from_millis(now2 as u64 - now as u64);
+        log(&format!("prove block: {:?}", ms));
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+        let _sum = dbg!(sha256_sum(&proof_json));
+    }
+
 
     // Called when the wasm module is instantiated
     #[wasm_bindgen(start)]
@@ -105,9 +347,24 @@ mod wasm_tests {
         Ok(())
     }
 
+    fn run_prover() {
+        ::openmina_core::thread::main_thread_init();
+        wasm_bindgen_futures::spawn_local(async {
+            console_error_panic_hook::set_once();
+            // tracing::initialize(tracing::Level::INFO);
+            init_rayon().await.unwrap();
+        });
+
+        ::openmina_core::thread::spawn(|| {
+            run_prover_impl();
+        });
+    }
+
     #[wasm_bindgen]
     pub fn call_reconstruct_staged_ledger(a: u32, b: u32) -> u32 {
-        my_run();
+        // Comment one or the other
+        // run_prover();
+        run_reconstruct();
         a + b
     }
 
@@ -123,25 +380,26 @@ mod wasm_tests {
     use staged_ledger::staged_ledger::StagedLedger;
     use verifier::Verifier;
 
-    #[wasm_bindgen]
-    extern "C" {
-        // Use `js_namespace` here to bind `console.log(..)` instead of just
-        // `log(..)`
-        #[wasm_bindgen(js_namespace = console)]
-        fn log(s: &str);
+    fn read_binprot<T, R>(mut r: R) -> T
+    where
+        T: binprot::BinProtRead,
+        R: std::io::Read,
+    {
+        use std::io::Read;
 
-        // The `console.log` is quite polymorphic, so we can bind it with multiple
-        // signatures. Note that we need to use `js_name` to ensure we always call
-        // `log` in JS.
-        #[wasm_bindgen(js_namespace = console, js_name = log)]
-        fn log_u32(a: u32);
+        let mut len_buf = [0; std::mem::size_of::<u64>()];
+        r.read_exact(&mut len_buf).unwrap();
+        let len = u64::from_le_bytes(len_buf);
 
-        // Multiple arguments too!
-        #[wasm_bindgen(js_namespace = console, js_name = log)]
-        fn log_many(a: &str, b: &str);
+        let mut buf = Vec::with_capacity(len as usize);
+        let mut r = r.take(len);
+        r.read_to_end(&mut buf).unwrap();
+
+        let mut read = buf.as_slice();
+        T::binprot_read(&mut read).unwrap()
     }
 
-    fn my_run() {
+    fn run_reconstruct() {
         log("Hello from Rust!!!!");
 
         #[allow(unused)]
@@ -168,6 +426,17 @@ mod wasm_tests {
         //     eprintln!("no reconstruct context found");
         //     return;
         // };
+
+        let instant_now = || {
+            web_sys::window()
+                .expect("should have a Window")
+                .performance()
+                .expect("should have a Performance")
+                .now()
+        };
+
+        log(&format!("ICI: {:?}", instant_now()));
+
 
         let ReconstructContext {
             accounts,
@@ -198,14 +467,6 @@ mod wasm_tests {
             ledger.get_or_create_account(id, account).unwrap();
         }
         assert_eq!(ledger.num_accounts(), accounts.len());
-
-        let instant_now = || {
-            web_sys::window()
-                .expect("should have a Window")
-                .performance()
-                .expect("should have a Performance")
-                .now()
-        };
 
         log("444");
         // eprintln!("time to parse and restore state: {:?}", now.elapsed());

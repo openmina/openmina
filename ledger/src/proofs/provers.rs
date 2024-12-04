@@ -268,7 +268,7 @@ impl BlockProver {
     }
 }
 
-fn decode_constraints_data<F: FieldWitness>(
+pub fn decode_constraints_data<F: FieldWitness>(
     mut internal_vars: &[u8],
     mut rows_rev: &[u8],
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
