@@ -102,12 +102,33 @@ pub fn block_producer_effects<S: crate::Service>(
         BlockProducerEffectfulAction::BlockUnprovenBuild => {
             if let Some(stats) = store.service.stats() {
                 let bp = &store.state.get().block_producer;
-                if let Some((block_hash, block)) = bp.with(None, |bp| match &bp.current {
-                    BlockProducerCurrentState::BlockUnprovenBuilt {
-                        block, block_hash, ..
-                    } => Some((block_hash, block)),
-                    _ => None,
-                }) {
+                if let Some((block_hash, block, just_emitted_ledger_proof)) =
+                    bp.with(None, |bp| match &bp.current {
+                        BlockProducerCurrentState::BlockUnprovenBuilt {
+                            block,
+                            block_hash,
+                            emitted_ledger_proof,
+                            ..
+                        } => Some((block_hash, block, emitted_ledger_proof.is_some())),
+                        _ => None,
+                    })
+                {
+                    let ps = &block.protocol_state;
+                    let cs = &ps.body.consensus_state;
+                    let previous_state_hash = ps.previous_state_hash.to_string();
+                    let state_hash = block_hash.to_string();
+                    let global_slot_since_genesis = cs.global_slot_since_genesis.as_u32();
+                    let height = cs.blockchain_length.as_u32();
+                    openmina_core::info!(
+                        meta.time();
+                        message = "Unproven block built",
+                        state_hash = state_hash,
+                        previous_state_hash = previous_state_hash,
+                        global_slot_since_genesis = global_slot_since_genesis,
+                        height = height,
+                        just_emitted_ledger_proof = just_emitted_ledger_proof,
+                    );
+
                     stats
                         .block_producer()
                         .produced(meta.time(), block_hash, block);
