@@ -21,7 +21,8 @@ pub mod transaction_fuzzer {
     };
     use ledger::{
         scan_state::transaction_logic::{transaction_applied, UserCommand},
-        Account,
+        sparse_ledger::LedgerIntf,
+        Account, BaseLedger,
     };
     use mina_hasher::Fp;
     use mina_p2p_messages::bigint::BigInt;
@@ -57,9 +58,9 @@ pub mod transaction_fuzzer {
         pub rust: Option<Stats>,
     }
 
-    impl CoverageStats {
+    impl Default for CoverageStats {
         #[coverage(off)]
-        pub fn new() -> Self {
+        fn default() -> Self {
             let mut cov = Cov::new();
             let file_counters = cov.get_file_counters();
             Self {
@@ -68,12 +69,19 @@ pub mod transaction_fuzzer {
                 rust: None,
             }
         }
+    }
+
+    impl CoverageStats {
+        #[coverage(off)]
+        pub fn new() -> Self {
+            Self::default()
+        }
 
         #[coverage(off)]
         pub fn update_rust(&mut self) -> bool {
             let rust_cov_stats = Stats::from_file_counters(&self.file_counters);
             let coverage_increased = self.rust.is_none()
-                || rust_cov_stats.has_coverage_increased(&self.rust.as_ref().unwrap());
+                || rust_cov_stats.has_coverage_increased(self.rust.as_ref().unwrap());
 
             if coverage_increased {
                 let llvm_dump = self.cov.dump();
@@ -107,6 +115,7 @@ pub mod transaction_fuzzer {
     enum Action {
         SetConstraintConstants(ConstraintConstantsUnversioned),
         SetInitialAccounts(Vec<Account>),
+        GetAccounts,
         ApplyTx(UserCommand),
         #[allow(dead_code)]
         Exit,
@@ -116,6 +125,7 @@ pub mod transaction_fuzzer {
     enum ActionOutput {
         ConstraintConstantsSet,
         InitialAccountsSet(BigInt),
+        Accounts(Vec<Account>),
         TxApplied(ApplyTxResult),
         ExitAck,
     }
@@ -136,6 +146,18 @@ pub mod transaction_fuzzer {
         let rust_ledger_root_hash = ctx.get_ledger_root();
         assert!(ocaml_ledger_root_hash == rust_ledger_root_hash.into());
         rust_ledger_root_hash
+    }
+
+    #[coverage(off)]
+    fn ocaml_get_accounts(stdin: &mut ChildStdin, stdout: &mut ChildStdout) -> Vec<Account> {
+        let action = Action::GetAccounts;
+        serialize(&action, stdin);
+        let output: ActionOutput = deserialize(stdout);
+
+        match output {
+            ActionOutput::Accounts(accounts) => accounts,
+            _ => unreachable!(),
+        }
     }
 
     #[coverage(off)]
@@ -201,8 +223,8 @@ pub mod transaction_fuzzer {
         *invariants::BREAK.write().unwrap() = break_on_invariant;
         let mut cov_stats = CoverageStats::new();
         let mut ctx = FuzzerCtxBuilder::new()
-            .seed(seed as u64)
-            .minimum_fee(minimum_fee as u64)
+            .seed(seed)
+            .minimum_fee(minimum_fee)
             .initial_accounts(10)
             .fuzzcases_path(env::var("FUZZCASES_PATH").unwrap_or("/tmp/".to_string()))
             .build();
@@ -216,7 +238,7 @@ pub mod transaction_fuzzer {
             print!("Iteration {}\r", iteration);
             std::io::stdout().flush().unwrap();
 
-            if (iteration % 5000) == 0 {
+            if (iteration % 10000) == 0 {
                 if fuzzer_made_progress {
                     fuzzer_made_progress = false;
                     ctx.take_snapshot();
@@ -227,8 +249,8 @@ pub mod transaction_fuzzer {
                 }
             }
 
-            // Update coverage statistics every 100 iterations
-            if (iteration % 100) == 0 {
+            // Update coverage statistics every 1000 iterations
+            if (iteration % 1000) == 0 {
                 let update_rust_increased_coverage = cov_stats.update_rust();
 
                 if update_rust_increased_coverage {
@@ -239,12 +261,54 @@ pub mod transaction_fuzzer {
 
             let user_command: UserCommand = ctx.random_user_command();
             let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
+            let mut ledger = ctx.get_ledger_inner().make_child();
 
             // Apply transaction on the Rust side
-            if ctx
-                .apply_transaction(&user_command, &ocaml_apply_result)
-                .is_err()
+            if let Err(error) =
+                ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result)
             {
+                println!("!!! {error}");
+
+                let ocaml_accounts = ocaml_get_accounts(stdin, stdout);
+                let rust_accounts = ledger.to_list();
+
+                for ocaml_account in ocaml_accounts.iter() {
+                    match rust_accounts.iter().find(
+                        #[coverage(off)]
+                        |account| account.public_key == ocaml_account.public_key,
+                    ) {
+                        Some(rust_account) => {
+                            if rust_account != ocaml_account {
+                                println!(
+                                    "Content mismatch between OCaml and Rust account:\n{}",
+                                    ctx.diagnostic(rust_account, ocaml_account)
+                                );
+                            }
+                        }
+                        None => {
+                            println!(
+                                "OCaml account not present in Rust ledger: {:?}",
+                                ocaml_account
+                            );
+                        }
+                    }
+                }
+
+                for rust_account in rust_accounts.iter() {
+                    if !ocaml_accounts.iter().any(
+                        #[coverage(off)]
+                        |account| account.public_key == rust_account.public_key,
+                    ) {
+                        println!(
+                            "Rust account not present in Ocaml ledger: {:?}",
+                            rust_account
+                        );
+                    }
+                }
+
+                let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
+                ctx.save_fuzzcase(&user_command, &bigint.to_string());
+
                 // Exiting due to inconsistent state
                 std::process::exit(0);
             }
@@ -259,13 +323,17 @@ pub mod transaction_fuzzer {
         ocaml_set_constraint_constants(&mut ctx, stdin, stdout);
         ocaml_set_initial_accounts(&mut ctx, stdin, stdout);
 
+        let mut ledger = ctx.get_ledger_inner().make_child();
         let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
-        let rust_apply_result = ctx.apply_transaction(&user_command, &ocaml_apply_result);
+        let rust_apply_result =
+            ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result);
 
         println!("apply_transaction: {:?}", rust_apply_result);
     }
 }
 
+#[cfg(feature = "nightly")]
+#[coverage(off)]
 fn main() {
     #[cfg(feature = "nightly")]
     {
@@ -288,7 +356,7 @@ fn main() {
             .get_matches();
 
         let mut child = Command::new(
-            &std::env::var("OCAML_TRANSACTION_FUZZER_PATH").unwrap_or_else(
+            std::env::var("OCAML_TRANSACTION_FUZZER_PATH").unwrap_or_else(
                 #[coverage(off)]
                 |_| {
                     format!(

@@ -204,7 +204,8 @@ impl binprot::BinProtRead for ApplyTxResult {
                      previous_hash,
                      varying,
                  }| {
-                    let previous_hash = (&previous_hash.0)
+                    let previous_hash = previous_hash
+                        .0
                         .to_field()
                         .map_err(|x| binprot::Error::CustomError(Box::new(x)))?;
 
@@ -313,7 +314,7 @@ pub struct FuzzerCtx {
 
 impl FuzzerCtx {
     #[coverage(off)]
-    fn get_ledger_inner(&self) -> &Mask {
+    pub fn get_ledger_inner(&self) -> &Mask {
         match &self.state.ledger {
             LedgerKind::Mask(ledger) => ledger,
             LedgerKind::Staged(ledger, _) => ledger.ledger_ref(),
@@ -612,15 +613,10 @@ impl FuzzerCtx {
     // }
 
     #[coverage(off)]
-    fn save_fuzzcase(&self, tx: &Transaction, filename: &String) {
-        let filename = self.fuzzcases_path.clone() + &filename + ".fuzzcase";
+    pub fn save_fuzzcase(&self, user_command: &UserCommand, filename: &str) {
+        let filename = self.fuzzcases_path.clone() + filename + ".fuzzcase";
 
         println!("Saving fuzzcase: {}", filename);
-
-        let user_command = match tx {
-            Transaction::Command(user_command) => user_command.clone(),
-            _ => unimplemented!(),
-        };
 
         let mut file = fs::OpenOptions::new()
             .write(true)
@@ -629,7 +625,10 @@ impl FuzzerCtx {
             .open(filename)
             .unwrap();
 
-        serialize(&(self.get_ledger_accounts(), user_command), &mut file);
+        serialize(
+            &(self.get_ledger_accounts(), user_command.clone()),
+            &mut file,
+        );
     }
 
     #[coverage(off)]
@@ -1033,7 +1032,7 @@ impl FuzzerCtx {
     // }
 
     #[coverage(off)]
-    fn diagnostic(&self, applied: &impl Debug, applied_ocaml: &impl Debug) -> String {
+    pub fn diagnostic(&self, applied: &impl Debug, applied_ocaml: &impl Debug) -> String {
         use text_diff::{diff, Difference};
 
         let orig = format!("{:#?}", applied);
@@ -1070,15 +1069,16 @@ impl FuzzerCtx {
     #[coverage(off)]
     pub fn apply_transaction(
         &mut self,
+        ledger: &mut Mask,
         user_command: &UserCommand,
         expected_apply_result: &ApplyTxResult,
-    ) -> Result<(), ()> {
+    ) -> Result<(), String> {
         self.gen.nonces.clear();
-
-        let mut ledger = self.get_ledger_inner().make_child();
 
         // If we called apply_transaction it means we passed the tx pool check, so add tx to the cache
         if let UserCommand::ZkAppCommand(command) = user_command {
+            command.account_updates.accumulate_hashes();
+
             if !command.account_updates.is_empty() {
                 //println!("Storing in pool cache {:?}", tx);
                 self.state.cache_pool.push_back(user_command.clone());
@@ -1092,7 +1092,7 @@ impl FuzzerCtx {
             &self.constraint_constants,
             self.txn_state_view.global_slot_since_genesis,
             &self.txn_state_view,
-            &mut ledger,
+            ledger,
             &[tx.clone()],
         );
 
@@ -1126,26 +1126,19 @@ impl FuzzerCtx {
                 }
 
                 if expected_apply_result.apply_result.len() != 1 {
-                    println!(
-                        "!!! Apply failed in OCaml (error: {}) but it didn't in Rust: {:?}",
+                    return Err(format!(
+                        "Apply failed in OCaml (error: {}) but it didn't in Rust: {:?}",
                         expected_apply_result.error, applied
-                    );
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
-                } else {
-                    if applied != &expected_apply_result.apply_result[0] {
-                        println!(
-                            "!!! Apply result mismatch between OCaml and Rust\n{}\n",
-                            self.diagnostic(applied, &expected_apply_result.apply_result[0])
-                        );
-
-                        let bigint: num_bigint::BigUint =
-                            LedgerIntf::merkle_root(&mut ledger).into();
-                        self.save_fuzzcase(&tx, &bigint.to_string());
-                        return Err(());
-                    }
+                    ));
+                } else if applied != &expected_apply_result.apply_result[0] {
+                    return Err(format!(
+                        "Apply result mismatch between OCaml and Rust\n{}\n",
+                        self.diagnostic(applied, &expected_apply_result.apply_result[0])
+                    ));
                 }
+
+                //println!("RUST: {:?}", applied);
+                //println!("OCAML: {:?}", expected_apply_result);
 
                 // Save applied transactions in the cache for later use (mutation)
                 if *applied.transaction_status() == TransactionStatus::Applied {
@@ -1199,35 +1192,40 @@ impl FuzzerCtx {
             Err(error_string) => {
                 // Currently disabled until invariants are fixed
                 if error_string.starts_with("Invariant violation") {
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
+                    return Err(error_string);
                 }
 
                 if expected_apply_result.apply_result.len() == 1 {
-                    println!(
-                        "!!! Apply failed in Rust (error: {}) but it didn't in OCaml: {:?}",
+                    return Err(format!(
+                        "Apply failed in Rust (error: {}) but it didn't in OCaml: {:?}",
                         error_string, &expected_apply_result.apply_result[0]
-                    );
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
+                    ));
+                } else {
+                    //println!("ERROR RUST: {error_string}");
+                    //println!("ERROR OCAML: {:?}", expected_apply_result);
                 }
             }
         }
 
-        let rust_ledger_root_hash = LedgerIntf::merkle_root(&mut ledger);
+        let rust_ledger_root_hash = LedgerIntf::merkle_root(ledger);
 
-        if &expected_apply_result.root_hash != &rust_ledger_root_hash {
-            println!(
+        if expected_apply_result.root_hash != rust_ledger_root_hash {
+            Err(format!(
                 "Ledger hash mismatch: {:?} != {:?} (expected)",
                 rust_ledger_root_hash, expected_apply_result.root_hash
-            );
-            let bigint: num_bigint::BigUint = rust_ledger_root_hash.into();
-            self.save_fuzzcase(&tx, &bigint.to_string());
-            Err(())
+            ))
         } else {
             ledger.commit();
+
+            let rust_ledger_root_hash = LedgerIntf::merkle_root(self.get_ledger_inner_mut());
+
+            if expected_apply_result.root_hash != rust_ledger_root_hash {
+                return Err(format!(
+                    "Ledger hash mismatch (AFTER COMMIT!): {:?} != {:?} (expected)",
+                    rust_ledger_root_hash, expected_apply_result.root_hash
+                ));
+            }
+
             Ok(())
         }
     }
@@ -1263,21 +1261,28 @@ pub struct FuzzerCtxBuilder {
     is_staged_ledger: bool,
 }
 
-impl FuzzerCtxBuilder {
+impl Default for FuzzerCtxBuilder {
     #[coverage(off)]
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             constraint_constants: None,
             txn_state_view: None,
             fuzzcases_path: None,
             seed: 0,
-            minimum_fee: 1_000_000, // Sane default in case we don't obtain it from OCaml
+            minimum_fee: 1_000_000,
             max_account_balance: 1_000_000_000_000_000,
             initial_accounts: 10,
             cache_size: 4096,
             snapshots_size: 128,
             is_staged_ledger: false,
         }
+    }
+}
+
+impl FuzzerCtxBuilder {
+    #[coverage(off)]
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[coverage(off)]

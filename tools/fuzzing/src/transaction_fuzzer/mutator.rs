@@ -631,7 +631,7 @@ impl Mutator<Body> for FuzzerCtx {
                         self.gen()
                     };
 
-                    let options = vec![
+                    let options = [
                         zkapp_command::AuthorizationKind::NoneGiven,
                         zkapp_command::AuthorizationKind::Signature,
                         zkapp_command::AuthorizationKind::Proof(vk_hash),
@@ -664,7 +664,7 @@ impl Mutator<AccountUpdate> for FuzzerCtx {
                             }
                         };
                     } else {
-                        t.authorization = match vec![0, 1, 2].choose(&mut self.gen.rng).unwrap() {
+                        t.authorization = match [0, 1, 2].choose(&mut self.gen.rng).unwrap() {
                             0 => zkapp_command::Control::NoneGiven,
                             1 => zkapp_command::Control::Signature(Signature::dummy()),
                             2 => zkapp_command::Control::Proof(self.gen()),

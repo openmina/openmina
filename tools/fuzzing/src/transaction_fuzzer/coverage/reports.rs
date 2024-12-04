@@ -128,16 +128,14 @@ impl LineCounter {
 
     #[coverage(off)]
     fn split(&self, rhs: &Self) -> Vec<Self> {
-        if self.contains(&rhs) {
-            self.split3(&rhs)
+        if self.contains(rhs) {
+            self.split3(rhs)
         } else if rhs.contains(self) {
             rhs.split3(self)
+        } else if self.col_start < rhs.col_start {
+            self.split2(rhs)
         } else {
-            if self.col_start < rhs.col_start {
-                self.split2(rhs)
-            } else {
-                rhs.split2(self)
-            }
+            rhs.split2(self)
         }
     }
 
@@ -146,12 +144,10 @@ impl LineCounter {
         if self.overlap(rhs) {
             if self.count == rhs.count {
                 Some(vec![self.merge(rhs, self.count)])
+            } else if self.col_start == rhs.col_start && self.col_end == rhs.col_end {
+                Some(vec![self.merge(rhs, self.count.max(rhs.count))])
             } else {
-                if self.col_start == rhs.col_start && self.col_end == rhs.col_end {
-                    Some(vec![self.merge(rhs, self.count.max(rhs.count))])
-                } else {
-                    Some(self.split(rhs))
-                }
+                Some(self.split(rhs))
             }
         } else {
             None
@@ -160,7 +156,7 @@ impl LineCounter {
 }
 
 #[coverage(off)]
-fn color_line_counters(line: &str, counters: &Vec<LineCounter>) -> String {
+fn color_line_counters(line: &str, counters: &[LineCounter]) -> String {
     let mut result = String::new();
 
     if counters.is_empty() {
@@ -210,13 +206,10 @@ fn color_line_counters(line: &str, counters: &Vec<LineCounter>) -> String {
             // avoid reset colors if there is another counter
             if column == counter.col_end
                 && (counter.col_start == counter.col_end
-                    || counters
-                        .iter()
-                        .find(
-                            #[coverage(off)]
-                            |LineCounter { col_start, .. }| *col_start == column,
-                        )
-                        .is_none())
+                    || !counters.iter().any(
+                        #[coverage(off)]
+                        |LineCounter { col_start, .. }| *col_start == column,
+                    ))
             {
                 result.push_str(&format!("\x1b[1;{}m\x1b[1;37m", line_color));
             }
@@ -345,10 +338,10 @@ impl FileCoverage {
 impl fmt::Display for FileCoverage {
     #[coverage(off)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:\n", self.filename)?;
+        writeln!(f, "{}:", self.filename)?;
 
         for (i, line) in self.lines.iter().enumerate() {
-            write!(f, "{:>6}: {}\n", i, line)?;
+            writeln!(f, "{:>6}: {}", i, line)?;
         }
 
         Ok(())
@@ -362,7 +355,7 @@ impl fmt::Display for CoverageReport {
     #[coverage(off)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for file in self.0.iter() {
-            write!(f, "{}\n", file)?;
+            writeln!(f, "{}", file)?;
         }
 
         Ok(())
@@ -428,7 +421,7 @@ impl CoverageReport {
                 break;
             }
 
-            if let Some(new_counters) = counters[idx].join(&counter) {
+            if let Some(new_counters) = counters[idx].join(counter) {
                 counters.remove(idx);
 
                 for counter in new_counters.iter() {
@@ -436,17 +429,15 @@ impl CoverageReport {
                 }
 
                 break;
-            } else {
-                if counters[idx].col_end > counter.col_end {
-                    counters.insert(idx, counter.clone());
-                    break;
-                }
+            } else if counters[idx].col_end > counter.col_end {
+                counters.insert(idx, counter.clone());
+                break;
             }
         }
     }
 
     #[coverage(off)]
-    pub fn from_llvm_dump(llvm_dump: &Vec<FileDump>) -> Self {
+    pub fn from_llvm_dump(llvm_dump: &[FileDump]) -> Self {
         let sources_path = env::var("RUST_BUILD_PATH").unwrap_or_else(|_| {
             env::current_dir()
                 .unwrap()
@@ -546,7 +537,7 @@ impl CoverageReport {
     }
 
     #[coverage(off)]
-    pub fn from_bisect_dump(bisect_dump: &Vec<(String, Vec<i64>, Vec<i64>)>) -> Self {
+    pub fn from_bisect_dump(bisect_dump: &[(String, Vec<i64>, Vec<i64>)]) -> Self {
         let sources_path = env::var("OCAML_BUILD_PATH").unwrap();
         let mut file_coverage_vec = Vec::new();
 
@@ -572,7 +563,7 @@ impl CoverageReport {
                             line_offset_vec[i - 1] + 1
                         };
                         LineCoverage {
-                            line: String::from_utf8((&file_contents[start_pos..end_pos]).to_vec())
+                            line: String::from_utf8(file_contents[start_pos..end_pos].to_vec())
                                 .unwrap(),
                             counters: Vec::new(),
                         }
@@ -609,17 +600,16 @@ impl CoverageReport {
                     .unwrap();
 
                 let col = if line_num == 0 {
-                    point as usize
+                    point
                 } else {
-                    point as usize - line_offset_vec[line_num - 1]
+                    point - line_offset_vec[line_num - 1]
                 };
 
                 // TODO: find a better way to convert bytes position to char position
-                let col_start =
-                    String::from_utf8((&lines[line_num].line.as_bytes()[..col]).to_vec())
-                        .unwrap()
-                        .chars()
-                        .count();
+                let col_start = String::from_utf8(lines[line_num].line.as_bytes()[..col].to_vec())
+                    .unwrap()
+                    .chars()
+                    .count();
 
                 // It seems there isn't an "end column" in bisect-ppx
                 let col_end = col_start;
