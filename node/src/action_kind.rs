@@ -138,17 +138,17 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorCheckEpochEvaluability,
     BlockProducerVrfEvaluatorCleanupOldSlots,
     BlockProducerVrfEvaluatorContinueEpochEvaluation,
-    BlockProducerVrfEvaluatorEvaluateSlot,
+    BlockProducerVrfEvaluatorEvaluateSlotsBatch,
     BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction,
     BlockProducerVrfEvaluatorFinalizeEvaluatorInitialization,
     BlockProducerVrfEvaluatorFinishEpochEvaluation,
     BlockProducerVrfEvaluatorInitializeEpochEvaluation,
     BlockProducerVrfEvaluatorInitializeEvaluator,
     BlockProducerVrfEvaluatorInterruptEpochEvaluation,
-    BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
+    BlockProducerVrfEvaluatorProcessSlotsBatchEvaluationSuccess,
     BlockProducerVrfEvaluatorSelectInitialSlot,
     BlockProducerVrfEvaluatorWaitForNextEvaluation,
-    BlockProducerVrfEvaluatorEffectfulEvaluateSlot,
+    BlockProducerVrfEvaluatorEffectfulEvaluateSlotsBatch,
     BlockProducerVrfEvaluatorEffectfulInitializeStats,
     BlockProducerVrfEvaluatorEffectfulSlotEvaluated,
     CheckTimeouts,
@@ -1483,9 +1483,11 @@ impl ActionKindGet for SnarkPoolCandidateAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::EvaluateSlot { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateSlot,
-            Self::ProcessSlotEvaluationSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess
+            Self::EvaluateSlotsBatch { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorEvaluateSlotsBatch
+            }
+            Self::ProcessSlotsBatchEvaluationSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorProcessSlotsBatchEvaluationSuccess
             }
             Self::InitializeEvaluator { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorInitializeEvaluator
@@ -1532,7 +1534,9 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorEffectfulAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::EvaluateSlot { .. } => ActionKind::BlockProducerVrfEvaluatorEffectfulEvaluateSlot,
+            Self::EvaluateSlotsBatch { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorEffectfulEvaluateSlotsBatch
+            }
             Self::SlotEvaluated { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorEffectfulSlotEvaluated
             }

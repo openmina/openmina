@@ -25,22 +25,30 @@ impl BlockProducerVrfEvaluatorState {
 
         let (action, meta) = action.split();
         match action {
-            BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input } => {
+            BlockProducerVrfEvaluatorAction::EvaluateSlotsBatch {
+                vrf_input,
+                start_slot,
+                batch_size,
+            } => {
                 state.status = BlockProducerVrfEvaluatorStatus::SlotEvaluationPending {
                     time: meta.time(),
                     global_slot: vrf_input.global_slot,
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlot {
-                    vrf_input: vrf_input.clone(),
-                });
+                dispatcher.push(
+                    BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlotsBatch {
+                        vrf_input: vrf_input.clone(),
+                        start_slot: *start_slot,
+                        batch_size: *batch_size,
+                    },
+                );
             }
-            BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
-                vrf_output,
+            BlockProducerVrfEvaluatorAction::ProcessSlotsBatchEvaluationSuccess {
+                vrf_outputs,
                 staking_ledger_hash,
             } => {
-                let global_slot_evaluated = match &vrf_output {
+                let latest_evaluated_global_slot = match vrf_outputs.last().unwrap() {
                     vrf::VrfEvaluationOutput::SlotWon(won_slot_data) => {
                         state.won_slots.insert(
                             won_slot_data.global_slot,
@@ -53,11 +61,11 @@ impl BlockProducerVrfEvaluatorState {
                     }
                     vrf::VrfEvaluationOutput::SlotLost(global_slot) => *global_slot,
                 };
-                state.set_latest_evaluated_global_slot(&global_slot_evaluated);
+                state.set_latest_evaluated_global_slot(&latest_evaluated_global_slot);
 
                 state.status = BlockProducerVrfEvaluatorStatus::SlotEvaluationReceived {
                     time: meta.time(),
-                    global_slot: global_slot_evaluated,
+                    global_slot: latest_evaluated_global_slot,
                 };
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -69,12 +77,15 @@ impl BlockProducerVrfEvaluatorState {
                         });
                         dispatcher.push(BlockProducerVrfEvaluatorAction::CheckEpochBounds {
                             epoch_number: pending_evaluation.epoch_number,
-                            latest_evaluated_global_slot: vrf_output.global_slot(),
+                            latest_evaluated_global_slot,
                         });
                     }
                 }
 
-                if matches!(vrf_output, VrfEvaluationOutput::SlotWon(_)) {
+                if vrf_outputs
+                    .iter()
+                    .any(|vrf_output| matches!(vrf_output, VrfEvaluationOutput::SlotWon(_)))
+                {
                     dispatcher.push(BlockProducerAction::WonSlotSearch);
                 }
             }
@@ -410,8 +421,12 @@ impl BlockProducerVrfEvaluatorState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 if let Some(vrf_evaluator_state) = state.block_producer.vrf_evaluator() {
                     if let Some(vrf_input) = vrf_evaluator_state.construct_vrf_input() {
-                        dispatcher
-                            .push(BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input });
+                        let start_slot = vrf_input.global_slot;
+                        dispatcher.push(BlockProducerVrfEvaluatorAction::EvaluateSlotsBatch {
+                            vrf_input,
+                            start_slot,
+                            batch_size: 50, // FIXME: must not go over the end of the epoch
+                        });
                     }
                 }
             }

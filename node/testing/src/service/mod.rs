@@ -494,8 +494,8 @@ impl SnarkPoolService for NodeTestingService {
 }
 
 impl BlockProducerVrfEvaluatorService for NodeTestingService {
-    fn evaluate(&mut self, data: VrfEvaluatorInput) {
-        BlockProducerVrfEvaluatorService::evaluate(&mut self.real, data)
+    fn evaluate(&mut self, data: VrfEvaluatorInput, start_slot: u32, batch_size: u32) {
+        BlockProducerVrfEvaluatorService::evaluate(&mut self.real, data, start_slot, batch_size)
     }
 }
 

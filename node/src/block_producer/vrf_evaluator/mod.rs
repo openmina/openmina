@@ -31,6 +31,16 @@ pub struct VrfEvaluatorInput {
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct VrfEvaluatorRangeInput {
+    pub epoch_seed: EpochSeed,
+    pub delegator_table: Arc<DelegatorTable>,
+    pub global_slot_start: u32,
+    pub slots_count: u32,
+    pub total_currency: u64,
+    pub staking_ledger_hash: LedgerHash,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfWonSlotWithHash {
     pub won_slot: VrfWonSlot,
     pub staking_ledger_hash: LedgerHash,
@@ -47,28 +57,33 @@ impl VrfWonSlotWithHash {
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfEvaluationOutputWithHash {
-    pub evaluation_result: VrfEvaluationOutput,
+    pub evaluation_results: Vec<VrfEvaluationOutput>,
     pub staking_ledger_hash: LedgerHash,
 }
 
 impl std::fmt::Display for VrfEvaluationOutputWithHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} ", self.staking_ledger_hash)?;
-        match &self.evaluation_result {
-            VrfEvaluationOutput::SlotWon(won_slot) => {
-                write!(f, "SlotWon {}", won_slot.global_slot)
-            }
-            VrfEvaluationOutput::SlotLost(global_slot) => {
-                write!(f, "SlotLost {}", global_slot)
-            }
-        }
+        let won_slots: Vec<u32> = self
+            .evaluation_results
+            .iter()
+            .filter_map(|output| match output {
+                VrfEvaluationOutput::SlotWon(vrf_won_slot) => Some(vrf_won_slot.global_slot),
+                VrfEvaluationOutput::SlotLost(_) => None,
+            })
+            .collect();
+
+        write!(f, "SlotsWon {:?}", won_slots)
     }
 }
 
 impl VrfEvaluationOutputWithHash {
-    pub fn new(evaluation_result: VrfEvaluationOutput, staking_ledger_hash: LedgerHash) -> Self {
+    pub fn new(
+        evaluation_results: Vec<VrfEvaluationOutput>,
+        staking_ledger_hash: LedgerHash,
+    ) -> Self {
         Self {
-            evaluation_result,
+            evaluation_results,
             staking_ledger_hash,
         }
     }
