@@ -34,6 +34,14 @@ use crate::{
 
 use super::P2pCallbacksAction;
 
+fn get_rpc_request<'a>(state: &'a State, peer_id: &PeerId) -> Option<&'a P2pRpcRequest> {
+    state
+        .p2p
+        .get_ready_peer(peer_id)
+        .and_then(|s| s.channels.rpc.local_responded_request())
+        .map(|(_, req)| req)
+}
+
 impl crate::State {
     pub fn p2p_callback_reducer(
         state_context: crate::Substate<Self>,
@@ -110,7 +118,10 @@ impl crate::State {
                 id,
                 response,
             } => {
-                State::handle_rpc_channels_response(dispatcher, meta, *id, *peer_id, response);
+                let request = || get_rpc_request(state, peer_id);
+                State::handle_rpc_channels_response(
+                    dispatcher, meta, *id, *peer_id, request, response,
+                );
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
                 dispatcher.push(TransitionFrontierSyncAction::BlocksPeersQuery);
@@ -265,6 +276,7 @@ impl crate::State {
                     })
                     .for_each(|action| dispatcher.push(action));
 
+                dispatcher.push(TransactionPoolCandidateAction::PeerPrune { peer_id });
                 dispatcher.push(SnarkPoolCandidateAction::PeerPrune { peer_id });
             }
             P2pCallbacksAction::RpcRespondBestTip { peer_id } => {
@@ -386,15 +398,32 @@ impl crate::State {
         }
     }
 
-    fn handle_rpc_channels_response(
+    fn handle_rpc_channels_response<'a>(
         dispatcher: &mut Dispatcher<Action, State>,
         meta: ActionMeta,
         id: u64,
         peer_id: PeerId,
+        request: impl FnOnce() -> Option<&'a P2pRpcRequest>,
         response: &Option<Box<P2pRpcResponse>>,
     ) {
         match response.as_deref() {
             None => {
+                match request() {
+                    Some(P2pRpcRequest::Transaction(hash)) => {
+                        let hash = hash.clone();
+                        dispatcher
+                            .push(TransactionPoolCandidateAction::FetchError { peer_id, hash });
+                        return;
+                    }
+                    Some(P2pRpcRequest::Snark(job_id)) => {
+                        let job_id = job_id.clone();
+                        dispatcher
+                            .push(SnarkPoolCandidateAction::WorkFetchError { peer_id, job_id });
+                        return;
+                    }
+                    _ => {}
+                }
+
                 dispatcher.push(
                     TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
                         peer_id,
@@ -527,14 +556,16 @@ impl crate::State {
             Some(P2pRpcResponse::Transaction(transaction)) => {
                 match TransactionWithHash::try_new(transaction.clone()) {
                     Err(err) => bug_condition!("tx hashing failed: {err}"),
-                    Ok(transaction) => dispatcher.push(TransactionPoolCandidateAction::Received {
-                        peer_id,
-                        transaction,
-                    }),
+                    Ok(transaction) => {
+                        dispatcher.push(TransactionPoolCandidateAction::FetchSuccess {
+                            peer_id,
+                            transaction,
+                        })
+                    }
                 }
             }
             Some(P2pRpcResponse::Snark(snark)) => {
-                dispatcher.push(SnarkPoolCandidateAction::WorkReceived {
+                dispatcher.push(SnarkPoolCandidateAction::WorkFetchSuccess {
                     peer_id,
                     work: snark.clone(),
                 });

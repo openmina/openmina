@@ -31,7 +31,11 @@ pub enum SnarkPoolCandidateAction {
         job_id: SnarkJobId,
         rpc_id: P2pRpcId,
     },
-    WorkReceived {
+    WorkFetchError {
+        peer_id: PeerId,
+        job_id: SnarkJobId,
+    },
+    WorkFetchSuccess {
         peer_id: PeerId,
         work: Snark,
     },
@@ -91,7 +95,14 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                 .map_or(false, |s| {
                     matches!(s, SnarkPoolCandidateState::InfoReceived { .. })
                 }),
-            SnarkPoolCandidateAction::WorkReceived { peer_id, work } => {
+            SnarkPoolCandidateAction::WorkFetchError { peer_id, job_id } => state
+                .snark_pool
+                .candidates
+                .get(*peer_id, job_id)
+                .map_or(false, |s| {
+                    matches!(s, SnarkPoolCandidateState::WorkFetchPending { .. })
+                }),
+            SnarkPoolCandidateAction::WorkFetchSuccess { peer_id, work } => {
                 let job_id = work.job_id();
                 state.snark_pool.contains(&job_id)
                     && state

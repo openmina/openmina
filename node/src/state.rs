@@ -551,7 +551,7 @@ impl P2p {
             )),
             on_p2p_channels_snark_libp2p_received: Some(redux::callback!(
                 on_p2p_channels_snark_libp2p_received((peer_id: PeerId, snark: Box<Snark>)) -> crate::Action{
-                    SnarkPoolCandidateAction::WorkReceived { peer_id, work: *snark }
+                    SnarkPoolCandidateAction::WorkFetchSuccess { peer_id, work: *snark }
                 }
             )),
             on_p2p_channels_streaming_rpc_ready: Some(redux::callback!(

@@ -159,7 +159,7 @@ impl TransactionPoolCandidatesState {
             .collect()
     }
 
-    pub fn work_fetch_pending(
+    pub fn fetch_pending(
         &mut self,
         time: Timestamp,
         peer_id: &PeerId,
@@ -181,7 +181,7 @@ impl TransactionPoolCandidatesState {
         }
     }
 
-    pub fn work_received(
+    pub fn transaction_received(
         &mut self,
         time: Timestamp,
         peer_id: PeerId,
@@ -269,13 +269,25 @@ impl TransactionPoolCandidatesState {
     }
 
     pub fn peer_remove(&mut self, peer_id: PeerId) {
-        if let Some(works) = self.by_peer.remove(&peer_id) {
-            for hash in works.into_keys() {
+        if let Some(txs) = self.by_peer.remove(&peer_id) {
+            for hash in txs.into_keys() {
                 if let Some(peers) = self.by_hash.get_mut(&hash) {
                     peers.remove(&peer_id);
                     if peers.is_empty() {
                         self.by_hash.remove(&hash);
                     }
+                }
+            }
+        }
+    }
+
+    pub fn peer_transaction_remove(&mut self, peer_id: PeerId, hash: &TransactionHash) {
+        if let Some(txs) = self.by_peer.get_mut(&peer_id) {
+            txs.remove(hash);
+            if let Some(peers) = self.by_hash.get_mut(hash) {
+                peers.remove(&peer_id);
+                if peers.is_empty() {
+                    self.by_hash.remove(hash);
                 }
             }
         }
@@ -310,11 +322,11 @@ impl TransactionPoolCandidatesState {
         self.by_hash.retain(|hash, peers| {
             let mut predicate = predicate(hash);
             peers.retain(|peer_id| {
-                if let Some(peer_works) = by_peer.get_mut(peer_id) {
-                    match peer_works.get(hash) {
+                if let Some(peer_txs) = by_peer.get_mut(peer_id) {
+                    match peer_txs.get(hash) {
                         Some(s) if predicate(s) => true,
                         Some(_) => {
-                            peer_works.remove(hash);
+                            peer_txs.remove(hash);
                             false
                         }
                         None => false,

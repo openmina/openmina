@@ -567,9 +567,10 @@ pub enum ActionKind {
     SnarkPoolCandidateInfoReceived,
     SnarkPoolCandidatePeerPrune,
     SnarkPoolCandidateWorkFetchAll,
+    SnarkPoolCandidateWorkFetchError,
     SnarkPoolCandidateWorkFetchInit,
     SnarkPoolCandidateWorkFetchPending,
-    SnarkPoolCandidateWorkReceived,
+    SnarkPoolCandidateWorkFetchSuccess,
     SnarkPoolCandidateWorkVerifyError,
     SnarkPoolCandidateWorkVerifyNext,
     SnarkPoolCandidateWorkVerifyPending,
@@ -601,11 +602,12 @@ pub enum ActionKind {
     TransactionPoolStartVerifyWithAccounts,
     TransactionPoolVerifyError,
     TransactionPoolCandidateFetchAll,
+    TransactionPoolCandidateFetchError,
     TransactionPoolCandidateFetchInit,
     TransactionPoolCandidateFetchPending,
+    TransactionPoolCandidateFetchSuccess,
     TransactionPoolCandidateInfoReceived,
     TransactionPoolCandidatePeerPrune,
-    TransactionPoolCandidateReceived,
     TransactionPoolCandidateVerifyError,
     TransactionPoolCandidateVerifyNext,
     TransactionPoolCandidateVerifyPending,
@@ -702,7 +704,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 592;
+    pub const COUNT: u16 = 594;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1486,7 +1488,8 @@ impl ActionKindGet for SnarkPoolCandidateAction {
             Self::WorkFetchAll => ActionKind::SnarkPoolCandidateWorkFetchAll,
             Self::WorkFetchInit { .. } => ActionKind::SnarkPoolCandidateWorkFetchInit,
             Self::WorkFetchPending { .. } => ActionKind::SnarkPoolCandidateWorkFetchPending,
-            Self::WorkReceived { .. } => ActionKind::SnarkPoolCandidateWorkReceived,
+            Self::WorkFetchError { .. } => ActionKind::SnarkPoolCandidateWorkFetchError,
+            Self::WorkFetchSuccess { .. } => ActionKind::SnarkPoolCandidateWorkFetchSuccess,
             Self::WorkVerifyNext => ActionKind::SnarkPoolCandidateWorkVerifyNext,
             Self::WorkVerifyPending { .. } => ActionKind::SnarkPoolCandidateWorkVerifyPending,
             Self::WorkVerifyError { .. } => ActionKind::SnarkPoolCandidateWorkVerifyError,
@@ -1503,7 +1506,8 @@ impl ActionKindGet for TransactionPoolCandidateAction {
             Self::FetchAll => ActionKind::TransactionPoolCandidateFetchAll,
             Self::FetchInit { .. } => ActionKind::TransactionPoolCandidateFetchInit,
             Self::FetchPending { .. } => ActionKind::TransactionPoolCandidateFetchPending,
-            Self::Received { .. } => ActionKind::TransactionPoolCandidateReceived,
+            Self::FetchError { .. } => ActionKind::TransactionPoolCandidateFetchError,
+            Self::FetchSuccess { .. } => ActionKind::TransactionPoolCandidateFetchSuccess,
             Self::VerifyNext => ActionKind::TransactionPoolCandidateVerifyNext,
             Self::VerifyPending { .. } => ActionKind::TransactionPoolCandidateVerifyPending,
             Self::VerifyError { .. } => ActionKind::TransactionPoolCandidateVerifyError,
