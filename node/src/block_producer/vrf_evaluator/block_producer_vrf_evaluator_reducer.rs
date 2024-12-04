@@ -1,3 +1,34 @@
+//! This module handles the logic for the VRF (Verifiable Random Function) evaluation process in block production for Mina network protocol.
+//!
+//! **Overview**:
+//! - **VrfEvaluatorState**: Manages the state of VRF evaluation, including pending evaluations, won slots, and status of evaluations.
+//! - **Actions and State Transitions**: The core functionality revolves around the `reducer` method within `BlockProducerVrfEvaluatorState`. This method processes different actions which lead to state changes:
+//!   - **InitializeEvaluator**: Sets up the initial state of the VRF evaluator, preparing for epoch evaluations.
+//!   - **EvaluateSlot**: Initiates the VRF evaluation for a specific slot, which is crucial for block production. This action is dispatched:
+//!     - When beginning or continuing an epoch's evaluation.
+//!   - **ProcessSlotEvaluationSuccess/Failure**: Handles the results of VRF evaluations, updating the state with whether the slot was won or lost, and potentially moving to evaluate the next slot.
+//!   - **CheckEpochBounds**: Checks if the current slot's evaluation falls within the boundaries of the epoch being processed.
+//!   - **InitializeEpochEvaluation**: Prepares for evaluating slots within an epoch, setting up necessary data like the staking epoch data.
+//!   - **SelectInitialSlot**: Determines the first slot to be evaluated in an epoch, which can be the current slot or the first slot of the next epoch.
+//!   - **ContinueEpochEvaluation**: Continues evaluating slots within the current epoch if there are more slots to process.
+//!   - **FinishEpochEvaluation**: Marks the end of the evaluation for an epoch.
+//!
+//! **Flow of VRF Evaluation**:
+//! 1. **Initialization**: The system starts by initializing the evaluator for an epoch.
+//! 2. **Epoch Evaluation Setup**: Once initialized, the system checks if the epoch can be evaluated, initializes epoch data, and constructs a delegator table.
+//! 3. **Slot Evaluation Cycle**:
+//!    - **Initial Slot Selection**: Selects the first slot to evaluate within an epoch.
+//!    - **EvaluateSlot**: Evaluates this slot with VRF, determining if it's won or lost.
+//!    - **Outcome Processing**: Based on the evaluation result, actions like `ProcessSlotEvaluationSuccess` handle state updates, potentially leading to:
+//!      - More evaluations if the epoch isn't finished (`ContinueEpochEvaluation`).
+//!      - Checking if the epoch evaluation should conclude (`CheckEpochBounds`).
+//! 4. **Epoch Conclusion**: When all slots are evaluated or the epoch ends, `FinishEpochEvaluation` is called.
+//!
+//! **Notes**:
+//! - The state transitions are designed to ensure that only relevant slots are evaluated based on the current epoch and slot context.
+//! - The system handles interruptions and can wait for necessary conditions (like a finalized next epoch seed) before proceeding.
+//! - The VRF evaluation is crucial for determining which block producers can propose blocks in a given slot, enhancing the randomness and security of block selection in the Mina blockchain.
+
 use openmina_core::bug_condition;
 use vrf::VrfEvaluationOutput;
 
@@ -25,22 +56,30 @@ impl BlockProducerVrfEvaluatorState {
 
         let (action, meta) = action.split();
         match action {
-            BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input } => {
+            BlockProducerVrfEvaluatorAction::EvaluateSlotsBatch {
+                vrf_input,
+                start_slot,
+                batch_size,
+            } => {
                 state.status = BlockProducerVrfEvaluatorStatus::SlotEvaluationPending {
                     time: meta.time(),
                     global_slot: vrf_input.global_slot,
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlot {
-                    vrf_input: vrf_input.clone(),
-                });
+                dispatcher.push(
+                    BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlotsBatch {
+                        vrf_input: vrf_input.clone(),
+                        start_slot: *start_slot,
+                        batch_size: *batch_size,
+                    },
+                );
             }
-            BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
-                vrf_output,
+            BlockProducerVrfEvaluatorAction::ProcessSlotsBatchEvaluationSuccess {
+                vrf_outputs,
                 staking_ledger_hash,
             } => {
-                let global_slot_evaluated = match &vrf_output {
+                let latest_evaluated_global_slot = match vrf_outputs.last().unwrap() {
                     vrf::VrfEvaluationOutput::SlotWon(won_slot_data) => {
                         state.won_slots.insert(
                             won_slot_data.global_slot,
@@ -53,11 +92,11 @@ impl BlockProducerVrfEvaluatorState {
                     }
                     vrf::VrfEvaluationOutput::SlotLost(global_slot) => *global_slot,
                 };
-                state.set_latest_evaluated_global_slot(&global_slot_evaluated);
+                state.set_latest_evaluated_global_slot(&latest_evaluated_global_slot);
 
                 state.status = BlockProducerVrfEvaluatorStatus::SlotEvaluationReceived {
                     time: meta.time(),
-                    global_slot: global_slot_evaluated,
+                    global_slot: latest_evaluated_global_slot,
                 };
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -69,12 +108,15 @@ impl BlockProducerVrfEvaluatorState {
                         });
                         dispatcher.push(BlockProducerVrfEvaluatorAction::CheckEpochBounds {
                             epoch_number: pending_evaluation.epoch_number,
-                            latest_evaluated_global_slot: vrf_output.global_slot(),
+                            latest_evaluated_global_slot,
                         });
                     }
                 }
 
-                if matches!(vrf_output, VrfEvaluationOutput::SlotWon(_)) {
+                if vrf_outputs
+                    .iter()
+                    .any(|vrf_output| matches!(vrf_output, VrfEvaluationOutput::SlotWon(_)))
+                {
                     dispatcher.push(BlockProducerAction::WonSlotSearch);
                 }
             }
@@ -410,8 +452,12 @@ impl BlockProducerVrfEvaluatorState {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 if let Some(vrf_evaluator_state) = state.block_producer.vrf_evaluator() {
                     if let Some(vrf_input) = vrf_evaluator_state.construct_vrf_input() {
-                        dispatcher
-                            .push(BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input });
+                        let start_slot = vrf_input.global_slot;
+                        dispatcher.push(BlockProducerVrfEvaluatorAction::EvaluateSlotsBatch {
+                            vrf_input,
+                            start_slot,
+                            batch_size: 50, // FIXME: must not go over the end of the epoch
+                        });
                     }
                 }
             }

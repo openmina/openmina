@@ -7,8 +7,12 @@ use super::BlockProducerVrfEvaluatorEffectfulAction;
 impl BlockProducerVrfEvaluatorEffectfulAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         match self {
-            BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlot { vrf_input } => {
-                store.service.evaluate(vrf_input);
+            BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlotsBatch {
+                vrf_input,
+                start_slot,
+                batch_size,
+            } => {
+                store.service.evaluate(vrf_input, start_slot, batch_size);
             }
             BlockProducerVrfEvaluatorEffectfulAction::SlotEvaluated { epoch } => {
                 if let Some(stats) = store.service.stats() {
