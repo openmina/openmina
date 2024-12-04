@@ -1,6 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 
 use mina_hasher::Fp;
+use poseidon::hash::params::get_merkle_param_for_height;
 
 use crate::account::{get_legacy_hash_of, Account, AccountLegacy, TokenId, TokenIdLegacy};
 
@@ -24,9 +25,8 @@ impl TreeVersion for V2 {
     type TokenId = TokenId;
 
     fn hash_node(height: usize, left: Fp, right: Fp) -> Fp {
-        let param = format!("MinaMklTree{height:03}");
-
-        crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
+        let param = get_merkle_param_for_height(height);
+        poseidon::hash::hash_with_kimchi(param, &[left, right])
     }
 
     fn hash_leaf(leaf: &Self::Account) -> Fp {

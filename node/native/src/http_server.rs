@@ -27,6 +27,10 @@ macro_rules! compose_route {
 }
 
 pub async fn run(port: u16, rpc_sender: RpcSender) {
+    let build_env_get = warp::path!("build_env")
+        .and(warp::get())
+        .then(move || async { with_json_reply(&node::BuildEnv::get(), StatusCode::OK) });
+
     #[cfg(feature = "p2p-webrtc")]
     let signaling = {
         use node::p2p::{
@@ -564,6 +568,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let routes = signaling.or(state_get).or(state_post);
     let routes = compose_route!(
+        build_env_get,
         routes,
         status,
         peers_get,

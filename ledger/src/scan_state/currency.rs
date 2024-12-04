@@ -448,7 +448,7 @@ macro_rules! impl_number {
 
             fn of_field<F: FieldWitness>(field: F) -> Self {
                 let amount: BigInteger256 = field.into();
-                let amount: $inner = amount.0[0].try_into().unwrap();
+                let amount: $inner = amount.to_64x4()[0].try_into().unwrap();
 
                 Self::$from_name(amount)
             }
@@ -545,7 +545,7 @@ macro_rules! impl_number {
         }
 
         impl crate::ToInputs for $name {
-            fn to_inputs(&self, inputs: &mut crate::Inputs) {
+            fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
                 inputs.$append_name(self.0);
             }
         }

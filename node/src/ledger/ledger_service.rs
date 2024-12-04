@@ -1,12 +1,29 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::Path,
-    sync::Arc,
-};
-
 use super::{
-    ledger_manager::{LedgerManager, LedgerRequest},
-    write::BlockApplyResult,
+    ledger_empty_hash_at_depth,
+    read::LedgerReadResponse,
+    read::{LedgerReadId, LedgerReadRequest},
+    write::CommitResult,
+    write::LedgerWriteRequest,
+    write::LedgerWriteResponse,
+    LedgerAddress, LedgerEvent, LEDGER_DEPTH,
+};
+use crate::{
+    account::AccountPublicKey,
+    block_producer_effectful::StagedLedgerDiffCreateOutput,
+    ledger::{
+        ledger_manager::{LedgerManager, LedgerRequest},
+        write::BlockApplyResult,
+    },
+    p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases,
+    rpc::{
+        RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
+        RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
+    },
+    transition_frontier::genesis::empty_pending_coinbase_hash,
+    transition_frontier::sync::{
+        ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
+        TransitionFrontierRootSnarkedLedgerUpdates,
+    },
 };
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::{
@@ -42,34 +59,18 @@ use mina_p2p_messages::{
         StateHash,
     },
 };
-use openmina_core::snark::{Snark, SnarkJobId};
-use openmina_core::thread;
-use openmina_core::{block::AppliedBlock, constants::constraint_constants};
-
 use mina_signer::CompressedPubKey;
-use openmina_core::block::ArcBlockWithHash;
-
-use crate::block_producer::StagedLedgerDiffCreateOutput;
-use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
-use crate::rpc::{
-    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
-    RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
+use openmina_core::{
+    block::AppliedBlock,
+    block::ArcBlockWithHash,
+    constants::constraint_constants,
+    snark::{Snark, SnarkJobId},
+    thread,
 };
-use crate::transition_frontier::sync::{
-    ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
-    TransitionFrontierRootSnarkedLedgerUpdates,
-};
-use crate::{account::AccountPublicKey, transition_frontier::genesis::empty_pending_coinbase_hash};
-
-use super::write::CommitResult;
-
-use super::{
-    ledger_empty_hash_at_depth, read::LedgerReadResponse, write::LedgerWriteResponse,
-    LedgerAddress, LedgerEvent, LEDGER_DEPTH,
-};
-use super::{
-    read::{LedgerReadId, LedgerReadRequest},
-    write::LedgerWriteRequest,
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+    sync::Arc,
 };
 
 fn merkle_root(mask: &mut Mask) -> LedgerHash {
@@ -829,15 +830,16 @@ impl LedgerCtx {
             })
             .unwrap_or_default();
 
-        let available_jobs = self
-            .staged_ledger_mut(new_best_tip.staged_ledger_hashes())
-            .map(|l| {
-                l.scan_state()
-                    .all_job_pairs_iter()
-                    .map(|job| job.map(|single| AvailableJobMessage::from(single)))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let available_jobs = Arc::new(
+            self.staged_ledger_mut(new_best_tip.staged_ledger_hashes())
+                .map(|l| {
+                    l.scan_state()
+                        .all_job_pairs_iter()
+                        .map(|job| job.map(|single| AvailableJobMessage::from(single)))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        );
 
         CommitResult {
             available_jobs,
@@ -856,7 +858,7 @@ impl LedgerCtx {
 
         let num_accounts = mask.num_accounts() as u64;
         let first_node_addr = ledger::Address::first(
-            LEDGER_DEPTH - super::tree_height_for_num_accounts(num_accounts),
+            LEDGER_DEPTH.saturating_sub(super::tree_height_for_num_accounts(num_accounts)),
         );
         let hash = LedgerHash::from_fp(mask.get_hash(first_node_addr)?);
         Some((num_accounts, hash))
@@ -1047,7 +1049,7 @@ impl LedgerCtx {
             emitted_ledger_proof: res
                 .ledger_proof
                 .map(|(proof, ..)| (&proof).into())
-                .map(Box::new),
+                .map(Arc::new),
             pending_coinbase_update: (&res.pending_coinbase_update.1).into(),
             pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2 {
                 pending_coinbases: pending_coinbase_witness,

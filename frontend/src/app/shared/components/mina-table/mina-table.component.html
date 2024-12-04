@@ -1,0 +1,57 @@
+<div [id]="'table' + tableLevel" class="mina-table overflow-x-auto h-100">
+  <ng-container *ngTemplateOutlet="thGroupsTemplate"></ng-container>
+  <div class="row head sorting pr-12" *ngIf="currentSort; else noSort">
+    <span *ngFor="let th of tableHeads; let i=index"
+          (click)="sortTable(th.sort ?? th.name)"
+          [class.active]="currentSort.sortBy === (th.sort ?? th.name)"
+          class="pointer">
+      {{ th.name }}
+      <span *ngIf="th.tooltip" class="info mina-icon" [tooltip]="th.tooltip" [maxWidth]="400">info</span>
+      <span [class.flip]="currentSort.sortDirection === 'descending'"
+            [class.show]="currentSort.sortBy === (th.sort ?? th.name)"
+            class="mina-icon dir icon-200">arrow_upward
+      </span>
+    </span>
+  </div>
+  <ng-template #noSort>
+    <div class="row head pr-12">
+      <span *ngFor="let th of tableHeads">{{ th.name }}</span>
+    </div>
+  </ng-template>
+  <cdk-virtual-scroll-viewport class="overflow-y-scroll h-minus-lg"
+                               (click)="onVsClick($event)"
+                               [ngClass]="'h-minus-lg' + (thGroupsTemplate ? '-doubled' : '')"
+                               [style.min-width.px]="minWidth"
+                               [itemSize]="rowSize">
+    <div *cdkVirtualFor="let row of rows; let i=index; trackBy: trackByFn"
+         [class.active]="activeRow && (propertyForActiveCheck ? activeRow[propertyForActiveCheck] === row[propertyForActiveCheck] : activeRow === row)"
+         [attr.idx]="i"
+         class="row">
+      <ng-container *ngTemplateOutlet="rowTemplate; context: { row, i }"></ng-container>
+    </div>
+  </cdk-virtual-scroll-viewport>
+
+  <!--  <cdk-virtual-scroll-viewport *ngIf="isMobile" class="h-100 w-100 overflow-y-scroll mt-5 mb-5"-->
+  <!--                               (click)="onVsClick($event)"-->
+  <!--                               [itemSize]="rowSize">-->
+  <!--    <div *cdkVirtualFor="let row of rows; let i=index; trackBy: trackByFn"-->
+  <!--         [class.active]="activeRow && (propertyForActiveCheck ? activeRow[propertyForActiveCheck] === row[propertyForActiveCheck] : activeRow === row)"-->
+  <!--         [attr.idx]="i"-->
+  <!--         class="row">-->
+  <!--      <div class="mob-row">-->
+  <!--        <div class="th">-->
+  <!--          <span *ngFor="let header of tableHeads">{{ header.name }}</span>-->
+  <!--        </div>-->
+  <!--        <div class="td">-->
+  <!--          <ng-container *ngTemplateOutlet="rowTemplate; context: { row, i }"></ng-container>-->
+  <!--        </div>-->
+  <!--      </div>-->
+  <!--    </div>-->
+  <!--  </cdk-virtual-scroll-viewport>-->
+
+  <div #toTop [class.opacity-0]="!rows.length" class="hide to-top bg-surface-top border-rad-6" (click)="scrollToTop()">
+    <button class="h-lg w-lg btn-primary fx-row-full-cent">
+      <span class="mina-icon f-22 icon-200">last_page</span>
+    </button>
+  </div>
+</div>

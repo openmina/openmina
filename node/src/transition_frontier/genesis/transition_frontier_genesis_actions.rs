@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use mina_p2p_messages::v2;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
@@ -25,7 +27,7 @@ pub enum TransitionFrontierGenesisAction {
     /// Genesis block proved.
     #[action_event(level = info)]
     ProveSuccess {
-        proof: Box<v2::MinaBaseProofStableV2>,
+        proof: Arc<v2::MinaBaseProofStableV2>,
     },
     // TODO(refactor): add prove error
 }
@@ -51,7 +53,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierGenesisAction 
                 TransitionFrontierGenesisState::LedgerLoadSuccess { .. }
             ),
             TransitionFrontierGenesisAction::ProveInit => {
-                state.should_produce_blocks_after_genesis()
+                state.producing_block_after_genesis()
                     && matches!(
                         genesis_state,
                         TransitionFrontierGenesisState::Produced { .. }

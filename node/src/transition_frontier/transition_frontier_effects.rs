@@ -34,9 +34,11 @@ pub fn transition_frontier_effects<S: crate::Service>(
             // TODO(refactor): this should be handled by a callback and removed from here
             // whenever any of these is going to happen, genesisinject must happen first
             match &a {
-                TransitionFrontierGenesisAction::Produce
-                | TransitionFrontierGenesisAction::ProveSuccess { .. } => {
+                TransitionFrontierGenesisAction::Produce => {
                     store.dispatch(TransitionFrontierAction::GenesisInject);
+                }
+                TransitionFrontierGenesisAction::ProveSuccess { .. } => {
+                    store.dispatch(TransitionFrontierAction::GenesisProvenInject);
                 }
                 _ => {}
             }
@@ -46,6 +48,11 @@ pub fn transition_frontier_effects<S: crate::Service>(
         }
         TransitionFrontierAction::GenesisInject => {
             synced_effects(&meta, store);
+        }
+        TransitionFrontierAction::GenesisProvenInject => {
+            if store.state().transition_frontier.sync.is_synced() {
+                synced_effects(&meta, store);
+            }
         }
         TransitionFrontierAction::Sync(a) => {
             match a {
@@ -231,7 +238,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
                                 best_tip.height().saturating_sub(b1.height()) as usize;
                             if height_diff == 0 {
                                 best_tip.hash() != b1.hash()
-                            } else if let Some(index) = chain.len().checked_sub(height_diff + 1) {
+                            } else if let Some(index) =
+                                chain.len().checked_sub(height_diff.saturating_add(1))
+                            {
                                 chain.get(index).map_or(true, |b2| b1.hash() != b2.hash())
                             } else {
                                 true

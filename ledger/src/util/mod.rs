@@ -130,7 +130,7 @@ impl<'a, T> MyCow<'a, T> {
     }
 }
 
-impl<'a, T> MyCow<'a, T>
+impl<T> MyCow<'_, T>
 where
     T: ToOwned<Owned = T>,
 {
@@ -142,7 +142,7 @@ where
     }
 }
 
-impl<'a, T> std::ops::Deref for MyCow<'a, T> {
+impl<T> std::ops::Deref for MyCow<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -150,7 +150,7 @@ impl<'a, T> std::ops::Deref for MyCow<'a, T> {
     }
 }
 
-impl<'a, T> AsRef<T> for MyCow<'a, T> {
+impl<T> AsRef<T> for MyCow<'_, T> {
     fn as_ref(&self) -> &T {
         match self {
             MyCow::Borrow(v) => v,
@@ -159,7 +159,7 @@ impl<'a, T> AsRef<T> for MyCow<'a, T> {
     }
 }
 
-impl<'a, F, T> ToFieldElements<F> for MyCow<'a, T>
+impl<F, T> ToFieldElements<F> for MyCow<'_, T>
 where
     F: FieldWitness,
     T: ToFieldElements<F>,
@@ -176,7 +176,7 @@ pub enum MyCowMut<'a, T> {
     Own(T),
 }
 
-impl<'a, T> std::ops::Deref for MyCowMut<'a, T> {
+impl<T> std::ops::Deref for MyCowMut<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -187,7 +187,7 @@ impl<'a, T> std::ops::Deref for MyCowMut<'a, T> {
     }
 }
 
-impl<'a, T> std::ops::DerefMut for MyCowMut<'a, T> {
+impl<T> std::ops::DerefMut for MyCowMut<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             MyCowMut::Borrow(v) => v,

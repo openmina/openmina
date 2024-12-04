@@ -49,7 +49,7 @@ impl TransitionFrontierGenesisState {
             v2::MinaBlockBlockStableV2 {
                 header: v2::MinaBlockHeaderStableV2 {
                     protocol_state: genesis.clone(),
-                    protocol_state_proof: (*dummy_blockchain_proof()).clone(),
+                    protocol_state_proof: dummy_blockchain_proof().clone(),
                     delta_block_chain_proof: (genesis_hash.clone(), std::iter::empty().collect()),
                     current_protocol_version: PROTOCOL_VERSION.clone(),
                     proposed_protocol_version_opt: None,

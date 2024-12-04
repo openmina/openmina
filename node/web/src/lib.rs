@@ -1,5 +1,6 @@
 #![cfg(target_family = "wasm")]
 
+use ::node::transition_frontier::genesis::GenesisConfig;
 pub use openmina_node_common::*;
 
 mod rayon;
@@ -12,6 +13,7 @@ use ::node::account::AccountSecretKey;
 use ::node::core::thread;
 use ::node::snark::{BlockVerifier, TransactionVerifier};
 use anyhow::Context;
+use gloo_utils::format::JsValueSerdeExt;
 use ledger::proofs::provers::BlockProver;
 use openmina_node_common::rpc::RpcSender;
 use wasm_bindgen::prelude::*;
@@ -31,7 +33,16 @@ fn main() {
 }
 
 #[wasm_bindgen]
-pub async fn run(block_producer: Option<String>) -> RpcSender {
+pub fn build_env() -> JsValue {
+    JsValue::from_serde(&::node::BuildEnv::get()).unwrap_or_default()
+}
+
+#[wasm_bindgen]
+pub async fn run(
+    block_producer: Option<String>,
+    seed_nodes_url: Option<String>,
+    genesis_config_url: Option<String>,
+) -> RpcSender {
     let block_producer: Option<AccountSecretKey> = block_producer.map(|key| {
         key.parse()
             .expect("failed to parse passed block producer keys")
@@ -40,12 +51,12 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
     let (rpc_sender_tx, rpc_sender_rx) = ::node::core::channels::oneshot::channel();
     let _ = thread::spawn(move || {
         wasm_bindgen_futures::spawn_local(async move {
-            let mut node = setup_node(block_producer).await;
+            let mut node = setup_node(block_producer, seed_nodes_url, genesis_config_url).await;
             let _ = rpc_sender_tx.send(node.rpc());
             node.run_forever().await;
         });
 
-        wasm_bindgen::throw_str("Cursed hack to keep workers alive. See https://github.com/rustwasm/wasm-bindgen/issues/2945");
+        keep_worker_alive_cursed_hack();
     });
 
     rpc_sender_rx.await.unwrap()
@@ -53,20 +64,44 @@ pub async fn run(block_producer: Option<String>) -> RpcSender {
 
 async fn setup_node(
     block_producer: Option<AccountSecretKey>,
+    seed_nodes_url: Option<String>,
+    genesis_config_url: Option<String>,
 ) -> openmina_node_common::Node<NodeService> {
     let block_verifier_index = BlockVerifier::make().await;
     let work_verifier_index = TransactionVerifier::make().await;
 
-    let genesis_config = ::node::config::DEVNET_CONFIG.clone();
+    let genesis_config = if let Some(genesis_config_url) = genesis_config_url {
+        let bytes = ::node::core::http::get_bytes(&genesis_config_url)
+            .await
+            .expect("failed to fetch genesis config");
+        GenesisConfig::Prebuilt(bytes.into()).into()
+    } else {
+        ::node::config::DEVNET_CONFIG.clone()
+    };
+
     let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
     node_builder
         .block_verifier_index(block_verifier_index.clone())
         .work_verifier_index(work_verifier_index.clone());
 
+    // TODO(binier): refactor
+    if let Some(seed_nodes_url) = seed_nodes_url {
+        let peers = ::node::core::http::get_bytes(&seed_nodes_url)
+            .await
+            .expect("failed to fetch seed nodes");
+        node_builder.initial_peers(
+            String::from_utf8_lossy(&peers)
+                .split("\n")
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| s.trim().parse().expect("failed to parse seed node addr")),
+        );
+    }
+
     if let Some(bp_key) = block_producer {
-        let provers =
-            BlockProver::make(Some(block_verifier_index), Some(work_verifier_index)).await;
-        node_builder.block_producer(provers, bp_key);
+        thread::spawn(move || {
+            BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
+        });
+        node_builder.block_producer(bp_key, None);
     }
 
     node_builder
@@ -74,4 +109,8 @@ async fn setup_node(
         .unwrap();
     node_builder.gather_stats();
     node_builder.build().context("node build failed!").unwrap()
+}
+
+fn keep_worker_alive_cursed_hack() {
+    wasm_bindgen::throw_str("Cursed hack to keep workers alive. See https://github.com/rustwasm/wasm-bindgen/issues/2945");
 }

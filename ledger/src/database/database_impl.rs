@@ -312,7 +312,7 @@ impl DatabaseImpl<V2> {
         let path = match dir_name {
             Some(dir_name) => dir_name,
             None => {
-                let directory = "minadb-".to_owned() + &uuid;
+                let directory = format!("minadb-{uuid}");
 
                 let mut path = PathBuf::from("/tmp");
                 path.push(&directory);
@@ -328,7 +328,7 @@ impl DatabaseImpl<V2> {
         //     path
         // );
 
-        std::fs::create_dir_all(&path).ok();
+        // std::fs::create_dir_all(&path).ok();
 
         Self {
             depth,

@@ -1,4 +1,5 @@
 use openmina_core::ActionEvent;
+use redux::Callback;
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
@@ -18,6 +19,7 @@ pub enum P2pConnectionOutgoingAction {
     Init {
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
+        on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     /// Reconnect to an existing peer.
     // TODO: rename `Init` and `Reconnect` to `New` and `Connect` or something

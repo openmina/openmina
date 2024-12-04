@@ -1,8 +1,16 @@
-use std::{fmt::Write, marker::PhantomData};
+use std::{cell::Cell, marker::PhantomData};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use poseidon::hash::{
+    params::{
+        get_merkle_param_for_height, CODA_RECEIPT_UC, MINA_ACCOUNT_UPDATE_CONS,
+        MINA_ACCOUNT_UPDATE_NODE, MINA_ACCOUNT_UPDATE_STACK_FRAME_CONS, MINA_DERIVE_TOKEN_ID,
+        MINA_SIDELOADED_VK, MINA_ZKAPP_ACCOUNT, MINA_ZKAPP_SEQ_EVENTS,
+    },
+    Inputs,
+};
 
 use crate::{
     checked_equal_compressed_key, checked_equal_compressed_key_const_and,
@@ -27,8 +35,7 @@ use crate::{
             local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
             zkapp_command::{
                 self, AccountUpdate, AccountUpdateSkeleton, CallForest, CheckAuthorizationResult,
-                ClosedInterval, OrIgnore, SetOrKeep, Tree, WithHash,
-                ACCOUNT_UPDATE_CONS_HASH_PARAM,
+                ClosedInterval, OrIgnore, SetOrKeep, WithHash,
             },
             zkapp_statement::ZkappStatement,
             TimingValidation, TransactionFailure,
@@ -36,8 +43,8 @@ use crate::{
     },
     sparse_ledger::SparseLedger,
     zkapps::zkapp_logic,
-    Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ReceiptChainHash,
-    ToInputs, TokenId, VerificationKey, VerificationKeyWire, ZkAppAccount, TXN_VERSION_CURRENT,
+    Account, AccountId, AppendToInputs, AuthRequired, AuthRequiredEncoded, MyCow, ReceiptChainHash,
+    ToInputs, TokenId, VerificationKeyWire, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 use super::{
@@ -176,7 +183,7 @@ impl ZkappHandler for SnarkHandler {
         let account2 = account.clone();
         let account = WithLazyHash::new(account, move |w: &mut Witness<Fp>| {
             let zkapp = MyCow::borrow_or_default(&account2.zkapp);
-            zkapp.checked_hash_with_param(ZkAppAccount::HASH_PARAM, w);
+            zkapp.checked_hash_with_param(&MINA_ZKAPP_ACCOUNT, w);
             account2.checked_hash(w)
         });
         account
@@ -189,7 +196,7 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     type Amount = SnarkAmount;
 
     fn zero() -> Self {
-        CheckedSigned::zero()
+        CheckedSigned::of_unsigned(<CheckedAmount<_> as CheckedCurrency<Fp>>::zero())
     }
     fn is_neg(&self) -> Self::Bool {
         CheckedSigned::is_neg(self).var()
@@ -210,21 +217,32 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         Self::of_unsigned(unsigned)
     }
-    fn on_if<'a>(
-        b: Self::Bool,
-        param: SignedAmountBranchParam<&'a Self>,
-        w: &mut Self::W,
-    ) -> &'a Self {
+    fn on_if(b: Self::Bool, param: SignedAmountBranchParam<&Self>, w: &mut Self::W) -> Self {
         let SignedAmountBranchParam { on_true, on_false } = param;
 
-        let amount = w.exists_no_check(match b.as_boolean() {
+        let amount = match b.as_boolean() {
             Boolean::True => on_true,
             Boolean::False => on_false,
-        });
-        if on_true.try_get_value().is_some() && on_false.try_get_value().is_some() {
-            w.exists_no_check(amount.force_value());
+        };
+
+        // TODO: This should be moved in a `Sgn::on_if`
+        let sgn = match (on_true.sgn, on_false.sgn) {
+            (CircuitVar::Constant(_), CircuitVar::Constant(_)) => {
+                CircuitVar::Var(*amount.sgn.value())
+            }
+            _ => CircuitVar::Var(w.exists_no_check(*amount.sgn.value())),
+        };
+        w.exists_no_check(&amount.magnitude);
+
+        let value = match (on_true.try_get_value(), on_false.try_get_value()) {
+            (Some(_), Some(_)) => Some(w.exists_no_check(amount.force_value())),
+            _ => None,
+        };
+        Self {
+            value: Cell::new(value),
+            sgn,
+            ..amount.clone()
         }
-        amount
     }
 }
 
@@ -288,9 +306,8 @@ impl CallForestInterface for SnarkCallForest {
             [x, ..] => x.stack_hash.get().unwrap(), // Never fail, it was already hashed
         });
         let tree_hash = [account_update.hash, subforest.hash]
-            .checked_hash_with_param(Tree::<AccountUpdate>::HASH_PARAM, w);
-        let _hash_cons =
-            [tree_hash, tl_hash].checked_hash_with_param(ACCOUNT_UPDATE_CONS_HASH_PARAM, w);
+            .checked_hash_with_param(&MINA_ACCOUNT_UPDATE_NODE, w);
+        let _hash_cons = [tree_hash, tl_hash].checked_hash_with_param(&MINA_ACCOUNT_UPDATE_CONS, w);
         let account = Self::AccountUpdate {
             body: account_update,
             authorization: auth.clone(),
@@ -400,7 +417,7 @@ impl StackFrameInterface for StackFrameChecked {
 
 /// Call_stack_digest.Checked.cons
 fn call_stack_digest_checked_cons(h: Fp, t: Fp, w: &mut Witness<Fp>) -> Fp {
-    checked_hash("MinaActUpStckFrmCons", &[h, t], w)
+    checked_hash(&MINA_ACCOUNT_UPDATE_STACK_FRAME_CONS, &[h, t], w)
 }
 
 impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
@@ -862,7 +879,7 @@ impl AccountInterface for SnarkAccount {
                     .as_ref()
                     .unwrap();
                 let vk = w.exists(vk.vk());
-                vk.checked_hash_with_param(VerificationKey::HASH_PARAM, w);
+                vk.checked_hash_with_param(&MINA_SIDELOADED_VK, w);
             }
             Signature | NoneGiven => {}
         }
@@ -970,18 +987,16 @@ impl AccountInterface for SnarkAccount {
 }
 
 fn implied_root(account: &SnarkAccount, incl: &[(Boolean, Fp)], w: &mut Witness<Fp>) -> Fp {
-    let mut param = String::with_capacity(16);
     incl.iter()
         .enumerate()
-        .fold(account.hash(w), |accum: Fp, (depth, (is_right, h))| {
+        .fold(account.hash(w), |accum: Fp, (height, (is_right, h))| {
             let hashes = match is_right {
                 Boolean::False => [accum, *h],
                 Boolean::True => [*h, accum],
             };
-            param.clear();
-            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
+            let param = get_merkle_param_for_height(height);
             w.exists(hashes);
-            checked_hash(param.as_str(), &hashes, w)
+            checked_hash(param, &hashes, w)
         })
 }
 
@@ -1012,7 +1027,7 @@ impl LedgerInterface for LedgerWithHash {
         let account2 = account.0.clone();
         let account = WithLazyHash::new(account.0, move |w: &mut Witness<Fp>| {
             let zkapp = MyCow::borrow_or_default(&account2.zkapp);
-            zkapp.checked_hash_with_param(ZkAppAccount::HASH_PARAM, w);
+            zkapp.checked_hash_with_param(&MINA_ZKAPP_ACCOUNT, w);
             account2.checked_hash(w)
         });
         let inclusion = w.exists(
@@ -1095,7 +1110,7 @@ impl AccountIdInterface for SnarkAccountId {
     type W = Witness<Fp>;
 
     fn derive_token_id(account_id: &AccountId, w: &mut Self::W) -> TokenId {
-        TokenId(account_id.checked_hash_with_param(AccountId::DERIVE_TOKEN_ID_HASH_PARAM, w))
+        TokenId(account_id.checked_hash_with_param(&MINA_DERIVE_TOKEN_ID, w))
     }
 }
 
@@ -1204,7 +1219,7 @@ impl TransactionCommitmentInterface for SnarkTransactionCommitment {
         let fee_payer_hash = account_updates.body.hash;
 
         [memo_hash, fee_payer_hash, commitment]
-            .checked_hash_with_param(ACCOUNT_UPDATE_CONS_HASH_PARAM, w)
+            .checked_hash_with_param(&MINA_ACCOUNT_UPDATE_CONS, w)
     }
 }
 
@@ -1355,10 +1370,8 @@ impl ActionsInterface for SnarkActions {
     }
 
     fn push_events(event: Fp, actions: &zkapp_command::Actions, w: &mut Self::W) -> Fp {
-        use zkapp_command::MakeEvents;
-
         let hash = zkapp_command::events_to_field(actions);
-        checked_hash(zkapp_command::Actions::HASH_PREFIX, &[event, hash], w)
+        checked_hash(&MINA_ZKAPP_SEQ_EVENTS, &[event, hash], w)
     }
 }
 
@@ -1378,11 +1391,7 @@ impl ReceiptChainHashInterface for SnarkReceiptChainHash {
         inputs.append_field(element);
         inputs.append(&other);
 
-        ReceiptChainHash(checked_hash(
-            ReceiptChainHash::HASH_PREFIX,
-            &inputs.to_fields(),
-            w,
-        ))
+        ReceiptChainHash(checked_hash(&CODA_RECEIPT_UC, &inputs.to_fields(), w))
     }
 }
 

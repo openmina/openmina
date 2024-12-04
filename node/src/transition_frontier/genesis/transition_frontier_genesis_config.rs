@@ -78,7 +78,10 @@ pub struct GenesisConfigLoaded {
 }
 
 fn bp_num_delegators(i: usize) -> usize {
-    (i + 1) * 2
+    (i.saturating_add(1))
+        .checked_mul(2)
+        .expect("overflow")
+        .min(32)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -135,6 +138,17 @@ impl GenesisConfig {
         }
     }
 
+    pub fn override_genesis_state_timestamp(&mut self, timestamp: v2::BlockTimeTimeStableV1) {
+        match self {
+            Self::Counts { constants, .. }
+            | Self::BalancesDelegateTable { constants, .. }
+            | Self::AccountsBinProt { constants, .. } => {
+                constants.genesis_state_timestamp = timestamp;
+            }
+            _ => todo!(),
+        }
+    }
+
     pub fn load(
         &self,
     ) -> anyhow::Result<(Vec<ledger::Mask>, GenesisConfigLoaded), GenesisConfigError> {
@@ -146,7 +160,8 @@ impl GenesisConfig {
                 constants,
             } => {
                 let (whales, fish) = (*whales, *fish);
-                let delegator_balance = |balance: u64| move |i| balance / i as u64;
+                let delegator_balance =
+                    |balance: u64| move |i| balance.checked_div(i as u64).expect("division by 0");
                 let whales = (0..whales).map(|i| {
                     let balance = 8333_u64;
                     let delegators = (1..=bp_num_delegators(i)).map(delegator_balance(50_000_000));
@@ -423,13 +438,13 @@ impl GenesisConfig {
             let mut account =
                 ledger::Account::create_with(account_id, Balance::from_mina(balance).unwrap());
             account.delegate = delegate;
-            *total_balance += balance;
-            *counter += 1;
+            *total_balance = total_balance.checked_add(balance).expect("overflow");
+            *counter = counter.checked_add(1).expect("overflow");
             // println!("Created account with balance: {}, total_balance: {}", balance, *total_balance); // Debug print
             account
         }
 
-        let mut accounts = Vec::new();
+        let mut accounts = genesis_account_iter().map(Ok).collect::<Vec<_>>();
 
         // Process block producers and their delegators
         for (bp_balance, delegators) in block_producers {
@@ -458,12 +473,10 @@ impl GenesisConfig {
             NonStakers::Count(count) => *std::cmp::min(count, &remaining_accounts),
         };
 
-        let non_staker_total = total_balance * 20 / 80;
-        let non_staker_balance = if non_staker_count > 0 {
-            non_staker_total / non_staker_count as u64
-        } else {
-            0
-        };
+        let non_staker_total = total_balance.checked_mul(20).expect("overflow") / 80;
+        let non_staker_balance = non_staker_total
+            .checked_div(non_staker_count as u64)
+            .unwrap_or(0);
 
         println!("Non staker total balance: {}", non_staker_total);
 
@@ -476,11 +489,6 @@ impl GenesisConfig {
             }
         }
 
-        // Add genesis accounts
-        for genesis_account in genesis_account_iter() {
-            accounts.push(Ok(genesis_account));
-        }
-
         Self::build_ledger_from_accounts(accounts)
     }
 
@@ -491,10 +499,12 @@ impl GenesisConfig {
         let mask = ledger::Mask::new_root(db);
         let (mask, total_currency) = accounts.into_iter().try_fold(
             (mask, 0),
-            |(mut mask, mut total_currency), account| {
+            |(mut mask, mut total_currency): (ledger::Mask, u64), account| {
                 let account = account?;
                 let account_id = account.id();
-                total_currency += account.balance.as_u64();
+                total_currency = total_currency
+                    .checked_add(account.balance.as_u64())
+                    .expect("overflow");
                 mask.get_or_create_account(account_id, account).unwrap();
                 Ok((mask, total_currency))
             },
@@ -639,6 +649,43 @@ impl PrebuiltGenesisConfig {
         };
         masks.push(staking_ledger_mask);
         Ok((masks, load_result))
+    }
+
+    pub fn from_loaded(
+        (masks, data): (Vec<ledger::Mask>, GenesisConfigLoaded),
+    ) -> Result<Self, ()> {
+        let find_mask_by_hash = |hash: &v2::LedgerHash| {
+            masks
+                .iter()
+                .find(|&m| m.clone().merkle_root() == hash.to_field().unwrap())
+                .ok_or(())
+        };
+        let inner_hashes = |mask: &ledger::Mask| {
+            mask.get_raw_inner_hashes()
+                .into_iter()
+                .map(|(idx, hash)| (idx, v2::LedgerHash::from_fp(hash)))
+                .collect()
+        };
+        let genesis_mask = find_mask_by_hash(&data.genesis_ledger_hash)?;
+        let epoch_data = |hash: v2::LedgerHash, seed: v2::EpochSeed| {
+            find_mask_by_hash(&hash).map(|mask| PrebuiltGenesisEpochData {
+                accounts: mask.to_list().into_iter().map(Into::into).collect(),
+                ledger_hash: hash,
+                hashes: inner_hashes(mask),
+                seed,
+            })
+        };
+        Ok(Self {
+            constants: data.constants,
+            accounts: genesis_mask.to_list().into_iter().map(Into::into).collect(),
+            ledger_hash: data.genesis_ledger_hash,
+            hashes: inner_hashes(genesis_mask),
+            staking_epoch_data: epoch_data(
+                data.staking_epoch_ledger_hash,
+                data.staking_epoch_seed,
+            )?,
+            next_epoch_data: epoch_data(data.next_epoch_ledger_hash, data.next_epoch_seed)?,
+        })
     }
 }
 

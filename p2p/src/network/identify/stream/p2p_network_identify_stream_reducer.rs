@@ -4,14 +4,16 @@ use super::{
 use crate::{
     identify::P2pIdentifyAction,
     network::identify::{
-        pb::Identify, stream::P2pNetworkIdentifyStreamError,
-        stream_effectful::P2pNetworkIdentifyStreamEffectfulAction, P2pNetworkIdentify,
-        P2pNetworkIdentifyState,
+        pb::{self, Identify},
+        stream::P2pNetworkIdentifyStreamError,
+        stream_effectful::P2pNetworkIdentifyStreamEffectfulAction,
+        P2pNetworkIdentify, P2pNetworkIdentifyState,
     },
-    ConnectionAddr, Data, P2pLimits, P2pNetworkConnectionError, P2pNetworkSchedulerAction,
-    P2pNetworkStreamProtobufError, P2pNetworkYamuxAction, PeerId, YamuxFlags,
+    token, ConnectionAddr, Data, P2pLimits, P2pNetworkConnectionError, P2pNetworkSchedulerAction,
+    P2pNetworkStreamProtobufError, P2pNetworkYamuxAction, P2pState, PeerId, YamuxFlags,
 };
-use openmina_core::{bug_condition, warn, Substate, SubstateAccess};
+use multiaddr::Multiaddr;
+use openmina_core::{bug_condition, fuzzed_maybe, warn, Substate, SubstateAccess};
 use prost::Message;
 use quick_protobuf::BytesReader;
 use redux::{ActionWithMeta, Dispatcher};
@@ -23,7 +25,7 @@ impl P2pNetworkIdentifyStreamState {
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
-        State: SubstateAccess<P2pNetworkIdentifyState>,
+        State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
         let (action, meta) = action.split();
@@ -77,13 +79,25 @@ impl P2pNetworkIdentifyStreamState {
                 };
 
                 if matches!(stream_state, P2pNetworkIdentifyStreamState::SendIdentify) {
-                    let dispatcher = state_context.into_dispatcher();
+                    let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                    let p2p_state: &P2pState = state.substate()?;
 
-                    dispatcher.push(P2pNetworkIdentifyStreamEffectfulAction::SendIdentify {
-                        addr,
-                        peer_id,
-                        stream_id,
-                    });
+                    let addresses = p2p_state
+                        .network
+                        .scheduler
+                        .listeners
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>();
+
+                    dispatcher.push(
+                        P2pNetworkIdentifyStreamEffectfulAction::GetListenAddresses {
+                            addr,
+                            peer_id,
+                            stream_id,
+                            addresses,
+                        },
+                    );
                 }
 
                 Ok(())
@@ -260,6 +274,17 @@ impl P2pNetworkIdentifyStreamState {
                     let dispatcher = state_context.into_dispatcher();
                     Self::disconnect(dispatcher, addr, peer_id, stream_id)
                 }
+                P2pNetworkIdentifyStreamAction::SendIdentify {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    addresses,
+                } => {
+                    let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                    let state = state.substate()?;
+                    Self::send_identify(dispatcher, state, addr, peer_id, stream_id, addresses);
+                    Ok(())
+                }
                 action => {
                     // State and connection cleanup should be handled by timeout
                     bug_condition!("Received action {:?} in SendIdentify state", action);
@@ -336,5 +361,83 @@ impl P2pNetworkIdentifyStreamState {
             stream_id,
         });
         Ok(())
+    }
+
+    fn send_identify<Action, State>(
+        dispatcher: &mut Dispatcher<Action, State>,
+        state: &P2pState,
+        addr: ConnectionAddr,
+        peer_id: PeerId,
+        stream_id: u32,
+        mut listen_addrs: Vec<Multiaddr>,
+    ) where
+        Action: crate::P2pActionTrait<State>,
+        State: crate::P2pStateTrait,
+    {
+        let config = &state.config;
+        let ips = &config.external_addrs;
+        let port = config.libp2p_port.unwrap_or(8302);
+
+        listen_addrs.extend(
+            ips.iter()
+                .map(|ip| Multiaddr::from(*ip).with(multiaddr::Protocol::Tcp(port))),
+        );
+
+        let public_key = Some(state.config.identity_pub_key.clone());
+
+        let mut protocols = vec![
+            token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
+            token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
+            token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
+        ];
+        if state.network.scheduler.discovery_state.is_some() {
+            protocols.push(token::StreamKind::Discovery(
+                token::DiscoveryAlgorithm::Kademlia1_0_0,
+            ));
+        }
+        let identify_msg = P2pNetworkIdentify {
+            protocol_version: Some("ipfs/0.1.0".to_string()),
+            // TODO: include build info from GlobalConfig (?)
+            agent_version: Some("openmina".to_owned()),
+            public_key,
+            listen_addrs,
+            // TODO: other peers seem to report inaccurate information, should we implement this?
+            observed_addr: None,
+            protocols,
+        };
+
+        let mut out = Vec::new();
+        let identify_msg_proto: pb::Identify = match (&identify_msg).try_into() {
+            Ok(identify_msg_proto) => identify_msg_proto,
+            Err(err) => {
+                bug_condition!("error encoding message {:?}", err);
+                return;
+            }
+        };
+
+        if let Err(err) = prost::Message::encode_length_delimited(&identify_msg_proto, &mut out) {
+            bug_condition!("error serializing message {:?}", err);
+            return;
+        }
+
+        let data = fuzzed_maybe!(
+            Data(out.into_boxed_slice()),
+            crate::fuzzer::mutate_identify_msg
+        );
+
+        let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
+
+        dispatcher.push(P2pNetworkYamuxAction::OutgoingData {
+            addr,
+            stream_id,
+            data,
+            flags,
+        });
+
+        dispatcher.push(P2pNetworkIdentifyStreamAction::Close {
+            addr,
+            peer_id,
+            stream_id,
+        });
     }
 }

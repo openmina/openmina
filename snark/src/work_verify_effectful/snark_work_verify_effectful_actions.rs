@@ -12,7 +12,6 @@ pub enum SnarkWorkVerifyEffectfulAction {
     Init {
         req_id: SnarkWorkVerifyId,
         batch: Vec<Snark>,
-        sender: String,
         verifier_index: TransactionVerifier,
         verifier_srs: Arc<VerifierSRS>,
     },

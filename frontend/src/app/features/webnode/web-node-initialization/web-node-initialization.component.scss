@@ -1,0 +1,102 @@
+@import 'openmina';
+
+$green: #59bfb5;
+$light-peach: #0d0d0d;
+$peach: #acdea0;
+$sand: #5bb3fb;
+$white: #000000;
+
+.font-16 {
+  font-size: 16px;
+}
+
+.logo-header {
+  height: 56px;
+
+  img {
+    opacity: 0.5;
+  }
+}
+
+.data-wrapper {
+  height: calc(100% - 56px - 72px);
+
+  .loading-content {
+    max-width: 568px;
+
+    .header {
+      .loading-webnode {
+        font-size: 20px;
+        line-height: 30px;
+      }
+    }
+
+    mina-loading-spinner {
+      margin: 0 2px;
+    }
+
+    .mina-icon.circle-check {
+      font-variation-settings: 'FILL' 1, 'wght' 300 !important;
+    }
+
+    .mina-icon.aware-primary {
+      animation: fadeIn 1500ms ease-in-out infinite;
+    }
+
+    .progress {
+      min-height: 256px;
+      @media (max-width: 768px) {
+        min-height: 30vh;
+      }
+    }
+  }
+}
+
+.footer {
+  height: 72px;
+  max-width: 568px;
+
+  button {
+    width: 158px;
+    height: 48px !important;
+    background-color: $base-background;
+    color: $base-primary;
+    filter: invert(1);
+
+    &.disabled {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    border: none !important;
+    > div {
+      display: none;
+    }
+    button {
+      width: 100%;
+    }
+  }
+}
+
+@keyframes fadeIn {
+  10% {
+    opacity: 1;
+  }
+  38% {
+    opacity: 0.1;
+  }
+  42% {
+    opacity: 0.1;
+  }
+  70% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 568px) {
+  .loading-webnode span {
+    display: block;
+  }
+}

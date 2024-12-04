@@ -4,13 +4,13 @@ This is a simple Angular application that will help you to see the behaviour of 
 
 ## Prerequisites
 
-### 1. Node.js v20.11.1
+### 1. Node.js v23.1.0
 
 #### MacOS
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install node@20.11.1
+brew install node@23.1.0
 ```
 
 #### Linux
@@ -18,17 +18,17 @@ brew install node@20.11.1
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
 source ~/.bashrc
-nvm install 20.11.1
+nvm install 23.1.0
 ```
 
 #### Windows
 
-Download [Node.js v20.11.1](https://nodejs.org/) from the official website, open the installer and follow the prompts to complete the installation.
+Download [Node.js v23.1.0](https://nodejs.org/) from the official website, open the installer and follow the prompts to complete the installation.
 
-### 2. Angular CLI v16.2.0
+### 2. Angular CLI v17.3.0
 
 ```bash
-npm install -g @angular/cli@16.2.0
+npm install -g @angular/cli@17.3.0
 ```
 
 ### 3. Installation

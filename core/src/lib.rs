@@ -1,6 +1,11 @@
+pub mod distributed_pool;
 pub mod invariants;
 pub mod log;
 pub mod requests;
+
+// TODO(binier): refactor
+#[cfg(target_family = "wasm")]
+pub mod http;
 
 pub mod channels;
 pub mod thread;
@@ -22,6 +27,9 @@ pub use network::NetworkConfig;
 
 mod chain_id;
 pub use chain_id::*;
+
+pub mod encrypted_key;
+pub use encrypted_key::*;
 
 mod work_dir {
     use once_cell::sync::OnceCell;

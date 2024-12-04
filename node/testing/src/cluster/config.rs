@@ -4,11 +4,15 @@ use crate::node::OcamlNodeExecutable;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ClusterConfig {
+    #[serde(default)]
     port_range: Option<(u16, u16)>,
     all_rust_to_rust_use_webrtc: bool,
     proof_kind: ProofKind,
+    #[serde(default)]
     is_replay: bool,
+    #[serde(default)]
     use_debugger: bool,
+    #[serde(default)]
     ocaml_node_executable: Option<OcamlNodeExecutable>,
 }
 
@@ -21,8 +25,7 @@ pub enum ProofKind {
 
 impl Default for ProofKind {
     fn default() -> Self {
-        // TODO(binier): change default to `ConstraintsChecked` once
-        // https://github.com/openmina/openmina/issues/260 is closed
+        // once it's working, change to Self::ConstraintsChecked
         Self::Dummy
     }
 }
@@ -39,7 +42,7 @@ impl ClusterConfig {
         })
     }
 
-    pub fn use_debugger(mut self) -> Self {
+    pub fn use_debugger(&mut self) -> &mut Self {
         self.use_debugger = true;
         self
     }
@@ -48,7 +51,7 @@ impl ClusterConfig {
         self.use_debugger
     }
 
-    pub fn set_replay(mut self) -> Self {
+    pub fn set_replay(&mut self) -> &mut Self {
         self.is_replay = true;
         self
     }
@@ -62,7 +65,7 @@ impl ClusterConfig {
         (range.0)..=(range.1)
     }
 
-    pub fn set_all_rust_to_rust_use_webrtc(mut self) -> Self {
+    pub fn set_all_rust_to_rust_use_webrtc(&mut self) -> &mut Self {
         assert!(cfg!(feature = "p2p-webrtc"));
         self.all_rust_to_rust_use_webrtc = true;
         self
@@ -72,11 +75,16 @@ impl ClusterConfig {
         self.all_rust_to_rust_use_webrtc
     }
 
+    pub fn set_proof_kind(&mut self, kind: ProofKind) -> &mut Self {
+        self.proof_kind = kind;
+        self
+    }
+
     pub fn proof_kind(&self) -> ProofKind {
         self.proof_kind
     }
 
-    pub fn set_ocaml_node_executable(mut self, executable: OcamlNodeExecutable) -> Self {
+    pub fn set_ocaml_node_executable(&mut self, executable: OcamlNodeExecutable) -> &mut Self {
         self.ocaml_node_executable = Some(executable);
         self
     }

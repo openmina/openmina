@@ -117,14 +117,18 @@ impl NodeBuilder {
     }
 
     /// Set up block producer.
-    pub fn block_producer(&mut self, provers: BlockProver, key: AccountSecretKey) -> &mut Self {
+    pub fn block_producer(
+        &mut self,
+        key: AccountSecretKey,
+        provers: Option<BlockProver>,
+    ) -> &mut Self {
         let config = BlockProducerConfig {
             pub_key: key.public_key().into(),
             custom_coinbase_receiver: None,
             proposed_protocol_version: None,
         };
         self.block_producer = Some(config);
-        self.service.block_producer_init(provers, key);
+        self.service.block_producer_init(key, provers);
         self
     }
 
@@ -227,7 +231,6 @@ impl NodeBuilder {
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
                 external_addrs: vec![],
-                ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.p2p_no_discovery,
                 meshsub: P2pMeshsubConfig {
@@ -273,7 +276,7 @@ impl NodeBuilder {
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
-    ["/2cBFzmUmkYgMUrxdv5S2Udyv8eiuhokAFS4WnYfHiAJLWoQ3yL9/https/webrtc3.webnode.openmina.com/443"]
+    ["/2bjYBqn45MmtismsAYP9rZ6Xns9snCcNsN1eDgQZB5s6AzY2CR2/https/webrtc3.webnode.openmina.com/443"]
         .into_iter()
         .map(|s| s.parse().unwrap())
         .collect()

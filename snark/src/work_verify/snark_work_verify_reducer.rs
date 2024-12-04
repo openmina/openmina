@@ -1,4 +1,4 @@
-use openmina_core::{Substate, SubstateAccess};
+use openmina_core::{bug_condition, Substate, SubstateAccess};
 use redux::EnablingCondition;
 
 use crate::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
@@ -29,14 +29,15 @@ pub fn reducer<State, Action>(
             batch,
             sender,
             req_id,
-            // TODO(tizoc): store the callbacks on the state
-            on_error: _,
-            on_success: _,
+            on_error,
+            on_success,
         } => {
             state.jobs.add(SnarkWorkVerifyStatus::Init {
                 time: meta.time(),
                 batch: batch.clone(),
                 sender: sender.clone(),
+                on_error: on_error.clone(),
+                on_success: on_success.clone(),
             });
 
             // Dispatch
@@ -45,7 +46,6 @@ pub fn reducer<State, Action>(
             let dispatcher = state_context.into_dispatcher();
             dispatcher.push(SnarkWorkVerifyEffectfulAction::Init {
                 req_id: *req_id,
-                sender: sender.clone(),
                 batch: batch.clone(),
                 verifier_index,
                 verifier_srs,
@@ -55,46 +55,91 @@ pub fn reducer<State, Action>(
         SnarkWorkVerifyAction::Pending { req_id } => {
             if let Some(req) = state.jobs.get_mut(*req_id) {
                 *req = match req {
-                    SnarkWorkVerifyStatus::Init { batch, sender, .. } => {
-                        SnarkWorkVerifyStatus::Pending {
-                            time: meta.time(),
-                            batch: std::mem::take(batch),
-                            sender: std::mem::take(sender),
-                        }
-                    }
+                    SnarkWorkVerifyStatus::Init {
+                        batch,
+                        sender,
+                        on_error,
+                        on_success,
+                        ..
+                    } => SnarkWorkVerifyStatus::Pending {
+                        time: meta.time(),
+                        batch: std::mem::take(batch),
+                        sender: std::mem::take(sender),
+                        on_error: on_error.clone(),
+                        on_success: on_success.clone(),
+                    },
                     _ => return,
                 };
             }
         }
         SnarkWorkVerifyAction::Error { req_id, error } => {
-            if let Some(req) = state.jobs.get_mut(*req_id) {
-                if let SnarkWorkVerifyStatus::Pending { batch, sender, .. } = req {
-                    *req = SnarkWorkVerifyStatus::Error {
-                        time: meta.time(),
-                        batch: std::mem::take(batch),
-                        sender: std::mem::take(sender),
-                        error: error.clone(),
-                    }
-                }
-            }
+            let Some(req) = state.jobs.get_mut(*req_id) else {
+                bug_condition!(
+                    "Invalid state for `SnarkWorkVerifyAction::Error` job not found with id: {}",
+                    req_id
+                );
+                return;
+            };
+            let SnarkWorkVerifyStatus::Pending {
+                batch,
+                sender,
+                on_error,
+                ..
+            } = req
+            else {
+                bug_condition!(
+                    "Invalid state of `SnarkWorkVerifyStatus` for `SnarkWorkVerifyAction::Error`"
+                );
+                return;
+            };
+            let callback = on_error.clone();
+            let sender = std::mem::take(sender);
 
+            *req = SnarkWorkVerifyStatus::Error {
+                time: meta.time(),
+                batch: std::mem::take(batch),
+                sender: sender.clone(),
+                error: error.clone(),
+            };
             // Dispatch
             let dispatcher = state_context.into_dispatcher();
+            dispatcher.push_callback(callback, (*req_id, sender));
             dispatcher.push(SnarkWorkVerifyAction::Finish { req_id: *req_id });
         }
         SnarkWorkVerifyAction::Success { req_id } => {
-            if let Some(req) = state.jobs.get_mut(*req_id) {
-                if let SnarkWorkVerifyStatus::Pending { batch, sender, .. } = req {
-                    *req = SnarkWorkVerifyStatus::Success {
-                        time: meta.time(),
-                        batch: std::mem::take(batch),
-                        sender: std::mem::take(sender),
-                    };
-                }
-            }
+            let Some(req) = state.jobs.get_mut(*req_id) else {
+                bug_condition!(
+                    "Invalid state for `SnarkWorkVerifyAction::Success` job not found with id: {}",
+                    req_id
+                );
+                return;
+            };
+            let SnarkWorkVerifyStatus::Pending {
+                batch,
+                sender,
+                on_success,
+                ..
+            } = req
+            else {
+                bug_condition!(
+                    "Invalid state of `SnarkWorkVerifyStatus` for `SnarkWorkVerifyAction::Error`"
+                );
+                return;
+            };
+
+            let callback = on_success.clone();
+            let sender = std::mem::take(sender);
+            let batch = std::mem::take(batch);
+
+            *req = SnarkWorkVerifyStatus::Success {
+                time: meta.time(),
+                batch: batch.clone(),
+                sender: sender.clone(),
+            };
 
             // Dispatch
             let dispatcher = state_context.into_dispatcher();
+            dispatcher.push_callback(callback, (*req_id, sender, batch));
             dispatcher.push(SnarkWorkVerifyAction::Finish { req_id: *req_id });
         }
         SnarkWorkVerifyAction::Finish { req_id } => {

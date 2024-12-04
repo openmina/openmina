@@ -1,22 +1,21 @@
 use std::time::Duration;
-use std::{collections::BTreeMap, fmt, ops::RangeBounds};
+use std::{fmt, ops::RangeBounds};
 
 use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
 use openmina_core::snark::{Snark, SnarkInfo, SnarkJobCommitment, SnarkJobId};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
+use crate::core::distributed_pool::DistributedPool;
 use crate::p2p::PeerId;
 
 use super::candidate::SnarkPoolCandidatesState;
 use super::SnarkPoolConfig;
 
-#[derive(Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkPoolState {
     config: SnarkPoolConfig,
-    counter: u64,
-    list: BTreeMap<u64, JobState>,
-    by_ledger_hash_index: BTreeMap<SnarkJobId, u64>,
+    pool: DistributedPool<JobState, SnarkJobId>,
     pub candidates: SnarkPoolCandidatesState,
     pub(super) last_check_timeouts: Timestamp,
 }
@@ -63,76 +62,62 @@ impl SnarkPoolState {
     pub fn new() -> Self {
         Self {
             config: SnarkPoolConfig {},
-            counter: 0,
-            list: Default::default(),
-            by_ledger_hash_index: Default::default(),
+            pool: Default::default(),
             candidates: SnarkPoolCandidatesState::new(),
             last_check_timeouts: Timestamp::ZERO,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.list.is_empty()
+        self.pool.is_empty()
     }
 
     pub fn last_index(&self) -> u64 {
-        self.list.last_key_value().map_or(0, |(k, _)| *k)
+        self.pool.last_index()
     }
 
     pub fn contains(&self, id: &SnarkJobId) -> bool {
-        self.by_ledger_hash_index
-            .get(id)
-            .map_or(false, |i| self.list.contains_key(i))
-    }
-
-    #[inline]
-    fn get_by_job_id<'a>(
-        by_job_id: &BTreeMap<SnarkJobId, u64>,
-        list: &'a BTreeMap<u64, JobState>,
-        id: &SnarkJobId,
-    ) -> Option<&'a JobState> {
-        by_job_id.get(id).and_then(|i| list.get(i))
+        self.pool.contains(id)
     }
 
     pub fn get(&self, id: &SnarkJobId) -> Option<&JobState> {
-        Self::get_by_job_id(&self.by_ledger_hash_index, &self.list, id)
+        self.pool.get(id)
     }
 
     pub fn insert(&mut self, job: JobState) {
-        let id = job.id.clone();
-        self.list.insert(self.counter, job);
-        self.by_ledger_hash_index.insert(id, self.counter);
-        self.counter += 1;
+        self.pool.insert(job)
     }
 
     pub fn remove(&mut self, id: &SnarkJobId) -> Option<JobState> {
-        let index = self.by_ledger_hash_index.remove(id)?;
-        self.list.remove(&index)
+        self.pool.remove(id)
+    }
+
+    pub fn set_snark_work(&mut self, snark: SnarkWork) -> Option<SnarkWork> {
+        self.pool
+            .update(&snark.work.job_id(), move |job| job.snark.replace(snark))?
+    }
+
+    pub fn set_commitment(&mut self, commitment: JobCommitment) -> Option<JobCommitment> {
+        let job_id = commitment.commitment.job_id.clone();
+        self.pool
+            .update(&job_id, move |job| job.commitment.replace(commitment))?
     }
 
     pub fn remove_commitment(&mut self, id: &SnarkJobId) -> Option<JobCommitment> {
-        let index = self.by_ledger_hash_index.get(id)?;
-        self.list.get_mut(index)?.commitment.take()
+        self.pool
+            .silent_update(id, |job_state| job_state.commitment.take())?
     }
 
     pub fn retain<F>(&mut self, mut get_new_job_order: F)
     where
         F: FnMut(&SnarkJobId) -> Option<usize>,
     {
-        let list = &mut self.list;
-        self.by_ledger_hash_index
-            .retain(|id, index| match get_new_job_order(id) {
-                None => {
-                    list.remove(index);
-                    false
-                }
+        self.pool
+            .retain_and_update(|id, job| match get_new_job_order(id) {
+                None => false,
                 Some(order) => {
-                    if let Some(job) = list.get_mut(index) {
-                        job.order = order;
-                        true
-                    } else {
-                        false
-                    }
+                    job.order = order;
+                    true
                 }
             });
     }
@@ -141,7 +126,7 @@ impl SnarkPoolState {
     where
         R: RangeBounds<u64>,
     {
-        self.list.range(range).map(|(k, v)| (*k, v))
+        self.pool.range(range)
     }
 
     pub fn should_create_commitment(&self, job_id: &SnarkJobId) -> bool {
@@ -149,42 +134,21 @@ impl SnarkPoolState {
     }
 
     pub fn is_commitment_timed_out(&self, id: &SnarkJobId, time_now: Timestamp) -> bool {
-        self.by_ledger_hash_index.get(id).map_or(false, |i| {
-            self.is_commitment_timed_out_by_index(i, time_now)
-        })
-    }
-
-    pub fn is_commitment_timed_out_by_index(&self, index: &u64, time_now: Timestamp) -> bool {
-        let Some(job) = self.list.get(index) else {
-            return false;
-        };
-        let Some(commitment) = job.commitment.as_ref() else {
-            return false;
-        };
-
-        let timeout = job.estimated_duration();
-        let passed_time = time_now.checked_sub(commitment.commitment.timestamp());
-        let is_timed_out = passed_time.map_or(false, |dur| dur >= timeout);
-        let didnt_deliver = job
-            .snark
-            .as_ref()
-            .map_or(true, |snark| snark.work < commitment.commitment);
-
-        is_timed_out && didnt_deliver
+        self.get(id)
+            .map_or(false, |job| is_job_commitment_timed_out(job, time_now))
     }
 
     pub fn timed_out_commitments_iter(
         &self,
         time_now: Timestamp,
     ) -> impl Iterator<Item = &SnarkJobId> {
-        self.by_ledger_hash_index
-            .iter()
-            .filter(move |(_, index)| self.is_commitment_timed_out_by_index(index, time_now))
-            .map(|(id, _)| id)
+        self.jobs_iter()
+            .filter(move |job| is_job_commitment_timed_out(job, time_now))
+            .map(|job| &job.id)
     }
 
     pub fn jobs_iter(&self) -> impl Iterator<Item = &JobState> {
-        self.list.values()
+        self.pool.states()
     }
 
     pub fn available_jobs_iter(&self) -> impl Iterator<Item = &JobState> {
@@ -194,7 +158,7 @@ impl SnarkPoolState {
     pub fn available_jobs_with_highest_priority(&self, n: usize) -> Vec<&JobState> {
         // find `n` jobs with lowest order (highest priority).
         self.available_jobs_iter()
-            .fold(Vec::with_capacity(n + 1), |mut jobs, job| {
+            .fold(Vec::with_capacity(n.saturating_add(1)), |mut jobs, job| {
                 jobs.push(job);
                 if jobs.len() > n {
                     jobs.sort_by_key(|job| job.order);
@@ -205,9 +169,8 @@ impl SnarkPoolState {
     }
 
     pub fn completed_snarks_iter(&self) -> impl '_ + Iterator<Item = &'_ Snark> {
-        self.list
-            .iter()
-            .filter_map(|(_, job)| job.snark.as_ref())
+        self.jobs_iter()
+            .filter_map(|job| job.snark.as_ref())
             .map(|snark| &snark.work)
     }
 
@@ -217,7 +180,7 @@ impl SnarkPoolState {
 
     pub fn candidates_prune(&mut self) {
         self.candidates.retain(|id| {
-            let job = Self::get_by_job_id(&self.by_ledger_hash_index, &self.list, id);
+            let job = self.pool.get(id);
             move |candidate| match job {
                 None => false,
                 Some(job) => match job.snark.as_ref() {
@@ -227,13 +190,41 @@ impl SnarkPoolState {
             }
         });
     }
+
+    pub fn next_commitments_to_send(
+        &self,
+        index_and_limit: (u64, u8),
+    ) -> (Vec<SnarkJobCommitment>, u64, u64) {
+        self.pool
+            .next_messages_to_send(index_and_limit, |job| job.commitment_msg().cloned())
+    }
+
+    pub fn next_snarks_to_send(&self, index_and_limit: (u64, u8)) -> (Vec<SnarkInfo>, u64, u64) {
+        self.pool
+            .next_messages_to_send(index_and_limit, |job| job.snark_msg())
+    }
+}
+
+fn is_job_commitment_timed_out(job: &JobState, time_now: Timestamp) -> bool {
+    let Some(commitment) = job.commitment.as_ref() else {
+        return false;
+    };
+
+    let timeout = job.estimated_duration();
+    let passed_time = time_now.checked_sub(commitment.commitment.timestamp());
+    let is_timed_out = passed_time.map_or(false, |dur| dur >= timeout);
+    let didnt_deliver = job
+        .snark
+        .as_ref()
+        .map_or(true, |snark| snark.work < commitment.commitment);
+
+    is_timed_out && didnt_deliver
 }
 
 impl fmt::Debug for SnarkPoolState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("JobCommitments")
-            .field("counter", &self.counter)
-            .field("len", &self.list.len())
+        f.debug_struct("SnarkPoolState")
+            .field("pool", &self.pool)
             .finish()
     }
 }
@@ -267,7 +258,9 @@ impl JobState {
         };
         let account_updates = match &self.job {
             OneOrTwo::One(job) => account_updates(job),
-            OneOrTwo::Two((job1, job2)) => account_updates(job1) + account_updates(job2),
+            OneOrTwo::Two((job1, job2)) => account_updates(job1)
+                .checked_add(account_updates(job2))
+                .expect("overflow"),
         };
 
         if matches!(
@@ -286,58 +279,18 @@ impl JobState {
     }
 }
 
+impl AsRef<SnarkJobId> for JobState {
+    fn as_ref(&self) -> &SnarkJobId {
+        &self.id
+    }
+}
+
 impl JobSummary {
     pub fn estimated_duration(&self) -> Duration {
         const BASE: Duration = Duration::from_secs(10);
         const MAX_LATENCY: Duration = Duration::from_secs(10);
 
         let (JobSummary::Tx(n) | JobSummary::Merge(n)) = self;
-        BASE * (*n as u32) + MAX_LATENCY
-    }
-}
-
-mod ser {
-    use super::*;
-    use serde::ser::SerializeStruct;
-
-    #[derive(Serialize, Deserialize)]
-    struct SnarkPool {
-        config: SnarkPoolConfig,
-        counter: u64,
-        list: BTreeMap<u64, JobState>,
-        candidates: SnarkPoolCandidatesState,
-        last_check_timeouts: Timestamp,
-    }
-
-    impl Serialize for super::SnarkPoolState {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            let mut s = serializer.serialize_struct("SnarkPool", 5)?;
-            s.serialize_field("config", &self.config)?;
-            s.serialize_field("counter", &self.counter)?;
-            s.serialize_field("list", &self.list)?;
-            s.serialize_field("candidates", &self.candidates)?;
-            s.serialize_field("last_check_timeouts", &self.last_check_timeouts)?;
-            s.end()
-        }
-    }
-    impl<'de> Deserialize<'de> for super::SnarkPoolState {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            let v = SnarkPool::deserialize(deserializer)?;
-            let by_ledger_hash_index = v.list.iter().map(|(k, v)| (v.id.clone(), *k)).collect();
-            Ok(Self {
-                config: v.config,
-                counter: v.counter,
-                list: v.list,
-                by_ledger_hash_index,
-                candidates: v.candidates,
-                last_check_timeouts: v.last_check_timeouts,
-            })
-        }
+        BASE.saturating_mul(*n as u32).saturating_add(MAX_LATENCY)
     }
 }

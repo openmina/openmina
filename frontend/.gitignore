@@ -44,3 +44,11 @@ Thumbs.db
 # Open Mina
 /src/assets/webnode/pkg
 /src/assets/webnode/circuit-blobs
+
+# Sentry Config File
+.sentryclirc
+
+# Firebase
+.firebase
+*-debug.log
+.runtimeconfig.json

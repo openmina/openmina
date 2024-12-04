@@ -8,7 +8,7 @@ use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandV
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
-use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+use crate::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
 use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
@@ -197,7 +197,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     },
                     P2pConnectionEvent::Closed(peer_id) => {
-                        store.dispatch(P2pDisconnectionAction::Finish { peer_id });
+                        store.dispatch(P2pDisconnectionAction::PeerClosed { peer_id });
                     }
                 },
                 P2pEvent::Channel(e) => match e {

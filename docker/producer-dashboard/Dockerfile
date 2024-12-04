@@ -1,4 +1,4 @@
-FROM rust:1.80 AS app-builder
+FROM rust:1.83 AS app-builder
 
 WORKDIR /usr/src/openmina-producer-dashboard
 
@@ -77,7 +77,7 @@ RUN eval $(opam config env) && make build_all_sigs
 FROM ubuntu:latest
 
 RUN apt-get update && apt-get install -y libpq5 libjemalloc2
-  
+
 COPY --from=app-builder /usr/local/cargo/bin/openmina-producer-dashboard /usr/local/bin/openmina-producer-dashboard
 COPY --from=mina-builder /go/mina/src/app/libp2p_helper/result/bin/libp2p_helper /usr/local/bin/coda-libp2p_helper
 COPY --from=mina-builder /go/mina/_build/default/src/app/cli/src/mina_testnet_signatures.exe /usr/local/bin/mina

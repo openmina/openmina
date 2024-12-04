@@ -6,11 +6,13 @@ pub use p2p_connection_outgoing_actions::*;
 
 mod p2p_connection_outgoing_reducer;
 
+use std::net::IpAddr;
 #[cfg(feature = "p2p-libp2p")]
 use std::net::SocketAddr;
 use std::{fmt, str::FromStr};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
+use multiaddr::{Multiaddr, Protocol};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -42,6 +44,42 @@ pub struct P2pConnectionOutgoingInitLibp2pOpts {
     pub peer_id: PeerId,
     pub host: Host,
     pub port: u16,
+}
+
+impl P2pConnectionOutgoingInitLibp2pOpts {
+    /// If the current host is local and there is a better host among the `addrs`,
+    /// replace the current one with the better one.
+    pub fn update_host_if_needed<'a>(&mut self, mut addrs: impl Iterator<Item = &'a Multiaddr>) {
+        fn is_local(ip: impl Into<IpAddr>) -> bool {
+            match ip.into() {
+                IpAddr::V4(ip) => ip.is_loopback() || ip.is_private(),
+                IpAddr::V6(ip) => ip.is_loopback(),
+            }
+        }
+
+        // if current dial opts is not good enough
+        let update = match &self.host {
+            Host::Domain(_) => false,
+            Host::Ipv4(ip) => is_local(*ip),
+            Host::Ipv6(ip) => is_local(*ip),
+        };
+        if update {
+            // if new options is better
+            let new = addrs.find_map(|x| {
+                x.iter().find_map(|x| match x {
+                    Protocol::Dns4(hostname) | Protocol::Dns6(hostname) => {
+                        Some(Host::Domain(hostname.into_owned()))
+                    }
+                    Protocol::Ip4(ip) if !is_local(ip) => Some(Host::Ipv4(ip)),
+                    Protocol::Ip6(ip) if !is_local(ip) => Some(Host::Ipv6(ip)),
+                    _ => None,
+                })
+            });
+            if let Some(new) = new {
+                self.host = new;
+            }
+        }
+    }
 }
 
 pub(crate) mod libp2p_opts {
@@ -240,6 +278,17 @@ impl P2pConnectionOutgoingInitOpts {
                         (*peer_id).to_string().into_bytes().into(),
                     ),
                 }),
+                SignalingMethod::HttpsProxy(cluster_id, info) => {
+                    Some(v2::NetworkPeerPeerStableV1 {
+                        host: format!("https://{}/clusters/{cluster_id}", info.host)
+                            .as_bytes()
+                            .into(),
+                        libp2p_port: (info.port as u64).into(),
+                        peer_id: v2::NetworkPeerPeerIdStableV1(
+                            (*peer_id).to_string().into_bytes().into(),
+                        ),
+                    })
+                }
                 SignalingMethod::P2p { .. } => None,
             },
         }

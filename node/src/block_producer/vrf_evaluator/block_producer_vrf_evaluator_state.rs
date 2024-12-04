@@ -46,7 +46,7 @@ impl BlockProducerVrfEvaluatorState {
     pub fn evaluate_epoch_bounds(global_slot: &u32) -> SlotPositionInEpoch {
         if global_slot % SLOTS_PER_EPOCH == 0 {
             SlotPositionInEpoch::Beginning
-        } else if (global_slot + 1) % SLOTS_PER_EPOCH == 0 {
+        } else if (global_slot.checked_add(1).expect("overflow")) % SLOTS_PER_EPOCH == 0 {
             SlotPositionInEpoch::End
         } else {
             SlotPositionInEpoch::Within
@@ -111,7 +111,7 @@ impl BlockProducerVrfEvaluatorState {
 
             if !self.is_epoch_evaluated(best_tip_epoch) {
                 self.epoch_context = EpochContext::Current((*staking_epoch_data).into())
-            } else if !self.is_epoch_evaluated(best_tip_epoch + 1) {
+            } else if !self.is_epoch_evaluated(best_tip_epoch.checked_add(1).expect("overflow")) {
                 if root_block_epoch == best_tip_epoch && is_next_epoch_seed_finalized {
                     self.epoch_context = EpochContext::Next((*next_epoch_data).into())
                 } else {
@@ -154,7 +154,6 @@ impl BlockProducerVrfEvaluatorState {
     ///
     /// Returns:
     /// - `Option<u32>`: The epoch number of the last evaluated epoch, or `None` if no epoch has been evaluated yet.
-
     pub fn last_evaluated_epoch(&self) -> Option<u32> {
         self.last_evaluated_epoch
     }
@@ -284,7 +283,9 @@ impl BlockProducerVrfEvaluatorState {
         {
             match self.epoch_context {
                 EpochContext::Current(_) => self.last_evaluated_epoch = Some(*epoch_number),
-                EpochContext::Next(_) => self.last_evaluated_epoch = Some(epoch_number + 1),
+                EpochContext::Next(_) => {
+                    self.last_evaluated_epoch = Some(epoch_number.checked_add(1).expect("overflow"))
+                }
                 EpochContext::Waiting => {}
             }
         }
@@ -333,7 +334,10 @@ impl BlockProducerVrfEvaluatorState {
             Some(VrfEvaluatorInput::new(
                 pending_evaluation.epoch_data.seed,
                 pending_evaluation.epoch_data.delegator_table,
-                pending_evaluation.latest_evaluated_slot + 1,
+                pending_evaluation
+                    .latest_evaluated_slot
+                    .checked_add(1)
+                    .expect("overflow"),
                 pending_evaluation.epoch_data.total_currency,
                 pending_evaluation.epoch_data.ledger,
             ))
@@ -345,7 +349,7 @@ impl BlockProducerVrfEvaluatorState {
     pub fn retention_slot(&self, current_epoch_number: &u32) -> u32 {
         const PAST_EPOCHS_TO_KEEP: u32 = 2;
         let cutoff_epoch = current_epoch_number.saturating_sub(PAST_EPOCHS_TO_KEEP);
-        (cutoff_epoch * SLOTS_PER_EPOCH).saturating_sub(1)
+        (cutoff_epoch.saturating_mul(SLOTS_PER_EPOCH)).saturating_sub(1)
     }
 
     pub fn cleanup_old_won_slots(&mut self, current_epoch_number: &u32) {

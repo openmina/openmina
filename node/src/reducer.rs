@@ -2,7 +2,10 @@ use openmina_core::{bug_condition, error, Substate};
 use p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 
 use crate::{
-    rpc::RpcState, Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State,
+    external_snark_worker::ExternalSnarkWorkers,
+    rpc::RpcState,
+    state::{BlockProducerState, LedgerState},
+    Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State,
 };
 
 pub fn reducer(
@@ -49,9 +52,10 @@ pub fn reducer(
             },
         },
         Action::P2pEffectful(_) => {}
-        Action::Ledger(a) => {
-            state.ledger.reducer(meta.with_action(a));
+        Action::Ledger(action) => {
+            LedgerState::reducer(Substate::new(state, dispatcher), meta.with_action(action));
         }
+        Action::LedgerEffects(_) => {}
         Action::Snark(a) => {
             snark::SnarkState::reducer(Substate::new(state, dispatcher), meta.with_action(a));
         }
@@ -81,14 +85,17 @@ pub fn reducer(
             );
         }
         Action::TransactionPoolEffect(_) => {}
-        Action::BlockProducer(a) => {
-            state
-                .block_producer
-                .reducer(meta.with_action(a), &state.transition_frontier.best_chain);
+        Action::BlockProducer(action) => {
+            BlockProducerState::reducer(Substate::new(state, dispatcher), meta.with_action(action));
         }
-        Action::ExternalSnarkWorker(a) => {
-            state.external_snark_worker.reducer(meta.with_action(a));
+        Action::BlockProducerEffectful(_) => {}
+        Action::ExternalSnarkWorker(action) => {
+            ExternalSnarkWorkers::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(action),
+            );
         }
+        Action::ExternalSnarkWorkerEffects(_) => {}
         Action::Rpc(action) => {
             RpcState::reducer(Substate::new(state, dispatcher), meta.with_action(action));
         }

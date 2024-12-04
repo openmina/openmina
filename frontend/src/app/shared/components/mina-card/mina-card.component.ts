@@ -5,7 +5,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   templateUrl: './mina-card.component.html',
   styleUrls: ['./mina-card.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex-column flex-between pt-8 pb-8 pl-12 border-rad-8 bg-surface' },
+  host: { class: 'flex-column flex-between pt-8 pb-8 pl-12 border-rad-8' },
 })
 export class MinaCardComponent {
 

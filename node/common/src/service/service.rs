@@ -181,7 +181,9 @@ impl node::service::TransitionFrontierGenesisService for NodeService {
 }
 
 impl node::core::invariants::InvariantService for NodeService {
-    fn invariants_state(&mut self) -> &mut node::core::invariants::InvariantsState {
+    type ClusterInvariantsState<'a> = std::cell::RefMut<'a, InvariantsState>;
+
+    fn invariants_state(&mut self) -> &mut InvariantsState {
         &mut self.invariants_state
     }
 }

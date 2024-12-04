@@ -46,10 +46,10 @@ impl NodeServiceBuilder {
 
     pub fn block_producer_init(
         &mut self,
-        provers: BlockProver,
         keypair: AccountSecretKey,
+        provers: Option<BlockProver>,
     ) -> &mut Self {
-        self.common.block_producer_init(provers, keypair);
+        self.common.block_producer_init(keypair, provers);
         self
     }
 

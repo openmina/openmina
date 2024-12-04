@@ -67,7 +67,6 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         eprintln!("OCaml nodes should be ready now");
 
         let config = RustNodeTestingConfig::devnet_default()
-            .ask_initial_peers_interval(Duration::from_secs(3600))
             //.with_daemon_json("genesis_ledgers/devnet-full.json")
             .max_peers(100)
             .initial_peers(

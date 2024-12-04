@@ -1,7 +1,7 @@
 import { catchError, map, Observable, of, OperatorFunction, repeat } from 'rxjs';
 import { ADD_ERROR, ErrorAdd } from '@error-preview/error-preview.actions';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FeatureAction, toReadableDate } from '@openmina/shared';
+import { any, FeatureAction, toReadableDate } from '@openmina/shared';
 import { MinaErrorType } from '@shared/types/error-preview/mina-error-type.enum';
 import { Selector, Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
@@ -28,7 +28,7 @@ export const addError = (error: HttpErrorResponse | Error, type: MinaErrorType):
     payload: {
       type,
       message: error.message,
-      status: (error as any).status ? `${(error as any).status} ${(error as any).statusText}` : undefined,
+      status: any(error).status ? `${any(error).status} ${any(error).statusText}` : undefined,
       timestamp: toReadableDate(Number(Date.now()), 'HH:mm:ss'),
       seen: false,
     },

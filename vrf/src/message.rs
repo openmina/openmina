@@ -1,9 +1,10 @@
 use ark_ff::{One, SquareRootField, Zero};
 
+use ledger::{proofs::transaction::legacy_input::to_bits, ToInputs};
 use mina_curves::pasta::curves::pallas::Pallas as CurvePoint;
-use mina_hasher::{create_kimchi, Hashable, Hasher, ROInput};
 use mina_p2p_messages::v2::EpochSeed;
 use o1_utils::FieldHelpers;
+use poseidon::hash::{params::MINA_VRF_MESSAGE, Inputs};
 use serde::{Deserialize, Serialize};
 
 use super::{BaseField, VrfError, VrfResult};
@@ -27,8 +28,7 @@ impl VrfMessage {
     }
 
     pub fn hash(&self) -> BaseField {
-        let mut hasher = create_kimchi::<Self>(());
-        hasher.update(self).digest()
+        self.hash_with_param(&MINA_VRF_MESSAGE)
     }
 
     pub fn to_group(&self) -> VrfResult<CurvePoint> {
@@ -88,10 +88,8 @@ impl VrfMessage {
     }
 }
 
-impl Hashable for VrfMessage {
-    type D = ();
-
-    fn to_roinput(&self) -> ROInput {
+impl ToInputs for VrfMessage {
+    fn to_inputs(&self, inputs: &mut Inputs) {
         let epoch_seed = match self.epoch_seed.to_field() {
             Ok(epoch_seed) => epoch_seed,
             Err(_) => {
@@ -99,21 +97,10 @@ impl Hashable for VrfMessage {
                 mina_hasher::Fp::zero()
             }
         };
-        let mut roi = ROInput::new().append_field(epoch_seed);
-
-        for i in (0..LEDGER_DEPTH).rev() {
-            roi = if self.delegator_index >> i & 1u64 == 1 {
-                roi.append_bool(true)
-            } else {
-                roi.append_bool(false)
-            };
+        inputs.append_field(epoch_seed);
+        inputs.append_u32(self.global_slot);
+        for bit in to_bits::<_, LEDGER_DEPTH>(self.delegator_index) {
+            inputs.append_bool(bit);
         }
-
-        roi = roi.append_u32(self.global_slot);
-        roi
-    }
-
-    fn domain_string(_: Self::D) -> Option<String> {
-        "MinaVrfMessage".to_string().into()
     }
 }

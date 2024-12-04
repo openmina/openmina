@@ -3,6 +3,7 @@ use openmina_core::{
     impl_substate_access,
     requests::RpcId,
     snark::{Snark, SnarkInfo, SnarkJobCommitment},
+    transaction::TransactionInfo,
     ChainId, SubstateAccess,
 };
 use redux::{Callback, Timestamp};
@@ -170,10 +171,11 @@ impl P2pState {
             .filter_map(|(id, p)| Some((id, p.status.as_ready()?)))
     }
 
-    pub fn ready_rpc_peers_iter(&self) -> impl '_ + Iterator<Item = (PeerId, P2pRpcId)> {
+    pub fn ready_rpc_peers_iter(
+        &self,
+    ) -> impl '_ + Iterator<Item = (&PeerId, &P2pPeerStatusReady)> {
         self.ready_peers_iter()
             .filter(|(_, p)| p.channels.rpc.can_send_request())
-            .map(|(peer_id, p)| (*peer_id, p.channels.next_local_rpc_id()))
     }
 
     pub fn ready_peers(&self) -> Vec<PeerId> {
@@ -491,6 +493,8 @@ type OptionalCallback<T> = Option<Callback<T>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pCallbacks {
+    /// Callback for [`P2pChannelsTransactionAction::Received`]
+    pub on_p2p_channels_transaction_received: OptionalCallback<(PeerId, Box<TransactionInfo>)>,
     /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
     pub on_p2p_channels_transaction_libp2p_received:
         OptionalCallback<Box<MinaBaseUserCommandStableV2>>,

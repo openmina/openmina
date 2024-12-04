@@ -4,7 +4,6 @@ use std::{
     net::IpAddr,
     path::Path,
     sync::Arc,
-    time::Duration,
 };
 
 use anyhow::Context;
@@ -174,27 +173,31 @@ impl NodeBuilder {
     }
 
     /// Set up block producer.
-    pub fn block_producer(&mut self, provers: BlockProver, key: AccountSecretKey) -> &mut Self {
+    pub fn block_producer(
+        &mut self,
+        key: AccountSecretKey,
+        provers: Option<BlockProver>,
+    ) -> &mut Self {
         let config = BlockProducerConfig {
             pub_key: key.public_key().into(),
             custom_coinbase_receiver: None,
             proposed_protocol_version: None,
         };
         self.block_producer = Some(config);
-        self.service.block_producer_init(provers, key);
+        self.service.block_producer_init(key, provers);
         self
     }
 
     /// Set up block producer using keys from file.
     pub fn block_producer_from_file(
         &mut self,
-        provers: BlockProver,
         path: impl AsRef<Path>,
         password: &str,
+        provers: Option<BlockProver>,
     ) -> anyhow::Result<&mut Self> {
         let key = AccountSecretKey::from_encrypted_file(path, password)
             .context("Failed to decrypt secret key file")?;
-        Ok(self.block_producer(provers, key))
+        Ok(self.block_producer(key, provers))
     }
 
     /// Receive block producer's coinbase reward to another account.
@@ -322,7 +325,6 @@ impl NodeBuilder {
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
                 external_addrs,
-                ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.p2p_no_discovery,
                 meshsub: P2pMeshsubConfig {

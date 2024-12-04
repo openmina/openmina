@@ -1,5 +1,7 @@
 mod vrf_evaluator;
 
+use std::sync::Arc;
+
 use ledger::proofs::{
     block::BlockParams, generate_block_proof, provers::BlockProver, transaction::ProofError,
 };
@@ -16,16 +18,16 @@ use node::{
 use crate::EventSender;
 
 pub struct BlockProducerService {
-    provers: BlockProver,
+    provers: Option<BlockProver>,
     keypair: AccountSecretKey,
     vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
 }
 
 impl BlockProducerService {
     pub fn new(
-        provers: BlockProver,
         keypair: AccountSecretKey,
         vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
+        provers: Option<BlockProver>,
     ) -> Self {
         Self {
             provers,
@@ -35,9 +37,9 @@ impl BlockProducerService {
     }
 
     pub fn start(
-        provers: BlockProver,
         event_sender: EventSender,
         keypair: AccountSecretKey,
+        provers: Option<BlockProver>,
     ) -> Self {
         let (vrf_evaluation_sender, vrf_evaluation_receiver) =
             mpsc::unbounded_channel::<VrfEvaluatorInput>();
@@ -54,7 +56,7 @@ impl BlockProducerService {
             })
             .unwrap();
 
-        BlockProducerService::new(provers, keypair, vrf_evaluation_sender)
+        BlockProducerService::new(keypair, vrf_evaluation_sender, provers)
     }
 
     pub fn keypair(&self) -> AccountSecretKey {
@@ -67,7 +69,7 @@ pub fn prove(
     mut input: Box<ProverExtendBlockchainInputStableV2>,
     keypair: AccountSecretKey,
     only_verify_constraints: bool,
-) -> Result<Box<MinaBaseProofStableV2>, ProofError> {
+) -> Result<Arc<MinaBaseProofStableV2>, ProofError> {
     let height = input
         .next_state
         .body
@@ -103,6 +105,7 @@ impl node::service::BlockProducerService for crate::NodeService {
             .expect("provers shouldn't be needed if block producer isn't initialized")
             .provers
             .clone()
+            .unwrap_or_else(BlockProver::get_once_made)
     }
 
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {

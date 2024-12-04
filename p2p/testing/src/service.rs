@@ -64,7 +64,7 @@ impl ClusterService {
 
 impl TimeService for ClusterService {
     fn monotonic_time(&mut self) -> redux::Instant {
-        self.time
+        self.time.into()
     }
 }
 
@@ -104,7 +104,7 @@ impl P2pServiceWebrtc for ClusterService {
         &mut self,
         _other_pk: &p2p::identity::PublicKey,
         _message: &T,
-    ) -> Result<T::Encrypted, ()> {
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
 
@@ -112,7 +112,7 @@ impl P2pServiceWebrtc for ClusterService {
         &mut self,
         _other_pub_key: &p2p::identity::PublicKey,
         _encrypted: &T::Encrypted,
-    ) -> Result<T, ()> {
+    ) -> Result<T, Box<dyn std::error::Error>> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
 

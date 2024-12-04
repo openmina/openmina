@@ -179,7 +179,7 @@ pub struct ConnectionsHandshaked<'a> {
     ids_cache: HashSet<u64>,
 }
 
-impl<'a> Iterator for ConnectionsHandshaked<'a> {
+impl Iterator for ConnectionsHandshaked<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -199,7 +199,7 @@ pub struct Connections<'a> {
     buffer: VecDeque<(u64, Connection)>,
 }
 
-impl<'a> Iterator for Connections<'a> {
+impl Iterator for Connections<'_> {
     type Item = (u64, Connection);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -225,7 +225,7 @@ pub struct Messages<'a> {
     buffer: VecDeque<(u64, FullMessage)>,
 }
 
-impl<'a> Iterator for Messages<'a> {
+impl Iterator for Messages<'_> {
     type Item = (u64, FullMessage);
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -1,0 +1,251 @@
+@import 'openmina';
+
+::ng-deep .mina-table {
+  @include flexColumn();
+
+  .row {
+    height: 36px;
+    display: grid;
+    color: $base-tertiary;
+
+    > span {
+      height: 36px;
+      line-height: 36px;
+      padding-left: 12px;
+    }
+
+    &.active {
+      background-color: $selected-container;
+
+      > span, a {
+        color: $selected-primary !important;
+      }
+    }
+
+    &:not(.head) {
+      cursor: pointer;
+    }
+
+    &.sorting.p-relative:last-child {
+      overflow: hidden;
+    }
+
+    &:hover:not(.active):not(.head) {
+      background-color: $base-divider;
+
+      * {
+        color: $base-primary !important;
+      }
+    }
+
+    &.head {
+      font-weight: 600;
+      color: $base-tertiary;
+      text-transform: capitalize;
+
+      &.sorting {
+        > span {
+          @include flexRowVertCenter();
+
+          .mina-icon.info {
+            font-variation-settings: 'FILL' 0, 'wght' 300;
+            margin-left: 4px;
+            font-size: 20px;
+          }
+
+          .mina-icon.dir {
+            transition: 0.2s ease-in-out;
+            transform: rotateX(0) translateY(6px);
+            margin-top: 1px;
+            margin-left: 2px;
+            opacity: 0;
+            font-size: 18px;
+
+            &.show {
+              opacity: 1;
+              transform: rotateX(0) translateY(0);
+            }
+
+            &.flip {
+              transform: rotateX(180deg) translateY(0);
+
+              &:not(.show) {
+                transform: rotateX(180deg) translateY(6px);
+              }
+            }
+          }
+
+          &:hover,
+          &.active {
+            color: $base-primary;
+            transition: 200ms;
+
+            .mina-icon:not(.show):not(.info) {
+              opacity: 0.5;
+              transform: rotateX(0) translateY(0);
+
+              &.flip {
+                transform: rotateX(180deg) translateY(0);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .underline {
+      line-height: 12px;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    span mina-copy .cpy {
+      opacity: 0;
+    }
+
+    span:hover mina-copy .cpy {
+      opacity: 1;
+    }
+  }
+
+  &.active {
+    background-color: blue;
+    color: #fff;
+  }
+
+  .cdk-virtual-scroll-viewport {
+    overflow-x: hidden;
+    //@media (max-width: 768px) {
+    //  padding-bottom: 80px;
+    //}
+  }
+}
+
+::ng-deep {
+  .to-top {
+    display: none;
+  }
+
+  @media (max-width: 767px) {
+    .to-top {
+      display: block;
+      position: fixed;
+      rotate: -90deg;
+      color: $base-secondary;
+      left: -1000px;
+
+      &.hide {
+        animation: bounceHide 0.5s cubic-bezier(0.5, 0.1, 0.5, 1.25) forwards;
+      }
+
+      &:not(.hide) {
+        animation: bounceShow 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards;
+      }
+    }
+
+    .mina-table {
+      .row {
+        span {
+          font-size: 12px;
+        }
+
+        &.head {
+          .mina-icon.info {
+            font-size: 16px;
+          }
+
+          .mina-icon.dir {
+            font-size: 14px;
+          }
+        }
+      }
+    }
+    //.cdk-virtual-scroll-content-wrapper {
+    //  width: 100%;
+    //}
+
+    //.mina-table {
+    //  .row {
+    //    height: initial;
+    //    display: flex;
+    //    background-color: initial !important;
+    //    padding: 5px 10px;
+    //
+    //    .mob-row {
+    //      padding: 0 10px;
+    //      outline: 1px solid $base-divider;
+    //      background-color: $base-surface;
+    //      border-radius: 6px;
+    //      width: 100%;
+    //      display: flex;
+    //      flex-direction: row;
+    //      justify-content: space-between;
+    //      font-size: 12px;
+    //      overflow: hidden;
+    //
+    //      .th, .td {
+    //        display: flex;
+    //        flex-direction: column;
+    //
+    //        span {
+    //          height: 26px;
+    //          line-height: 26px;
+    //        }
+    //      }
+    //
+    //      .th {
+    //        text-transform: capitalize;
+    //      }
+    //
+    //      .td {
+    //        flex: 1;
+    //        min-width: 0;
+    //        align-items: flex-end;
+    //
+    //        span {
+    //          max-width: 100%;
+    //        }
+    //      }
+    //
+    //      span mina-copy .cpy {
+    //        opacity: 1;
+    //        margin-right: -5px;
+    //      }
+    //    }
+    //  }
+    //}
+  }
+}
+
+@keyframes bounceHide {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  30% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-500px);
+  }
+}
+
+@keyframes bounceShow {
+  0% {
+    opacity: 0;
+    transform: translateX(-500px);
+  }
+  70% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

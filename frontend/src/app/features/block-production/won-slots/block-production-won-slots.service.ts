@@ -5,16 +5,13 @@ import {
   BlockProductionWonSlotsSlot,
   BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
-import { BlockProductionModule } from '@block-production/block-production.module';
-import { hasValue, nanOrElse, ONE_BILLION, ONE_MILLION } from '@openmina/shared';
+import { hasValue, isDesktop, nanOrElse, ONE_BILLION, ONE_MILLION } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { RustService } from '@core/services/rust.service';
-import {
-  BlockProductionWonSlotsEpoch,
-} from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
+import { BlockProductionWonSlotsEpoch } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
 
 @Injectable({
-  providedIn: BlockProductionModule,
+  providedIn: 'root',
 })
 export class BlockProductionWonSlotsService {
 
@@ -25,11 +22,11 @@ export class BlockProductionWonSlotsService {
       .pipe(
         map((response: WonSlotResponse) => {
           if (!response) {
-            throw new Error('Empty response from /stats/block_producer');
+            return { slots: [], epoch: undefined };
           }
           const attemptsSlots = response.attempts.map((attempt: Attempt) => {
             attempt.won_slot.slot_time = Math.floor(attempt.won_slot.slot_time / ONE_MILLION); // converted to milliseconds
-            attempt.active = BlockProductionWonSlotsService.getActive(attempt);
+            attempt.active = this.getActive(attempt);
             let slot = {
               epoch: attempt.won_slot.epoch,
               message: this.getMessage(attempt),
@@ -90,7 +87,7 @@ export class BlockProductionWonSlotsService {
           const futureWonSlots = response.future_won_slots.map((slot: WonSlot) => {
             slot.slot_time = Math.floor(slot.slot_time / ONE_MILLION);
             return {
-              message: 'Upcoming Won Slot',
+              message: this.getMessage({ won_slot: slot } as Attempt),
               age: this.calculateTimeAgo({ won_slot: slot }),
               slotTime: slot.slot_time,
               globalSlot: slot.global_slot,
@@ -102,17 +99,22 @@ export class BlockProductionWonSlotsService {
           return {
             slots: [...attemptsSlots, ...futureWonSlots],
             epoch: {
+              epochNumber: response.current_epoch,
               start: response.epoch_start,
               end: response.epoch_end,
               currentGlobalSlot: response.current_global_slot,
               currentTime: response.current_time,
+              vrfStats: {
+                evaluated: response.current_epoch_vrf_stats?.evaluated_slots,
+                total: response.current_epoch_vrf_stats?.total_slots,
+              },
             },
           };
         }),
       );
   }
 
-  private static getActive(attempt: Attempt): boolean {
+  private getActive(attempt: Attempt): boolean {
     const slotTime = attempt.won_slot.slot_time;
     const now = Date.now();
     return slotTime <= now && (now < 3 * 60 * 1000 + slotTime) && !attempt.times?.discarded;
@@ -120,10 +122,10 @@ export class BlockProductionWonSlotsService {
 
   private getMessage(attempt: Attempt): string {
     if (attempt.active) {
-      return 'Produced';
+      return 'Producing';
     }
     if (attempt.status === BlockProductionWonSlotsStatus.Scheduled) {
-      return 'Production Scheduled';
+      return (isDesktop() ? 'Production ' : '') + 'Scheduled';
     } else if (attempt.status === BlockProductionWonSlotsStatus.Canonical) {
       return 'Produced Block';
     } else if (attempt.status === BlockProductionWonSlotsStatus.Orphaned) {
@@ -131,9 +133,9 @@ export class BlockProductionWonSlotsService {
     } else if (attempt.status === BlockProductionWonSlotsStatus.Discarded) {
       return BlockProductionWonSlotsStatus.Discarded + ' Block';
     } else if (attempt.status === BlockProductionWonSlotsStatus.Committed) {
-      return 'Waiting for Confirmation';
+      return isDesktop() ? 'Waiting for Confirmation' : 'Confirming';
     }
-    return 'Upcoming Won Slot';
+    return (isDesktop() ? 'Upcoming ' : '') + 'Won Slot';
   }
 
   private calculateTimeAgo({ active, won_slot }: { active?: boolean; won_slot: WonSlot }): string {
@@ -158,6 +160,17 @@ export interface WonSlotResponse {
   current_time: number;
   epoch_end: number;
   epoch_start: number;
+  current_epoch: number;
+  current_epoch_vrf_stats: {
+    evaluated_slots: number;
+    total_slots: number;
+  };
+  vrf_stats: {
+    [epochNumber: string]: {
+      evaluated_slots: number;
+      total_slots: number;
+    };
+  };
 }
 
 interface Attempt {

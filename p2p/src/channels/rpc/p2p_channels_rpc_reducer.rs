@@ -1,17 +1,14 @@
-use std::collections::VecDeque;
-
-use openmina_core::{block::BlockWithHash, bug_condition, error, Substate};
-use redux::ActionWithMeta;
-
-use crate::{
-    channels::rpc_effectful::P2pChannelsRpcEffectfulAction, P2pNetworkRpcAction, P2pPeerAction,
-    P2pState,
-};
-
 use super::{
     P2pChannelsRpcAction, P2pChannelsRpcState, P2pRpcLocalState, P2pRpcRemotePendingRequestState,
-    P2pRpcRemoteState, P2pRpcResponse, MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS,
+    P2pRpcRemoteState, P2pRpcResponse, RpcChannelMsg, MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS,
 };
+use crate::{
+    channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsEffectfulAction},
+    P2pNetworkRpcAction, P2pPeerAction, P2pState,
+};
+use openmina_core::{block::BlockWithHash, bug_condition, error, Substate};
+use redux::ActionWithMeta;
+use std::collections::VecDeque;
 
 impl P2pChannelsRpcState {
     /// Substate is accessed
@@ -40,7 +37,16 @@ impl P2pChannelsRpcState {
                 *rpc_state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsRpcEffectfulAction::Init { peer_id });
+
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::Rpc,
+                    on_success: redux::callback!(
+                        on_rpc_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
+                            P2pChannelsRpcAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsRpcAction::Pending { .. } => {
@@ -107,12 +113,15 @@ impl P2pChannelsRpcState {
                     return Ok(());
                 }
 
-                dispatcher.push(P2pChannelsRpcEffectfulAction::RequestSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    id,
-                    request,
-                    on_init,
+                    msg_id: MsgId::first(),
+                    msg: ChannelMsg::Rpc(RpcChannelMsg::Request(id, *request.clone())),
                 });
+
+                if let Some(callback) = on_init {
+                    dispatcher.push_callback(callback, (peer_id, id, *request));
+                }
                 Ok(())
             }
             P2pChannelsRpcAction::Timeout { id, .. } => {
@@ -238,10 +247,10 @@ impl P2pChannelsRpcState {
                     return Ok(());
                 }
 
-                dispatcher.push(P2pChannelsRpcEffectfulAction::ResponseSend {
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    id,
-                    response,
+                    msg_id: MsgId::first(),
+                    msg: ChannelMsg::Rpc(RpcChannelMsg::Response(id, response.map(|v| *v))),
                 });
                 Ok(())
             }

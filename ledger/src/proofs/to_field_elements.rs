@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
-use crate::proofs::{public_input::plonk_checks::ShiftingValue, util::four_u64_to_field};
+use crate::{
+    default_zkapp_hash,
+    proofs::{public_input::plonk_checks::ShiftingValue, util::four_u64_to_field},
+};
 use ark_ff::{Field, One, Zero};
 use kimchi::proof::{PointEvaluations, ProofEvaluations, ProverCommitments, ProverProof};
 use mina_curves::pasta::Fq;
@@ -32,7 +35,6 @@ use crate::{
 
 use super::{
     field::{Boolean, CircuitVar, FieldWitness, GroupAffine},
-    numbers::currency::{CheckedCurrency, CheckedSigned},
     step::PerProofWitness,
     transaction::{
         field_to_bits, InnerCurve, PlonkVerificationKeyEvals, StepMainProofState, StepMainStatement,
@@ -705,9 +707,11 @@ impl ToFieldElements<Fp> for Box<Account> {
         voting_for.to_field_elements(fields);
         timing.to_field_elements(fields);
         permissions.to_field_elements(fields);
-        MyCow::borrow_or_default(zkapp)
-            .hash()
-            .to_field_elements(fields);
+        match zkapp.as_ref() {
+            Some(zkapp) => zkapp.hash(),
+            None => default_zkapp_hash(),
+        }
+        .to_field_elements(fields);
     }
 }
 
@@ -799,13 +803,6 @@ impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for &T {
     }
 }
 
-impl<F: FieldWitness, T: CheckedCurrency<F>> ToFieldElements<F> for CheckedSigned<F, T> {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        self.sgn.to_field_elements(fields);
-        self.magnitude.to_field_elements(fields);
-    }
-}
-
 impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let GroupAffine::<F> { x, y, .. } = self.to_affine();
@@ -823,6 +820,15 @@ impl<F: FieldWitness> ToFieldElements<F> for Boolean {
 impl<F: FieldWitness> ToFieldElements<F> for CircuitVar<Boolean> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         self.as_boolean().to_field_elements(fields);
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for CircuitVar<Sgn> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        match self {
+            CircuitVar::Constant(_) => (),
+            CircuitVar::Var(var) => var.to_field_elements(fields),
+        }
     }
 }
 

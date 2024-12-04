@@ -116,6 +116,7 @@ impl TransitionFrontierSyncLedgerStagedState {
         Some(match self {
             Self::PartsFetchSuccess { target, parts, .. } => (target, Some(parts)),
             Self::ReconstructEmpty { target, .. } => (target, None),
+            Self::ReconstructPending { target, parts, .. } => (target, parts.as_ref()),
             _ => return None,
         })
     }
@@ -129,19 +130,6 @@ impl TransitionFrontierSyncLedgerStagedState {
             Self::PartsFetchPending { attempts, .. } => Some(attempts),
             _ => None,
         }
-    }
-
-    pub fn filter_available_peers<'a>(
-        &'a self,
-        iter: impl 'a + Iterator<Item = (PeerId, P2pRpcId)>,
-    ) -> impl 'a + Iterator<Item = (PeerId, P2pRpcId)> {
-        let attempts = self.fetch_attempts();
-        iter.filter(move |(peer_id, _)| {
-            attempts.map_or(false, |attempts| {
-                !attempts.contains_key(peer_id)
-                    && (attempts.is_empty() || attempts.iter().all(|(_, s)| s.is_error()))
-            })
-        })
     }
 
     pub fn parts_fetch_rpc_id(&self, peer_id: &PeerId) -> Option<P2pRpcId> {

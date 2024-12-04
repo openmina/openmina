@@ -1,6 +1,8 @@
-use std::{fmt, str::FromStr};
+use std::{fmt, path::Path, str::FromStr};
 
+use base64::Engine;
 use ed25519_dalek::SigningKey as Ed25519SecretKey;
+use openmina_core::{EncryptedSecretKey, EncryptedSecretKeyFile, EncryptionError};
 use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -50,17 +52,70 @@ impl SecretKey {
     pub fn to_x25519(&self) -> x25519_dalek::StaticSecret {
         self.0.to_scalar_bytes().into()
     }
+
+    pub fn from_encrypted_file(
+        path: impl AsRef<Path>,
+        password: &str,
+    ) -> Result<Self, EncryptionError> {
+        let encrypted = EncryptedSecretKeyFile::new(path)?;
+        let decrypted = Self::try_decrypt(&encrypted, password)?;
+
+        let keypair_string = String::from_utf8(decrypted.to_vec())
+            .map_err(|e| EncryptionError::Other(e.to_string()))?;
+
+        let parts: Vec<&str> = keypair_string.split(',').collect();
+
+        if parts.len() != 3 {
+            return Err(EncryptionError::Other(
+                "libp2p keypair string must have 3 parts".to_string(),
+            ));
+        }
+
+        let (secret_key_base64, _public_key_base64, _peer_id) = (parts[0], parts[1], parts[2]);
+
+        let key_bytes = base64::engine::general_purpose::STANDARD
+            .decode(secret_key_base64.as_bytes())
+            .map_err(|e| EncryptionError::Other(e.to_string()))?;
+
+        let key_bytes = key_bytes[4..36]
+            .try_into()
+            .map_err(|_| EncryptionError::Other("Invalid secret key length".to_string()))?;
+        Ok(Self::from_bytes(key_bytes))
+    }
+
+    pub fn to_encrypted_file(
+        &self,
+        _password: &str,
+        _path: impl AsRef<Path>,
+    ) -> Result<(), EncryptionError> {
+        todo!()
+    }
 }
+
+impl EncryptedSecretKey for SecretKey {}
 
 use aes_gcm::{
     aead::{Aead, AeadCore},
     Aes256Gcm, KeyInit,
 };
+
+// TODO: provide more detailed errors
+#[derive(Debug, Clone)]
+pub struct EncryptError();
+
+impl std::fmt::Display for EncryptError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Encryption error occurred")
+    }
+}
+
+impl std::error::Error for EncryptError {}
+
 impl SecretKey {
-    fn shared_key(&self, other_pk: &PublicKey) -> Result<Aes256Gcm, ()> {
+    fn shared_key(&self, other_pk: &PublicKey) -> Result<Aes256Gcm, EncryptError> {
         let key = self.to_x25519().diffie_hellman(&other_pk.to_x25519());
         if !key.was_contributory() {
-            return Err(());
+            return Err(EncryptError());
         }
         let key = key.to_bytes();
         // eprintln!("[shared_key] {} & {} = {}", self.public_key(), other_pk, hex::encode(&key));
@@ -73,11 +128,15 @@ impl SecretKey {
         other_pk: &PublicKey,
         rng: impl Rng + CryptoRng,
         data: &[u8],
-    ) -> Result<Vec<u8>, ()> {
+    ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let shared_key = self.shared_key(other_pk)?;
         let nonce = Aes256Gcm::generate_nonce(rng);
         let mut buffer = Vec::from(AsRef::<[u8]>::as_ref(&nonce));
-        buffer.extend(shared_key.encrypt(&nonce, data).or(Err(()))?);
+        buffer.extend(
+            shared_key
+                .encrypt(&nonce, data)
+                .or(Err(Box::new(EncryptError())))?,
+        );
         Ok(buffer)
     }
 
@@ -86,24 +145,30 @@ impl SecretKey {
         other_pk: &PublicKey,
         rng: impl Rng + CryptoRng,
         data: &M,
-    ) -> Result<M::Encrypted, ()> {
-        let data = serde_json::to_vec(data).or(Err(()))?;
+    ) -> Result<M::Encrypted, Box<dyn std::error::Error>> {
+        let data = serde_json::to_vec(data).map_err(|_| EncryptError())?;
         self.encrypt_raw(other_pk, rng, &data).map(Into::into)
     }
 
-    pub fn decrypt_raw(&self, other_pk: &PublicKey, ciphertext: &[u8]) -> Result<Vec<u8>, ()> {
+    pub fn decrypt_raw(
+        &self,
+        other_pk: &PublicKey,
+        ciphertext: &[u8],
+    ) -> Result<Vec<u8>, EncryptError> {
         let shared_key = self.shared_key(other_pk)?;
-        let (nonce, ciphertext) = ciphertext.split_at_checked(12).ok_or(())?;
-        shared_key.decrypt(nonce.into(), ciphertext).or(Err(()))
+        let (nonce, ciphertext) = ciphertext.split_at_checked(12).ok_or(EncryptError())?;
+        shared_key
+            .decrypt(nonce.into(), ciphertext)
+            .or(Err(EncryptError()))
     }
 
     pub fn decrypt<M: EncryptableType>(
         &self,
         other_pk: &PublicKey,
         ciphertext: &M::Encrypted,
-    ) -> Result<M, ()> {
-        let data = self.decrypt_raw(other_pk, ciphertext.as_ref())?;
-        serde_json::from_slice(&data).or(Err(()))
+    ) -> Result<M, Box<dyn std::error::Error>> {
+        let data: Vec<u8> = self.decrypt_raw(other_pk, ciphertext.as_ref())?;
+        serde_json::from_slice(&data).map_err(Box::<dyn std::error::Error>::from)
     }
 }
 
@@ -194,5 +259,19 @@ mod tests {
         let sk = s.parse::<SecretKey>().expect("should be parseable");
         let unparsed = sk.to_string();
         assert_eq!(s, &unparsed);
+    }
+
+    #[test]
+    fn test_libp2p_key_decrypt() {
+        let password = "total-secure-pass";
+        let key_path = "../tests/files/accounts/libp2p-key";
+
+        let expected_peer_id = "12D3KooWDxyuJKSsVEwNR13UVwf4PEfs4yHkk3ecZipBPv3Y3Sac";
+
+        let decrypted = SecretKey::from_encrypted_file(key_path, password)
+            .expect("Failed to decrypt secret key file");
+
+        let peer_id = decrypted.public_key().peer_id().to_libp2p_string();
+        assert_eq!(expected_peer_id, peer_id);
     }
 }

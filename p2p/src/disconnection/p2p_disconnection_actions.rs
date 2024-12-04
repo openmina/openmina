@@ -7,7 +7,7 @@ use crate::{P2pPeerStatus, P2pState, PeerId};
 pub type P2pDisconnectionActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDisconnectionAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(fields(display(peer_id), display(reason)), level = info)]
+#[action_event(level = debug)]
 pub enum P2pDisconnectionAction {
     /// Initialize disconnection.
     #[action_event(fields(display(peer_id), display(reason)), level = info)]
@@ -15,8 +15,13 @@ pub enum P2pDisconnectionAction {
         peer_id: PeerId,
         reason: P2pDisconnectionReason,
     },
+    /// Peer disconnection.
+    #[action_event(fields(display(peer_id)), level = info)]
+    PeerClosed { peer_id: PeerId },
+    #[action_event(fields(display(peer_id)), level = info)]
+    FailedCleanup { peer_id: PeerId },
     /// Finish disconnecting from a peer.
-    #[action_event(level = debug)]
+    #[action_event(fields(display(peer_id)), level = debug)]
     Finish { peer_id: PeerId },
 }
 
@@ -24,11 +29,17 @@ impl redux::EnablingCondition<P2pState> for P2pDisconnectionAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             P2pDisconnectionAction::Init { peer_id, .. }
+            | P2pDisconnectionAction::PeerClosed { peer_id, .. }
             | P2pDisconnectionAction::Finish { peer_id } => {
                 state.peers.get(peer_id).map_or(false, |peer| {
                     !matches!(peer.status, P2pPeerStatus::Disconnected { .. })
+                        && !peer.status.is_error()
                 })
             }
+            P2pDisconnectionAction::FailedCleanup { peer_id } => state
+                .peers
+                .get(peer_id)
+                .map_or(false, |peer| !peer.is_libp2p() && peer.status.is_error()),
         }
     }
 }

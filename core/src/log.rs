@@ -168,7 +168,7 @@ macro_rules! bug_condition {
         .unwrap_or(false) {
             panic!($($arg)*)
         } else {
-            $crate::log::inner::error!($($arg)*)
+            $crate::log::inner::error!("BUG CONDITION: {}", format!($($arg)*))
         }
     }};
 }

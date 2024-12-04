@@ -1,6 +1,6 @@
 [package]
 name = "mina-tree"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -27,6 +27,7 @@ kimchi = { workspace = true }
 mina-poseidon = { workspace = true }
 poly-commitment = { workspace = true }
 juniper = { workspace = true }
+poseidon = { workspace = true }
 openmina-macros = { path = "../macros" }
 strum = "0.26.2"
 strum_macros = "0.26.4"
@@ -45,7 +46,7 @@ libc = "0.2"
 
 itertools = "0.10"
 
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-ff = { workspace = true }
 ark-ec = { version = "0.3.0", features = [ "std" ] }
 ark-serialize = { version = "0.3.0", features = [ "std" ] }
 ark-poly = { version = "0.3.0", features = [ "std" ] }
@@ -77,8 +78,6 @@ fraction = { version = "=0.15.1", default-features = false, features = ["with-se
 getrandom = { version = "0.2", features = ["js"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Window", "Response"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 zstd = { version = "0.12", optional = true }

@@ -1,8 +1,10 @@
+use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger, BigInteger256, PrimeField};
-use mina_hasher::{create_kimchi, Hashable, Hasher, ROInput};
+use ledger::{AppendToInputs, ToInputs};
 use mina_p2p_messages::v2::ConsensusVrfOutputTruncatedStableV1;
 use num::{BigInt, BigRational, One, ToPrimitive};
 use o1_utils::FieldHelpers;
+use poseidon::hash::params::MINA_VRF_OUTPUT;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -25,18 +27,16 @@ impl VrfOutputHashInput {
     }
 }
 
-impl Hashable for VrfOutputHashInput {
-    type D = ();
+impl ToInputs for VrfOutputHashInput {
+    fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
+        let Self {
+            message,
+            g: GroupAffine { x, y, .. },
+        } = self;
 
-    fn to_roinput(&self) -> ROInput {
-        ROInput::new()
-            .append_roinput(self.message.to_roinput())
-            .append_field(self.g.x)
-            .append_field(self.g.y)
-    }
-
-    fn domain_string(_: Self::D) -> Option<String> {
-        "MinaVrfOutput".to_string().into()
+        inputs.append(message);
+        inputs.append(x);
+        inputs.append(y);
     }
 }
 
@@ -57,9 +57,8 @@ impl VrfOutput {
     }
 
     pub fn hash(&self) -> BaseField {
-        let vrf_output_hash_input = VrfOutputHashInput::new(self.message.clone(), self.output);
-        let mut hasher = create_kimchi::<VrfOutputHashInput>(());
-        hasher.update(&vrf_output_hash_input).digest()
+        let hash_input = VrfOutputHashInput::new(self.message.clone(), self.output);
+        hash_input.hash_with_param(&MINA_VRF_OUTPUT)
     }
 
     pub fn truncated(&self) -> ScalarField {
@@ -158,7 +157,7 @@ mod test {
         let converted = ConsensusVrfOutputTruncatedStableV1::from(vrf_output);
         let converted_string = serde_json::to_string_pretty(&converted).unwrap();
         let converted_string_deser: String = serde_json::from_str(&converted_string).unwrap();
-        let expected = String::from("48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C");
+        let expected = String::from("39cyg4ZmMtnb_aFUIerNAoAJV8qtkfOpq0zFzPspjgM=");
 
         assert_eq!(expected, converted_string_deser);
     }

@@ -1,9 +1,10 @@
 use super::{
-    P2pChannelsTransactionAction, P2pChannelsTransactionState, TransactionPropagationState,
+    P2pChannelsTransactionAction, P2pChannelsTransactionState, TransactionPropagationChannelMsg,
+    TransactionPropagationState,
 };
 use crate::{
-    channels::transaction_effectful::P2pChannelsTransactionEffectfulAction, P2pNetworkPubsubAction,
-    P2pState,
+    channels::{ChannelId, MsgId, P2pChannelsEffectfulAction},
+    P2pNetworkPubsubAction, P2pState,
 };
 use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
 use openmina_core::{bug_condition, Substate};
@@ -33,7 +34,15 @@ impl P2pChannelsTransactionState {
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsTransactionEffectfulAction::Init { peer_id });
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::TransactionPropagation,
+                    on_success: redux::callback!(
+                        on_transaction_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
+                            P2pChannelsTransactionAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsTransactionAction::Pending { .. } => {
@@ -66,8 +75,11 @@ impl P2pChannelsTransactionState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher
-                    .push(P2pChannelsTransactionEffectfulAction::RequestSend { peer_id, limit });
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
+                    peer_id,
+                    msg_id: MsgId::first(),
+                    msg: TransactionPropagationChannelMsg::GetNext { limit }.into(),
+                });
                 Ok(())
             }
             P2pChannelsTransactionAction::PromiseReceived { promised_count, .. } => {
@@ -97,7 +109,10 @@ impl P2pChannelsTransactionState {
                 };
                 Ok(())
             }
-            P2pChannelsTransactionAction::Received { .. } => {
+            P2pChannelsTransactionAction::Received {
+                peer_id,
+                transaction,
+            } => {
                 let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
@@ -123,6 +138,14 @@ impl P2pChannelsTransactionState {
                         count: *current_count,
                     };
                 }
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_transaction_received {
+                    dispatcher.push_callback(callback.clone(), (peer_id, transaction));
+                }
+
                 Ok(())
             }
             P2pChannelsTransactionAction::RequestReceived { limit, .. } => {
@@ -172,10 +195,21 @@ impl P2pChannelsTransactionState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsTransactionEffectfulAction::ResponseSend {
+                let msg = TransactionPropagationChannelMsg::WillSend { count }.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    transactions,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
+
+                for tx in transactions {
+                    let msg = TransactionPropagationChannelMsg::Transaction(tx).into();
+                    dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
+                        peer_id,
+                        msg_id: MsgId::first(),
+                        msg,
+                    });
+                }
                 Ok(())
             }
             P2pChannelsTransactionAction::Libp2pReceived { transaction, .. } => {
@@ -200,7 +234,7 @@ impl P2pChannelsTransactionState {
                     std::iter::once(*transaction).collect(),
                 );
                 let nonce = nonce.into();
-                let message = Box::new(GossipNetMessageV2::TransactionPoolDiff { message, nonce });
+                let message = GossipNetMessageV2::TransactionPoolDiff { message, nonce };
                 dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
                 Ok(())
             }

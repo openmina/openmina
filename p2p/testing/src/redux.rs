@@ -13,23 +13,16 @@ use p2p::{
     bootstrap::P2pNetworkKadBootstrapState,
     channels::{
         best_tip::P2pChannelsBestTipAction,
-        best_tip_effectful::P2pChannelsBestTipEffectfulAction,
         rpc::P2pChannelsRpcAction,
-        rpc_effectful::P2pChannelsRpcEffectfulAction,
         signaling::{
             discovery::P2pChannelsSignalingDiscoveryAction,
-            discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
             exchange::P2pChannelsSignalingExchangeAction,
-            exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
         },
         snark::P2pChannelsSnarkAction,
-        snark_effectful::P2pChannelsSnarkEffectfulAction,
         snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-        snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
         streaming_rpc::P2pChannelsStreamingRpcAction,
-        streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
         transaction::P2pChannelsTransactionAction,
-        transaction_effectful::P2pChannelsTransactionEffectfulAction,
+        P2pChannelsEffectfulAction,
     },
     connection::{
         incoming_effectful::P2pConnectionIncomingEffectfulAction,
@@ -146,7 +139,10 @@ pub enum Action {
 
 impl From<redux::AnyAction> for Action {
     fn from(action: redux::AnyAction) -> Self {
-        *action.0.downcast::<Self>().expect("Downcast failed")
+        match action.0.downcast() {
+            Ok(action) => *action,
+            Err(action) => Self::P2p(*action.downcast().expect("Downcast failed")),
+        }
     }
 }
 
@@ -317,13 +313,6 @@ impl_from_p2p!(effectful p2p::P2pNetworkPubsubEffectfulAction);
 impl_from_p2p!(effectful P2pNetworkIdentifyStreamEffectfulAction);
 impl_from_p2p!(effectful P2pConnectionOutgoingEffectfulAction);
 impl_from_p2p!(effectful P2pDisconnectionEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsSignalingDiscoveryEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsSignalingExchangeEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsBestTipEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsStreamingRpcEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsTransactionEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsSnarkJobCommitmentEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsRpcEffectfulAction);
-impl_from_p2p!(effectful P2pChannelsSnarkEffectfulAction);
+impl_from_p2p!(effectful P2pChannelsEffectfulAction);
 
 impl p2p::P2pActionTrait<State> for Action {}

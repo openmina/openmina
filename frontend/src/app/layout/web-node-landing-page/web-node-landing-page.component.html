@@ -1,12 +1,11 @@
 <div class="landing-page flex-column">
   <div class="welcome-container p-relative flex-column align-center pl-10 pr-10">
     <div class="logo f-300 raleway w-100 fx-row-vert-cent">
-      <img ngSrc="assets/images/logo/logo-text.svg" height="40" width="136"/>
+      <img src="assets/images/logo/logo-text.svg" height="40" width="136"/>
     </div>
     <div class="flex-column flex-grow align-center flex-center">
-      <!--      <div class="demo border-rad-6 flex-column flex-center align-center">Mina Dev-net Demo</div>-->
       <h1 class="f-page-title mt-0 text-center">
-        With the Web Node, anyone can produce blocks directly through their browser
+        With the Web Node, you can now produce blocks directly through your browser
       </h1>
       <div class="f-description text-center tertiary">An in-browser Mina node capable of producing and
         validating blocks
@@ -14,51 +13,11 @@
       <button class="launch f-500 border-rad-6 flex-row align-center flex-center cta-primary"
               (click)="goToNode.emit()">Launch Block Producer
       </button>
-      <img class="mina-svg" ngSrc="assets/images/logo/text-logo-text.svg" height="40" width="346"/>
+      <img class="mina-svg" src="assets/images/logo/text-logo-text.svg" height="40" width="346"/>
     </div>
   </div>
 
-  <!--
-    <div class="card-list flex-row flex-center align-center flex-column-md flex-between-md">
-      <div class="card-wrapper">
-        <div class="card bg-base h-100 w-100">
-          <div class="flex-row align-center">
-            <span class="mina-icon icon-200">local_police</span>
-            <span class="f-feature f-500 ml-10">Security</span>
-          </div>
-          <div class="tertiary f-body">
-            Distributing control across multiple Web Nodes makes it difficult for malicious actors to compromise the
-            network.
-          </div>
-        </div>
-      </div>
-      <div class="card-wrapper">
-        <div class="card bg-base h-100 w-100">
-          <div class="flex-row align-center">
-            <span class="mina-icon icon-200">ad_units</span>
-            <span class="f-feature f-500 ml-10">Flexibility</span>
-          </div>
-          <div class="tertiary f-body">
-            Launch the Web Block Producer from any desktop browser for seamless block production.
-          </div>
-        </div>
-      </div>
-      <div class="card-wrapper">
-        <div class="card bg-base h-100 w-100">
-          <div class="flex-row align-center">
-            <span class="mina-icon icon-200">flag</span>
-            <span class="f-feature f-500 ml-10">Inclusivity</span>
-          </div>
-          <div class="tertiary f-body">
-            Each new Web Node launched further democratizes the Mina blockchain and makes it even more transparent.
-          </div>
-        </div>
-      </div>
-    </div>
-  -->
-
   <div class="wrapper flex-column align-center">
-    <!--    <div class="page-title-2 f-section-title text-center text-nowrap">How the demo works</div>-->
     <div
       class="hardcoded-key border-rad-6 text-center pt-10 pb-10 flex-row flex-wrap flex-center align-center p-12">
       <strong>
@@ -71,6 +30,7 @@
       The private key is pre-set,&nbsp;<span>and the stake is delegated to it.</span>
     </div>
   </div>
+  <!--  <mina-parse-files></mina-parse-files>-->
 
   <div class="images flex-column">
     <div class="step flex-column w-100">

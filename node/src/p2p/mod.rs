@@ -1,17 +1,6 @@
 pub use ::p2p::*;
 use p2p::{
-    channels::{
-        best_tip_effectful::P2pChannelsBestTipEffectfulAction,
-        rpc_effectful::P2pChannelsRpcEffectfulAction,
-        signaling::{
-            discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
-            exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
-        },
-        snark_effectful::P2pChannelsSnarkEffectfulAction,
-        snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
-        streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
-        transaction_effectful::P2pChannelsTransactionEffectfulAction,
-    },
+    channels::P2pChannelsEffectfulAction,
     network::identify::stream_effectful::P2pNetworkIdentifyStreamEffectfulAction,
 };
 
@@ -138,17 +127,8 @@ impl_into_global_action!(effectful p2p::P2pNetworkPnetEffectfulAction);
 impl_into_global_action!(effectful connection::incoming_effectful::P2pConnectionIncomingEffectfulAction);
 impl_into_global_action!(effectful connection::outgoing_effectful::P2pConnectionOutgoingEffectfulAction);
 impl_into_global_action!(effectful p2p::disconnection_effectful::P2pDisconnectionEffectfulAction);
-impl_into_global_action!(
-    effectful P2pChannelsSignalingDiscoveryEffectfulAction
-);
-impl_into_global_action!(effectful P2pChannelsSignalingExchangeEffectfulAction);
-impl_into_global_action!(effectful P2pChannelsBestTipEffectfulAction);
-impl_into_global_action!(effectful P2pChannelsStreamingRpcEffectfulAction);
-impl_into_global_action!(effectful P2pChannelsTransactionEffectfulAction);
-impl_into_global_action!(effectful P2pChannelsSnarkJobCommitmentEffectfulAction);
-impl_into_global_action!(effectful P2pChannelsRpcEffectfulAction);
-impl_into_global_action!(effectful P2pChannelsSnarkEffectfulAction);
 impl_into_global_action!(effectful network::pubsub::P2pNetworkPubsubEffectfulAction);
 impl_into_global_action!(effectful P2pNetworkIdentifyStreamEffectfulAction);
+impl_into_global_action!(effectful P2pChannelsEffectfulAction);
 
 impl p2p::P2pActionTrait<crate::State> for crate::Action {}

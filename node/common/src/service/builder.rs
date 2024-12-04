@@ -80,13 +80,13 @@ impl NodeServiceCommonBuilder {
 
     pub fn block_producer_init(
         &mut self,
-        provers: BlockProver,
         keypair: AccountSecretKey,
+        provers: Option<BlockProver>,
     ) -> &mut Self {
         self.block_producer = Some(BlockProducerService::start(
-            provers,
             self.event_sender.clone(),
             keypair,
+            provers,
         ));
         self
     }

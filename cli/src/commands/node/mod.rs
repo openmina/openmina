@@ -169,9 +169,9 @@ impl Node {
 
         // warning, this overrides `OPENMINA_P2P_SEC_KEY`
         if let (Some(key_file), Some(password)) = (&self.libp2p_keypair, &self.libp2p_password) {
-            match AccountSecretKey::from_encrypted_file(key_file, password) {
+            match SecretKey::from_encrypted_file(key_file, password) {
                 Ok(sk) => {
-                    node_builder.p2p_sec_key(SecretKey::from_bytes(sk.to_bytes()));
+                    node_builder.p2p_sec_key(sk.clone());
                     node::core::info!(
                         node::core::log::system_time();
                         summary = "read sercret key from file",
@@ -226,10 +226,12 @@ impl Node {
 
         if let Some(producer_key_path) = self.producer_key {
             let password = &self.producer_key_password;
-            node::core::info!(node::core::log::system_time(); summary = "loading provers index");
-            let provers = BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
-            node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
-            node_builder.block_producer_from_file(provers, producer_key_path, password)?;
+            openmina_core::thread::spawn(|| {
+                node::core::info!(node::core::log::system_time(); summary = "loading provers index");
+                BlockProver::make(Some(block_verifier_index), Some(work_verifier_index));
+                node::core::info!(node::core::log::system_time(); summary = "loaded provers index");
+            });
+            node_builder.block_producer_from_file(producer_key_path, password, None)?;
 
             if let Some(pub_key) = self.coinbase_receiver {
                 node_builder

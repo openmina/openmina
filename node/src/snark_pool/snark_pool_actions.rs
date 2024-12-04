@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use openmina_core::snark::{Snark, SnarkJobCommitment, SnarkJobId};
@@ -17,7 +19,7 @@ pub enum SnarkPoolAction {
     Candidate(SnarkPoolCandidateAction),
 
     JobsUpdate {
-        jobs: Vec<OneOrTwo<AvailableJobMessage>>,
+        jobs: Arc<Vec<OneOrTwo<AvailableJobMessage>>>,
         orphaned_snarks: Vec<SnarkWork>,
     },
     AutoCreateCommitment,

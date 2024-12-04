@@ -32,7 +32,7 @@ pub struct MultiNodeVrfEpochBoundsCorrectLedger;
 
 impl MultiNodeVrfEpochBoundsCorrectLedger {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let start = tokio::time::Instant::now();
+        let start = redux::Instant::now();
         let initial_time = runner.get_initial_time().unwrap();
 
         let (initial_node, _) = runner.nodes_iter().last().unwrap();
@@ -51,7 +51,6 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
             initial_time,
             genesis: node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
-            ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),
             peer_id: Default::default(),
             block_producer: None,

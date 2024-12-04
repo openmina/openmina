@@ -23,12 +23,13 @@ pub struct RunCfg<
     advance_time: Option<RunCfgAdvanceTime>,
 }
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Default, Clone)]
 pub enum RunCfgAdvanceTime {
     /// Set the range of time in milliseconds, with which time will be
     /// advanced during `run` function execution.
     Rand(std::ops::RangeInclusive<u64>),
     /// Advance time so that node's time matches the real time.
+    #[default]
     Real,
 }
 

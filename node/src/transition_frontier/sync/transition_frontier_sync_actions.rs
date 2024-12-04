@@ -2,6 +2,7 @@ use mina_p2p_messages::v2::{LedgerHash, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::consensus_take;
 use openmina_core::ActionEvent;
+use redux::Callback;
 use serde::{Deserialize, Serialize};
 
 use crate::ledger::write::CommitResult;
@@ -45,6 +46,7 @@ pub enum TransitionFrontierSyncAction {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
+        on_success: Option<Callback<()>>,
     },
     /// Staking Ledger sync is pending
     #[action_event(level = info)]
@@ -144,7 +146,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 && state
                     .transition_frontier
                     .best_tip()
-                    .map_or(true, |tip| best_tip.hash != tip.hash)
+                    .map_or(false, |tip| best_tip.hash != tip.hash)
                 && state
                     .transition_frontier
                     .sync

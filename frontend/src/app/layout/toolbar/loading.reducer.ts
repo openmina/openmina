@@ -8,16 +8,8 @@ import {
   STATE_ACTIONS_GET_EARLIEST_SLOT,
   STATE_ACTIONS_GET_EARLIEST_SLOT_SUCCESS,
 } from '@state/actions/state-actions.actions';
-import {
-  NODES_OVERVIEW_CLOSE,
-  NODES_OVERVIEW_GET_NODES_SUCCESS,
-  NODES_OVERVIEW_INIT,
-} from '@nodes/overview/nodes-overview.actions';
-import {
-  NODES_BOOTSTRAP_CLOSE,
-  NODES_BOOTSTRAP_GET_NODES_SUCCESS,
-  NODES_BOOTSTRAP_INIT,
-} from '@nodes/bootstrap/nodes-bootstrap.actions';
+import { NODES_OVERVIEW_CLOSE, NODES_OVERVIEW_GET_NODES_SUCCESS, NODES_OVERVIEW_INIT } from '@nodes/overview/nodes-overview.actions';
+import { NODES_BOOTSTRAP_CLOSE, NODES_BOOTSTRAP_GET_NODES_SUCCESS, NODES_BOOTSTRAP_INIT } from '@nodes/bootstrap/nodes-bootstrap.actions';
 import { NODES_LIVE_CLOSE, NODES_LIVE_GET_NODES_SUCCESS, NODES_LIVE_INIT } from '@nodes/live/nodes-live.actions';
 import {
   SNARKS_WORK_POOL_CLOSE,
@@ -27,17 +19,8 @@ import {
   SNARKS_WORK_POOL_INIT,
 } from '@snarks/work-pool/snarks-work-pool.actions';
 import { SCAN_STATE_CLOSE, SCAN_STATE_GET_BLOCK_SUCCESS, SCAN_STATE_INIT } from '@snarks/scan-state/scan-state.actions';
-import { DASHBOARD_CLOSE, DASHBOARD_GET_DATA_SUCCESS, DASHBOARD_INIT } from '@dashboard/dashboard.actions';
-import {
-  MEMORY_RESOURCES_CLOSE,
-  MEMORY_RESOURCES_GET,
-  MEMORY_RESOURCES_GET_SUCCESS,
-} from '@resources/memory/memory-resources.actions';
-import {
-  NETWORK_NODE_DHT_CLOSE,
-  NETWORK_NODE_DHT_GET_PEERS_SUCCESS,
-  NETWORK_NODE_DHT_INIT,
-} from '@network/node-dht/network-node-dht.actions';
+import { MEMORY_RESOURCES_CLOSE, MEMORY_RESOURCES_GET, MEMORY_RESOURCES_GET_SUCCESS } from '@resources/memory/memory-resources.actions';
+import { NETWORK_NODE_DHT_CLOSE, NETWORK_NODE_DHT_GET_PEERS_SUCCESS, NETWORK_NODE_DHT_INIT } from '@network/node-dht/network-node-dht.actions';
 import {
   NETWORK_BOOTSTRAP_STATS_CLOSE,
   NETWORK_BOOTSTRAP_STATS_GET_BOOTSTRAP_STATS_SUCCESS,
@@ -48,7 +31,8 @@ import {
   BENCHMARKS_WALLETS_CLOSE,
   BENCHMARKS_WALLETS_GET_ALL_TXS,
   BENCHMARKS_WALLETS_GET_ALL_TXS_SUCCESS,
-  BENCHMARKS_WALLETS_GET_WALLETS, BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
+  BENCHMARKS_WALLETS_GET_WALLETS,
+  BENCHMARKS_WALLETS_GET_WALLETS_SUCCESS,
 } from '@benchmarks/wallets/benchmarks-wallets.actions';
 
 export type LoadingState = string[];
@@ -59,8 +43,6 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
   switch (action.type) {
     /* ------------ ADD ------------ */
     case `[${APP_PREFIX}] Init`:
-
-    case DASHBOARD_INIT:
 
     case `[${BLOCK_PRODUCTION_PREFIX} Overview] Get Slots`:
     case `[${BLOCK_PRODUCTION_PREFIX} Won Slots] Init`:
@@ -89,11 +71,6 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
     /* ------------ REMOVE ------------ */
     case `[${APP_PREFIX}] Init Success`:
       return remove(state, `[${APP_PREFIX}] Init`);
-
-    case DASHBOARD_GET_DATA_SUCCESS:
-      return remove(state, DASHBOARD_INIT);
-    case DASHBOARD_CLOSE:
-      return remove(state, [DASHBOARD_INIT]);
 
     case `[${BLOCK_PRODUCTION_PREFIX} Overview] Get Slots Success`:
       return remove(state, `[${BLOCK_PRODUCTION_PREFIX} Overview] Get Slots`);

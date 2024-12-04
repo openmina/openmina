@@ -1,6 +1,6 @@
 import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 
-import { AppModule } from '@app/app.module';
+import { AppModule } from './app/app.module';
 import { CONFIG } from '@shared/constants/config';
 import * as Sentry from '@sentry/angular';
 import type { ErrorEvent } from '@sentry/types/build/types/event';

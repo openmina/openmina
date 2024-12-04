@@ -1,5 +1,5 @@
-import { APP_INITIALIZER, ErrorHandler, Injectable, LOCALE_ID, NgModule, Provider } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
+import { APP_INITIALIZER, ErrorHandler, Injectable, LOCALE_ID, NgModule } from '@angular/core';
+import { BrowserModule, provideClientHydration } from '@angular/platform-browser';
 
 import { AppComponent } from './app.component';
 import { AppRouting } from './app.routing';
@@ -10,6 +10,7 @@ import {
   HorizontalMenuComponent,
   NgrxRouterStoreModule,
   OpenminaEagerSharedModule,
+  safelyExecuteInBrowser,
   THEME_PROVIDER,
 } from '@openmina/shared';
 import { CommonModule, registerLocaleData } from '@angular/common';
@@ -29,24 +30,98 @@ import { metaReducers, reducers } from '@app/app.setup';
 import { EffectsModule } from '@ngrx/effects';
 import { AppEffects } from '@app/app.effects';
 import { StoreDevtoolsModule } from '@ngrx/store-devtools';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, provideHttpClient, withFetch } from '@angular/common/http';
 import { NewNodeComponent } from './layout/new-node/new-node.component';
 import { ReactiveFormsModule } from '@angular/forms';
 import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
 import * as Sentry from '@sentry/angular';
 import { Router } from '@angular/router';
+import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
+import { getAnalytics, provideAnalytics, ScreenTrackingService } from '@angular/fire/analytics';
+import { getPerformance, providePerformance } from '@angular/fire/performance';
+import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
+import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
 
 @Injectable()
 export class AppGlobalErrorhandler implements ErrorHandler {
-  constructor(private errorHandlerService: GlobalErrorHandlerService) {}
+  constructor(private errorHandlerService: GlobalErrorHandlerService) {
+    safelyExecuteInBrowser(() => {
+      this.setupErrorHandlers();
+    });
+
+    if (WebAssembly) {
+      this.interceptWebAssembly();
+    }
+  }
+
+  private setupErrorHandlers(): void {
+    const self = this;
+
+    // Global error handler
+    window.onerror = function (msg, url, line, column, error) {
+      self.handleError(error || msg);
+      return false;
+    };
+
+    // Unhandled promise rejections
+    window.onunhandledrejection = function (event) {
+      event.preventDefault();
+      self.handleError(event.reason);
+    };
+
+    // Regular error listener
+    window.addEventListener('error', (event: ErrorEvent) => {
+      event.preventDefault();
+      this.handleError(event.error);
+    }, { capture: true });
+
+    // Override console.error with proper error extraction
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      // Find the actual error object in the arguments
+      const error = args.find(arg => arg instanceof Error) ||
+        args.join(' ');
+
+      this.handleError(error);
+      originalConsoleError.apply(console, args);
+    };
+  }
+
+  private interceptWebAssembly(): void {
+    const self = this;
+
+    const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
+    if (originalInstantiateStreaming) {
+      WebAssembly.instantiateStreaming = async function (response: any, importObject?: any): Promise<any> {
+        try {
+          return await originalInstantiateStreaming.call(WebAssembly, response, importObject);
+        } catch (error) {
+          self.handleError(error);
+          throw error;
+        }
+      };
+    }
+
+    const originalInstantiate = WebAssembly.instantiate;
+    WebAssembly.instantiate = async function (moduleObject: any, importObject?: any): Promise<any> {
+      try {
+        return await originalInstantiate.call(WebAssembly, moduleObject, importObject);
+      } catch (error) {
+        self.handleError(error);
+        throw error;
+      }
+    };
+  }
 
   handleError(error: any): void {
     Sentry.captureException(error);
+    if (typeof error === 'string') {
+      error = new Error(error);
+    }
     this.errorHandlerService.handleError(error);
-    console.error(error);
   }
 }
 
@@ -86,12 +161,14 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     ReactiveFormsModule,
     CopyComponent,
     WebNodeLandingPageComponent,
+    BlockProductionPillComponent,
+    MenuTabsComponent,
   ],
   providers: [
     THEME_PROVIDER,
-    { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService] },
     { provide: LOCALE_ID, useValue: 'en' },
     { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },
+    { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService], multi: false },
     { provide: Sentry.TraceService, deps: [Router] },
     {
       provide: APP_INITIALIZER,
@@ -99,7 +176,29 @@ export class AppGlobalErrorhandler implements ErrorHandler {
       deps: [Sentry.TraceService],
       multi: true,
     },
+    provideClientHydration(),
+    provideHttpClient(withFetch()),
+    provideFirebaseApp(() => initializeApp({
+      'projectId': 'openminawebnode',
+      'appId': '1:120031499786:web:9af56c50ebce25c619f1f3',
+      'storageBucket': 'openminawebnode.firebasestorage.app',
+      'apiKey': 'AIzaSyBreMkb5-8ANb5zL6yWKgRAk9owbDS1g9s',
+      'authDomain': 'openminawebnode.firebaseapp.com',
+      'messagingSenderId': '120031499786',
+      'measurementId': 'G-V0ZC81T9RQ',
+    })),
+    provideAnalytics(() => getAnalytics()),
+    ScreenTrackingService,
+    // provideAppCheck(() => {
+    //   // TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
+    //   const provider = new ReCaptchaEnterpriseProvider(/* reCAPTCHA Enterprise site key */);
+    //   return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
+    // }),
+    providePerformance(() => getPerformance()),
   ],
   bootstrap: [AppComponent],
+  exports: [
+    MenuComponent,
+  ],
 })
 export class AppModule {}

@@ -271,6 +271,18 @@ impl SnarkPoolCandidatesState {
         }
     }
 
+    pub fn peer_work_remove(&mut self, peer_id: PeerId, job_id: &SnarkJobId) {
+        if let Some(works) = self.by_peer.get_mut(&peer_id) {
+            works.remove(job_id);
+            if let Some(peers) = self.by_job_id.get_mut(job_id) {
+                peers.remove(&peer_id);
+                if peers.is_empty() {
+                    self.by_job_id.remove(job_id);
+                }
+            }
+        }
+    }
+
     pub fn remove_inferior_snarks(&mut self, snark: &Snark) {
         let job_id = snark.job_id();
         let by_peer = &mut self.by_peer;

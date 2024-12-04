@@ -7,9 +7,9 @@ pub struct BigInt(BigInteger256);
 
 impl std::fmt::Debug for BigInt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self(BigInteger256(array)) = self;
+        let Self(bigint) = self;
         // Avoid vertical alignment
-        f.write_fmt(format_args!("BigInt({:?})", array))
+        f.write_fmt(format_args!("BigInt({:?})", bigint.to_native()))
     }
 }
 
@@ -268,7 +268,7 @@ impl<'de> Deserialize<'de> for BigInt {
                 .map_err(|_| serde::de::Error::custom("failed to convert vec to array".to_string()))
         } else {
             struct V;
-            impl<'de> serde::de::Visitor<'de> for V {
+            impl serde::de::Visitor<'_> for V {
                 type Value = [u8; 32];
 
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -447,7 +447,7 @@ mod tests {
         let original_sexp = Sexp::Atom(hex_str.as_bytes().to_vec());
 
         let result = BigInt::of_sexp(&original_sexp).expect("Failed to convert Sexp to BigInt");
-        let expected_result = BigInt(BigInteger256::new(expected_array));
+        let expected_result = BigInt(BigInteger256::from_64x4(expected_array));
 
         assert_eq!(result, expected_result);
 

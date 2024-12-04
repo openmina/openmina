@@ -44,6 +44,7 @@ impl TransitionFrontierSyncState {
                 best_tip,
                 root_block,
                 blocks_inbetween,
+                ..
             } => match state {
                 Self::StakingLedgerPending(substate)
                 | Self::NextEpochLedgerPending(substate)
@@ -438,7 +439,7 @@ impl TransitionFrontierSyncState {
                     best_chain.iter().map(|b| (b.hash(), b)).collect();
 
                 let k = best_tip.constants().k.as_u32() as usize;
-                let mut chain = Vec::with_capacity(k + root_block_updates.len());
+                let mut chain = Vec::with_capacity(k.saturating_add(root_block_updates.len()));
 
                 // TODO(binier): maybe time should be when we originally
                 // applied this block? Same for below.
@@ -653,7 +654,7 @@ impl TransitionFrontierSyncState {
                     return;
                 };
                 let mut needed_protocol_states = std::mem::take(needed_protocol_states);
-                let start_i = chain.len().saturating_sub(k + 1);
+                let start_i = chain.len().saturating_sub(k.saturating_add(1));
                 let mut iter = std::mem::take(chain)
                     .into_iter()
                     .filter_map(|v| v.take_applied_block());

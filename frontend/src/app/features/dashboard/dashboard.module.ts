@@ -9,13 +9,9 @@ import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner
 import { CopyComponent } from '@openmina/shared';
 import { DashboardNetworkComponent } from './dashboard-network/dashboard-network.component';
 import { DashboardLedgerComponent } from './dashboard-ledger/dashboard-ledger.component';
-import {
-  DashboardTransitionFrontierComponent,
-} from './dashboard-transition-frontier/dashboard-transition-frontier.component';
 import { DashboardBlocksSyncComponent } from './dashboard-blocks-sync/dashboard-blocks-sync.component';
-import {
-  DashboardPeersMinimalTableComponent,
-} from './dashboard-peers-minimal-table/dashboard-peers-minimal-table.component';
+import { DashboardPeersMinimalTableComponent } from './dashboard-peers-minimal-table/dashboard-peers-minimal-table.component';
+import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
 
 
 @NgModule({
@@ -23,7 +19,6 @@ import {
     DashboardComponent,
     DashboardNetworkComponent,
     DashboardLedgerComponent,
-    DashboardTransitionFrontierComponent,
     DashboardBlocksSyncComponent,
     DashboardPeersMinimalTableComponent,
   ],
@@ -33,6 +28,7 @@ import {
     EffectsModule.forFeature(DashboardEffects),
     LoadingSpinnerComponent,
     CopyComponent,
+    BlockProductionPillComponent,
   ],
 })
 export class DashboardModule {}

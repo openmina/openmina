@@ -37,11 +37,6 @@ export class NodesOverviewTableComponent extends MinaTableRustWrapper<NodesOverv
       sort: 'appliedBlocks',
       tooltip: 'Number of blocks that node has applied with the latest synchronization attempt.',
     },
-    // {
-    //   name: 'applying',
-    //   sort: 'applyingBlocks',
-    //   tooltip: 'Number of blocks that node is currently applying with the latest synchronization attempt.',
-    // },
     {
       name: 'fetching',
       sort: 'fetchingBlocks',

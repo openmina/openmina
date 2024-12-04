@@ -232,10 +232,12 @@ pub mod common {
 
     use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
     use mina_signer::{CompressedPubKey, PubKey, Signature};
+    use poseidon::hash::hash_with_kimchi;
 
     use crate::{
-        decompress_pk, hash_with_kimchi,
+        decompress_pk,
         scan_state::transaction_logic::{
+            transaction_union_payload::TransactionUnionPayload,
             valid, verifiable,
             zkapp_command::{self, valid::of_verifiable, AccountUpdate},
             zkapp_statement::{TransactionCommitment, ZkappStatement},
@@ -370,8 +372,7 @@ pub mod common {
         }
     }
 
-    /// Verify signature with new style (chunked inputs)
-    /// `mina_signer::verify` is using old one
+    /// Verify zkapp signature/statement with new style (chunked inputs)
     fn verify_signature(
         signature: &Signature,
         pubkey: &PubKey,
@@ -389,6 +390,43 @@ pub mod common {
 
         let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
         let hash = hash_with_kimchi(signature_prefix, &[**msg, *x, *y, *rx]);
+        let hash: Fq = Fq::try_from(hash.into_repr()).unwrap(); // Never fail, `Fq` is larger than `Fp`
+
+        let sv: CurvePoint = CurvePoint::prime_subgroup_generator().mul(*s).into_affine();
+        // Perform addition and infinity check in projective coordinates for performance
+        let rv = pubkey.point().mul(hash).neg().add_mixed(&sv);
+        if rv.is_zero() {
+            return false;
+        }
+        let rv = rv.into_affine();
+        rv.y.into_repr().is_even() && rv.x == *rx
+    }
+
+    /// Verify signature with legacy style
+    pub fn legacy_verify_signature(
+        signature: &Signature,
+        pubkey: &PubKey,
+        msg: &TransactionUnionPayload,
+    ) -> bool {
+        use ::poseidon::hash::legacy;
+        use ark_ec::{AffineCurve, ProjectiveCurve};
+        use ark_ff::{BigInteger, PrimeField, Zero};
+        use mina_curves::pasta::Fq;
+        use mina_curves::pasta::Pallas;
+        use mina_signer::CurvePoint;
+        use std::ops::Neg;
+
+        let Pallas { x, y, .. } = pubkey.point();
+        let Signature { rx, s } = signature;
+
+        let signature_prefix = openmina_core::NetworkConfig::global().legacy_signature_prefix;
+
+        let mut inputs = msg.to_input_legacy();
+        inputs.append_field(*x);
+        inputs.append_field(*y);
+        inputs.append_field(*rx);
+
+        let hash = legacy::hash_with_kimchi(signature_prefix, &inputs.to_fields());
         let hash: Fq = Fq::try_from(hash.into_repr()).unwrap(); // Never fail, `Fq` is larger than `Fp`
 
         let sv: CurvePoint = CurvePoint::prime_subgroup_generator().mul(*s).into_affine();

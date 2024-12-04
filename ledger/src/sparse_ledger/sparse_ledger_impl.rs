@@ -1,11 +1,9 @@
-use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
-    fmt::Write,
-};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use poseidon::hash::params::get_merkle_param_for_height;
 
 use crate::{
     scan_state::{currency::Slot, transaction_logic::AccountState},
@@ -156,10 +154,9 @@ impl SparseLedgerImpl<AccountId, Account> {
         let account_addr = addr.clone();
 
         let mut current = account.hash();
-        let mut param = String::with_capacity(16);
 
         // Go back from the account to root, to compute missing hashes
-        for (depth, path) in merkle_path.iter().enumerate() {
+        for (height, path) in merkle_path.iter().enumerate() {
             set_hash(addr.clone(), &current);
 
             let hashes = match path {
@@ -167,10 +164,8 @@ impl SparseLedgerImpl<AccountId, Account> {
                 MerklePath::Right(left) => [*left, current],
             };
 
-            param.clear();
-            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
-
-            current = crate::hash::hash_with_kimchi(param.as_str(), &hashes);
+            let param = get_merkle_param_for_height(height);
+            current = poseidon::hash::hash_with_kimchi(param, &hashes);
 
             addr = addr.parent().unwrap();
         }

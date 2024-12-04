@@ -9,9 +9,12 @@ impl SnarkWorkVerifyEffectfulAction {
         Store::Service: SnarkWorkVerifyService,
     {
         match self {
-            Self::Init { req_id, batch, .. } => {
-                let verifier_index = store.state().work_verify.verifier_index.clone();
-                let verifier_srs = store.state().work_verify.verifier_srs.clone();
+            SnarkWorkVerifyEffectfulAction::Init {
+                req_id,
+                batch,
+                verifier_srs,
+                verifier_index,
+            } => {
                 store
                     .service()
                     .verify_init(req_id, verifier_index, verifier_srs, batch);

@@ -7,7 +7,7 @@ use time::{macros::format_description, OffsetDateTime};
 
 use crate::constants::constraint_constants;
 pub use crate::constants::{
-    checkpoint_window_size_in_slots, grace_period_end, slots_per_window, CHECKPOINTS_PER_YEAR,
+    checkpoint_window_size_in_slots, slots_per_window, CHECKPOINTS_PER_YEAR,
 };
 
 // TODO get constants from elsewhere
@@ -39,21 +39,21 @@ pub fn is_short_range_fork(a: &MinaConsensusState, b: &MinaConsensusState) -> bo
         if s1.epoch_count.as_u32() == s2.epoch_count.as_u32() + 1
             && s2_epoch_slot >= slots_per_epoch * 2 / 3
         {
-            crate::log::debug!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("s2 is 1 epoch behind and not in seed update range: {} vs {}", s1.staking_epoch_data.lock_checkpoint, s2.next_epoch_data.lock_checkpoint));
+            crate::log::trace!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("s2 is 1 epoch behind and not in seed update range: {} vs {}", s1.staking_epoch_data.lock_checkpoint, s2.next_epoch_data.lock_checkpoint));
             // S1 is one epoch ahead of S2 and S2 is not in the seed update range
             s1.staking_epoch_data.lock_checkpoint == s2.next_epoch_data.lock_checkpoint
         } else {
-            crate::log::debug!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("chains are from different epochs"));
+            crate::log::trace!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("chains are from different epochs"));
             false
         }
     };
 
-    crate::log::debug!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("epoch count: {} vs {}", a.epoch_count.as_u32(), b.epoch_count.as_u32()));
+    crate::log::trace!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("epoch count: {} vs {}", a.epoch_count.as_u32(), b.epoch_count.as_u32()));
     if a.epoch_count == b.epoch_count {
         let a_prev_lock_checkpoint = &a.staking_epoch_data.lock_checkpoint;
         let b_prev_lock_checkpoint = &b.staking_epoch_data.lock_checkpoint;
         // Simple case: blocks have same previous epoch, so compare previous epochs' lock_checkpoints
-        crate::log::debug!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("checkpoints: {} vs {}", a_prev_lock_checkpoint, b_prev_lock_checkpoint));
+        crate::log::trace!(crate::log::system_time(); kind = "is_short_range_fork", msg = format!("checkpoints: {} vs {}", a_prev_lock_checkpoint, b_prev_lock_checkpoint));
         a_prev_lock_checkpoint == b_prev_lock_checkpoint
     } else {
         // Check for previous epoch case using both orientations
@@ -75,7 +75,9 @@ pub fn relative_min_window_density(b1: &MinaConsensusState, b2: &MinaConsensusSt
 
     let projected_window = {
         // Compute shift count
-        let shift_count = (max_slot - global_slot(b1) - 1).clamp(0, SUB_WINDOWS_PER_WINDOW);
+        let shift_count = max_slot
+            .saturating_sub(global_slot(b1) + 1)
+            .min(SUB_WINDOWS_PER_WINDOW);
 
         // Initialize projected window
         let mut projected_window = b1

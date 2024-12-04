@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::read::{LedgerReadId, LedgerReadResponse};
-use super::write::LedgerWriteResponse;
+use super::{
+    read::{LedgerReadId, LedgerReadResponse},
+    write::LedgerWriteResponse,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LedgerEvent {

@@ -1,14 +1,15 @@
+use std::sync::Arc;
+
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2::MinaBaseProofStableV2;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
+use crate::block_producer_effectful::StagedLedgerDiffCreateOutput;
+
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
-use super::{
-    BlockProducerCurrentState, BlockProducerWonSlot, BlockProducerWonSlotDiscardReason,
-    StagedLedgerDiffCreateOutput,
-};
+use super::{BlockProducerCurrentState, BlockProducerWonSlot, BlockProducerWonSlotDiscardReason};
 
 pub type BlockProducerActionWithMeta = redux::ActionWithMeta<BlockProducerAction>;
 pub type BlockProducerActionWithMetaRef<'a> = redux::ActionWithMeta<&'a BlockProducerAction>;
@@ -52,15 +53,16 @@ pub enum BlockProducerAction {
     StagedLedgerDiffCreateInit,
     StagedLedgerDiffCreatePending,
     StagedLedgerDiffCreateSuccess {
-        output: Box<StagedLedgerDiffCreateOutput>,
+        output: Arc<StagedLedgerDiffCreateOutput>,
     },
     BlockUnprovenBuild,
     BlockProveInit,
     BlockProvePending,
     BlockProveSuccess {
-        proof: Box<MinaBaseProofStableV2>,
+        proof: Arc<MinaBaseProofStableV2>,
     },
     BlockProduced,
+    #[action_event(level = trace)]
     BlockInject,
     BlockInjected,
 }
@@ -100,9 +102,18 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
             BlockProducerAction::WonSlotWait => state
                 .block_producer
                 .with(false, |this| this.current.won_slot_should_wait(time)),
-            BlockProducerAction::WonSlotProduceInit { .. } => state
-                .block_producer
-                .with(false, |this| this.current.won_slot_should_produce(time)),
+            BlockProducerAction::WonSlotProduceInit { .. } => {
+                state.block_producer.with(false, |this| {
+                    let has_genesis_proven_if_needed = || {
+                        state.transition_frontier.best_tip().map_or(false, |tip| {
+                            let proven_block = state.transition_frontier.genesis.proven_block();
+                            !tip.is_genesis()
+                                || proven_block.map_or(false, |b| Arc::ptr_eq(&b.block, &tip.block))
+                        })
+                    };
+                    this.current.won_slot_should_produce(time) && has_genesis_proven_if_needed()
+                })
+            }
             BlockProducerAction::WonSlotTransactionsGet => {
                 state.block_producer.with(false, |this| {
                     matches!(

@@ -22,6 +22,7 @@ use mina_p2p_messages::{
 use openmina_core::{
     block::ArcBlock,
     snark::{Snark, SnarkJobId},
+    transaction::{Transaction, TransactionHash},
 };
 use serde::{Deserialize, Serialize};
 
@@ -51,6 +52,7 @@ pub enum P2pRpcKind {
     StagedLedgerAuxAndPendingCoinbasesAtBlock,
     Block,
     Snark,
+    Transaction,
     InitialPeers,
 }
 
@@ -64,6 +66,7 @@ impl P2pRpcKind {
             }
             Self::Block => config.block,
             Self::Snark => config.snark,
+            Self::Transaction => config.transaction,
             Self::InitialPeers => config.initial_peers,
         }
     }
@@ -75,6 +78,7 @@ impl P2pRpcKind {
             Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => true,
             Self::Block => true,
             Self::Snark => false,
+            Self::Transaction => false,
             Self::InitialPeers => true,
         }
     }
@@ -87,6 +91,7 @@ pub enum P2pRpcRequest {
     StagedLedgerAuxAndPendingCoinbasesAtBlock(StateHash),
     Block(StateHash),
     Snark(SnarkJobId),
+    Transaction(TransactionHash),
     InitialPeers,
 }
 
@@ -100,6 +105,7 @@ impl P2pRpcRequest {
             }
             Self::Block(_) => P2pRpcKind::Block,
             Self::Snark(_) => P2pRpcKind::Snark,
+            Self::Transaction(_) => P2pRpcKind::Transaction,
             Self::InitialPeers => P2pRpcKind::InitialPeers,
         }
     }
@@ -153,6 +159,9 @@ impl std::fmt::Display for P2pRpcRequest {
             Self::Snark(job_id) => {
                 write!(f, ", {job_id}")
             }
+            Self::Transaction(hash) => {
+                write!(f, ", {hash}")
+            }
             Self::InitialPeers => Ok(()),
         }
     }
@@ -180,6 +189,7 @@ pub enum P2pRpcResponse {
     StagedLedgerAuxAndPendingCoinbasesAtBlock(Arc<StagedLedgerAuxAndPendingCoinbases>),
     Block(ArcBlock),
     Snark(Snark),
+    Transaction(Transaction),
     InitialPeers(List<P2pConnectionOutgoingInitOpts>),
 }
 
@@ -193,6 +203,7 @@ impl P2pRpcResponse {
             }
             Self::Block(_) => P2pRpcKind::Block,
             Self::Snark(_) => P2pRpcKind::Snark,
+            Self::Transaction(_) => P2pRpcKind::Transaction,
             Self::InitialPeers(_) => P2pRpcKind::InitialPeers,
         }
     }
@@ -280,6 +291,10 @@ mod libp2p {
                 Some((ResponseHeader { id: id as _ }, v.into()))
             }
             P2pRpcResponse::Snark(_) => {
+                // should use gossipsub to broadcast
+                None
+            }
+            P2pRpcResponse::Transaction(_) => {
                 // should use gossipsub to broadcast
                 None
             }
@@ -375,6 +390,11 @@ mod libp2p {
                 ))
             }
             P2pRpcRequest::Snark(hash) => {
+                let _ = hash;
+                // libp2p cannot fulfill this request
+                None
+            }
+            P2pRpcRequest::Transaction(hash) => {
                 let _ = hash;
                 // libp2p cannot fulfill this request
                 None

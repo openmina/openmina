@@ -28,13 +28,20 @@ use crate::{
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use self::native::{
-    webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
-};
+mod imports {
+    pub use super::native::{
+        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+    };
+}
 #[cfg(target_arch = "wasm32")]
-use self::web::{
-    webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
-};
+mod imports {
+    pub use super::web::{
+        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+    };
+}
+
+use imports::*;
+pub use imports::{webrtc_signal_send, RTCSignalingError};
 
 use super::TaskSpawner;
 
@@ -42,7 +49,10 @@ use super::TaskSpawner;
 const CHUNK_SIZE: usize = 16 * 1024;
 
 pub enum Cmd {
-    PeerAdd(PeerAddArgs),
+    PeerAdd {
+        args: PeerAddArgs,
+        abort: oneshot::Receiver<()>,
+    },
 }
 
 #[derive(Debug)]
@@ -83,6 +93,7 @@ pub enum PeerConnectionKind {
 
 pub struct PeerState {
     pub cmd_sender: mpsc::UnboundedSender<PeerCmd>,
+    pub abort: oneshot::Sender<()>,
 }
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
@@ -138,11 +149,11 @@ pub struct RTCChannelConfig {
 impl Default for RTCConfigIceServers {
     fn default() -> Self {
         Self(vec![
-            // RTCConfigIceServer {
-            //     urls: vec!["stun:65.109.110.75:3478".to_owned()],
-            //     username: Some("openmina".to_owned()),
-            //     credential: Some("webrtc".to_owned()),
-            // },
+            RTCConfigIceServer {
+                urls: vec!["stun:65.109.110.75:3478".to_owned()],
+                username: Some("openmina".to_owned()),
+                credential: Some("webrtc".to_owned()),
+            },
             RTCConfigIceServer {
                 urls: vec![
                     "stun:stun.l.google.com:19302".to_owned(),
@@ -249,6 +260,15 @@ async fn peer_start(args: PeerAddArgs) {
             return;
         }
     };
+
+    let (main_channel_open_tx, main_channel_open) = oneshot::channel::<()>();
+    let mut main_channel_open_tx = Some(main_channel_open_tx);
+    main_channel.on_open(move || {
+        if let Some(tx) = main_channel_open_tx.take() {
+            let _ = tx.send(());
+        }
+        std::future::ready(())
+    });
 
     let answer = if is_outgoing {
         let answer_fut = async {
@@ -357,6 +377,8 @@ async fn peer_start(args: PeerAddArgs) {
             return;
         }
         Some(PeerCmd::ConnectionAuthorizationSend(Some(auth))) => {
+            let _ = main_channel_open.await;
+
             // Add a delay for sending messages after channel
             // was opened. Some initial messages get lost otherwise.
             // TODO(binier): find deeper cause and fix it.
@@ -691,8 +713,13 @@ pub trait P2pServiceWebrtc: redux::Service {
         spawner.spawn_main("webrtc", async move {
             while let Some(cmd) = cmd_receiver.recv().await {
                 match cmd {
-                    Cmd::PeerAdd(args) => {
-                        spawn_local(peer_start(args));
+                    Cmd::PeerAdd { args, abort } => {
+                        spawn_local(async move {
+                            tokio::select! {
+                                _ = abort => {}
+                                _ = peer_start(args) => {}
+                            }
+                        });
                     }
                 }
             }
@@ -706,42 +733,52 @@ pub trait P2pServiceWebrtc: redux::Service {
 
     fn outgoing_init(&mut self, peer_id: PeerId) {
         let (peer_cmd_sender, peer_cmd_receiver) = mpsc::unbounded_channel();
+        let (abort_sender, abort_receiver) = oneshot::channel();
 
         self.peers().insert(
             peer_id,
             PeerState {
                 cmd_sender: peer_cmd_sender,
+                abort: abort_sender,
             },
         );
         let event_sender = self.event_sender().clone();
         let event_sender =
             Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
-        let _ = self.cmd_sender().send(Cmd::PeerAdd(PeerAddArgs {
-            peer_id,
-            kind: PeerConnectionKind::Outgoing,
-            event_sender,
-            cmd_receiver: peer_cmd_receiver,
-        }));
+        let _ = self.cmd_sender().send(Cmd::PeerAdd {
+            args: PeerAddArgs {
+                peer_id,
+                kind: PeerConnectionKind::Outgoing,
+                event_sender,
+                cmd_receiver: peer_cmd_receiver,
+            },
+            abort: abort_receiver,
+        });
     }
 
     fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer) {
         let (peer_cmd_sender, peer_cmd_receiver) = mpsc::unbounded_channel();
+        let (abort_sender, abort_receiver) = oneshot::channel();
 
         self.peers().insert(
             peer_id,
             PeerState {
                 cmd_sender: peer_cmd_sender,
+                abort: abort_sender,
             },
         );
         let event_sender = self.event_sender().clone();
         let event_sender =
             Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
-        let _ = self.cmd_sender().send(Cmd::PeerAdd(PeerAddArgs {
-            peer_id,
-            kind: PeerConnectionKind::Incoming(Box::new(offer)),
-            event_sender,
-            cmd_receiver: peer_cmd_receiver,
-        }));
+        let _ = self.cmd_sender().send(Cmd::PeerAdd {
+            args: PeerAddArgs {
+                peer_id,
+                kind: PeerConnectionKind::Incoming(Box::new(offer)),
+                event_sender,
+                cmd_receiver: peer_cmd_receiver,
+            },
+            abort: abort_receiver,
+        });
     }
 
     fn set_answer(&mut self, peer_id: PeerId, answer: webrtc::Answer) {
@@ -778,13 +815,13 @@ pub trait P2pServiceWebrtc: redux::Service {
         &mut self,
         other_pk: &PublicKey,
         message: &T,
-    ) -> Result<T::Encrypted, ()>;
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>>;
 
     fn decrypt<T: EncryptableType>(
         &mut self,
         other_pub_key: &PublicKey,
         encrypted: &T::Encrypted,
-    ) -> Result<T, ()>;
+    ) -> Result<T, Box<dyn std::error::Error>>;
 
     fn auth_encrypt_and_send(
         &mut self,

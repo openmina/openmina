@@ -2,6 +2,7 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
+    connection::outgoing::P2pConnectionOutgoingInitOpts,
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     token::{BroadcastAlgorithm, DiscoveryAlgorithm, IdentifyAlgorithm, RpcAlgorithm, StreamKind},
     P2pNetworkConnectionMuxState, P2pNetworkKadRequestAction, P2pNetworkKadState,
@@ -60,6 +61,9 @@ impl P2pState {
                 let info = *info;
                 if let Some(peer) = p2p_state.peers.get_mut(&peer_id) {
                     peer.identify = Some(info.clone());
+                    if let Some(P2pConnectionOutgoingInitOpts::LibP2P(opts)) = &mut peer.dial_opts {
+                        opts.update_host_if_needed(info.listen_addrs.iter());
+                    }
                 } else {
                     bug_condition!(
                         "Peer state not found for `P2pIdentifyAction::UpdatePeerInformation`"

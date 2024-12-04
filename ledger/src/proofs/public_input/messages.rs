@@ -10,7 +10,7 @@ use mina_curves::{pasta::Fq, pasta::Pallas};
 use mina_hasher::Fp;
 use poly_commitment::PolyComm;
 
-use crate::hash::hash_fields;
+use poseidon::hash::hash_fields;
 
 impl<'a> From<&'a VerifierIndex<Fq>> for PlonkVerificationKeyEvals<Fp> {
     fn from(verifier_index: &'a VerifierIndex<Fq>) -> Self {
@@ -58,7 +58,7 @@ impl MessagesForNextWrapProof {
         let field: Fq = hash_fields(&fields);
 
         let bigint: BigInteger256 = field.into_repr();
-        bigint.0
+        bigint.to_64x4()
     }
 
     pub fn hash_checked(&self, w: &mut Witness<Fq>) -> [u64; 4] {
@@ -66,7 +66,7 @@ impl MessagesForNextWrapProof {
         let field: Fq = checked_hash2(&fields, w);
 
         let bigint: BigInteger256 = field.into_repr();
-        bigint.0
+        bigint.to_64x4()
     }
 
     // TODO: De-duplicate with above
@@ -75,7 +75,7 @@ impl MessagesForNextWrapProof {
         let field: Fq = crate::proofs::transaction::checked_hash3(&fields, w);
 
         let bigint: BigInteger256 = field.into_repr();
-        bigint.0
+        bigint.to_64x4()
     }
 
     /// Implementation of `to_field_elements`
@@ -152,7 +152,7 @@ where
         let field: Fp = hash_fields(&fields);
 
         let bigint: BigInteger256 = field.into_repr();
-        bigint.0
+        bigint.to_64x4()
     }
 
     /// Implementation of `to_field_elements`

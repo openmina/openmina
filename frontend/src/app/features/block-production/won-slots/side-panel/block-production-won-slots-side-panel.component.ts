@@ -1,12 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  OnDestroy,
-  OnInit,
-  TemplateRef,
-  ViewChild,
-  ViewContainerRef,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, TemplateRef, ViewChild, ViewContainerRef } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
 import {
@@ -15,25 +7,20 @@ import {
   BlockProductionWonSlotTimes,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { getTimeDiff } from '@shared/helpers/date.helper';
-import {
-  any,
-  hasValue,
-  isMobile,
-  noMillisFormat,
-  ONE_THOUSAND,
-  SecDurationConfig,
-  toReadableDate,
-} from '@openmina/shared';
+import { any, hasValue, isDesktop, isMobile, noMillisFormat, ONE_THOUSAND, safelyExecuteInBrowser, SecDurationConfig, toReadableDate } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
 import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
+import { Router } from '@angular/router';
+import { Routes } from '@shared/enums/routes.enum';
 
 @Component({
   selector: 'mina-block-production-won-slots-side-panel',
   templateUrl: './block-production-won-slots-side-panel.component.html',
   styleUrls: ['./block-production-won-slots-side-panel.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'flex-column h-100' },
 })
 export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
@@ -69,6 +56,8 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   @ViewChild('apply', { read: ViewContainerRef }) private apply: ViewContainerRef;
 
   @ViewChild('discarded') private discardedTemplate: TemplateRef<void>;
+
+  constructor(private router: Router) {super();}
 
   ngOnInit(): void {
     this.listenToActiveSlot();
@@ -119,7 +108,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   viewInMinaExplorer(): void {
     const network = this.minaExplorer !== 'mainnet' ? (this.minaExplorer + '.') : '';
     const url = `https://${network}minaexplorer.com/block/${this.slot.hash}`;
-    window.open(url, '_blank');
+    safelyExecuteInBrowser(() => window.open(url, '_blank'));
   }
 
   private get getVrfText(): string {
@@ -198,6 +187,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   }
 
   closeSidePanel(): void {
+    this.router.navigate([Routes.BLOCK_PRODUCTION, Routes.WON_SLOTS]);
     this.dispatch2(BlockProductionWonSlotsActions.toggleSidePanel());
   }
 
@@ -205,4 +195,5 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
     super.ngOnDestroy();
     clearInterval(this.timer);
   }
+
 }

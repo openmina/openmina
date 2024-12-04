@@ -3,7 +3,7 @@ import { BehaviorSubject, catchError, filter, map, Observable, of, switchMap } f
 import { BenchmarksZkapp } from '@shared/types/benchmarks/transactions/benchmarks-zkapp.type';
 import { fromPromise } from 'rxjs/internal/observable/innerFrom';
 import { CONFIG } from '@shared/constants/config';
-import { any } from '@openmina/shared';
+import { any, safelyExecuteInBrowser } from '@openmina/shared';
 import { DOCUMENT } from '@angular/common';
 
 @Injectable()
@@ -16,7 +16,9 @@ export class BenchmarksWalletsZkService {
   readonly updates$ = this.updates.asObservable();
 
   loadO1js(): void {
-    this.loadScript();
+    safelyExecuteInBrowser(() => {
+      this.loadScript();
+    });
   }
 
   sendZkApp(zkApps: BenchmarksZkapp[]): Observable<Partial<{

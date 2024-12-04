@@ -2,6 +2,7 @@ import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { createType } from '@shared/constants/store-functions';
 import { createAction, props } from '@ngrx/store';
 import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
+import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
 
 export const APP_KEY = 'app';
 export const APP_PREFIX = 'App';
@@ -14,6 +15,8 @@ const initSuccess = createAction(type('Init Success'), props<{ activeNode: MinaN
 const changeActiveNode = createAction(type('Change Active Node'), props<{ node: MinaNode }>());
 const getNodeDetails = createAction(type('Get Node Details'));
 const getNodeDetailsSuccess = createAction(type('Get Node Details Success'), props<{ details: AppNodeDetails }>());
+const getNodeEnvBuild = createAction(type('Get Node Env Build'));
+const getNodeEnvBuildSuccess = createAction(type('Get Node Env Build Success'), props<{ envBuild: AppEnvBuild }>());
 const deleteNode = createAction(type('Delete Node'), props<{ node: MinaNode }>());
 const addNode = createAction(type('Add Node'), props<{ node: MinaNode }>());
 
@@ -28,6 +31,8 @@ export const AppActions = {
   changeActiveNode,
   getNodeDetails,
   getNodeDetailsSuccess,
+  getNodeEnvBuild,
+  getNodeEnvBuildSuccess,
   deleteNode,
   addNode,
   changeMenuCollapsing,

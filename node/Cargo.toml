@@ -1,8 +1,11 @@
 [package]
 name = "node"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 license = "Apache-2.0"
+
+[lints]
+workspace = true
 
 [dependencies]
 rand = "0.8.0"
@@ -21,10 +24,11 @@ redux = { workspace = true }
 multihash = { version = "0.18.1", features = ["blake2b"] }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
+poseidon = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-ff = { workspace = true }
 
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }

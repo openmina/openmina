@@ -16,7 +16,6 @@ use crate::{
         },
     },
     verifier::{get_srs, get_srs_mut},
-    SpongeParamsForField,
 };
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, One, Zero};
 use ark_poly::{
@@ -682,7 +681,7 @@ pub mod step_verifier {
                         sponge.absorb(zeta_omega, w);
 
                         // TODO: Does it panic in OCaml ?
-                        use mina_poseidon::poseidon::SpongeState::{Absorbed, Squeezed};
+                        use ::poseidon::SpongeState::{Absorbed, Squeezed};
                         match (sponge_state_before, &sponge.sponge_state) {
                             (Absorbed(x), Absorbed(y)) => assert_eq!(x, *y),
                             (Squeezed(x), Squeezed(y)) => assert_eq!(x, *y),
@@ -714,8 +713,8 @@ pub mod step_verifier {
         let r = to_field_checked::<Fp, 128>(r_actual, endo, w);
 
         let to_bytes = |f: Fp| {
-            let BigInteger256([a, b, c, d]) = f.into();
-            [a, b, c, d]
+            let bigint: BigInteger256 = f.into();
+            bigint.to_64x4()
         };
 
         let plonk_mininal = PlonkMinimal::<Fp, 4> {
@@ -1064,7 +1063,8 @@ pub mod step_verifier {
         let s_parts = w.exists({
             // TODO: Here `s` is a `F` but needs to be read as a `F::Scalar`
             let bigint: BigInteger256 = s.into();
-            let s_odd = bigint.0[0] & 1 != 0;
+            let bigint = bigint.to_64x4();
+            let s_odd = bigint[0] & 1 != 0;
             let v = if s_odd { s - F2::one() } else { s };
             // TODO: Remove this ugly hack
             let v: BigInteger256 = (v / F2::from(2u64)).into();
@@ -1916,8 +1916,8 @@ fn verify_one(
 }
 
 fn to_bytes(f: Fp) -> [u64; 4] {
-    let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
-    [a, b, c, d]
+    let bigint: BigInteger256 = f.into();
+    bigint.to_64x4()
 }
 
 fn to_4limbs(v: [u64; 2]) -> [u64; 4] {
@@ -2011,19 +2011,14 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         .collect();
 
     let challenges_digest = {
-        use crate::Sponge;
-        let mut sponge = crate::ArithmeticSponge::<Fp, crate::PlonkSpongeConstantsKimchi>::new(
-            crate::static_params(),
-        );
+        let mut sponge = poseidon::Sponge::<Fp>::default();
         for old_bulletproof_challenges in &old_bulletproof_challenges {
             sponge.absorb(old_bulletproof_challenges);
         }
         sponge.squeeze()
     };
 
-    use mina_poseidon::FqSponge;
-
-    let mut sponge = <Fq as FieldWitness>::FqSponge::new(Fp::get_params2());
+    let mut sponge = poseidon::FqSponge::default();
     sponge.absorb_fq(&[four_u64_to_field(
         &proof_state.sponge_digest_before_evaluations,
     )?]);
@@ -2035,10 +2030,10 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         sponge.absorb_fq(zeta);
         sponge.absorb_fq(zeta_omega);
     });
-    let xi_chal = sponge.squeeze_limbs(2);
-    let r_chal = sponge.squeeze_limbs(2);
+    let xi_chal: [u64; 2] = sponge.squeeze_limbs();
+    let r_chal: [u64; 2] = sponge.squeeze_limbs();
 
-    let xi = ScalarChallenge::from(xi_chal.clone()).to_field(&endo);
+    let xi = ScalarChallenge::from(xi_chal).to_field(&endo);
     let r = ScalarChallenge::from(r_chal).to_field(&endo);
 
     let public_input = &evals.evals.public_input;
@@ -2082,7 +2077,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
         plonk,
         combined_inner_product: to_shifted(combined_inner_product_actual),
         b: to_shifted(b_actual),
-        xi: xi_chal.try_into().unwrap(), // Never fail, `xi_chal` is 2 limbs
+        xi: xi_chal,
         bulletproof_challenges,
         branch_data: proof_state.deferred_values.branch_data.clone(),
     })
@@ -2307,7 +2302,8 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
     let zeta = oracle.zeta();
 
     let to_bytes = |f: Fq| {
-        let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
+        let bigint: BigInteger256 = f.into();
+        let [a, b, c, d] = bigint.to_64x4();
         assert_eq!([c, d], [0, 0]);
         [a, b]
     };
@@ -2409,8 +2405,8 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
         let zeta = to_field(plonk0.zeta_bytes);
 
         let to_bytes = |f: Fq| {
-            let BigInteger256([a, b, c, d]): BigInteger256 = f.into();
-            [a, b, c, d]
+            let bigint: BigInteger256 = f.into();
+            bigint.to_64x4()
         };
 
         PlonkMinimal {
@@ -2482,9 +2478,8 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
         },
         should_finalize: must_verify.value().as_bool(),
         sponge_digest_before_evaluations: {
-            let BigInteger256([a, b, c, d]): BigInteger256 =
-                sponge_digest_before_evaluations.into();
-            [a, b, c, d]
+            let bigint: BigInteger256 = sponge_digest_before_evaluations.into();
+            bigint.to_64x4()
         },
     };
 

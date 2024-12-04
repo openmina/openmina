@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use super::{LedgerWriteRequest, LedgerWriteResponse, LedgerWriteState};
 
-pub type LedgerWriteActionWithMeta = redux::ActionWithMeta<LedgerWriteAction>;
 pub type LedgerWriteActionWithMetaRef<'a> = redux::ActionWithMeta<&'a LedgerWriteAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -20,10 +20,12 @@ pub enum P2pChannelsSnarkAction {
     Ready {
         peer_id: PeerId,
     },
+    #[action_event(level = debug, fields(display(peer_id), limit))]
     RequestSend {
         peer_id: PeerId,
         limit: u8,
     },
+    #[action_event(level = debug, fields(display(peer_id), promised_count))]
     PromiseReceived {
         peer_id: PeerId,
         promised_count: u8,
@@ -32,10 +34,12 @@ pub enum P2pChannelsSnarkAction {
         peer_id: PeerId,
         snark: Box<SnarkInfo>,
     },
+    #[action_event(level = debug, fields(display(peer_id), limit))]
     RequestReceived {
         peer_id: PeerId,
         limit: u8,
     },
+    #[action_event(level = debug, fields(display(peer_id), snarks = snarks.len(), first_index, last_index))]
     ResponseSend {
         peer_id: PeerId,
         snarks: Vec<SnarkInfo>,
@@ -144,7 +148,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
                 last_index,
             } => {
                 !snarks.is_empty()
-                    && first_index < last_index
+                    && first_index <= last_index
                     && state
                         .get_ready_peer(peer_id)
                         .map_or(false, |p| match &p.channels.snark {

@@ -49,6 +49,7 @@ impl TransitionFrontierSyncAction {
             TransitionFrontierSyncAction::BestTipUpdate {
                 previous_root_snarked_ledger_hash,
                 best_tip,
+                on_success,
                 ..
             } => {
                 // TODO(tizoc): this is currently required because how how complicated the BestTipUpdate reducer is,
@@ -72,6 +73,9 @@ impl TransitionFrontierSyncAction {
                 store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
 
                 // TODO(binier): cleanup ledgers
+                if let Some(callback) = on_success {
+                    store.dispatch_callback(callback.clone(), ());
+                }
             }
             // TODO(tizoc): this action is never called with the current implementation,
             // either remove it or figure out how to recover it as a reaction to
@@ -243,14 +247,23 @@ impl TransitionFrontierSyncAction {
                 };
                 let hash = block.hash.clone();
 
-                // During catchup, we skip the verificationf of completed work and zkApp txn proofs
-                // until get closer to the best tip, at which point full verification is enabled.
-                let skip_verification = super::CATCHUP_BLOCK_VERIFY_TAIL_LENGTH
-                    < store.state().transition_frontier.sync.pending_count();
+                let is_our_block;
 
                 if let Some(stats) = store.service.stats() {
                     stats.block_producer().block_apply_start(meta.time(), &hash);
+                    // TODO(tizoc): try a better approach that doesn't need
+                    // to make use of the collected stats.
+                    is_our_block = stats.block_producer().is_our_just_produced_block(&hash);
+                } else {
+                    is_our_block = false;
                 }
+
+                // During catchup, we skip the verificationf of completed work and zkApp txn proofs
+                // until get closer to the best tip, at which point full verification is enabled.
+                // We also skip verification of completed works if we produced this block.
+                let skip_verification = is_our_block
+                    || super::CATCHUP_BLOCK_VERIFY_TAIL_LENGTH
+                        < store.state().transition_frontier.sync.pending_count();
 
                 store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::BlockApply {

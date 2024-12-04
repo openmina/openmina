@@ -309,12 +309,23 @@ impl SyncStats {
             // })
             .enumerate()
             .map(|(i, s)| {
-                let height = best_tip_height - i as u32;
+                let height = best_tip_height.checked_sub(i as u32).expect("underflow");
                 let hash = s.block_hash().clone();
                 let pred_hash = s
                     .block()
                     .map(|b| b.pred_hash())
-                    .unwrap_or_else(|| states[states.len() - i - 2].block_hash())
+                    .unwrap_or_else(|| {
+                        states
+                            .get(
+                                states
+                                    .len()
+                                    .saturating_sub(i)
+                                    .checked_sub(2)
+                                    .expect("underflow"),
+                            )
+                            .unwrap() // can't fail because index is less than states.len()
+                            .block_hash()
+                    })
                     .clone();
                 let mut stats = SyncBlock::new(height, hash, pred_hash);
                 stats.update_with_block_state(s);

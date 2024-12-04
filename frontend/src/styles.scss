@@ -23,7 +23,7 @@ body {
   font-family: $inter-font;
   font-weight: 400;
   color: $base-primary;
-  background-color: $base-background;
+  background-color: var(--base-background, #000000);
 }
 
 .theme-transition {
@@ -47,6 +47,10 @@ span {
 p {
   margin-top: 0;
   margin-bottom: 0;
+}
+
+.openmina-backdrop {
+  background: rgba(13, 13, 13, 0.80);
 }
 
 /* User Select */

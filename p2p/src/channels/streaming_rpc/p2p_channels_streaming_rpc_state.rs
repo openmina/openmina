@@ -135,6 +135,16 @@ impl P2pChannelsStreamingRpcState {
         self.pending_local_rpc().map(|req| req.kind())
     }
 
+    pub fn pending_local_rpc_progress(&self) -> Option<&P2pStreamingRpcReceiveProgress> {
+        match self {
+            Self::Ready {
+                local: P2pStreamingRpcLocalState::Requested { progress, .. },
+                ..
+            } => Some(progress),
+            _ => None,
+        }
+    }
+
     pub(super) fn local_done_response(&self) -> Option<P2pStreamingRpcResponseFull> {
         match self {
             Self::Ready {

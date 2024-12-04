@@ -26,6 +26,7 @@ const getSlotsSuccess = createAction(type('Get Slots Success'), props<{
 }>());
 const changeFilters = createAction(type('Change Filters'), props<{ filters: BlockProductionWonSlotsFilters }>());
 const setActiveSlot = createAction(type('Set Active Slot'), props<{ slot: BlockProductionWonSlotsSlot }>());
+const setActiveSlotNumber = createAction(type('Set Active Slot Number'), props<{ slotNumber: number }>());
 const sort = createAction(type('Sort'), props<{ sort: TableSort<BlockProductionWonSlotsSlot> }>());
 const toggleSidePanel = createAction(type('Toggle Side Panel'));
 
@@ -36,6 +37,7 @@ export const BlockProductionWonSlotsActions = {
   getSlotsSuccess,
   changeFilters,
   setActiveSlot,
+  setActiveSlotNumber,
   sort,
   toggleSidePanel,
 };

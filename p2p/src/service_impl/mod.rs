@@ -77,13 +77,13 @@ pub mod webrtc {
             &mut self,
             other_pk: &PublicKey,
             message: &T,
-        ) -> Result<T::Encrypted, ()>;
+        ) -> Result<T::Encrypted, Box<dyn std::error::Error>>;
 
         fn decrypt<T: EncryptableType>(
             &mut self,
             other_pub_key: &PublicKey,
             encrypted: &T::Encrypted,
-        ) -> Result<T, ()>;
+        ) -> Result<T, Box<dyn std::error::Error>>;
 
         fn auth_encrypt_and_send(
             &mut self,

@@ -35,22 +35,73 @@ impl TransitionFrontierSyncLedgerStagedState {
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit => {
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
-                let Some(staged_ledger) =
-                    None.or_else(|| global_state.transition_frontier.sync.ledger()?.staged())
+                let Some((p2p, target_best_tip, staged_ledger, fetch_attempts)) =
+                    None.or_else(|| {
+                        let staged = global_state.transition_frontier.sync.ledger()?.staged()?;
+                        Some((
+                            global_state.p2p.ready()?,
+                            global_state.transition_frontier.sync.best_tip()?,
+                            staged,
+                            staged.fetch_attempts()?,
+                        ))
+                    })
                 else {
                     return;
                 };
-                let Some(p2p) = global_state.p2p.ready() else {
-                    return;
-                };
+
+                let mut peers =
+                    p2p.ready_rpc_peers_iter()
+                        .fold(Vec::new(), |mut list, (peer_id, state)| {
+                            let mut order = 0u8;
+                            // TODO(binier): maybe take into account fetch attempt time.
+                            order = order.saturating_add(if fetch_attempts.contains_key(peer_id) {
+                                5
+                            } else {
+                                0
+                            });
+                            order =
+                                order.saturating_add(state.best_tip.as_ref().map_or(2, |tip| {
+                                    let k = target_best_tip.constants().k.as_u32();
+                                    if tip.height() > target_best_tip.height()
+                                        || tip.height().abs_diff(target_best_tip.height()) > k
+                                    {
+                                        // can't have the block we need
+                                        10
+                                    } else {
+                                        // has common block
+                                        if IntoIterator::into_iter([
+                                            tip.hash(),
+                                            tip.pred_hash(),
+                                            target_best_tip.hash(),
+                                            target_best_tip.pred_hash(),
+                                        ])
+                                        .collect::<std::collections::BTreeSet<_>>()
+                                        .len()
+                                            < 4
+                                        {
+                                            0
+                                        } else {
+                                            1
+                                        }
+                                    }
+                                }));
+
+                            if list
+                                .last()
+                                .map_or(false, |(_, _, ord): &(_, _, u8)| *ord > order)
+                            {
+                                // remove less priority peers
+                                list.clear();
+                            }
+                            list.push((peer_id, state.channels.next_local_rpc_id(), order));
+
+                            list
+                        });
+
                 let block_hash = staged_ledger.target().staged.block_hash.clone();
+                peers.shuffle(&mut global_state.pseudo_rng());
 
-                let mut ready_peers = staged_ledger
-                    .filter_available_peers(p2p.ready_rpc_peers_iter())
-                    .collect::<Vec<_>>();
-                ready_peers.shuffle(&mut global_state.pseudo_rng());
-
-                for (peer_id, rpc_id) in ready_peers {
+                for (&peer_id, rpc_id, _) in peers {
                     let enqueued = if p2p.is_libp2p_peer(&peer_id) {
                         // use old heavy rpc for libp2p peers.
                         dispatcher.push_if_enabled(

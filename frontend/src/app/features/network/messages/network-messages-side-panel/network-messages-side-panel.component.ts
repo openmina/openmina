@@ -8,7 +8,7 @@ import {
   selectNetworkFullMessage,
   selectNetworkMessageHex,
 } from '@network/messages/network-messages.state';
-import { downloadJson, downloadJsonFromURL, ExpandTracking, MinaJsonViewerComponent } from '@openmina/shared';
+import { downloadJson, downloadJsonFromURL, ExpandTracking, MinaJsonViewerComponent, safelyExecuteInBrowser } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
@@ -154,6 +154,8 @@ export class NetworkMessagesSidePanelComponent extends StoreDispatcher implement
   }
 
   copyToClipboard(): void {
-    this.clipboard.copy(window.location.href);
+    safelyExecuteInBrowser(() => {
+      this.clipboard.copy(window.location.href);
+    });
   }
 }

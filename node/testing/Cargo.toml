@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-testing"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -24,8 +24,8 @@ rand = "0.8"
 tokio = { version = "1.26.0" }
 num_cpus = "1.0"
 rayon = "1.5"
-axum = "0.6"
-tower-http = { version = "0.4.4", features = ["cors"] }
+axum = "0.7"
+tower-http = { version = "0.6", features = ["cors", "fs"] }
 strum = "0.26"
 strum_macros = "0.26"
 tracing-log = "0.2.0"
@@ -39,6 +39,9 @@ vrf = { workspace = true }
 time = { version = "0.3", features = ["formatting"] }
 tracing = { version = "0.1", features = ["std"] }
 multihash = "0.18.1"
+hex = "0.4.3"
+bs58 = { version = "0.4" }
+base64 = "0.22"
 
 nix = { version = "0.27.1", features = ["process", "signal"] }
 ctrlc = "3.4.2"
@@ -51,7 +54,6 @@ openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
-hex = "0.4.3"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }

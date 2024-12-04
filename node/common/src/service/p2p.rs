@@ -44,7 +44,7 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         &mut self,
         other_pk: &PublicKey,
         message: &T,
-    ) -> Result<T::Encrypted, ()> {
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         let rng = &mut self.rng;
         self.p2p.sec_key.encrypt(other_pk, rng, message)
     }
@@ -53,10 +53,21 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         &mut self,
         other_pk: &PublicKey,
         encrypted: &T::Encrypted,
-    ) -> Result<T, ()> {
+    ) -> Result<T, Box<dyn std::error::Error>> {
         self.p2p.sec_key.decrypt(other_pk, encrypted)
     }
 
+    #[cfg(not(feature = "p2p-webrtc"))]
+    fn auth_encrypt_and_send(
+        &mut self,
+        peer_id: PeerId,
+        other_pub_key: &PublicKey,
+        auth: ConnectionAuth,
+    ) {
+        let _ = (peer_id, other_pub_key, auth);
+    }
+
+    #[cfg(feature = "p2p-webrtc")]
     fn auth_encrypt_and_send(
         &mut self,
         peer_id: PeerId,

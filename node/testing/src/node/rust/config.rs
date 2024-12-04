@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::path::Path;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use node::account::AccountSecretKey;
 use node::config::DEVNET_CONFIG;
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub enum TestPeerId {
     /// NOTE This option results a deterministic private key derived from the
     /// node index in the cluster. Be aware that when interacting with OCaml
@@ -26,18 +26,25 @@ pub struct RustNodeTestingConfig {
     pub initial_time: redux::Timestamp,
     pub genesis: Arc<GenesisConfig>,
     pub max_peers: usize,
-    pub ask_initial_peers_interval: Duration,
+    #[serde(default)]
     pub initial_peers: Vec<ListenerNode>,
+    #[serde(default)]
     pub peer_id: TestPeerId,
+    #[serde(default)]
     pub snark_worker: Option<SnarkerConfig>,
+    #[serde(default)]
     pub block_producer: Option<RustNodeBlockProducerTestingConfig>,
+    #[serde(default)]
     pub timeouts: P2pTimeouts,
+    #[serde(default)]
     pub libp2p_port: Option<u16>,
+    #[serde(default)]
     pub recorder: Recorder,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub enum Recorder {
+    #[default]
     None,
     StateWithInputActions,
 }
@@ -54,7 +61,6 @@ impl RustNodeTestingConfig {
             initial_time: redux::Timestamp::ZERO,
             genesis: DEVNET_CONFIG.clone(),
             max_peers: 100,
-            ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
             peer_id: TestPeerId::default(),
             block_producer: None,
@@ -70,7 +76,6 @@ impl RustNodeTestingConfig {
             initial_time: redux::Timestamp::ZERO,
             genesis: DEVNET_CONFIG.clone(),
             max_peers: 100,
-            ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
             peer_id: TestPeerId::default(),
             block_producer: None,
@@ -83,11 +88,6 @@ impl RustNodeTestingConfig {
 
     pub fn max_peers(mut self, n: usize) -> Self {
         self.max_peers = n;
-        self
-    }
-
-    pub fn ask_initial_peers_interval(mut self, d: Duration) -> Self {
-        self.ask_initial_peers_interval = d;
         self
     }
 
@@ -117,11 +117,5 @@ impl RustNodeTestingConfig {
                 .expect("daemon json"),
         ));
         self
-    }
-}
-
-impl Default for Recorder {
-    fn default() -> Self {
-        Self::None
     }
 }

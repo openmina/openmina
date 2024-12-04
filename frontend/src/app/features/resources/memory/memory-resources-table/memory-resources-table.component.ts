@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Inject, OnDestroy } from '@angular/core';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
-import { TableColumnList, TooltipPosition } from '@openmina/shared';
+import { isBrowser, TableColumnList, TooltipPosition } from '@openmina/shared';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
 import { selectMemoryResourcesActiveResource } from '@resources/memory/memory-resources.state';
 import { MemoryResourcesSetActiveResource } from '@resources/memory/memory-resources.actions';
@@ -16,7 +16,7 @@ import { DOCUMENT } from '@angular/common';
 export class MemoryResourcesTableComponent extends MinaTableRustWrapper<MemoryResource> implements OnDestroy {
 
   activeResource: MemoryResource;
-  tooltipWidth: number = Math.max(window.innerWidth - 40, 1500);
+  tooltipWidth: number = isBrowser() ? Math.max(window.innerWidth - 40, 1500) : 0;
   position: TooltipPosition = TooltipPosition.RIGHT;
 
   protected readonly tableHeads: TableColumnList<MemoryResource> = [

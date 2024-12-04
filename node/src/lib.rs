@@ -30,11 +30,14 @@ pub mod recorder;
 pub mod stats;
 
 pub mod block_producer;
+pub mod block_producer_effectful;
 pub mod consensus;
 pub mod daemon_json;
 pub mod event_source;
 pub mod external_snark_worker;
+pub mod external_snark_worker_effectful;
 pub mod ledger;
+pub mod ledger_effectful;
 pub mod logger;
 pub mod p2p;
 pub mod rpc;

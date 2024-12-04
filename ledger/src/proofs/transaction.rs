@@ -40,7 +40,7 @@ use crate::{
         transaction_logic::{local_state::LocalState, transaction_union_payload},
     },
     verifier::get_srs_mut,
-    Account, MyCow, ReceiptChainHash, SpongeParamsForField, TimingAsRecord, TokenId, TokenSymbol,
+    Account, AppendToInputs, MyCow, ReceiptChainHash, TimingAsRecord, TokenId, TokenSymbol,
 };
 
 use super::{
@@ -67,7 +67,7 @@ pub trait Check<F: FieldWitness> {
 
 struct FieldBitsIterator {
     index: usize,
-    bigint: BigInteger256,
+    bigint: [u64; 4],
 }
 
 impl Iterator for FieldBitsIterator {
@@ -80,13 +80,17 @@ impl Iterator for FieldBitsIterator {
         let limb_index = index / 64;
         let bit_index = index % 64;
 
-        let limb = self.bigint.0.get(limb_index)?;
+        let limb = self.bigint.get(limb_index)?;
         Some(limb & (1 << bit_index) != 0)
     }
 }
 
 pub fn bigint_to_bits<const NBITS: usize>(bigint: BigInteger256) -> [bool; NBITS] {
-    let mut bits = FieldBitsIterator { index: 0, bigint }.take(NBITS);
+    let mut bits = FieldBitsIterator {
+        index: 0,
+        bigint: bigint.to_64x4(),
+    }
+    .take(NBITS);
     std::array::from_fn(|_| bits.next().unwrap())
 }
 
@@ -100,7 +104,12 @@ where
 
 /// Difference with `bigint_to_bits`: the number of bits isn't a constant
 fn bigint_to_bits2(bigint: BigInteger256, nbits: usize) -> Box<[bool]> {
-    FieldBitsIterator { index: 0, bigint }.take(nbits).collect()
+    FieldBitsIterator {
+        index: 0,
+        bigint: bigint.to_64x4(),
+    }
+    .take(nbits)
+    .collect()
 }
 
 /// Difference with `field_to_bits`: the number of bits isn't a constant
@@ -692,7 +701,7 @@ impl PlonkVerificationKeyEvals<Fp> {
 }
 
 impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
-    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+    fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
         let Self {
             sigma,
             coefficients,
@@ -1220,7 +1229,7 @@ impl<F: FieldWitness> std::fmt::Debug for InnerCurve<F> {
 }
 
 impl crate::ToInputs for InnerCurve<Fp> {
-    fn to_inputs(&self, inputs: &mut crate::Inputs) {
+    fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
         let GroupAffine::<Fp> { x, y, .. } = self.to_affine();
         inputs.append_field(x);
         inputs.append_field(y);
@@ -1250,6 +1259,7 @@ impl<F: FieldWitness> InnerCurve<F> {
         S: Into<BigInteger256>,
     {
         let scale: BigInteger256 = scale.into();
+        let scale = scale.to_64x4();
         Self {
             inner: self.inner.mul(scale),
         }
@@ -1514,6 +1524,7 @@ pub mod legacy_input {
     use crate::scan_state::transaction_logic::transaction_union_payload::{
         Body, Common, TransactionUnionPayload,
     };
+    use ::poseidon::hash::legacy;
 
     use super::*;
 
@@ -1552,65 +1563,12 @@ pub mod legacy_input {
     }
 
     pub trait CheckedLegacyInput<F: FieldWitness> {
-        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<F>, w: &mut Witness<F>);
+        fn to_checked_legacy_input(&self, inputs: &mut legacy::Inputs<F>, w: &mut Witness<F>);
 
-        fn to_checked_legacy_input_owned(&self, w: &mut Witness<F>) -> LegacyInput<F> {
-            let mut inputs = LegacyInput::new();
+        fn to_checked_legacy_input_owned(&self, w: &mut Witness<F>) -> legacy::Inputs<F> {
+            let mut inputs = legacy::Inputs::new();
             self.to_checked_legacy_input(&mut inputs, w);
             inputs
-        }
-    }
-
-    #[derive(Clone, Debug)]
-    pub struct LegacyInput<F: FieldWitness> {
-        fields: Vec<F>,
-        bits: Vec<bool>,
-    }
-
-    impl<F: FieldWitness> Default for LegacyInput<F> {
-        fn default() -> Self {
-            Self::new()
-        }
-    }
-
-    impl<F: FieldWitness> LegacyInput<F> {
-        pub fn new() -> Self {
-            Self {
-                fields: Vec::with_capacity(256),
-                bits: Vec::with_capacity(1024),
-            }
-        }
-
-        pub fn append_bit(&mut self, bit: bool) {
-            self.bits.push(bit);
-        }
-
-        pub fn append_bits(&mut self, bits: &[bool]) {
-            self.bits.extend(bits);
-        }
-
-        pub fn append_field(&mut self, field: F) {
-            self.fields.push(field);
-        }
-
-        pub fn to_fields(mut self) -> Vec<F> {
-            const NBITS: usize = 255 - 1;
-
-            self.fields.reserve(self.bits.len() / NBITS);
-            self.fields.extend(self.bits.chunks(NBITS).map(|bits| {
-                assert!(bits.len() <= NBITS);
-
-                let mut field = [0u64; 4];
-
-                for (index, bit) in bits.iter().enumerate() {
-                    let limb_index = index / 64;
-                    let bit_index = index % 64;
-                    field[limb_index] |= (*bit as u64) << bit_index;
-                }
-
-                F::try_from(BigInteger256::new(field)).unwrap() // Never fail
-            }));
-            self.fields
         }
     }
 
@@ -1621,7 +1579,7 @@ pub mod legacy_input {
     };
 
     impl CheckedLegacyInput<Fp> for TransactionUnionPayload {
-        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<Fp>, w: &mut Witness<Fp>) {
+        fn to_checked_legacy_input(&self, inputs: &mut legacy::Inputs<Fp>, w: &mut Witness<Fp>) {
             let Self {
                 common:
                     Common {
@@ -1673,8 +1631,7 @@ pub mod legacy_input {
 pub mod poseidon {
     use std::marker::PhantomData;
 
-    use mina_poseidon::constants::SpongeConstants;
-    use mina_poseidon::poseidon::{ArithmeticSpongeParams, SpongeState};
+    use ::poseidon::{PlonkSpongeConstantsKimchi, SpongeConstants, SpongeParams, SpongeState};
 
     use super::*;
 
@@ -1682,7 +1639,7 @@ pub mod poseidon {
     pub struct Sponge<F: FieldWitness, C: SpongeConstants = PlonkSpongeConstantsKimchi> {
         pub state: [F; 3],
         pub sponge_state: SpongeState,
-        params: &'static ArithmeticSpongeParams<F>,
+        params: &'static SpongeParams<F>,
         nabsorb: usize,
         _constants: PhantomData<C>,
     }
@@ -1702,7 +1659,7 @@ pub mod poseidon {
         F: FieldWitness,
         C: SpongeConstants,
     {
-        pub fn new_with_state(state: [F; 3], params: &'static ArithmeticSpongeParams<F>) -> Self {
+        pub fn new_with_state_params(state: [F; 3], params: &'static SpongeParams<F>) -> Self {
             Self {
                 state,
                 sponge_state: SpongeState::Absorbed(0),
@@ -1712,8 +1669,12 @@ pub mod poseidon {
             }
         }
 
+        pub fn new_with_state(state: [F; 3]) -> Self {
+            Self::new_with_state_params(state, F::get_params())
+        }
+
         pub fn new() -> Self {
-            Self::new_with_state([F::zero(); 3], F::get_params2())
+            Self::new_with_state([F::zero(); 3])
         }
 
         fn absorb_empty(&mut self, w: &mut Witness<F>) {
@@ -1955,7 +1916,7 @@ pub mod poseidon {
     }
 
     fn apply_mds_matrix<F: Field, C: SpongeConstants>(
-        params: &ArithmeticSpongeParams<F>,
+        params: &SpongeParams<F>,
         state: &[F; 3],
     ) -> [F; 3] {
         if C::PERM_FULL_MDS {
@@ -2285,18 +2246,21 @@ pub mod transaction_snark {
             transaction_logic::{checked_cons_signed_command_payload, Coinbase},
         },
         sparse_ledger::SparseLedger,
-        AccountId, Inputs, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
+        zkapps::intefaces::{SignedAmountBranchParam, SignedAmountInterface},
+        AccountId, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
+    use ::poseidon::hash::{params::MINA_PROTO_STATE_BODY, Inputs, LazyParam};
     use ark_ff::Zero;
 
     use crate::scan_state::{
         currency,
         transaction_logic::transaction_union_payload::{TransactionUnion, TransactionUnionPayload},
     };
+    use ::poseidon::hash::legacy;
     use mina_signer::Signature;
     use openmina_core::constants::constraint_constants;
 
-    use super::{legacy_input::LegacyInput, *};
+    use super::*;
 
     mod user_command_failure {
         use crate::scan_state::{
@@ -2559,65 +2523,37 @@ pub mod transaction_snark {
         }
     }
 
-    pub fn checked_legacy_hash(param: &str, inputs: LegacyInput<Fp>, w: &mut Witness<Fp>) -> Fp {
-        use mina_poseidon::constants::PlonkSpongeConstantsLegacy as Constants;
-        use mina_poseidon::pasta::fp_legacy::static_params;
+    pub fn checked_legacy_hash(
+        param: &LazyParam,
+        inputs: legacy::Inputs<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> Fp {
+        use ::poseidon::fp_legacy::params;
+        use ::poseidon::PlonkSpongeConstantsLegacy as Constants;
 
-        // We hash the parameter first, without introducing values to the witness
-        let initial_state: [Fp; 3] = {
-            use mina_poseidon::poseidon::ArithmeticSponge;
-            use mina_poseidon::poseidon::Sponge;
-
-            let mut sponge = ArithmeticSponge::<Fp, Constants>::new(static_params());
-            sponge.absorb(&[crate::param_to_field(param)]);
-            sponge.squeeze();
-            sponge.state.try_into().unwrap()
-        };
-
+        let initial_state: [Fp; 3] = param.state();
         let mut sponge =
-            poseidon::Sponge::<Fp, Constants>::new_with_state(initial_state, static_params());
+            poseidon::Sponge::<Fp, Constants>::new_with_state_params(initial_state, params());
         sponge.absorb(&inputs.to_fields(), w);
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
-        // We hash the parameter first, without introducing values to the witness
-        let initial_state: [Fp; 3] = {
-            use crate::{param_to_field, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge};
-
-            let mut sponge =
-                ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(Fp::get_params());
-            sponge.absorb(&[param_to_field(param)]);
-            sponge.squeeze();
-            sponge.state
-        };
-
-        // dbg!(inputs);
-
-        let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state, Fp::get_params2());
+    pub fn checked_hash(param: &LazyParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+        let initial_state: [Fp; 3] = param.state();
+        let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
         sponge.absorb(inputs, w);
         sponge.squeeze(w)
     }
 
-    pub fn checked_hash3(param: &str, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
-        // We hash the parameter first, without introducing values to the witness
-        let initial_state: [Fp; 3] = {
-            use crate::{param_to_field, ArithmeticSponge, PlonkSpongeConstantsKimchi, Sponge};
-
-            let mut sponge =
-                ArithmeticSponge::<Fp, PlonkSpongeConstantsKimchi>::new(Fp::get_params());
-            sponge.absorb(&[param_to_field(param)]);
-            sponge.squeeze();
-            sponge.state
-        };
-
-        let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state, Fp::get_params2());
+    pub fn checked_hash3(param: &LazyParam, inputs: &[Fp], w: &mut Witness<Fp>) -> Fp {
+        let initial_state: [Fp; 3] = param.state();
+        let mut sponge = poseidon::Sponge::<Fp>::new_with_state(initial_state);
         sponge.absorb3(inputs, w);
         sponge.squeeze(w)
     }
 
     fn checked_legacy_signature_hash(
-        mut inputs: LegacyInput<Fp>,
+        mut inputs: legacy::Inputs<Fp>,
         signer: &PubKey,
         signature: &Signature,
         w: &mut Witness<Fp>,
@@ -2628,7 +2564,7 @@ pub mod transaction_snark {
         inputs.append_field(*px);
         inputs.append_field(*py);
         inputs.append_field(*rx);
-        let signature_prefix = openmina_core::NetworkConfig::global().signature_prefix;
+        let signature_prefix = openmina_core::NetworkConfig::global().legacy_signature_prefix;
         let hash = checked_legacy_hash(signature_prefix, inputs, w);
 
         w.exists(field_to_bits::<_, 255>(hash))
@@ -2638,7 +2574,7 @@ pub mod transaction_snark {
         shifted: &InnerCurve<Fp>,
         signer: &PubKey,
         signature: &Signature,
-        inputs: LegacyInput<Fp>,
+        inputs: legacy::Inputs<Fp>,
         w: &mut Witness<Fp>,
     ) -> Boolean {
         let hash = checked_legacy_signature_hash(inputs, signer, signature, w);
@@ -2920,7 +2856,7 @@ pub mod transaction_snark {
         fee_payer.checked_equal(&source, w);
         current_global_slot.lte(&payload.common.valid_until.to_checked(), w);
 
-        let state_body_hash = state_body.checked_hash_with_param("MinaProtoStateBody", w);
+        let state_body_hash = state_body.checked_hash_with_param(&MINA_PROTO_STATE_BODY, w);
 
         let pending_coinbase_stack_with_state =
             pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
@@ -3080,7 +3016,11 @@ pub mod transaction_snark {
                             Boolean::True => Sgn::Neg,
                             Boolean::False => Sgn::Pos,
                         };
-                        CheckedSigned::create(CheckedAmount::of_fee(&fee), sgn, None)
+                        CheckedSigned::create(
+                            CheckedAmount::of_fee(&fee),
+                            CircuitVar::Constant(sgn),
+                            None,
+                        )
                     };
 
                     let account_creation_fee = {
@@ -3090,7 +3030,7 @@ pub mod transaction_snark {
                         } else {
                             CheckedAmount::zero()
                         };
-                        CheckedSigned::create(magnitude, Sgn::Neg, None)
+                        CheckedSigned::create(magnitude, CircuitVar::Constant(Sgn::Neg), None)
                     };
 
                     new_account_fees = account_creation_fee.clone();
@@ -3113,7 +3053,7 @@ pub mod transaction_snark {
 
                 let txn_global_slot = current_global_slot;
                 let timing = {
-                    let txn_amount = w.exists_no_check(match amount.sgn {
+                    let txn_amount = w.exists_no_check(match amount.sgn.value() {
                         Sgn::Neg => amount.magnitude,
                         Sgn::Pos => CheckedAmount::zero(),
                     });
@@ -3569,7 +3509,10 @@ pub mod transaction_snark {
                 let (fee_transfer_excess, fee_transfer_excess_overflowed) = {
                     let (magnitude, overflow) =
                         payload.body.amount.to_checked().add_flagged(&amount_fee, w);
-                    (CheckedSigned::create(magnitude, Sgn::Neg, None), overflow)
+                    (
+                        CheckedSigned::create(magnitude, CircuitVar::Constant(Sgn::Neg), None),
+                        overflow,
+                    )
                 };
 
                 Boolean::assert_any(
@@ -3577,37 +3520,48 @@ pub mod transaction_snark {
                     w,
                 );
 
-                let value = match is_fee_transfer {
-                    Boolean::True => fee_transfer_excess,
-                    Boolean::False => user_command_excess,
-                };
-                w.exists_no_check(value.magnitude);
-                value
+                CheckedSigned::on_if(
+                    is_fee_transfer.var(),
+                    SignedAmountBranchParam {
+                        on_true: &fee_transfer_excess,
+                        on_false: &user_command_excess,
+                    },
+                    w,
+                )
             };
 
-            w.exists_no_check(match is_coinbase {
-                Boolean::True => then_value,
-                Boolean::False => else_value,
-            })
+            CheckedSigned::on_if(
+                is_coinbase.var(),
+                SignedAmountBranchParam {
+                    on_true: &then_value,
+                    on_false: &else_value,
+                },
+                w,
+            )
         };
 
         let supply_increase = {
-            let expected_supply_increase = match is_coinbase {
-                Boolean::True => CheckedSigned::of_unsigned(payload.body.amount.to_checked()),
-                Boolean::False => CheckedSigned::of_unsigned(CheckedAmount::zero()),
-            };
-            w.exists_no_check(expected_supply_increase.magnitude);
-            w.exists_no_check(expected_supply_increase.magnitude);
+            let expected_supply_increase = CheckedSigned::on_if(
+                is_coinbase.var(),
+                SignedAmountBranchParam {
+                    on_true: &CheckedSigned::of_unsigned(payload.body.amount.to_checked()),
+                    on_false: &CheckedSigned::of_unsigned(CheckedAmount::zero()),
+                },
+                w,
+            );
 
             let (amt0, _overflow0) = expected_supply_increase
                 .add_flagged(&CheckedSigned::of_unsigned(burned_tokens).negate(), w);
 
-            let new_account_fees_total = w.exists_no_check(match user_command_fails {
-                Boolean::True => zero_fee,
-                Boolean::False => new_account_fees,
-            });
+            let new_account_fees_total = CheckedSigned::on_if(
+                user_command_fails.var(),
+                SignedAmountBranchParam {
+                    on_true: &zero_fee,
+                    on_false: &new_account_fees,
+                },
+                w,
+            );
 
-            w.exists(new_account_fees_total.force_value()); // Made in the `add_flagged` call
             let (amt, _overflow) = amt0.add_flagged(&new_account_fees_total, w);
 
             amt
@@ -3723,7 +3677,7 @@ pub fn messages_for_next_wrap_proof_padding() -> Fp {
             old_bulletproof_challenges: vec![], // Filled with padding, in `hash()` below
         };
         let hash: [u64; 4] = msg.hash();
-        Fp::try_from(BigInteger256(hash)).unwrap() // Never fail
+        Fp::try_from(BigInteger256::from_64x4(hash)).unwrap() // Never fail
     })
 }
 
@@ -3787,10 +3741,10 @@ impl MessagesForNextStepProof<'_> {
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L33
     pub fn hash(&self) -> [u64; 4] {
         let fields: Vec<Fp> = self.to_fields();
-        let field: Fp = crate::hash_fields(&fields);
+        let field: Fp = ::poseidon::hash::hash_fields(&fields);
 
         let bigint: BigInteger256 = field.into_repr();
-        bigint.0
+        bigint.to_64x4()
     }
 
     /// Implementation of `to_field_elements`
@@ -4184,6 +4138,7 @@ mod tests_with_wasm {
 pub(super) mod tests {
     use std::path::Path;
 
+    use ::poseidon::hash::params::MINA_ZKAPP_EVENT;
     use mina_p2p_messages::binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
@@ -4510,11 +4465,11 @@ pub(super) mod tests {
             "6963060754718463299978089777716994949151371320681588566338620419071140958308";
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash("MinaZkappEvent", &[], &mut w);
+        let hash = transaction_snark::checked_hash(&MINA_ZKAPP_EVENT, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
 
         let mut w = Witness::empty();
-        let hash = transaction_snark::checked_hash3("MinaZkappEvent", &[], &mut w);
+        let hash = transaction_snark::checked_hash3(&MINA_ZKAPP_EVENT, &[], &mut w);
         assert_eq!(hash, Fp::from_str(EXPECTED).unwrap());
     }
 

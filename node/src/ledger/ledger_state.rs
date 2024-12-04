@@ -1,10 +1,7 @@
+use super::{read::LedgerReadState, write::LedgerWriteState, LedgerConfig};
 use serde::{Deserialize, Serialize};
 
-use super::read::LedgerReadState;
-use super::write::LedgerWriteState;
-use super::LedgerConfig;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct LedgerState {
     pub write: LedgerWriteState,
     pub read: LedgerReadState,
@@ -12,9 +9,6 @@ pub struct LedgerState {
 
 impl LedgerState {
     pub fn new(_config: LedgerConfig) -> Self {
-        Self {
-            write: Default::default(),
-            read: Default::default(),
-        }
+        Self::default()
     }
 }

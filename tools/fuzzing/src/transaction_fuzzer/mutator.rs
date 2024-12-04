@@ -9,7 +9,6 @@ use crate::transaction_fuzzer::generator::gen_curve_point;
 use ark_ff::Zero;
 use ledger::{
     generators::zkapp_command_builder::get_transaction_commitments,
-    hash_with_kimchi,
     scan_state::{
         currency::{Amount, Balance, Fee, MinMax, Nonce, Signed, Slot},
         transaction_logic::{
@@ -40,6 +39,7 @@ use mina_p2p_messages::{
     },
 };
 use mina_signer::{CompressedPubKey, NetworkId, Signature, Signer};
+use poseidon::hash::{hash_with_kimchi, params::MINA_ACCOUNT_UPDATE_CONS};
 use rand::{seq::SliceRandom, Rng};
 
 #[coverage(off)]
@@ -321,15 +321,13 @@ impl MutatorFromAccount<Timing> for FuzzerCtx {
                     _ => unimplemented!(),
                 }
             }
-        } else {
-            if self.gen.rng.gen_bool(0.5) {
-                *t = Timing::Timed {
-                    initial_minimum_balance: self.gen(),
-                    cliff_time: self.gen(),
-                    cliff_amount: self.gen(),
-                    vesting_period: self.gen(),
-                    vesting_increment: self.gen(),
-                }
+        } else if self.gen.rng.gen_bool(0.5) {
+            *t = Timing::Timed {
+                initial_minimum_balance: self.gen(),
+                cliff_time: self.gen(),
+                cliff_amount: self.gen(),
+                vesting_period: self.gen(),
+                vesting_increment: self.gen(),
             }
         }
     }
@@ -708,8 +706,10 @@ impl Mutator<zkapp_command::CallForest<AccountUpdate>> for FuzzerCtx {
                 Fp::zero()
             };
 
-            t.0[i].stack_hash =
-                MutableFp::new(hash_with_kimchi("MinaAcctUpdateCons", &[tree_digest, h_tl]));
+            t.0[i].stack_hash = MutableFp::new(hash_with_kimchi(
+                &MINA_ACCOUNT_UPDATE_CONS,
+                &[tree_digest, h_tl],
+            ));
         }
     }
 }

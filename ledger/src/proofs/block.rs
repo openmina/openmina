@@ -6,6 +6,10 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 use openmina_core::constants::{constraint_constants, ForkConstants};
+use poseidon::hash::{
+    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
+    Inputs,
+};
 
 use crate::{
     dummy,
@@ -35,7 +39,8 @@ use crate::{
         transaction_logic::protocol_state::{EpochLedger, ProtocolStateView},
     },
     staged_ledger::hash::StagedLedgerHash,
-    Inputs, ToInputs,
+    zkapps::intefaces::{SignedAmountBranchParam, SignedAmountInterface},
+    ToInputs,
 };
 
 use super::{
@@ -219,12 +224,12 @@ fn checked_hash_protocol_state(
 
     let mut inputs = Inputs::new();
     body.to_inputs(&mut inputs);
-    let body_hash = checked_hash("MinaProtoStateBody", &inputs.to_fields(), w);
+    let body_hash = checked_hash(&MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
 
     let mut inputs = Inputs::new();
     inputs.append_field(*previous_state_hash);
     inputs.append_field(body_hash);
-    let hash = checked_hash("MinaProtoState", &inputs.to_fields(), w);
+    let hash = checked_hash(&MINA_PROTO_STATE, &inputs.to_fields(), w);
 
     Ok((hash, body_hash))
 }
@@ -241,12 +246,12 @@ fn checked_hash_protocol_state2(
 
     let mut inputs = Inputs::new();
     body.to_inputs(&mut inputs);
-    let body_hash = checked_hash("MinaProtoStateBody", &inputs.to_fields(), w);
+    let body_hash = checked_hash(&MINA_PROTO_STATE_BODY, &inputs.to_fields(), w);
 
     let mut inputs = Inputs::new();
     inputs.append_field(*previous_state_hash);
     inputs.append_field(body_hash);
-    let hash = checked_hash("MinaProtoState", &inputs.to_fields(), w);
+    let hash = checked_hash(&MINA_PROTO_STATE, &inputs.to_fields(), w);
 
     (hash, body_hash)
 }
@@ -311,17 +316,17 @@ mod floating_point {
     }
 
     const COEFFICIENTS: [(Sgn, BigInteger256); 11] = [
-        (Sgn::Pos, BigInteger256::new([405058, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([1007582, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([465602, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([161365, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([44739, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([10337, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([2047, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([354, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([54, 0, 0, 0])),
-        (Sgn::Neg, BigInteger256::new([7, 0, 0, 0])),
-        (Sgn::Pos, BigInteger256::new([0, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([405058, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([1007582, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([465602, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([161365, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([44739, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([10337, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([2047, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([354, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([54, 0, 0, 0])),
+        (Sgn::Neg, BigInteger256::from_64x4([7, 0, 0, 0])),
+        (Sgn::Pos, BigInteger256::from_64x4([0, 0, 0, 0])),
     ];
 
     pub struct Params {
@@ -606,6 +611,7 @@ mod vrf {
     use std::ops::Neg;
 
     use mina_signer::{CompressedPubKey, PubKey};
+    use poseidon::hash::params::{MINA_VRF_MESSAGE, MINA_VRF_OUTPUT};
 
     use crate::{
         checked_verify_merkle_path,
@@ -618,7 +624,7 @@ mod vrf {
         },
         scan_state::currency::{Amount, Balance},
         sparse_ledger::SparseLedger,
-        AccountIndex, Address,
+        AccountIndex, Address, AppendToInputs,
     };
 
     use super::*;
@@ -630,7 +636,7 @@ mod vrf {
         delegator_bits: [bool; 35],
     }
 
-    impl<'a> ToInputs for Message<'a> {
+    impl ToInputs for Message<'_> {
         fn to_inputs(&self, inputs: &mut Inputs) {
             let Self {
                 global_slot,
@@ -649,7 +655,7 @@ mod vrf {
 
     fn hash_to_group(m: &Message, w: &mut Witness<Fp>) -> GroupAffine<Fp> {
         let inputs = m.to_inputs_owned().to_fields();
-        let hash = checked_hash("MinaVrfMessage", &inputs, w);
+        let hash = checked_hash(&MINA_VRF_MESSAGE, &inputs, w);
         crate::proofs::group_map::to_group(hash, w)
     }
 
@@ -685,7 +691,7 @@ mod vrf {
         inputs.append_field(x);
         inputs.append_field(y);
 
-        checked_hash("MinaVrfOutput", &inputs.to_fields(), w)
+        checked_hash(&MINA_VRF_OUTPUT, &inputs.to_fields(), w)
     }
 
     fn eval_and_check_public_key(
@@ -814,6 +820,7 @@ mod vrf {
 pub mod consensus {
     use ark_ff::Zero;
     use mina_signer::CompressedPubKey;
+    use poseidon::hash::params::MINA_EPOCH_SEED;
 
     use super::{vrf::VRF_OUTPUT_NBITS, *};
     use crate::{
@@ -1375,7 +1382,6 @@ pub mod consensus {
 
         let (new_total_currency, _overflow) = {
             let total_currency: Amount = previous_state.total_currency;
-            w.exists(supply_increase.force_value());
             total_currency
                 .to_checked()
                 .add_signed_flagged(supply_increase, w)
@@ -1396,7 +1402,7 @@ pub mod consensus {
         };
 
         fn epoch_seed_update_var(seed: Fp, vrf_result: Fp, w: &mut Witness<Fp>) -> Fp {
-            checked_hash("MinaEpochSeed", &[seed, vrf_result], w)
+            checked_hash(&MINA_EPOCH_SEED, &[seed, vrf_result], w)
         }
 
         let next_epoch_data = {
@@ -1638,10 +1644,14 @@ fn block_main<'a>(
         txn_statement_ledger_hashes_equal(s1, &s2, w)
     };
 
-    let supply_increase = w.exists_no_check(match txn_stmt_ledger_hashes_didn_t_change {
-        Boolean::True => CheckedSigned::zero(),
-        Boolean::False => txn_snark.supply_increase.to_checked(),
-    });
+    let supply_increase = CheckedSigned::on_if(
+        txn_stmt_ledger_hashes_didn_t_change.var(),
+        SignedAmountBranchParam {
+            on_true: &CheckedSigned::zero(),
+            on_false: &txn_snark.supply_increase.to_checked(),
+        },
+        w,
+    );
 
     let (updated_consensus_state, consensus_state) = consensus::next_state_checked(
         previous_state,
@@ -1845,7 +1855,7 @@ pub(super) fn generate_block_proof(
     } = params;
 
     let (txn_snark_statement, txn_snark_proof) =
-        ledger_proof_opt(ledger_proof.as_ref(), next_state)?;
+        ledger_proof_opt(ledger_proof.as_deref(), next_state)?;
     let prev_state_proof = &chain.proof;
 
     let (new_state_hash, previous_proof_statements) = block_main(

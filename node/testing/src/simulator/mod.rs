@@ -1,23 +1,28 @@
 mod config;
 pub use config::*;
+
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 
 use std::{collections::BTreeSet, time::Duration};
 
-use node::{ActionKind, BlockProducerConfig, SnarkerConfig, SnarkerStrategy, State};
+use node::{
+    ActionKind, ActionWithMeta, BlockProducerConfig, SnarkerConfig, SnarkerStrategy, State,
+};
 
 use crate::{
     cluster::ClusterNodeId,
     node::{Node, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::ListenerNode,
     scenarios::{ClusterRunner, RunCfg},
+    service::NodeTestingService,
 };
 
 pub struct Simulator {
     initial_time: redux::Timestamp,
     config: SimulatorConfig,
+    start_t: Option<redux::Instant>,
 }
 
 impl Simulator {
@@ -25,6 +30,7 @@ impl Simulator {
         Self {
             initial_time,
             config,
+            start_t: None,
         }
     }
 
@@ -37,7 +43,6 @@ impl Simulator {
             initial_time: self.initial_time(),
             genesis: self.config.genesis.clone(),
             max_peers: 1000,
-            ask_initial_peers_interval: Duration::from_secs(60),
             initial_peers: Vec::new(),
             peer_id: Default::default(),
             block_producer: None,
@@ -98,6 +103,10 @@ impl Simulator {
     }
 
     async fn set_up_normal_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
+        if self.config.normal_nodes == 0 {
+            return;
+        }
+
         eprintln!("setting up normal nodes: {}", self.config.normal_nodes);
 
         let node_config = RustNodeTestingConfig {
@@ -114,6 +123,10 @@ impl Simulator {
     }
 
     async fn set_up_snark_worker_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
+        if self.config.snark_workers == 0 {
+            return;
+        }
+
         eprintln!(
             "setting up rust snark worker nodes: {}",
             self.config.snark_workers
@@ -163,6 +176,10 @@ impl Simulator {
     }
 
     async fn set_up_block_producer_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
+        if self.config.block_producers == 0 {
+            return;
+        }
+
         let block_producers = runner.block_producer_sec_keys(ClusterNodeId::new_unchecked(0));
 
         assert!(self.config.block_producers <= block_producers.len());
@@ -203,27 +220,59 @@ impl Simulator {
         self.wait_for_all_nodes_synced(runner).await;
     }
 
-    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+    pub async fn setup_and_run_with_listener<'a, AL, ALF>(
+        &mut self,
+        runner: &mut ClusterRunner<'a>,
+        listener: ALF,
+    ) where
+        ALF: FnMut() -> AL,
+        AL: 'static
+            + Send
+            + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    {
+        self.setup(runner).await;
+        self.run_with_listener(runner, listener).await;
+    }
+
+    pub async fn setup_and_run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+        self.setup(runner).await;
+        self.run_with_listener(runner, || |_, _, _, _| false).await;
+    }
+
+    pub async fn setup<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
         self.set_up_seed_nodes(runner).await;
         self.set_up_normal_nodes(runner).await;
         self.set_up_snark_worker_nodes(runner).await;
         self.set_up_block_producer_nodes(runner).await;
+    }
 
+    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+        self.run_with_listener(runner, || |_, _, _, _| false).await;
+    }
+
+    pub async fn run_with_listener<'a, AL, ALF>(
+        &mut self,
+        runner: &mut ClusterRunner<'a>,
+        mut listener: ALF,
+    ) where
+        ALF: FnMut() -> AL,
+        AL: 'static
+            + Send
+            + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    {
         let run_until = self.config.run_until.clone();
         let advance_time = self.config.advance_time.clone();
-        let start_t = redux::Instant::now();
+        let start_t = *self.start_t.get_or_insert_with(redux::Instant::now);
         let mut last_printed_slot = 0;
         let virtual_initial_time = self.initial_time();
 
         while start_t.elapsed() < self.config.run_until_timeout {
             tokio::task::yield_now().await;
-            let _ = runner
-                .run(
-                    RunCfg::default()
-                        .advance_time(advance_time.clone())
-                        .timeout(Duration::ZERO),
-                )
-                .await;
+            let cfg = RunCfg::default()
+                .advance_time(advance_time.clone())
+                .timeout(Duration::ZERO)
+                .action_handler(listener());
+            let _ = runner.run(cfg).await;
 
             let printed_elapsed_time = {
                 let state = runner.nodes_iter().next().unwrap().1.state();

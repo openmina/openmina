@@ -16,7 +16,7 @@ use ledger::scan_state::scan_state::AvailableJobMessage;
 use mina_p2p_messages::v2;
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::StagedLedgerDiffCreateOutput;
+use crate::block_producer_effectful::StagedLedgerDiffCreateOutput;
 use crate::core::block::ArcBlockWithHash;
 use crate::core::snark::{Snark, SnarkJobId};
 use crate::transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid;
@@ -70,7 +70,7 @@ pub enum LedgerWriteResponse {
     StagedLedgerDiffCreate {
         pred_block_hash: v2::StateHash,
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
-        result: Result<Box<StagedLedgerDiffCreateOutput>, String>,
+        result: Result<Arc<StagedLedgerDiffCreateOutput>, String>,
     },
     BlockApply {
         block_hash: v2::StateHash,
@@ -89,7 +89,7 @@ pub struct BlockApplyResult {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct CommitResult {
-    pub available_jobs: Vec<OneOrTwo<AvailableJobMessage>>,
+    pub available_jobs: Arc<Vec<OneOrTwo<AvailableJobMessage>>>,
     pub needed_protocol_states: BTreeSet<v2::StateHash>,
 }
 
