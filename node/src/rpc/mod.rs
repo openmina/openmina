@@ -482,6 +482,8 @@ pub struct RpcNodeStatusTransitionFrontierBlockSummary {
 #[derive(Serialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusTransactionPool {
     pub transactions: usize,
+    pub transactions_for_propagation: usize,
+    pub transaction_candidates: usize,
 }
 
 #[derive(Serialize, Debug, Default, Clone)]

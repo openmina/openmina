@@ -30,6 +30,10 @@ where
         self.list.is_empty()
     }
 
+    pub fn len(&self) -> usize {
+        self.list.len()
+    }
+
     pub fn contains(&self, key: &Key) -> bool {
         self.by_key
             .get(key)

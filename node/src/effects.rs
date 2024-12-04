@@ -13,9 +13,13 @@ use crate::rpc_effectful::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
+use crate::transaction_pool::candidate::TransactionPoolCandidateAction;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::transition_frontier_effects;
-use crate::{p2p_ready, Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
+use crate::{
+    p2p_ready, Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store,
+    TransactionPoolAction,
+};
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 
@@ -44,6 +48,10 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 p2p_request_transactions_if_needed(store);
                 p2p_request_snarks_if_needed(store);
             }
+
+            store.dispatch(TransactionPoolAction::P2pSendAll);
+            store.dispatch(TransactionPoolCandidateAction::FetchAll);
+            store.dispatch(TransactionPoolCandidateAction::VerifyNext);
 
             store.dispatch(SnarkPoolAction::CheckTimeouts);
             store.dispatch(SnarkPoolAction::P2pSendAll);
@@ -152,8 +160,31 @@ fn request_best_tip<S: Service>(store: &mut Store<S>, consensus_best_tip_hash: O
     }
 }
 
-fn p2p_request_transactions_if_needed<S: Service>(_store: &mut Store<S>) {
-    // TODO(binier): request tx from peers for which we have tx_info.
+fn p2p_request_transactions_if_needed<S: Service>(store: &mut Store<S>) {
+    use p2p::channels::transaction::P2pChannelsTransactionAction;
+
+    const MAX_PEER_PENDING_TXS: usize = 32;
+
+    let state = store.state();
+    let p2p = p2p_ready!(
+        state.p2p,
+        "p2p_request_transactions_if_needed",
+        system_time()
+    );
+    let transaction_reqs = p2p
+        .ready_peers_iter()
+        .filter(|(_, p)| p.channels.transaction.can_send_request())
+        .map(|(peer_id, _)| {
+            let pending_txs = state.snark_pool.candidates.peer_work_count(peer_id);
+            (peer_id, MAX_PEER_PENDING_TXS.saturating_sub(pending_txs))
+        })
+        .filter(|(_, limit)| *limit > 0)
+        .map(|(peer_id, limit)| (*peer_id, limit.min(u8::MAX as usize) as u8))
+        .collect::<Vec<_>>();
+
+    for (peer_id, limit) in transaction_reqs {
+        store.dispatch(P2pChannelsTransactionAction::RequestSend { peer_id, limit });
+    }
 }
 
 fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {

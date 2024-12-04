@@ -15,7 +15,7 @@ use openmina_core::{requests::RpcId, ActionEvent};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
-use super::PendingId;
+use super::{candidate::TransactionPoolCandidateAction, PendingId};
 
 pub type TransactionPoolActionWithMeta = redux::ActionWithMeta<TransactionPoolAction>;
 pub type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a TransactionPoolAction>;
@@ -23,6 +23,7 @@ pub type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Transa
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = info)]
 pub enum TransactionPoolAction {
+    Candidate(TransactionPoolCandidateAction),
     StartVerify {
         commands: List<v2::MinaBaseUserCommandStableV2>,
         from_rpc: Option<RpcId>,
@@ -68,29 +69,26 @@ pub enum TransactionPoolAction {
         rejected: Vec<(ValidCommandWithHash, diff::Error)>,
     },
     CollectTransactionsByFee,
+    #[action_event(level = trace)]
     P2pSendAll,
+    #[action_event(level = debug)]
     P2pSend {
         peer_id: p2p::PeerId,
     },
 }
 
 impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
-    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
+            TransactionPoolAction::Candidate(a) => a.is_enabled(state, time),
             TransactionPoolAction::P2pSendAll => true,
             TransactionPoolAction::P2pSend { peer_id } => state
                 .p2p
                 .get_ready_peer(peer_id)
-                // can't propagate empty snarkpool
+                // can't propagate empty transaction pool
                 .filter(|_| !state.transaction_pool.dpool.is_empty())
-                // Only send commitments/snarks if peer has the same best tip,
-                // or its best tip is extension of our best tip. In such case
-                // no commitment/snark will be dropped by peer, because it
-                // doesn't yet have those jobs.
-                //
-                // By sending commitments/snarks to the peer, which has next
-                // best tip, we might send outdated commitments/snarks, but
-                // we might send useful ones as well.
+                // Only send transactions if peer has the same best tip,
+                // or its best tip is extension of our best tip.
                 .and_then(|p| {
                     let peer_best_tip = p.best_tip.as_ref()?;
                     let our_best_tip = state.transition_frontier.best_tip()?.hash();

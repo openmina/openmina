@@ -109,7 +109,10 @@ impl P2pChannelsTransactionState {
                 };
                 Ok(())
             }
-            P2pChannelsTransactionAction::Received { .. } => {
+            P2pChannelsTransactionAction::Received {
+                peer_id,
+                transaction,
+            } => {
                 let state = transaction_state.inspect_err(|error| bug_condition!("{}", error))?;
                 let Self::Ready { local, .. } = state else {
                     bug_condition!(
@@ -135,6 +138,14 @@ impl P2pChannelsTransactionState {
                         count: *current_count,
                     };
                 }
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = &p2p_state.callbacks.on_p2p_channels_transaction_received {
+                    dispatcher.push_callback(callback.clone(), (peer_id, transaction));
+                }
+
                 Ok(())
             }
             P2pChannelsTransactionAction::RequestReceived { limit, .. } => {

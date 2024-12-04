@@ -11,12 +11,13 @@ use openmina_core::{consensus::ConsensusConstants, distributed_pool::Distributed
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-use super::TransactionPoolAction;
+use super::{candidate::TransactionPoolCandidatesState, TransactionPoolAction};
 
 pub(super) type PendingId = u32;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TransactionPoolState {
+    pub candidates: TransactionPoolCandidatesState,
     // TODO(binier): ideally this and `.pool` should be merged together.
     pub(super) dpool: DistributedPool<TransactionState, v2::TransactionHash>,
     pub(super) pool: ledger::transaction_pool::TransactionPool,
@@ -43,6 +44,7 @@ impl AsRef<TransactionHash> for TransactionState {
 impl Clone for TransactionPoolState {
     fn clone(&self) -> Self {
         Self {
+            candidates: self.candidates.clone(),
             dpool: self.dpool.clone(),
             pool: self.pool.clone(),
             pending_actions: self.pending_actions.clone(),
@@ -56,6 +58,7 @@ impl Clone for TransactionPoolState {
 impl TransactionPoolState {
     pub fn new(config: Config, consensus_constants: &ConsensusConstants) -> Self {
         Self {
+            candidates: Default::default(),
             dpool: Default::default(),
             pool: ledger::transaction_pool::TransactionPool::new(config, consensus_constants),
             pending_actions: Default::default(),
@@ -67,6 +70,14 @@ impl TransactionPoolState {
 
     pub fn size(&self) -> usize {
         self.pool.size()
+    }
+
+    pub fn for_propagation_size(&self) -> usize {
+        self.dpool.len()
+    }
+
+    pub fn contains(&self, hash: &TransactionHash) -> bool {
+        self.get(hash).is_some()
     }
 
     pub fn get(&self, hash: &TransactionHash) -> Option<&UserCommand> {

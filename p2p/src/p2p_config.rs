@@ -72,6 +72,7 @@ pub struct P2pTimeouts {
     pub staged_ledger_aux_and_pending_coinbases_at_block: Option<Duration>,
     pub block: Option<Duration>,
     pub snark: Option<Duration>,
+    pub transaction: Option<Duration>,
     pub initial_peers: Option<Duration>,
     pub kademlia_bootstrap: Option<Duration>,
     pub kademlia_initial_bootstrap: Option<Duration>,
@@ -121,6 +122,7 @@ impl Default for P2pTimeouts {
             ),
             block: from_env_or("BLOCK_TIMEOUT", Some(Duration::from_secs(8))),
             snark: from_env_or("SNARK_TIMEOUT", Some(Duration::from_secs(8))),
+            transaction: from_env_or("TRANSACTION_TIMEOUT", Some(Duration::from_secs(8))),
             initial_peers: from_env_or("INITIAL_PEERS_TIMEOUT", Some(Duration::from_secs(5))),
             kademlia_bootstrap: from_env_or(
                 "KADEMLIA_BOOTSTRAP_TIMEOUT",

@@ -89,6 +89,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 ),
                 transaction_pool: RpcNodeStatusTransactionPool {
                     transactions: state.transaction_pool.size(),
+                    transactions_for_propagation: state.transaction_pool.for_propagation_size(),
+                    transaction_candidates: state.transaction_pool.candidates.transactions_count(),
                 },
                 current_block_production_attempt,
             };

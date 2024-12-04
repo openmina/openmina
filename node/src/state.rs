@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
 use openmina_core::constants::PROTOCOL_VERSION;
+use openmina_core::transaction::TransactionInfo;
 use rand::prelude::*;
 
 use openmina_core::block::BlockWithHash;
@@ -40,6 +41,9 @@ pub use crate::snark::SnarkState;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 pub use crate::snark_pool::candidate::SnarkPoolCandidatesState;
 pub use crate::snark_pool::SnarkPoolState;
+use crate::transaction_pool::candidate::{
+    TransactionPoolCandidateAction, TransactionPoolCandidatesState,
+};
 use crate::transaction_pool::TransactionPoolState;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisState;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedState;
@@ -107,6 +111,11 @@ impl_substate_access!(
 impl_substate_access!(State, ConsensusState, consensus);
 impl_substate_access!(State, TransitionFrontierState, transition_frontier);
 impl_substate_access!(State, TransactionPoolState, transaction_pool);
+impl_substate_access!(
+    State,
+    TransactionPoolCandidatesState,
+    transaction_pool.candidates
+);
 impl_substate_access!(
     State,
     TransitionFrontierGenesisState,
@@ -514,6 +523,14 @@ impl P2p {
 
     fn p2p_callbacks() -> P2pCallbacks {
         P2pCallbacks {
+            on_p2p_channels_transaction_received: Some(redux::callback!(
+                on_p2p_channels_transaction_received((peer_id: PeerId, info: Box<TransactionInfo>)) -> crate::Action{
+                    TransactionPoolCandidateAction::InfoReceived {
+                        peer_id,
+                        info: *info,
+                    }
+                }
+            )),
             on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
                 on_p2p_channels_transaction_libp2p_received(transaction: Box<MinaBaseUserCommandStableV2>) -> crate::Action{
                     TransactionPoolAction::StartVerify {

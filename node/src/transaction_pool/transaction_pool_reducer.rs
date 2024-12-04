@@ -47,6 +47,12 @@ impl TransactionPoolState {
         let substate = state.get_substate_mut().unwrap();
 
         match action {
+            TransactionPoolAction::Candidate(a) => {
+                super::candidate::TransactionPoolCandidatesState::reducer(
+                    openmina_core::Substate::from_compatible_substate(state),
+                    meta.with_action(a),
+                );
+            }
             TransactionPoolAction::StartVerify { commands, from_rpc } => {
                 let Ok(commands) = commands
                     .iter()
@@ -209,7 +215,7 @@ impl TransactionPoolState {
                 };
 
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
-                match substate.pool.unsafe_apply(
+                let (rpc_action, accepted, rejected) = match substate.pool.unsafe_apply(
                     meta.time(),
                     global_slot_from_genesis,
                     global_slot,
@@ -227,31 +233,32 @@ impl TransactionPoolState {
                                 hash: tx.hash.clone(),
                             });
                         }
-                        if let Some(rpc_id) = from_rpc {
-                            let dispatcher = state.into_dispatcher();
-
-                            dispatcher.push(RpcAction::TransactionInjectSuccess {
+                        let rpc_action =
+                            from_rpc.map(|rpc_id| RpcAction::TransactionInjectSuccess {
                                 rpc_id,
                                 response: accepted.clone(),
                             });
-                            dispatcher
-                                .push(TransactionPoolAction::Rebroadcast { accepted, rejected });
-                        }
+                        (rpc_action, accepted, rejected)
                     }
                     Ok((ApplyDecision::Reject, accepted, rejected, _)) => {
-                        if let Some(rpc_id) = from_rpc {
-                            let dispatcher = state.into_dispatcher();
-
-                            dispatcher.push(RpcAction::TransactionInjectRejected {
+                        let rpc_action =
+                            from_rpc.map(|rpc_id| RpcAction::TransactionInjectRejected {
                                 rpc_id,
                                 response: rejected.clone(),
                             });
-                            dispatcher
-                                .push(TransactionPoolAction::Rebroadcast { accepted, rejected });
-                        }
+                        (rpc_action, accepted, rejected)
                     }
-                    Err(e) => eprintln!("unsafe_apply error: {:?}", e),
+                    Err(e) => {
+                        bug_condition!("unsafe_apply error: {:?}", e);
+                        return;
+                    }
+                };
+
+                let dispatcher = state.into_dispatcher();
+                if let Some(rpc_action) = rpc_action {
+                    dispatcher.push(rpc_action);
                 }
+                dispatcher.push(TransactionPoolAction::Rebroadcast { accepted, rejected });
             }
             TransactionPoolAction::ApplyTransitionFrontierDiff {
                 best_tip_hash,
