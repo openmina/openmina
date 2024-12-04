@@ -363,6 +363,7 @@ impl P2pConnectionIncomingState {
                         dispatcher.push_callback(callback.clone(), (rpc_id, str_error));
                     }
                 }
+                dispatcher.push(P2pDisconnectionAction::FailedCleanup { peer_id });
 
                 Ok(())
             }

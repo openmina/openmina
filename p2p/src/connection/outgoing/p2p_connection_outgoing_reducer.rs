@@ -9,6 +9,7 @@ use crate::{
         outgoing_effectful::P2pConnectionOutgoingEffectfulAction, P2pConnectionErrorResponse,
         P2pConnectionState,
     },
+    disconnection::P2pDisconnectionAction,
     webrtc::Host,
     P2pNetworkKadRequestAction, P2pNetworkSchedulerAction, P2pPeerAction, P2pPeerState,
     P2pPeerStatus, P2pState,
@@ -535,6 +536,8 @@ impl P2pConnectionOutgoingState {
                         dispatcher.push_callback(callback.clone(), (rpc_id, error));
                     }
                 }
+                dispatcher.push(P2pDisconnectionAction::FailedCleanup { peer_id });
+
                 Ok(())
             }
             P2pConnectionOutgoingAction::Success { peer_id } => {

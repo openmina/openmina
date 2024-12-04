@@ -339,6 +339,7 @@ pub enum ActionKind {
     P2pConnectionOutgoingEffectfulInit,
     P2pConnectionOutgoingEffectfulOfferSend,
     P2pConnectionOutgoingEffectfulRandomInit,
+    P2pDisconnectionFailedCleanup,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pDisconnectionPeerClosed,
@@ -704,7 +705,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 594;
+    pub const COUNT: u16 = 595;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1213,6 +1214,7 @@ impl ActionKindGet for P2pDisconnectionAction {
         match self {
             Self::Init { .. } => ActionKind::P2pDisconnectionInit,
             Self::PeerClosed { .. } => ActionKind::P2pDisconnectionPeerClosed,
+            Self::FailedCleanup { .. } => ActionKind::P2pDisconnectionFailedCleanup,
             Self::Finish { .. } => ActionKind::P2pDisconnectionFinish,
         }
     }
