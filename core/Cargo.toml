@@ -14,6 +14,7 @@ tracing = { version = "0.1", features = ["std"] }
 sha2 = "0.10.6"
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
 binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+rand = "0.8.0"
 redux = { workspace = true }
 tokio = { version = "1.26", features = ["sync"] }
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }

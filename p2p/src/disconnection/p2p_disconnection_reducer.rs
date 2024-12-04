@@ -1,4 +1,7 @@
-use openmina_core::{bug_condition, Substate};
+use std::time::Duration;
+
+use openmina_core::{bug_condition, pseudo_rng, Substate};
+use rand::prelude::*;
 use redux::ActionWithMeta;
 
 use crate::{
@@ -6,7 +9,10 @@ use crate::{
     P2pPeerAction, P2pPeerStatus, P2pState,
 };
 
-use super::{P2pDisconnectedState, P2pDisconnectionAction};
+use super::{P2pDisconnectedState, P2pDisconnectionAction, P2pDisconnectionReason};
+
+/// Do not disconnect peer for this duration just for freeing up peer space.
+const FORCE_PEER_STABLE_FOR: Duration = Duration::from_secs(90);
 
 impl P2pDisconnectedState {
     pub fn reducer<Action, State>(
@@ -21,6 +27,30 @@ impl P2pDisconnectedState {
         let p2p_state = state_context.get_substate_mut()?;
 
         match action {
+            P2pDisconnectionAction::RandomTry => {
+                p2p_state.last_random_disconnection_try = meta.time();
+                if p2p_state.config.limits.max_stable_peers()
+                    >= p2p_state.ready_peers_iter().count()
+                {
+                    return Ok(());
+                }
+                let mut rng = pseudo_rng(meta.time());
+
+                let peer_id = p2p_state
+                    .ready_peers_iter()
+                    .filter(|(_, s)| s.connected_for(meta.time()) > FORCE_PEER_STABLE_FOR)
+                    .map(|(id, _)| *id)
+                    .choose(&mut rng);
+
+                if let Some(peer_id) = peer_id {
+                    let dispatcher = state_context.into_dispatcher();
+                    dispatcher.push(P2pDisconnectionAction::Init {
+                        peer_id,
+                        reason: P2pDisconnectionReason::FreeUpSpace,
+                    });
+                }
+                Ok(())
+            }
             P2pDisconnectionAction::Init { peer_id, reason } => {
                 #[cfg(feature = "p2p-libp2p")]
                 if p2p_state.is_libp2p_peer(&peer_id) {

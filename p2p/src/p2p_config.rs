@@ -333,6 +333,11 @@ impl P2pLimits {
     );
 
     limit!(
+        /// Above this limit, peers will be randomly disconnected to free up space.
+        max_stable_peers(&self): self.max_peers.map(|v| v.saturating_mul(8).saturating_div(10))
+    );
+
+    limit!(
         /// Maximum number of connections.
         max_connections(&self): self.max_peers.map(|v| v + 10)
     );

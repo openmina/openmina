@@ -4582,6 +4582,7 @@ dependencies = [
  "openmina-fuzzer",
  "openmina-macros",
  "poseidon",
+ "rand",
  "redux",
  "serde",
  "serde_json",

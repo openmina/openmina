@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{
@@ -43,6 +44,9 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
+
+    pub last_random_disconnection_try: redux::Timestamp,
+
     pub callbacks: P2pCallbacks,
 }
 
@@ -120,6 +124,9 @@ impl P2pState {
             config,
             network,
             peers,
+
+            last_random_disconnection_try: redux::Timestamp::ZERO,
+
             callbacks,
         }
     }
@@ -476,6 +483,10 @@ impl P2pPeerStatusReady {
             channels: P2pChannelsState::new(enabled_channels),
             best_tip: None,
         }
+    }
+
+    pub fn connected_for(&self, now: redux::Timestamp) -> Duration {
+        now.checked_sub(self.connected_since).unwrap_or_default()
     }
 }
 

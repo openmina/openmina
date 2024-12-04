@@ -52,6 +52,12 @@ mod work_dir {
 
 pub use work_dir::{get_debug_dir, get_work_dir, set_work_dir};
 
+use rand::prelude::*;
+#[inline(always)]
+pub fn pseudo_rng(time: redux::Timestamp) -> StdRng {
+    StdRng::seed_from_u64(time.into())
+}
+
 pub fn preshared_key(chain_id: &ChainId) -> [u8; 32] {
     use multihash::Hasher;
     let mut hasher = Blake2b256::default();
