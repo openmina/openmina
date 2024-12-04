@@ -85,7 +85,10 @@ impl SnarkPoolCandidatesState {
             } => {
                 state.work_fetch_pending(meta.time(), peer_id, job_id, *rpc_id);
             }
-            SnarkPoolCandidateAction::WorkReceived { peer_id, work } => {
+            SnarkPoolCandidateAction::WorkFetchError { peer_id, job_id } => {
+                state.peer_work_remove(*peer_id, job_id);
+            }
+            SnarkPoolCandidateAction::WorkFetchSuccess { peer_id, work } => {
                 state.work_received(meta.time(), *peer_id, work.clone());
             }
             SnarkPoolCandidateAction::WorkVerifyNext => {

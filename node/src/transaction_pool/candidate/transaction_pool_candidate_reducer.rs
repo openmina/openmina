@@ -78,13 +78,16 @@ impl TransactionPoolCandidatesState {
                 hash,
                 rpc_id,
             } => {
-                state.work_fetch_pending(meta.time(), peer_id, hash, *rpc_id);
+                state.fetch_pending(meta.time(), peer_id, hash, *rpc_id);
             }
-            TransactionPoolCandidateAction::Received {
+            TransactionPoolCandidateAction::FetchError { peer_id, hash } => {
+                state.peer_transaction_remove(*peer_id, hash);
+            }
+            TransactionPoolCandidateAction::FetchSuccess {
                 peer_id,
                 transaction,
             } => {
-                state.work_received(meta.time(), *peer_id, transaction.clone());
+                state.transaction_received(meta.time(), *peer_id, transaction.clone());
             }
             TransactionPoolCandidateAction::VerifyNext => {
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();

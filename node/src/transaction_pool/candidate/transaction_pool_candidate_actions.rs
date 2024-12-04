@@ -29,7 +29,11 @@ pub enum TransactionPoolCandidateAction {
         hash: TransactionHash,
         rpc_id: P2pRpcId,
     },
-    Received {
+    FetchError {
+        peer_id: PeerId,
+        hash: TransactionHash,
+    },
+    FetchSuccess {
         peer_id: PeerId,
         transaction: TransactionWithHash,
     },
@@ -82,7 +86,12 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
                 .map_or(false, |s| {
                     matches!(s, TransactionPoolCandidateState::InfoReceived { .. })
                 }),
-            TransactionPoolCandidateAction::Received {
+            TransactionPoolCandidateAction::FetchError { peer_id, hash } => state
+                .transaction_pool
+                .candidates
+                .get(*peer_id, hash)
+                .is_some(),
+            TransactionPoolCandidateAction::FetchSuccess {
                 peer_id,
                 transaction,
             } => state
