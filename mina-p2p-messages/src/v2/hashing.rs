@@ -1,8 +1,7 @@
-use std::{fmt, io};
+use std::{fmt, io, sync::Arc};
 
 use ark_ff::fields::arithmetic::InvalidBigInt;
-use binprot::BinProtWrite;
-use binprot_derive::{BinProtRead, BinProtWrite};
+use binprot::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
 use mina_hasher::Fp;
 use poseidon::hash::{
@@ -68,21 +67,27 @@ impl generated::ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-#[derive(BinProtWrite, BinProtRead, Eq, PartialEq, Ord, PartialOrd, Clone)]
-pub struct TransactionHash(Vec<u8>);
+#[derive(Hash, Eq, PartialEq, Ord, PartialOrd, Clone)]
+pub struct TransactionHash(Arc<[u8; 32]>);
 
 impl std::str::FromStr for TransactionHash {
     type Err = bs58::decode::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let bytes = bs58::decode(s).with_check(Some(0x1D)).into_vec()?[1..].to_vec();
-        Ok(Self(bytes))
+        let bytes = bs58::decode(s).with_check(Some(0x1D)).into_vec()?;
+        dbg!(bytes.len());
+        let bytes = (&bytes[2..])
+            .try_into()
+            .map_err(|_| bs58::decode::Error::BufferTooSmall)?;
+        Ok(Self(Arc::new(bytes)))
     }
 }
 
 impl fmt::Display for TransactionHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        bs58::encode(&self.0)
+        let mut bytes = [32; 33];
+        bytes[1..].copy_from_slice(&*self.0);
+        bs58::encode(bytes)
             .with_check_version(0x1D)
             .into_string()
             .fmt(f)
@@ -98,7 +103,7 @@ impl fmt::Debug for TransactionHash {
 
 impl From<&[u8; 32]> for TransactionHash {
     fn from(value: &[u8; 32]) -> Self {
-        Self(value.to_vec())
+        Self(Arc::new(*value))
     }
 }
 
@@ -124,8 +129,29 @@ impl<'de> serde::Deserialize<'de> for TransactionHash {
             let b58: String = Deserialize::deserialize(deserializer)?;
             Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
         } else {
-            Vec::deserialize(deserializer).map(|v| Self(v))
+            let v = Vec::deserialize(deserializer)?;
+            v.try_into()
+                .map_err(|_| serde::de::Error::custom("transaction hash wrong size"))
+                .map(Arc::new)
+                .map(Self)
         }
+    }
+}
+
+impl BinProtWrite for TransactionHash {
+    fn binprot_write<W: io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        w.write_all(&*self.0)
+    }
+}
+
+impl BinProtRead for TransactionHash {
+    fn binprot_read<R: io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let mut bytes = [0; 32];
+        r.read_exact(&mut bytes)?;
+        Ok(Self(bytes.into()))
     }
 }
 
@@ -173,11 +199,12 @@ impl generated::MinaBaseSignedCommandStableV2 {
         let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
 
         hasher.update(&self.binprot_write_with_default_sig()?);
-        let mut hash = vec![0; 33];
-        hash[..1].copy_from_slice(&[32]);
-        hash[1..].copy_from_slice(&hasher.finalize_boxed());
+        let mut hash = [0; 32];
+        hasher
+            .finalize_variable(&mut hash)
+            .expect("Invalid buffer size"); // Never occur
 
-        Ok(TransactionHash(hash))
+        Ok(TransactionHash(hash.into()))
     }
 }
 
@@ -239,11 +266,12 @@ impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
         let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
 
         hasher.update(&self.binprot_write_with_default()?);
-        let mut hash = vec![0; 33];
-        hash[..1].copy_from_slice(&[32]);
-        hash[1..].copy_from_slice(&hasher.finalize_boxed());
+        let mut hash = [0; 32];
+        hasher
+            .finalize_variable(&mut hash)
+            .expect("Invalid buffer size"); // Never occur
 
-        Ok(TransactionHash(hash))
+        Ok(TransactionHash(hash.into()))
     }
 }
 
@@ -251,7 +279,6 @@ impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
 mod tests {
     use super::super::manual;
     use super::*;
-    use binprot::BinProtRead;
     use manual::MinaBaseSignedCommandMemoStableV1;
 
     fn pub_key(address: &str) -> manual::NonZeroCurvePoint {

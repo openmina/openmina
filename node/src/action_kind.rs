@@ -79,6 +79,7 @@ use crate::snark::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
+use crate::transaction_pool::candidate::TransactionPoolCandidateAction;
 use crate::transaction_pool::{TransactionPoolAction, TransactionPoolEffectfulAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
@@ -593,10 +594,22 @@ pub enum ActionKind {
     TransactionPoolBestTipChanged,
     TransactionPoolBestTipChangedWithAccounts,
     TransactionPoolCollectTransactionsByFee,
+    TransactionPoolP2pSend,
+    TransactionPoolP2pSendAll,
     TransactionPoolRebroadcast,
     TransactionPoolStartVerify,
     TransactionPoolStartVerifyWithAccounts,
     TransactionPoolVerifyError,
+    TransactionPoolCandidateFetchAll,
+    TransactionPoolCandidateFetchInit,
+    TransactionPoolCandidateFetchPending,
+    TransactionPoolCandidateInfoReceived,
+    TransactionPoolCandidatePeerPrune,
+    TransactionPoolCandidateReceived,
+    TransactionPoolCandidateVerifyError,
+    TransactionPoolCandidateVerifyNext,
+    TransactionPoolCandidateVerifyPending,
+    TransactionPoolCandidateVerifySuccess,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
     TransitionFrontierGenesisProvenInject,
@@ -689,7 +702,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 580;
+    pub const COUNT: u16 = 592;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -894,6 +907,7 @@ impl ActionKindGet for SnarkPoolEffectfulAction {
 impl ActionKindGet for TransactionPoolAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Candidate(a) => a.kind(),
             Self::StartVerify { .. } => ActionKind::TransactionPoolStartVerify,
             Self::StartVerifyWithAccounts { .. } => {
                 ActionKind::TransactionPoolStartVerifyWithAccounts
@@ -915,6 +929,8 @@ impl ActionKindGet for TransactionPoolAction {
             }
             Self::Rebroadcast { .. } => ActionKind::TransactionPoolRebroadcast,
             Self::CollectTransactionsByFee => ActionKind::TransactionPoolCollectTransactionsByFee,
+            Self::P2pSendAll => ActionKind::TransactionPoolP2pSendAll,
+            Self::P2pSend { .. } => ActionKind::TransactionPoolP2pSend,
         }
     }
 }
@@ -1476,6 +1492,23 @@ impl ActionKindGet for SnarkPoolCandidateAction {
             Self::WorkVerifyError { .. } => ActionKind::SnarkPoolCandidateWorkVerifyError,
             Self::WorkVerifySuccess { .. } => ActionKind::SnarkPoolCandidateWorkVerifySuccess,
             Self::PeerPrune { .. } => ActionKind::SnarkPoolCandidatePeerPrune,
+        }
+    }
+}
+
+impl ActionKindGet for TransactionPoolCandidateAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::InfoReceived { .. } => ActionKind::TransactionPoolCandidateInfoReceived,
+            Self::FetchAll => ActionKind::TransactionPoolCandidateFetchAll,
+            Self::FetchInit { .. } => ActionKind::TransactionPoolCandidateFetchInit,
+            Self::FetchPending { .. } => ActionKind::TransactionPoolCandidateFetchPending,
+            Self::Received { .. } => ActionKind::TransactionPoolCandidateReceived,
+            Self::VerifyNext => ActionKind::TransactionPoolCandidateVerifyNext,
+            Self::VerifyPending { .. } => ActionKind::TransactionPoolCandidateVerifyPending,
+            Self::VerifyError { .. } => ActionKind::TransactionPoolCandidateVerifyError,
+            Self::VerifySuccess { .. } => ActionKind::TransactionPoolCandidateVerifySuccess,
+            Self::PeerPrune { .. } => ActionKind::TransactionPoolCandidatePeerPrune,
         }
     }
 }

@@ -155,7 +155,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
                 last_index,
             } => {
                 !transactions.is_empty()
-                    && first_index < last_index
+                    && first_index <= last_index
                     && state.get_ready_peer(peer_id).map_or(false, |p| {
                         match &p.channels.transaction {
                             P2pChannelsTransactionState::Ready {

@@ -1,6 +1,6 @@
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
-use openmina_core::{block::BlockWithHash, bug_condition};
+use openmina_core::{block::BlockWithHash, bug_condition, transaction::TransactionWithHash};
 use p2p::{
     channels::{
         best_tip::P2pChannelsBestTipAction,
@@ -15,6 +15,7 @@ use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 use crate::{
     p2p_ready,
     snark_pool::candidate::SnarkPoolCandidateAction,
+    transaction_pool::candidate::TransactionPoolCandidateAction,
     transition_frontier::sync::{
         ledger::{
             snarked::{
@@ -339,6 +340,20 @@ impl crate::State {
                 // async ledger request will be triggered
                 // by `LedgerReadAction::FindTodos`.
             }
+            P2pRpcRequest::Transaction(hash) => {
+                let tx = state.transaction_pool.get(&hash);
+                let response = tx
+                    .map(|v| v.forget_check())
+                    .map(|tx| (&tx).into())
+                    .map(P2pRpcResponse::Transaction)
+                    .map(Box::new);
+
+                dispatcher.push(P2pChannelsRpcAction::ResponseSend {
+                    peer_id,
+                    id,
+                    response,
+                });
+            }
             P2pRpcRequest::Snark(job_id) => {
                 let job = state.snark_pool.get(&job_id);
                 let response = job
@@ -508,6 +523,15 @@ impl crate::State {
                     rpc_id: id,
                     response: block,
                 });
+            }
+            Some(P2pRpcResponse::Transaction(transaction)) => {
+                match TransactionWithHash::try_new(transaction.clone()) {
+                    Err(err) => bug_condition!("tx hashing failed: {err}"),
+                    Ok(transaction) => dispatcher.push(TransactionPoolCandidateAction::Received {
+                        peer_id,
+                        transaction,
+                    }),
+                }
             }
             Some(P2pRpcResponse::Snark(snark)) => {
                 dispatcher.push(SnarkPoolCandidateAction::WorkReceived {

@@ -145,7 +145,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
                 last_index,
             } => {
                 !commitments.is_empty()
-                    && first_index < last_index
+                    && first_index <= last_index
                     && state.get_ready_peer(peer_id).map_or(false, |p| {
                         match &p.channels.snark_job_commitment {
                             P2pChannelsSnarkJobCommitmentState::Ready {

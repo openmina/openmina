@@ -1,18 +1,25 @@
 use ledger::{
-    scan_state::currency::{Amount, Nonce, Slot},
+    scan_state::{
+        currency::{Amount, Nonce, Slot},
+        transaction_logic::valid::UserCommand,
+    },
     transaction_pool::{Config, ValidCommandWithHash},
     AccountId,
 };
-use mina_p2p_messages::v2;
-use openmina_core::consensus::ConsensusConstants;
+use mina_p2p_messages::v2::{self, TransactionHash};
+use openmina_core::{consensus::ConsensusConstants, distributed_pool::DistributedPool};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
-use super::TransactionPoolAction;
+use super::{candidate::TransactionPoolCandidatesState, TransactionPoolAction};
 
 pub(super) type PendingId = u32;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct TransactionPoolState {
+    pub candidates: TransactionPoolCandidatesState,
+    // TODO(binier): ideally this and `.pool` should be merged together.
+    pub(super) dpool: DistributedPool<TransactionState, v2::TransactionHash>,
     pub(super) pool: ledger::transaction_pool::TransactionPool,
     pub(super) pending_actions: BTreeMap<PendingId, TransactionPoolAction>,
     pub(super) pending_id: PendingId,
@@ -22,9 +29,23 @@ pub struct TransactionPoolState {
     pub(super) file: Option<std::fs::File>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransactionState {
+    pub time: redux::Timestamp,
+    pub hash: TransactionHash,
+}
+
+impl AsRef<TransactionHash> for TransactionState {
+    fn as_ref(&self) -> &TransactionHash {
+        &self.hash
+    }
+}
+
 impl Clone for TransactionPoolState {
     fn clone(&self) -> Self {
         Self {
+            candidates: self.candidates.clone(),
+            dpool: self.dpool.clone(),
             pool: self.pool.clone(),
             pending_actions: self.pending_actions.clone(),
             pending_id: self.pending_id,
@@ -37,6 +58,8 @@ impl Clone for TransactionPoolState {
 impl TransactionPoolState {
     pub fn new(config: Config, consensus_constants: &ConsensusConstants) -> Self {
         Self {
+            candidates: Default::default(),
+            dpool: Default::default(),
             pool: ledger::transaction_pool::TransactionPool::new(config, consensus_constants),
             pending_actions: Default::default(),
             pending_id: 0,
@@ -47,6 +70,18 @@ impl TransactionPoolState {
 
     pub fn size(&self) -> usize {
         self.pool.size()
+    }
+
+    pub fn for_propagation_size(&self) -> usize {
+        self.dpool.len()
+    }
+
+    pub fn contains(&self, hash: &TransactionHash) -> bool {
+        self.get(hash).is_some()
+    }
+
+    pub fn get(&self, hash: &TransactionHash) -> Option<&UserCommand> {
+        self.pool.pool.get(hash).map(|v| &v.data)
     }
 
     pub fn transactions(&mut self, limit: usize) -> Vec<ValidCommandWithHash> {

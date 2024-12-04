@@ -312,7 +312,7 @@ impl DatabaseImpl<V2> {
         let path = match dir_name {
             Some(dir_name) => dir_name,
             None => {
-                let directory = format!("minadb-{}", &uuid);
+                let directory = format!("minadb-{uuid}");
 
                 let mut path = PathBuf::from("/tmp");
                 path.push(&directory);

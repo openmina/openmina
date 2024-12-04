@@ -26,10 +26,7 @@ use ledger::{
     scan_state::currency::{Balance, Magnitude},
     Account,
 };
-use mina_p2p_messages::{
-    rpc_kernel::QueryHeader,
-    v2::{MinaBaseTransactionStatusStableV2, TransactionHash},
-};
+use mina_p2p_messages::{rpc_kernel::QueryHeader, v2::MinaBaseTransactionStatusStableV2};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use p2p::channels::streaming_rpc::{
@@ -92,6 +89,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 ),
                 transaction_pool: RpcNodeStatusTransactionPool {
                     transactions: state.transaction_pool.size(),
+                    transactions_for_propagation: state.transaction_pool.for_propagation_size(),
+                    transaction_candidates: state.transaction_pool.candidates.transactions_count(),
                 },
                 current_block_production_attempt,
             };
@@ -734,9 +733,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 .transaction_pool
                 .get_all_transactions()
                 .iter()
-                .any(|tx_with_hash| {
-                    Some(TransactionHash::from(tx_with_hash.hash.as_ref())) == tx_hash
-                });
+                .any(|tx_with_hash| Some(&tx_with_hash.hash) == tx_hash.as_ref());
 
             if in_tx_pool {
                 respond_or_log!(

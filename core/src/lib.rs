@@ -1,3 +1,4 @@
+pub mod distributed_pool;
 pub mod invariants;
 pub mod log;
 pub mod requests;

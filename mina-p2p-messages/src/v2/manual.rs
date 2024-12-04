@@ -1532,6 +1532,12 @@ impl From<OffsetDateTime> for BlockTimeTimeStableV1 {
     }
 }
 
+impl AsRef<MinaBaseUserCommandStableV2> for MinaBaseUserCommandStableV2 {
+    fn as_ref(&self) -> &MinaBaseUserCommandStableV2 {
+        self
+    }
+}
+
 impl MinaBlockHeaderStableV2 {
     pub fn genesis_state_hash(&self) -> &StateHash {
         &self.protocol_state.body.genesis_state_hash

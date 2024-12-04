@@ -1,3 +1,5 @@
+pub mod candidate;
+
 mod transaction_pool_state;
 pub use transaction_pool_state::*;
 

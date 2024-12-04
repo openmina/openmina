@@ -3,6 +3,7 @@ use openmina_core::{
     impl_substate_access,
     requests::RpcId,
     snark::{Snark, SnarkInfo, SnarkJobCommitment},
+    transaction::TransactionInfo,
     ChainId, SubstateAccess,
 };
 use redux::{Callback, Timestamp};
@@ -492,6 +493,8 @@ type OptionalCallback<T> = Option<Callback<T>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pCallbacks {
+    /// Callback for [`P2pChannelsTransactionAction::Received`]
+    pub on_p2p_channels_transaction_received: OptionalCallback<(PeerId, Box<TransactionInfo>)>,
     /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
     pub on_p2p_channels_transaction_libp2p_received:
         OptionalCallback<Box<MinaBaseUserCommandStableV2>>,
