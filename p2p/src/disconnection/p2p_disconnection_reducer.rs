@@ -60,6 +60,11 @@ impl P2pDisconnectedState {
                 dispatcher.push(P2pDisconnectionEffectfulAction::Init { peer_id });
                 Ok(())
             }
+            P2pDisconnectionAction::FailedCleanup { peer_id } => {
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(P2pDisconnectionEffectfulAction::Init { peer_id });
+                Ok(())
+            }
             P2pDisconnectionAction::Finish { peer_id } => {
                 let Some(peer) = p2p_state.peers.get_mut(&peer_id) else {
                     bug_condition!("Invalid state for: `P2pDisconnectionAction::Finish`");

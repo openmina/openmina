@@ -18,6 +18,8 @@ pub enum P2pDisconnectionAction {
     /// Peer disconnection.
     #[action_event(fields(display(peer_id)), level = info)]
     PeerClosed { peer_id: PeerId },
+    #[action_event(fields(display(peer_id)), level = info)]
+    FailedCleanup { peer_id: PeerId },
     /// Finish disconnecting from a peer.
     #[action_event(fields(display(peer_id)), level = debug)]
     Finish { peer_id: PeerId },
@@ -31,8 +33,13 @@ impl redux::EnablingCondition<P2pState> for P2pDisconnectionAction {
             | P2pDisconnectionAction::Finish { peer_id } => {
                 state.peers.get(peer_id).map_or(false, |peer| {
                     !matches!(peer.status, P2pPeerStatus::Disconnected { .. })
+                        && !peer.status.is_error()
                 })
             }
+            P2pDisconnectionAction::FailedCleanup { peer_id } => state
+                .peers
+                .get(peer_id)
+                .map_or(false, |peer| !peer.is_libp2p() && peer.status.is_error()),
         }
     }
 }
