@@ -74,6 +74,10 @@ impl P2pServiceWebrtcWithLibp2p for ClusterService {
     fn mio(&mut self) -> &mut p2p::service_impl::mio::MioService {
         &mut self.mio
     }
+
+    fn connections(&self) -> std::collections::BTreeSet<p2p::PeerId> {
+        Default::default()
+    }
 }
 
 impl P2pServiceWebrtc for ClusterService {
