@@ -36,6 +36,7 @@ strum_macros = "0.26.4"
 
 openmina-core = { path = "../../core" }
 openmina-node-common = { path = "../common" }
+openmina-node-invariants = { path = "../invariants" }
 node = { path = "../../node", features = ["replay"] }
 
 [features]

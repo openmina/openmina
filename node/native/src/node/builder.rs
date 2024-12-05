@@ -24,6 +24,7 @@ use node::{
 };
 use openmina_core::{consensus::ConsensusConstants, constants::constraint_constants};
 use openmina_node_common::p2p::TaskSpawner;
+use openmina_node_invariants::{InvariantResult, Invariants};
 use rand::Rng;
 
 use crate::NodeServiceBuilder;
@@ -363,8 +364,38 @@ impl NodeBuilder {
         let service = service.build()?;
         let state = node::State::new(node_config, &consensus_consts, initial_time);
 
-        Ok(Node::new(self.rng_seed, state, service, None))
+        Ok(Node::new(self.rng_seed, state, service, Some(checked_effects)))
     }
+}
+
+fn checked_effects(store: &mut node::Store<crate::NodeService>, action: node::ActionWithMeta) {
+    // if action.action().kind().to_string().starts_with("BlockProducer") {
+    //     dbg!(action.action());
+    // }
+
+    //store.service.dyn_effects(store.state.get(), &action);
+    //let peer_id = store.state().p2p.my_id();
+
+    for (invariant, res) in Invariants::check_all(store, &action) {
+        match res {
+            InvariantResult::Ignored(_reason) => {
+                //unreachable!("No invariant should be ignored! ignore reason: {reason:?}");
+            }
+            InvariantResult::Violation(violation) => {
+                let invariant = invariant.to_str();
+                openmina_core::warn!(
+                    action.meta().time();
+                    summary = "Invariant violation",
+                    invariant = invariant,
+                    violation = violation,
+                );
+            }
+            InvariantResult::Updated => {}
+            InvariantResult::Ok => {}
+        }
+    }
+
+    node::effects(store, action)
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {

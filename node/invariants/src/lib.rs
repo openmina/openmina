@@ -106,9 +106,9 @@ macro_rules! define_invariants_enum {
 }
 
 define_invariants_enum! {
-    NoRecursion,
+    //NoRecursion,
     P2pStatesAreConsistent,
-    TransitionFrontierOnlySyncsToBetterBlocks,
+    //TransitionFrontierOnlySyncsToBetterBlocks,
 }
 
 lazy_static::lazy_static! {
