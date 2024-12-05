@@ -112,7 +112,13 @@ impl RTCConnection {
     }
 
     pub async fn close(self) {
-        let _ = self.0.close().await;
+        if let Err(error) = self.0.close().await {
+            openmina_core::warn!(
+                openmina_core::log::system_time();
+                summary = "CONNECTION LEAK: Failure when closing RTCConnection",
+                error = error.to_string(),
+            )
+        }
     }
 }
 
