@@ -20,9 +20,7 @@ pub mod transaction_fuzzer {
         stats::Stats,
     };
     use ledger::{
-        scan_state::transaction_logic::{transaction_applied, UserCommand},
-        sparse_ledger::LedgerIntf,
-        Account, BaseLedger,
+        scan_state::transaction_logic::UserCommand, sparse_ledger::LedgerIntf, Account, BaseLedger,
     };
     use mina_hasher::Fp;
     use mina_p2p_messages::bigint::BigInt;
@@ -170,29 +168,7 @@ pub mod transaction_fuzzer {
         serialize(&action, stdin);
         let output: ActionOutput = deserialize(stdout);
         match output {
-            ActionOutput::TxApplied(result) => {
-                for applied_tx in result.apply_result.iter() {
-                    match &applied_tx.varying {
-                        transaction_applied::Varying::Command(command_applied) => {
-                            match command_applied {
-                                transaction_applied::CommandApplied::SignedCommand(
-                                    _signed_command_applied,
-                                ) => {}
-                                transaction_applied::CommandApplied::ZkappCommand(
-                                    zkapp_command_applied,
-                                ) => zkapp_command_applied
-                                    .command
-                                    .data
-                                    .account_updates
-                                    .accumulate_hashes(), // Needed because of delayed hashing
-                            }
-                        }
-                        transaction_applied::Varying::FeeTransfer(_fee_transfer_applied) => {}
-                        transaction_applied::Varying::Coinbase(_coinbase_applied) => {}
-                    }
-                }
-                result
-            }
+            ActionOutput::TxApplied(result) => result,
             _ => panic!("Expected TxApplied"),
         }
     }
@@ -332,8 +308,6 @@ pub mod transaction_fuzzer {
     }
 }
 
-#[cfg(feature = "nightly")]
-#[coverage(off)]
 fn main() {
     #[cfg(feature = "nightly")]
     {

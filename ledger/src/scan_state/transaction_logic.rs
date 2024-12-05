@@ -3163,8 +3163,7 @@ pub mod zkapp_command {
 
     impl<AccUpdate: Clone + AccountUpdateRef + PartialEq> PartialEq for WithStackHash<AccUpdate> {
         fn eq(&self, other: &Self) -> bool {
-            self.elt == other.elt
-                && self.stack_hash.get().unwrap() == other.stack_hash.get().unwrap()
+            self.elt == other.elt && self.stack_hash == other.stack_hash
         }
     }
 
