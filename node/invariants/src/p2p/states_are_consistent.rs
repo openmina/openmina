@@ -49,7 +49,7 @@ impl P2pStatesAreConsistent {
             .iter()
             .filter(|(_, s)| !s.is_libp2p() && s.status.is_connected_or_connecting())
             .map(|(peer_id, _)| *peer_id)
-            .filter(|peer_id| connections.remove(peer_id))
+            .filter(|peer_id| !connections.remove(peer_id))
             .collect::<BTreeSet<_>>();
 
         if !peers.is_empty() || !connections.is_empty() {
