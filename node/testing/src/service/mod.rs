@@ -284,6 +284,10 @@ impl node::Service for NodeTestingService {
     fn recorder(&mut self) -> &mut Recorder {
         self.real.recorder()
     }
+
+    fn is_replay(&self) -> bool {
+        self.is_replay
+    }
 }
 
 impl P2pCryptoService for NodeTestingService {
@@ -410,6 +414,10 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
         self.real.mio()
+    }
+
+    fn connections(&self) -> std::collections::BTreeSet<PeerId> {
+        self.real.connections()
     }
 }
 

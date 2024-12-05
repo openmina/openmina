@@ -4,6 +4,9 @@ pub use invariant_result::{InvariantIgnoreReason, InvariantResult};
 pub mod no_recursion;
 use no_recursion::*;
 
+pub mod p2p;
+use p2p::*;
+
 pub mod transition_frontier;
 use transition_frontier::*;
 
@@ -104,6 +107,7 @@ macro_rules! define_invariants_enum {
 
 define_invariants_enum! {
     NoRecursion,
+    P2pStatesAreConsistent,
     TransitionFrontierOnlySyncsToBetterBlocks,
 }
 
