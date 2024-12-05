@@ -1,8 +1,12 @@
+use std::collections::BTreeSet;
+
 use crate::{identity::PublicKey, webrtc, PeerId};
 
 use super::outgoing::P2pConnectionOutgoingInitOpts;
 
 pub trait P2pConnectionService: redux::Service {
+    fn connections(&self) -> BTreeSet<PeerId>;
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],

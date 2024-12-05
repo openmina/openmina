@@ -96,6 +96,10 @@ impl webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p for NodeService {
     fn mio(&mut self) -> &mut mio::MioService {
         &mut self.p2p.mio
     }
+
+    fn connections(&self) -> std::collections::BTreeSet<PeerId> {
+        self.p2p.webrtc.peers.keys().copied().collect()
+    }
 }
 
 #[cfg(feature = "p2p-libp2p")]
