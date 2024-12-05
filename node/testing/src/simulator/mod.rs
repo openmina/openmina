@@ -299,11 +299,17 @@ impl Simulator {
                     let consensus_state = &best_tip.header().protocol_state.body.consensus_state;
 
                     eprintln!(
-                        "[node_status] node_{node_id} {} - {} [{}]; snarks: {}",
+                        "[node_status] node_{node_id} {} - {} [{}]; snarks: {}, peers: {:?}",
                         best_tip.height(),
                         best_tip.hash(),
                         best_tip.producer(),
                         best_tip.staged_ledger_diff().0.completed_works.len(),
+                        node.state().p2p.ready().map(|s| s
+                            .peers
+                            .iter()
+                            .filter(|(_, p)| p.status.is_connected_or_connecting())
+                            .map(|(id, _)| id)
+                            .collect::<Vec<_>>())
                     );
                     let stop = match &run_until {
                         SimulatorRunUntil::Forever => false,

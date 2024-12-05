@@ -202,6 +202,7 @@ impl Drop for RTCConnection {
         if self.is_main() {
             let cloned = self.clone();
             spawn_local(async move {
+                eprintln!("RTCConnection::close");
                 let _ = cloned.close().await;
             });
         }

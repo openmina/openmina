@@ -1,4 +1,5 @@
 use openmina_core::log::system_time;
+use p2p::disconnection::P2pDisconnectionAction;
 use rand::prelude::*;
 
 use crate::block_producer::BlockProducerAction;
@@ -37,6 +38,26 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         // Following action gets dispatched very often, so ideally this
         // effect execution should be as light as possible.
         Action::CheckTimeouts(_) => {
+            use rand::prelude::*;
+            let mut rng = store.state().pseudo_rng();
+            let kind = dbg!(action.kind().to_string());
+            if rng.gen_bool(0.05) && !kind.contains("Disconnect") && !kind.contains("Init") {
+                if let Some(p2p) = store.state().p2p.ready() {
+                    if let Some(peer_id) = p2p
+                        .peers
+                        .iter()
+                        .filter(|(_, p)| p.status.is_connected_or_connecting())
+                        .map(|(id, _)| *id)
+                        .next()
+                    {
+                        store.dispatch(dbg!(P2pDisconnectionAction::Init {
+                            peer_id,
+                            reason: p2p::disconnection::P2pDisconnectionReason::DuplicateConnection
+                        }));
+                    }
+                }
+            }
+
             // TODO(binier): create init action and dispatch these there.
             store.dispatch(TransitionFrontierGenesisAction::LedgerLoadInit);
             store.dispatch(ExternalSnarkWorkerAction::Start);

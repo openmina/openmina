@@ -20,7 +20,7 @@ pub use server::server;
 use tokio::sync::{Mutex, MutexGuard};
 
 pub fn setup() -> tokio::runtime::Runtime {
-    openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::INFO);
+    openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::DEBUG);
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_cpus::get().max(2) - 1)
         .thread_name(|i| format!("openmina_rayon_{i}"))

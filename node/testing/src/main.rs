@@ -83,6 +83,7 @@ impl Command {
                         if cmd.use_debugger {
                             config.use_debugger();
                         }
+                        config.set_all_rust_to_rust_use_webrtc();
                         Ok(scenario.run_only_from_scratch(config))
                     };
                     let fut = async move {

@@ -47,6 +47,7 @@ pub enum RTCSignalingError {
 
 impl RTCConnection {
     pub async fn create(api: &Api, config: RTCConfig) -> Result<Self> {
+        eprintln!("RTCConnection::create");
         api.new_peer_connection(config.into())
             .await
             .map(|v| Self(v.into(), true))
