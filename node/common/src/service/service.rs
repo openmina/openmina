@@ -138,6 +138,10 @@ impl node::Service for NodeService {
     fn recorder(&mut self) -> &mut Recorder {
         &mut self.recorder
     }
+
+    fn is_replay(&self) -> bool {
+        self.replayer.is_some()
+    }
 }
 
 impl redux::TimeService for NodeService {
