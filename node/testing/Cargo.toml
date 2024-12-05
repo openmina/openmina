@@ -56,7 +56,7 @@ openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-redux = { workspace = true, features=["serializable_callbacks"] }
+redux = { workspace = true }
 libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }
 
 [features]

@@ -37,8 +37,8 @@ openmina-core = { path = "../core" }
 [dev-dependencies]
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-linkme = { workspace = true }
-redux = { workspace = true, features=["serializable_callbacks"] }
+#linkme = { workspace = true }
+redux = { workspace = true }
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

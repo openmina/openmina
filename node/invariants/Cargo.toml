@@ -19,4 +19,4 @@ redux = { workspace = true }
 node = { path = "../" }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-redux = { workspace = true, features=["serializable_callbacks"] }
+redux = { workspace = true }

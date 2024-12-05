@@ -66,7 +66,7 @@ p2p-testing = { path = "testing" }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-redux = { workspace = true, features=["serializable_callbacks"] }
+redux = { workspace = true }
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "e8705db39af1b198b324a5db6ff57fb213ba75e9", optional = true }
 datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1bfb064d0ff3e54a93ae0288409902aab8d102d3", optional = true, features = ["vendored"] }
