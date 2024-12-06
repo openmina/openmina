@@ -16,7 +16,7 @@ use tokio::task::spawn_local;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 
-use openmina_core::channels::{mpsc, oneshot};
+use openmina_core::channels::{broadcast, mpsc, oneshot};
 
 use crate::identity::{EncryptableType, PublicKey};
 use crate::webrtc::{ConnectionAuth, ConnectionAuthEncrypted};
@@ -30,13 +30,15 @@ use crate::{
 #[cfg(not(target_arch = "wasm32"))]
 mod imports {
     pub use super::native::{
-        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
+        RTCSignalingError,
     };
 }
 #[cfg(target_arch = "wasm32")]
 mod imports {
     pub use super::web::{
-        webrtc_signal_send, RTCChannel, RTCConnection, RTCConnectionState, RTCSignalingError,
+        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
+        RTCSignalingError,
     };
 }
 
@@ -51,7 +53,7 @@ const CHUNK_SIZE: usize = 16 * 1024;
 pub enum Cmd {
     PeerAdd {
         args: PeerAddArgs,
-        abort: oneshot::Receiver<()>,
+        abort: broadcast::Receiver<()>,
     },
 }
 
@@ -93,7 +95,7 @@ pub enum PeerConnectionKind {
 
 pub struct PeerState {
     pub cmd_sender: mpsc::UnboundedSender<PeerCmd>,
-    pub abort: oneshot::Sender<()>,
+    pub abort: broadcast::Sender<()>,
 }
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
@@ -188,17 +190,6 @@ impl Drop for RTCConnection {
     }
 }
 
-impl Drop for RTCChannel {
-    fn drop(&mut self) {
-        if self.is_main() {
-            let cloned = self.clone();
-            spawn_local(async move {
-                let _ = cloned.close().await;
-            });
-        }
-    }
-}
-
 async fn sleep(dur: Duration) {
     #[cfg(not(target_arch = "wasm32"))]
     let fut = tokio::time::sleep(dur);
@@ -216,8 +207,7 @@ async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
     }
 }
 
-// TODO(binier): cancel future if peer cmd sender is dropped.
-async fn peer_start(args: PeerAddArgs) {
+async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>) {
     let PeerAddArgs {
         peer_id,
         kind,
@@ -230,7 +220,7 @@ async fn peer_start(args: PeerAddArgs) {
         ice_servers: Default::default(),
     };
     let fut = async {
-        let pc = RTCConnection::create(config).await?;
+        let pc = RTCConnection::create(&api, config).await?;
         let main_channel = pc
             .channel_create(RTCChannelConfig {
                 label: "",
@@ -405,7 +395,7 @@ async fn peer_start(args: PeerAddArgs) {
 
     let _ = main_channel.close().await;
 
-    peer_loop(peer_id, event_sender, cmd_receiver, pc).await
+    peer_loop(peer_id, event_sender, cmd_receiver, pc, abort).await
 }
 
 struct Channel {
@@ -481,6 +471,7 @@ async fn peer_loop(
     event_sender: Arc<dyn Fn(P2pEvent) -> Option<()> + Send + Sync + 'static>,
     mut cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
     pc: RTCConnection,
+    abort: broadcast::Receiver<()>,
 ) {
     // TODO(binier): maybe use small_vec (stack allocated) or something like that.
     let mut channels = Channels::new();
@@ -511,7 +502,7 @@ async fn peer_loop(
             PeerCmdAll::External(PeerCmd::ChannelOpen(id)) => {
                 let pc = pc.clone();
                 let internal_cmd_sender = internal_cmd_sender.clone();
-                spawn_local(async move {
+                let fut = async move {
                     let internal_cmd_sender_clone = internal_cmd_sender.clone();
                     let result = async move {
                         let chan = pc
@@ -556,6 +547,13 @@ async fn peer_loop(
 
                     let _ =
                         internal_cmd_sender.send(PeerCmdInternal::ChannelOpened(id, result.await));
+                };
+                let mut aborted = abort.resubscribe();
+                spawn_local(async move {
+                    tokio::select! {
+                        _ = aborted.recv() => {}
+                        _ = fut => {}
+                    }
                 });
             }
             PeerCmdAll::External(PeerCmd::ChannelSend(msg_id, msg)) => {
@@ -588,7 +586,7 @@ async fn peer_loop(
                 if let Some(chan) = channels.get(chan_id) {
                     let chan_clone = chan.clone();
                     let event_sender_clone = event_sender.clone();
-                    spawn_local(async move {
+                    let fut = async move {
                         // Add a delay for sending messages after channel
                         // was opened. Some initial messages get lost otherwise.
                         // TODO(binier): find deeper cause and fix it.
@@ -618,6 +616,14 @@ async fn peer_loop(
                             let _ = event_sender_clone(
                                 P2pChannelEvent::Sent(peer_id, chan_id, msg_id, result).into(),
                             );
+                        }
+                    };
+
+                    let mut aborted = abort.resubscribe();
+                    spawn_local(async move {
+                        tokio::select! {
+                            _ = aborted.recv() => {}
+                            _ = fut => {}
                         }
                     });
 
@@ -711,13 +717,16 @@ pub trait P2pServiceWebrtc: redux::Service {
         let _ = secret_key;
 
         spawner.spawn_main("webrtc", async move {
+            let api = build_api();
             while let Some(cmd) = cmd_receiver.recv().await {
                 match cmd {
                     Cmd::PeerAdd { args, abort } => {
+                        let api_clone = api.clone();
                         spawn_local(async move {
+                            let mut aborted = abort.resubscribe();
                             tokio::select! {
-                                _ = abort => {}
-                                _ = peer_start(args) => {}
+                                _ = aborted.recv() => {}
+                                _ = peer_start(api_clone, args, abort) => {}
                             }
                         });
                     }
@@ -733,7 +742,7 @@ pub trait P2pServiceWebrtc: redux::Service {
 
     fn outgoing_init(&mut self, peer_id: PeerId) {
         let (peer_cmd_sender, peer_cmd_receiver) = mpsc::unbounded_channel();
-        let (abort_sender, abort_receiver) = oneshot::channel();
+        let (abort_sender, abort_receiver) = broadcast::channel(1);
 
         self.peers().insert(
             peer_id,
@@ -758,7 +767,7 @@ pub trait P2pServiceWebrtc: redux::Service {
 
     fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer) {
         let (peer_cmd_sender, peer_cmd_receiver) = mpsc::unbounded_channel();
-        let (abort_sender, abort_receiver) = oneshot::channel();
+        let (abort_sender, abort_receiver) = broadcast::channel(1);
 
         self.peers().insert(
             peer_id,

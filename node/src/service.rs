@@ -34,4 +34,5 @@ pub trait Service:
 {
     fn stats(&mut self) -> Option<&mut Stats>;
     fn recorder(&mut self) -> &mut Recorder;
+    fn is_replay(&self) -> bool;
 }

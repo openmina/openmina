@@ -30,9 +30,14 @@ pub type Result<T> = std::result::Result<T, JsValue>;
 
 pub type RTCConnectionState = RtcPeerConnectionState;
 
+pub type Api = ();
+
+pub fn build_api() -> Api {}
+
 pub struct RTCConnection(Rc<RtcPeerConnection>, bool);
 
-pub struct RTCChannel(RtcDataChannel, bool);
+#[derive(Clone)]
+pub struct RTCChannel(RtcDataChannel);
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
 pub enum RTCSignalingError {
@@ -51,7 +56,7 @@ impl From<JsValue> for RTCSignalingError {
 static INIT: Once = Once::new();
 
 impl RTCConnection {
-    pub async fn create(config: RTCConfig) -> Result<Self> {
+    pub async fn create(_: &Api, config: RTCConfig) -> Result<Self> {
         INIT.call_once(schedule_periodic_webrtc_cleanup);
 
         RtcPeerConnection::new_with_configuration(&config.into()).map(|v| Self(v.into(), true))
@@ -69,7 +74,7 @@ impl RTCConnection {
         let chan = self
             .0
             .create_data_channel_with_data_channel_dict(&config.label, &(&config).into());
-        Ok(RTCChannel(chan, true))
+        Ok(RTCChannel(chan))
     }
 
     pub async fn offer_create(&self) -> Result<RtcSessionDescriptionInit> {
@@ -141,10 +146,6 @@ impl RTCConnection {
 }
 
 impl RTCChannel {
-    pub fn is_main(&self) -> bool {
-        self.1
-    }
-
     pub fn on_open<Fut>(&self, mut f: impl FnMut() -> Fut + 'static)
     where
         Fut: Future<Output = ()> + Send + 'static,
@@ -252,12 +253,6 @@ pub async fn webrtc_signal_send(
 }
 
 impl Clone for RTCConnection {
-    fn clone(&self) -> Self {
-        Self(self.0.clone(), false)
-    }
-}
-
-impl Clone for RTCChannel {
     fn clone(&self) -> Self {
         Self(self.0.clone(), false)
     }
