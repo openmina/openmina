@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Mempool**: Inside the transaction and snark pool reducers, only broadcast locally injected transactions and producer snarks. Libp2p layer takes care of diffs received from gossip already.
 
+### Changed
+
+- On native, use jemalloc as the default allocator.
+
 ## [0.12.0] - 2024-12-04
 
 ### Fixed
