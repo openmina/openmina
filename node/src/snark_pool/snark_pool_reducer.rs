@@ -171,7 +171,11 @@ impl SnarkPoolState {
                     }
                 }
             }
-            SnarkPoolAction::WorkAdd { snark, sender } => {
+            SnarkPoolAction::WorkAdd {
+                snark,
+                sender,
+                is_sender_local,
+            } => {
                 state.set_snark_work(SnarkWork {
                     work: snark.clone(),
                     received_t: meta.time(),
@@ -198,10 +202,15 @@ impl SnarkPoolState {
                     }
                 }
 
-                dispatcher.push(P2pChannelsSnarkAction::Libp2pBroadcast {
-                    snark: snark.clone(),
-                    nonce: 0,
-                });
+                // TODO: we only rebroadcast locally produced snarks here.
+                // libp2p logic already broadcasts everything right now and doesn't
+                // wait for validation, thad needs to be fixed. See #952
+                if *is_sender_local {
+                    dispatcher.push(P2pChannelsSnarkAction::Libp2pBroadcast {
+                        snark: snark.clone(),
+                        nonce: 0,
+                    });
+                }
             }
             SnarkPoolAction::P2pSendAll { .. } => {
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
