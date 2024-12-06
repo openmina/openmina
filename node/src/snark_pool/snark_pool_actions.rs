@@ -33,10 +33,11 @@ pub enum SnarkPoolAction {
         commitment: SnarkJobCommitment,
         sender: PeerId,
     },
-    #[action_event(level = info)]
+    #[action_event(level = info, fields(is_sender_local))]
     WorkAdd {
         snark: Snark,
         sender: PeerId,
+        is_sender_local: bool,
     },
     #[action_event(level = trace)]
     P2pSendAll,

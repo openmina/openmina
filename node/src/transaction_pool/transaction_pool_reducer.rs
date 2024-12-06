@@ -215,14 +215,16 @@ impl TransactionPoolState {
                 };
 
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
-                let (rpc_action, accepted, rejected) = match substate.pool.unsafe_apply(
-                    meta.time(),
-                    global_slot_from_genesis,
-                    global_slot,
-                    &diff,
-                    accounts,
-                    is_sender_local,
-                ) {
+                let (rpc_action, was_accepted, accepted, rejected) = match substate
+                    .pool
+                    .unsafe_apply(
+                        meta.time(),
+                        global_slot_from_genesis,
+                        global_slot,
+                        &diff,
+                        accounts,
+                        is_sender_local,
+                    ) {
                     Ok((ApplyDecision::Accept, accepted, rejected, dropped)) => {
                         for hash in dropped {
                             substate.dpool.remove(&hash);
@@ -238,7 +240,7 @@ impl TransactionPoolState {
                                 rpc_id,
                                 response: accepted.clone(),
                             });
-                        (rpc_action, accepted, rejected)
+                        (rpc_action, true, accepted, rejected)
                     }
                     Ok((ApplyDecision::Reject, accepted, rejected, _)) => {
                         let rpc_action =
@@ -246,7 +248,7 @@ impl TransactionPoolState {
                                 rpc_id,
                                 response: rejected.clone(),
                             });
-                        (rpc_action, accepted, rejected)
+                        (rpc_action, false, accepted, rejected)
                     }
                     Err(e) => {
                         crate::core::warn!(meta.time(); kind = "TransactionPoolUnsafeApplyError", summary = e);
@@ -258,7 +260,12 @@ impl TransactionPoolState {
                 if let Some(rpc_action) = rpc_action {
                     dispatcher.push(rpc_action);
                 }
-                dispatcher.push(TransactionPoolAction::Rebroadcast { accepted, rejected });
+                // TODO: we only rebroadcast locally injected transactions here.
+                // libp2p logic already broadcasts everything right now and doesn't
+                // wait for validation, thad needs to be fixed. See #952
+                if is_sender_local && was_accepted {
+                    dispatcher.push(TransactionPoolAction::Rebroadcast { accepted, rejected });
+                }
             }
             TransactionPoolAction::ApplyTransitionFrontierDiff {
                 best_tip_hash,
