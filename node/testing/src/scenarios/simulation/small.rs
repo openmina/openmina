@@ -38,8 +38,8 @@ impl SimulationSmall {
             snark_workers: 1,
             block_producers: 6,
             advance_time: RunCfgAdvanceTime::Rand(10..=200),
-            run_until: SimulatorRunUntil::Epoch(3),
-            run_until_timeout: Duration::from_secs(30 * 60),
+            run_until: SimulatorRunUntil::BlockchainLength(5),
+            run_until_timeout: Duration::from_secs(5 * 60),
             recorder: Default::default(),
         };
         let mut simulator = Simulator::new(initial_time, cfg);

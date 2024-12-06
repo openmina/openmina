@@ -40,7 +40,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::CheckTimeouts(_) => {
             use rand::prelude::*;
             let mut rng = store.state().pseudo_rng();
-            let kind = dbg!(action.kind().to_string());
+            let kind = action.kind().to_string();
             if rng.gen_bool(0.05) && !kind.contains("Disconnect") && !kind.contains("Init") {
                 if let Some(p2p) = store.state().p2p.ready() {
                     if let Some(peer_id) = p2p
