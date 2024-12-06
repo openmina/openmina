@@ -26,7 +26,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
   card2: { wonSlots: number; slotsUsed: number; } = { wonSlots: null, slotsUsed: null };
   card3: { acceptedBlocks: number; lastBlockTime: string; } = { acceptedBlocks: null, lastBlockTime: null };
   card4: { epochProgress: string; endIn: string; } = { epochProgress: '-', endIn: null };
-  card5: { totalRewards: string; } = { totalRewards: null };
+  card5: { publicKey: string; totalRewards: string } = { publicKey: null, totalRewards: null };
 
   ngOnInit(): void {
     this.listenToSlots();
@@ -38,6 +38,7 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
       const epochEndTime = this.addMinutesToTimestamp(epoch.currentTime / ONE_BILLION, (epoch.end - epoch.currentGlobalSlot) * 3);
       this.card4.endIn = getTimeDiff(epochEndTime * ONE_THOUSAND).diff;
       this.card4.epochProgress = Math.floor((epoch.currentGlobalSlot - epoch.start) / (epoch.end - epoch.start) * 100) + '%';
+      this.card5.publicKey = epoch.publicKey;
 
       this.detect();
     }, filter(Boolean));

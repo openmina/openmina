@@ -11,6 +11,7 @@ import { NodesOverviewLedgerStepState } from '@shared/types/nodes/dashboard/node
 import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-details.type';
 import { untilDestroyed } from '@ngneat/until-destroy';
+import { isBrowser } from '@openmina/shared';
 
 @Component({
   selector: 'mina-dashboard',
@@ -32,7 +33,11 @@ export class DashboardComponent extends StoreDispatcher implements OnInit, OnDes
   lastStatus: AppNodeStatus;
 
   ngOnInit(): void {
-    // this.document.getElementById('mina-content').style.borderTopLeftRadius = '0';
+    // setTimeout(() => {
+    //   if (isBrowser()) {
+    //     document.getElementById('mina-content').classList.toggle('overflow-hidden');
+    //   }
+    // }, 1000);
     this.updateAction = 'Connecting to peers';
 
     this.listenToNodeChanging();
@@ -154,6 +159,7 @@ export class DashboardComponent extends StoreDispatcher implements OnInit, OnDes
 
   override ngOnDestroy(): void {
     super.ngOnDestroy();
+    // document.getElementById('mina-content').classList.toggle('overflow-hidden');
   }
 
   // cleanup() {

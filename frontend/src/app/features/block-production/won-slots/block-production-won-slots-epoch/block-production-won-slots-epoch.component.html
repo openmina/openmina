@@ -1,1 +1,7 @@
 <span [tooltip]="'Started ' + startedAgo + ' ago'">{{ epoch }}</span>
+@if (isMobile) {
+  <span [copyToClipboard]="publicKey" class="fx-row-vert-cent tertiary">
+    <span>{{ publicKey | truncateMid: 6: 6 }}</span>
+    <span class="mina-icon ml-5">content_copy</span>
+  </span>
+}

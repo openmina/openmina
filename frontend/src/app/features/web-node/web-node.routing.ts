@@ -1,11 +1,11 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { WebnodeComponent } from '@app/features/webnode/webnode.component';
+import { WebNodeComponent } from './web-node.component';
 
 const routes: Routes = [
   {
     path: '',
-    component: WebnodeComponent,
+    component: WebNodeComponent,
   },
 ];
 
@@ -13,4 +13,4 @@ const routes: Routes = [
   imports: [RouterModule.forChild(routes)],
   exports: [RouterModule],
 })
-export class WebnodeRouting {}
+export class WebNodeRouting {}

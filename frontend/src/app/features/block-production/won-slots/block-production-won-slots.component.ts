@@ -83,8 +83,8 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
   private listenToActiveEpoch(): void {
     this.select(BlockProductionWonSlotsSelectors.epoch, (activeEpoch) => {
       this.epoch = activeEpoch?.epochNumber;
-      this.vrfStats = activeEpoch.vrfStats;
-      this.isCalculatingVRF = activeEpoch.vrfStats?.evaluated < activeEpoch.vrfStats?.total;
+      this.vrfStats = activeEpoch?.vrfStats;
+      this.isCalculatingVRF = activeEpoch?.vrfStats?.evaluated < activeEpoch?.vrfStats?.total;
       this.detect();
     });
   }

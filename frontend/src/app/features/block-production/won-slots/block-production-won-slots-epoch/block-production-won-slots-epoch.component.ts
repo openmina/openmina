@@ -4,7 +4,7 @@ import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/bl
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsSlot } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionWonSlotsEpoch } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
-import { ONE_BILLION, ONE_THOUSAND } from '@openmina/shared';
+import { isMobile, ONE_BILLION, ONE_THOUSAND } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 
 @Component({
@@ -12,10 +12,13 @@ import { getTimeDiff } from '@shared/helpers/date.helper';
   templateUrl: './block-production-won-slots-epoch.component.html',
   styleUrl: './block-production-won-slots-epoch.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'h-lg pl-12 f-600 fx-row-vert-cent border-bottom' },
+  host: { class: 'h-lg pl-12 pr-12 f-600 fx-row-vert-cent border-bottom flex-between' },
 })
 export class BlockProductionWonSlotsEpochComponent extends StoreDispatcher implements OnInit {
+  readonly isMobile = isMobile();
+
   epoch: string;
+  publicKey: string;
   startedAgo: string;
 
   ngOnInit(): void {
@@ -34,7 +37,7 @@ export class BlockProductionWonSlotsEpochComponent extends StoreDispatcher imple
     this.select(BlockProductionWonSlotsSelectors.epoch, (epoch: BlockProductionWonSlotsEpoch) => {
       const epochStartTime = this.addMinutesToTimestamp(Math.floor(epoch.currentTime / ONE_BILLION), -(epoch.currentGlobalSlot - epoch.start) * 3);
       this.startedAgo = getTimeDiff(Math.floor(epochStartTime * ONE_THOUSAND)).diff;
-
+      this.publicKey = epoch.publicKey;
       this.detect();
     }, filter(Boolean));
   }

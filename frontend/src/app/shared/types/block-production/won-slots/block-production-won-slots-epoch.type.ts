@@ -8,4 +8,5 @@ export interface BlockProductionWonSlotsEpoch {
     evaluated: number;
     total: number;
   };
+  publicKey: string;
 }

@@ -88,16 +88,13 @@ export function getTimeDiff(time: number, config?: { withSecs?: boolean, only1un
   return { diff: timeAgo.trim(), inFuture };
 }
 
-export function getSecondsDiff(time: number, config?: { fromTime?: number }): number {
-  if (!time) {
-    return 0;
-  }
-  if (time.toString().length === 10) {
-    time *= ONE_THOUSAND;
+export function getElapsedTime(timeInSeconds: number): string {
+  if (timeInSeconds < 60) {
+    return `${timeInSeconds}s`;
   }
 
-  const paramTime = new Date(time).getTime();
-  const currentTime = config?.fromTime ? new Date(config.fromTime).getTime() : Date.now();
+  const minutes = Math.floor(timeInSeconds / 60);
+  const seconds = timeInSeconds % 60;
 
-  return Math.floor((paramTime - currentTime) / 1000);
+  return `${minutes}m ${seconds}s`;
 }

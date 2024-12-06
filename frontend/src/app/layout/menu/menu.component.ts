@@ -40,6 +40,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { name: 'State', icon: 'code_blocks' },
   { name: 'SNARKs', icon: 'assignment_turned_in' },
   { name: 'Benchmarks', icon: 'dynamic_form' },
+  { name: 'Fuzzing', icon: 'shuffle' },
 ];
 
 @UntilDestroy()
@@ -58,6 +59,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   menu: AppMenu;
   currentTheme: ThemeType;
   appIdentifier: string = CONFIG.identifier;
+  hideNodeStats: boolean = CONFIG.hideNodeStats;
   activeNode: MinaNode;
   activeRoute: string;
   network?: MinaNetwork;

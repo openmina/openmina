@@ -1,0 +1,77 @@
+<div class="header border-bottom fx-row-full-cent">
+  <img class="mina-svg" src="assets/images/logo/text-logo-text.svg" height="40" width="346"/>
+</div>
+<div class="content fx-col-full-cent w-100">
+  <h2>Set Up Your Web Node</h2>
+  <main class="border border-rad-6 p-12 w-100">
+    <div class="admin-container fx-col-full-cent">
+      <span class="mina-icon primary">encrypted_add_circle</span>
+    </div>
+    @if (!validFiles) {
+      @if (!error) {
+        <div class="upload-container mb-8 bg-surface border-rad-6 fx-row-vert-cent flex-between pr-12">
+          <div class="fx-row-vert-cent">
+            <svg xmlns="http://www.w3.org/2000/svg" width="49" height="49" viewBox="0 0 49 49" fill="none">
+              <mask id="mask0_777_21854" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="12" y="12" width="25" height="25">
+                <rect x="12.0833" y="12.5" width="24" height="24" fill="var(--base-primary)"/>
+              </mask>
+              <g mask="url(#mask0_777_21854)">
+                <path fill="var(--base-primary)" fill-opacity="0.8"
+                      d="M28.0833 24.4693V22.4846H30.0678V24.4693H28.0833ZM28.0833 26.4538H26.0988V24.4693H28.0833V26.4538ZM28.0833 28.4386V26.4538H30.0678V28.4386H28.0833ZM23.3083 20.5001L21.3853 18.5771H16.1603V30.4231H26.0961V28.4386H28.0833V30.4231H32.0063V20.5001H28.0833V22.4846H26.0988V20.5001H23.3083ZM15.2371 31.3463V17.6538H21.7563L23.6796 19.5771H32.9296V31.3463H15.2371Z"/>
+              </g>
+            </svg>
+            <i class="tertiary">Select configuration file (.zip)</i>
+          </div>
+          <button class="whitey fx-row-full-cent p-relative" (click)="fileInput.click()">
+            <span class="mina-icon icon-300">upload</span>
+            <span class="lh-sm">Upload</span>
+          </button>
+          <input type="file" #fileInput
+                 class="d-none"
+                 (change)="onFileSelected($event)"
+                 accept=".zip">
+        </div>
+        <div class="tertiary">Upload webnode-account-XY.zip we sent you</div>
+      } @else {
+        <div class="upload-container warn-primary bg-warn-container mb-8 bg-surface border-rad-6 fx-row-vert-cent flex-between pl-12 pr-12"
+             [@messageChange]>
+          <div class="fx-row-vert-cent">
+            <span class="mina-icon icon-300 check_circle">error</span>
+            <div class="pl-12">{{ uploadedFileName | truncateMid:30: 8 }}</div>
+          </div>
+          <div class="close-file h-sm w-sm fx-row-full-cent bg-success-container border-rad-6 pointer" (click)="clearFiles()">
+            <span class="mina-icon icon-400 f-22">close</span>
+          </div>
+        </div>
+        <div class="p-relative">
+          <span class="opacity-0">x</span>
+          <div class="warn-explanation p-absolute w-100 warn-primary" [@messageChange]>
+            Incorrect file selected.&nbsp;
+            <span class="warn-secondary">Please upload the correct zip file from your email.</span>
+          </div>
+        </div>
+      }
+    } @else {
+      <div class="upload-container special-node-bg mb-8 border-rad-6 fx-row-vert-cent"
+           [@messageChange]>
+        <div class="h-100 w-100 bg-success-container success-primary border-rad-6 fx-row-vert-cent flex-between pl-12 pr-12">
+          <div class="fx-row-vert-cent">
+            <span class="mina-icon icon-300 check_circle">check_circle</span>
+            <div class="pl-12">{{ uploadedFileName | truncateMid:30: 8 }}</div>
+          </div>
+          <div class="close-file h-sm w-sm fx-row-full-cent bg-success-container border-rad-6 pointer" (click)="clearFiles()">
+            <span class="mina-icon icon-400 f-22">close</span>
+          </div>
+        </div>
+      </div>
+      <div class="success-primary" [@messageChange]>File verified. Your node is ready to start!</div>
+    }
+    <div class="buttons-container fx-row-vert-cent flex-between">
+      <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12" (click)="onStartDevelopWebnode()">Start Develop Web Node</button>
+      <button class="whitey h-lg border-rad-8 f-500 pl-12 pr-12"
+              (click)="startCustomWebNode()"
+              [class.disabled]="!validFiles">Start Web Node
+      </button>
+    </div>
+  </main>
+</div>

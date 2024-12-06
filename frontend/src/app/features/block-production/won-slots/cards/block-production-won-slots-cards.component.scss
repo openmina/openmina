@@ -9,3 +9,12 @@
 mina-card {
   height: 109px;
 }
+
+.pub-key {
+  font-size: 24px;
+  font-weight: 600;
+
+  & + div {
+    margin-left: -2px;
+  }
+}
