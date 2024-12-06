@@ -107,6 +107,9 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
                         last_index,
                     )
                 }),
+            TransactionPoolAction::Rebroadcast { accepted, rejected } => {
+                !(accepted.is_empty() && rejected.is_empty())
+            }
             _ => true,
         }
     }
