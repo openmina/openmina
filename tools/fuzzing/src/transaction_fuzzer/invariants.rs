@@ -34,6 +34,7 @@ pub struct LastResult {
 }
 
 impl LastResult {
+    #[coverage(off)]
     pub const fn new() -> Self {
         Self {
             result: Mutex::new(None),

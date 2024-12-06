@@ -15,9 +15,9 @@ pub struct Sections {
     pub covfun: Vec<FunCov>,
 }
 
-impl Sections {
+impl Default for Sections {
     #[coverage(off)]
-    pub fn new() -> Self {
+    fn default() -> Self {
         let section_names = vec!["__llvm_covmap", "__llvm_covfun"];
         let sections = get_elf_sections(get_module_path(), &section_names);
         let covmap = &sections["__llvm_covmap"];
@@ -39,6 +39,13 @@ impl Sections {
         }
 
         Self { covmap, covfun }
+    }
+}
+
+impl Sections {
+    #[coverage(off)]
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -68,15 +75,22 @@ pub struct Cov {
     pub sections: Sections,
 }
 
-impl Cov {
+impl Default for Cov {
     #[coverage(off)]
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             counters: unsafe { get_counters() },
             names: Names::new(),
             data: ProfileData::new(),
             sections: Sections::new(),
         }
+    }
+}
+
+impl Cov {
+    #[coverage(off)]
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[coverage(off)]

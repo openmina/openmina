@@ -41,9 +41,9 @@ impl FunControl {
 #[derive(Debug)]
 pub struct ProfileData(pub Vec<FunControl>);
 
-impl ProfileData {
+impl Default for ProfileData {
     #[coverage(off)]
-    pub fn new() -> Self {
+    fn default() -> Self {
         let data_buf = unsafe { get_data() }.to_vec();
         let mut cursor = Cursor::new(&data_buf);
         let mut output = Vec::new();
@@ -54,5 +54,12 @@ impl ProfileData {
         }
 
         Self(output)
+    }
+}
+
+impl ProfileData {
+    #[coverage(off)]
+    pub fn new() -> Self {
+        Self::default()
     }
 }

@@ -5,6 +5,7 @@ use crate::transaction_fuzzer::{
 };
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
+use ledger::scan_state::currency::{Amount, Fee, Length, Magnitude, Nonce, Signed, Slot};
 use ledger::scan_state::transaction_logic::protocol_state::{
     protocol_state_view, EpochData, EpochLedger, ProtocolStateView,
 };
@@ -14,13 +15,10 @@ use ledger::scan_state::transaction_logic::transaction_applied::{
 use ledger::scan_state::transaction_logic::{
     apply_transactions, Transaction, TransactionStatus, UserCommand,
 };
-use ledger::scan_state::{
-    currency::{Amount, Fee, Length, Magnitude, Nonce, Signed, Slot},
-    transaction_logic::transaction_applied,
-};
 use ledger::sparse_ledger::LedgerIntf;
 use ledger::staged_ledger::staged_ledger::StagedLedger;
 use ledger::{dummy, Account, AccountId, Database, Mask, Timing, TokenId};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::binprot::SmallString1k;
 use mina_p2p_messages::{
@@ -161,24 +159,6 @@ impl Clone for PermissionModel {
     }
 }
 
-// #[derive(BinProtWrite, Debug)]
-// pub struct TxProofCreateInputs {
-//     pub sok_message: MinaBaseSokMessageStableV1,
-//     pub snarked_ledger_state: MinaStateSnarkedLedgerStateStableV2,
-//     pub witness: TxWitness,
-// }
-
-// #[derive(BinProtWrite, Debug)]
-// pub struct TxWitness {
-//     pub transaction: Tx,
-//     pub first_pass_ledger: MinaBaseSparseLedgerBaseStableV2,
-//     pub second_pass_ledger: MinaBaseSparseLedgerBaseStableV2,
-//     pub protocol_state_body: MinaStateProtocolStateBodyValueStableV2,
-//     pub init_stack: MinaBasePendingCoinbaseStackVersionedStableV1,
-//     pub status: MinaBaseTransactionStatusStableV2,
-//     pub block_global_slot: UnsignedExtendedUInt32StableV1,
-// }
-
 #[derive(Debug)]
 pub struct ApplyTxResult {
     root_hash: Fp,
@@ -204,7 +184,8 @@ impl binprot::BinProtRead for ApplyTxResult {
                      previous_hash,
                      varying,
                  }| {
-                    let previous_hash = (&previous_hash.0)
+                    let previous_hash = previous_hash
+                        .0
                         .to_field()
                         .map_err(|x| binprot::Error::CustomError(Box::new(x)))?;
 
@@ -229,29 +210,6 @@ impl binprot::BinProtRead for ApplyTxResult {
     }
 }
 
-// // TODO: remove this type once `Transaction` implements `BinProtWrite`.
-// #[derive(BinProtWrite, Debug, Clone)]
-// pub enum Tx {
-//     UserCommand(UserCommand),
-// }
-
-// impl From<Tx> for Transaction {
-//     fn from(value: Tx) -> Self {
-//         match value {
-//             Tx::UserCommand(v) => Self::Command(v),
-//         }
-//     }
-// }
-
-// impl From<Transaction> for Tx {
-//     fn from(value: Transaction) -> Self {
-//         match value {
-//             Transaction::Command(v) => Tx::UserCommand(v),
-//             _ => unimplemented!(),
-//         }
-//     }
-// }
-
 pub enum LedgerKind {
     Mask(Mask),
     Staged(StagedLedger, Mask),
@@ -275,6 +233,8 @@ pub struct FuzzerState {
     pub potential_new_accounts: Vec<(Keypair, PermissionModel)>,
     pub cache_pool: RingBuffer<UserCommand>,
     pub cache_apply: RingBuffer<UserCommand>,
+    pub cache_curve_point_fp: Option<(Fp, Fp)>,
+    pub cache_curve_point_fq: Option<(Fq, Fq)>,
 }
 
 impl Clone for FuzzerState {
@@ -286,6 +246,8 @@ impl Clone for FuzzerState {
             potential_new_accounts: self.potential_new_accounts.clone(),
             cache_pool: self.cache_pool.clone(),
             cache_apply: self.cache_apply.clone(),
+            cache_curve_point_fp: self.cache_curve_point_fp,
+            cache_curve_point_fq: self.cache_curve_point_fq,
         }
     }
 }
@@ -313,7 +275,7 @@ pub struct FuzzerCtx {
 
 impl FuzzerCtx {
     #[coverage(off)]
-    fn get_ledger_inner(&self) -> &Mask {
+    pub fn get_ledger_inner(&self) -> &Mask {
         match &self.state.ledger {
             LedgerKind::Mask(ledger) => ledger,
             LedgerKind::Staged(ledger, _) => ledger.ledger_ref(),
@@ -335,22 +297,6 @@ impl FuzzerCtx {
             LedgerKind::Staged(_, snarked_ledger) => Some(snarked_ledger),
         }
     }
-
-    // #[coverage(off)]
-    // fn set_snarked_ledger(&mut self, snarked_ledger: Mask) {
-    //     match &mut self.state.ledger {
-    //         LedgerKind::Mask(_) => panic!(),
-    //         LedgerKind::Staged(_, old_snarked_ledger) => *old_snarked_ledger = snarked_ledger,
-    //     }
-    // }
-
-    // #[coverage(off)]
-    // fn get_staged_ledger(&mut self) -> &mut StagedLedger {
-    //     match &mut self.state.ledger {
-    //         LedgerKind::Staged(ledger, _) => ledger,
-    //         _ => panic!(),
-    //     }
-    // }
 
     #[coverage(off)]
     pub fn get_snarked_ledger(&mut self) -> &mut Mask {
@@ -501,78 +447,6 @@ impl FuzzerCtx {
         proof
     }
 
-    // #[coverage(off)]
-    // pub fn random_create_tx_proof_inputs<F>(
-    //     &mut self,
-    //     protocol_state_body: MinaStateProtocolStateBodyValueStableV2,
-    //     mut verify_tx: F,
-    // ) -> Option<(bool, TxProofCreateInputs)>
-    // where
-    //     F: FnMut(&Transaction) -> bool,
-    // {
-    //     let state_body_hash = MinaHash::hash(&protocol_state_body);
-    //     let block_global_slot = protocol_state_body
-    //         .consensus_state
-    //         .global_slot_since_genesis
-    //         .clone();
-    //     let init_stack = protocol_state_body
-    //         .blockchain_state
-    //         .ledger_proof_statement
-    //         .source
-    //         .pending_coinbase_stack
-    //         .clone();
-
-    //     let tx = self.random_transaction();
-    //     let is_valid = verify_tx(&tx);
-    //     let transaction = WithStatus::applied(tx.clone());
-    //     let tx = Tx::from(tx);
-
-    //     let ledger = self.get_ledger_inner().make_child();
-    //     let staged_ledger =
-    //         StagedLedger::create_exn(self.constraint_constants.clone(), ledger).unwrap();
-    //     let apply_res = StagedLedger::update_ledger_and_get_statements(
-    //         &self.constraint_constants,
-    //         // TODO(binier): construct from passed protocol_state_body.
-    //         self.txn_state_view.global_slot_since_genesis,
-    //         staged_ledger.ledger(),
-    //         &(&init_stack).into(),
-    //         (vec![transaction.clone()], None),
-    //         // TODO(binier): construct from passed protocol_state_body.
-    //         &self.txn_state_view,
-    //         (
-    //             // TODO(binier): use state hash instead. Not used anyways though.
-    //             state_body_hash,
-    //             state_body_hash,
-    //         ),
-    //     );
-    //     let tx_with_witness = match apply_res {
-    //         Ok((txs_with_witness, ..)) => txs_with_witness.into_iter().next().unwrap(),
-    //         Err(_) => return None,
-    //     };
-
-    //     Some((
-    //         is_valid,
-    //         TxProofCreateInputs {
-    //             sok_message: serde_json::from_value(serde_json::json!({
-    //                 "fee":"25000000",
-    //                 "prover":"B62qn7G9oFofQDGiAoP8TmYce7185PjWJ39unqjr2v7EgsRDoFCFc1k"
-    //             }))
-    //             .unwrap(),
-    //             snarked_ledger_state: (&tx_with_witness.statement).into(),
-    //             witness: TxWitness {
-    //                 transaction: tx,
-    //                 first_pass_ledger: (&tx_with_witness.first_pass_ledger_witness).into(),
-    //                 second_pass_ledger: (&tx_with_witness.second_pass_ledger_witness).into(),
-    //                 protocol_state_body,
-    //                 // TODO(binier): should we somehow use value from `tx_with_witness`?
-    //                 init_stack,
-    //                 status: MinaBaseTransactionStatusStableV2::Applied,
-    //                 block_global_slot,
-    //             },
-    //         },
-    //     ))
-    // }
-
     #[coverage(off)]
     pub fn take_snapshot(&mut self) {
         println!("Taking snapshot...");
@@ -592,35 +466,11 @@ impl FuzzerCtx {
         }
     }
 
-    // #[coverage(off)]
-    // pub fn serialize_transaction(tx: &Transaction) -> Vec<u8> {
-    //     /*
-    //             We don't have generated types for Transaction, but we have one
-    //             for UserCommand (MinaBaseUserCommandStableV2). Extract and
-    //             serialize the inner UserCommand and let a OCaml wrapper build
-    //             the transaction.
-    //     */
-    //     match &tx {
-    //         Transaction::Command(user_command) => serialize(user_command),
-    //         _ => unimplemented!(),
-    //     }
-    // }
-
-    // #[coverage(off)]
-    // pub fn serialize_ledger(&self) -> Vec<u8> {
-    //     serialize(&self.get_ledger_accounts())
-    // }
-
     #[coverage(off)]
-    fn save_fuzzcase(&self, tx: &Transaction, filename: &String) {
-        let filename = self.fuzzcases_path.clone() + &filename + ".fuzzcase";
+    pub fn save_fuzzcase(&self, user_command: &UserCommand, filename: &str) {
+        let filename = self.fuzzcases_path.clone() + filename + ".fuzzcase";
 
         println!("Saving fuzzcase: {}", filename);
-
-        let user_command = match tx {
-            Transaction::Command(user_command) => user_command.clone(),
-            _ => unimplemented!(),
-        };
 
         let mut file = fs::OpenOptions::new()
             .write(true)
@@ -629,7 +479,10 @@ impl FuzzerCtx {
             .open(filename)
             .unwrap();
 
-        serialize(&(self.get_ledger_accounts(), user_command), &mut file);
+        serialize(
+            &(self.get_ledger_accounts(), user_command.clone()),
+            &mut file,
+        );
     }
 
     #[coverage(off)]
@@ -653,387 +506,8 @@ impl FuzzerCtx {
         user_command
     }
 
-    // #[coverage(off)]
-    // pub fn apply_staged_ledger_diff(
-    //     &mut self,
-    //     diff: Diff,
-    //     global_slot: Slot,
-    //     coinbase_receiver: CompressedPubKey,
-    //     current_view: ProtocolStateView,
-    //     state_hashes: (Fp, Fp),
-    //     state_tbl: &HashMap<Fp, MinaStateProtocolStateValueStableV2>,
-    //     iteration: usize,
-    // ) -> Result<StagedLedgerHash<Fp>, ()> {
-    //     if iteration == 1271 {
-    //         #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
-    //         struct State {
-    //             scan_state: mina_p2p_messages::v2::TransactionSnarkScanStateStableV2,
-    //             pending_coinbase_collection: mina_p2p_messages::v2::MinaBasePendingCoinbaseStableV2,
-    //             states: Vec<(
-    //                 mina_p2p_messages::bigint::BigInt,
-    //                 mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2,
-    //             )>,
-    //             snarked_ledger: Vec<mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2>,
-    //             expected_staged_ledger_merkle_root: mina_p2p_messages::bigint::BigInt,
-    //         }
-
-    //         let sl = self.get_staged_ledger();
-    //         let sc = sl.scan_state.clone();
-    //         let pcc = sl.pending_coinbase_collection.clone();
-    //         let expected_staged_ledger_merkle_root = sl.ledger().clone().merkle_root();
-    //         let snarked_ledger = self.get_snarked_ledger();
-
-    //         let state = State {
-    //             scan_state: (&sc).into(),
-    //             pending_coinbase_collection: (&pcc).into(),
-    //             states: state_tbl
-    //                 .iter()
-    //                 .map(|(h, v)| (h.into(), v.clone()))
-    //                 .collect(),
-    //             snarked_ledger: {
-    //                 snarked_ledger
-    //                     .to_list()
-    //                     .into_iter()
-    //                     .map(Into::into)
-    //                     .collect()
-    //                 // todo!()
-    //             },
-    //             expected_staged_ledger_merkle_root: expected_staged_ledger_merkle_root.into(),
-    //         };
-
-    //         let mut file = std::fs::File::create("/tmp/state.bin").unwrap();
-    //         BinProtWrite::binprot_write(&state, &mut file).unwrap();
-    //         file.sync_all().unwrap();
-
-    //         eprintln!("data saved");
-    //     }
-
-    //     let constraint_constants = self.constraint_constants.clone();
-
-    //     let DiffResult {
-    //         hash_after_applying,
-    //         ledger_proof,
-    //         pending_coinbase_update: _,
-    //     } = self
-    //         .get_staged_ledger()
-    //         .apply(
-    //             None,
-    //             &constraint_constants,
-    //             global_slot,
-    //             diff,
-    //             (),
-    //             &Verifier,
-    //             &current_view,
-    //             state_hashes,
-    //             coinbase_receiver,
-    //             false,
-    //         )
-    //         .map_err(|_| ())?;
-    //     // .unwrap();
-
-    //     if let Some((proof, _transactions)) = ledger_proof {
-    //         self.update_snarked_ledger(state_tbl, proof)
-    //     };
-
-    //     self.get_staged_ledger().commit_and_reparent_to_root();
-
-    //     Ok(hash_after_applying)
-    // }
-
-    // #[coverage(off)]
-    // fn update_snarked_ledger(
-    //     &mut self,
-    //     state_tbl: &HashMap<Fp, MinaStateProtocolStateValueStableV2>,
-    //     proof: LedgerProof,
-    // ) {
-    //     let target_snarked_ledger = {
-    //         let stmt = proof.statement_ref();
-    //         stmt.target.first_pass_ledger
-    //     };
-
-    //     let apply_first_pass = |global_slot: Slot,
-    //                             txn_state_view: &ProtocolStateView,
-    //                             ledger: &mut Mask,
-    //                             transaction: &Transaction| {
-    //         apply_transaction_first_pass(
-    //             &CONSTRAINT_CONSTANTS,
-    //             global_slot,
-    //             txn_state_view,
-    //             ledger,
-    //             transaction,
-    //         )
-    //     };
-
-    //     let apply_second_pass = |ledger: &mut Mask, tx: TransactionPartiallyApplied<Mask>| {
-    //         apply_transaction_second_pass(&CONSTRAINT_CONSTANTS, ledger, tx)
-    //     };
-
-    //     let apply_first_pass_sparse_ledger =
-    //         |global_slot: Slot,
-    //          txn_state_view: &ProtocolStateView,
-    //          sparse_ledger: &mut SparseLedger,
-    //          transaction: &Transaction| {
-    //             apply_transaction_first_pass(
-    //                 &CONSTRAINT_CONSTANTS,
-    //                 global_slot,
-    //                 txn_state_view,
-    //                 sparse_ledger,
-    //                 transaction,
-    //             )
-    //         };
-
-    //     let mut ledger = self.get_snarked_ledger().fuzzing_to_root();
-
-    //     let get_state = |hash: Fp| Ok(state_tbl.get(&hash).cloned().unwrap());
-
-    //     assert!(self
-    //         .get_staged_ledger()
-    //         .scan_state()
-    //         .latest_ledger_proof()
-    //         .is_some());
-
-    //     self.get_staged_ledger()
-    //         .scan_state()
-    //         .get_snarked_ledger_sync(
-    //             &mut ledger,
-    //             get_state,
-    //             apply_first_pass,
-    //             apply_second_pass,
-    //             apply_first_pass_sparse_ledger,
-    //         )
-    //         .unwrap();
-
-    //     eprintln!("#############################################################");
-    //     eprintln!("   NEW SNARKED LEDGER: {:?}", target_snarked_ledger);
-    //     eprintln!("#############################################################");
-
-    //     assert_eq!(ledger.merkle_root(), target_snarked_ledger);
-    //     self.set_snarked_ledger(ledger);
-    //     assert_eq!(
-    //         self.get_snarked_ledger().merkle_root(),
-    //         target_snarked_ledger
-    //     );
-    // }
-
-    // #[coverage(off)]
-    // pub fn create_staged_ledger_diff(
-    //     &mut self,
-    //     txns: Vec<Transaction>,
-    //     global_slot: Slot,
-    //     prover: CompressedPubKey,
-    //     coinbase_receiver: CompressedPubKey,
-    //     current_view: ProtocolStateView,
-    //     ocaml_result: &Result<
-    //         (
-    //             StagedLedgerDiffDiffStableV2,
-    //             Vec<(transaction_logic::valid::UserCommand, String)>,
-    //         ),
-    //         String,
-    //     >,
-    //     iteration: usize,
-    //     snark_worker_fees: &mut Vec<Fee>,
-    // ) -> Result<Option<Diff>, ()> {
-    //     eprintln!();
-    //     eprintln!("###################################################");
-    //     eprintln!("              CREATE_STAGED_LEDGER_DIFF            ");
-    //     eprintln!("###################################################");
-
-    //     eprintln!(
-    //         "get_staged_ledger num_account={:?}",
-    //         self.get_staged_ledger().ledger.account_locations().len()
-    //     );
-    //     // get_staged_ledger
-    //     self.gen.nonces.clear();
-
-    //     let stmt_to_work_random_prover = |stmt: &Statement| -> Option<Checked> {
-    //         let fee = snark_worker_fees.pop().unwrap();
-    //         Some(Checked {
-    //             fee,
-    //             proofs: stmt.map(|statement| {
-    //                 LedgerProof::create(
-    //                     statement.clone(),
-    //                     SokDigest::default(),
-    //                     dummy::dummy_transaction_proof(),
-    //                 )
-    //             }),
-    //             prover: prover.clone(),
-    //         })
-    //     };
-
-    //     let txns = txns
-    //         .into_iter()
-    //         .map(|tx| {
-    //             let Transaction::Command(cmd) = tx else {
-    //                 unreachable!()
-    //             };
-    //             cmd.to_valid()
-    //         })
-    //         .collect();
-
-    //     let constraint_constants = self.constraint_constants.clone();
-
-    //     dbg!(global_slot);
-
-    //     let result = self.get_staged_ledger().create_diff(
-    //         &constraint_constants,
-    //         global_slot,
-    //         None,
-    //         coinbase_receiver,
-    //         (),
-    //         &current_view,
-    //         txns,
-    //         stmt_to_work_random_prover,
-    //         false, // Always false on berkeleynet now
-    //     );
-
-    //     // FIXME: ignoring error messages
-    //     if result.is_err() && ocaml_result.is_err() {
-    //         return Ok(None);
-    //     }
-
-    //     if !(result.is_ok() && ocaml_result.is_ok()) {
-    //         println!(
-    //             "!!! create_staged_ledger_diff mismatch between OCaml and Rust (result is_ok)\n{:?}\n{:?}\n",
-    //             result, ocaml_result
-    //         );
-
-    //         //let bigint: num_bigint::BigUint = ledger.merkle_root().into();
-    //         //self.save_fuzzcase(tx, &bigint.to_string());
-    //         return Err(());
-    //     }
-
-    //     let (diff, invalid_cmds) = result.unwrap();
-    //     let (ocaml_diff, ocaml_invalid_cmds) = ocaml_result.as_ref().unwrap();
-
-    //     if iteration == 1271 {
-    //         let mut file = std::fs::File::create("/tmp/diff.bin").unwrap();
-    //         BinProtWrite::binprot_write(ocaml_diff, &mut file).unwrap();
-    //         file.sync_all().unwrap();
-    //         eprintln!("SAVED DIFF");
-    //     }
-
-    //     let diff = diff.forget();
-
-    //     // FIXME: ignore error messages as work around for differences in string formatting between Rust and OCaml
-    //     let rust_invalid_cmds: Vec<_> = invalid_cmds.iter().map(|x| x.0.clone()).collect();
-
-    //     let ocaml_invalid_cmds2: Vec<_> = ocaml_invalid_cmds.iter().map(|x| x.0.clone()).collect();
-
-    //     // Make sure we got same result
-    //     if !(rust_invalid_cmds == ocaml_invalid_cmds2) {
-    //         println!(
-    //             "!!! create_staged_ledger_diff mismatch between OCaml and Rust (invalids)\n{}\n",
-    //             self.diagnostic(&rust_invalid_cmds, &ocaml_invalid_cmds2)
-    //         );
-
-    //         eprintln!("last_string={:?}", ocaml_invalid_cmds.last().unwrap().1);
-
-    //         //let bigint: num_bigint::BigUint = ledger.merkle_root().into();
-    //         //self.save_fuzzcase(tx, &bigint.to_string());
-    //         return Err(());
-    //     }
-
-    //     let ocaml_diff: Diff = ocaml_diff.into();
-
-    //     if !(diff == ocaml_diff) {
-    //         println!(
-    //             "!!! create_staged_ledger_diff mismatch between OCaml and Rust (diff)\n{}\n",
-    //             self.diagnostic(&diff, &ocaml_diff)
-    //         );
-    //         println!("!!! OCAML=\n{:?}\n", &ocaml_diff,);
-
-    //         //let bigint: num_bigint::BigUint = ledger.merkle_root().into();
-    //         //self.save_fuzzcase(tx, &bigint.to_string());
-    //         return Err(());
-    //     }
-
-    //     Ok(Some(diff))
-    // }
-
-    // #[coverage(off)]
-    // pub fn of_scan_state_pending_coinbases_and_snarked_ledger(
-    //     &mut self,
-    //     current_state: &MinaStateProtocolStateValueStableV2,
-    //     state_tbl: &HashMap<Fp, MinaStateProtocolStateValueStableV2>,
-    //     iteration: usize,
-    // ) {
-    //     eprintln!("#######################################################");
-    //     eprintln!("of_scan_state_pending_coinbases_and_snarked_ledger");
-    //     eprintln!("#######################################################");
-
-    //     let get_state = |hash: Fp| state_tbl.get(&hash).cloned().unwrap();
-
-    //     let mut snarked_ledger = self.get_snarked_ledger().fuzzing_to_root();
-    //     let sl = self.get_staged_ledger();
-    //     let expected_hash: StagedLedgerHash = sl.hash();
-    //     let expected_staged_ledger_merkle_root = sl.ledger.clone().merkle_root();
-
-    //     dbg!(snarked_ledger.merkle_root());
-
-    //     let new_staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-    //         (),
-    //         &CONSTRAINT_CONSTANTS,
-    //         Verifier,
-    //         sl.scan_state.clone(),
-    //         snarked_ledger.copy(),
-    //         {
-    //             let registers: transaction_snark::Registers = (&current_state
-    //                 .body
-    //                 .blockchain_state
-    //                 .ledger_proof_statement
-    //                 .target)
-    //                 .into();
-    //             registers.local_state
-    //         },
-    //         expected_staged_ledger_merkle_root,
-    //         sl.pending_coinbase_collection.clone(),
-    //         get_state,
-    //     );
-
-    //     // if new_staged_ledger.is_err() || iteration == 370 {
-
-    //     //     #[derive(Clone, Debug, PartialEq, binprot_derive::BinProtRead, BinProtWrite)]
-    //     //     struct State {
-    //     //         scan_state: mina_p2p_messages::v2::TransactionSnarkScanStateStableV2,
-    //     //         pending_coinbase_collection: mina_p2p_messages::v2::MinaBasePendingCoinbaseStableV2,
-    //     //         states: Vec<(mina_p2p_messages::bigint::BigInt, MinaStateProtocolStateValueStableV2)>,
-    //     //         snarked_ledger: Vec<mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2>,
-    //     //         expected_staged_ledger_merkle_root: mina_p2p_messages::bigint::BigInt,
-    //     //     }
-
-    //     //     let sc = sl.scan_state.clone();
-    //     //     let pcc = sl.pending_coinbase_collection.clone();
-
-    //     //     let state = State {
-    //     //         scan_state: (&sc).into(),
-    //     //         pending_coinbase_collection: (&pcc).into(),
-    //     //         states: state_tbl.iter().map(|(h, v)| (h.into(), v.clone())).collect(),
-    //     //         snarked_ledger: {
-    //     //             use crate::BaseLedger;
-    //     //             snarked_ledger.to_list().into_iter().map(Into::into).collect()
-    //     //             // todo!()
-    //     //         },
-    //     //         expected_staged_ledger_merkle_root: expected_staged_ledger_merkle_root.into(),
-    //     //     };
-
-    //     //     let mut file = std::fs::File::create("/tmp/state.bin").unwrap();
-    //     //     BinProtWrite::binprot_write(&state, &mut file).unwrap();
-    //     //     file.sync_all().unwrap();
-
-    //     //     eprintln!("data saved");
-    //     // }
-
-    //     let mut new_staged_ledger = new_staged_ledger.unwrap();
-
-    //     assert_eq!(expected_hash, sl.hash());
-    //     assert_eq!(expected_hash, new_staged_ledger.hash());
-    //     eprintln!("#######################################################");
-    //     eprintln!("of_scan_state_pending_coinbases_and_snarked_ledger OK");
-    //     eprintln!("#######################################################");
-    // }
-
     #[coverage(off)]
-    fn diagnostic(&self, applied: &impl Debug, applied_ocaml: &impl Debug) -> String {
+    pub fn diagnostic(&self, applied: &impl Debug, applied_ocaml: &impl Debug) -> String {
         use text_diff::{diff, Difference};
 
         let orig = format!("{:#?}", applied);
@@ -1070,12 +544,11 @@ impl FuzzerCtx {
     #[coverage(off)]
     pub fn apply_transaction(
         &mut self,
+        ledger: &mut Mask,
         user_command: &UserCommand,
         expected_apply_result: &ApplyTxResult,
-    ) -> Result<(), ()> {
+    ) -> Result<(), String> {
         self.gen.nonces.clear();
-
-        let mut ledger = self.get_ledger_inner().make_child();
 
         // If we called apply_transaction it means we passed the tx pool check, so add tx to the cache
         if let UserCommand::ZkAppCommand(command) = user_command {
@@ -1088,64 +561,37 @@ impl FuzzerCtx {
         //println!("tx: {:?}\n", tx);
         let tx = Transaction::Command(user_command.clone());
 
+        *ledger::GLOBAL_SKIP_PARTIAL_EQ.write().unwrap() = false;
+
         let applied = apply_transactions(
             &self.constraint_constants,
             self.txn_state_view.global_slot_since_genesis,
             &self.txn_state_view,
-            &mut ledger,
+            ledger,
             &[tx.clone()],
         );
 
-        // println!(
-        //     "tx: {:?}\n applied: {:?}\n expected: {:?}",
-        //     tx, applied, expected_apply_result
-        // );
+        *ledger::GLOBAL_SKIP_PARTIAL_EQ.write().unwrap() = true;
 
         match applied {
             Ok(applied) => {
                 // For now we work with one transaction at a time
                 let applied = &applied[0];
 
-                match &applied.varying {
-                    transaction_applied::Varying::Command(command_applied) => {
-                        match command_applied {
-                            transaction_applied::CommandApplied::SignedCommand(
-                                _signed_command_applied,
-                            ) => {}
-                            transaction_applied::CommandApplied::ZkappCommand(
-                                zkapp_command_applied,
-                            ) => zkapp_command_applied
-                                .command
-                                .data
-                                .account_updates
-                                .accumulate_hashes(), // Needed because of delayed hashing
-                        }
-                    }
-                    transaction_applied::Varying::FeeTransfer(_fee_transfer_applied) => {}
-                    transaction_applied::Varying::Coinbase(_coinbase_applied) => {}
-                }
-
                 if expected_apply_result.apply_result.len() != 1 {
-                    println!(
-                        "!!! Apply failed in OCaml (error: {}) but it didn't in Rust: {:?}",
+                    return Err(format!(
+                        "Apply failed in OCaml (error: {}) but it didn't in Rust: {:?}",
                         expected_apply_result.error, applied
-                    );
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
-                } else {
-                    if applied != &expected_apply_result.apply_result[0] {
-                        println!(
-                            "!!! Apply result mismatch between OCaml and Rust\n{}\n",
-                            self.diagnostic(applied, &expected_apply_result.apply_result[0])
-                        );
-
-                        let bigint: num_bigint::BigUint =
-                            LedgerIntf::merkle_root(&mut ledger).into();
-                        self.save_fuzzcase(&tx, &bigint.to_string());
-                        return Err(());
-                    }
+                    ));
+                } else if applied != &expected_apply_result.apply_result[0] {
+                    return Err(format!(
+                        "Apply result mismatch between OCaml and Rust\n{}\n",
+                        self.diagnostic(applied, &expected_apply_result.apply_result[0])
+                    ));
                 }
+
+                //println!("RUST: {:?}", applied);
+                //println!("OCAML: {:?}", expected_apply_result);
 
                 // Save applied transactions in the cache for later use (mutation)
                 if *applied.transaction_status() == TransactionStatus::Applied {
@@ -1199,33 +645,28 @@ impl FuzzerCtx {
             Err(error_string) => {
                 // Currently disabled until invariants are fixed
                 if error_string.starts_with("Invariant violation") {
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
+                    return Err(error_string);
                 }
 
                 if expected_apply_result.apply_result.len() == 1 {
-                    println!(
-                        "!!! Apply failed in Rust (error: {}) but it didn't in OCaml: {:?}",
+                    return Err(format!(
+                        "Apply failed in Rust (error: {}) but it didn't in OCaml: {:?}",
                         error_string, &expected_apply_result.apply_result[0]
-                    );
-                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                    self.save_fuzzcase(&tx, &bigint.to_string());
-                    return Err(());
+                    ));
+                } else {
+                    //println!("ERROR RUST: {error_string}");
+                    //println!("ERROR OCAML: {:?}", expected_apply_result);
                 }
             }
         }
 
-        let rust_ledger_root_hash = LedgerIntf::merkle_root(&mut ledger);
+        let rust_ledger_root_hash = LedgerIntf::merkle_root(ledger);
 
-        if &expected_apply_result.root_hash != &rust_ledger_root_hash {
-            println!(
+        if expected_apply_result.root_hash != rust_ledger_root_hash {
+            Err(format!(
                 "Ledger hash mismatch: {:?} != {:?} (expected)",
                 rust_ledger_root_hash, expected_apply_result.root_hash
-            );
-            let bigint: num_bigint::BigUint = rust_ledger_root_hash.into();
-            self.save_fuzzcase(&tx, &bigint.to_string());
-            Err(())
+            ))
         } else {
             ledger.commit();
             Ok(())
@@ -1263,21 +704,28 @@ pub struct FuzzerCtxBuilder {
     is_staged_ledger: bool,
 }
 
-impl FuzzerCtxBuilder {
+impl Default for FuzzerCtxBuilder {
     #[coverage(off)]
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             constraint_constants: None,
             txn_state_view: None,
             fuzzcases_path: None,
             seed: 0,
-            minimum_fee: 1_000_000, // Sane default in case we don't obtain it from OCaml
+            minimum_fee: 1_000_000,
             max_account_balance: 1_000_000_000_000_000,
             initial_accounts: 10,
             cache_size: 4096,
             snapshots_size: 128,
             is_staged_ledger: false,
         }
+    }
+}
+
+impl FuzzerCtxBuilder {
+    #[coverage(off)]
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[coverage(off)]
@@ -1353,7 +801,6 @@ impl FuzzerCtxBuilder {
         let ledger = match self.is_staged_ledger {
             true => {
                 let snarked_ledger_mask = root.make_child().fuzzing_to_root();
-                // let snarked_ledger_mask = root.make_child();
                 LedgerKind::Staged(
                     StagedLedger::create_exn(constraint_constants.clone(), root.make_child())
                         .unwrap(),
@@ -1383,6 +830,8 @@ impl FuzzerCtxBuilder {
                 potential_new_accounts: Vec::new(),
                 cache_pool: RingBuffer::with_capacity(self.cache_size),
                 cache_apply: RingBuffer::with_capacity(self.cache_size),
+                cache_curve_point_fp: None,
+                cache_curve_point_fq: None,
             },
             snapshots: RingBuffer::with_capacity(self.snapshots_size),
         };

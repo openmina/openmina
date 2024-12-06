@@ -3,9 +3,9 @@ use ark_ec::ProjectiveCurve;
 use ark_ff::SquareRootField;
 use ark_ff::{Field, UniformRand};
 use ledger::generators::zkapp_command_builder::get_transaction_commitments;
-use ledger::proofs::field::FieldWitness;
+use ledger::proofs::field::GroupAffine;
 use ledger::proofs::transaction::InnerCurve;
-use ledger::scan_state::currency::{Magnitude, SlotSpan, TxnVersion};
+use ledger::scan_state::currency::{Magnitude, SlotSpan};
 use ledger::VerificationKeyWire;
 use ledger::{
     proofs::transaction::PlonkVerificationKeyEvals,
@@ -110,23 +110,6 @@ impl Generator<bool> for FuzzerCtx {
     }
 }
 
-/*
-impl Generator<Fp> for FuzzerCtx {
-    // rnd_base_field
-    fn gen(&mut self) -> Fp {
-        let mut bf = None;
-
-        // TODO: optimize by masking out MSBs from bytes and remove loop
-        while bf.is_none() {
-            let bytes = self.gen.rng.gen::<[u8; 32]>();
-            bf = Fp::from_random_bytes_with_flags::<ark_serialize::EmptyFlags>(&bytes);
-        }
-
-        bf.unwrap().0
-    }
-}
-*/
-
 impl Generator<Fp> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> Fp {
@@ -215,14 +198,14 @@ impl Generator<Memo> for FuzzerCtx {
     }
 }
 
-impl<F: Field + From<i32> + SquareRootField> Generator<(F, F)> for FuzzerCtx {
+pub struct CurvePointGenerator<F>(F, F);
+
+impl<F: Field + From<i32> + SquareRootField> Generator<CurvePointGenerator<F>> for FuzzerCtx {
     #[coverage(off)]
-    fn gen(&mut self) -> (F, F) {
+    fn gen(&mut self) -> CurvePointGenerator<F> {
         /*
             WARNING: we need to generate valid curve points to avoid binprot deserializarion
-            exceptions in the OCaml side. However this is an expensive task.
-
-            TODO: a more efficient way of doing this?
+            exceptions in the OCaml side.
         */
         let mut x = F::rand(&mut self.gen.rng);
 
@@ -230,7 +213,7 @@ impl<F: Field + From<i32> + SquareRootField> Generator<(F, F)> for FuzzerCtx {
             let y_squared = x.square().mul(x).add(Into::<F>::into(5));
 
             if let Some(y) = y_squared.sqrt() {
-                return (x, y);
+                return CurvePointGenerator(x, y);
             }
 
             x.add_assign(F::one());
@@ -238,17 +221,57 @@ impl<F: Field + From<i32> + SquareRootField> Generator<(F, F)> for FuzzerCtx {
     }
 }
 
-impl<F: FieldWitness> Generator<InnerCurve<F>> for FuzzerCtx {
+impl Generator<(Fp, Fp)> for FuzzerCtx {
     #[coverage(off)]
-    fn gen(&mut self) -> InnerCurve<F> {
-        let (x, y) = self.gen();
-        InnerCurve::<F>::from((x, y))
+    fn gen(&mut self) -> (Fp, Fp) {
+        if let Some((x, y)) = self.state.cache_curve_point_fp {
+            let p = GroupAffine::<Fp>::new(x, y, false);
+            let rand_scalar: u64 = self.gen.rng.gen();
+            let new_p: GroupAffine<Fp> = p.mul(rand_scalar).into();
+            (new_p.x, new_p.y)
+        } else {
+            let p: CurvePointGenerator<Fp> = self.gen();
+            self.state.cache_curve_point_fp = Some((p.0, p.1));
+            (p.0, p.1)
+        }
     }
 }
 
-impl<F: FieldWitness> Generator<PlonkVerificationKeyEvals<F>> for FuzzerCtx {
+impl Generator<(Fq, Fq)> for FuzzerCtx {
     #[coverage(off)]
-    fn gen(&mut self) -> PlonkVerificationKeyEvals<F> {
+    fn gen(&mut self) -> (Fq, Fq) {
+        if let Some((x, y)) = self.state.cache_curve_point_fq {
+            let p = GroupAffine::<Fq>::new(x, y, false);
+            let rand_scalar: u64 = self.gen.rng.gen();
+            let new_p: GroupAffine<Fq> = p.mul(rand_scalar).into();
+            (new_p.x, new_p.y)
+        } else {
+            let p: CurvePointGenerator<Fq> = self.gen();
+            self.state.cache_curve_point_fq = Some((p.0, p.1));
+            (p.0, p.1)
+        }
+    }
+}
+
+impl Generator<InnerCurve<Fp>> for FuzzerCtx {
+    #[coverage(off)]
+    fn gen(&mut self) -> InnerCurve<Fp> {
+        let (x, y) = self.gen();
+        InnerCurve::<Fp>::from((x, y))
+    }
+}
+
+impl Generator<InnerCurve<Fq>> for FuzzerCtx {
+    #[coverage(off)]
+    fn gen(&mut self) -> InnerCurve<Fq> {
+        let (x, y) = self.gen();
+        InnerCurve::<Fq>::from((x, y))
+    }
+}
+
+impl Generator<PlonkVerificationKeyEvals<Fp>> for FuzzerCtx {
+    #[coverage(off)]
+    fn gen(&mut self) -> PlonkVerificationKeyEvals<Fp> {
         PlonkVerificationKeyEvals {
             sigma: array::from_fn(
                 #[coverage(off)]
@@ -272,11 +295,11 @@ impl Generator<VerificationKey> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> VerificationKey {
         VerificationKey {
-            max_proofs_verified: vec![ProofVerified::N0, ProofVerified::N1, ProofVerified::N2]
+            max_proofs_verified: [ProofVerified::N0, ProofVerified::N1, ProofVerified::N2]
                 .choose(&mut self.gen.rng)
                 .unwrap()
                 .clone(),
-            actual_wrap_domain_size: vec![ProofVerified::N0, ProofVerified::N1, ProofVerified::N2]
+            actual_wrap_domain_size: [ProofVerified::N0, ProofVerified::N1, ProofVerified::N2]
                 .choose(&mut self.gen.rng)
                 .unwrap()
                 .clone(),
@@ -285,19 +308,6 @@ impl Generator<VerificationKey> for FuzzerCtx {
         }
     }
 }
-
-/*
-impl<T: Hasher<T> + Hashable> Generator<zkapp_command::WithHash<T>> for FuzzerCtx
-where
-    FuzzerCtx: Generator<T>,
-{
-    fn gen(&mut self) -> zkapp_command::WithHash<T> {
-        let data: T = self.gen();
-        let hash = data.digest();
-        zkapp_command::WithHash { data, hash }
-    }
-}
-*/
 
 impl Generator<zkapp_command::WithHash<VerificationKey>> for FuzzerCtx {
     #[coverage(off)]
@@ -311,7 +321,7 @@ impl Generator<zkapp_command::WithHash<VerificationKey>> for FuzzerCtx {
 impl Generator<AuthRequired> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> AuthRequired {
-        *vec![
+        *[
             AuthRequired::None,
             AuthRequired::Either,
             AuthRequired::Proof,
@@ -327,7 +337,7 @@ impl Generator<AuthRequired> for FuzzerCtx {
 impl Generator<PermissionModel> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> PermissionModel {
-        vec![
+        [
             PermissionModel::Any,
             PermissionModel::Empty,
             PermissionModel::Initial,
@@ -841,7 +851,7 @@ impl Generator<CompositionTypesBranchDataStableV1> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> CompositionTypesBranchDataStableV1 {
         CompositionTypesBranchDataStableV1 {
-            proofs_verified: vec![
+            proofs_verified: [
                 PicklesBaseProofsVerifiedStableV1::N0,
                 PicklesBaseProofsVerifiedStableV1::N1,
                 PicklesBaseProofsVerifiedStableV1::N2,
@@ -886,20 +896,27 @@ impl Generator<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVect
 }
 
 #[coverage(off)]
-pub fn gen_curve_point<T: Field + From<i32>>(
-    ctx: &mut impl Generator<(T, T)>,
+pub fn gen_curve_point_fp(
+    ctx: &mut impl Generator<(Fp, Fp)>,
 ) -> (
     mina_p2p_messages::bigint::BigInt,
     mina_p2p_messages::bigint::BigInt,
-)
-where
-    mina_p2p_messages::bigint::BigInt: From<T>,
-{
-    Generator::<(T, T)>::gen(ctx).map(mina_p2p_messages::bigint::BigInt::from)
+) {
+    Generator::<(Fp, Fp)>::gen(ctx).map(mina_p2p_messages::bigint::BigInt::from)
 }
 
 #[coverage(off)]
-pub fn gen_curve_point_many<T: Field + SquareRootField + From<i32>, const N: u64>(
+pub fn gen_curve_point_fq(
+    ctx: &mut impl Generator<(Fq, Fq)>,
+) -> (
+    mina_p2p_messages::bigint::BigInt,
+    mina_p2p_messages::bigint::BigInt,
+) {
+    Generator::<(Fq, Fq)>::gen(ctx).map(mina_p2p_messages::bigint::BigInt::from)
+}
+
+#[coverage(off)]
+pub fn gen_curve_point_many_fp<const N: u64>(
     ctx: &mut FuzzerCtx,
 ) -> ArrayN<
     (
@@ -907,39 +924,52 @@ pub fn gen_curve_point_many<T: Field + SquareRootField + From<i32>, const N: u64
         mina_p2p_messages::bigint::BigInt,
     ),
     { N },
->
-where
-    mina_p2p_messages::bigint::BigInt: From<T>,
-{
-    ctx.gen_wrap_many(
-        #[coverage(off)]
-        |x| gen_curve_point::<T>(x),
-    )
+> {
+    ctx.gen_wrap_many(gen_curve_point_fp)
 }
 
 #[coverage(off)]
-pub fn gen_curve_point_many_unzip<T: Field + SquareRootField + From<i32>, const N: u64>(
+pub fn gen_curve_point_many_fq<const N: u64>(
+    ctx: &mut FuzzerCtx,
+) -> ArrayN<
+    (
+        mina_p2p_messages::bigint::BigInt,
+        mina_p2p_messages::bigint::BigInt,
+    ),
+    { N },
+> {
+    ctx.gen_wrap_many(gen_curve_point_fq)
+}
+
+#[coverage(off)]
+pub fn gen_curve_point_many_unzip_fp<const N: u64>(
     ctx: &mut FuzzerCtx,
 ) -> (
     ArrayN<mina_p2p_messages::bigint::BigInt, { N }>,
     ArrayN<mina_p2p_messages::bigint::BigInt, { N }>,
-)
-where
-    mina_p2p_messages::bigint::BigInt: From<T> + Default,
-{
-    let (a, b): (Vec<_>, Vec<_>) = gen_curve_point_many::<T, N>(ctx).into_iter().unzip();
+) {
+    let (a, b): (Vec<_>, Vec<_>) = gen_curve_point_many_fp::<N>(ctx).into_iter().unzip();
 
-    (
-        ArrayN::from_iter(a.into_iter()),
-        ArrayN::from_iter(b.into_iter()),
-    )
+    (ArrayN::from_iter(a), ArrayN::from_iter(b))
+}
+
+#[coverage(off)]
+pub fn gen_curve_point_many_unzip_fq<const N: u64>(
+    ctx: &mut FuzzerCtx,
+) -> (
+    ArrayN<mina_p2p_messages::bigint::BigInt, { N }>,
+    ArrayN<mina_p2p_messages::bigint::BigInt, { N }>,
+) {
+    let (a, b): (Vec<_>, Vec<_>) = gen_curve_point_many_fq::<N>(ctx).into_iter().unzip();
+
+    (ArrayN::from_iter(a), ArrayN::from_iter(b))
 }
 
 impl Generator<PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
-            challenge_polynomial_commitment: gen_curve_point::<Fq>(self),
+            challenge_polynomial_commitment: gen_curve_point_fq(self),
             old_bulletproof_challenges: self.gen(),
         }
     }
@@ -961,7 +991,7 @@ impl Generator<PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof> 
     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
         PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
             app_state: (),
-            challenge_polynomial_commitments: List::one(gen_curve_point::<Fp>(self)), // TODO: variable num of elements
+            challenge_polynomial_commitments: List::one(gen_curve_point_fp(self)), // TODO: variable num of elements
             old_bulletproof_challenges: List::one(self.gen_wrap(
                 // TODO: variable num of elements
                 #[coverage(off)]
@@ -981,113 +1011,38 @@ impl Generator<PicklesProofProofsVerified2ReprStableV2Statement> for FuzzerCtx {
     }
 }
 
-// impl Generator<PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA {
-//         PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvalsLookupA {
-//             sorted: self.gen_wrap_many(
-//                 #[coverage(off)]
-//                 |x| gen_curve_point_many_unzip::<Fp>(x, 1),
-//                 1,
-//             ),
-//             aggreg: gen_curve_point_many_unzip::<Fp>(self, 1),
-//             table: gen_curve_point_many_unzip::<Fp>(self, 1),
-//             runtime: self.gen_wrap(
-//                 #[coverage(off)]
-//                 |x| gen_curve_point_many_unzip::<Fp>(x, 1),
-//             ),
-//         }
-//     }
-// }
-
 impl Generator<PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
         PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
-            w: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            complete_add_selector: gen_curve_point_many_unzip::<Fp, 16>(self),
-            mul_selector: gen_curve_point_many_unzip::<Fp, 16>(self),
-            emul_selector: gen_curve_point_many_unzip::<Fp, 16>(self),
-            endomul_scalar_selector: gen_curve_point_many_unzip::<Fp, 16>(self),
-            range_check0_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            range_check1_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            foreign_field_add_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            foreign_field_mul_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            xor_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            rot_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            lookup_aggregation: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            lookup_table: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
+            w: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            complete_add_selector: gen_curve_point_many_unzip_fp::<16>(self),
+            mul_selector: gen_curve_point_many_unzip_fp::<16>(self),
+            emul_selector: gen_curve_point_many_unzip_fp::<16>(self),
+            endomul_scalar_selector: gen_curve_point_many_unzip_fp::<16>(self),
+            range_check0_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            range_check1_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            foreign_field_add_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            foreign_field_mul_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            xor_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            rot_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            lookup_aggregation: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            lookup_table: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
             lookup_sorted: self.gen_wrap(
                 #[coverage(off)]
-                |x| {
-                    x.gen_wrap(
-                        #[coverage(off)]
-                        |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-                    )
-                },
+                |x| x.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
             ),
-            runtime_lookup_table: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            runtime_lookup_table_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            xor_lookup_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            lookup_gate_lookup_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            range_check_lookup_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            foreign_field_mul_lookup_selector: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            coefficients: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            z: gen_curve_point_many_unzip::<Fp, 16>(self),
-            s: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point_many_unzip::<Fp, 16>(x),
-            ),
-            generic_selector: gen_curve_point_many_unzip::<Fp, 16>(self),
-            poseidon_selector: gen_curve_point_many_unzip::<Fp, 16>(self),
+            runtime_lookup_table: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            runtime_lookup_table_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            xor_lookup_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            lookup_gate_lookup_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            range_check_lookup_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            foreign_field_mul_lookup_selector: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            coefficients: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            z: gen_curve_point_many_unzip_fp::<16>(self),
+            s: self.gen_wrap(gen_curve_point_many_unzip_fp::<16>),
+            generic_selector: gen_curve_point_many_unzip_fp::<16>(self),
+            poseidon_selector: gen_curve_point_many_unzip_fp::<16>(self),
         }
     }
 }
@@ -1096,7 +1051,7 @@ impl Generator<PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals> for Fuzzer
     #[coverage(off)]
     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
         PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
-            public_input: gen_curve_point::<Fp>(self),
+            public_input: gen_curve_point_fp(self),
             evals: self.gen(),
         }
     }
@@ -1112,93 +1067,13 @@ impl Generator<PicklesProofProofsVerified2ReprStableV2PrevEvals> for FuzzerCtx {
     }
 }
 
-// impl Generator<PicklesProofProofsVerified2ReprStableV2ProofMessagesLookupA> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2ProofMessagesLookupA {
-//         PicklesProofProofsVerified2ReprStableV2ProofMessagesLookupA {
-//             sorted: self.gen_wrap_many(
-//                 #[coverage(off)]
-//                 |x| gen_curve_point_many::<Fp>(x, 1),
-//                 1,
-//             ),
-//             aggreg: gen_curve_point_many::<Fp>(self, 1),
-//             runtime: self.gen_wrap(
-//                 #[coverage(off)]
-//                 |x| gen_curve_point_many::<Fp>(x, 1),
-//             ),
-//         }
-//     }
-// }
-
-// impl Generator<PicklesProofProofsVerified2ReprStableV2ProofMessages> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2ProofMessages {
-//         PicklesProofProofsVerified2ReprStableV2ProofMessages {
-//             w_comm: self.gen_wrap(
-//                 #[coverage(off)]
-//                 |x| gen_curve_point_many::<Fp>(x, 1),
-//             ),
-//             z_comm: gen_curve_point_many::<Fp>(self, 1),
-//             t_comm: gen_curve_point_many::<Fp>(self, 1),
-//             lookup: self.gen_wrap(
-//                 #[coverage(off)]
-//                 |x| x.gen(),
-//             ),
-//         }
-//     }
-// }
-
-// impl Generator<PicklesProofProofsVerified2ReprStableV2ProofOpeningsProof> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2ProofOpeningsProof {
-//         PicklesProofProofsVerified2ReprStableV2ProofOpeningsProof {
-//             lr: self.gen_wrap_many(
-//                 #[coverage(off)]
-//                 |x| (gen_curve_point::<Fp>(x), gen_curve_point::<Fp>(x)),
-//                 1,
-//             ),
-//             z_1: self.gen(),
-//             z_2: self.gen(),
-//             delta: gen_curve_point::<Fp>(self),
-//             challenge_polynomial_commitment: gen_curve_point::<Fp>(self),
-//         }
-//     }
-// }
-
-// impl Generator<PicklesProofProofsVerified2ReprStableV2ProofOpenings> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2ProofOpenings {
-//         PicklesProofProofsVerified2ReprStableV2ProofOpenings {
-//             proof: self.gen(),
-//             evals: self.gen(),
-//             ft_eval1: self.gen(),
-//         }
-//     }
-// }
-
-// impl Generator<PicklesProofProofsVerified2ReprStableV2Proof> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn gen(&mut self) -> PicklesProofProofsVerified2ReprStableV2Proof {
-//         PicklesProofProofsVerified2ReprStableV2Proof {
-//             messages: self.gen(),
-//             openings: self.gen(),
-//         }
-//     }
-// }
-
 impl Generator<PicklesWrapWireProofCommitmentsStableV1> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> PicklesWrapWireProofCommitmentsStableV1 {
         PicklesWrapWireProofCommitmentsStableV1 {
-            w_comm: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point::<Fp>(x),
-            ),
-            z_comm: gen_curve_point::<Fp>(self),
-            t_comm: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point::<Fp>(x),
-            ),
+            w_comm: self.gen_wrap(gen_curve_point_fp),
+            z_comm: gen_curve_point_fp(self),
+            t_comm: self.gen_wrap(gen_curve_point_fp),
         }
     }
 }
@@ -1209,12 +1084,12 @@ impl Generator<PicklesWrapWireProofStableV1Bulletproof> for FuzzerCtx {
         PicklesWrapWireProofStableV1Bulletproof {
             lr: self.gen_wrap_many(
                 #[coverage(off)]
-                |x| (gen_curve_point::<Fp>(x), gen_curve_point::<Fp>(x)),
+                |x| (gen_curve_point_fp(x), gen_curve_point_fp(x)),
             ),
             z_1: Generator::<Fp>::gen(self).into(),
             z_2: Generator::<Fp>::gen(self).into(),
-            delta: gen_curve_point::<Fp>(self),
-            challenge_polynomial_commitment: gen_curve_point::<Fp>(self),
+            delta: gen_curve_point_fp(self),
+            challenge_polynomial_commitment: gen_curve_point_fp(self),
         }
     }
 }
@@ -1223,25 +1098,16 @@ impl Generator<PicklesWrapWireProofEvaluationsStableV1> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> PicklesWrapWireProofEvaluationsStableV1 {
         PicklesWrapWireProofEvaluationsStableV1 {
-            w: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point::<Fp>(x),
-            ),
-            coefficients: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point::<Fp>(x),
-            ),
-            z: gen_curve_point::<Fp>(self),
-            s: self.gen_wrap(
-                #[coverage(off)]
-                |x| gen_curve_point::<Fp>(x),
-            ),
-            generic_selector: gen_curve_point::<Fp>(self),
-            poseidon_selector: gen_curve_point::<Fp>(self),
-            complete_add_selector: gen_curve_point::<Fp>(self),
-            mul_selector: gen_curve_point::<Fp>(self),
-            emul_selector: gen_curve_point::<Fp>(self),
-            endomul_scalar_selector: gen_curve_point::<Fp>(self),
+            w: self.gen_wrap(gen_curve_point_fp),
+            coefficients: self.gen_wrap(gen_curve_point_fp),
+            z: gen_curve_point_fp(self),
+            s: self.gen_wrap(gen_curve_point_fp),
+            generic_selector: gen_curve_point_fp(self),
+            poseidon_selector: gen_curve_point_fp(self),
+            complete_add_selector: gen_curve_point_fp(self),
+            mul_selector: gen_curve_point_fp(self),
+            emul_selector: gen_curve_point_fp(self),
+            endomul_scalar_selector: gen_curve_point_fp(self),
         }
     }
 }
@@ -1284,7 +1150,7 @@ impl Generator<SetVerificationKey<AuthRequired>> for FuzzerCtx {
             txn_version: if self.gen.rng.gen_bool(0.9) {
                 TXN_VERSION_CURRENT
             } else {
-                TxnVersion::from(self.gen.rng.gen())
+                self.gen.rng.gen()
             },
         }
     }
@@ -1336,7 +1202,7 @@ impl GeneratorFromAccount<zkapp_command::AuthorizationKind> for FuzzerCtx {
             self.gen()
         };
 
-        let options = vec![
+        let options = [
             zkapp_command::AuthorizationKind::NoneGiven,
             zkapp_command::AuthorizationKind::Signature,
             zkapp_command::AuthorizationKind::Proof(vk_hash),
@@ -1451,25 +1317,23 @@ impl GeneratorFromAccount<Signed<Amount>> for FuzzerCtx {
     fn gen_from_account(&mut self, account: &Account) -> Signed<Amount> {
         if self.gen.rng.gen_bool(0.9) {
             Signed::<Amount>::zero()
-        } else {
-            if self.gen.token_id == TokenId::default() {
-                if self.gen.excess_fee.is_zero() {
-                    let magnitude = GeneratorRange64::<Amount>::gen_range(
-                        self,
-                        0..=(account.balance.as_u64().wrapping_div(10).saturating_mul(7)),
-                    );
-                    self.gen.excess_fee = Signed::<Amount>::create(magnitude, self.gen());
-                    self.gen.excess_fee
-                } else {
-                    let ret = self.gen.excess_fee.negate();
-                    self.gen.excess_fee = Signed::<Amount>::zero();
-                    ret
-                }
+        } else if self.gen.token_id == TokenId::default() {
+            if self.gen.excess_fee.is_zero() {
+                let magnitude = GeneratorRange64::<Amount>::gen_range(
+                    self,
+                    0..=(account.balance.as_u64().wrapping_div(10).saturating_mul(7)),
+                );
+                self.gen.excess_fee = Signed::<Amount>::create(magnitude, self.gen());
+                self.gen.excess_fee
             } else {
-                // Custom Tokens
-                let magnitude = GeneratorRange64::<Amount>::gen_range(self, 0..=u64::MAX);
-                Signed::<Amount>::create(magnitude, self.gen())
+                let ret = self.gen.excess_fee.negate();
+                self.gen.excess_fee = Signed::<Amount>::zero();
+                ret
             }
+        } else {
+            // Custom Tokens
+            let magnitude = GeneratorRange64::<Amount>::gen_range(self, 0..=u64::MAX);
+            Signed::<Amount>::create(magnitude, self.gen())
         }
     }
 }
@@ -1656,7 +1520,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                         zkapp_command::EpochLedger {
                             hash: OrIgnore::Check(epoch_data.ledger.hash),
                             total_currency: OrIgnore::Check(ClosedInterval::<Amount> {
-                                lower: epoch_data.ledger.total_currency.clone(),
+                                lower: epoch_data.ledger.total_currency,
                                 upper: epoch_data.ledger.total_currency,
                             }),
                         },
@@ -1664,7 +1528,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                         OrIgnore::Check(epoch_data.start_checkpoint),
                         OrIgnore::Check(epoch_data.lock_checkpoint),
                         OrIgnore::Check(ClosedInterval::<Length> {
-                            lower: epoch_data.epoch_length.clone(),
+                            lower: epoch_data.epoch_length,
                             upper: epoch_data.epoch_length,
                         }),
                     )
@@ -1677,7 +1541,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                         zkapp_command::EpochLedger {
                             hash: OrIgnore::Check(epoch_data.ledger.hash),
                             total_currency: OrIgnore::Check(ClosedInterval::<Amount> {
-                                lower: epoch_data.ledger.total_currency.clone(),
+                                lower: epoch_data.ledger.total_currency,
                                 upper: epoch_data.ledger.total_currency,
                             }),
                         },
@@ -1685,7 +1549,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                         OrIgnore::Check(epoch_data.start_checkpoint),
                         OrIgnore::Check(epoch_data.lock_checkpoint),
                         OrIgnore::Check(ClosedInterval::<Length> {
-                            lower: epoch_data.epoch_length.clone(),
+                            lower: epoch_data.epoch_length,
                             upper: epoch_data.epoch_length,
                         }),
                     )
@@ -1854,7 +1718,7 @@ impl Generator<MayUseToken> for FuzzerCtx {
         if self.gen.token_id.is_default() {
             MayUseToken::No
         } else {
-            match vec![0, 1, 2].choose(&mut self.gen.rng).unwrap() {
+            match [0, 1, 2].choose(&mut self.gen.rng).unwrap() {
                 0 => MayUseToken::No,
                 1 => MayUseToken::ParentsOwnToken,
                 2 => MayUseToken::InheritFromParent,
@@ -1870,17 +1734,17 @@ impl GeneratorFromAccount<zkapp_command::Body> for FuzzerCtx {
         zkapp_command::Body {
             public_key: account.public_key.clone(),
             token_id: self.gen.token_id.clone(),
-            update: self.gen_from_account(&account),
-            balance_change: self.gen_from_account(&account),
+            update: self.gen_from_account(account),
+            balance_change: self.gen_from_account(account),
             increment_nonce: self.gen.rng.gen_bool(0.5),
             events: self.gen(),
             actions: self.gen(),
             call_data: self.gen(),
-            preconditions: self.gen_from_account(&account),
+            preconditions: self.gen_from_account(account),
             use_full_commitment: self.gen.rng.gen_bool(0.9),
             implicit_account_creation_fee: self.gen.rng.gen_bool(0.1),
             may_use_token: self.gen(),
-            authorization_kind: self.gen_from_account(&account),
+            authorization_kind: self.gen_from_account(account),
         }
     }
 }
@@ -1923,10 +1787,11 @@ impl GeneratorFromToken<AccountUpdate> for FuzzerCtx {
             self.gen()
         };
 
-        // let public_key = self.random_keypair().public.into_compressed();
-        let account = self.get_account(&public_key);
-        let body: zkapp_command::Body = if account.is_some() && self.gen.rng.gen_bool(0.9) {
-            self.gen_from_account(account.as_ref().unwrap())
+        let body: zkapp_command::Body = if self.gen.rng.gen_bool(0.9) {
+            match self.get_account(&public_key).as_ref() {
+                Some(account) => self.gen_from_account(account),
+                None => self.gen(),
+            }
         } else {
             self.gen()
         };
@@ -1995,7 +1860,7 @@ pub fn sign_account_updates(
                     true => full_txn_commitment,
                     false => txn_commitment,
                 };
-                Some(signer.sign(&kp, &input))
+                Some(signer.sign(&kp, input))
             }
             _ => None,
         };
@@ -2095,11 +1960,15 @@ impl Generator<SignedCommandPayload> for FuzzerCtx {
         };
 
         let account = self.get_account(&fee_payer_pk);
-
-        let body = if account.is_some() && self.gen.rng.gen_bool(0.8) {
-            signed_command::Body::Payment(self.gen_from_account(account.as_ref().unwrap()))
-        } else {
-            signed_command::Body::StakeDelegation(self.gen())
+        let body = match account.as_ref() {
+            Some(account) => {
+                if self.gen.rng.gen_bool(0.8) {
+                    signed_command::Body::Payment(self.gen_from_account(account))
+                } else {
+                    signed_command::Body::StakeDelegation(self.gen())
+                }
+            }
+            None => signed_command::Body::StakeDelegation(self.gen()),
         };
 
         let fee = match account.as_ref() {
@@ -2151,7 +2020,7 @@ impl Generator<SignedCommand> for FuzzerCtx {
 impl Generator<UserCommand> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> UserCommand {
-        match vec![0, 1].choose(&mut self.gen.rng).unwrap() {
+        match [0, 1].choose(&mut self.gen.rng).unwrap() {
             0 => UserCommand::SignedCommand(Box::new(self.gen())),
             1 => UserCommand::ZkAppCommand(Box::new(self.gen())),
             _ => unimplemented!(),
@@ -2167,24 +2036,28 @@ impl Generator<Transaction> for FuzzerCtx {
 }
 
 impl Generator<Number<u64>> for FuzzerCtx {
+    #[coverage(off)]
     fn gen(&mut self) -> Number<u64> {
         Number(self.gen.rng.gen())
     }
 }
 
 impl Generator<Number<i64>> for FuzzerCtx {
+    #[coverage(off)]
     fn gen(&mut self) -> Number<i64> {
         Number(self.gen.rng.gen())
     }
 }
 
 impl Generator<Number<u32>> for FuzzerCtx {
+    #[coverage(off)]
     fn gen(&mut self) -> Number<u32> {
         Number(self.gen.rng.gen())
     }
 }
 
 impl Generator<Number<i32>> for FuzzerCtx {
+    #[coverage(off)]
     fn gen(&mut self) -> Number<i32> {
         Number(self.gen.rng.gen())
     }
