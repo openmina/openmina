@@ -3,7 +3,7 @@ use openmina_core::{
     impl_substate_access,
     requests::RpcId,
     snark::{Snark, SnarkInfo, SnarkJobCommitment},
-    transaction::TransactionInfo,
+    transaction::{TransactionInfo, TransactionWithHash},
     ChainId, SubstateAccess,
 };
 use redux::{Callback, Timestamp};
@@ -35,7 +35,7 @@ use crate::{
     Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
     P2pNetworkSchedulerState, P2pTimeouts, PeerId,
 };
-use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
+use mina_p2p_messages::v2;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pState {
@@ -496,8 +496,7 @@ pub struct P2pCallbacks {
     /// Callback for [`P2pChannelsTransactionAction::Received`]
     pub on_p2p_channels_transaction_received: OptionalCallback<(PeerId, Box<TransactionInfo>)>,
     /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
-    pub on_p2p_channels_transaction_libp2p_received:
-        OptionalCallback<Box<MinaBaseUserCommandStableV2>>,
+    pub on_p2p_channels_transaction_libp2p_received: OptionalCallback<Box<TransactionWithHash>>,
     /// Callback for [`P2pChannelsSnarkJobCommitmentAction::Received`]
     pub on_p2p_channels_snark_job_commitment_received:
         OptionalCallback<(PeerId, Box<SnarkJobCommitment>)>,
@@ -529,7 +528,8 @@ pub struct P2pCallbacks {
         OptionalCallback<(RpcId, PeerId, P2pConnectionResponse)>,
 
     /// Callback for [`P2pPeerAction::BestTipUpdate`]
-    pub on_p2p_peer_best_tip_update: OptionalCallback<BlockWithHash<Arc<MinaBlockBlockStableV2>>>,
+    pub on_p2p_peer_best_tip_update:
+        OptionalCallback<BlockWithHash<Arc<v2::MinaBlockBlockStableV2>>>,
 
     /// Callback for [`P2pChannelsRpcAction::Ready`]
     pub on_p2p_channels_rpc_ready: OptionalCallback<PeerId>,

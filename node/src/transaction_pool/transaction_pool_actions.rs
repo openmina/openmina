@@ -7,11 +7,8 @@ use ledger::{
     },
     Account, AccountId,
 };
-use mina_p2p_messages::{
-    list::List,
-    v2::{self, LedgerHash},
-};
-use openmina_core::{requests::RpcId, ActionEvent};
+use mina_p2p_messages::{list::List, v2};
+use openmina_core::{requests::RpcId, transaction::TransactionWithHash, ActionEvent};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +22,7 @@ pub type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Transa
 pub enum TransactionPoolAction {
     Candidate(TransactionPoolCandidateAction),
     StartVerify {
-        commands: List<v2::MinaBaseUserCommandStableV2>,
+        commands: List<TransactionWithHash>,
         from_rpc: Option<RpcId>,
     },
     StartVerifyWithAccounts {
@@ -38,13 +35,13 @@ pub enum TransactionPoolAction {
         errors: Vec<String>,
     },
     BestTipChanged {
-        best_tip_hash: LedgerHash,
+        best_tip_hash: v2::LedgerHash,
     },
     BestTipChangedWithAccounts {
         accounts: BTreeMap<AccountId, Account>,
     },
     ApplyVerifiedDiff {
-        best_tip_hash: LedgerHash,
+        best_tip_hash: v2::LedgerHash,
         diff: DiffVerified,
         /// Diff was crearted locally, or from remote peer ?
         is_sender_local: bool,
@@ -55,7 +52,7 @@ pub enum TransactionPoolAction {
         pending_id: PendingId,
     },
     ApplyTransitionFrontierDiff {
-        best_tip_hash: LedgerHash,
+        best_tip_hash: v2::LedgerHash,
         diff: BestTipDiff,
     },
     ApplyTransitionFrontierDiffWithAccounts {
@@ -81,6 +78,9 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             TransactionPoolAction::Candidate(a) => a.is_enabled(state, time),
+            TransactionPoolAction::StartVerify { commands, .. } => commands
+                .iter()
+                .any(|cmd| !state.transaction_pool.contains(cmd.hash())),
             TransactionPoolAction::P2pSendAll => true,
             TransactionPoolAction::P2pSend { peer_id } => state
                 .p2p
@@ -125,7 +125,7 @@ type TransactionPoolEffectfulActionCallback = Callback<(
 pub enum TransactionPoolEffectfulAction {
     FetchAccounts {
         account_ids: BTreeSet<AccountId>,
-        ledger_hash: LedgerHash,
+        ledger_hash: v2::LedgerHash,
         on_result: TransactionPoolEffectfulActionCallback,
         pending_id: Option<PendingId>,
         from_rpc: Option<RpcId>,
