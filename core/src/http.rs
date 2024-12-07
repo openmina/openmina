@@ -43,7 +43,47 @@ mod http {
             panic!("can't do blocking requests from main browser thread");
         }
     }
+
+    fn _download(filename: &str, data: &[u8]) -> std::io::Result<()> {
+        let blob_input = js_sys::Array::of1(&js_sys::Uint8Array::from(data).into());
+        let blob = web_sys::Blob::new_with_u8_slice_sequence(&blob_input).map_err(to_io_err)?;
+        let url = web_sys::Url::create_object_url_with_blob(&blob).map_err(to_io_err)?;
+
+        let document = web_sys::window()
+            .and_then(|v| v.document())
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "window.document object not available",
+                )
+            })?;
+        let a = document
+            .create_element("a")
+            .map_err(to_io_err)?
+            .dyn_into::<web_sys::HtmlAnchorElement>()
+            .map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "window.document object not available",
+                )
+            })?;
+
+        a.set_href(&url);
+        a.set_download(filename);
+        a.click();
+
+        Ok(())
+    }
+
+    pub fn download(filename: String, data: Vec<u8>) -> std::io::Result<()> {
+        if thread::is_web_worker_thread() {
+            thread::run_async_fn_in_main_thread_blocking(move || async move { _download(&filename, &data) })
+                .expect("failed to run task in the main thread! Maybe main thread crashed or not initialized?")
+        } else {
+            _download(&filename, &data)
+        }
+    }
 }
 
 #[cfg(target_family = "wasm")]
-pub use http::{get_bytes, get_bytes_blocking};
+pub use http::{download, get_bytes, get_bytes_blocking};
