@@ -7,7 +7,7 @@ use crate::{
     P2pNetworkPubsubAction, P2pState,
 };
 use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
-use openmina_core::{bug_condition, Substate};
+use openmina_core::{bug_condition, transaction::TransactionWithHash, Substate};
 use redux::ActionWithMeta;
 
 impl P2pChannelsTransactionState {
@@ -220,7 +220,9 @@ impl P2pChannelsTransactionState {
                     .callbacks
                     .on_p2p_channels_transaction_libp2p_received
                 {
-                    dispatcher.push_callback(callback.clone(), transaction);
+                    if let Ok(transaction) = TransactionWithHash::try_new(*transaction) {
+                        dispatcher.push_callback(callback.clone(), Box::new(transaction));
+                    }
                 }
 
                 Ok(())

@@ -7,7 +7,10 @@ use ledger::{
     Account, AccountId,
 };
 use openmina_core::{
-    bug_condition, constants::constraint_constants, requests::RpcId, transaction::Transaction,
+    bug_condition,
+    constants::constraint_constants,
+    requests::RpcId,
+    transaction::{Transaction, TransactionWithHash},
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
@@ -56,6 +59,7 @@ impl TransactionPoolState {
             TransactionPoolAction::StartVerify { commands, from_rpc } => {
                 let Ok(commands) = commands
                     .iter()
+                    .map(TransactionWithHash::body)
                     .map(UserCommand::try_from)
                     .collect::<Result<Vec<_>, _>>()
                 else {
@@ -95,6 +99,7 @@ impl TransactionPoolState {
                 // TODO: Convert those commands only once
                 let Ok(commands) = commands
                     .iter()
+                    .map(TransactionWithHash::body)
                     .map(UserCommand::try_from)
                     .collect::<Result<Vec<_>, _>>()
                 else {

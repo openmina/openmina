@@ -1,9 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
+use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
-use openmina_core::transaction::TransactionInfo;
+use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
 use rand::prelude::*;
 
 use openmina_core::block::BlockWithHash;
@@ -524,7 +524,7 @@ impl P2p {
     fn p2p_callbacks() -> P2pCallbacks {
         P2pCallbacks {
             on_p2p_channels_transaction_received: Some(redux::callback!(
-                on_p2p_channels_transaction_received((peer_id: PeerId, info: Box<TransactionInfo>)) -> crate::Action{
+                on_p2p_channels_transaction_received((peer_id: PeerId, info: Box<TransactionInfo>)) -> crate::Action {
                     TransactionPoolCandidateAction::InfoReceived {
                         peer_id,
                         info: *info,
@@ -532,7 +532,7 @@ impl P2p {
                 }
             )),
             on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
-                on_p2p_channels_transaction_libp2p_received(transaction: Box<MinaBaseUserCommandStableV2>) -> crate::Action{
+                on_p2p_channels_transaction_libp2p_received(transaction: Box<TransactionWithHash>) -> crate::Action {
                     TransactionPoolAction::StartVerify {
                         commands: std::iter::once(*transaction).collect(),
                         from_rpc: None
@@ -540,92 +540,92 @@ impl P2p {
                 }
             )),
             on_p2p_channels_snark_job_commitment_received: Some(redux::callback!(
-                on_p2p_channels_snark_job_commitment_received((peer_id: PeerId, commitment: Box<SnarkJobCommitment>)) -> crate::Action{
+                on_p2p_channels_snark_job_commitment_received((peer_id: PeerId, commitment: Box<SnarkJobCommitment>)) -> crate::Action {
                     SnarkPoolAction::CommitmentAdd { commitment: *commitment, sender: peer_id }
                 }
             )),
             on_p2p_channels_snark_received: Some(redux::callback!(
-                on_p2p_channels_snark_received((peer_id: PeerId, snark: Box<SnarkInfo>)) -> crate::Action{
+                on_p2p_channels_snark_received((peer_id: PeerId, snark: Box<SnarkInfo>)) -> crate::Action {
                     SnarkPoolCandidateAction::InfoReceived { peer_id, info: *snark }
                 }
             )),
             on_p2p_channels_snark_libp2p_received: Some(redux::callback!(
-                on_p2p_channels_snark_libp2p_received((peer_id: PeerId, snark: Box<Snark>)) -> crate::Action{
+                on_p2p_channels_snark_libp2p_received((peer_id: PeerId, snark: Box<Snark>)) -> crate::Action {
                     SnarkPoolCandidateAction::WorkFetchSuccess { peer_id, work: *snark }
                 }
             )),
             on_p2p_channels_streaming_rpc_ready: Some(redux::callback!(
-                on_p2p_channels_streaming_rpc_ready(_var: ()) -> crate::Action{
+                on_p2p_channels_streaming_rpc_ready(_var: ()) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsStreamingRpcReady
                 }
             )),
             on_p2p_channels_best_tip_request_received: Some(redux::callback!(
-                on_p2p_channels_best_tip_request_received(peer_id: PeerId) -> crate::Action{
+                on_p2p_channels_best_tip_request_received(peer_id: PeerId) -> crate::Action {
                     P2pCallbacksAction::RpcRespondBestTip { peer_id }
                 }
             )),
             on_p2p_disconnection_finish: Some(redux::callback!(
-                on_p2p_disconnection_finish(peer_id: PeerId) -> crate::Action{
+                on_p2p_disconnection_finish(peer_id: PeerId) -> crate::Action {
                     P2pCallbacksAction::P2pDisconnection { peer_id }
                 }
             )),
             on_p2p_connection_outgoing_error: Some(redux::callback!(
-                on_p2p_connection_outgoing_error((rpc_id: RpcId, error: P2pConnectionOutgoingError)) -> crate::Action{
+                on_p2p_connection_outgoing_error((rpc_id: RpcId, error: P2pConnectionOutgoingError)) -> crate::Action {
                     RpcAction::P2pConnectionOutgoingError { rpc_id, error }
                 }
             )),
             on_p2p_connection_outgoing_success: Some(redux::callback!(
-                on_p2p_connection_outgoing_success(rpc_id: RpcId) -> crate::Action{
+                on_p2p_connection_outgoing_success(rpc_id: RpcId) -> crate::Action {
                     RpcAction::P2pConnectionOutgoingSuccess { rpc_id }
                 }
             )),
             on_p2p_connection_incoming_error: Some(redux::callback!(
-                on_p2p_connection_incoming_error((rpc_id: RpcId, error: String)) -> crate::Action{
+                on_p2p_connection_incoming_error((rpc_id: RpcId, error: String)) -> crate::Action {
                     RpcAction::P2pConnectionIncomingError { rpc_id, error }
                 }
             )),
             on_p2p_connection_incoming_success: Some(redux::callback!(
-                on_p2p_connection_incoming_success(rpc_id: RpcId) -> crate::Action{
+                on_p2p_connection_incoming_success(rpc_id: RpcId) -> crate::Action {
                     RpcAction::P2pConnectionIncomingSuccess { rpc_id }
                 }
             )),
             on_p2p_connection_incoming_answer_ready: Some(redux::callback!(
-                on_p2p_connection_incoming_answer_ready((rpc_id: RpcId, peer_id: PeerId, answer: P2pConnectionResponse)) -> crate::Action{
+                on_p2p_connection_incoming_answer_ready((rpc_id: RpcId, peer_id: PeerId, answer: P2pConnectionResponse)) -> crate::Action {
                     RpcAction::P2pConnectionIncomingAnswerReady { rpc_id, answer, peer_id }
                 }
             )),
             on_p2p_peer_best_tip_update: Some(redux::callback!(
-                on_p2p_peer_best_tip_update(best_tip: BlockWithHash<Arc<MinaBlockBlockStableV2>>) -> crate::Action{
+                on_p2p_peer_best_tip_update(best_tip: BlockWithHash<Arc<v2::MinaBlockBlockStableV2>>) -> crate::Action {
                     ConsensusAction::P2pBestTipUpdate { best_tip }
                 }
             )),
             on_p2p_channels_rpc_ready: Some(redux::callback!(
-                on_p2p_channels_rpc_ready(peer_id: PeerId) -> crate::Action{
+                on_p2p_channels_rpc_ready(peer_id: PeerId) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsRpcReady { peer_id }
                 }
             )),
             on_p2p_channels_rpc_timeout: Some(redux::callback!(
-                on_p2p_channels_rpc_timeout((peer_id: PeerId, id: P2pRpcId)) -> crate::Action{
+                on_p2p_channels_rpc_timeout((peer_id: PeerId, id: P2pRpcId)) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsRpcTimeout { peer_id, id }
                 }
             )),
             on_p2p_channels_rpc_response_received: Some(redux::callback!(
-                on_p2p_channels_rpc_response_received((peer_id: PeerId, id: P2pRpcId, response: Option<Box<P2pRpcResponse>>)) -> crate::Action{
+                on_p2p_channels_rpc_response_received((peer_id: PeerId, id: P2pRpcId, response: Option<Box<P2pRpcResponse>>)) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsRpcResponseReceived { peer_id, id, response }
                 }
             )),
             on_p2p_channels_rpc_request_received: Some(redux::callback!(
-                on_p2p_channels_rpc_request_received((peer_id: PeerId, id: P2pRpcId, request: Box<P2pRpcRequest>)) -> crate::Action{
+                on_p2p_channels_rpc_request_received((peer_id: PeerId, id: P2pRpcId, request: Box<P2pRpcRequest>)) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsRpcRequestReceived { peer_id, id, request }
                 }
             )),
             on_p2p_channels_streaming_rpc_response_received: Some(redux::callback!(
-                on_p2p_channels_streaming_rpc_response_received((peer_id: PeerId, id: P2pRpcId, response: Option<P2pStreamingRpcResponseFull>)) -> crate::Action{
+                on_p2p_channels_streaming_rpc_response_received((peer_id: PeerId, id: P2pRpcId, response: Option<P2pStreamingRpcResponseFull>)) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsStreamingRpcResponseReceived { peer_id, id, response }
                 }
             )),
             on_p2p_channels_streaming_rpc_timeout: Some(redux::callback!(
-                on_p2p_channels_streaming_rpc_timeout((peer_id: PeerId, id: P2pRpcId)) -> crate::Action{
+                on_p2p_channels_streaming_rpc_timeout((peer_id: PeerId, id: P2pRpcId)) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsStreamingRpcTimeout { peer_id, id }
                 }
             )),

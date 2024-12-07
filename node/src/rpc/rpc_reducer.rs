@@ -2,6 +2,7 @@ use openmina_core::{
     block::AppliedBlock,
     bug_condition,
     requests::{RequestId, RpcId, RpcIdType},
+    transaction::TransactionWithHash,
 };
 use p2p::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
@@ -499,10 +500,17 @@ impl RpcState {
                 };
                 state.requests.insert(*rpc_id, rpc_state);
 
+                let commands_with_hash = commands
+                    .clone()
+                    .into_iter()
+                    // TODO: do something it it cannot be hashed?
+                    .filter_map(|cmd| TransactionWithHash::try_new(cmd).ok())
+                    .collect();
+
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(RpcAction::TransactionInjectPending { rpc_id: *rpc_id });
                 dispatcher.push(TransactionPoolAction::StartVerify {
-                    commands: commands.clone().into_iter().collect(),
+                    commands: commands_with_hash,
                     from_rpc: Some(*rpc_id),
                 });
             }
