@@ -4790,6 +4790,7 @@ dependencies = [
  "console_error_panic_hook",
  "derive_more",
  "gloo-utils",
+ "js-sys",
  "jsonpath-rust",
  "libp2p-identity",
  "mina-p2p-messages",
