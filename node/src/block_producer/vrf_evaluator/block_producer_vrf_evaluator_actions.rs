@@ -28,12 +28,16 @@ pub type BlockProducerVrfEvaluatorActionWithMetaRef<'a> =
 #[action_event(level = info)]
 pub enum BlockProducerVrfEvaluatorAction {
     /// Vrf Evaluation requested.
-    #[action_event(level = trace, fields(debug(vrp_input)))]
-    EvaluateSlot { vrf_input: VrfEvaluatorInput },
+    #[action_event(level = trace, fields(debug(vrf_input), start_slot, batch_size))]
+    EvaluateSlotsBatch {
+        vrf_input: VrfEvaluatorInput,
+        start_slot: u32,
+        batch_size: u32,
+    },
     /// Evaluation successful.
-    #[action_event(expr(log_vrf_output(context, vrf_output)))]
-    ProcessSlotEvaluationSuccess {
-        vrf_output: VrfEvaluationOutput,
+    #[action_event(expr(log_vrf_output(context, vrf_outputs)))]
+    ProcessSlotsBatchEvaluationSuccess {
+        vrf_outputs: Vec<VrfEvaluationOutput>,
         staking_ledger_hash: LedgerHash,
     },
     #[action_event(level = trace)]
@@ -125,11 +129,11 @@ pub enum BlockProducerVrfEvaluatorAction {
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction {
     fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
-            BlockProducerVrfEvaluatorAction::EvaluateSlot { .. } => state
+            BlockProducerVrfEvaluatorAction::EvaluateSlotsBatch { .. } => state
                 .block_producer
                 .with(false, |this| this.vrf_evaluator.is_evaluating()),
-            BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
-                vrf_output,
+            BlockProducerVrfEvaluatorAction::ProcessSlotsBatchEvaluationSuccess {
+                vrf_outputs,
                 staking_ledger_hash,
                 ..
             } => state.block_producer.with(false, |this| {
@@ -139,7 +143,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
                             .latest_evaluated_slot
                             .checked_add(1)
                             .expect("overflow")
-                            == vrf_output.global_slot()
+                            == vrf_outputs.first().map_or(0, |o| o.global_slot())
                             && current_evaluation.epoch_data.ledger == *staking_ledger_hash
                     } else {
                         false
@@ -228,23 +232,25 @@ impl From<BlockProducerVrfEvaluatorAction> for crate::Action {
     }
 }
 
-fn log_vrf_output<T>(context: &T, vrf_output: &VrfEvaluationOutput)
+fn log_vrf_output<T>(context: &T, vrf_outputs: &[VrfEvaluationOutput])
 where
     T: openmina_core::log::EventContext,
 {
-    match vrf_output {
-        VrfEvaluationOutput::SlotWon(VrfWonSlot {
-            global_slot,
-            vrf_output,
-            ..
-        }) => action_info!(
-            context,
-            summary = "Slot evaluation result - won slot",
-            global_slot,
-            vrf_output = display(vrf_output)
-        ),
-        VrfEvaluationOutput::SlotLost(_) => {
-            action_trace!(context, summary = "Slot evaluation result - lost slot")
+    for vrf_output in vrf_outputs {
+        match vrf_output {
+            VrfEvaluationOutput::SlotWon(VrfWonSlot {
+                global_slot,
+                vrf_output,
+                ..
+            }) => action_info!(
+                context,
+                summary = "Slot evaluation result - won slot",
+                global_slot,
+                vrf_output = display(vrf_output)
+            ),
+            VrfEvaluationOutput::SlotLost(_) => {
+                action_trace!(context, summary = "Slot evaluation result - lost slot")
+            }
         }
     }
 }

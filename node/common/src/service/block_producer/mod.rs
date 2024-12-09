@@ -17,16 +17,22 @@ use node::{
 
 use crate::EventSender;
 
+pub struct VrfEvaluatorBatch {
+    vrf_evaluator_input: VrfEvaluatorInput,
+    start_slot: u32,
+    batch_size: u32,
+}
+
 pub struct BlockProducerService {
     provers: Option<BlockProver>,
     keypair: AccountSecretKey,
-    vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
+    vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorBatch>,
 }
 
 impl BlockProducerService {
     pub fn new(
         keypair: AccountSecretKey,
-        vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
+        vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorBatch>,
         provers: Option<BlockProver>,
     ) -> Self {
         Self {
@@ -42,7 +48,7 @@ impl BlockProducerService {
         provers: Option<BlockProver>,
     ) -> Self {
         let (vrf_evaluation_sender, vrf_evaluation_receiver) =
-            mpsc::unbounded_channel::<VrfEvaluatorInput>();
+            mpsc::unbounded_channel::<VrfEvaluatorBatch>();
 
         let producer_keypair = keypair.clone();
         thread::Builder::new()

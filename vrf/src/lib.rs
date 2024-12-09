@@ -79,13 +79,13 @@ impl VrfEvaluationOutput {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VrfEvaluationInput {
-    producer_key: Keypair,
-    global_slot: u32,
-    epoch_seed: EpochSeed,
-    account_pub_key: AccountPublicKey,
-    delegator_index: AccountIndex,
-    delegated_stake: BigInt,
-    total_currency: BigInt,
+    pub producer_key: Keypair,
+    pub global_slot: u32,
+    pub epoch_seed: EpochSeed,
+    pub account_pub_key: AccountPublicKey,
+    pub delegator_index: AccountIndex,
+    pub delegated_stake: BigInt,
+    pub total_currency: BigInt,
 }
 
 impl VrfEvaluationInput {
@@ -136,7 +136,7 @@ fn calculate_vrf(
 }
 
 /// Evaluate vrf with a specific input. Used by the block producer
-pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOutput> {
+pub fn evaluate_vrf(vrf_input: &VrfEvaluationInput) -> VrfResult<VrfEvaluationOutput> {
     let VrfEvaluationInput {
         producer_key,
         global_slot,
@@ -146,17 +146,24 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
         total_currency,
         account_pub_key,
     } = vrf_input;
+    let global_slot = *global_slot;
+    let delegator_index = *delegator_index;
 
-    let vrf_output = calculate_vrf(&producer_key, epoch_seed, global_slot, &delegator_index)?;
+    let vrf_output = calculate_vrf(
+        producer_key,
+        epoch_seed.clone(),
+        global_slot,
+        &delegator_index,
+    )?;
 
     let value = vrf_output.truncated().into_repr();
-    let threshold = Threshold::new(delegated_stake, total_currency);
+    let threshold = Threshold::new(delegated_stake.clone(), total_currency.clone());
 
     if threshold.threshold_met(value) {
         Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
-            producer: producer_key.public.into(),
+            producer: producer_key.public.clone().into(),
             vrf_output: Box::new(vrf_output),
-            winner_account: account_pub_key,
+            winner_account: account_pub_key.clone(),
             global_slot,
             account_index: delegator_index,
             value_with_threshold: None.or_else(|| {
@@ -221,7 +228,9 @@ mod test {
             total_currency: BigInt::from_str("6000000000001000").expect("Cannot convert to BigInt"),
             account_pub_key: AccountSecretKey::genesis_producer().public_key(),
         };
-        let evaluation_result = evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
+
+        let evaluation_result = evaluate_vrf(&vrf_input).expect("Failed to evaluate vrf");
+
         assert_eq!(
             evaluation_result,
             VrfEvaluationOutput::SlotLost(vrf_input.global_slot)
@@ -244,7 +253,7 @@ mod test {
             account_pub_key: AccountSecretKey::genesis_producer().public_key(),
         };
 
-        let evaluation_result = evaluate_vrf(vrf_input).expect("Failed to evaluate vrf");
+        let evaluation_result = evaluate_vrf(&vrf_input).expect("Failed to evaluate vrf");
 
         if let VrfEvaluationOutput::SlotWon(won_slot) = evaluation_result {
             assert_eq!(
@@ -284,7 +293,7 @@ mod test {
                     .expect("Cannot convert to BigInt"),
                 account_pub_key: AccountSecretKey::genesis_producer().public_key(),
             };
-            let _ = evaluate_vrf(vrf_input).expect("Failed to evaluate VRF");
+            let _ = evaluate_vrf(&vrf_input).expect("Failed to evaluate VRF");
             if i % 100 == 0 {
                 println!("Delegators evaluated: {}", i);
             }
@@ -313,8 +322,7 @@ mod test {
                     .expect("Cannot convert to BigInt"),
                 account_pub_key: AccountSecretKey::genesis_producer().public_key(),
             };
-            let evaluation_result =
-                evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
+            let evaluation_result = evaluate_vrf(&vrf_input).expect("Failed to evaluate vrf");
             if evaluation_result != VrfEvaluationOutput::SlotLost(vrf_input.global_slot) {
                 println!("{:?}", evaluation_result);
             }

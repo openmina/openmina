@@ -61,7 +61,7 @@ impl Evaluator {
                         total_currency.clone(),
                     );
 
-                    if let Ok(VrfEvaluationOutput::SlotWon(_)) = vrf::evaluate_vrf(vrf_input) {
+                    if let Ok(VrfEvaluationOutput::SlotWon(_)) = vrf::evaluate_vrf(&vrf_input) {
                         println!("Won slot: {global_slot}");
 
                         // TODO(adonagy): handle error
