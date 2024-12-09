@@ -7,7 +7,7 @@ use crate::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
         P2pConnectionState,
     },
-    disconnection::P2pDisconnectedState,
+    disconnection::{P2pDisconnectedState, P2pDisconnectionAction},
     P2pAction, P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkPnetAction,
     P2pNetworkRpcAction, P2pNetworkSelectAction, P2pNetworkState, P2pPeerState, P2pState, PeerId,
 };
@@ -81,6 +81,7 @@ impl P2pState {
 
         state.p2p_connection_timeouts_dispatch(dispatcher, time)?;
         dispatcher.push(P2pConnectionOutgoingAction::RandomInit);
+        dispatcher.push(P2pDisconnectionAction::RandomTry);
 
         state.p2p_try_reconnect_disconnected_peers(dispatcher, time)?;
         state.p2p_discovery(dispatcher, time)?;

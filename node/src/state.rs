@@ -309,7 +309,7 @@ impl State {
     }
 
     pub fn pseudo_rng(&self) -> StdRng {
-        StdRng::seed_from_u64(self.time().into())
+        crate::core::pseudo_rng(self.time())
     }
 
     /// Must be called in the global reducer as the last thing only once
