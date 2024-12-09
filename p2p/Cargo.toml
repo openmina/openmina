@@ -12,7 +12,7 @@ serde_with = { workspace = true }
 strum = "0.26"
 strum_macros = "0.26"
 derive_more = "0.99.17"
-rand = { version = "0.8", features = [ "small_rng" ] }
+rand = { version = "0.8", features = ["small_rng"] }
 bytes = "*"
 bs58 = "0.4.0"
 base64 = "0.22"
@@ -32,13 +32,20 @@ reqwest = { version = "0.11.22", optional = true }
 unsigned-varint = { version = "0.8.0" }
 hex = { version = "0.4.3" }
 bitflags = { version = "2.4.1", features = ["serde"] }
+graphannis-malloc_size_of = "2.0.0"
+graphannis-malloc_size_of_derive = "2.0.0"
+
 # crypto
 zeroize = { version = "1.7" }
 hkdf = { version = "0.12.4" }
 blake2 = { version = "0.10.6" }
 chacha20poly1305 = { version = "0.10.1" }
 curve25519-dalek = { version = "4.1", features = ["legacy_compatibility"] }
-libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }
+libp2p-identity = { version = "=0.2.7", features = [
+    "ed25519",
+    "rand",
+    "serde",
+] }
 multiaddr = { version = "0.18.1" }
 
 redux = { workspace = true }
@@ -48,7 +55,11 @@ salsa-simple = { path = "../tools/salsa-simple" }
 openmina-core = { path = "../core" }
 openmina-macros = { path = "../macros" }
 quick-protobuf = "0.8.1"
-crypto-bigint = { version = "0.5.5", features = ["generic-array", "serde", "alloc"] }
+crypto-bigint = { version = "0.5.5", features = [
+    "generic-array",
+    "serde",
+    "alloc",
+] }
 
 prost = { version = "0.12.4" }
 
@@ -66,7 +77,7 @@ p2p-testing = { path = "testing" }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-redux = { workspace = true, features=["serializable_callbacks"] }
+redux = { workspace = true, features = ["serializable_callbacks"] }
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "e8705db39af1b198b324a5db6ff57fb213ba75e9", optional = true }
 datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1bfb064d0ff3e54a93ae0288409902aab8d102d3", optional = true, features = ["vendored"] }
@@ -81,7 +92,24 @@ wasm-bindgen-futures = "0.4"
 gloo-timers = { version = "0.3", features = ["futures"] }
 gloo-utils = "0.2"
 js-sys = "0.3.64"
-web-sys = { version = "0.3", features = ["MessageEvent", "RtcPeerConnection", "RtcConfiguration", "RtcIceTransportPolicy", "RtcDataChannel", "RtcDataChannelInit", "RtcSessionDescription", "RtcSessionDescriptionInit", "RtcSdpType", "RtcPeerConnectionState", "RtcIceGatheringState", "Window", "Request", "RequestInit", "Headers", "Response"] }
+web-sys = { version = "0.3", features = [
+    "MessageEvent",
+    "RtcPeerConnection",
+    "RtcConfiguration",
+    "RtcIceTransportPolicy",
+    "RtcDataChannel",
+    "RtcDataChannelInit",
+    "RtcSessionDescription",
+    "RtcSessionDescriptionInit",
+    "RtcSdpType",
+    "RtcPeerConnectionState",
+    "RtcIceGatheringState",
+    "Window",
+    "Request",
+    "RequestInit",
+    "Headers",
+    "Response",
+] }
 tokio = { version = "1.26", features = ["macros"] }
 getrandom = { version = "0.2", features = ["js"] }
 

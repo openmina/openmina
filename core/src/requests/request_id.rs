@@ -142,3 +142,15 @@ impl<T> Clone for RequestId<T> {
 }
 
 impl<T> Copy for RequestId<T> {}
+
+mod measurement {
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::RequestId;
+
+    impl<T> MallocSizeOf for RequestId<T> {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+            0
+        }
+    }
+}

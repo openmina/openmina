@@ -1,5 +1,7 @@
 use openmina_core::requests::RpcId;
 use redux::Timestamp;
+
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 use crate::P2pTimeouts;
@@ -7,7 +9,7 @@ use crate::P2pTimeouts;
 use super::incoming::{P2pConnectionIncomingInitOpts, P2pConnectionIncomingState};
 use super::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 #[serde(tag = "direction")]
 pub enum P2pConnectionState {
     Outgoing(P2pConnectionOutgoingState),

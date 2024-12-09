@@ -503,3 +503,17 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitLibp2pOpts {
         })
     }
 }
+
+mod measurement {
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::P2pConnectionOutgoingInitOpts;
+
+    // `Host` may contain `String` which allocates
+    // but hostname usually small, compared to `String` container size 24 bytes
+    impl MallocSizeOf for P2pConnectionOutgoingInitOpts {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+            0
+        }
+    }
+}

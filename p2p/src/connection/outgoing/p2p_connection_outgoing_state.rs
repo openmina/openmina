@@ -1,3 +1,4 @@
+use malloc_size_of_derive::MallocSizeOf;
 use redux::{Callback, Timestamp};
 use serde::{Deserialize, Serialize};
 
@@ -7,7 +8,7 @@ use crate::{connection::RejectionReason, webrtc, P2pTimeouts, PeerId};
 
 use super::P2pConnectionOutgoingInitOpts;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pConnectionOutgoingState {
     Init {
         time: Timestamp,
@@ -128,7 +129,7 @@ impl P2pConnectionOutgoingState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error, MallocSizeOf)]
 pub enum P2pConnectionOutgoingError {
     #[error("error creating SDP: {0}")]
     SdpCreateError(String),

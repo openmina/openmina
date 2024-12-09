@@ -52,13 +52,15 @@ mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "c478b1
 # UNCOMMENTED_IN_CI mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "c478b19", features = [ "32x9" ] }
 o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
 kimchi = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
-poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+mina-poseidon = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
+poly-commitment = { git = "https://github.com/openmina/proof-systems", rev = "c478b19" }
 
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
 openmina-node-account = { path = "node/account" }
-redux = { git = "https://github.com/openmina/redux-rs.git", rev = "ab14890c", features = ["serde"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", rev = "a889d5ef", features = [
+    "serde",
+] }
 serde = "1.0.190"
 serde_json = "1.0.107"
 serde_with = { version = "3.7.0", features = ["hex"] }
@@ -66,7 +68,7 @@ linkme = "0.3.22"
 static_assertions = "1.1.0"
 juniper = { version = "0.16" }
 
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-ff = { version = "0.3.0", features = ["parallel", "asm", "std"] }
 # UNCOMMENTED_IN_CI ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std", "32x9" ] }
 
 
@@ -74,7 +76,7 @@ ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
 inherits = "release"
 opt-level = 3
 debug = 2
-debug-assertions = true  # TODO: test and disable if too slow
+debug-assertions = true # TODO: test and disable if too slow
 overflow-checks = true
 lto = false
 panic = "abort"
@@ -82,9 +84,9 @@ incremental = false
 codegen-units = 1
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", rev = "d0343f5" } # branch: fix-openmina-webnode
-ark-ec = { git = "https://github.com/openmina/algebra", rev = "d0343f5" } # branch: fix-openmina-webnode
-ark-poly = { git = "https://github.com/openmina/algebra", rev = "d0343f5" } # branch: fix-openmina-webnode
+ark-ff = { git = "https://github.com/openmina/algebra", rev = "d0343f5" }        # branch: fix-openmina-webnode
+ark-ec = { git = "https://github.com/openmina/algebra", rev = "d0343f5" }        # branch: fix-openmina-webnode
+ark-poly = { git = "https://github.com/openmina/algebra", rev = "d0343f5" }      # branch: fix-openmina-webnode
 ark-serialize = { git = "https://github.com/openmina/algebra", rev = "d0343f5" } # branch: fix-openmina-webnode
 
 num-bigint = { git = "https://github.com/openmina/num-bigint", rev = "8bb5ee4" } # branch: on-stack
