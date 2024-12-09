@@ -56,12 +56,13 @@ pub use self::data::{Data, DataSized};
 mod data {
     use std::{fmt, ops};
 
+    use malloc_size_of_derive::MallocSizeOf;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Clone)]
+    #[derive(Clone, MallocSizeOf)]
     pub struct DataSized<const N: usize>(pub [u8; N]);
 
-    #[derive(Clone, Default)]
+    #[derive(Clone, Default, MallocSizeOf)]
     pub struct Data(pub Box<[u8]>);
 
     impl Data {

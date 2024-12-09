@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use malloc_size_of_derive::MallocSizeOf;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,7 @@ use crate::{webrtc, P2pTimeouts};
 
 use super::IncomingSignalingMethod;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pConnectionIncomingState {
     Init {
         time: redux::Timestamp,
@@ -71,7 +72,9 @@ pub enum P2pConnectionIncomingState {
         rpc_id: Option<RpcId>,
     },
     FinalizePendingLibp2p {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         addr: SocketAddr,
+        #[with_malloc_size_of_func = "measurement::socket_vec"]
         close_duplicates: Vec<SocketAddr>,
         time: redux::Timestamp,
     },
@@ -121,7 +124,7 @@ impl P2pConnectionIncomingState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error, MallocSizeOf)]
 pub enum P2pConnectionIncomingError {
     #[error("error creating SDP: {0}")]
     SdpCreateError(String),
@@ -131,4 +134,14 @@ pub enum P2pConnectionIncomingError {
     ConnectionAuthError,
     #[error("timeout error")]
     Timeout,
+}
+
+mod measurement {
+    use std::{mem, net::SocketAddr};
+
+    use malloc_size_of::MallocSizeOfOps;
+
+    pub fn socket_vec(val: &Vec<SocketAddr>, _ops: &mut MallocSizeOfOps) -> usize {
+        val.capacity() * mem::size_of::<SocketAddr>()
+    }
 }

@@ -6,6 +6,7 @@ pub use p2p_connection_incoming_actions::*;
 
 mod p2p_connection_incoming_reducer;
 
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::RejectionReason;
@@ -19,7 +20,7 @@ pub struct P2pConnectionIncomingInitOpts {
 }
 
 // TODO(binier): maybe move to `crate::webrtc`?
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy, MallocSizeOf)]
 pub enum IncomingSignalingMethod {
     /// Http rpc is used for sending offer and getting answer as a response.
     Http,

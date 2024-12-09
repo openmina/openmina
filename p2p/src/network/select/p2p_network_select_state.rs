@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use malloc_size_of_derive::MallocSizeOf;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use token::Token;
@@ -8,7 +9,7 @@ use crate::{ConnectionAddr, Data, P2pTimeouts};
 
 use super::*;
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkSelectState {
     pub time: Option<Timestamp>,
     pub recv: token::State,
@@ -110,7 +111,7 @@ impl P2pNetworkSelectState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pNetworkSelectStateInner {
     Error(String),
     Initiator { proposing: token::Protocol },

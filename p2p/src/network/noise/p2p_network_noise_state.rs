@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use zeroize::Zeroize;
@@ -15,8 +16,9 @@ use crate::{identity::PublicKey, PeerId};
 
 use super::super::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkNoiseState {
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub local_pk: PublicKey,
     pub buffer: Vec<u8>,
     pub incoming_chunks: VecDeque<Vec<u8>>,
@@ -94,7 +96,7 @@ impl P2pNetworkNoiseState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pNetworkNoiseStateInner {
     Initiator(P2pNetworkNoiseStateInitiator),
     Responder(P2pNetworkNoiseStateResponder),
@@ -105,10 +107,11 @@ pub enum P2pNetworkNoiseStateInner {
         // noise_hash: DataSized<32>,
         recv_nonce: u64,
         send_nonce: u64,
+        #[ignore_malloc_size_of = "doesn't allocate"]
         remote_pk: PublicKey,
         remote_peer_id: PeerId,
     },
-    Error(NoiseError),
+    Error(#[ignore_malloc_size_of = "error"] NoiseError),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -595,6 +598,29 @@ mod wrapper {
                 .and_then(|b| b.try_into().map_err(|_| Error::custom("wrong length")))
                 .map(Scalar::from_bits)
                 .map(Self)
+        }
+    }
+}
+
+mod measurement {
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::{P2pNetworkNoiseStateInitiator, P2pNetworkNoiseStateResponder};
+
+    impl MallocSizeOf for P2pNetworkNoiseStateInitiator {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+            self.payload.len()
+        }
+    }
+
+    impl MallocSizeOf for P2pNetworkNoiseStateResponder {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+            match self {
+                Self::Init {
+                    buffer, payload, ..
+                } => buffer.capacity() + payload.len(),
+                _ => 0,
+            }
         }
     }
 }

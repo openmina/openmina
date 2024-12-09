@@ -58,7 +58,9 @@ poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "dec
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
 openmina-node-account = { path = "node/account" }
-redux = { git = "https://github.com/openmina/redux-rs.git", rev = "ab14890c", features = ["serde"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", rev = "a889d5ef", features = [
+    "serde",
+] }
 serde = "1.0.190"
 serde_json = "1.0.107"
 serde_with = { version = "3.7.0", features = ["hex"] }
@@ -66,7 +68,7 @@ linkme = "0.3.22"
 static_assertions = "1.1.0"
 juniper = { version = "0.16" }
 
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-ff = { version = "0.3.0", features = ["parallel", "asm", "std"] }
 # UNCOMMENTED_IN_CI ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std", "32x9" ] }
 
 
@@ -74,7 +76,7 @@ ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
 inherits = "release"
 opt-level = 3
 debug = 2
-debug-assertions = true  # TODO: test and disable if too slow
+debug-assertions = true # TODO: test and disable if too slow
 overflow-checks = true
 lto = false
 panic = "abort"

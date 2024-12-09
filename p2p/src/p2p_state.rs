@@ -1,3 +1,9 @@
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+    time::Duration,
+};
+
 use openmina_core::{
     block::{ArcBlockWithHash, BlockWithHash},
     impl_substate_access,
@@ -6,13 +12,10 @@ use openmina_core::{
     transaction::{TransactionInfo, TransactionWithHash},
     ChainId, SubstateAccess,
 };
+
+use malloc_size_of_derive::MallocSizeOf;
 use redux::{Callback, Timestamp};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-    time::Duration,
-};
 
 use crate::{
     bootstrap::P2pNetworkKadBootstrapState,
@@ -343,7 +346,7 @@ impl P2pState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pPeerState {
     pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
@@ -399,7 +402,7 @@ impl P2pPeerState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 #[serde(tag = "state")]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
@@ -465,11 +468,15 @@ impl P2pPeerStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pPeerStatusReady {
     pub is_incoming: bool,
     pub connected_since: redux::Timestamp,
+    // TODO(vlad):
+    #[ignore_malloc_size_of = "TODO"]
     pub channels: P2pChannelsState,
+    // TODO(vlad): implement `MallocSizeOf` for `Arc`
+    #[ignore_malloc_size_of = "TODO"]
     pub best_tip: Option<ArcBlockWithHash>,
 }
 
@@ -615,3 +622,16 @@ impl_substate_access!(
     network.scheduler.broadcast_state
 );
 impl_substate_access!(P2pState, P2pConfig, config);
+
+mod measurement {
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::*;
+
+    impl MallocSizeOf for P2pState {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.peers.values().map(|v| v.size_of(ops)).sum::<usize>()
+                + self.network.scheduler.size_of(ops)
+        }
+    }
+}

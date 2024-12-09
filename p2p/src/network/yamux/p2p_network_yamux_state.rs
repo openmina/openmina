@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, VecDeque};
 
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 use super::super::*;
@@ -46,7 +47,7 @@ impl P2pNetworkYamuxState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct YamuxStreamState {
     pub incoming: bool,
     pub syn_sent: bool,
@@ -134,8 +135,9 @@ pub enum YamuxFrameParseError {
     ErrorCode(u32),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct YamuxFrame {
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub flags: YamuxFlags,
     pub stream_id: StreamId,
     pub inner: YamuxFrameInner,
@@ -224,12 +226,12 @@ impl YamuxFrame {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum YamuxFrameInner {
     Data(Data),
     WindowUpdate { difference: u32 },
     Ping { opaque: u32 },
-    GoAway(Result<(), YamuxSessionError>),
+    GoAway(#[ignore_malloc_size_of = "doesn't allocate"] Result<(), YamuxSessionError>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -261,5 +263,30 @@ mod tests {
         assert_eq!(Rpc.stream_id(true), 2);
         assert_eq!(Kademlia.stream_id(false), 5);
         assert_eq!(Kademlia.stream_id(true), 6);
+    }
+}
+
+mod measurement {
+    use std::mem;
+
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::{P2pNetworkYamuxState, YamuxFrame};
+
+    impl MallocSizeOf for P2pNetworkYamuxState {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.buffer.capacity()
+                + self.incoming.capacity() * mem::size_of::<YamuxFrame>()
+                + self
+                    .incoming
+                    .iter()
+                    .map(|frame| frame.size_of(ops))
+                    .sum::<usize>()
+                + self
+                    .streams
+                    .iter()
+                    .map(|(k, v)| mem::size_of_val(k) + mem::size_of_val(v) + v.size_of(ops))
+                    .sum::<usize>()
+        }
     }
 }

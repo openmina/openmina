@@ -11,6 +11,8 @@ use std::{
     time::Duration,
 };
 
+use malloc_size_of_derive::MallocSizeOf;
+
 pub const IWANT_TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 
 /// State of the P2P Network PubSub system.
@@ -19,9 +21,10 @@ pub const IWANT_TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 /// message caching, and topic subscriptions. It handles incoming and outgoing
 /// messages, manages the mesh network topology, and ensures efficient message
 /// broadcasting across the network.
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkPubsubState {
     /// State of each connected peer.
+    #[with_malloc_size_of_func = "measurement::clients"]
     pub clients: BTreeMap<PeerId, P2pNetworkPubsubClientState>,
 
     /// Current message sequence number.
@@ -44,19 +47,22 @@ pub struct P2pNetworkPubsubState {
     pub mcache: P2pNetworkPubsubMessageCache,
 
     /// Incoming transactions from peers along with their nonces.
+    #[with_malloc_size_of_func = "measurement::transaction"]
     pub incoming_transactions: Vec<(Transaction, u32)>,
 
     /// Incoming snarks from peers along with their nonces.
+    #[with_malloc_size_of_func = "measurement::snark"]
     pub incoming_snarks: Vec<(Snark, u32)>,
 
     /// Topics and their subscribed peers.
+    #[with_malloc_size_of_func = "measurement::topics"]
     pub topics: BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientTopicState>>,
 
     /// `iwant` requests, tracking the number of times peers have expressed interest in specific messages.
     pub iwant: VecDeque<P2pNetworkPubsubIwantRequestCount>,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkPubsubIwantRequestCount {
     pub message_id: Vec<u8>,
     pub count: Vec<Timestamp>,
@@ -131,7 +137,7 @@ impl P2pNetworkPubsubState {
 /// This struct maintains essential information about the client's protocol,
 /// connection details, message buffers, and caching mechanisms. It facilitates
 /// efficient message handling and broadcasting within the pubsub system.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkPubsubClientState {
     /// Broadcast algorithm used for this client.
     pub protocol: BroadcastAlgorithm,
@@ -426,5 +432,67 @@ impl P2pNetworkPubsubClientState {
 impl P2pNetworkPubsubClientTopicState {
     pub fn on_mesh(&self) -> bool {
         matches!(&self.mesh, P2pNetworkPubsubClientMeshAddingState::Added)
+    }
+}
+
+mod measurement {
+
+    use malloc_size_of::MallocSizeOf;
+
+    use super::*;
+
+    pub fn snark(val: &Vec<(Snark, u32)>, ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        // TODO(vlad):
+        let _ = (val, ops);
+        0
+    }
+
+    pub fn transaction(
+        val: &Vec<(Transaction, u32)>,
+        ops: &mut malloc_size_of::MallocSizeOfOps,
+    ) -> usize {
+        // TODO(vlad):
+        let _ = (val, ops);
+        0
+    }
+
+    pub fn clients(
+        val: &BTreeMap<PeerId, P2pNetworkPubsubClientState>,
+        ops: &mut malloc_size_of::MallocSizeOfOps,
+    ) -> usize {
+        val.values().map(|v| v.size_of(ops)).sum()
+    }
+
+    pub fn topics(
+        val: &BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientTopicState>>,
+        ops: &mut malloc_size_of::MallocSizeOfOps,
+    ) -> usize {
+        val.iter()
+            .map(|(k, v)| k.size_of(ops) + v.size_of(ops))
+            .sum()
+    }
+
+    impl MallocSizeOf for P2pNetworkPubsubRecentlyPublishCache {
+        fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+            let map_size = self.map.len() * size_of::<P2pNetworkPubsubMessageCacheId>();
+            let queue_size = self.queue.capacity() * size_of::<P2pNetworkPubsubMessageCacheId>();
+            map_size + queue_size
+        }
+    }
+
+    impl MallocSizeOf for P2pNetworkPubsubMessageCache {
+        fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+            let map_size = self.map.len()
+                * (size_of::<P2pNetworkPubsubMessageCacheId>()
+                    + size_of::<P2pNetworkPubsubMessageCacheMessage>());
+            let queue_size = self.queue.capacity() * size_of::<P2pNetworkPubsubMessageCacheId>();
+            map_size + queue_size
+        }
+    }
+
+    impl MallocSizeOf for P2pNetworkPubsubClientTopicState {
+        fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+            0
+        }
     }
 }
