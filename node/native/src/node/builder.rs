@@ -4,6 +4,7 @@ use std::{
     net::IpAddr,
     path::Path,
     sync::Arc,
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -34,13 +35,10 @@ pub struct NodeBuilder {
     rng_seed: [u8; 32],
     custom_initial_time: Option<redux::Timestamp>,
     genesis_config: Arc<GenesisConfig>,
+    p2p: P2pConfig,
     p2p_sec_key: Option<P2pSecretKey>,
-    p2p_libp2p_port: Option<u16>,
     p2p_is_seed: bool,
-    p2p_no_discovery: bool,
     p2p_is_started: bool,
-    initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
-    external_addrs: Vec<IpAddr>,
     block_producer: Option<BlockProducerConfig>,
     snarker: Option<SnarkerConfig>,
     service: NodeServiceBuilder,
@@ -68,13 +66,25 @@ impl NodeBuilder {
             rng_seed,
             custom_initial_time: None,
             genesis_config,
+            p2p: P2pConfig {
+                libp2p_port: None,
+                listen_port: None,
+                // Must be replaced with builder api.
+                identity_pub_key: P2pSecretKey::deterministic(0).public_key(),
+                initial_peers: Vec::new(),
+                external_addrs: Vec::new(),
+                enabled_channels: ChannelId::iter_all().collect(),
+                peer_discovery: true,
+                meshsub: P2pMeshsubConfig {
+                    initial_time: Duration::ZERO,
+                    ..Default::default()
+                },
+                timeouts: P2pTimeouts::default(),
+                limits: P2pLimits::default().with_max_peers(Some(100)),
+            },
             p2p_sec_key: None,
-            p2p_libp2p_port: None,
             p2p_is_seed: false,
-            p2p_no_discovery: false,
             p2p_is_started: false,
-            initial_peers: Vec::new(),
-            external_addrs: Vec::new(),
             block_producer: None,
             snarker: None,
             service: NodeServiceBuilder::new(rng_seed),
@@ -94,12 +104,13 @@ impl NodeBuilder {
 
     /// If not called, random one will be generated and used instead.
     pub fn p2p_sec_key(&mut self, key: P2pSecretKey) -> &mut Self {
+        self.p2p.identity_pub_key = key.public_key();
         self.p2p_sec_key = Some(key);
         self
     }
 
     pub fn p2p_libp2p_port(&mut self, port: u16) -> &mut Self {
-        self.p2p_libp2p_port = Some(port);
+        self.p2p.libp2p_port = Some(port);
         self
     }
 
@@ -110,7 +121,7 @@ impl NodeBuilder {
     }
 
     pub fn p2p_no_discovery(&mut self) -> &mut Self {
-        self.p2p_no_discovery = true;
+        self.p2p.peer_discovery = false;
         self
     }
 
@@ -119,19 +130,19 @@ impl NodeBuilder {
         &mut self,
         peers: impl IntoIterator<Item = P2pConnectionOutgoingInitOpts>,
     ) -> &mut Self {
-        self.initial_peers.extend(peers);
+        self.p2p.initial_peers.extend(peers);
         self
     }
 
     pub fn external_addrs(&mut self, v: impl Iterator<Item = IpAddr>) -> &mut Self {
-        self.external_addrs.extend(v);
+        self.p2p.external_addrs.extend(v);
         self
     }
 
     /// Extend p2p initial peers from file.
     pub fn initial_peers_from_file(&mut self, path: impl AsRef<Path>) -> anyhow::Result<&mut Self> {
         peers_from_reader(
-            &mut self.initial_peers,
+            &mut self.p2p.initial_peers,
             File::open(&path).context(anyhow::anyhow!(
                 "opening peer list file {:?}",
                 path.as_ref()
@@ -152,12 +163,17 @@ impl NodeBuilder {
     ) -> anyhow::Result<&mut Self> {
         let url = url.into_url().context("failed to parse peers url")?;
         peers_from_reader(
-            &mut self.initial_peers,
+            &mut self.p2p.initial_peers,
             reqwest::blocking::get(url.clone())
                 .context(anyhow::anyhow!("reading peer list url {url}"))?,
         )
         .context(anyhow::anyhow!("reading peer list url {url}"))?;
         Ok(self)
+    }
+
+    pub fn p2p_max_peers(&mut self, limit: usize) -> &mut Self {
+        self.p2p.limits = self.p2p.limits.with_max_peers(Some(limit));
+        self
     }
 
     /// Override default p2p task spawner.
@@ -274,15 +290,15 @@ impl NodeBuilder {
         self
     }
 
-    pub fn build(self) -> anyhow::Result<Node> {
+    pub fn build(mut self) -> anyhow::Result<Node> {
         let p2p_sec_key = self.p2p_sec_key.unwrap_or_else(P2pSecretKey::rand);
-        let initial_peers = if self.initial_peers.is_empty() && !self.p2p_is_seed {
-            default_peers()
-        } else {
-            self.initial_peers
-        };
+        if self.p2p.initial_peers.is_empty() && !self.p2p_is_seed {
+            self.p2p.initial_peers = default_peers();
+        }
 
-        let initial_peers = initial_peers
+        self.p2p.initial_peers = self
+            .p2p
+            .initial_peers
             .into_iter()
             .filter_map(|opts| match opts {
                 P2pConnectionOutgoingInitOpts::LibP2P(mut opts) => {
@@ -292,8 +308,6 @@ impl NodeBuilder {
                 x => Some(x),
             })
             .collect();
-
-        let external_addrs = self.external_addrs;
 
         let srs = self.verifier_srs.unwrap_or_else(get_srs);
         let block_verifier_index = self
@@ -306,6 +320,9 @@ impl NodeBuilder {
         let initial_time = self
             .custom_initial_time
             .unwrap_or_else(redux::Timestamp::global_now);
+        self.p2p.meshsub.initial_time = initial_time
+            .checked_sub(redux::Timestamp::ZERO)
+            .unwrap_or_default();
 
         let protocol_constants = self.genesis_config.protocol_constants()?;
         let consensus_consts =
@@ -319,23 +336,7 @@ impl NodeBuilder {
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
             },
-            p2p: P2pConfig {
-                libp2p_port: self.p2p_libp2p_port,
-                listen_port: self.http_port,
-                identity_pub_key: p2p_sec_key.public_key(),
-                initial_peers,
-                external_addrs,
-                enabled_channels: ChannelId::iter_all().collect(),
-                peer_discovery: !self.p2p_no_discovery,
-                meshsub: P2pMeshsubConfig {
-                    initial_time: initial_time
-                        .checked_sub(redux::Timestamp::ZERO)
-                        .unwrap_or_default(),
-                    ..Default::default()
-                },
-                timeouts: P2pTimeouts::default(),
-                limits: P2pLimits::default().with_max_peers(Some(100)),
-            },
+            p2p: self.p2p,
             ledger: LedgerConfig {},
             snark: SnarkConfig {
                 block_verifier_index,

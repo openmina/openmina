@@ -75,6 +75,9 @@ pub struct Node {
     #[arg(long, env)]
     pub peer_list_url: Option<Url>,
 
+    #[arg(long, default_value = "100")]
+    pub max_peers: usize,
+
     /// Run the node in seed mode. No default peers will be added.
     #[arg(long, env)]
     pub seed: bool,
@@ -206,6 +209,7 @@ impl Node {
                 .filter_map(|s| s.parse().ok()),
         );
 
+        node_builder.p2p_max_peers(self.max_peers);
         self.seed.then(|| node_builder.p2p_seed_node());
         self.no_peers_discovery
             .then(|| node_builder.p2p_no_discovery());
