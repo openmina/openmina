@@ -133,6 +133,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             let mut create_response = || {
                 let state = store.state.get();
                 let best_tip = state.transition_frontier.best_tip()?;
+                let public_key = state.block_producer.config()?.pub_key.clone();
                 let won_slots = &state.block_producer.vrf_evaluator()?.won_slots;
 
                 let stats = store.service.stats()?;
@@ -163,6 +164,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     epoch_start,
                     epoch_end: epoch_start
                         .map(|slot| slot.checked_add(slots_per_epoch).expect("overflow")),
+                    public_key: public_key.into(),
                     attempts,
                     future_won_slots: won_slots
                         .range(future_slot..)
