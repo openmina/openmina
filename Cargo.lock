@@ -3865,6 +3865,7 @@ dependencies = [
  "mina-p2p-messages",
  "mina-poseidon",
  "mina-signer",
+ "num",
  "num-bigint",
  "o1-utils",
  "ocaml-interop",
@@ -4268,13 +4269,13 @@ dependencies = [
 [[package]]
 name = "num-bigint"
 version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+source = "git+https://github.com/openmina/num-bigint?rev=a2cb032#a2cb032defb0de105db516cd70fb2e9d4fc8a9bc"
 dependencies = [
  "num-integer",
  "num-traits",
  "rand",
  "serde",
+ "tinyvec",
 ]
 
 [[package]]
@@ -4668,6 +4669,7 @@ dependencies = [
  "mina-tree",
  "node",
  "openmina-core",
+ "poseidon",
  "rand",
  "rayon",
  "redux",

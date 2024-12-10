@@ -3,9 +3,10 @@ use ark_ff::PrimeField;
 use ledger::AccountIndex;
 use message::VrfMessage;
 use mina_p2p_messages::v2::EpochSeed;
-use num::{BigInt, ToPrimitive};
+use num::{rational::Ratio, BigInt, ToPrimitive};
 use openmina_node_account::AccountPublicKey;
 use output::VrfOutput;
+use poseidon::hash::{params::MINA_VRF_MESSAGE, LazyParam};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -135,8 +136,20 @@ fn calculate_vrf(
     Ok(VrfOutput::new(vrf_message, scaled_message_hash))
 }
 
+/// https://github.com/rust-num/num-rational/blob/4d55ad22ac86ebbc4cb45d79a956e4a1f7af57d1/src/lib.rs#L1439C1-L1446C14
+fn to_f64(ratio: Ratio<BigInt<32>>) -> Option<f64> {
+    let float = ratio.numer().to_f64().unwrap() / ratio.denom().to_f64().unwrap();
+    if float.is_nan() {
+        None
+    } else {
+        Some(float)
+    }
+}
+
 /// Evaluate vrf with a specific input. Used by the block producer
-pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOutput> {
+pub fn evaluate_vrf(
+    vrf_input: VrfEvaluationInput,
+) -> VrfResult<VrfEvaluationOutput> {
     let VrfEvaluationInput {
         producer_key,
         global_slot,
@@ -150,7 +163,7 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
     let vrf_output = calculate_vrf(&producer_key, epoch_seed, global_slot, &delegator_index)?;
 
     let value = vrf_output.truncated().into_repr();
-    let threshold = Threshold::new(delegated_stake, total_currency);
+    let threshold = Threshold::new(delegated_stake.to_digits(), total_currency.to_digits());
 
     if threshold.threshold_met(value) {
         Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
@@ -161,8 +174,8 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
             account_index: delegator_index,
             value_with_threshold: None.or_else(|| {
                 Some((
-                    self::threshold::get_fractional(value).to_f64()?,
-                    threshold.threshold_rational.to_f64()?,
+                    to_f64(self::threshold::get_fractional(value))?,
+                    to_f64(threshold.threshold_rational)?,
                 ))
             }),
         }))

@@ -4,7 +4,7 @@ use ledger::{proofs::transaction::legacy_input::to_bits, ToInputs};
 use mina_curves::pasta::curves::pallas::Pallas as CurvePoint;
 use mina_p2p_messages::v2::EpochSeed;
 use o1_utils::FieldHelpers;
-use poseidon::hash::{params::MINA_VRF_MESSAGE, Inputs};
+use poseidon::hash::{params::MINA_VRF_MESSAGE, Inputs, LazyParam};
 use serde::{Deserialize, Serialize};
 
 use super::{BaseField, VrfError, VrfResult};

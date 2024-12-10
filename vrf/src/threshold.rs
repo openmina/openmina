@@ -1,6 +1,9 @@
 use ark_ff::{BigInteger, BigInteger256, One, Zero};
 use itertools::unfold;
-use num::{BigInt, BigRational, FromPrimitive, Signed};
+use num::{rational::Ratio, BigInt as BigI, FromPrimitive, Signed};
+
+type BigInt = BigI<32>;
+type BigRational = Ratio<BigInt>;
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
@@ -8,6 +11,11 @@ pub struct Threshold {
     pub total_currency: BigInt,
     pub delegated_stake: BigInt,
     pub threshold_rational: BigRational,
+}
+
+/// More or less actually
+fn ratio_to_more_limbs<const A: usize, const B: usize>(ratio: Ratio<BigI<A>>) -> Ratio<BigI<B>> {
+    Ratio::new(ratio.numer().to_digits(), ratio.denom().to_digits())
 }
 
 impl Threshold {
@@ -27,7 +35,9 @@ impl Threshold {
         let (per_term_precission, terms_needed, _) = Self::bit_params(&abs_log_base);
 
         let terms_needed: i32 = terms_needed.try_into().unwrap();
-        let mut linear_term_integer_part = BigInt::zero();
+        let mut linear_term_integer_part = BigI::zero();
+
+        let abs_log_base: Ratio<BigI<64>> = ratio_to_more_limbs(abs_log_base);
 
         let coefficients = (1..terms_needed).map(|x| {
             let c = abs_log_base.pow(x) / Self::factorial(x.into());
@@ -55,15 +65,16 @@ impl Threshold {
         )
         .floor()
         .to_integer();
-        let input = BigRational::new(numer, two_tpo_per_term_precission);
+        let input = Ratio::<BigI::<64>>::new(numer.to_digits(), two_tpo_per_term_precission.to_digits());
 
-        let denom = BigInt::one() << per_term_precission;
+        let denom = BigI::one() << per_term_precission;
 
         let (res, _) = coefficients.into_iter().fold(
-            (BigRational::zero(), BigRational::one()),
+            (Ratio::<BigI::<64>>::zero(), Ratio::<BigI::<64>>::one()),
+            // (BigRational::zero(), BigRational::one()),
             |(acc, x_i), coef| {
                 let x_i = &input * &x_i;
-                let c = BigRational::new(coef, denom.clone());
+                let c = Ratio::new(coef, denom.clone());
                 (acc + (&x_i * &c), x_i)
             },
         );
@@ -73,7 +84,7 @@ impl Threshold {
         Self {
             delegated_stake,
             total_currency,
-            threshold_rational,
+            threshold_rational: ratio_to_more_limbs(threshold_rational),
         }
     }
 
@@ -85,30 +96,51 @@ impl Threshold {
     }
 
     fn terms_needed(log_base: &BigRational, bits_of_precission: u32) -> i32 {
-        let two = BigInt::one() + BigInt::one();
+        use num::rational::Ratio;
+
+        let two = BigI::<64>::one() + BigI::one();
         let lower_bound = bigint_to_bigrational(&two.pow(bits_of_precission));
+        // let lower_bound: Ratio<BigInt<128>> = Ratio::new(lower_bound.numer().to_digits(), lower_bound.denom().to_digits());
 
         let mut n = 0;
         // let mut d = log_base.pow(1);
 
+        // dbg!(&lower_bound);
+
+        let log_base: Ratio<BigI<64>> = ratio_to_more_limbs(log_base.clone());
+
         loop {
+
             let d = log_base.pow(n + 1);
-            if bigint_to_bigrational(&Self::factorial(n.into())) / d > lower_bound {
+
+            // let d: Ratio<BigInt<128>> = Ratio::new(d.numer().to_digits(), d.denom().to_digits());
+            // let d = Ratio {
+            //     numer: d.numer().to_digits(),
+            //     denom: d.denom().to_digits(),
+            // };
+
+            // if bigint_to_bigrational(&Self::factorial(n.into())) / d > lower_bound {
+
+            let a: Ratio<BigI<64>> = Ratio::<BigI::<64>>::new(Self::factorial(n.into()), BigI::one());
+
+            if a / d > lower_bound {
+            // if bigint_to_bigrational(&dbg!(Self::factorial(dbg!(n).into()))) / dbg!(d) > lower_bound {
                 return n;
+                // return dbg!(n);
             }
             n += 1;
         }
     }
 
-    fn factorial(n: BigInt) -> BigInt {
-        if n == BigInt::zero() {
-            return BigInt::one();
+    fn factorial<const N: usize>(n: BigI<N>) -> BigI<N> {
+        if n == BigI::<N>::zero() {
+            return BigI::<N>::one();
         }
         let mut res = n.clone();
-        let mut i = n - BigInt::one();
-        while i != BigInt::zero() {
+        let mut i = n - BigI::<N>::one();
+        while i != BigI::<N>::zero() {
             res *= i.clone();
-            i -= BigInt::one();
+            i -= BigI::<N>::one();
         }
 
         res
@@ -181,17 +213,17 @@ pub fn get_fractional(vrf_out: BigInteger256) -> BigRational {
     //                 Field.size_in_bits = 255
     let two_tpo_256 = BigInt::one() << 253u32;
 
-    let vrf_out = BigInt::from_bytes_be(num::bigint::Sign::Plus, &vrf_out.to_bytes_be());
+    let vrf_out = BigI::<32>::from_bytes_be(num::bigint::Sign::Plus, &vrf_out.to_bytes_be());
 
-    BigRational::new(vrf_out, two_tpo_256)
+    Ratio::new(vrf_out, two_tpo_256)
 }
 
 // TODO: is there a fn like this?
-pub fn bigint_to_bigrational(x: &BigInt) -> BigRational {
-    BigRational::new(x.clone(), BigInt::one())
+pub fn bigint_to_bigrational<const N: usize>(x: &BigI<N>) -> Ratio<BigI<N>> {
+    Ratio::new(x.clone(), BigI::one())
 }
 
-pub fn bigrational_as_fixed_point(c: BigRational, per_term_precission: usize) -> BigInt {
+pub fn bigrational_as_fixed_point<const N: usize>(c: Ratio<BigI<N>>, per_term_precission: usize) -> BigI<N> {
     let numer = c.numer();
     let denom = c.denom();
 
@@ -206,89 +238,89 @@ pub fn bigrational_as_fixed_point(c: BigRational, per_term_precission: usize) ->
 //     Threshold::new(delegated_stake, total_currency).threshold_met(vrf_out)
 // }
 
-#[cfg(test)]
-mod test {
-    use std::str::FromStr;
+// #[cfg(test)]
+// mod test {
+//     use std::str::FromStr;
 
-    use ark_ff::{One, Zero};
-    use num::{BigInt, BigRational, ToPrimitive};
+//     use ark_ff::{One, Zero};
+//     use num::{BigInt, BigRational, ToPrimitive};
 
-    use super::*;
+//     use super::*;
 
-    // TODO: move to regular fns, rework step
-    fn first_non_zero(stake: BigInt, total_currency: BigInt, step: BigInt) -> BigInt {
-        let ten = BigInt::from_str("10").unwrap();
-        let mut stake = stake;
-        if step == BigInt::zero() {
-            stake + BigInt::one()
-        } else {
-            loop {
-                let thrs = Threshold::new(stake.clone(), total_currency.clone());
+//     // TODO: move to regular fns, rework step
+//     fn first_non_zero(stake: BigInt, total_currency: BigInt, step: BigInt) -> BigInt {
+//         let ten = BigInt::from_str("10").unwrap();
+//         let mut stake = stake;
+//         if step == BigInt::zero() {
+//             stake + BigInt::one()
+//         } else {
+//             loop {
+//                 let thrs = Threshold::new(stake.to_digits(), total_currency.to_digits());
 
-                if thrs.threshold_rational != BigRational::zero() {
-                    println!("stake: {stake} nanoMINA");
-                    return first_non_zero(stake - step.clone(), total_currency, step / ten);
-                }
-                stake += step.clone();
-            }
-        }
-    }
+//                 if thrs.threshold_rational != BigRational::zero() {
+//                     println!("stake: {stake} nanoMINA");
+//                     return first_non_zero(stake - step.clone(), total_currency, step / ten);
+//                 }
+//                 stake += step.clone();
+//             }
+//         }
+//     }
 
-    #[test]
-    #[ignore]
-    fn test_threshold_nonzero() {
-        // let total_currency = BigInt::from_str("1157953132840039233").unwrap();
-        // let initial_stake = BigInt::zero();
-        // let initial_step = BigInt::from_str("10000000000000000000").unwrap();
+//     #[test]
+//     #[ignore]
+//     fn test_threshold_nonzero() {
+//         // let total_currency = BigInt::from_str("1157953132840039233").unwrap();
+//         // let initial_stake = BigInt::zero();
+//         // let initial_step = BigInt::from_str("10000000000000000000").unwrap();
 
-        let total_currency = BigInt::from_str("1025422352000001000").unwrap();
-        let initial_stake = BigInt::zero();
-        let initial_step = BigInt::from_str("10000000000000000000").unwrap();
+//         let total_currency = BigInt::from_str("1025422352000001000").unwrap();
+//         let initial_stake = BigInt::zero();
+//         let initial_step = BigInt::from_str("10000000000000000000").unwrap();
 
-        let first_non_zero_nanomina =
-            first_non_zero(initial_stake, total_currency.clone(), initial_step);
+//         let first_non_zero_nanomina =
+//             first_non_zero(initial_stake, total_currency.clone(), initial_step);
 
-        let last_zero = first_non_zero_nanomina.clone() - BigInt::one();
+//         let last_zero = first_non_zero_nanomina.clone() - BigInt::one();
 
-        let thrs_zero = Threshold::new(last_zero, total_currency.clone());
-        assert_eq!(thrs_zero.threshold_rational, BigRational::zero());
+//         let thrs_zero = Threshold::new(last_zero, total_currency.clone());
+//         assert_eq!(thrs_zero.threshold_rational, BigRational::zero());
 
-        let thrs_first = Threshold::new(first_non_zero_nanomina.clone(), total_currency);
-        assert!(thrs_first.threshold_rational > BigRational::zero());
+//         let thrs_first = Threshold::new(first_non_zero_nanomina.clone(), total_currency);
+//         assert!(thrs_first.threshold_rational > BigRational::zero());
 
-        let first_non_zero_mina = first_non_zero_nanomina.to_f64().unwrap() / 1_000_000_000.0;
+//         let first_non_zero_mina = first_non_zero_nanomina.to_f64().unwrap() / 1_000_000_000.0;
 
-        println!("First non zero stake: {first_non_zero_mina} MINA");
-        println!(
-            "First non zero threshold: {}",
-            thrs_first.threshold_rational.to_f64().unwrap()
-        );
-    }
+//         println!("First non zero stake: {first_non_zero_mina} MINA");
+//         println!(
+//             "First non zero threshold: {}",
+//             thrs_first.threshold_rational.to_f64().unwrap()
+//         );
+//     }
 
-    #[test]
-    #[ignore]
-    fn test_threshold_increase() {
-        // let total_currency = BigInt::from_str("1157953132840039233").unwrap();
-        // let mut stake_nanomina = BigInt::from_str("1104310162392").unwrap();
-        // let mut step = BigInt::from_str("1000000000000").unwrap();
+//     #[test]
+//     #[ignore]
+//     fn test_threshold_increase() {
+//         // let total_currency = BigInt::from_str("1157953132840039233").unwrap();
+//         // let mut stake_nanomina = BigInt::from_str("1104310162392").unwrap();
+//         // let mut step = BigInt::from_str("1000000000000").unwrap();
 
-        let total_currency = BigInt::from_str("1025422352000001000").unwrap();
-        let mut stake_nanomina = BigInt::from_str("2000000000000000").unwrap();
-        let mut step = BigInt::from_str("1000000000000").unwrap();
+//         let total_currency = BigInt::from_str("1025422352000001000").unwrap();
+//         let mut stake_nanomina = BigInt::from_str("2000000000000000").unwrap();
+//         let mut step = BigInt::from_str("1000000000000").unwrap();
 
-        loop {
-            if stake_nanomina > total_currency {
-                break;
-            }
-            let thrs = Threshold::new(stake_nanomina.clone(), total_currency.clone());
-            let stake_mina = stake_nanomina.to_f64().unwrap() / 1_000_000_000.0;
-            println!(
-                "stake: {stake_mina} MINA - threshold: {}",
-                thrs.threshold_rational.to_f64().unwrap()
-            );
+//         loop {
+//             if stake_nanomina > total_currency {
+//                 break;
+//             }
+//             let thrs = Threshold::new(stake_nanomina.clone(), total_currency.clone());
+//             let stake_mina = stake_nanomina.to_f64().unwrap() / 1_000_000_000.0;
+//             println!(
+//                 "stake: {stake_mina} MINA - threshold: {}",
+//                 thrs.threshold_rational.to_f64().unwrap()
+//             );
 
-            stake_nanomina += step.clone();
-            step *= 2;
-        }
-    }
-}
+//             stake_nanomina += step.clone();
+//             step *= 2;
+//         }
+//     }
+// }

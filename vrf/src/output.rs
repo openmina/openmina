@@ -1,5 +1,5 @@
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
-use ark_ff::{BigInteger, BigInteger256, PrimeField};
+use ark_ff::{BigInteger, BigInteger256, Field, PrimeField};
 use ledger::{AppendToInputs, ToInputs};
 use mina_p2p_messages::v2::ConsensusVrfOutputTruncatedStableV1;
 use num::{BigInt, BigRational, One, ToPrimitive};
@@ -47,6 +47,46 @@ pub struct VrfOutput {
     output: CurvePoint,
 }
 
+
+struct FieldBitsIterator {
+    index: usize,
+    bigint: [u64; 4],
+}
+
+impl Iterator for FieldBitsIterator {
+    type Item = bool;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let index = self.index;
+        self.index += 1;
+
+        let limb_index = index / 64;
+        let bit_index = index % 64;
+
+        let limb = self.bigint.get(limb_index)?;
+        Some(limb & (1 << bit_index) != 0)
+    }
+}
+
+pub fn bigint_to_bits<const NBITS: usize>(bigint: BigInteger256) -> [bool; NBITS] {
+    let mut bits = FieldBitsIterator {
+        index: 0,
+        bigint: bigint.to_64x4(),
+    }
+    .take(NBITS);
+    std::array::from_fn(|_| bits.next().unwrap())
+}
+
+pub fn field_to_bits<F, const NBITS: usize>(field: F) -> [bool; NBITS]
+where
+    F: Field + Into<BigInteger256>,
+{
+    let bigint: BigInteger256 = field.into();
+    bigint_to_bits(bigint)
+}
+
+
+
 impl VrfOutput {
     pub fn new(message: VrfMessage, output: CurvePoint) -> Self {
         Self { message, output }
@@ -62,7 +102,8 @@ impl VrfOutput {
     }
 
     pub fn truncated(&self) -> ScalarField {
-        let bits = self.hash().to_bits();
+        let hash = self.hash();
+        let bits = field_to_bits::<_, 255>(hash);
 
         let repr = BigInteger256::from_bits_le(&bits[..bits.len() - 3]);
         ScalarField::from_repr(repr).unwrap()
@@ -89,7 +130,7 @@ impl VrfOutput {
         //                 Field.size_in_bits = 255
         let two_tpo_256 = BigInt::one() << 253u32;
 
-        let vrf_out = BigInt::from_bytes_be(
+        let vrf_out = BigInt::<4>::from_bytes_be(
             num::bigint::Sign::Plus,
             &self.truncated().into_repr().to_bytes_be(),
         );
