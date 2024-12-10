@@ -34,19 +34,23 @@ pub fn reducer(
                 }
                 dispatcher.push(P2pEffectfulAction::Initialize);
             }
-            action => match &mut state.p2p {
+            p2p_action => match &mut state.p2p {
                 P2p::Pending(_) => {
-                    error!(meta.time(); summary = "p2p is not initialized", action = debug(action))
+                    error!(meta.time(); summary = "p2p is not initialized", action = debug(p2p_action))
                 }
                 P2p::Ready(_) => {
                     let time = meta.time();
                     let result = p2p::P2pState::reducer(
                         Substate::new(state, dispatcher),
-                        meta.with_action(action.clone()),
+                        meta.with_action(p2p_action.clone()),
                     );
 
                     if let Err(error) = result {
-                        error!(time; error = display(error));
+                        use crate::ActionKindGet as _;
+                        error!(time;
+                            summary = "Failure when handling a P2P action",
+                            action_kind = format!("{}", p2p_action.kind()),
+                            error = display(error));
                     }
                 }
             },
