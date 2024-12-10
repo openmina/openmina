@@ -87,6 +87,15 @@
               ],
               "outputHashing": "all"
             },
+            "fuzzing": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.fuzzing.ts"
+                }
+              ],
+              "outputHashing": "all"
+            },
             "producer": {
               "fileReplacements": [
                 {
@@ -110,6 +119,9 @@
             },
             "local": {
               "browserTarget": "frontend:build:local"
+            },
+            "fuzzing": {
+              "browserTarget": "frontend:build:fuzzing"
             }
           },
           "options": {
@@ -184,6 +196,15 @@
                   "with": "src/environments/environment.local.ts"
                 }
               ]
+            },
+            "fuzzing": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.fuzzing.ts"
+                }
+              ],
+              "outputHashing": "all"
             },
             "producer": {
               "outputHashing": "media",

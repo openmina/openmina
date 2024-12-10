@@ -1,0 +1,8 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span>{{ row.date }}</span>
+  <span class="secondary truncate">
+    <mina-copy [value]="row.fullName" [display]="row.name"></mina-copy>
+  </span>
+</ng-template>

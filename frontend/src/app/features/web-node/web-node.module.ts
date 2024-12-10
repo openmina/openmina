@@ -1,14 +1,14 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-import { WebnodeRouting } from './webnode.routing';
+import { WebNodeRouting } from './web-node.routing';
 
 
 @NgModule({
   declarations: [],
   imports: [
     CommonModule,
-    WebnodeRouting,
+    WebNodeRouting,
   ],
 })
-export class WebnodeModule {}
+export class WebNodeModule {}

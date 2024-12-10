@@ -8,6 +8,12 @@ import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { FileProgressHelper } from '@core/helpers/file-progress.helper';
 import { CONFIG } from '@shared/constants/config';
 
+export interface PrivateStake {
+  publicKey: string;
+  password: string;
+  stake: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -15,6 +21,7 @@ export class WebNodeService {
 
   private readonly webnode$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
   private readonly wasm$: BehaviorSubject<any> = new BehaviorSubject<any>(null);
+
   private webNodeKeyPair: { publicKey: string, privateKey: string };
   private webNodeNetwork: String;
   private webNodeStartTime: number;
@@ -23,6 +30,7 @@ export class WebNodeService {
   readonly webnodeProgress$: BehaviorSubject<string> = new BehaviorSubject<string>('');
 
   memory: WebAssembly.MemoryDescriptor;
+  privateStake: PrivateStake;
 
   constructor(private http: HttpClient) {
     FileProgressHelper.initDownloadProgress();
@@ -111,7 +119,9 @@ export class WebNodeService {
               }
             })();
             console.log('webnode config:', !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
-            return from(wasm.run(this.webNodeKeyPair.privateKey, urls.seeds, urls.genesisConfig));
+            const privateKey = this.privateStake ? [this.privateStake.stake, this.privateStake.password] : this.webNodeKeyPair.privateKey;
+
+            return from(wasm.run(privateKey, urls.seeds, urls.genesisConfig));
           }),
           tap((webnode: any) => {
             any(window).webnode = webnode;

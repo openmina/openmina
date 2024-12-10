@@ -38,4 +38,7 @@ export enum Routes {
   WON_SLOTS = 'won-slots',
   MEMPOOL = 'mempool',
   LOADING_WEB_NODE = 'loading-web-node',
+  OCAML = 'ocaml',
+  RUST = 'rust',
+  FUZZING = 'fuzzing',
 }

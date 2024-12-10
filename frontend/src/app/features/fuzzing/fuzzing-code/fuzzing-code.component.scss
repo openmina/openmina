@@ -1,0 +1,61 @@
+@import 'openmina';
+
+.code-row {
+	height: 24px;
+	line-height: 24px;
+	display: flex;
+	padding-left: 12px;
+
+	> span:first-child {
+		color: $base-tertiary;
+		width: 50px;
+		cursor: pointer;
+		border-right: 4px solid $base-container;
+
+		&:hover {
+			color: $base-primary;
+		}
+	}
+
+	> span:nth-child(2) {
+		padding-left: 5px;
+		width: calc(100% - 50px);
+	}
+
+	::ng-deep > span {
+		white-space: pre;
+		line-height: inherit;
+		height: inherit;
+		display: flex;
+
+		span {
+			line-height: inherit;
+			height: inherit;
+			display: flex;
+		}
+
+		span[style] {
+			cursor: pointer;
+			box-sizing: border-box;
+			outline: 1px solid transparent;
+
+			&:hover {
+				border-radius: 2px;
+				outline-color: $base-tertiary;
+			}
+		}
+	}
+}
+
+:host .no-fuzzing-highlight ::ng-deep .code-row {
+	span:nth-child(1) {
+		color: $base-tertiary !important;
+		border-right-color: $base-container !important;
+	}
+
+	span:nth-child(2),
+	span:nth-child(2) > * {
+		background-color: unset !important;
+		color: $base-secondary !important;
+	}
+}

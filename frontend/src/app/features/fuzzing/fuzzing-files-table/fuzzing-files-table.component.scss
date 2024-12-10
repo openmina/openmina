@@ -1,0 +1,29 @@
+@import 'openmina';
+
+span.border-rad-4 {
+  width: 80px;
+  height: 16px;
+  background-color: $warn-tertiary;
+  position: relative;
+  overflow: hidden;
+
+  span {
+    position: absolute;
+    left: 0;
+    height: 100%;
+    background-color: $base-surface;
+
+    &::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-color: $success-secondary;
+    }
+  }
+}
+
+:host span b {
+  color: $selected-primary;
+  background: $selected-container;
+}

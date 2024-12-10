@@ -44,6 +44,9 @@ export function isFeatureEnabled(config: MinaNode, feature: FeatureType): boolea
 }
 
 export function getFeaturesConfig(config: MinaNode): FeaturesConfig {
+  if (CONFIG.configs.length === 0) {
+    return CONFIG.globalConfig?.features;
+  }
   return config?.features || CONFIG.globalConfig?.features;
 }
 
