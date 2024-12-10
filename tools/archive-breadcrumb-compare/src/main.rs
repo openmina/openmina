@@ -382,7 +382,10 @@ fn compare_diffs(
     }
 }
 
-async fn check_missing_breadcrumbs(openmina_node_dir: PathBuf, openmina_endpoint: &str) -> Result<()> {
+async fn check_missing_breadcrumbs(
+    openmina_node_dir: PathBuf,
+    openmina_endpoint: &str,
+) -> Result<()> {
     let files = openmina_node_dir.read_dir()?;
     let best_chain = get_best_chain(openmina_endpoint).await?;
     let mut missing_breadcrumbs = Vec::new();
@@ -407,7 +410,10 @@ async fn check_missing_breadcrumbs(openmina_node_dir: PathBuf, openmina_endpoint
     }
 
     if !missing_breadcrumbs.is_empty() {
-        println!("❌ Found {} missing breadcrumbs:", missing_breadcrumbs.len());
+        println!(
+            "❌ Found {} missing breadcrumbs:",
+            missing_breadcrumbs.len()
+        );
         for missing_breadcrumb in missing_breadcrumbs {
             println!("{}", missing_breadcrumb);
         }

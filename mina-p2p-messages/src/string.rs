@@ -4,7 +4,7 @@ use binprot::Nat0;
 use serde::{de::Visitor, Deserialize, Serialize};
 use serde_bytes;
 
-const MINA_STRING_MAX_LENGTH: usize = 200_000_000;
+const MINA_STRING_MAX_LENGTH: usize = 100_000_000;
 const CHUNK_SIZE: usize = 5_000;
 
 pub type ByteString = BoundedByteString<MINA_STRING_MAX_LENGTH>;
