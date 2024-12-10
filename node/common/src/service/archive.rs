@@ -8,7 +8,7 @@ pub struct ArchiveService {
     archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>,
 }
 
-const ARCHIVE_SEND_RETRIES: u8 = 3;
+const ARCHIVE_SEND_RETRIES: u8 = 5;
 
 impl ArchiveService {
     fn new(archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>) -> Self {
@@ -23,26 +23,12 @@ impl ArchiveService {
             println!("[archive-service] Received breadcrumb, sending to archive...");
             let mut retries = ARCHIVE_SEND_RETRIES;
             while retries > 0 {
-                // if let Err(e) = rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
-                //     node::core::warn!(
-                //     node::core::log::system_time();
-                //         summary = "Failed sending diff to archive",
-                //         error = e.to_string()
-                //     );
-                //     retries -= 1;
-                // } else {
-                //     node::core::warn!(
-                //         node::core::log::system_time();
-                //         summary = "Successfully sent diff to archive",
-                //     );
-                //     break;
-                // }
-
                 match rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
                     Ok(result) => {
                         if result.should_retry() {
                             node::core::warn!(node::core::log::system_time(); summary = "Archive suddenly closed connection, retrying...");
                             retries -= 1;
+                            std::thread::sleep(std::time::Duration::from_millis(1000));
                         } else {
                             node::core::warn!(node::core::log::system_time(); summary = "Successfully sent diff to archive");
                             break;
@@ -51,11 +37,12 @@ impl ArchiveService {
                     Err(e) => {
                         node::core::warn!(node::core::log::system_time(); summary = "Failed sending diff to archive", error = e.to_string(), retries = retries);
                         retries -= 1;
+                        std::thread::sleep(std::time::Duration::from_millis(1000));
                     }
                 }
             }
-            // Sleep for a bit to avoid flooding the archive
-            // std::thread::sleep(std::time::Duration::from_millis(1000));
+            // Sleep to avoid overloading the archive during catchup
+            std::thread::sleep(std::time::Duration::from_millis(1000));
         }
     }
 
@@ -99,12 +86,17 @@ mod rpc {
     use std::io::{self, Read, Write};
     use std::net::SocketAddr;
 
-    const HANDSHAKE_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
+    const HEADER_WITH_LENGTH_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
+    const HEADER_MSG: [u8; 7] = [2, 253, 82, 80, 67, 0, 1];
+    const OK_MSG: [u8; 5] = [2, 1, 0, 1, 0];
+    const CLOSE_MSG: [u8; 7] = [2, 254, 167, 7, 0, 1, 0];
+    const HEARTBEAT_MSG: [u8; 1] = [0];
 
     pub enum HandleResult {
         MessageSent,
         ConnectionClosed,
         ConnectionAlive,
+        MessageWouldBlock,
     }
 
     impl HandleResult {
@@ -135,10 +127,12 @@ mod rpc {
                 summary = "Failed binprot serializastion",
                 error = e.to_string()
             )
+            // TODO: handle this better
         }
 
         let payload_length = (v.len() - 8) as u64;
         v[..8].copy_from_slice(&payload_length.to_le_bytes());
+        // Bake in the heartbeat message
         v.splice(0..0, [1, 0, 0, 0, 0, 0, 0, 0, 0].iter().cloned());
 
         v
@@ -153,11 +147,12 @@ mod rpc {
         // We still need a token even for one connection
         const TOKEN: Token = Token(0);
 
-        let mut stream = TcpStream::connect(address)?;
+        let mut stream = TcpStream::connect(address)?; 
 
         let mut handshake_received = false;
         let mut handshake_sent = false;
-
+        let mut message_sent = false;
+        let mut first_heartbeat_received = false;
         poll.registry()
             .register(&mut stream, TOKEN, Interest::WRITABLE)?;
 
@@ -171,7 +166,11 @@ mod rpc {
 
             for event in events.iter() {
                 event_count += 1;
-                println!("[archive-service] Event: {:?}", event_count);
+                println!("[archive-service] Event: {:?} [R/W:{}/{}]", event_count, event.is_readable(), event.is_writable());
+                // TODO: remove this after debugging
+                if event_count > 100 {
+                    panic!("FAILSAFE triggered, event count: {}", event_count);
+                }
                 match event.token() {
                     TOKEN => {
                         match handle_connection_event(
@@ -181,12 +180,43 @@ mod rpc {
                             data,
                             &mut handshake_received,
                             &mut handshake_sent,
+                            &mut message_sent,
+                            &mut first_heartbeat_received,
                         )? {
-                                HandleResult::MessageSent => return Ok(HandleResult::MessageSent),
-                                HandleResult::ConnectionClosed => return Ok(HandleResult::ConnectionClosed),
-                                HandleResult::ConnectionAlive => {
+                            HandleResult::MessageSent => return Ok(HandleResult::MessageSent),
+                            HandleResult::ConnectionClosed => {
+                                return Ok(HandleResult::ConnectionClosed)
+                            }
+                            HandleResult::MessageWouldBlock => {
+                                // do nothing, wait for the next event
+                                continue;
+                            }
+                            HandleResult::ConnectionAlive => {
+                                // keep swapping between readable and writable until we send the message, then keep in read mode.
+                                if message_sent {
+                                    poll.registry().reregister(
+                                        &mut stream,
+                                        TOKEN,
+                                        Interest::READABLE,
+                                    )?;
                                     continue;
-                                },
+                                }
+
+                                if event.is_writable() {
+                                    poll.registry().reregister(
+                                        &mut stream,
+                                        TOKEN,
+                                        Interest::READABLE,
+                                    )?;
+                                } else {
+                                    poll.registry().reregister(
+                                        &mut stream,
+                                        TOKEN,
+                                        Interest::WRITABLE,
+                                    )?;
+                                }
+                                continue;
+                            }
                         }
                     }
                     _ => unreachable!(),
@@ -203,17 +233,21 @@ mod rpc {
         data: &[u8],
         handshake_received: &mut bool,
         handshake_sent: &mut bool,
+        message_sent: &mut bool,
+        first_heartbeat_received: &mut bool,
     ) -> io::Result<HandleResult> {
         if event.is_writable() {
             if !*handshake_sent {
-                match connection.write(&HANDSHAKE_MSG) {
-                    Ok(n) if n < HANDSHAKE_MSG.len() => return Err(io::ErrorKind::WriteZero.into()),
+                match connection.write(&HEADER_WITH_LENGTH_MSG) {
+                    Ok(n) if n < HEADER_WITH_LENGTH_MSG.len() => return Err(io::ErrorKind::WriteZero.into()),
                     Ok(_) => {
                         println!("[archive-service] Handshake sent");
                         *handshake_sent = true;
-                        registry.reregister(connection, event.token(), Interest::READABLE)?;
                     }
-                    Err(ref err) if would_block(err) => {}
+                    Err(ref err) if would_block(err) => {
+                        println!("[archive-service] Handshake would block");
+                        return Ok(HandleResult::MessageWouldBlock);
+                    }
                     Err(ref err) if interrupted(err) => {
                         println!("[archive-service] Handshake interrupted");
                         return handle_connection_event(
@@ -223,7 +257,9 @@ mod rpc {
                             data,
                             handshake_received,
                             handshake_sent,
-                        )
+                            message_sent,
+                            first_heartbeat_received,
+                        );
                     }
                     // Other errors we'll consider fatal.
                     Err(err) => return Err(err),
@@ -231,18 +267,30 @@ mod rpc {
                 return Ok(HandleResult::ConnectionAlive);
             }
 
-            if *handshake_received && *handshake_sent {
-                match connection.write_all(data) {
+            if *handshake_received && *handshake_sent && !*message_sent && *first_heartbeat_received {
+                match connection.write(data) {
+                    Ok(n) if n < data.len() => {
+                        let remaining_data = data[n..].to_vec();
+                        return handle_connection_event(
+                            registry,
+                            connection,
+                            event,
+                            &remaining_data,
+                            handshake_received,
+                            handshake_sent,
+                            message_sent,
+                            first_heartbeat_received,
+                        );
+                    },
                     Ok(_) => {
                         println!("[archive-service] Message sent");
                         connection.flush()?;
-                        // registry.deregister(connection)?;
-                        // connection.shutdown(std::net::Shutdown::Both)?;
-                        registry.reregister(connection, event.token(), Interest::READABLE)?;
+                        *message_sent = true;
                         return Ok(HandleResult::ConnectionAlive);
                     }
                     Err(ref err) if would_block(err) => {
                         println!("[archive-service] Message would block");
+                        return Ok(HandleResult::MessageWouldBlock);
                     }
                     // Try again if interrupted
                     Err(ref err) if interrupted(err) => {
@@ -254,11 +302,40 @@ mod rpc {
                             data,
                             handshake_received,
                             handshake_sent,
-                        )
+                            message_sent,
+                            first_heartbeat_received,
+                        );
                     }
                     // Other errors we'll consider fatal.
                     Err(err) => return Err(err),
                 }
+            } else {
+                // Send a heartbeat to keep the connection alive until we receive the closing message
+                // match connection.write_all(&HEARTBEAT_MSG) {
+                //     Ok(_) => {
+                //         println!("[archive-service] Heartbeat sent");
+                //         connection.flush()?;
+                //         return Ok(HandleResult::ConnectionAlive);
+                //     }
+                //     Err(ref err) if would_block(err) => {
+                //         println!("[archive-service] Heartbeat would block");
+                //     }
+                //     // Try again if interrupted
+                //     Err(ref err) if interrupted(err) => {
+                //         println!("[archive-service] Heartbeat interrupted");
+                //         return handle_connection_event(
+                //             registry,
+                //             connection,
+                //             event,
+                //             data,
+                //             handshake_received,
+                //             handshake_sent,
+                //             message_sent,
+                //         );
+                //     }
+                //     // Other errors we'll consider fatal.
+                //     Err(err) => return Err(err),
+                // }
             }
         }
 
@@ -275,28 +352,25 @@ mod rpc {
                     }
                     Ok(n) => {
                         bytes_read += n;
-                        if bytes_read >= 15 {
-                            let handshake = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
-                            if received_data[..15] == handshake {
-                                *handshake_received = true;
-                                println!("[archive-service] Handshake received");
-                                registry.reregister(
-                                    connection,
-                                    event.token(),
-                                    Interest::WRITABLE,
-                                )?;
-                                break;
-                            }
-                        } else if bytes_read >= 13 {
-                            // or is this heartbeat?
-                            let close_msg = [5, 0, 0, 0, 0, 0, 0, 0, 2, 1, 0, 1, 0];
-                            if received_data[..13] == close_msg {
-                                println!("[archive-service] Received close message");
-                                registry.deregister(connection)?;
-                                connection.shutdown(std::net::Shutdown::Both)?;
-                                return Ok(HandleResult::MessageSent);
-                            }
-                        }
+                        // if bytes_read >= HEADER_MSG.len()
+                        //     && received_data[..HEADER_MSG.len()] == HEADER_MSG
+                        // {
+                        //     *handshake_received = true;
+                        //     println!("[archive-service] Handshake received");
+                        //     break;
+                        // } else if bytes_read >= OK_MSG.len()
+                        //     && received_data[..OK_MSG.len()] == OK_MSG
+                        // {
+                        //     println!("[archive-service] Received close message");
+                        //     registry.deregister(connection)?;
+                        //     connection.shutdown(std::net::Shutdown::Both)?;
+                        //     return Ok(HandleResult::MessageSent);
+                        // } else if bytes_read >= HEARTBEAT_MSG.len()
+                        //     && received_data[..HEARTBEAT_MSG.len()] == HEARTBEAT_MSG
+                        // {
+                        //     println!("[archive-service] Received heartbeat message");
+                        //     continue;
+                        // }
                         if bytes_read == received_data.len() {
                             received_data.resize(received_data.len() + 1024, 0);
                         }
@@ -310,13 +384,46 @@ mod rpc {
                 }
             }
 
-            println!("[archive-service] Received data: {:?}", received_data);
-
             if connection_closed {
                 registry.deregister(connection)?;
                 println!("[archive-service] Remote closed connection");
                 connection.shutdown(std::net::Shutdown::Both)?;
                 return Ok(HandleResult::ConnectionClosed);
+            }
+
+            if bytes_read < 8 {
+                // malformed message, at least the length should be present
+                return Ok(HandleResult::ConnectionAlive);
+            }
+
+
+            let raw_message = RawMessage::from_bytes(&received_data[..bytes_read]);
+            let messages = raw_message.parse_raw()?;
+
+            for message in messages {
+                match message {
+                    ParsedMessage::Header => {
+                        *handshake_received = true;
+                        println!("[archive-service] Handshake received");
+                    }
+                    ParsedMessage::Ok | ParsedMessage::Close => {
+                        println!("[archive-service] Received close message");
+                        connection.flush()?;
+                        registry.deregister(connection)?;
+                        connection.shutdown(std::net::Shutdown::Both)?;
+                        return Ok(HandleResult::MessageSent);
+                    }
+                    ParsedMessage::Heartbeat => {
+                        println!("[archive-service] Received heartbeat message");
+                        *first_heartbeat_received = true;
+                    }
+                    ParsedMessage::Unknown(unknown) => {
+                        println!("[archive-service] Received unknown message: {:?}", unknown);
+                        registry.deregister(connection)?;
+                        connection.shutdown(std::net::Shutdown::Both)?;
+                        return Ok(HandleResult::ConnectionClosed);
+                    }
+                }
             }
         }
 
@@ -329,5 +436,60 @@ mod rpc {
 
     fn interrupted(err: &io::Error) -> bool {
         err.kind() == io::ErrorKind::Interrupted
+    }
+
+    enum ParsedMessage {
+        Heartbeat,
+        Ok,
+        Close,
+        Header,
+        Unknown(Vec<u8>),
+    }
+
+    struct RawMessage {
+        length: usize,
+        data: Vec<u8>,
+    }
+
+    impl RawMessage {
+        fn from_bytes(bytes: &[u8]) -> Self {
+            println!("[archive-service-parser] Raw message: {:?}", bytes);
+            Self { length: bytes.len(), data: bytes.to_vec() }
+        }
+
+        fn parse_raw(&self) -> io::Result<Vec<ParsedMessage>> {
+            let mut parsed_bytes: usize = 0;
+    
+            // more than one message can be sent in a single packet
+            let mut messages = Vec::new();
+    
+            while parsed_bytes < self.length {
+                // first 8 bytes are the length in little endian
+                let length = u64::from_le_bytes(self.data[parsed_bytes..parsed_bytes + 8].try_into().unwrap()) as usize;
+                parsed_bytes += 8;
+
+                println!("[archive-service-parser] Parsed length: {}", length);
+                println!("[archive-service-parser] Parsed bytes: {:?}", &self.data[parsed_bytes..parsed_bytes + length]);
+
+                if parsed_bytes + length > self.length {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, "Message length exceeds raw message length"));
+                }
+    
+                if length == HEADER_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == HEADER_MSG {
+                    messages.push(ParsedMessage::Header);
+                } else if length == OK_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == OK_MSG {
+                    messages.push(ParsedMessage::Ok);
+                } else if length == HEARTBEAT_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == HEARTBEAT_MSG {
+                    messages.push(ParsedMessage::Heartbeat);
+                } else if length == CLOSE_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == CLOSE_MSG {
+                    messages.push(ParsedMessage::Close);
+                } else {
+                    messages.push(ParsedMessage::Unknown(self.data[parsed_bytes..parsed_bytes + length].to_vec()));
+                }
+    
+                parsed_bytes += length;
+            }
+            Ok(messages)
+        }
     }
 }

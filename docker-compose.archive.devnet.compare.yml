@@ -74,6 +74,8 @@ services:
       --postgres-uri postgres://postgres:${POSTGRES_PASSWORD}@postgres-ocaml:${PG_PORT}/${PG_DB}
       --server-port 3086
       --output-dir /data
+    ports:
+      - 3086:3086
     depends_on:
       postgres-ocaml:
         condition: service_healthy
@@ -89,8 +91,10 @@ services:
     command: >
       run
       --postgres-uri postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB}
-      --server-port 3086
+      --server-port 3087
       --output-dir /data
+    ports:
+      - 3087:3087
     depends_on:
       postgres-openmina:
         condition: service_healthy
@@ -151,7 +155,7 @@ services:
     container_name: node-openmina
     command: >
       node
-      --archive-address http://archive-openmina:3086
+      --archive-address http://archive-openmina:3087
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

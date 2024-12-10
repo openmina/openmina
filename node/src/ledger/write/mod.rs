@@ -99,7 +99,17 @@ impl From<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
             // TODO(adonagy): check if we need the StateBodyHash, if no keep the None
             block: (
                 (*value.block.block).clone(),
-                (value.block.header().protocol_state.body.try_hash().ok().map(StateBodyHash::from), value.block.hash().clone()),
+                (
+                    value
+                        .block
+                        .header()
+                        .protocol_state
+                        .body
+                        .try_hash()
+                        .ok()
+                        .map(StateBodyHash::from),
+                    value.block.hash().clone(),
+                ),
             ),
             accounts_accessed: value
                 .accounts_accessed
