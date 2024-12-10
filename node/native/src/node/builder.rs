@@ -291,7 +291,8 @@ impl NodeBuilder {
     }
 
     pub fn build(mut self) -> anyhow::Result<Node> {
-        let p2p_sec_key = self.p2p_sec_key.unwrap_or_else(P2pSecretKey::rand);
+        let p2p_sec_key = self.p2p_sec_key.clone().unwrap_or_else(P2pSecretKey::rand);
+        self.p2p_sec_key(p2p_sec_key.clone());
         if self.p2p.initial_peers.is_empty() && !self.p2p_is_seed {
             self.p2p.initial_peers = default_peers();
         }
