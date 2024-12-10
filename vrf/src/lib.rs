@@ -6,7 +6,6 @@ use mina_p2p_messages::v2::EpochSeed;
 use num::{rational::Ratio, BigInt, ToPrimitive};
 use openmina_node_account::AccountPublicKey;
 use output::VrfOutput;
-use poseidon::hash::{params::MINA_VRF_MESSAGE, LazyParam};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -80,35 +79,13 @@ impl VrfEvaluationOutput {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VrfEvaluationInput {
-    producer_key: Keypair,
-    global_slot: u32,
-    epoch_seed: EpochSeed,
-    account_pub_key: AccountPublicKey,
-    delegator_index: AccountIndex,
-    delegated_stake: BigInt,
-    total_currency: BigInt,
-}
-
-impl VrfEvaluationInput {
-    pub fn new(
-        producer_key: Keypair,
-        epoch_seed: EpochSeed,
-        account_pub_key: AccountPublicKey,
-        global_slot: u32,
-        delegator_index: AccountIndex,
-        delegated_stake: BigInt,
-        total_currency: BigInt,
-    ) -> Self {
-        Self {
-            producer_key,
-            global_slot,
-            epoch_seed,
-            delegator_index,
-            delegated_stake,
-            total_currency,
-            account_pub_key,
-        }
-    }
+    pub producer_key: Keypair,
+    pub global_slot: u32,
+    pub epoch_seed: EpochSeed,
+    pub account_pub_key: AccountPublicKey,
+    pub delegator_index: AccountIndex,
+    pub delegated_stake: BigInt,
+    pub total_currency: BigInt,
 }
 
 /// Generates the VRF output for the genesis block
@@ -147,9 +124,7 @@ fn to_f64(ratio: Ratio<BigInt<32>>) -> Option<f64> {
 }
 
 /// Evaluate vrf with a specific input. Used by the block producer
-pub fn evaluate_vrf(
-    vrf_input: VrfEvaluationInput,
-) -> VrfResult<VrfEvaluationOutput> {
+pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOutput> {
     let VrfEvaluationInput {
         producer_key,
         global_slot,

@@ -51,15 +51,15 @@ impl Evaluator {
                     .db
                     .store_slot(global_slot, &SlotData::new_lost(global_slot, timestamp));
                 for (index, delegate) in &delegates {
-                    let vrf_input = VrfEvaluationInput::new(
-                        self.key.clone().into(),
-                        epoch_seed.clone(),
-                        pub_key.clone(),
+                    let vrf_input = VrfEvaluationInput {
+                        producer_key: self.key.clone().into(),
                         global_slot,
-                        (*index).into(),
-                        delegate.balance.clone().into(),
-                        total_currency.clone(),
-                    );
+                        epoch_seed: epoch_seed.clone(),
+                        account_pub_key: pub_key.clone(),
+                        delegator_index: (*index).into(),
+                        delegated_stake: delegate.balance.clone().into(),
+                        total_currency: total_currency.clone(),
+                    };
 
                     if let Ok(VrfEvaluationOutput::SlotWon(_)) = vrf::evaluate_vrf(vrf_input) {
                         println!("Won slot: {global_slot}");

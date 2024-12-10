@@ -65,13 +65,13 @@ impl Threshold {
         )
         .floor()
         .to_integer();
-        let input = Ratio::<BigI::<64>>::new(numer.to_digits(), two_tpo_per_term_precission.to_digits());
+        let input =
+            Ratio::<BigI<64>>::new(numer.to_digits(), two_tpo_per_term_precission.to_digits());
 
         let denom = BigI::one() << per_term_precission;
 
         let (res, _) = coefficients.into_iter().fold(
-            (Ratio::<BigI::<64>>::zero(), Ratio::<BigI::<64>>::one()),
-            // (BigRational::zero(), BigRational::one()),
+            (Ratio::<BigI<64>>::zero(), Ratio::<BigI<64>>::one()),
             |(acc, x_i), coef| {
                 let x_i = &input * &x_i;
                 let c = Ratio::new(coef, denom.clone());
@@ -100,33 +100,16 @@ impl Threshold {
 
         let two = BigI::<64>::one() + BigI::one();
         let lower_bound = bigint_to_bigrational(&two.pow(bits_of_precission));
-        // let lower_bound: Ratio<BigInt<128>> = Ratio::new(lower_bound.numer().to_digits(), lower_bound.denom().to_digits());
 
         let mut n = 0;
-        // let mut d = log_base.pow(1);
-
-        // dbg!(&lower_bound);
-
         let log_base: Ratio<BigI<64>> = ratio_to_more_limbs(log_base.clone());
 
         loop {
-
             let d = log_base.pow(n + 1);
-
-            // let d: Ratio<BigInt<128>> = Ratio::new(d.numer().to_digits(), d.denom().to_digits());
-            // let d = Ratio {
-            //     numer: d.numer().to_digits(),
-            //     denom: d.denom().to_digits(),
-            // };
-
-            // if bigint_to_bigrational(&Self::factorial(n.into())) / d > lower_bound {
-
-            let a: Ratio<BigI<64>> = Ratio::<BigI::<64>>::new(Self::factorial(n.into()), BigI::one());
+            let a: Ratio<BigI<64>> = Ratio::<BigI<64>>::new(Self::factorial(n.into()), BigI::one());
 
             if a / d > lower_bound {
-            // if bigint_to_bigrational(&dbg!(Self::factorial(dbg!(n).into()))) / dbg!(d) > lower_bound {
                 return n;
-                // return dbg!(n);
             }
             n += 1;
         }
@@ -223,7 +206,10 @@ pub fn bigint_to_bigrational<const N: usize>(x: &BigI<N>) -> Ratio<BigI<N>> {
     Ratio::new(x.clone(), BigI::one())
 }
 
-pub fn bigrational_as_fixed_point<const N: usize>(c: Ratio<BigI<N>>, per_term_precission: usize) -> BigI<N> {
+pub fn bigrational_as_fixed_point<const N: usize>(
+    c: Ratio<BigI<N>>,
+    per_term_precission: usize,
+) -> BigI<N> {
     let numer = c.numer();
     let denom = c.denom();
 

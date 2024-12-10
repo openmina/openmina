@@ -47,7 +47,6 @@ pub struct VrfOutput {
     output: CurvePoint,
 }
 
-
 struct FieldBitsIterator {
     index: usize,
     bigint: [u64; 4],
@@ -84,8 +83,6 @@ where
     let bigint: BigInteger256 = field.into();
     bigint_to_bits(bigint)
 }
-
-
 
 impl VrfOutput {
     pub fn new(message: VrfMessage, output: CurvePoint) -> Self {
