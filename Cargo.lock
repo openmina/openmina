@@ -1228,6 +1228,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "cpp_build"
+version = "0.5.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27f8638c97fbd79cc6fc80b616e0e74b49bac21014faed590bbc89b7e2676c90"
+dependencies = [
+ "cc",
+ "cpp_common",
+ "lazy_static",
+ "proc-macro2",
+ "regex",
+ "syn 2.0.58",
+ "unicode-xid",
+]
+
+[[package]]
+name = "cpp_common"
+version = "0.5.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25fcfea2ee05889597d35e986c2ad0169694320ae5cc8f6d2640a4bb8a884560"
+dependencies = [
+ "lazy_static",
+ "proc-macro2",
+ "syn 2.0.58",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1573,6 +1599,9 @@ source = "git+https://github.com/openmina/datachannel-rs.git?rev=1bfb064d0ff3e54
 dependencies = [
  "bindgen",
  "cmake",
+ "cpp_build",
+ "once_cell",
+ "openssl-src",
 ]
 
 [[package]]
@@ -4961,6 +4990,15 @@ name = "openssl-probe"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
+
+[[package]]
+name = "openssl-src"
+version = "300.4.1+3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "faa4eac4138c62414b5622d1b31c5c304f34b406b013c079c2bbc652fdd6678c"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "openssl-sys"
