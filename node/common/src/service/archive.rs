@@ -42,7 +42,8 @@ impl ArchiveService {
                 }
             }
             // Sleep to avoid overloading the archive during catchup
-            std::thread::sleep(std::time::Duration::from_millis(1000));
+            // TODO: remove this after debugging, this is a temporary fix
+            // std::thread::sleep(std::time::Duration::from_millis(1000));
         }
     }
 
@@ -86,12 +87,19 @@ mod rpc {
     use std::io::{self, Read, Write};
     use std::net::SocketAddr;
 
-    const HEADER_WITH_LENGTH_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
+    // const HEADER_WITH_LENGTH_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
     const HEADER_MSG: [u8; 7] = [2, 253, 82, 80, 67, 0, 1];
     const OK_MSG: [u8; 5] = [2, 1, 0, 1, 0];
     const CLOSE_MSG: [u8; 7] = [2, 254, 167, 7, 0, 1, 0];
     const HEARTBEAT_MSG: [u8; 1] = [0];
+    // const HEARTBEAT_MSG_WITH_LENGTH: [u8; 9] = [1, 0, 0, 0, 0, 0, 0, 0, 0];
 
+    fn prepend_length(message: &[u8]) -> Vec<u8> {
+        let length = message.len() as u64;
+        let mut length_bytes = length.to_le_bytes().to_vec();
+        length_bytes.append(&mut message.to_vec());
+        length_bytes
+    }
     pub enum HandleResult {
         MessageSent,
         ConnectionClosed,
@@ -133,7 +141,9 @@ mod rpc {
         let payload_length = (v.len() - 8) as u64;
         v[..8].copy_from_slice(&payload_length.to_le_bytes());
         // Bake in the heartbeat message
-        v.splice(0..0, [1, 0, 0, 0, 0, 0, 0, 0, 0].iter().cloned());
+        v.splice(0..0, prepend_length(&HEARTBEAT_MSG).iter().cloned());
+        // also add the heartbeat message to the end of the message
+        v.extend_from_slice(&prepend_length(&HEARTBEAT_MSG));
 
         v
     }
@@ -192,7 +202,7 @@ mod rpc {
                                 continue;
                             }
                             HandleResult::ConnectionAlive => {
-                                // keep swapping between readable and writable until we send the message, then keep in read mode.
+                                // keep swapping between readable and writable until we successfully send the message, then keep in read mode.
                                 if message_sent {
                                     poll.registry().reregister(
                                         &mut stream,
@@ -225,6 +235,24 @@ mod rpc {
         }
     }
 
+    fn send_heartbeat(connection: &mut TcpStream) -> io::Result<HandleResult> {
+        match connection.write_all(&HEARTBEAT_MSG) {
+            Ok(_) => {
+                connection.flush()?;
+                Ok(HandleResult::ConnectionAlive)
+            }
+            Err(ref err) if would_block(err) => {
+                println!("[archive-service] Heartbeat would block");
+                Ok(HandleResult::MessageWouldBlock)
+            }
+            Err(ref err) if interrupted(err) => {
+                println!("[archive-service] Heartbeat interrupted");
+                Ok(HandleResult::MessageWouldBlock)
+            }
+            Err(err) => Err(err),
+        }
+    }
+
     /// Returns `true` if the connection is done.
     fn handle_connection_event(
         registry: &Registry,
@@ -238,8 +266,9 @@ mod rpc {
     ) -> io::Result<HandleResult> {
         if event.is_writable() {
             if !*handshake_sent {
-                match connection.write(&HEADER_WITH_LENGTH_MSG) {
-                    Ok(n) if n < HEADER_WITH_LENGTH_MSG.len() => return Err(io::ErrorKind::WriteZero.into()),
+                let msg = prepend_length(&HEADER_MSG);
+                match connection.write(&msg) {
+                    Ok(n) if n < msg.len() => return Err(io::ErrorKind::WriteZero.into()),
                     Ok(_) => {
                         println!("[archive-service] Handshake sent");
                         *handshake_sent = true;
@@ -271,6 +300,7 @@ mod rpc {
                 match connection.write(data) {
                     Ok(n) if n < data.len() => {
                         let remaining_data = data[n..].to_vec();
+                        // TODO: add recursion guard
                         return handle_connection_event(
                             registry,
                             connection,
@@ -286,6 +316,7 @@ mod rpc {
                         println!("[archive-service] Message sent");
                         connection.flush()?;
                         *message_sent = true;
+                        // return send_heartbeat(connection);
                         return Ok(HandleResult::ConnectionAlive);
                     }
                     Err(ref err) if would_block(err) => {
