@@ -19,7 +19,7 @@ impl Default for OcamlNodeTestingConfig {
     fn default() -> Self {
         Self {
             initial_peers: vec![],
-            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_889607b9.json".to_owned()),
             block_producer: None,
         }
     }
@@ -130,7 +130,7 @@ impl OcamlNodeConfig {
 impl OcamlNodeExecutable {
     // pub const DEFAULT_DOCKER_IMAGE: &'static str = "vladsimplestakingcom/mina-light:2.0.0rampup4";
     pub const DEFAULT_DOCKER_IMAGE: &'static str =
-        "minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet";
+        "gcr.io/o1labs-192920/mina-daemon:3.0.4-alpha1-889607b-bullseye-devnet";
     pub const DEFAULT_MINA_EXECUTABLE: &'static str = "mina";
 
     fn docker_container_name(tmp_dir: &temp_dir::TempDir) -> String {
