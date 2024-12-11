@@ -52,7 +52,7 @@ pub fn vrf_evaluator(
                 }
                 None
             })
-            .unwrap_or_else(|| VrfEvaluationOutput::SlotLost(vrf_evaluator_input.global_slot));
+            .unwrap_or(VrfEvaluationOutput::SlotLost(*global_slot));
 
         let vrf_result_with_hash = VrfEvaluationOutputWithHash::new(
             vrf_result,
