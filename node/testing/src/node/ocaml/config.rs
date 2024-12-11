@@ -19,7 +19,7 @@ impl Default for OcamlNodeTestingConfig {
     fn default() -> Self {
         Self {
             initial_peers: vec![],
-            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_889607b9.json".to_owned()),
             block_producer: None,
         }
     }
