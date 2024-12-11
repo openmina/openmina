@@ -87,12 +87,11 @@ mod rpc {
     use std::io::{self, Read, Write};
     use std::net::SocketAddr;
 
-    // const HEADER_WITH_LENGTH_MSG: [u8; 15] = [7, 0, 0, 0, 0, 0, 0, 0, 2, 253, 82, 80, 67, 0, 1];
     const HEADER_MSG: [u8; 7] = [2, 253, 82, 80, 67, 0, 1];
     const OK_MSG: [u8; 5] = [2, 1, 0, 1, 0];
+    // Note: this is the close message that the ocaml node receives
     const CLOSE_MSG: [u8; 7] = [2, 254, 167, 7, 0, 1, 0];
     const HEARTBEAT_MSG: [u8; 1] = [0];
-    // const HEARTBEAT_MSG_WITH_LENGTH: [u8; 9] = [1, 0, 0, 0, 0, 0, 0, 0, 0];
 
     fn prepend_length(message: &[u8]) -> Vec<u8> {
         let length = message.len() as u64;
@@ -114,11 +113,11 @@ mod rpc {
     }
 
     pub fn send_diff(address: SocketAddr, data: v2::ArchiveRpc) -> io::Result<HandleResult> {
-        let rpc = encode_to_rpc(data);
+        let rpc = encode_to_rpc(data)?;
         process_rpc(address, &rpc)
     }
 
-    fn encode_to_rpc(data: ArchiveRpc) -> Vec<u8> {
+    fn encode_to_rpc(data: ArchiveRpc) -> io::Result<Vec<u8>> {
         type Method = mina_p2p_messages::rpc::SendArchiveDiffUnversioned;
         let mut v = vec![0; 8];
 
@@ -134,8 +133,8 @@ mod rpc {
                 node::core::log::system_time();
                 summary = "Failed binprot serializastion",
                 error = e.to_string()
-            )
-            // TODO: handle this better
+            );
+            return Err(e);
         }
 
         let payload_length = (v.len() - 8) as u64;
@@ -145,7 +144,7 @@ mod rpc {
         // also add the heartbeat message to the end of the message
         v.extend_from_slice(&prepend_length(&HEARTBEAT_MSG));
 
-        v
+        Ok(v)
     }
 
     fn process_rpc(address: SocketAddr, data: &[u8]) -> io::Result<HandleResult> {
@@ -157,7 +156,7 @@ mod rpc {
         // We still need a token even for one connection
         const TOKEN: Token = Token(0);
 
-        let mut stream = TcpStream::connect(address)?; 
+        let mut stream = TcpStream::connect(address)?;
 
         let mut handshake_received = false;
         let mut handshake_sent = false;
@@ -176,7 +175,12 @@ mod rpc {
 
             for event in events.iter() {
                 event_count += 1;
-                println!("[archive-service] Event: {:?} [R/W:{}/{}]", event_count, event.is_readable(), event.is_writable());
+                println!(
+                    "[archive-service] Event: {:?} [R/W:{}/{}]",
+                    event_count,
+                    event.is_readable(),
+                    event.is_writable()
+                );
                 // TODO: remove this after debugging
                 if event_count > 100 {
                     panic!("FAILSAFE triggered, event count: {}", event_count);
@@ -296,7 +300,8 @@ mod rpc {
                 return Ok(HandleResult::ConnectionAlive);
             }
 
-            if *handshake_received && *handshake_sent && !*message_sent && *first_heartbeat_received {
+            if *handshake_received && *handshake_sent && !*message_sent && *first_heartbeat_received
+            {
                 match connection.write(data) {
                     Ok(n) if n < data.len() => {
                         let remaining_data = data[n..].to_vec();
@@ -311,7 +316,7 @@ mod rpc {
                             message_sent,
                             first_heartbeat_received,
                         );
-                    },
+                    }
                     Ok(_) => {
                         println!("[archive-service] Message sent");
                         connection.flush()?;
@@ -383,25 +388,6 @@ mod rpc {
                     }
                     Ok(n) => {
                         bytes_read += n;
-                        // if bytes_read >= HEADER_MSG.len()
-                        //     && received_data[..HEADER_MSG.len()] == HEADER_MSG
-                        // {
-                        //     *handshake_received = true;
-                        //     println!("[archive-service] Handshake received");
-                        //     break;
-                        // } else if bytes_read >= OK_MSG.len()
-                        //     && received_data[..OK_MSG.len()] == OK_MSG
-                        // {
-                        //     println!("[archive-service] Received close message");
-                        //     registry.deregister(connection)?;
-                        //     connection.shutdown(std::net::Shutdown::Both)?;
-                        //     return Ok(HandleResult::MessageSent);
-                        // } else if bytes_read >= HEARTBEAT_MSG.len()
-                        //     && received_data[..HEARTBEAT_MSG.len()] == HEARTBEAT_MSG
-                        // {
-                        //     println!("[archive-service] Received heartbeat message");
-                        //     continue;
-                        // }
                         if bytes_read == received_data.len() {
                             received_data.resize(received_data.len() + 1024, 0);
                         }
@@ -426,7 +412,6 @@ mod rpc {
                 // malformed message, at least the length should be present
                 return Ok(HandleResult::ConnectionAlive);
             }
-
 
             let raw_message = RawMessage::from_bytes(&received_data[..bytes_read]);
             let messages = raw_message.parse_raw()?;
@@ -485,39 +470,62 @@ mod rpc {
     impl RawMessage {
         fn from_bytes(bytes: &[u8]) -> Self {
             println!("[archive-service-parser] Raw message: {:?}", bytes);
-            Self { length: bytes.len(), data: bytes.to_vec() }
+            Self {
+                length: bytes.len(),
+                data: bytes.to_vec(),
+            }
         }
 
         fn parse_raw(&self) -> io::Result<Vec<ParsedMessage>> {
             let mut parsed_bytes: usize = 0;
-    
+
             // more than one message can be sent in a single packet
             let mut messages = Vec::new();
-    
+
             while parsed_bytes < self.length {
                 // first 8 bytes are the length in little endian
-                let length = u64::from_le_bytes(self.data[parsed_bytes..parsed_bytes + 8].try_into().unwrap()) as usize;
+                let length = u64::from_le_bytes(
+                    self.data[parsed_bytes..parsed_bytes + 8]
+                        .try_into()
+                        .unwrap(),
+                ) as usize;
                 parsed_bytes += 8;
 
                 println!("[archive-service-parser] Parsed length: {}", length);
-                println!("[archive-service-parser] Parsed bytes: {:?}", &self.data[parsed_bytes..parsed_bytes + length]);
+                println!(
+                    "[archive-service-parser] Parsed bytes: {:?}",
+                    &self.data[parsed_bytes..parsed_bytes + length]
+                );
 
                 if parsed_bytes + length > self.length {
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, "Message length exceeds raw message length"));
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "Message length exceeds raw message length",
+                    ));
                 }
-    
-                if length == HEADER_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == HEADER_MSG {
+
+                if length == HEADER_MSG.len()
+                    && self.data[parsed_bytes..parsed_bytes + length] == HEADER_MSG
+                {
                     messages.push(ParsedMessage::Header);
-                } else if length == OK_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == OK_MSG {
+                } else if length == OK_MSG.len()
+                    && self.data[parsed_bytes..parsed_bytes + length] == OK_MSG
+                {
                     messages.push(ParsedMessage::Ok);
-                } else if length == HEARTBEAT_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == HEARTBEAT_MSG {
+                } else if length == HEARTBEAT_MSG.len()
+                    && self.data[parsed_bytes..parsed_bytes + length] == HEARTBEAT_MSG
+                {
                     messages.push(ParsedMessage::Heartbeat);
-                } else if length == CLOSE_MSG.len() && self.data[parsed_bytes..parsed_bytes + length] == CLOSE_MSG {
+                } else if length == CLOSE_MSG.len()
+                    && self.data[parsed_bytes..parsed_bytes + length] == CLOSE_MSG
+                {
                     messages.push(ParsedMessage::Close);
                 } else {
-                    messages.push(ParsedMessage::Unknown(self.data[parsed_bytes..parsed_bytes + length].to_vec()));
+                    messages.push(ParsedMessage::Unknown(
+                        self.data[parsed_bytes..parsed_bytes + length].to_vec(),
+                    ));
                 }
-    
+
                 parsed_bytes += length;
             }
             Ok(messages)
