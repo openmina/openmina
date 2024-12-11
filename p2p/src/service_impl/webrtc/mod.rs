@@ -12,6 +12,7 @@ use std::{collections::BTreeMap, time::Duration};
 
 use openmina_core::bug_condition;
 use serde::Serialize;
+use tokio::sync::Mutex;
 
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_local;
@@ -169,7 +170,7 @@ impl Default for RTCConfigIceServers {
                 credential: Some("webrtc".to_owned()),
             },
             RTCConfigIceServer {
-                urls: vec!["176.9.147.28:3478".to_owned()],
+                urls: vec!["stun:176.9.147.28:3478".to_owned()],
                 username: None,
                 credential: None,
             },
@@ -261,6 +262,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
         Result::<_, Error>::Ok((pc, main_channel))
     };
 
+    #[allow(unused_mut)]
     let (mut pc, mut main_channel) = match fut.await {
         Ok(v) => v,
         Err(err) => {
@@ -476,6 +478,7 @@ impl Channels {
 }
 
 // TODO(binier): remove unwraps
+#[allow(unused_mut)]
 async fn peer_loop(
     peer_id: PeerId,
     event_sender: Arc<dyn Fn(P2pEvent) -> Option<()> + Send + Sync + 'static>,
@@ -593,6 +596,7 @@ async fn peer_loop(
                     Err(err) => (None, Err(err.to_string())),
                 };
 
+                #[allow(unused_mut)]
                 if let Some(mut chan) = chan {
                     fn process_msg(
                         chan_id: ChannelId,
@@ -730,16 +734,42 @@ pub trait P2pServiceWebrtc: redux::Service {
         spawner.spawn_main("webrtc", async move {
             #[allow(clippy::all)]
             let api = build_api();
+            let active_peers = Arc::new(Mutex::new(BTreeMap::new()));
             while let Some(cmd) = cmd_receiver.recv().await {
                 match cmd {
                     Cmd::PeerAdd { args, abort } => {
                         #[allow(clippy::all)]
-                        let api_clone = api.clone();
+                        let api = api.clone();
+                        let active_peers = active_peers.clone();
                         spawn_local(async move {
+                            let peer_id = args.peer_id;
+                            let (abort_finished_tx, abort_finished) = broadcast::channel::<()>(1);
                             let mut aborted = abort.resubscribe();
+
+                            if let Some(mut abort_finished) =
+                                active_peers.lock().await.insert(peer_id, abort_finished)
+                            {
+                                // wait for peer conn with same id to finish.
+                                let _ = abort_finished.recv().await;
+                            }
+                            if active_peers.lock().await.len() > 100 {
+                                sleep(Duration::from_millis(500)).await;
+                            }
+
                             tokio::select! {
                                 _ = aborted.recv() => {}
-                                _ = peer_start(api_clone, args, abort) => {}
+                                _ = peer_start(api, args, abort) => {}
+                            }
+
+                            // delay removing active_peer to give some time for cleanup.
+                            sleep(Duration::from_millis(500)).await;
+                            let rx1 = abort_finished_tx.subscribe();
+                            let mut active_peers = active_peers.lock().await;
+                            if let Some(rx) = active_peers
+                                .remove(&peer_id)
+                                .filter(|rx2| !rx2.same_channel(&rx1))
+                            {
+                                active_peers.insert(peer_id, rx);
                             }
                         });
                     }
