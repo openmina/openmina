@@ -52,6 +52,17 @@ pub enum VrfError {
     IvalidWitness,
 }
 
+/// 256 bits
+pub(crate) type BigInt256 = BigInt<4>;
+
+/// 2048 bits
+pub(crate) type BigInt2048 = BigInt<32>;
+pub(crate) type BigRational2048 = Ratio<BigInt2048>;
+
+/// 4096 bits
+pub(crate) type BigInt4096 = BigInt<64>;
+pub(crate) type BigRational4096 = Ratio<BigInt4096>;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VrfWonSlot {
     pub producer: AccountPublicKey,
@@ -113,16 +124,6 @@ fn calculate_vrf(
     Ok(VrfOutput::new(vrf_message, scaled_message_hash))
 }
 
-/// https://github.com/rust-num/num-rational/blob/4d55ad22ac86ebbc4cb45d79a956e4a1f7af57d1/src/lib.rs#L1439C1-L1446C14
-fn to_f64(ratio: Ratio<BigInt<32>>) -> Option<f64> {
-    let float = ratio.numer().to_f64().unwrap() / ratio.denom().to_f64().unwrap();
-    if float.is_nan() {
-        None
-    } else {
-        Some(float)
-    }
-}
-
 /// Evaluate vrf with a specific input. Used by the block producer
 pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOutput> {
     let VrfEvaluationInput {
@@ -138,7 +139,7 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
     let vrf_output = calculate_vrf(&producer_key, epoch_seed, global_slot, &delegator_index)?;
 
     let value = vrf_output.truncated().into_repr();
-    let threshold = Threshold::new(delegated_stake.to_digits(), total_currency.to_digits());
+    let threshold = Threshold::new(delegated_stake, total_currency);
 
     if threshold.threshold_met(value) {
         Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
@@ -149,8 +150,8 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
             account_index: delegator_index,
             value_with_threshold: None.or_else(|| {
                 Some((
-                    to_f64(self::threshold::get_fractional(value))?,
-                    to_f64(threshold.threshold_rational)?,
+                    self::threshold::get_fractional(value).to_f64()?,
+                    threshold.threshold_rational.to_f64()?,
                 ))
             }),
         }))
