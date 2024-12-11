@@ -41,9 +41,6 @@ impl ArchiveService {
                     }
                 }
             }
-            // Sleep to avoid overloading the archive during catchup
-            // TODO: remove this after debugging, this is a temporary fix
-            // std::thread::sleep(std::time::Duration::from_millis(1000));
         }
     }
 
@@ -87,6 +84,9 @@ mod rpc {
     use std::io::{self, Read, Write};
     use std::net::SocketAddr;
 
+    const MAX_RECURSION_DEPTH: u8 = 25;
+
+    // messages
     const HEADER_MSG: [u8; 7] = [2, 253, 82, 80, 67, 0, 1];
     const OK_MSG: [u8; 5] = [2, 1, 0, 1, 0];
     // Note: this is the close message that the ocaml node receives
@@ -257,6 +257,60 @@ mod rpc {
         }
     }
 
+    struct RecursionGuard {
+        count: u8,
+        max_depth: u8,
+    }
+
+    impl RecursionGuard {
+        fn new(max_depth: u8) -> Self {
+            Self {
+                count: 0,
+                max_depth,
+            }
+        }
+
+        fn increment(&mut self) -> io::Result<()> {
+            self.count += 1;
+            if self.count > self.max_depth {
+                Err(io::ErrorKind::WriteZero.into())
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    fn send_data<F>(
+        connection: &mut TcpStream,
+        data: &[u8],
+        recursion_guard: &mut RecursionGuard,
+        // I want this to be a closure that can be called when the data is sent
+        on_success: F,
+    ) -> io::Result<HandleResult>
+    where
+        F: FnOnce() -> io::Result<HandleResult>,
+    {
+        match connection.write(data) {
+            Ok(n) if n < data.len() => {
+                recursion_guard.increment()?;
+                let remaining_data = data[n..].to_vec();
+                send_data(connection, &remaining_data, recursion_guard, on_success)
+            }
+            Ok(_) => {
+                connection.flush()?;
+                on_success()
+            }
+            Err(ref err) if would_block(err) => Ok(HandleResult::MessageWouldBlock),
+            Err(ref err) if interrupted(err) => {
+                recursion_guard
+                    .increment()
+                    .map_err(|_| io::ErrorKind::Interrupted)?;
+                send_data(connection, data, recursion_guard, on_success)
+            }
+            Err(err) => Err(err),
+        }
+    }
+
     /// Returns `true` if the connection is done.
     fn handle_connection_event(
         registry: &Registry,
@@ -271,107 +325,31 @@ mod rpc {
         if event.is_writable() {
             if !*handshake_sent {
                 let msg = prepend_length(&HEADER_MSG);
-                match connection.write(&msg) {
-                    Ok(n) if n < msg.len() => return Err(io::ErrorKind::WriteZero.into()),
-                    Ok(_) => {
+                send_data(
+                    connection,
+                    &msg,
+                    &mut RecursionGuard::new(MAX_RECURSION_DEPTH),
+                    || {
                         println!("[archive-service] Handshake sent");
                         *handshake_sent = true;
-                    }
-                    Err(ref err) if would_block(err) => {
-                        println!("[archive-service] Handshake would block");
-                        return Ok(HandleResult::MessageWouldBlock);
-                    }
-                    Err(ref err) if interrupted(err) => {
-                        println!("[archive-service] Handshake interrupted");
-                        return handle_connection_event(
-                            registry,
-                            connection,
-                            event,
-                            data,
-                            handshake_received,
-                            handshake_sent,
-                            message_sent,
-                            first_heartbeat_received,
-                        );
-                    }
-                    // Other errors we'll consider fatal.
-                    Err(err) => return Err(err),
-                }
+                        Ok(HandleResult::ConnectionAlive)
+                    },
+                )?;
                 return Ok(HandleResult::ConnectionAlive);
             }
 
             if *handshake_received && *handshake_sent && !*message_sent && *first_heartbeat_received
             {
-                match connection.write(data) {
-                    Ok(n) if n < data.len() => {
-                        let remaining_data = data[n..].to_vec();
-                        // TODO: add recursion guard
-                        return handle_connection_event(
-                            registry,
-                            connection,
-                            event,
-                            &remaining_data,
-                            handshake_received,
-                            handshake_sent,
-                            message_sent,
-                            first_heartbeat_received,
-                        );
-                    }
-                    Ok(_) => {
+                send_data(
+                    connection,
+                    data,
+                    &mut RecursionGuard::new(MAX_RECURSION_DEPTH),
+                    || {
                         println!("[archive-service] Message sent");
-                        connection.flush()?;
                         *message_sent = true;
-                        // return send_heartbeat(connection);
-                        return Ok(HandleResult::ConnectionAlive);
-                    }
-                    Err(ref err) if would_block(err) => {
-                        println!("[archive-service] Message would block");
-                        return Ok(HandleResult::MessageWouldBlock);
-                    }
-                    // Try again if interrupted
-                    Err(ref err) if interrupted(err) => {
-                        println!("[archive-service] Message interrupted");
-                        return handle_connection_event(
-                            registry,
-                            connection,
-                            event,
-                            data,
-                            handshake_received,
-                            handshake_sent,
-                            message_sent,
-                            first_heartbeat_received,
-                        );
-                    }
-                    // Other errors we'll consider fatal.
-                    Err(err) => return Err(err),
-                }
-            } else {
-                // Send a heartbeat to keep the connection alive until we receive the closing message
-                // match connection.write_all(&HEARTBEAT_MSG) {
-                //     Ok(_) => {
-                //         println!("[archive-service] Heartbeat sent");
-                //         connection.flush()?;
-                //         return Ok(HandleResult::ConnectionAlive);
-                //     }
-                //     Err(ref err) if would_block(err) => {
-                //         println!("[archive-service] Heartbeat would block");
-                //     }
-                //     // Try again if interrupted
-                //     Err(ref err) if interrupted(err) => {
-                //         println!("[archive-service] Heartbeat interrupted");
-                //         return handle_connection_event(
-                //             registry,
-                //             connection,
-                //             event,
-                //             data,
-                //             handshake_received,
-                //             handshake_sent,
-                //             message_sent,
-                //         );
-                //     }
-                //     // Other errors we'll consider fatal.
-                //     Err(err) => return Err(err),
-                // }
+                        Ok(HandleResult::ConnectionAlive)
+                    },
+                )?;
             }
         }
 
