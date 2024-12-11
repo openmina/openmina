@@ -4268,7 +4268,7 @@ dependencies = [
 [[package]]
 name = "num-bigint"
 version = "0.4.6"
-source = "git+https://github.com/openmina/num-bigint?rev=028b29c#028b29c9905d2fb936f9ffeb1504ac606f20f84a"
+source = "git+https://github.com/openmina/num-bigint?rev=8bb5ee4#8bb5ee4de12587b52d11eac13057c5e8664249a2"
 dependencies = [
  "num-integer",
  "num-traits",
