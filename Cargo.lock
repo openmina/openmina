@@ -4268,13 +4268,13 @@ dependencies = [
 [[package]]
 name = "num-bigint"
 version = "0.4.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
+source = "git+https://github.com/openmina/num-bigint?rev=8bb5ee4#8bb5ee4de12587b52d11eac13057c5e8664249a2"
 dependencies = [
  "num-integer",
  "num-traits",
  "rand",
  "serde",
+ "tinyvec",
 ]
 
 [[package]]
@@ -4343,11 +4343,9 @@ dependencies = [
 
 [[package]]
 name = "num-rational"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0638a1c9d0a3c0914158145bc76cff373a75a627e6ecbfb71cbe6f453a5a19b0"
+version = "0.4.2"
+source = "git+https://github.com/openmina/num-rational?rev=336f11d#336f11da2ba1b65fb9472bad29ff3f58b566266f"
 dependencies = [
- "autocfg",
  "num-bigint",
  "num-integer",
  "num-traits",

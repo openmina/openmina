@@ -1,5 +1,6 @@
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger, BigInteger256, PrimeField};
+use ledger::proofs::transaction::field_to_bits;
 use ledger::{AppendToInputs, ToInputs};
 use mina_p2p_messages::v2::ConsensusVrfOutputTruncatedStableV1;
 use num::{BigInt, BigRational, One, ToPrimitive};
@@ -8,7 +9,7 @@ use poseidon::hash::params::MINA_VRF_OUTPUT;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{BaseField, ScalarField};
+use crate::{BaseField, BigInt2048, ScalarField};
 
 use super::serialize::{ark_deserialize, ark_serialize};
 
@@ -62,7 +63,8 @@ impl VrfOutput {
     }
 
     pub fn truncated(&self) -> ScalarField {
-        let bits = self.hash().to_bits();
+        let hash = self.hash();
+        let bits = field_to_bits::<_, 255>(hash);
 
         let repr = BigInteger256::from_bits_le(&bits[..bits.len() - 3]);
         ScalarField::from_repr(repr).unwrap()
@@ -89,7 +91,7 @@ impl VrfOutput {
         //                 Field.size_in_bits = 255
         let two_tpo_256 = BigInt::one() << 253u32;
 
-        let vrf_out = BigInt::from_bytes_be(
+        let vrf_out: BigInt2048 = BigInt2048::from_bytes_be(
             num::bigint::Sign::Plus,
             &self.truncated().into_repr().to_bytes_be(),
         );
