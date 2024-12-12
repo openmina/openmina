@@ -11,7 +11,7 @@ pub enum SnarkEvent {
     WorkVerify(SnarkWorkVerifyId, Result<(), SnarkWorkVerifyError>),
     UserCommandVerify(
         SnarkUserCommandVerifyId,
-        Vec<Result<valid::UserCommand, String>>,
+        Result<Vec<valid::UserCommand>, String>,
     ),
 }
 
@@ -33,13 +33,9 @@ impl std::fmt::Display for SnarkEvent {
                 write!(f, "WorkVerify, {id}, {}", res_kind(res))
             }
             Self::UserCommandVerify(id, res) => {
-                let n_failed = res.iter().filter(|res| res.is_err()).count();
-                let n_success = res.len() - n_failed;
-                write!(
-                    f,
-                    "UserCommandVerify, {id}, n_success={} n_failed={}",
-                    n_success, n_failed
-                )
+                //let n_failed = res.iter().filter(|res| res.is_err()).count();
+                //let n_success = res.len() - n_failed;
+                write!(f, "UserCommandVerify, {id}, success={}", res.is_err())
             }
         }
     }

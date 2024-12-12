@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
-use mina_p2p_messages::{list::List, v2};
+use ledger::scan_state::transaction_logic::{valid, verifiable, WithStatus};
+use redux::Callback;
 use serde::{Deserialize, Serialize};
 
-use openmina_core::requests::PendingRequests;
+use openmina_core::requests::{PendingRequests, RpcId};
 
 use crate::{TransactionVerifier, VerifierSRS};
 
@@ -46,11 +46,17 @@ impl std::fmt::Debug for SnarkUserCommandVerifyState {
 pub enum SnarkUserCommandVerifyStatus {
     Init {
         time: redux::Timestamp,
-        commands: List<v2::MinaBaseUserCommandStableV2>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        from_rpc: Option<RpcId>,
+        on_success: super::OnSuccess,
+        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>)>,
     },
     Pending {
         time: redux::Timestamp,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
+        from_rpc: Option<RpcId>,
+        on_success: super::OnSuccess,
+        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>)>,
     },
     Error {
         time: redux::Timestamp,
@@ -59,7 +65,7 @@ pub enum SnarkUserCommandVerifyStatus {
     },
     Success {
         time: redux::Timestamp,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        commands: Vec<valid::UserCommand>,
     },
 }
 

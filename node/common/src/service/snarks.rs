@@ -1,7 +1,13 @@
 use std::sync::Arc;
 
 use ark_ff::fields::arithmetic::InvalidBigInt;
-use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
+use ledger::{
+    scan_state::{
+        scan_state::transaction_snark::{SokDigest, Statement},
+        transaction_logic::WithStatus,
+    },
+    transaction_pool::{TransactionError, TransactionPoolErrors},
+};
 use mina_p2p_messages::v2;
 use node::{
     core::{
@@ -104,14 +110,39 @@ impl node::service::SnarkWorkVerifyService for NodeService {
 impl node::service::SnarkUserCommandVerifyService for NodeService {
     fn verify_init(
         &mut self,
-        _req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
-        _verifier_index: TransactionVerifier,
-        _verifier_srs: Arc<VerifierSRS>,
-        _commands: mina_p2p_messages::list::List<
-            mina_p2p_messages::v2::MinaBaseUserCommandStableV2,
-        >,
+        req_id: node::snark::user_command_verify::SnarkUserCommandVerifyId,
+        commands: Vec<WithStatus<ledger::scan_state::transaction_logic::verifiable::UserCommand>>,
     ) {
-        todo!()
+        if self.replayer.is_some() {
+            return;
+        }
+
+        let tx = self.event_sender().clone();
+        let result = {
+            let (verified, invalid): (Vec<_>, Vec<_>) = ledger::verifier::Verifier
+                .verify_commands(commands, None)
+                .into_iter()
+                .partition(Result::is_ok);
+
+            let verified: Vec<_> = verified.into_iter().map(Result::unwrap).collect();
+            let invalid: Vec<_> = invalid.into_iter().map(Result::unwrap_err).collect();
+
+            if !invalid.is_empty() {
+                let transaction_pool_errors = invalid
+                    .into_iter()
+                    .map(TransactionError::Verifier)
+                    .collect();
+                Err(TransactionPoolErrors::BatchedErrors(
+                    transaction_pool_errors,
+                ))
+            } else {
+                Ok(verified)
+            }
+        };
+
+        let result = result.map_err(|err| err.to_string());
+
+        let _ = tx.send(SnarkEvent::UserCommandVerify(req_id, result).into());
     }
 }
 

@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
-use openmina_core::transaction::{Transaction, TransactionInfo, TransactionWithHash};
+use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
 use rand::prelude::*;
 
 use openmina_core::block::BlockWithHash;
@@ -534,10 +534,7 @@ impl P2p {
             on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
                 on_p2p_channels_transaction_libp2p_received(transaction: Box<TransactionWithHash>) -> crate::Action {
                     TransactionPoolAction::StartVerify {
-                        commands: std::iter::once(*transaction)
-                            // TODO(SEC): remove once proof verification is done outside state machine.
-                            .filter(|v| !matches!(v.body(), Transaction::ZkappCommand(_)))
-                            .collect(),
+                        commands: std::iter::once(*transaction).collect(),
                         from_rpc: None
                     }
                 }

@@ -1,5 +1,5 @@
 use ledger::{
-    scan_state::transaction_logic::{GenericCommand, UserCommand},
+    scan_state::transaction_logic::{valid, GenericCommand, UserCommand},
     transaction_pool::{
         diff::{self, DiffVerified},
         transaction_hash, ApplyDecision, TransactionPoolErrors,
@@ -14,6 +14,7 @@ use openmina_core::{
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
+use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyId};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{BlockProducerAction, RpcAction};
@@ -107,21 +108,38 @@ impl TransactionPoolState {
                 };
                 let diff = diff::Diff { list: commands };
 
-                match substate.pool.verify(diff, accounts) {
-                    Ok(valids) => {
-                        let valids = valids
-                            .into_iter()
-                            .map(transaction_hash::hash_command)
-                            .collect::<Vec<_>>();
-                        let best_tip_hash = substate.best_tip_hash.clone().unwrap();
-                        let diff = DiffVerified { list: valids };
+                match substate
+                    .pool
+                    .prevalidate(diff)
+                    .and_then(|diff| substate.pool.convert_diff_to_verifiable(diff, accounts))
+                {
+                    Ok(verifiable) => {
+                        let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                        let req_id = global_state.snark.user_command_verify.next_req_id();
 
-                        let dispatcher = state.into_dispatcher();
-                        dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
-                            best_tip_hash,
-                            diff,
-                            is_sender_local: from_rpc.is_some(),
+                        dispatcher.push(SnarkUserCommandVerifyAction::Init {
+                            req_id,
+                            commands: verifiable,
                             from_rpc: *from_rpc,
+                            on_success: callback!(
+                                on_snark_user_command_verify_success(
+                                    (req_id: SnarkUserCommandVerifyId, valids: Vec<valid::UserCommand>, from_rpc: Option<RpcId>)
+                                ) -> crate::Action {
+                                    TransactionPoolAction::VerifySuccess {
+                                        valids,
+                                        from_rpc,
+                                    }
+                                }
+                            ),
+                            on_error: callback!(
+                                on_snark_user_command_verify_error(
+                                    (req_id: SnarkUserCommandVerifyId, errors: Vec<String>)
+                                ) -> crate::Action {
+                                    TransactionPoolAction::VerifyError {
+                                        errors
+                                    }
+                                }
+                            )
                         });
                     }
                     Err(e) => {
@@ -150,6 +168,23 @@ impl TransactionPoolState {
                         }
                     }
                 }
+            }
+            TransactionPoolAction::VerifySuccess { valids, from_rpc } => {
+                let valids = valids
+                    .iter()
+                    .cloned()
+                    .map(transaction_hash::hash_command)
+                    .collect::<Vec<_>>();
+                let best_tip_hash = substate.best_tip_hash.clone().unwrap();
+                let diff = DiffVerified { list: valids };
+
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
+                    best_tip_hash,
+                    diff,
+                    is_sender_local: from_rpc.is_some(),
+                    from_rpc: *from_rpc,
+                });
             }
             TransactionPoolAction::VerifyError { .. } => {
                 // just logging the errors
