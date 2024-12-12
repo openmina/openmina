@@ -78,9 +78,12 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             TransactionPoolAction::Candidate(a) => a.is_enabled(state, time),
-            TransactionPoolAction::StartVerify { commands, .. } => commands
-                .iter()
-                .any(|cmd| !state.transaction_pool.contains(cmd.hash())),
+            TransactionPoolAction::StartVerify { commands, .. } => {
+                !commands.is_empty()
+                    && commands
+                        .iter()
+                        .any(|cmd| !state.transaction_pool.contains(cmd.hash()))
+            }
             TransactionPoolAction::P2pSendAll => true,
             TransactionPoolAction::P2pSend { peer_id } => state
                 .p2p

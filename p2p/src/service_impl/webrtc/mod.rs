@@ -1,7 +1,9 @@
-#[cfg(not(target_arch = "wasm32"))]
-mod native;
 #[cfg(target_arch = "wasm32")]
 mod web;
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp"))]
+mod webrtc_cpp;
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-rs"))]
+mod webrtc_rs;
 
 use std::future::Future;
 use std::pin::Pin;
@@ -10,6 +12,7 @@ use std::{collections::BTreeMap, time::Duration};
 
 use openmina_core::bug_condition;
 use serde::Serialize;
+use tokio::sync::Semaphore;
 
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_local;
@@ -27,9 +30,16 @@ use crate::{
     webrtc, P2pChannelEvent, P2pConnectionEvent, P2pEvent, PeerId,
 };
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-rs"))]
 mod imports {
-    pub use super::native::{
+    pub use super::webrtc_rs::{
+        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
+        RTCSignalingError,
+    };
+}
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp"))]
+mod imports {
+    pub use super::webrtc_cpp::{
         build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
         RTCSignalingError,
     };
@@ -100,9 +110,12 @@ pub struct PeerState {
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
 pub(super) enum Error {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-rs"))]
     #[error("{0}")]
     Rtc(::webrtc::Error),
+    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp"))]
+    #[error("{0}")]
+    Rtc(::datachannel::Error),
     #[cfg(target_arch = "wasm32")]
     #[error("js error: {0:?}")]
     RtcJs(String),
@@ -157,6 +170,11 @@ impl Default for RTCConfigIceServers {
                 credential: Some("webrtc".to_owned()),
             },
             RTCConfigIceServer {
+                urls: vec!["stun:176.9.147.28:3478".to_owned()],
+                username: None,
+                credential: None,
+            },
+            RTCConfigIceServer {
                 urls: vec![
                     "stun:stun.l.google.com:19302".to_owned(),
                     "stun:stun1.l.google.com:19302".to_owned(),
@@ -179,6 +197,7 @@ impl std::ops::Deref for RTCConfigIceServers {
     }
 }
 
+#[cfg(not(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp")))]
 impl Drop for RTCConnection {
     fn drop(&mut self) {
         if self.is_main() {
@@ -198,7 +217,7 @@ async fn sleep(dur: Duration) {
     fut.await
 }
 
-async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
+async fn wait_for_ice_gathering_complete(pc: &mut RTCConnection) {
     let timeout = sleep(Duration::from_secs(3));
 
     tokio::select! {
@@ -207,7 +226,12 @@ async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
     }
 }
 
-async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>) {
+async fn peer_start(
+    api: Api,
+    args: PeerAddArgs,
+    abort: broadcast::Receiver<()>,
+    closed: broadcast::Sender<()>,
+) {
     let PeerAddArgs {
         peer_id,
         kind,
@@ -220,7 +244,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
         ice_servers: Default::default(),
     };
     let fut = async {
-        let pc = RTCConnection::create(&api, config).await?;
+        let mut pc = RTCConnection::create(&api, config).await?;
         let main_channel = pc
             .channel_create(RTCChannelConfig {
                 label: "",
@@ -235,7 +259,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
 
         if is_outgoing {
             pc.local_desc_set(offer).await?;
-            wait_for_ice_gathering_complete(&pc).await;
+            wait_for_ice_gathering_complete(&mut pc).await;
         } else {
             pc.remote_desc_set(offer).await?;
         }
@@ -243,7 +267,8 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
         Result::<_, Error>::Ok((pc, main_channel))
     };
 
-    let (pc, main_channel) = match fut.await {
+    #[allow(unused_mut)]
+    let (mut pc, mut main_channel) = match fut.await {
         Ok(v) => v,
         Err(err) => {
             event_sender(P2pConnectionEvent::OfferSdpReady(peer_id, Err(err.to_string())).into());
@@ -300,7 +325,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
     } else {
         let fut = async {
             pc.local_desc_set(answer).await?;
-            wait_for_ice_gathering_complete(&pc).await;
+            wait_for_ice_gathering_complete(&mut pc).await;
             Ok(pc.local_sdp().await.unwrap())
         };
         let res = fut.await.map_err(|err: Error| err.to_string());
@@ -317,7 +342,6 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
         connected_tx.send(Ok(())).unwrap();
     } else {
         let mut connected_tx = Some(connected_tx);
-        let event_sender = event_sender.clone();
         pc.on_connection_state_change(Box::new(move |state| {
             match state {
                 RTCConnectionState::Connected => {
@@ -329,7 +353,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
                     if let Some(connected_tx) = connected_tx.take() {
                         let _ = connected_tx.send(Err("disconnected"));
                     } else {
-                        let _ = event_sender(P2pConnectionEvent::Closed(peer_id).into());
+                        let _ = closed.send(());
                     }
                 }
                 _ => {}
@@ -345,6 +369,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
         Ok(_) => {}
         Err(err) => {
             let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+            return;
         }
     }
 
@@ -358,6 +383,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
                 let _ = tx.send(auth);
             }
         }
+        #[cfg(not(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp")))]
         std::future::ready(())
     });
     match cmd_receiver.recv().await {
@@ -400,7 +426,6 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
 
 struct Channel {
     id: ChannelId,
-    chan: RTCChannel,
     msg_sender: mpsc::UnboundedSender<(MsgId, Vec<u8>)>,
 }
 
@@ -438,39 +463,32 @@ impl Channels {
         }
     }
 
-    fn get(&self, id: ChannelId) -> Option<&RTCChannel> {
-        self.list.iter().find(|c| c.id == id).map(|c| &c.chan)
-    }
-
     fn get_msg_sender(&self, id: ChannelId) -> Option<&mpsc::UnboundedSender<(MsgId, Vec<u8>)>> {
         self.list.iter().find(|c| c.id == id).map(|c| &c.msg_sender)
     }
 
-    fn add(
-        &mut self,
-        id: ChannelId,
-        chan: RTCChannel,
-        msg_sender: mpsc::UnboundedSender<(MsgId, Vec<u8>)>,
-    ) {
-        self.list.push(Channel {
-            id,
-            chan,
-            msg_sender,
-        });
+    fn add(&mut self, id: ChannelId, msg_sender: mpsc::UnboundedSender<(MsgId, Vec<u8>)>) {
+        self.list.push(Channel { id, msg_sender });
     }
 
-    fn remove(&mut self, id: ChannelId) -> Option<RTCChannel> {
-        let index = self.list.iter().position(|c| c.id == id)?;
-        Some(self.list.remove(index).chan)
+    fn remove(&mut self, id: ChannelId) -> bool {
+        match self.list.iter().position(|c| c.id == id) {
+            None => false,
+            Some(index) => {
+                self.list.remove(index);
+                true
+            }
+        }
     }
 }
 
 // TODO(binier): remove unwraps
+#[allow(unused_mut)]
 async fn peer_loop(
     peer_id: PeerId,
     event_sender: Arc<dyn Fn(P2pEvent) -> Option<()> + Send + Sync + 'static>,
     mut cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
-    pc: RTCConnection,
+    mut pc: RTCConnection,
     abort: broadcast::Receiver<()>,
 ) {
     // TODO(binier): maybe use small_vec (stack allocated) or something like that.
@@ -500,17 +518,17 @@ async fn peer_loop(
                 bug_condition!("unexpected peer cmd");
             }
             PeerCmdAll::External(PeerCmd::ChannelOpen(id)) => {
-                let pc = pc.clone();
+                let chan = pc
+                    .channel_create(RTCChannelConfig {
+                        label: id.name(),
+                        negotiated: Some(id.to_u16()),
+                    })
+                    .await;
                 let internal_cmd_sender = internal_cmd_sender.clone();
                 let fut = async move {
                     let internal_cmd_sender_clone = internal_cmd_sender.clone();
                     let result = async move {
-                        let chan = pc
-                            .channel_create(RTCChannelConfig {
-                                label: id.name(),
-                                negotiated: Some(id.to_u16()),
-                            })
-                            .await?;
+                        let chan = chan?;
 
                         let (done_tx, mut done_rx) = mpsc::channel::<Result<(), Error>>(1);
 
@@ -575,58 +593,16 @@ async fn peer_loop(
             }
             PeerCmdAll::Internal(PeerCmdInternal::ChannelOpened(chan_id, result)) => {
                 let (sender_tx, mut sender_rx) = mpsc::unbounded_channel();
-                let res = match result {
+                let (chan, res) = match result {
                     Ok(chan) => {
-                        channels.add(chan_id, chan, sender_tx);
-                        Ok(())
+                        channels.add(chan_id, sender_tx);
+                        (Some(chan), Ok(()))
                     }
-                    Err(err) => Err(err.to_string()),
+                    Err(err) => (None, Err(err.to_string())),
                 };
 
-                if let Some(chan) = channels.get(chan_id) {
-                    let chan_clone = chan.clone();
-                    let event_sender_clone = event_sender.clone();
-                    let fut = async move {
-                        // Add a delay for sending messages after channel
-                        // was opened. Some initial messages get lost otherwise.
-                        // TODO(binier): find deeper cause and fix it.
-                        sleep(Duration::from_secs(3)).await;
-
-                        while let Some((msg_id, encoded)) = sender_rx.recv().await {
-                            let encoded = bytes::Bytes::from(encoded);
-                            let mut chunks =
-                                encoded.chunks(CHUNK_SIZE).map(|b| encoded.slice_ref(b));
-                            let result = loop {
-                                let Some(chunk) = chunks.next() else {
-                                    break Ok(());
-                                };
-                                if let Err(err) = chan_clone
-                                    .send(&chunk)
-                                    .await
-                                    .map_err(|e| format!("{e:?}"))
-                                    .and_then(|n| match n == chunk.len() {
-                                        false => Err("NotAllBytesWritten".to_owned()),
-                                        true => Ok(()),
-                                    })
-                                {
-                                    break Err(err);
-                                }
-                            };
-
-                            let _ = event_sender_clone(
-                                P2pChannelEvent::Sent(peer_id, chan_id, msg_id, result).into(),
-                            );
-                        }
-                    };
-
-                    let mut aborted = abort.resubscribe();
-                    spawn_local(async move {
-                        tokio::select! {
-                            _ = aborted.recv() => {}
-                            _ = fut => {}
-                        }
-                    });
-
+                #[allow(unused_mut)]
+                if let Some(mut chan) = chan {
                     fn process_msg(
                         chan_id: ChannelId,
                         buf: &mut Vec<u8>,
@@ -672,7 +648,7 @@ async fn peer_loop(
 
                     let mut len = 0;
                     let mut buf = Vec::new();
-                    let event_sender = event_sender.clone();
+                    let event_sender_clone = event_sender.clone();
 
                     chan.on_message(move |mut data| {
                         while !data.is_empty() {
@@ -681,9 +657,53 @@ async fn peer_loop(
                                 Ok(Some(msg)) => Ok(msg),
                                 Err(err) => Err(err),
                             };
-                            let _ = event_sender(P2pChannelEvent::Received(peer_id, res).into());
+                            let _ =
+                                event_sender_clone(P2pChannelEvent::Received(peer_id, res).into());
                         }
+                        #[cfg(not(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp")))]
                         std::future::ready(())
+                    });
+
+                    let event_sender = event_sender.clone();
+                    let fut = async move {
+                        // Add a delay for sending messages after channel
+                        // was opened. Some initial messages get lost otherwise.
+                        // TODO(binier): find deeper cause and fix it.
+                        sleep(Duration::from_secs(3)).await;
+
+                        while let Some((msg_id, encoded)) = sender_rx.recv().await {
+                            let encoded = bytes::Bytes::from(encoded);
+                            let mut chunks =
+                                encoded.chunks(CHUNK_SIZE).map(|b| encoded.slice_ref(b));
+                            let result = loop {
+                                let Some(chunk) = chunks.next() else {
+                                    break Ok(());
+                                };
+                                if let Err(err) = chan
+                                    .send(&chunk)
+                                    .await
+                                    .map_err(|e| format!("{e:?}"))
+                                    .and_then(|n| match n == chunk.len() {
+                                        false => Err("NotAllBytesWritten".to_owned()),
+                                        true => Ok(()),
+                                    })
+                                {
+                                    break Err(err);
+                                }
+                            };
+
+                            let _ = event_sender(
+                                P2pChannelEvent::Sent(peer_id, chan_id, msg_id, result).into(),
+                            );
+                        }
+                    };
+
+                    let mut aborted = abort.resubscribe();
+                    spawn_local(async move {
+                        tokio::select! {
+                            _ = aborted.recv() => {}
+                            _ = fut => {}
+                        }
                     });
                 }
 
@@ -712,22 +732,45 @@ pub trait P2pServiceWebrtc: redux::Service {
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
     fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
+        const MAX_PEERS: usize = 500;
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
         let _ = secret_key;
 
         spawner.spawn_main("webrtc", async move {
+            #[allow(clippy::all)]
             let api = build_api();
+            let conn_permits = Arc::new(Semaphore::const_new(MAX_PEERS));
             while let Some(cmd) = cmd_receiver.recv().await {
                 match cmd {
-                    Cmd::PeerAdd { args, abort } => {
-                        let api_clone = api.clone();
+                    Cmd::PeerAdd { args, mut abort } => {
+                        #[allow(clippy::all)]
+                        let api = api.clone();
+                        let conn_permits = conn_permits.clone();
+                        let peer_id = args.peer_id;
+                        let event_sender = args.event_sender.clone();
                         spawn_local(async move {
-                            let mut aborted = abort.resubscribe();
+                            let Ok(_permit) = conn_permits.try_acquire() else {
+                                // state machine shouldn't allow this to happen.
+                                bug_condition!("P2P WebRTC Semaphore acquisition failed!");
+                                return;
+                            };
+                            let (closed_tx, mut closed) = broadcast::channel(1);
+                            let event_sender_clone = event_sender.clone();
+                            spawn_local(async move {
+                                // to avoid sending closed multiple times
+                                let _ = closed.recv().await;
+                                event_sender_clone(P2pConnectionEvent::Closed(peer_id).into());
+                            });
                             tokio::select! {
-                                _ = aborted.recv() => {}
-                                _ = peer_start(api_clone, args, abort) => {}
+                                _ = peer_start(api, args, abort.resubscribe(), closed_tx.clone()) => {}
+                                _ = abort.recv() => {
+                                }
                             }
+
+                            // delay dropping permit to give some time for cleanup.
+                            sleep(Duration::from_millis(100)).await;
+                            let _ = closed_tx.send(());
                         });
                     }
                 }
