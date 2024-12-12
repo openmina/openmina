@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use ledger::{
+    scan_state::transaction_logic::valid,
     transaction_pool::{
         diff::{self, BestTipDiff, DiffVerified},
         ValidCommandWithHash,
@@ -28,6 +29,10 @@ pub enum TransactionPoolAction {
     StartVerifyWithAccounts {
         accounts: BTreeMap<AccountId, Account>,
         pending_id: PendingId,
+        from_rpc: Option<RpcId>,
+    },
+    VerifySuccess {
+        valids: Vec<valid::UserCommand>,
         from_rpc: Option<RpcId>,
     },
     #[action_event(level = warn, fields(debug(errors)))]

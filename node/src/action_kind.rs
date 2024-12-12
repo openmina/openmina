@@ -603,6 +603,7 @@ pub enum ActionKind {
     TransactionPoolStartVerify,
     TransactionPoolStartVerifyWithAccounts,
     TransactionPoolVerifyError,
+    TransactionPoolVerifySuccess,
     TransactionPoolCandidateFetchAll,
     TransactionPoolCandidateFetchError,
     TransactionPoolCandidateFetchInit,
@@ -706,7 +707,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 596;
+    pub const COUNT: u16 = 597;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -916,6 +917,7 @@ impl ActionKindGet for TransactionPoolAction {
             Self::StartVerifyWithAccounts { .. } => {
                 ActionKind::TransactionPoolStartVerifyWithAccounts
             }
+            Self::VerifySuccess { .. } => ActionKind::TransactionPoolVerifySuccess,
             Self::VerifyError { .. } => ActionKind::TransactionPoolVerifyError,
             Self::BestTipChanged { .. } => ActionKind::TransactionPoolBestTipChanged,
             Self::BestTipChangedWithAccounts { .. } => {
