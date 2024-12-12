@@ -12,7 +12,7 @@ use std::{collections::BTreeMap, time::Duration};
 
 use openmina_core::bug_condition;
 use serde::Serialize;
-use tokio::sync::Mutex;
+use tokio::sync::Semaphore;
 
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::spawn_local;
@@ -226,7 +226,12 @@ async fn wait_for_ice_gathering_complete(pc: &mut RTCConnection) {
     }
 }
 
-async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>) {
+async fn peer_start(
+    api: Api,
+    args: PeerAddArgs,
+    abort: broadcast::Receiver<()>,
+    closed: broadcast::Sender<()>,
+) {
     let PeerAddArgs {
         peer_id,
         kind,
@@ -337,7 +342,6 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
         connected_tx.send(Ok(())).unwrap();
     } else {
         let mut connected_tx = Some(connected_tx);
-        let event_sender = event_sender.clone();
         pc.on_connection_state_change(Box::new(move |state| {
             match state {
                 RTCConnectionState::Connected => {
@@ -349,7 +353,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
                     if let Some(connected_tx) = connected_tx.take() {
                         let _ = connected_tx.send(Err("disconnected"));
                     } else {
-                        let _ = event_sender(P2pConnectionEvent::Closed(peer_id).into());
+                        let _ = closed.send(());
                     }
                 }
                 _ => {}
@@ -365,6 +369,7 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: broadcast::Receiver<()>)
         Ok(_) => {}
         Err(err) => {
             let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+            return;
         }
     }
 
@@ -727,6 +732,7 @@ pub trait P2pServiceWebrtc: redux::Service {
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
     fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
+        const MAX_PEERS: usize = 500;
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
         let _ = secret_key;
@@ -734,43 +740,37 @@ pub trait P2pServiceWebrtc: redux::Service {
         spawner.spawn_main("webrtc", async move {
             #[allow(clippy::all)]
             let api = build_api();
-            let active_peers = Arc::new(Mutex::new(BTreeMap::new()));
+            let conn_permits = Arc::new(Semaphore::const_new(MAX_PEERS));
             while let Some(cmd) = cmd_receiver.recv().await {
                 match cmd {
-                    Cmd::PeerAdd { args, abort } => {
+                    Cmd::PeerAdd { args, mut abort } => {
                         #[allow(clippy::all)]
                         let api = api.clone();
-                        let active_peers = active_peers.clone();
+                        let conn_permits = conn_permits.clone();
+                        let peer_id = args.peer_id;
+                        let event_sender = args.event_sender.clone();
                         spawn_local(async move {
-                            let peer_id = args.peer_id;
-                            let (abort_finished_tx, abort_finished) = broadcast::channel::<()>(1);
-                            let mut aborted = abort.resubscribe();
-
-                            if let Some(mut abort_finished) =
-                                active_peers.lock().await.insert(peer_id, abort_finished)
-                            {
-                                // wait for peer conn with same id to finish.
-                                let _ = abort_finished.recv().await;
-                            }
-                            if active_peers.lock().await.len() > 100 {
-                                sleep(Duration::from_millis(500)).await;
-                            }
-
+                            let Ok(_permit) = conn_permits.try_acquire() else {
+                                // state machine shouldn't allow this to happen.
+                                bug_condition!("P2P WebRTC Semaphore acquisition failed!");
+                                return;
+                            };
+                            let (closed_tx, mut closed) = broadcast::channel(1);
+                            let event_sender_clone = event_sender.clone();
+                            spawn_local(async move {
+                                // to avoid sending closed multiple times
+                                let _ = closed.recv().await;
+                                event_sender_clone(P2pConnectionEvent::Closed(peer_id).into());
+                            });
                             tokio::select! {
-                                _ = aborted.recv() => {}
-                                _ = peer_start(api, args, abort) => {}
+                                _ = peer_start(api, args, abort.resubscribe(), closed_tx.clone()) => {}
+                                _ = abort.recv() => {
+                                }
                             }
 
-                            // delay removing active_peer to give some time for cleanup.
-                            sleep(Duration::from_millis(500)).await;
-                            let rx1 = abort_finished_tx.subscribe();
-                            let mut active_peers = active_peers.lock().await;
-                            if let Some(rx) = active_peers
-                                .remove(&peer_id)
-                                .filter(|rx2| !rx2.same_channel(&rx1))
-                            {
-                                active_peers.insert(peer_id, rx);
-                            }
+                            // delay dropping permit to give some time for cleanup.
+                            sleep(Duration::from_millis(100)).await;
+                            let _ = closed_tx.send(());
                         });
                     }
                 }

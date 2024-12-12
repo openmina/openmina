@@ -1,7 +1,5 @@
 use redux::ActionMeta;
 
-use crate::disconnection::P2pDisconnectionAction;
-
 use super::{P2pDisconnectionEffectfulAction, P2pDisconnectionService};
 
 impl P2pDisconnectionEffectfulAction {
@@ -13,7 +11,6 @@ impl P2pDisconnectionEffectfulAction {
         match self {
             P2pDisconnectionEffectfulAction::Init { peer_id } => {
                 store.service().disconnect(peer_id);
-                store.dispatch(P2pDisconnectionAction::Finish { peer_id });
             }
         }
     }

@@ -1,6 +1,6 @@
 use openmina_core::{
     block::{ArcBlockWithHash, BlockWithHash},
-    impl_substate_access,
+    bug_condition, impl_substate_access,
     requests::RpcId,
     snark::{Snark, SnarkInfo, SnarkJobCommitment},
     transaction::{TransactionInfo, TransactionWithHash},
@@ -395,9 +395,17 @@ impl P2pPeerState {
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Error { time, .. },
                 )) => is_time_passed(now, *time, timeouts.outgoing_error_reconnect_timeout),
-                P2pPeerStatus::Disconnected { time } | P2pPeerStatus::Disconnecting { time } => {
+                P2pPeerStatus::Disconnected { time } => {
                     *time == Timestamp::ZERO
                         || is_time_passed(now, *time, timeouts.reconnect_timeout)
+                }
+                P2pPeerStatus::Disconnecting { time } => {
+                    if !is_time_passed(now, *time, timeouts.reconnect_timeout) {
+                        false
+                    } else {
+                        bug_condition!("peer stuck in `P2pPeerStatus::Disconnecting` state?");
+                        true
+                    }
                 }
                 _ => false,
             }

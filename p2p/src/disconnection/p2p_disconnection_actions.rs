@@ -42,12 +42,20 @@ impl redux::EnablingCondition<P2pState> for P2pDisconnectionAction {
             P2pDisconnectionAction::RandomTry => time
                 .checked_sub(state.last_random_disconnection_try)
                 .map_or(false, |dur| dur >= RANDOM_DISCONNECTION_TRY_FREQUENCY),
-            P2pDisconnectionAction::Init { peer_id, .. }
-            | P2pDisconnectionAction::PeerClosed { peer_id, .. }
-            | P2pDisconnectionAction::Finish { peer_id } => {
+            P2pDisconnectionAction::Init { peer_id, .. } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    !peer.status.is_disconnected_or_disconnecting() && !peer.status.is_error()
+                })
+            }
+            P2pDisconnectionAction::Finish { peer_id } => {
                 state.peers.get(peer_id).map_or(false, |peer| {
                     !matches!(peer.status, P2pPeerStatus::Disconnected { .. })
                         && !peer.status.is_error()
+                })
+            }
+            P2pDisconnectionAction::PeerClosed { peer_id, .. } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    !peer.status.is_disconnected_or_disconnecting() && !peer.status.is_error()
                 })
             }
             P2pDisconnectionAction::FailedCleanup { peer_id } => state
