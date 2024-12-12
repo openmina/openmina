@@ -57,6 +57,10 @@
     .buttons-container {
       margin-top: 24px;
       padding-top: 24px;
+
+      .develop-buttons {
+        gap: 4px;
+      }
     }
   }
 }

@@ -67,9 +67,19 @@
       <div class="success-primary" [@messageChange]>File verified. Your node is ready to start!</div>
     }
     <div class="buttons-container fx-row-vert-cent flex-between">
-      <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12" (click)="onStartDevelopWebnode()">Start Develop Web Node</button>
+      <div class="develop-buttons fx-row-vert-cent">
+        <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
+                [tooltip]="'Start a develop Block Producer Web Node'"
+                (click)="onStartDevelopWebnode()">Start BP
+        </button>
+        <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
+                [tooltip]="'Start a develop Web Node without Block Producer feature'"
+                (click)="onStartDevelopWebnodeNonBP()">Start Non BP
+        </button>
+      </div>
       <button class="whitey h-lg border-rad-8 f-500 pl-12 pr-12"
               (click)="startCustomWebNode()"
+              [tooltip]="'Start a Block Producer Web Node with your own keys'"
               [class.disabled]="!validFiles">Start Web Node
       </button>
     </div>

@@ -3,6 +3,7 @@ import { WebNodeService } from '@core/services/web-node.service';
 import * as JSZip from 'jszip';
 import { ManualDetection, OpenminaSharedModule } from '@openmina/shared';
 import { animate, style, transition, trigger } from '@angular/animations';
+import { CONFIG } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-web-node-file-upload',
@@ -33,6 +34,13 @@ export class WebNodeFileUploadComponent extends ManualDetection {
   constructor(private webnodeService: WebNodeService) { super(); }
 
   startCustomWebNode(): void {
+    this.startWebNode.emit();
+  }
+
+  onStartDevelopWebnodeNonBP(): void {
+    this.webnodeService.privateStake = null;
+    this.webnodeService.noBlockProduction = true;
+    delete CONFIG.globalConfig.features['block-production'];
     this.startWebNode.emit();
   }
 

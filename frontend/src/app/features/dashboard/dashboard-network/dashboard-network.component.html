@@ -1,4 +1,4 @@
-<div class="flex-column h-100 border-rad-6" [ngClass]="stats.connected ? 'bg-surface' : 'border'">
+<div class="flex-column h-100 border-rad-6 background-gradient" [ngClass]="stats.connected ? 'complete' : 'border'">
   <div class="h-xl lh-xl fx-row-vert-cent f-600 pl-12 pr-12 border-bottom">
     @if (stats.connected) {
       <span class="mina-icon f-20 success-primary">check_circle</span>
@@ -11,17 +11,17 @@
     <mina-card label="Connected"
                [value]="stats.connected"
                color="var(--success-primary)"
-               [hint]="'Synced Peer' + (stats.connected !== 1 ? 's' : '')"
+               [hint]="'Synced Peer' + (stats.connected | plural)"
                class="mr-8"></mina-card>
     <mina-card label="Connecting"
                [value]="stats.connecting"
                labelColor="var(--base-tertiary)"
-               [hint]="'Peer' + (stats.connecting !== 1 ? 's' : '')"
+               [hint]="'Peer' + (stats.connecting | plural)"
                class="mr-8"></mina-card>
     <mina-card label="Disconnected"
                color="var(--base-tertiary)"
                labelColor="var(--base-tertiary)"
-               [hint]="'Peer' + (stats.disconnected !== 1 ? 's' : '')"
+               [hint]="'Peer' + (stats.disconnected | plural)"
                [value]="stats.disconnected"></mina-card>
   </div>
   <div class="w-100 flex-column flex-1 d-none-lg border-top">

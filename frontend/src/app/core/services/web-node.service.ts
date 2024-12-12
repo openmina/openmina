@@ -31,6 +31,7 @@ export class WebNodeService {
 
   memory: WebAssembly.MemoryDescriptor;
   privateStake: PrivateStake;
+  noBlockProduction: boolean = false;
 
   constructor(private http: HttpClient) {
     FileProgressHelper.initDownloadProgress();
@@ -119,7 +120,10 @@ export class WebNodeService {
               }
             })();
             console.log('webnode config:', !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
-            const privateKey = this.privateStake ? [this.privateStake.stake, this.privateStake.password] : this.webNodeKeyPair.privateKey;
+            let privateKey = this.privateStake ? [this.privateStake.stake, this.privateStake.password] : this.webNodeKeyPair.privateKey;
+            if (this.noBlockProduction) {
+              privateKey = null;
+            }
 
             return from(wasm.run(privateKey, urls.seeds, urls.genesisConfig));
           }),
