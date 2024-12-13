@@ -1,4 +1,4 @@
-<div class="flex-column w-100 border-rad-6" [ngClass]="appliedPercentage === 100 ? 'bg-surface' : 'border'">
+<div class="flex-column w-100 border-rad-6 background-gradient" [ngClass]="appliedPercentage === 100 ? 'complete' : 'border'">
   <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 border-bottom">
     <div class="fx-row-vert-cent">
       @if (appliedPercentage === 100) {
@@ -6,7 +6,13 @@
       } @else {
         <mina-loading-spinner></mina-loading-spinner>
       }
-      <div class="ml-8" [class.success-primary]="appliedPercentage === 100">Last 290 blocks</div>
+      <div class="ml-8" [class.success-primary]="appliedPercentage === 100">
+        @if (lengthWithoutRoot) {
+          {{ appliedPercentage < 100 ? 'Syncing Last' : 'Last' }} {{ lengthWithoutRoot }} blocks
+        } @else {
+          Waiting to sync ledgers
+        }
+      </div>
     </div>
     <div class="f-400 tertiary">{{ remaining ? 'ETA ~' + remaining + 's' : syncProgress }}</div>
   </div>

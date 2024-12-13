@@ -1,3 +1,16 @@
+@import 'openmina';
+
+.background-gradient {
+  background: linear-gradient(120deg, $base-background 0%, $base-background 20%, $base-background 40%, $success-container 50%, $base-surface 80%, $base-surface 100%);
+  background-size: 500%;
+  background-position: 0 50%;
+  transition: background-position 0.7s ease;
+
+  &.complete {
+    background-position: 100% 50%;
+  }
+}
+
 .mina-icon {
   font-variation-settings: 'FILL' 1, 'wght' 300 !important;
 }

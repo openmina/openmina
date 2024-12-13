@@ -4,6 +4,21 @@
   font-variation-settings: 'FILL' 1, 'wght' 300 !important;
 }
 
+.bg-base {
+  transition: 0.3s;
+}
+
+.background-gradient {
+  background: linear-gradient(125deg, $base-background 0%, $base-background 50%, $success-container 60%, $base-surface 85%, $base-surface 100%);
+  background-size: 500%;
+  background-position: 0 50%;
+  transition: background-position 0.7s ease;
+
+  &.complete {
+    background-position: 100% 50%;
+  }
+}
+
 .group {
   .steps {
     position: relative;
@@ -81,23 +96,9 @@
       background-color: $success-primary;
     }
   }
-
-  .loading-icon {
-    animation: spin 2s linear infinite;
-  }
 }
 
 .tooltip-row {
   display: grid;
   grid-template-columns: 40px 1fr;
 }
-
-@keyframes spin {
-  0% {
-    transform: rotate(0);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-

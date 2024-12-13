@@ -6,7 +6,7 @@ export interface NodesOverviewLedger {
 }
 
 export interface NodesOverviewLedgerEpochStep {
-  state: NodesOverviewLedgerStepState;
+  state: NodesOverviewLedgerStepState | any;
   snarked: NodesOverviewSnarkedLedgerStep;
   totalTime: number;
 }

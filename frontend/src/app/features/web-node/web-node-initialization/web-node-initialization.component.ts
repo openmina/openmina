@@ -80,6 +80,9 @@ export class WebNodeInitializationComponent extends StoreDispatcher implements O
       this.router.navigate([getFirstFeature()]);
       return;
     }
+    if (this.webNodeService.noBlockProduction) {
+      this.loading[1].name = 'Starting the Web Node';
+    }
     safelyExecuteInBrowser(() => {
       window.dispatchEvent(new CustomEvent('startWebNode'));
     });
