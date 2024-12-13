@@ -153,6 +153,7 @@ pub enum ActionStatsResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PeerConnectionStatus {
+    Disconnecting,
     Disconnected,
     Connecting,
     Connected,
@@ -166,8 +167,10 @@ pub struct RpcPeerInfo {
     pub best_tip_global_slot: Option<u32>,
     pub best_tip_timestamp: Option<u64>,
     pub connection_status: PeerConnectionStatus,
+    pub connecting_details: Option<String>,
     pub address: Option<String>,
     pub incoming: bool,
+    pub is_libp2p: bool,
     pub time: u64,
 }
 
