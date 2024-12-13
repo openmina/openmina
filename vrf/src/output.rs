@@ -64,7 +64,7 @@ impl VrfOutput {
 
     pub fn truncated(&self) -> ScalarField {
         let hash = self.hash();
-        let bits = field_to_bits::<_, 255>(hash);
+        let bits = field_to_bits::<_, 256>(hash);
 
         let repr = BigInteger256::from_bits_le(&bits[..bits.len() - 3]);
         ScalarField::from_repr(repr).unwrap()
