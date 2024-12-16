@@ -365,7 +365,12 @@ impl fmt::Display for CoverageReport {
 impl CoverageReport {
     #[coverage(off)]
     pub fn write_files(&self, report_prefix: String) {
-        let sources_path = env::var("REPORTS_PATH").unwrap_or("/tmp/".to_string());
+        let mut sources_path = env::var("REPORTS_PATH").unwrap_or("/tmp/".to_string());
+
+        if !sources_path.ends_with('/') {
+            sources_path.push('/');
+        }
+
         let report_file_vec: Vec<(String, &FileCoverage)> = self
             .0
             .iter()
