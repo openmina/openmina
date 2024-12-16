@@ -24,7 +24,7 @@ impl Stats {
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 impl Stats {
     pub async fn actions(&self, id: JsValue) -> Result<JsValue, JsValue> {
-        let query = if id.is_null() {
+        let query = if id.is_falsy() {
             ActionStatsQuery::SinceStart
         } else if id.as_string().is_some_and(|s| s == "latest") {
             ActionStatsQuery::ForLatestBlock

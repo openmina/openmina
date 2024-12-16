@@ -38,7 +38,7 @@ pub fn build_env() -> JsValue {
 }
 
 fn parse_bp_key(key: JsValue) -> Option<AccountSecretKey> {
-    if key.is_null() {
+    if key.is_falsy() {
         return None;
     }
 
