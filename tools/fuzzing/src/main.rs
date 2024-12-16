@@ -20,7 +20,9 @@ pub mod transaction_fuzzer {
         stats::Stats,
     };
     use ledger::{
-        scan_state::transaction_logic::UserCommand, sparse_ledger::LedgerIntf, Account, BaseLedger,
+        scan_state::transaction_logic::{zkapp_command::ZkAppCommand, Transaction, UserCommand},
+        sparse_ledger::LedgerIntf,
+        Account, BaseLedger,
     };
     use mina_hasher::Fp;
     use mina_p2p_messages::bigint::BigInt;
@@ -201,7 +203,7 @@ pub mod transaction_fuzzer {
         let mut ctx = FuzzerCtxBuilder::new()
             .seed(seed)
             .minimum_fee(minimum_fee)
-            .initial_accounts(10)
+            .initial_accounts(1000)
             .fuzzcases_path(env::var("FUZZCASES_PATH").unwrap_or("/tmp/".to_string()))
             .build();
 
@@ -244,6 +246,17 @@ pub mod transaction_fuzzer {
                 ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result)
             {
                 println!("!!! {error}");
+
+                // Diff generated command form serialized version (detect hash inconsitencies)
+                if let Transaction::Command(ocaml_user_command) =
+                    ocaml_apply_result.apply_result[0].transaction().data
+                {
+                    if let UserCommand::ZkAppCommand(command) = &ocaml_user_command {
+                        command.account_updates.ensure_hashed();
+                    }
+
+                    println!("{}", ctx.diagnostic(&user_command, &ocaml_user_command));
+                }
 
                 let ocaml_accounts = ocaml_get_accounts(stdin, stdout);
                 let rust_accounts = ledger.to_list();

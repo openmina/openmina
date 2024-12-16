@@ -345,13 +345,7 @@ impl MutatorFromAccount<Update> for FuzzerCtx {
                 }
                 2 => {
                     let data: VerificationKey = self.gen();
-                    let hash = if self.gen.rng.gen_bool(0.5) {
-                        data.digest()
-                    } else {
-                        self.gen()
-                    };
-
-                    t.verification_key = SetOrKeep::Set(VerificationKeyWire::with_hash(data, hash));
+                    t.verification_key = SetOrKeep::Set(VerificationKeyWire::new(data));
                 }
                 3 => self.mutate_from_account(&mut t.permissions, account),
                 4 => {
@@ -587,12 +581,16 @@ impl MutatorFromAccount<Preconditions> for FuzzerCtx {
 impl Mutator<Body> for FuzzerCtx {
     #[coverage(off)]
     fn mutate(&mut self, t: &mut Body) {
-        let account = self.get_account(&t.public_key).unwrap();
+        let account = self.get_account(&t.public_key);
 
         for option in rand_elements(self, 11) {
             match option {
                 0 => t.token_id = TokenId(self.gen()),
-                1 => self.mutate_from_account(&mut t.update, &account),
+                1 => {
+                    if let Some(account) = &account {
+                        self.mutate_from_account(&mut t.update, account)
+                    }
+                }
                 2 => {
                     t.balance_change = if self.gen.rng.gen_bool(0.5) {
                         let magnitude =
@@ -606,32 +604,38 @@ impl Mutator<Body> for FuzzerCtx {
                 4 => t.events = self.gen(),
                 5 => t.actions = self.gen(),
                 6 => t.call_data = self.gen(),
-                7 => self.mutate_from_account(&mut t.preconditions, &account),
+                7 => {
+                    if let Some(account) = &account {
+                        self.mutate_from_account(&mut t.preconditions, account)
+                    }
+                }
                 8 => self.mutate(&mut t.use_full_commitment),
                 9 => (), // Can't mutate because it breaks binprot
                 10 => {
-                    let vk_hash = if self.gen.rng.gen_bool(0.5)
-                        && account.zkapp.is_some()
-                        && account.zkapp.as_ref().unwrap().verification_key.is_some()
-                    {
-                        account
-                            .zkapp
-                            .as_ref()
-                            .unwrap()
-                            .verification_key
-                            .as_ref()
-                            .unwrap()
-                            .hash()
-                    } else {
-                        self.gen()
-                    };
+                    if let Some(account) = &account {
+                        let vk_hash = if self.gen.rng.gen_bool(0.5)
+                            && account.zkapp.is_some()
+                            && account.zkapp.as_ref().unwrap().verification_key.is_some()
+                        {
+                            account
+                                .zkapp
+                                .as_ref()
+                                .unwrap()
+                                .verification_key
+                                .as_ref()
+                                .unwrap()
+                                .hash()
+                        } else {
+                            self.gen()
+                        };
 
-                    let options = [
-                        zkapp_command::AuthorizationKind::NoneGiven,
-                        zkapp_command::AuthorizationKind::Signature,
-                        zkapp_command::AuthorizationKind::Proof(vk_hash),
-                    ];
-                    t.authorization_kind = options.choose(&mut self.gen.rng).unwrap().clone();
+                        let options = [
+                            zkapp_command::AuthorizationKind::NoneGiven,
+                            zkapp_command::AuthorizationKind::Signature,
+                            zkapp_command::AuthorizationKind::Proof(vk_hash),
+                        ];
+                        t.authorization_kind = options.choose(&mut self.gen.rng).unwrap().clone();
+                    }
                 }
                 _ => unimplemented!(),
             }
@@ -677,6 +681,9 @@ impl Mutator<zkapp_command::CallForest<AccountUpdate>> for FuzzerCtx {
     #[coverage(off)]
     fn mutate(&mut self, t: &mut zkapp_command::CallForest<AccountUpdate>) {
         for i in rand_elements(self, t.0.len()) {
+            self.mutate(&mut t.0[i].elt.account_update);
+            self.mutate(&mut t.0[i].elt.calls);
+            t.0[i].elt.account_update_digest = MutableFp::empty();
             t.0[i].stack_hash = MutableFp::empty();
         }
     }
@@ -689,16 +696,18 @@ pub fn fix_nonces(
 ) {
     for acc_update in account_updates.0.iter_mut() {
         let account_update = &mut acc_update.elt.account_update;
+        acc_update.stack_hash = MutableFp::empty();
+        acc_update.elt.account_update_digest = MutableFp::empty();
 
         if let zkapp_command::Account {
             nonce: OrIgnore::Check(_),
             ..
         } = &account_update.body.preconditions.account.0
         {
-            let account = ctx.get_account(&account_update.public_key()).unwrap();
-
-            account_update.body.preconditions.account.0.nonce =
-                OrIgnore::Check(ctx.gen_from_account(&account));
+            if let Some(account) = ctx.get_account(&account_update.public_key()) {
+                account_update.body.preconditions.account.0.nonce =
+                    OrIgnore::Check(ctx.gen_from_account(&account));
+            }
         }
 
         fix_nonces(ctx, &mut acc_update.elt.calls);
@@ -719,8 +728,10 @@ impl Mutator<ZkAppCommand> for FuzzerCtx {
 
         // Fix fee_payer nonce.
         let public_key = t.fee_payer.body.public_key.clone();
-        let account = self.get_account(&public_key).unwrap();
-        t.fee_payer.body.nonce = self.gen_from_account(&account);
+
+        if let Some(account) = self.get_account(&public_key) {
+            t.fee_payer.body.nonce = self.gen_from_account(&account);
+        }
 
         // Fix account updates nonces.
         fix_nonces(self, &mut t.account_updates);
@@ -729,8 +740,9 @@ impl Mutator<ZkAppCommand> for FuzzerCtx {
         let mut signer = mina_signer::create_kimchi(NetworkId::TESTNET);
 
         if self.gen.rng.gen_bool(0.9) {
-            let keypair = self.find_keypair(&t.fee_payer.body.public_key).unwrap();
-            t.fee_payer.authorization = signer.sign(keypair, &full_txn_commitment);
+            if let Some(keypair) = self.find_keypair(&t.fee_payer.body.public_key) {
+                t.fee_payer.authorization = signer.sign(keypair, &full_txn_commitment);
+            }
         }
 
         if self.gen.rng.gen_bool(0.9) {

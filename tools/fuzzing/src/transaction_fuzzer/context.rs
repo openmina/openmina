@@ -327,7 +327,7 @@ impl FuzzerCtx {
                     account.nonce = GeneratorRange32::gen_range(self, 0..=u32::MAX);
                     account.timing = Timing::Untimed;
 
-                    let permission_model = self.gen();
+                    let permission_model = PermissionModel::Any; //self.gen();
                     self.state
                         .potential_senders
                         .push((keypair, permission_model));

@@ -5,7 +5,9 @@ use ark_ff::{Field, UniformRand};
 use ledger::generators::zkapp_command_builder::get_transaction_commitments;
 use ledger::proofs::field::GroupAffine;
 use ledger::proofs::transaction::InnerCurve;
+use ledger::scan_state::currency::TxnVersion;
 use ledger::scan_state::currency::{Magnitude, SlotSpan};
+use ledger::MutableFp;
 use ledger::VerificationKeyWire;
 use ledger::{
     proofs::transaction::PlonkVerificationKeyEvals,
@@ -120,22 +122,26 @@ impl Generator<Fp> for FuzzerCtx {
 impl Generator<Slot> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> Slot {
-        if self.gen.rng.gen_bool(0.9) {
-            self.txn_state_view.global_slot_since_genesis
+        let max_value = if self.gen.rng.gen_bool(0.5) {
+            self.txn_state_view.global_slot_since_genesis.as_u32()
         } else {
-            Slot::from_u32(self.gen.rng.gen_range(0..Slot::max().as_u32()))
-        }
+            Slot::max().as_u32()
+        };
+
+        Slot::from_u32(self.gen.rng.gen_range(0..=max_value))
     }
 }
 
 impl Generator<SlotSpan> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> SlotSpan {
-        if self.gen.rng.gen_bool(0.9) {
-            SlotSpan::from_u32(self.txn_state_view.global_slot_since_genesis.as_u32())
+        let max_value = if self.gen.rng.gen_bool(0.7) {
+            self.txn_state_view.global_slot_since_genesis.as_u32()
         } else {
-            SlotSpan::from_u32(self.gen.rng.gen_range(0..SlotSpan::max().as_u32()))
-        }
+            SlotSpan::max().as_u32()
+        };
+
+        SlotSpan::from_u32(self.gen.rng.gen_range(0..=max_value))
     }
 }
 
@@ -388,20 +394,18 @@ impl Generator<TokenSymbol> for FuzzerCtx {
 impl Generator<VotingFor> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> VotingFor {
-        VotingFor(self.gen())
+        if let Some((kp, _)) = self.state.potential_new_accounts.choose(&mut self.gen.rng) {
+            VotingFor(kp.public.into_compressed().x)
+        } else {
+            VotingFor(self.gen())
+        }
     }
 }
 
 impl Generator<zkapp_command::Events> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> zkapp_command::Events {
-        /*
-           An Event is a list of arrays of Fp, there doesn't seem to be any limit
-           neither in the size of the list or the array's size. The total size should
-           be bounded by the transport protocol (currently libp2p, ~32MB).
-        */
-
-        if self.gen.rng.gen_bool(0.9) {
+        if self.gen.rng.gen_bool(0.5) {
             zkapp_command::Events(Vec::new())
         } else {
             // Generate random Events in the same fashion as Mina's generator (up to 5x3 elements).
@@ -434,7 +438,7 @@ impl Generator<zkapp_command::Actions> for FuzzerCtx {
     fn gen(&mut self) -> zkapp_command::Actions {
         // See comment in generator above
 
-        if self.gen.rng.gen_bool(0.9) {
+        if self.gen.rng.gen_bool(0.5) {
             zkapp_command::Actions(Vec::new())
         } else {
             let n = self.gen.rng.gen_range(0..=5);
@@ -525,7 +529,7 @@ pub trait GeneratorWrapper<W, T, F: FnMut(&mut Self) -> T> {
 impl<T: Clone, F: FnMut(&mut Self) -> T> GeneratorWrapper<Option<T>, T, F> for FuzzerCtx {
     #[coverage(off)]
     fn gen_wrap(&mut self, mut f: F) -> Option<T> {
-        if self.gen.rng.gen_bool(0.9) {
+        if self.gen.rng.gen_bool(0.5) {
             None
         } else {
             Some(f(self))
@@ -547,7 +551,7 @@ impl<T: Clone, F: FnMut(&mut Self) -> T> GeneratorWrapper<OrIgnore<T>, T, F> for
 impl<T: Clone, F: FnMut(&mut Self) -> T> GeneratorWrapper<SetOrKeep<T>, T, F> for FuzzerCtx {
     #[coverage(off)]
     fn gen_wrap(&mut self, mut f: F) -> SetOrKeep<T> {
-        if self.gen.rng.gen_bool(0.5) {
+        if self.gen.rng.gen_bool(0.3) {
             SetOrKeep::Keep
         } else {
             SetOrKeep::Set(f(self))
@@ -1147,8 +1151,10 @@ impl Generator<SetVerificationKey<AuthRequired>> for FuzzerCtx {
     fn gen(&mut self) -> SetVerificationKey<AuthRequired> {
         SetVerificationKey {
             auth: self.gen(),
-            txn_version: if self.gen.rng.gen_bool(0.9) {
+            txn_version: if self.gen.rng.gen_bool(0.5) {
                 TXN_VERSION_CURRENT
+            } else if self.gen.rng.gen_bool(0.5) {
+                TxnVersion::from_u32(self.gen.rng.gen_range(0..=TXN_VERSION_CURRENT.as_u32()))
             } else {
                 self.gen.rng.gen()
             },
@@ -1160,7 +1166,7 @@ impl Generator<VerificationKeyWire> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> VerificationKeyWire {
         let vk = VerificationKeyWire::new(self.gen());
-        vk.hash();
+        //vk.hash();
         vk
     }
 }
@@ -1186,7 +1192,7 @@ pub trait GeneratorFromAccount<T> {
 impl GeneratorFromAccount<zkapp_command::AuthorizationKind> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> zkapp_command::AuthorizationKind {
-        let vk_hash = if self.gen.rng.gen_bool(0.9)
+        let vk_hash = if self.gen.rng.gen_bool(0.7)
             && account.zkapp.is_some()
             && account.zkapp.as_ref().unwrap().verification_key.is_some()
         {
@@ -1301,28 +1307,38 @@ where
 impl GeneratorFromAccount<Fee> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> Fee {
-        GeneratorRange64::<Fee>::gen_range(self, 0..=account.balance.as_u64() / 100)
+        let max_balance = if self.gen.rng.gen_bool(0.5) {
+            account.balance.as_u64()
+        } else {
+            u64::MAX
+        };
+
+        GeneratorRange64::<Fee>::gen_range(self, 0..=max_balance)
     }
 }
 
 impl GeneratorFromAccount<Balance> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> Balance {
-        GeneratorRange64::<Balance>::gen_range(self, 0..=(account.balance.as_u64() / 100))
+        let max_balance = if self.gen.rng.gen_bool(0.5) {
+            account.balance.as_u64()
+        } else {
+            u64::MAX
+        };
+
+        GeneratorRange64::<Balance>::gen_range(self, 0..=max_balance)
     }
 }
 
 impl GeneratorFromAccount<Signed<Amount>> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> Signed<Amount> {
-        if self.gen.rng.gen_bool(0.9) {
+        if self.gen.rng.gen_bool(0.5) {
             Signed::<Amount>::zero()
-        } else if self.gen.token_id == TokenId::default() {
+        } else if self.gen.token_id == TokenId::default() && self.gen.rng.gen_bool(0.5) {
             if self.gen.excess_fee.is_zero() {
-                let magnitude = GeneratorRange64::<Amount>::gen_range(
-                    self,
-                    0..=(account.balance.as_u64().wrapping_div(10).saturating_mul(7)),
-                );
+                let magnitude =
+                    GeneratorRange64::<Amount>::gen_range(self, 0..=account.balance.as_u64());
                 self.gen.excess_fee = Signed::<Amount>::create(magnitude, self.gen());
                 self.gen.excess_fee
             } else {
@@ -1341,7 +1357,7 @@ impl GeneratorFromAccount<Signed<Amount>> for FuzzerCtx {
 impl GeneratorFromAccount<Amount> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> Amount {
-        if self.gen.token_id == TokenId::default() && self.gen.rng.gen_bool(0.9) {
+        if self.gen.token_id == TokenId::default() && self.gen.rng.gen_bool(0.5) {
             GeneratorRange64::<Amount>::gen_range(self, 0..=account.balance.as_u64())
         } else {
             // Custom Tokens
@@ -1392,7 +1408,7 @@ impl GeneratorFromAccount<Update> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> Update {
         Update {
-            app_state: if self.gen.rng.gen_bool(0.9) {
+            app_state: if self.gen.rng.gen_bool(0.5) {
                 array::from_fn(
                     #[coverage(off)]
                     |_| {
@@ -1403,10 +1419,10 @@ impl GeneratorFromAccount<Update> for FuzzerCtx {
                     },
                 )
             } else {
-                // cover changing_entire_app_state
+                // keep all state
                 array::from_fn(
                     #[coverage(off)]
-                    |_| SetOrKeep::Set(self.gen()),
+                    |_| SetOrKeep::Keep,
                 )
             },
             delegate: self.gen_wrap(
@@ -1444,14 +1460,14 @@ impl GeneratorFromAccount<Update> for FuzzerCtx {
 impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> zkapp_command::ZkAppPreconditions {
-        if self.gen.rng.gen_bool(0.9) {
+        if self.gen.rng.gen_bool(0.5) {
             zkapp_command::ZkAppPreconditions::accept()
         } else {
             zkapp_command::ZkAppPreconditions {
                 snarked_ledger_hash: self.gen_wrap(
                     #[coverage(off)]
                     |x| {
-                        if x.gen.rng.gen_bool(0.9) {
+                        if x.gen.rng.gen_bool(0.7) {
                             x.txn_state_view.snarked_ledger_hash
                         } else {
                             x.gen()
@@ -1464,7 +1480,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                         x.gen_wrap(
                             #[coverage(off)]
                             |x| {
-                                if x.gen.rng.gen_bool(0.9) {
+                                if x.gen.rng.gen_bool(0.7) {
                                     x.txn_state_view.blockchain_length
                                 } else {
                                     x.gen()
@@ -1479,7 +1495,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                         x.gen_wrap(
                             #[coverage(off)]
                             |x| {
-                                if x.gen.rng.gen_bool(0.9) {
+                                if x.gen.rng.gen_bool(0.7) {
                                     x.txn_state_view.min_window_density
                                 } else {
                                     x.gen()
@@ -1494,7 +1510,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                         x.gen_wrap(
                             #[coverage(off)]
                             |x| {
-                                if x.gen.rng.gen_bool(0.9) {
+                                if x.gen.rng.gen_bool(0.7) {
                                     x.txn_state_view.total_currency
                                 } else {
                                     x.gen_from_account(account)
@@ -1513,7 +1529,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                     },
                 ),
 
-                staking_epoch_data: if self.gen.rng.gen_bool(0.9) {
+                staking_epoch_data: if self.gen.rng.gen_bool(0.7) {
                     let epoch_data = self.txn_state_view.staking_epoch_data.clone();
 
                     zkapp_command::EpochData::new(
@@ -1535,7 +1551,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
                 } else {
                     self.gen()
                 },
-                next_epoch_data: if self.gen.rng.gen_bool(0.9) {
+                next_epoch_data: if self.gen.rng.gen_bool(0.7) {
                     let epoch_data = self.txn_state_view.next_epoch_data.clone();
                     zkapp_command::EpochData::new(
                         zkapp_command::EpochLedger {
@@ -1564,7 +1580,7 @@ impl GeneratorFromAccount<zkapp_command::ZkAppPreconditions> for FuzzerCtx {
 impl GeneratorFromAccount<zkapp_command::Account> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> zkapp_command::Account {
-        if self.gen.rng.gen_bool(0.9) {
+        if self.gen.rng.gen_bool(0.5) {
             zkapp_command::Account::accept()
         } else {
             zkapp_command::Account {
@@ -1589,7 +1605,7 @@ impl GeneratorFromAccount<zkapp_command::Account> for FuzzerCtx {
                 receipt_chain_hash: self.gen_wrap(
                     #[coverage(off)]
                     |x| {
-                        if x.gen.rng.gen_bool(0.9) {
+                        if x.gen.rng.gen_bool(0.5) {
                             account.receipt_chain_hash.0
                         } else {
                             x.gen()
@@ -1606,7 +1622,7 @@ impl GeneratorFromAccount<zkapp_command::Account> for FuzzerCtx {
                             .map(
                                 #[coverage(off)]
                                 |pk| {
-                                    if x.gen.rng.gen_bool(0.9) {
+                                    if x.gen.rng.gen_bool(0.5) {
                                         pk.clone()
                                     } else {
                                         rnd_pk.clone()
@@ -1633,7 +1649,7 @@ impl GeneratorFromAccount<zkapp_command::Account> for FuzzerCtx {
                         .map(
                             #[coverage(off)]
                             |zkapp| {
-                                if self.gen.rng.gen_bool(0.9) {
+                                if self.gen.rng.gen_bool(0.5) {
                                     zkapp.app_state.map(OrIgnore::Check)
                                 } else {
                                     rnd_state.clone()
@@ -1656,7 +1672,7 @@ impl GeneratorFromAccount<zkapp_command::Account> for FuzzerCtx {
                             .map(
                                 #[coverage(off)]
                                 |zkapp| {
-                                    if x.gen.rng.gen_bool(0.9) {
+                                    if x.gen.rng.gen_bool(0.5) {
                                         zkapp.proved_state
                                     } else {
                                         rnd_bool
@@ -1704,7 +1720,7 @@ impl GeneratorFromAccount<zkapp_command::Preconditions> for FuzzerCtx {
 impl Generator<TokenId> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> TokenId {
-        if self.gen.rng.gen_bool(0.9) {
+        if self.gen.rng.gen_bool(0.5) {
             TokenId::default()
         } else {
             TokenId(self.gen())
@@ -1741,8 +1757,8 @@ impl GeneratorFromAccount<zkapp_command::Body> for FuzzerCtx {
             actions: self.gen(),
             call_data: self.gen(),
             preconditions: self.gen_from_account(account),
-            use_full_commitment: self.gen.rng.gen_bool(0.9),
-            implicit_account_creation_fee: self.gen.rng.gen_bool(0.1),
+            use_full_commitment: self.gen.rng.gen_bool(0.5),
+            implicit_account_creation_fee: self.gen.rng.gen_bool(0.5),
             may_use_token: self.gen(),
             authorization_kind: self.gen_from_account(account),
         }
@@ -1764,8 +1780,8 @@ impl Generator<zkapp_command::Body> for FuzzerCtx {
             actions: self.gen(),
             call_data: self.gen(),
             preconditions: self.gen_from_account(&account),
-            use_full_commitment: self.gen.rng.gen_bool(0.9),
-            implicit_account_creation_fee: self.gen.rng.gen_bool(0.1),
+            use_full_commitment: self.gen.rng.gen_bool(0.5),
+            implicit_account_creation_fee: self.gen.rng.gen_bool(0.5),
             may_use_token: self.gen(),
             authorization_kind: self.gen_from_account(&account),
         }
@@ -1781,13 +1797,13 @@ impl GeneratorFromToken<AccountUpdate> for FuzzerCtx {
     fn gen_from_token(&mut self, token_id: TokenId, _depth: usize) -> AccountUpdate {
         self.gen.token_id = token_id;
 
-        let public_key = if self.gen.attempt_valid_zkapp || self.gen.rng.gen_bool(0.9) {
+        let public_key = if self.gen.attempt_valid_zkapp || self.gen.rng.gen_bool(0.5) {
             self.random_keypair().public.into_compressed()
         } else {
             self.gen()
         };
 
-        let body: zkapp_command::Body = if self.gen.rng.gen_bool(0.9) {
+        let body: zkapp_command::Body = if self.gen.rng.gen_bool(0.5) {
             match self.get_account(&public_key).as_ref() {
                 Some(account) => self.gen_from_account(account),
                 None => self.gen(),
@@ -1819,13 +1835,23 @@ impl GeneratorFromToken<zkapp_command::CallForest<AccountUpdate>> for FuzzerCtx 
         depth: usize,
     ) -> zkapp_command::CallForest<AccountUpdate> {
         let mut forest = zkapp_command::CallForest::<AccountUpdate>::new();
-        let max_count = 3usize.saturating_sub(depth);
+        let max_count = 5usize.saturating_sub(depth);
         let count = self.gen.rng.gen_range(0..=max_count);
+        let mut token_id = token_id;
+
+        // cover empty case
+        if self.gen.rng.gen_bool(0.3) {
+            return forest;
+        }
+
+        if depth != 0 && self.gen.rng.gen_bool(0.1) {
+            token_id = TokenId(self.gen());
+        }
 
         for _ in 0..count {
             let account_update: AccountUpdate = self.gen_from_token(token_id.clone(), depth);
             let token_id = account_update.account_id().derive_token_id();
-            let calls = if self.gen.rng.gen_bool(0.8) || depth >= 3 {
+            let calls = if self.gen.rng.gen_bool(0.5) || depth >= 3 {
                 None
             } else {
                 // recursion
@@ -1849,6 +1875,9 @@ pub fn sign_account_updates(
 ) {
     for acc_update in account_updates.0.iter_mut() {
         let account_update = &mut acc_update.elt.account_update;
+
+        acc_update.stack_hash = MutableFp::empty();
+        acc_update.elt.account_update_digest = MutableFp::empty();
 
         let signature = match account_update.authorization {
             zkapp_command::Control::Signature(_) => {
@@ -1882,7 +1911,7 @@ pub fn sign_account_updates(
 impl Generator<ZkAppCommand> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> ZkAppCommand {
-        self.gen.attempt_valid_zkapp = self.gen.rng.gen_bool(0.9);
+        self.gen.attempt_valid_zkapp = self.gen.rng.gen_bool(0.5);
 
         let mut zkapp_command = ZkAppCommand {
             fee_payer: self.gen(),
@@ -1912,7 +1941,7 @@ impl Generator<ZkAppCommand> for FuzzerCtx {
 impl GeneratorFromAccount<PaymentPayload> for FuzzerCtx {
     #[coverage(off)]
     fn gen_from_account(&mut self, account: &Account) -> PaymentPayload {
-        let is_source_account = self.gen.rng.gen_bool(0.9);
+        let is_source_account = self.gen.rng.gen_bool(0.5);
 
         let source_pk = if is_source_account {
             account.public_key.clone()
@@ -1920,7 +1949,7 @@ impl GeneratorFromAccount<PaymentPayload> for FuzzerCtx {
             self.gen()
         };
 
-        let receiver_pk = if is_source_account && self.gen.rng.gen_bool(0.9) {
+        let receiver_pk = if is_source_account && self.gen.rng.gen_bool(0.2) {
             // same source & receiver
             source_pk.clone()
         } else {
@@ -1962,7 +1991,7 @@ impl Generator<SignedCommandPayload> for FuzzerCtx {
         let account = self.get_account(&fee_payer_pk);
         let body = match account.as_ref() {
             Some(account) => {
-                if self.gen.rng.gen_bool(0.8) {
+                if self.gen.rng.gen_bool(0.7) {
                     signed_command::Body::Payment(self.gen_from_account(account))
                 } else {
                     signed_command::Body::StakeDelegation(self.gen())
@@ -1971,14 +2000,20 @@ impl Generator<SignedCommandPayload> for FuzzerCtx {
             None => signed_command::Body::StakeDelegation(self.gen()),
         };
 
+        let max_fee = if self.gen.rng.gen_bool(0.5) {
+            10_000_000u64
+        } else {
+            u64::MAX
+        };
+
         let fee = match account.as_ref() {
             Some(account) => self.gen_from_account(account),
-            None => GeneratorRange64::gen_range(self, 0u64..=10_000_000u64),
+            None => GeneratorRange64::gen_range(self, 0u64..=max_fee),
         };
 
         let nonce = match account.as_ref() {
             Some(account) => self.gen_from_account(account),
-            None => GeneratorRange32::gen_range(self, 0u32..=10_000_000u32),
+            None => GeneratorRange32::gen_range(self, 0u32..=u32::MAX),
         };
 
         SignedCommandPayload::create(
@@ -1999,7 +2034,7 @@ impl Generator<SignedCommand> for FuzzerCtx {
     #[coverage(off)]
     fn gen(&mut self) -> SignedCommand {
         let payload: SignedCommandPayload = self.gen();
-        let keypair = if self.gen.rng.gen_bool(0.9) {
+        let keypair = if self.gen.rng.gen_bool(0.7) {
             self.find_keypair(&payload.common.fee_payer_pk)
                 .cloned()
                 .unwrap_or_else(|| self.gen())
