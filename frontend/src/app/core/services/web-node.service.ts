@@ -131,6 +131,7 @@ export class WebNodeService {
             any(window).webnode = webnode;
             this.webnode$.next(webnode);
             this.webnodeProgress$.next('Started');
+
           }),
           catchError((error) => {
             sendSentryEvent('WebNode failed to start: ' + error.message);
@@ -145,22 +146,22 @@ export class WebNodeService {
   get status$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).status())),
+      switchMap(webnode => from(any(webnode).status())),
     );
   }
 
   get blockProducerStats$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).stats().block_producer())),
+      switchMap(webnode => from(any(webnode).stats().block_producer())),
     );
   }
 
   get peers$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).state().peers())),
-      tap((peers) => {
+      switchMap(webnode => from(any(webnode).state().peers())),
+      tap(peers => {
         // if (!this.sentryEvents.sentNoPeersEvent && Date.now() - this.webNodeStartTime >= 5000 && peers.length === 0) {
         //   sendSentryEvent('WebNode has no peers after 5 seconds from startup.');
         //   this.sentryEvents.sentNoPeersEvent = true;
@@ -181,49 +182,56 @@ export class WebNodeService {
   get messageProgress$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).state().message_progress())),
+      switchMap(webnode => from(any(webnode).state().message_progress())),
     );
   }
 
   get sync$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).stats().sync())),
+      switchMap(webnode => from(any(webnode).stats().sync())),
     );
   }
 
   get accounts$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).ledger().latest().accounts().all())),
+      switchMap(webnode => from(any(webnode).ledger().latest().accounts().all())),
     );
   }
 
   get bestChainUserCommands$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).transition_frontier().best_chain().user_commands())),
+      switchMap(webnode => from(any(webnode).transition_frontier().best_chain().user_commands())),
     );
   }
 
   sendPayment$(payment: any): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).transaction_pool().inject().payment(payment))),
+      switchMap(webnode => from(any(webnode).transaction_pool().inject().payment(payment))),
     );
   }
 
   get transactionPool$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(handle => from(any(handle).transaction_pool().get())),
+      switchMap(webnode => from(any(webnode).transaction_pool().get())),
     );
   }
 
   get envBuildDetails$(): Observable<any> {
     return this.wasm$.asObservable().pipe(
       filter(Boolean),
-      map(handle => handle.build_env()),
+      map(webnode => webnode.build_env()),
+    );
+  }
+
+  actions$(param: any): Observable<any> {
+    return this.webnode$.asObservable().pipe(
+      filter(Boolean),
+      switchMap(webnode => webnode.actions()),
     );
   }
 }

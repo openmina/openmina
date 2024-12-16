@@ -55,6 +55,9 @@ export class RustService {
   }
 
   private getFromWebNode<T>(path: string): Observable<T> {
+    if (path.includes('/stats/actions')) {
+      return this.webNodeService.actions$(path);
+    }
     switch (path) {
       case '/status':
         return this.webNodeService.status$;
