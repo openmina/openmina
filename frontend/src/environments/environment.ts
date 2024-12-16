@@ -4,7 +4,7 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  showWebNodeLandingPage: true,
+  showWebNodeLandingPage: false,
   globalConfig: {
     features: {
       dashboard: [],
@@ -55,18 +55,18 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'staging-devnet-bp-3',
     //   url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
     // },
-    // {
-    //   name: 'Web Node 1',
-    //   isWebNode: true,
-    // },
+    {
+      name: 'Web Node 1',
+      isWebNode: true,
+    },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',
     // },
-    {
-      name: 'Local rust node',
-      url: 'http://127.0.0.1:3000',
-    },
+    // {
+    //   name: 'Local rust node',
+    //   url: 'http://127.0.0.1:3000',
+    // },
     // {
     //   name: 'feat/frontend-api-peers',
     //   url: 'http://176.9.147.28:3000',

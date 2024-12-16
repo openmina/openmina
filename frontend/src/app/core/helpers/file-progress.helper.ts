@@ -1,6 +1,8 @@
 import { BehaviorSubject } from 'rxjs';
 import { safelyExecuteInBrowser } from '@openmina/shared';
 
+const WASM_FILE_SIZE = 30653596;
+
 class AssetMonitor {
   readonly downloads: Map<string, any> = new Map();
   readonly progress$: BehaviorSubject<any>;
@@ -32,7 +34,7 @@ class AssetMonitor {
         url: resource.toString(),
         startTime,
         progress: 0,
-        totalSize: 30111552,
+        totalSize: WASM_FILE_SIZE,
         status: 'pending',
         endTime: 0,
         duration: 0,
