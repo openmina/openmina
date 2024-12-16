@@ -26,7 +26,7 @@ openmina-core = { path = "../../core" }
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }
 wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4.42"
+wasm-bindgen-futures = "0.4"
 gloo-timers = { version = "0.3", features = ["futures"] }
 gloo-utils = "0.2"
 tracing-wasm = "0.2"
