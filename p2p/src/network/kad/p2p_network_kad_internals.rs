@@ -6,6 +6,7 @@ use std::{
 use crypto_bigint::{ArrayEncoding, Encoding, U256};
 use derive_more::From;
 use libp2p_identity::DecodingError;
+use malloc_size_of_derive::MallocSizeOf;
 use multiaddr::Multiaddr;
 use openmina_core::bug_condition;
 use serde::{Deserialize, Serialize};
@@ -63,8 +64,12 @@ mod u256_serde {
 }
 
 /// Kademlia key, sha256 of the node's peer id.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, MallocSizeOf)]
+pub struct P2pNetworkKadKey(
+    #[serde(with = "u256_serde")]
+    #[ignore_malloc_size_of = "doesn't allocate"]
+    U256,
+);
 
 impl P2pNetworkKadKey {
     pub fn distance(self, rhs: &Self) -> P2pNetworkKadDist {
@@ -72,7 +77,7 @@ impl P2pNetworkKadKey {
     }
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error, MallocSizeOf)]
 pub enum P2pNetworkKadKeyError {
     #[error("decoding error")]
     DecodingError,
@@ -374,11 +379,13 @@ impl Extend<P2pNetworkKadEntry> for P2pNetworkKadRoutingTable {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, MallocSizeOf)]
 pub struct P2pNetworkKadEntry {
     pub key: P2pNetworkKadKey,
     pub peer_id: PeerId,
+    #[with_malloc_size_of_func = "measurement::multiaddr_vec"]
     addrs: Vec<Multiaddr>,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub connection: ConnectionType,
 }
 
@@ -411,7 +418,7 @@ impl P2pNetworkKadEntry {
     }
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error, MallocSizeOf)]
 pub enum P2pNetworkKadEntryTryFromError {
     #[error(transparent)]
     PeerId(#[from] P2pNetworkKademliaPeerIdError),
@@ -529,7 +536,7 @@ impl<'a, const K: usize> Iterator for ClosestPeers<'a, K> {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, From)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, From, MallocSizeOf)]
 pub struct P2pNetworkKadBucket<const K: usize>(Vec<P2pNetworkKadEntry>);
 
 impl<const K: usize> P2pNetworkKadBucket<K> {
@@ -881,6 +888,25 @@ mod tests {
                 }
                 prev = Some((e.clone(), dist));
             }
+        }
+    }
+}
+mod measurement {
+    use std::mem;
+
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::{Multiaddr, P2pNetworkKadBucket, P2pNetworkKadRoutingTable};
+
+    pub fn multiaddr_vec(v: &Vec<Multiaddr>, _ops: &mut MallocSizeOfOps) -> usize {
+        v.capacity() * mem::size_of::<Multiaddr>() + v.iter().map(Multiaddr::len).sum::<usize>()
+    }
+
+    impl<const K: usize> MallocSizeOf for P2pNetworkKadRoutingTable<K> {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.this_key.size_of(ops)
+                + self.buckets.capacity() * mem::size_of::<P2pNetworkKadBucket<K>>()
+                + self.buckets.iter().map(|b| b.size_of(ops)).sum::<usize>()
         }
     }
 }

@@ -286,20 +286,17 @@ impl P2pNetworkPubsubClientTopicState {
 }
 
 mod measurement {
-    use malloc_size_of::MallocSizeOf;
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 
     use super::*;
 
-    pub fn snark(val: &Vec<(Snark, u32)>, ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+    pub fn snark(val: &Vec<(Snark, u32)>, ops: &mut MallocSizeOfOps) -> usize {
         // TODO(vlad):
         let _ = (val, ops);
         0
     }
 
-    pub fn transaction(
-        val: &Vec<(Transaction, u32)>,
-        ops: &mut malloc_size_of::MallocSizeOfOps,
-    ) -> usize {
+    pub fn transaction(val: &Vec<(Transaction, u32)>, ops: &mut MallocSizeOfOps) -> usize {
         // TODO(vlad):
         let _ = (val, ops);
         0
@@ -307,7 +304,7 @@ mod measurement {
 
     pub fn block(
         val: &Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
-        ops: &mut malloc_size_of::MallocSizeOfOps,
+        ops: &mut MallocSizeOfOps,
     ) -> usize {
         // TODO(vlad):
         let _ = (val, ops);
@@ -316,14 +313,14 @@ mod measurement {
 
     pub fn clients(
         val: &BTreeMap<PeerId, P2pNetworkPubsubClientState>,
-        ops: &mut malloc_size_of::MallocSizeOfOps,
+        ops: &mut MallocSizeOfOps,
     ) -> usize {
         val.values().map(|v| v.size_of(ops)).sum()
     }
 
     pub fn topics(
         val: &BTreeMap<String, BTreeMap<PeerId, P2pNetworkPubsubClientTopicState>>,
-        ops: &mut malloc_size_of::MallocSizeOfOps,
+        ops: &mut MallocSizeOfOps,
     ) -> usize {
         val.iter()
             .map(|(k, v)| k.size_of(ops) + v.size_of(ops))
@@ -331,7 +328,7 @@ mod measurement {
     }
 
     impl MallocSizeOf for P2pNetworkPubsubRecentlyPublishCache {
-        fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
             let map_size = self.map.iter().map(Vec::capacity).sum::<usize>();
             let queue_size = self.queue.iter().map(Vec::capacity).sum::<usize>();
             map_size + queue_size
@@ -339,7 +336,7 @@ mod measurement {
     }
 
     impl MallocSizeOf for P2pNetworkPubsubMessageCache {
-        fn size_of(&self, ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
             let map_size = self
                 .map
                 .iter()
@@ -351,7 +348,7 @@ mod measurement {
     }
 
     impl MallocSizeOf for P2pNetworkPubsubClientTopicState {
-        fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
             0
         }
     }

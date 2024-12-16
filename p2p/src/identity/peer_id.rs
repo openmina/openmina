@@ -74,7 +74,7 @@ impl fmt::Debug for PeerId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, thiserror::Error, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, thiserror::Error, Serialize, Deserialize, MallocSizeOf)]
 pub enum PeerIdFromLibp2pPeerId {
     #[error("error decoding public key from protobuf: {0}")]
     Protobuf(String),
