@@ -8,7 +8,6 @@ use node::{
     core::channels::mpsc::{UnboundedReceiver, UnboundedSender},
     event_source::Event,
 };
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 
 use crate::NodeService;
@@ -32,8 +31,8 @@ pub fn vrf_evaluator(
         } = &vrf_evaluator_input;
 
         let vrf_result = delegator_table
-            .par_iter()
-            .find_map_any(|(index, (pub_key, stake))| {
+            .iter()
+            .find_map(|(index, (pub_key, stake))| {
                 let vrf_input = VrfEvaluationInput {
                     producer_key: keypair.clone(),
                     global_slot: *global_slot,
@@ -109,7 +108,7 @@ mod tests {
         let now = std::time::Instant::now();
 
         let vrf_result = delegator_table
-            .par_iter()
+            .iter()
             .map(|(index, (pub_key, stake))| {
                 let vrf_input = VrfEvaluationInput {
                     producer_key: keypair.clone(),
