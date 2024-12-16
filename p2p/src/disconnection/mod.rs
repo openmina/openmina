@@ -35,6 +35,8 @@ pub enum P2pDisconnectionReason {
     TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
     #[error("failed to verify snark pool diff")]
     SnarkPoolVerifyError,
+    #[error("failed to verify block")]
+    BlockVerifyError,
     #[error("duplicate connection")]
     DuplicateConnection,
     #[error("timeout")]

@@ -1,6 +1,9 @@
 use ark_ff::fields::arithmetic::InvalidBigInt;
-use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
-use openmina_core::{block::BlockWithHash, bug_condition, transaction::TransactionWithHash};
+use mina_p2p_messages::{
+    gossip::GossipNetMessageV2,
+    v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash},
+};
+use openmina_core::{block::BlockWithHash, bug_condition, log, transaction::TransactionWithHash};
 use p2p::{
     channels::{
         best_tip::P2pChannelsBestTipAction,
@@ -8,13 +11,15 @@ use p2p::{
         streaming_rpc::P2pStreamingRpcResponseFull,
     },
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
-    PeerId,
+    P2pNetworkPubsubAction, PeerId, ValidationResult,
 };
 use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 
 use crate::{
+    consensus::allow_block_too_late,
     p2p_ready,
     snark_pool::candidate::SnarkPoolCandidateAction,
+    state::BlockPrevalidationError,
     transaction_pool::candidate::TransactionPoolCandidateAction,
     transition_frontier::sync::{
         ledger::{
@@ -48,6 +53,7 @@ impl crate::State {
         action: ActionWithMeta<&P2pCallbacksAction>,
     ) {
         let (action, meta) = action.split();
+        let time = meta.time();
         let (dispatcher, state) = state_context.into_dispatcher_and_state();
 
         match action {
@@ -288,6 +294,47 @@ impl crate::State {
                 dispatcher.push(P2pChannelsBestTipAction::ResponseSend {
                     peer_id: *peer_id,
                     best_tip: best_tip.clone(),
+                });
+            }
+            P2pCallbacksAction::P2pPubsubValidateMessage {
+                message,
+                message_content,
+                peer_id,
+            } => {
+                let result = if let Some(message_content) = message_content {
+                    match message_content {
+                        GossipNetMessageV2::NewState(new_best_tip) => {
+                            match BlockWithHash::try_new(new_best_tip.clone()) {
+                                Ok(block) => {
+                                    let allow_block_too_late = allow_block_too_late(state, &block);
+                                    match state.prevalidate_block(&block, allow_block_too_late) {
+                                        Ok(()) => ValidationResult::Valid,
+                                        Err(BlockPrevalidationError::ReceivedTooLate {
+                                            ..
+                                        }) => ValidationResult::Ignore,
+                                        Err(_) => ValidationResult::Reject,
+                                    }
+                                }
+                                Err(_) => {
+                                    log::error!(time; "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block");
+                                    return;
+                                }
+                            }
+                        }
+                        _ => {
+                            // TODO: add validation for Snark pool and Transaction pool diffs
+                            ValidationResult::Valid
+                        }
+                    }
+                } else {
+                    ValidationResult::Valid
+                };
+
+                dispatcher.push(P2pNetworkPubsubAction::BroadcastValidationCallback {
+                    message: message.clone(),
+                    message_content: message_content.clone(),
+                    peer_id: *peer_id,
+                    result,
                 });
             }
         }

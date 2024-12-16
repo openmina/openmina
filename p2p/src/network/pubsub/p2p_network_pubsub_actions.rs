@@ -1,6 +1,6 @@
-use super::pb;
+use super::{pb, ValidationResult};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, Data, P2pState, PeerId, StreamId};
-use mina_p2p_messages::gossip::GossipNetMessageV2;
+use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
@@ -61,19 +61,29 @@ pub enum P2pNetworkPubsubAction {
     },
 
     /// Clean up temporary states after processing an incoming message.
-    IncomingMessageCleanup { peer_id: PeerId },
+    IncomingMessageCleanup {
+        peer_id: PeerId,
+    },
 
     /// Add a peer to the mesh network for a specific topic.
-    Graft { peer_id: PeerId, topic_id: String },
+    Graft {
+        peer_id: PeerId,
+        topic_id: String,
+    },
 
     /// Remove a peer from the mesh network for a specific topic.
-    Prune { peer_id: PeerId, topic_id: String },
+    Prune {
+        peer_id: PeerId,
+        topic_id: String,
+    },
 
     /// Initiate the broadcasting of a message to all subscribed peers.
     ///
     /// **Fields:**
     /// - `message`: The gossip network message to broadcast.
-    Broadcast { message: GossipNetMessageV2 },
+    Broadcast {
+        message: GossipNetMessageV2,
+    },
 
     /// Prepare a message for signing before broadcasting.
     ///
@@ -91,32 +101,60 @@ pub enum P2pNetworkPubsubAction {
 
     /// An error occured during the signing process.
     #[action_event(level = warn, fields(display(author), display(topic)))]
-    SignError { author: PeerId, topic: String },
+    SignError {
+        author: PeerId,
+        topic: String,
+    },
 
     /// Finalize the broadcasting of a signed message by attaching the signature.
     ///
     /// **Fields:**
     /// - `signature`: The cryptographic signature of the message.
-    BroadcastSigned { signature: Data },
+    BroadcastSigned {
+        signature: Data,
+    },
 
     /// Prepare an outgoing message to send to a specific peer.
-    OutgoingMessage { peer_id: PeerId },
+    OutgoingMessage {
+        peer_id: PeerId,
+    },
 
     /// Clear the outgoing message state for a specific peer after sending.
-    OutgoingMessageClear { peer_id: PeerId },
+    OutgoingMessageClear {
+        peer_id: PeerId,
+    },
 
     /// An error occured during the sending of an outgoing message.
     ///
     /// **Fields:**
     /// - `msg`: The protobuf message that failed to send.
     #[action_event(level = warn, fields(display(peer_id), debug(msg)))]
-    OutgoingMessageError { msg: pb::Rpc, peer_id: PeerId },
+    OutgoingMessageError {
+        msg: pb::Rpc,
+        peer_id: PeerId,
+    },
 
     /// Send encoded data over an outgoing stream to a specific peer.
     ///
     /// **Fields:**
     /// - `data`: The encoded data to be sent.
-    OutgoingData { data: Data, peer_id: PeerId },
+    OutgoingData {
+        data: Data,
+        peer_id: PeerId,
+    },
+
+    BroadcastValidationCallback {
+        message: pb::Message,
+        message_content: Option<GossipNetMessageV2>,
+        peer_id: PeerId,
+        result: ValidationResult,
+    },
+
+    BroadcastAcceptedBlock {
+        hash: v2::StateHash,
+    },
+    /// Delete expired messages from state
+    PruneMessages {},
 }
 
 impl From<P2pNetworkPubsubAction> for crate::P2pAction {
@@ -127,14 +165,19 @@ impl From<P2pNetworkPubsubAction> for crate::P2pAction {
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkPubsubAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
+        let pubsub = &state.network.scheduler.broadcast_state;
         match self {
-            P2pNetworkPubsubAction::OutgoingMessage { peer_id } => state
-                .network
-                .scheduler
-                .broadcast_state
+            P2pNetworkPubsubAction::OutgoingMessage { peer_id } => pubsub
                 .clients
                 .get(peer_id)
                 .map_or(false, |s| !s.message_is_empty()),
+            P2pNetworkPubsubAction::Prune { peer_id, topic_id } => pubsub
+                .topics
+                .get(topic_id)
+                .map_or(false, |topics| topics.contains_key(peer_id)),
+            P2pNetworkPubsubAction::BroadcastAcceptedBlock { hash } => {
+                pubsub.block_messages.contains_key(hash)
+            }
             _ => true,
         }
     }

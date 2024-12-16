@@ -1,4 +1,4 @@
-mod pb {
+pub mod pb {
     include!(concat!(env!("OUT_DIR"), "/gossipsub.rs"));
 }
 
@@ -18,3 +18,11 @@ const TOPIC: &str = "coda/consensus-messages/0.0.1";
 
 pub mod pubsub_effectful;
 pub use pubsub_effectful::P2pNetworkPubsubEffectfulAction;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+pub enum ValidationResult {
+    Valid,
+    Reject,
+    Ignore,
+}

@@ -9,7 +9,8 @@ use crate::{
     },
     disconnection::{P2pDisconnectedState, P2pDisconnectionAction},
     P2pAction, P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkPnetAction,
-    P2pNetworkRpcAction, P2pNetworkSelectAction, P2pNetworkState, P2pPeerState, P2pState, PeerId,
+    P2pNetworkPubsubAction, P2pNetworkRpcAction, P2pNetworkSelectAction, P2pNetworkState,
+    P2pPeerState, P2pState, PeerId,
 };
 use openmina_core::{bug_condition, Substate};
 use redux::{ActionMeta, ActionWithMeta, Dispatcher, Timestamp};
@@ -92,6 +93,7 @@ impl P2pState {
             state.p2p_pnet_timeouts(dispatcher, time)?;
             state.p2p_select_timeouts(dispatcher, time)?;
             state.p2p_rpc_heartbeats(dispatcher, time)?;
+            dispatcher.push(P2pNetworkPubsubAction::PruneMessages {});
         }
 
         state.rpc_timeouts(dispatcher, time)?;

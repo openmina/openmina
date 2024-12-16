@@ -1,3 +1,4 @@
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::ActionEvent;
 use p2p::{
     channels::{
@@ -46,6 +47,11 @@ pub enum P2pCallbacksAction {
     RpcRespondBestTip {
         peer_id: PeerId,
     },
+    P2pPubsubValidateMessage {
+        message_content: Option<GossipNetMessageV2>,
+        message: p2p::network::pubsub::pb::Message,
+        peer_id: PeerId,
+    },
 }
 
 impl redux::EnablingCondition<crate::State> for P2pCallbacksAction {
@@ -63,6 +69,7 @@ impl redux::EnablingCondition<crate::State> for P2pCallbacksAction {
             P2pCallbacksAction::RpcRespondBestTip { .. } => {
                 state.transition_frontier.best_tip().is_some()
             }
+            P2pCallbacksAction::P2pPubsubValidateMessage { .. } => true,
         }
     }
 }

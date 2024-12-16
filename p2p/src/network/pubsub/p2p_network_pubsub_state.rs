@@ -58,6 +58,15 @@ pub struct P2pNetworkPubsubState {
 
     /// `iwant` requests, tracking the number of times peers have expressed interest in specific messages.
     pub iwant: VecDeque<P2pNetworkPubsubIwantRequestCount>,
+
+    pub block_messages: BTreeMap<mina_p2p_messages::v2::StateHash, P2pNetworkPubsubBlockMessage>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkPubsubBlockMessage {
+    pub message_id: Option<Vec<u8>>,
+    pub expiration_time: Timestamp,
+    pub peer_id: PeerId,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]

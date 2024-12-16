@@ -206,6 +206,7 @@ pub enum ActionKind {
     P2pCallbacksP2pChannelsStreamingRpcResponseReceived,
     P2pCallbacksP2pChannelsStreamingRpcTimeout,
     P2pCallbacksP2pDisconnection,
+    P2pCallbacksP2pPubsubValidateMessage,
     P2pCallbacksRpcRespondBestTip,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
@@ -403,7 +404,9 @@ pub enum ActionKind {
     P2pNetworkPnetEffectfulOutgoingData,
     P2pNetworkPnetEffectfulSetupNonce,
     P2pNetworkPubsubBroadcast,
+    P2pNetworkPubsubBroadcastAcceptedBlock,
     P2pNetworkPubsubBroadcastSigned,
+    P2pNetworkPubsubBroadcastValidationCallback,
     P2pNetworkPubsubGraft,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubIncomingMessage,
@@ -414,6 +417,7 @@ pub enum ActionKind {
     P2pNetworkPubsubOutgoingMessageClear,
     P2pNetworkPubsubOutgoingMessageError,
     P2pNetworkPubsubPrune,
+    P2pNetworkPubsubPruneMessages,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
     P2pNetworkPubsubValidateIncomingMessages,
@@ -707,7 +711,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 597;
+    pub const COUNT: u16 = 601;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -809,6 +813,9 @@ impl ActionKindGet for P2pCallbacksAction {
             }
             Self::P2pDisconnection { .. } => ActionKind::P2pCallbacksP2pDisconnection,
             Self::RpcRespondBestTip { .. } => ActionKind::P2pCallbacksRpcRespondBestTip,
+            Self::P2pPubsubValidateMessage { .. } => {
+                ActionKind::P2pCallbacksP2pPubsubValidateMessage
+            }
         }
     }
 }
@@ -1953,6 +1960,13 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::OutgoingMessageClear { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageClear,
             Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
+            Self::BroadcastValidationCallback { .. } => {
+                ActionKind::P2pNetworkPubsubBroadcastValidationCallback
+            }
+            Self::BroadcastAcceptedBlock { .. } => {
+                ActionKind::P2pNetworkPubsubBroadcastAcceptedBlock
+            }
+            Self::PruneMessages { .. } => ActionKind::P2pNetworkPubsubPruneMessages,
         }
     }
 }

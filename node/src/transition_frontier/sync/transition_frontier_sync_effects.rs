@@ -1,7 +1,7 @@
 use mina_p2p_messages::v2::LedgerHash;
 use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
-use p2p::PeerId;
+use p2p::{P2pNetworkPubsubAction, PeerId};
 use redux::ActionMeta;
 
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
@@ -76,6 +76,9 @@ impl TransitionFrontierSyncAction {
                 if let Some(callback) = on_success {
                     store.dispatch_callback(callback.clone(), ());
                 }
+
+                let hash = best_tip.hash.clone();
+                store.dispatch(P2pNetworkPubsubAction::BroadcastAcceptedBlock { hash });
             }
             // TODO(tizoc): this action is never called with the current implementation,
             // either remove it or figure out how to recover it as a reaction to
