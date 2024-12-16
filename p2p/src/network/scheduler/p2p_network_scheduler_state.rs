@@ -337,8 +337,9 @@ mod measurement {
                     .sum::<usize>()
                 + self.broadcast_state.size_of(ops)
                 + self.identify_state.size_of(ops)
+                + self.discovery_state.size_of(ops)
 
-            // TODO(vlad): `discovery_state`, `rpc_incoming_streams`, `rpc_outgoing_streams`
+            // TODO(vlad): `rpc_incoming_streams`, `rpc_outgoing_streams`
         }
     }
 }

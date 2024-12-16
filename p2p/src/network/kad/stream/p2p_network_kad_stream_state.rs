@@ -1,3 +1,4 @@
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -5,7 +6,7 @@ use crate::{
     P2pNetworkKademliaRpcRequest, P2pNetworkStreamProtobufError,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2pNetworkKadStreamState {
     Incoming(P2pNetworkKadIncomingStreamState),
     Outgoing(P2pNetworkKadOutgoingStreamState),
@@ -22,7 +23,7 @@ impl P2pNetworkKadStreamState {
 }
 
 /// Incoming Kademlia stream is used by a remote peer to perform a Kademlia request.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2pNetworkKadIncomingStreamState {
     #[default]
     Default,
@@ -44,7 +45,8 @@ pub enum P2pNetworkKadIncomingStreamState {
     /// TODO: use enum for errors.
     Error(P2pNetworkStreamProtobufError<P2pNetworkKademliaRpcFromMessageError>),
 }
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2pNetworkKadOutgoingStreamState {
     #[default]
     Default,
@@ -63,7 +65,6 @@ pub enum P2pNetworkKadOutgoingStreamState {
     /// The stream is closed.
     Closed,
     /// Error handling the stream.
-    /// TODO: use enum for errors.
     Error(P2pNetworkStreamProtobufError<P2pNetworkKademliaRpcFromMessageError>),
 }
 
