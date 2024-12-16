@@ -21,18 +21,29 @@ pub struct BlockProducerService {
     provers: Option<BlockProver>,
     keypair: AccountSecretKey,
     vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
+    prove_sender: mpsc::UnboundedSender<(
+        BlockProver,
+        StateHash,
+        Box<ProverExtendBlockchainInputStableV2>,
+    )>,
 }
 
 impl BlockProducerService {
     pub fn new(
         keypair: AccountSecretKey,
         vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
+        prove_sender: mpsc::UnboundedSender<(
+            BlockProver,
+            StateHash,
+            Box<ProverExtendBlockchainInputStableV2>,
+        )>,
         provers: Option<BlockProver>,
     ) -> Self {
         Self {
             provers,
             keypair,
             vrf_evaluation_sender,
+            prove_sender,
         }
     }
 
@@ -41,26 +52,58 @@ impl BlockProducerService {
         keypair: AccountSecretKey,
         provers: Option<BlockProver>,
     ) -> Self {
-        let (vrf_evaluation_sender, vrf_evaluation_receiver) =
-            mpsc::unbounded_channel::<VrfEvaluatorInput>();
+        let (vrf_evaluation_sender, vrf_evaluation_receiver) = mpsc::unbounded_channel();
+        let (prove_sender, prove_receiver) = mpsc::unbounded_channel();
 
+        let event_sender_clone = event_sender.clone();
         let producer_keypair = keypair.clone();
         thread::Builder::new()
             .name("openmina_vrf_evaluator".to_owned())
             .spawn(move || {
                 vrf_evaluator::vrf_evaluator(
-                    event_sender,
+                    event_sender_clone,
                     vrf_evaluation_receiver,
                     producer_keypair.into(),
                 );
             })
             .unwrap();
 
-        BlockProducerService::new(keypair, vrf_evaluation_sender, provers)
+        let producer_keypair = keypair.clone();
+        thread::Builder::new()
+            .name("openmina_block_prover".to_owned())
+            .spawn(move || prover_loop(producer_keypair, event_sender, prove_receiver))
+            .unwrap();
+
+        BlockProducerService::new(keypair, vrf_evaluation_sender, prove_sender, provers)
     }
 
     pub fn keypair(&self) -> AccountSecretKey {
         self.keypair.clone()
+    }
+}
+
+fn prover_loop(
+    keypair: AccountSecretKey,
+    event_sender: EventSender,
+    mut rx: mpsc::UnboundedReceiver<(
+        BlockProver,
+        StateHash,
+        Box<ProverExtendBlockchainInputStableV2>,
+    )>,
+) {
+    while let Some((provers, block_hash, input)) = rx.blocking_recv() {
+        let res =
+            prove(provers, input.clone(), keypair.clone(), false).map_err(|err| format!("{err:?}"));
+        if res.is_err() {
+            // IMPORTANT: Make sure that `input` here is a copy from before `prove` is called, we don't
+            // want to leak the private key.
+            if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
+                openmina_core::error!(
+                        openmina_core::log::system_time();
+                        message = "Failure when dumping failed block proof inputs", error = format!("{error}"));
+            }
+        }
+        let _ = event_sender.send(BlockProducerEvent::BlockProve(block_hash, res).into());
     }
 }
 
@@ -113,23 +156,12 @@ impl node::service::BlockProducerService for crate::NodeService {
             return;
         }
         let provers = self.provers();
-        let keypair = self.block_producer.as_ref().unwrap().keypair();
-
-        let tx = self.event_sender().clone();
-        thread::spawn(move || {
-            let res =
-                prove(provers, input.clone(), keypair, false).map_err(|err| format!("{err:?}"));
-            if res.is_err() {
-                // IMPORTANT: Make sure that `input` here is a copy from before `prove` is called, we don't
-                // want to leak the private key.
-                if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
-                    openmina_core::error!(
-                        openmina_core::log::system_time();
-                        message = "Failure when dumping failed block proof inputs", error = format!("{error}"));
-                }
-            }
-            let _ = tx.send(BlockProducerEvent::BlockProve(block_hash, res).into());
-        });
+        let _ = self
+            .block_producer
+            .as_ref()
+            .expect("prove shouldn't be requested if block producer isn't initialized")
+            .prove_sender
+            .send((provers, block_hash, input));
     }
 }
 

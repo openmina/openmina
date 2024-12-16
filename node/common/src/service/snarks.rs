@@ -11,6 +11,7 @@ use ledger::{
 use mina_p2p_messages::v2;
 use node::{
     core::{
+        channels::mpsc,
         snark::{Snark, SnarkJobId},
         thread,
     },
@@ -24,6 +25,54 @@ use rand::prelude::*;
 
 use crate::NodeService;
 
+use super::EventSender;
+
+pub struct SnarkBlockVerifyArgs {
+    pub req_id: SnarkBlockVerifyId,
+    pub verifier_index: BlockVerifier,
+    pub verifier_srs: Arc<VerifierSRS>,
+    pub block: VerifiableBlockWithHash,
+}
+
+impl NodeService {
+    pub fn snark_block_proof_verifier_spawn(
+        event_sender: EventSender,
+    ) -> mpsc::UnboundedSender<SnarkBlockVerifyArgs> {
+        let (tx, mut rx) = mpsc::unbounded_channel();
+        thread::Builder::new()
+            .name("block_proof_verifier".to_owned())
+            .spawn(move || {
+                while let Some(SnarkBlockVerifyArgs {
+                    req_id,
+                    verifier_index,
+                    verifier_srs,
+                    block,
+                }) = rx.blocking_recv()
+                {
+                    eprintln!("verify({}) - start", block.hash_ref());
+                    let header = block.header_ref();
+                    let result = {
+                        if !ledger::proofs::verification::verify_block(
+                            header,
+                            &verifier_index,
+                            &verifier_srs,
+                        ) {
+                            Err(SnarkBlockVerifyError::VerificationFailed)
+                        } else {
+                            Ok(())
+                        }
+                    };
+                    eprintln!("verify({}) - end", block.hash_ref());
+
+                    let _ = event_sender.send(SnarkEvent::BlockVerify(req_id, result).into());
+                }
+            })
+            .expect("failed to spawn block_proof_verifier thread");
+
+        tx
+    }
+}
+
 impl node::service::SnarkBlockVerifyService for NodeService {
     fn verify_init(
         &mut self,
@@ -35,25 +84,13 @@ impl node::service::SnarkBlockVerifyService for NodeService {
         if self.replayer.is_some() {
             return;
         }
-        let tx = self.event_sender().clone();
-        thread::spawn(move || {
-            eprintln!("verify({}) - start", block.hash_ref());
-            let header = block.header_ref();
-            let result = {
-                if !ledger::proofs::verification::verify_block(
-                    header,
-                    &verifier_index,
-                    &verifier_srs,
-                ) {
-                    Err(SnarkBlockVerifyError::VerificationFailed)
-                } else {
-                    Ok(())
-                }
-            };
-            eprintln!("verify({}) - end", block.hash_ref());
-
-            let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
-        });
+        let args = SnarkBlockVerifyArgs {
+            req_id,
+            verifier_index,
+            verifier_srs,
+            block,
+        };
+        let _ = self.snark_block_proof_verify.send(args);
     }
 }
 
