@@ -23,6 +23,24 @@ impl Stats {
 #[cfg(target_family = "wasm")]
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 impl Stats {
+    pub async fn actions(&self, id: JsValue) -> Result<JsValue, JsValue> {
+        let query = if id.is_null() {
+            ActionStatsQuery::SinceStart
+        } else if id.as_string().is_some_and(|s| s == "latest") {
+            ActionStatsQuery::ForLatestBlock
+        } else {
+            let id = id.into_serde().map_err(|err| err.to_string())?;
+            ActionStatsQuery::ForBlockWithId(id)
+        };
+
+        let res = self
+            .sender
+            .oneshot_request::<RpcActionStatsGetResponse>(RpcRequest::ActionStatsGet(query))
+            .await
+            .flatten();
+        Ok(JsValue::from_serde(&res).unwrap_or_default())
+    }
+
     pub async fn sync(&self, limit: Option<usize>) -> JsValue {
         let query = SyncStatsQuery { limit };
         let res = self
