@@ -18,7 +18,7 @@ mod block_producer_reducer;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::{list::List, v2};
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, constants::constraint_constants};
 use poseidon::hash::params::MINA_EPOCH_SEED;
 use serde::{Deserialize, Serialize};
 use vrf::output::VrfOutput;
@@ -79,14 +79,11 @@ impl BlockProducerWonSlot {
     }
 
     fn calculate_slot_time(genesis_timestamp: redux::Timestamp, slot: u32) -> redux::Timestamp {
-        // FIXME: this calculation must use values from the protocol constants,
-        // now it assumes 3 minutes blocks.
+        let per_block_ns = constraint_constants()
+            .block_window_duration_ms
+            .saturating_mul(1_000_000);
         genesis_timestamp
-            .checked_add(
-                (slot as u64)
-                    .checked_mul(3u64.saturating_mul(60).saturating_mul(1_000_000_000_u64))
-                    .expect("overflow"),
-            )
+            .checked_add((slot as u64).checked_mul(per_block_ns).expect("overflow"))
             .expect("overflow")
     }
 

@@ -327,10 +327,9 @@ impl State {
 
     fn cur_slot(&self, initial_slot: impl FnOnce(&ArcBlockWithHash) -> u32) -> Option<u32> {
         let genesis = self.genesis_block()?;
-        let initial_ms = u64::from(genesis.timestamp()) / 1_000_000;
-        let now_ms = u64::from(self.time()) / 1_000_000;
-        let ms = now_ms.saturating_sub(initial_ms);
-        let slots = ms
+        let diff_ns = u64::from(self.time()).saturating_sub(u64::from(genesis.timestamp()));
+        let diff_ms = diff_ns / 1_000_000;
+        let slots = diff_ms
             .checked_div(constraint_constants().block_window_duration_ms)
             .expect("division by 0");
         Some(
