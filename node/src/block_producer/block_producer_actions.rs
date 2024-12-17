@@ -186,10 +186,21 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                     BlockProducerCurrentState::BlockProveSuccess { .. }
                 )
             }),
-            BlockProducerAction::BlockInject => state.block_producer.with(false, |this| {
-                matches!(this.current, BlockProducerCurrentState::Produced { .. })
-                    && !state.transition_frontier.sync.is_commit_pending()
-            }),
+            BlockProducerAction::BlockInject => {
+                state
+                    .block_producer
+                    .with(false, |this| match &this.current {
+                        BlockProducerCurrentState::Produced { block, .. } => {
+                            block
+                                .timestamp()
+                                // broadcast 1s late to account for time drift between nodes
+                                .checked_add(1_000_000_000)
+                                .is_some_and(|block_time| time >= block_time)
+                                && !state.transition_frontier.sync.is_commit_pending()
+                        }
+                        _ => false,
+                    })
+            }
             BlockProducerAction::BlockInjected => state.block_producer.with(false, |this| {
                 matches!(this.current, BlockProducerCurrentState::Produced { .. })
             }),
