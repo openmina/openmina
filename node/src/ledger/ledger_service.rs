@@ -738,8 +738,10 @@ impl LedgerCtx {
             .flatten()
             .collect();
 
-        // Coinbase receiver is always accessed
-        account_ids_accessed.insert(coinbase_receiver_id);
+        // Coinbase receiver is included only when the coinbase is not zero
+        if block.body().coinbase_sum() > 0 {
+            account_ids_accessed.insert(coinbase_receiver_id);
+        }
 
         // TODO(adonagy): Create a struct instead of tuple
         let accounts_accessed: Vec<(AccountIndex, Account)> = account_ids_accessed
