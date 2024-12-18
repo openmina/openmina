@@ -1650,10 +1650,23 @@ impl StagedLedgerDiffBodyStableV1 {
                 .map_or(0, |d| d.completed_works.len())
     }
 
+    /// See https://github.com/MinaProtocol/mina/blob/835e581109c6eb5777f9e9d9b600e69b9374d70a/src/lib/staged_ledger_diff/diff.ml#L278
     pub fn coinbase_sum(&self) -> u64 {
-        // FIXME(#581): hardcoding 720 here, but this logic is not correct.
-        // This should be obtained from the `amount` in the coinbase transaction
-        720000000000 // 720 mina in nanomina
+        let (first_pre_diff, second_pre_diff) = (
+            self.diff().0.coinbase.clone(),
+            self.diff().1.as_ref().map_or(
+                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero,
+                |v| v.coinbase.clone(),
+            ),
+        );
+
+        match (first_pre_diff, second_pre_diff) {
+            (
+                StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Zero,
+                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero,
+            ) => 0,
+            _ => 720000000000, // TODO: get from config/constants
+        }
     }
 
     pub fn fees_sum(&self) -> u64 {
