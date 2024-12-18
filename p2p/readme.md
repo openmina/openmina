@@ -151,6 +151,37 @@ to propagate and we keep sending the next (+ jumping to the next index)
 until we reach the end of the pool. This way we have to keep minimal data
 with each peer and it efficiently avoids sending the same data twice.
 
+## Appendix: Future Ideas
+
+### Leveraging Local Pools for Smaller Blocks
+
+Nodes already maintain local pools of transactions and snarks. Many of these stored items later appear in blocks. By using data the node already has, we reduce the amount of information needed for each new block.
+
+#### Motivation
+As nodes interact with the network, they receive, verify, and store transactions and snarks in local pools. When a new block arrives, it often includes some of these items. Because the node already has them, the sender need not retransmit the data. This approach offers:
+
+1. **Reduced Bandwidth Usage:**
+   Eliminating redundant transmissions of known snarks and transactions reduces block size and prevents wasted data exchange.
+
+2. **Decreased Parsing and Validation Overhead:**
+   With fewer embedded items, nodes spend less time parsing and validating large blocks and their contents, and can more quickly integrate them into local state.
+
+3. **Memory Footprint Optimization:**
+   By avoiding duplicate data, nodes can maintain more stable memory usage.
+
+#### Practical Considerations
+- **Snarks:**
+  Snarks, being large, benefit most from this approach. Skipping their retransmission saves significant bandwidth.
+
+- **Ensuring Synchronization:**
+  This approach assumes nodes maintain consistent local pools. The poll-based model and eventual consistency ensure nodes receive needed items before they appear in a block, making it likely that a node has them on hand.
+
+- **Adjusting the Block Format:**
+  This idea may require altering the protocol so the block references, rather than embeds, items nodes probably have. The node would fetch only missing pieces if a reference does not match its local data.
+
+#### Outcome
+By using local data, the network can propagate smaller blocks, improving scalability, reducing resource usage, and speeding propagation.
+
 # OCaml node compatibility
 In order to be compatible with the current OCaml node p2p implementation,
 we have [libp2p implementation](./libp2p.md) as well. So communication between OCaml
