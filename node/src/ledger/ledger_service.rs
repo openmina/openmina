@@ -743,6 +743,14 @@ impl LedgerCtx {
             account_ids_accessed.insert(coinbase_receiver_id);
         }
 
+        // Include the coinbase fee transfer accounts
+        let fee_transfer_accounts = block.body().coinbases_iter().filter_map(|cb| {
+            let receiver: CompressedPubKey = cb.receiver_pk.inner().try_into().ok()?;
+            let account_id = AccountId::new(receiver, TokenId::default());
+            Some(account_id)
+        });
+        account_ids_accessed.extend(fee_transfer_accounts);
+
         // TODO(adonagy): Create a struct instead of tuple
         let accounts_accessed: Vec<(AccountIndex, Account)> = account_ids_accessed
             .iter()
