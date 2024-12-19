@@ -16,8 +16,8 @@ rand = { version = "0.8", features = [ "small_rng" ] }
 bytes = "*"
 bs58 = "0.4.0"
 base64 = "0.22"
-binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
-binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
 anyhow = "1.0.70"
 smallvec = "1.10.0"
 cfg-if = "1.0.0"
