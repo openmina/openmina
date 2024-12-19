@@ -58,7 +58,7 @@ poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "dec
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
 openmina-node-account = { path = "node/account" }
-redux = { git = "https://github.com/openmina/redux-rs.git", rev = "a889d5ef", features = [
+redux = { git = "https://github.com/openmina/redux-rs.git", rev = "9b5b14f3", features = [
     "serde",
 ] }
 serde = "1.0.190"
@@ -89,7 +89,7 @@ ark-ec = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # bran
 ark-poly = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # branch: fix-openmina-webnode
 ark-serialize = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # branch: fix-openmina-webnode
 
-num-bigint = { git = "https://github.com/openmina/num-bigint", rev = "8bb5ee4" } # branch: on-stack
+num-bigint = { git = "https://github.com/openmina/num-bigint", rev = "8bb5ee4" }     # branch: on-stack
 num-rational = { git = "https://github.com/openmina/num-rational", rev = "336f11d" } # branch: on-stack
 
 [profile.test.package."*"]

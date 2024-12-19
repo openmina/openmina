@@ -2433,14 +2433,12 @@ dependencies = [
 [[package]]
 name = "graphannis-malloc_size_of"
 version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b6cd4ed7a667b82efeaa3da16536ed5d845b9b962b8e0475666e6c5e0c5770"
+source = "git+https://github.com/openmina/graphannis-malloc_size_of.git#326834fdc1ff429d03389d379d777b8470c6afd7"
 
 [[package]]
 name = "graphannis-malloc_size_of_derive"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "812d8dda960b2afa1e104f61fc586935c02e48c8b3d559180f86ba36d2beaff9"
+version = "2.0.1-alpha.0"
+source = "git+https://github.com/openmina/graphannis-malloc_size_of_derive.git#30c74e817f9f74434aa6fffe707be44d0a73c47b"
 dependencies = [
  "proc-macro2 0.4.30",
  "quote 0.6.13",
@@ -4330,6 +4328,8 @@ dependencies = [
  "base64 0.22.0",
  "blake2",
  "derive_more",
+ "graphannis-malloc_size_of",
+ "graphannis-malloc_size_of_derive",
  "hex",
  "lazy_static",
  "linkme",
@@ -5961,7 +5961,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?rev=a889d5ef#a889d5ef80807d1edd94baf99ebcc85d22a6a857"
+source = "git+https://github.com/openmina/redux-rs.git?rev=9b5b14f3#9b5b14f35d3f5ecebcd4b539c86678d2eef72e72"
 dependencies = [
  "enum_dispatch",
  "graphannis-malloc_size_of",

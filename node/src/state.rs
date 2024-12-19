@@ -1,10 +1,12 @@
+use std::sync::Arc;
+use std::time::Duration;
+
+use malloc_size_of_derive::MallocSizeOf;
 use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
 use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
 use p2p::P2pNetworkPubsubMessageCacheId;
 use rand::prelude::*;
-use std::sync::Arc;
-use std::time::Duration;
 
 use openmina_core::block::BlockWithHash;
 use openmina_core::requests::RpcId;
@@ -472,9 +474,9 @@ impl State {
 }
 
 #[serde_with::serde_as]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2p {
-    Pending(P2pConfig),
+    Pending(#[ignore_malloc_size_of = "constant"] P2pConfig),
     Ready(P2pState),
 }
 

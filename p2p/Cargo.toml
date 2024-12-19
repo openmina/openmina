@@ -32,8 +32,8 @@ reqwest = { version = "0.11.22", optional = true }
 unsigned-varint = { version = "0.8.0" }
 hex = { version = "0.4.3" }
 bitflags = { version = "2.4.1", features = ["serde"] }
-graphannis-malloc_size_of = "2.0.0"
-graphannis-malloc_size_of_derive = "2.0.0"
+graphannis-malloc_size_of = { git = "https://github.com/openmina/graphannis-malloc_size_of.git" }
+graphannis-malloc_size_of_derive = { git = "https://github.com/openmina/graphannis-malloc_size_of_derive.git" }
 
 # crypto
 zeroize = { version = "1.7" }
@@ -80,7 +80,9 @@ p2p-testing = { path = "testing" }
 redux = { workspace = true, features = ["serializable_callbacks"] }
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "e8705db39af1b198b324a5db6ff57fb213ba75e9", optional = true }
-datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1bfb064d0ff3e54a93ae0288409902aab8d102d3", optional = true, features = ["vendored"] }
+datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1bfb064d0ff3e54a93ae0288409902aab8d102d3", optional = true, features = [
+    "vendored",
+] }
 reqwest = { version = "0.11", features = ["json"] }
 mio = { version = "0.8.11", features = ["os-poll", "net"] }
 libc = { version = "0.2.151" }
