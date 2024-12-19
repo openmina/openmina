@@ -720,7 +720,7 @@ dependencies = [
 [[package]]
 name = "binprot"
 version = "0.1.8"
-source = "git+https://github.com/openmina/binprot-rs?rev=2b5a909#2b5a9099a1c5640559d04e39899da301aebc8023"
+source = "git+https://github.com/openmina/binprot-rs?rev=400b52c#400b52c204d7a820ba60202dbd4cf8c3dfb7903b"
 dependencies = [
  "binprot_derive",
  "byteorder",
@@ -730,7 +730,7 @@ dependencies = [
 [[package]]
 name = "binprot_derive"
 version = "0.1.7"
-source = "git+https://github.com/openmina/binprot-rs?rev=2b5a909#2b5a9099a1c5640559d04e39899da301aebc8023"
+source = "git+https://github.com/openmina/binprot-rs?rev=400b52c#400b52c204d7a820ba60202dbd4cf8c3dfb7903b"
 dependencies = [
  "quote",
  "syn 1.0.109",
