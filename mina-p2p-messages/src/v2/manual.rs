@@ -1599,6 +1599,18 @@ impl StagedLedgerDiffBodyStableV1 {
         self.commands_iter().map(|command| &command.data)
     }
 
+    pub fn tranasctions_with_status(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &MinaBaseUserCommandStableV2,
+            &MinaBaseTransactionStatusStableV2,
+        ),
+    > {
+        self.commands_iter()
+            .map(|command| (&command.data, &command.status))
+    }
+
     // FIXME(tizoc): this is not correct, the coinbases are in the commands
     // what this is returning is the coinbase fee transfers, which is not the same.
     pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
