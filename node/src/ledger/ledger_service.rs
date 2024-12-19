@@ -34,7 +34,9 @@ use ledger::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
             transaction_partially_applied::TransactionPartiallyApplied,
-            valid, Transaction, UserCommand,
+            valid,
+            zkapp_command::AccessedOrNot,
+            Transaction, TransactionStatus, UserCommand,
         },
     },
     sparse_ledger::SparseLedger,
@@ -727,15 +729,21 @@ impl LedgerCtx {
             .into_iter();
 
         let coinbase_receiver_id = AccountId::new(coinbase_receiver, TokenId::default());
+
+        // https://github.com/MinaProtocol/mina/blob/85149735ca3a76d026e8cf36b8ff22941a048e31/src/app/archive/lib/diff.ml#L78
         let mut account_ids_accessed: BTreeSet<_> = block
             .body()
-            .transactions()
-            .flat_map(|tx| {
+            .tranasctions_with_status()
+            .flat_map(|(tx, status)| {
+                let status: TransactionStatus = status.into();
                 UserCommand::try_from(tx)
                     .ok()
-                    .map(|cmd| cmd.accounts_referenced())
+                    .map(|cmd| cmd.account_access_statuses(&status))
+                    .into_iter()
+                    .flatten()
+                    .filter(|(_, status)| *status == AccessedOrNot::Accessed)
+                    .map(|(id, _)| id)
             })
-            .flatten()
             .collect();
 
         // Coinbase receiver is included only when the coinbase is not zero
