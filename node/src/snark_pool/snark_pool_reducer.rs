@@ -62,10 +62,7 @@ impl SnarkPoolState {
                         .and_then(|job| job.snark.as_ref())
                         .map_or(true, |old_snark| snark.work > old_snark.work);
                     if take {
-                        if let Some(mut job) = state.remove(&id) {
-                            job.snark = Some(snark.clone());
-                            state.insert(job);
-                        }
+                        state.set_snark_work(snark.clone());
                     }
                 }
 
@@ -154,15 +151,11 @@ impl SnarkPoolState {
                 }
             }
             SnarkPoolAction::CommitmentAdd { commitment, sender } => {
-                let Some(mut job) = state.remove(&commitment.job_id) else {
-                    return;
-                };
-                job.commitment = Some(JobCommitment {
+                state.set_commitment(JobCommitment {
                     commitment: commitment.clone(),
                     received_t: meta.time(),
                     sender: *sender,
                 });
-                state.insert(job);
 
                 // Dispatch
                 let commitment = commitment.clone();
@@ -178,17 +171,16 @@ impl SnarkPoolState {
                     }
                 }
             }
-            SnarkPoolAction::WorkAdd { snark, sender } => {
-                let job_id = snark.job_id();
-                let Some(mut job) = state.remove(&job_id) else {
-                    return;
-                };
-                job.snark = Some(SnarkWork {
+            SnarkPoolAction::WorkAdd {
+                snark,
+                sender,
+                is_sender_local,
+            } => {
+                state.set_snark_work(SnarkWork {
                     work: snark.clone(),
                     received_t: meta.time(),
                     sender: *sender,
                 });
-                state.insert(job);
                 state.candidates.remove_inferior_snarks(snark);
 
                 // Dispatch
@@ -210,10 +202,15 @@ impl SnarkPoolState {
                     }
                 }
 
-                dispatcher.push(P2pChannelsSnarkAction::Libp2pBroadcast {
-                    snark: snark.clone(),
-                    nonce: 0,
-                });
+                // TODO: we only rebroadcast locally produced snarks here.
+                // libp2p logic already broadcasts everything right now and doesn't
+                // wait for validation, thad needs to be fixed. See #952
+                if *is_sender_local {
+                    dispatcher.push(P2pChannelsSnarkAction::Libp2pBroadcast {
+                        snark: snark.clone(),
+                        nonce: 0,
+                    });
+                }
             }
             SnarkPoolAction::P2pSendAll { .. } => {
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
@@ -233,10 +230,9 @@ impl SnarkPoolState {
                     .channels
                     .snark_job_commitment
                     .next_send_index_and_limit();
-                let (commitments, first_index, last_index) =
-                    data_to_send(global_state, index_and_limit, |job| {
-                        job.commitment_msg().cloned()
-                    });
+                let (commitments, first_index, last_index) = global_state
+                    .snark_pool
+                    .next_commitments_to_send(index_and_limit);
 
                 let send_commitments = P2pChannelsSnarkJobCommitmentAction::ResponseSend {
                     peer_id,
@@ -248,7 +244,7 @@ impl SnarkPoolState {
                 // Send snarks.
                 let index_and_limit = peer.channels.snark.next_send_index_and_limit();
                 let (snarks, first_index, last_index) =
-                    data_to_send(global_state, index_and_limit, |job| job.snark_msg());
+                    global_state.snark_pool.next_snarks_to_send(index_and_limit);
 
                 dispatcher.push(send_commitments);
                 dispatcher.push(P2pChannelsSnarkAction::ResponseSend {
@@ -281,43 +277,4 @@ impl SnarkPoolState {
             }
         }
     }
-}
-
-pub fn data_to_send<F, T>(
-    state: &crate::State,
-    (index, limit): (u64, u8),
-    get_data: F,
-) -> (Vec<T>, u64, u64)
-where
-    F: Fn(&JobState) -> Option<T>,
-{
-    if limit == 0 {
-        let index = index.saturating_sub(1);
-        return (vec![], index, index);
-    }
-
-    state
-        .snark_pool
-        .range(index..)
-        .try_fold(
-            (vec![], None),
-            |(mut list, mut first_index), (index, job)| {
-                if let Some(data) = get_data(job) {
-                    let first_index = *first_index.get_or_insert(index);
-                    list.push(data);
-                    if list.len() >= limit as usize {
-                        return Err((list, first_index, index));
-                    }
-                }
-
-                Ok((list, first_index))
-            },
-        )
-        // Loop iterated on whole snark pool.
-        .map(|(list, first_index)| {
-            let snark_pool_last_index = state.snark_pool.last_index();
-            (list, first_index.unwrap_or(index), snark_pool_last_index)
-        })
-        // Loop preemptively ended.
-        .unwrap_or_else(|v| v)
 }

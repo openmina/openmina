@@ -144,6 +144,7 @@ impl MioRunningService {
             tokens,
             listeners: BTreeMap::default(),
             connections: BTreeMap::default(),
+            recv_buf: vec![0; 0x8000],
         };
 
         std::thread::Builder::new()
@@ -177,6 +178,7 @@ struct MioServiceInner<F> {
     tokens: TokenRegistry,
     listeners: BTreeMap<SocketAddr, Listener>,
     connections: BTreeMap<ConnectionAddr, Connection>,
+    recv_buf: Vec<u8>,
 }
 
 struct Listener {
@@ -476,20 +478,29 @@ where
                     )),
                 };
             }
-            Recv(addr, mut buf) => {
+            Recv(addr, limit) => {
                 if let Some(mut connection) = self.connections.remove(&addr) {
+                    // Ensure the buffer has enough space for the requested limit
+                    if limit > self.recv_buf.len() {
+                        // TODO: upper bound? resize to `limit` or try to allocate some extra space too?
+                        self.recv_buf.resize(limit, 0);
+                    }
+
                     let mut keep = false;
-                    match connection.stream.read(&mut buf) {
+                    match connection.stream.read(&mut self.recv_buf[..limit]) {
                         Ok(0) => self.send(MioEvent::ConnectionDidClose(addr, Ok(()))),
                         Ok(read) => {
                             self.send(MioEvent::IncomingDataDidReceive(
                                 addr,
-                                Ok(buf[..read].to_vec().into()),
+                                Ok(self.recv_buf[..read].to_vec().into()),
                             ));
                             self.send(MioEvent::IncomingDataIsReady(addr));
                             keep = true;
                         }
-                        Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                        Err(err)
+                            if err.kind() == io::ErrorKind::WouldBlock
+                                || err.kind() == io::ErrorKind::Interrupted =>
+                        {
                             connection.incoming_ready = false;
                             keep = true;
                         }

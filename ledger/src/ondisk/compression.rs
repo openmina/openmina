@@ -3,7 +3,7 @@ pub enum MaybeCompressed<'a> {
     No(&'a [u8]),
 }
 
-impl<'a> AsRef<[u8]> for MaybeCompressed<'a> {
+impl AsRef<[u8]> for MaybeCompressed<'_> {
     fn as_ref(&self) -> &[u8] {
         match self {
             MaybeCompressed::Compressed(c) => c,

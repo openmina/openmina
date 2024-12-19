@@ -1,10 +1,23 @@
 @import 'openmina';
 
+$blue: #57d7ff;
+$pink: #fda2ff;
+$orange: #ff833d;
+
+:host {
+  //linear-gradient(64deg, rgba(87, 215, 255, 0.15) 10%, rgba(253, 162, 255, 0.15) 60%, rgba(255, 131, 61, 0.15) 82%)
+  background: linear-gradient(70deg, rgba($blue, .15) 5%, rgba($pink, .15) 45%, rgba($orange, .15) 90%);
+}
+
+.top {
+  border-bottom: 2px solid transparent;
+}
+
 .progress-bar {
   overflow: hidden;
   height: 6px;
   left: 0;
-  bottom: 0;
+  bottom: -3px;
   transition: width 0.4s ease-in-out;
   min-width: 20px;
 

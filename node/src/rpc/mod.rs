@@ -45,7 +45,9 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
 use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
-use crate::stats::block_producer::{BlockProductionAttempt, BlockProductionAttemptWonSlot};
+use crate::stats::block_producer::{
+    BlockProductionAttempt, BlockProductionAttemptWonSlot, VrfEvaluatorStats,
+};
 use crate::stats::sync::SyncStatsSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -410,7 +412,7 @@ impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
                             // fee_token: signedcmd.fee_token(),
                             from: signedcmd.fee_payer_pk().clone().into(),
                             to: payment.receiver_pk.clone().into(),
-                            hash: TransactionHash::from(value.hash.as_ref()).to_string(),
+                            hash: value.hash.to_string(),
                             is_delegation: false,
                             // memo: signedcmd.payload.common.memo.clone(),
                             memo: signedcmd.payload.common.memo.to_string(),
@@ -453,6 +455,7 @@ pub struct RpcNodeStatus {
     pub peers: Vec<RpcPeerInfo>,
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
+    pub current_block_production_attempt: Option<BlockProductionAttempt>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -479,6 +482,8 @@ pub struct RpcNodeStatusTransitionFrontierBlockSummary {
 #[derive(Serialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusTransactionPool {
     pub transactions: usize,
+    pub transactions_for_propagation: usize,
+    pub transaction_candidates: usize,
 }
 
 #[derive(Serialize, Debug, Default, Clone)]
@@ -491,10 +496,14 @@ pub struct RpcNodeStatusSnarkPool {
 pub struct RpcBlockProducerStats {
     pub current_time: redux::Timestamp,
     pub current_global_slot: Option<u32>,
+    pub current_epoch: Option<u32>,
     pub epoch_start: Option<u32>,
     pub epoch_end: Option<u32>,
+    pub public_key: AccountPublicKey,
     pub attempts: Vec<BlockProductionAttempt>,
     pub future_won_slots: Vec<BlockProductionAttemptWonSlot>,
+    pub current_epoch_vrf_stats: Option<VrfEvaluatorStats>,
+    pub vrf_stats: BTreeMap<u32, VrfEvaluatorStats>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -653,7 +662,7 @@ pub mod discovery {
                 peer_id: value.peer_id,
                 libp2p: value.peer_id.try_into()?,
                 key: value.key,
-                dist: this_key - value.key,
+                dist: this_key.distance(&value.key),
                 addrs: value.addresses().clone(),
                 connection: value.connection,
             })

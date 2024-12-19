@@ -1,6 +1,8 @@
 pub mod vrf_evaluator;
 
 mod block_producer_config;
+use std::sync::Arc;
+
 pub use block_producer_config::*;
 
 mod block_producer_state;
@@ -16,7 +18,8 @@ mod block_producer_reducer;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::{list::List, v2};
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, constants::constraint_constants};
+use poseidon::hash::params::MINA_EPOCH_SEED;
 use serde::{Deserialize, Serialize};
 use vrf::output::VrfOutput;
 
@@ -76,9 +79,12 @@ impl BlockProducerWonSlot {
     }
 
     fn calculate_slot_time(genesis_timestamp: redux::Timestamp, slot: u32) -> redux::Timestamp {
-        // FIXME: this calculation must use values from the protocol constants,
-        // now it assumes 3 minutes blocks.
-        genesis_timestamp + (slot as u64) * 3 * 60 * 1_000_000_000_u64
+        let per_block_ns = constraint_constants()
+            .block_window_duration_ms
+            .saturating_mul(1_000_000);
+        genesis_timestamp
+            .checked_add((slot as u64).checked_mul(per_block_ns).expect("overflow"))
+            .expect("overflow")
     }
 
     pub fn global_slot(&self) -> u32 {
@@ -86,14 +92,16 @@ impl BlockProducerWonSlot {
     }
 
     pub fn epoch(&self) -> u32 {
-        self.global_slot() / self.global_slot.slots_per_epoch.as_u32()
+        self.global_slot()
+            .checked_div(self.global_slot.slots_per_epoch.as_u32())
+            .expect("division by 0")
     }
 
     pub fn global_slot_since_genesis(
         &self,
         slot_diff: u32,
     ) -> v2::MinaNumbersGlobalSlotSinceGenesisMStableV1 {
-        let slot = self.global_slot() + slot_diff;
+        let slot = self.global_slot().checked_add(slot_diff).expect("overflow");
         v2::MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(slot.into())
     }
 
@@ -105,7 +113,9 @@ impl BlockProducerWonSlot {
     }
 
     pub fn next_slot_time(&self) -> redux::Timestamp {
-        self.slot_time + 3 * 60 * 1_000_000_000_u64
+        self.slot_time
+            .checked_add(3u64.saturating_mul(60).saturating_mul(1_000_000_000_u64))
+            .expect("overflow")
     }
 }
 
@@ -145,14 +155,24 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
 }
 
 pub fn to_epoch_and_slot(global_slot: &v2::ConsensusGlobalSlotStableV1) -> (u32, u32) {
-    let epoch = global_slot.slot_number.as_u32() / global_slot.slots_per_epoch.as_u32();
-    let slot = global_slot.slot_number.as_u32() % global_slot.slots_per_epoch.as_u32();
+    let epoch = global_slot
+        .slot_number
+        .as_u32()
+        .checked_div(global_slot.slots_per_epoch.as_u32())
+        .expect("division by 0");
+    let slot = global_slot
+        .slot_number
+        .as_u32()
+        .checked_rem(global_slot.slots_per_epoch.as_u32())
+        .expect("division by 0");
     (epoch, slot)
 }
 
 pub fn next_epoch_first_slot(global_slot: &v2::ConsensusGlobalSlotStableV1) -> u32 {
     let (epoch, _) = to_epoch_and_slot(global_slot);
-    (epoch + 1) * global_slot.slots_per_epoch.as_u32()
+    (epoch.saturating_add(1))
+        .checked_mul(global_slot.slots_per_epoch.as_u32())
+        .expect("overflow")
 }
 
 // Returns the epoch number and whether it is the last slot of the epoch
@@ -167,7 +187,7 @@ impl BlockWithoutProof {
     pub fn with_hash_and_proof(
         self,
         hash: v2::StateHash,
-        proof: v2::MinaBaseProofStableV2,
+        proof: Arc<v2::MinaBaseProofStableV2>,
     ) -> ArcBlockWithHash {
         let block = v2::MinaBlockBlockStableV2 {
             header: v2::MinaBlockHeaderStableV2 {
@@ -193,6 +213,6 @@ pub fn calc_epoch_seed(
 ) -> v2::EpochSeed {
     // TODO(adonagy): fix this unwrap
     let old_seed = prev_epoch_seed.to_field().unwrap();
-    let new_seed = ledger::hash_with_kimchi("MinaEpochSeed", &[old_seed, vrf_hash]);
+    let new_seed = poseidon::hash::hash_with_kimchi(&MINA_EPOCH_SEED, &[old_seed, vrf_hash]);
     v2::MinaBaseEpochSeedStableV1(new_seed.into()).into()
 }

@@ -10,9 +10,9 @@ import {
   SCAN_STATE_START,
   SCAN_STATE_TOGGLE_SIDE_PANEL,
   SCAN_STATE_TOGGLE_TREE_VIEW,
-  ScanStateActions
+  ScanStateActions,
 } from '@snarks/scan-state/scan-state.actions';
-import { isDesktop } from '@openmina/shared';
+import { getLocalStorage, isDesktop } from '@openmina/shared';
 
 const initialState: ScanStateState = {
   block: undefined,
@@ -21,7 +21,7 @@ const initialState: ScanStateState = {
   openSidePanel: isDesktop(),
   sideBarResized: 0,
   stream: true,
-  treeView: JSON.parse(localStorage.getItem('scan_state_tree_view')) || false,
+  treeView: JSON.parse(getLocalStorage()?.getItem('scan_state_tree_view') ?? 'false') || false,
   highlightSnarkPool: true,
 };
 
@@ -90,7 +90,7 @@ export function reducer(state: ScanStateState = initialState, action: ScanStateA
     }
 
     case SCAN_STATE_TOGGLE_TREE_VIEW: {
-      localStorage.setItem('scan_state_tree_view', JSON.stringify(!state.treeView));
+      getLocalStorage()?.setItem('scan_state_tree_view', JSON.stringify(!state.treeView));
 
       return {
         ...state,

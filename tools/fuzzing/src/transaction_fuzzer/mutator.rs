@@ -1,15 +1,12 @@
 use super::{
     context::{FuzzerCtx, PermissionModel},
     generator::{
-        sign_account_updates, Generator, GeneratorFromAccount, GeneratorRange32, GeneratorRange64,
-        GeneratorWrapper,
+        gen_curve_point_fp, sign_account_updates, Generator, GeneratorFromAccount,
+        GeneratorRange32, GeneratorRange64, GeneratorWrapper,
     },
 };
-use crate::transaction_fuzzer::generator::gen_curve_point;
-use ark_ff::Zero;
 use ledger::{
     generators::zkapp_command_builder::get_transaction_commitments,
-    hash_with_kimchi,
     scan_state::{
         currency::{Amount, Balance, Fee, MinMax, Nonce, Signed, Slot},
         transaction_logic::{
@@ -74,7 +71,7 @@ impl Mutator<BigInt> for FuzzerCtx {
 impl Mutator<(BigInt, BigInt)> for FuzzerCtx {
     #[coverage(off)]
     fn mutate(&mut self, t: &mut (BigInt, BigInt)) {
-        *t = gen_curve_point::<Fp>(self);
+        *t = gen_curve_point_fp(self);
     }
 }
 
@@ -160,8 +157,6 @@ where
 impl Mutator<FeePayerBody> for FuzzerCtx {
     #[coverage(off)]
     fn mutate(&mut self, t: &mut FeePayerBody) {
-        //let account = self.get_account(&t.public_key).unwrap();
-
         for option in rand_elements(self, 2) {
             match option {
                 0 => t.fee = GeneratorRange64::<Fee>::gen_range(self, 0..=Fee::max().as_u64()),
@@ -321,15 +316,13 @@ impl MutatorFromAccount<Timing> for FuzzerCtx {
                     _ => unimplemented!(),
                 }
             }
-        } else {
-            if self.gen.rng.gen_bool(0.5) {
-                *t = Timing::Timed {
-                    initial_minimum_balance: self.gen(),
-                    cliff_time: self.gen(),
-                    cliff_amount: self.gen(),
-                    vesting_period: self.gen(),
-                    vesting_increment: self.gen(),
-                }
+        } else if self.gen.rng.gen_bool(0.5) {
+            *t = Timing::Timed {
+                initial_minimum_balance: self.gen(),
+                cliff_time: self.gen(),
+                cliff_amount: self.gen(),
+                vesting_period: self.gen(),
+                vesting_increment: self.gen(),
             }
         }
     }
@@ -352,13 +345,7 @@ impl MutatorFromAccount<Update> for FuzzerCtx {
                 }
                 2 => {
                     let data: VerificationKey = self.gen();
-                    let hash = if self.gen.rng.gen_bool(0.5) {
-                        data.digest()
-                    } else {
-                        self.gen()
-                    };
-
-                    t.verification_key = SetOrKeep::Set(VerificationKeyWire::with_hash(data, hash));
+                    t.verification_key = SetOrKeep::Set(VerificationKeyWire::new(data));
                 }
                 3 => self.mutate_from_account(&mut t.permissions, account),
                 4 => {
@@ -594,12 +581,16 @@ impl MutatorFromAccount<Preconditions> for FuzzerCtx {
 impl Mutator<Body> for FuzzerCtx {
     #[coverage(off)]
     fn mutate(&mut self, t: &mut Body) {
-        let account = self.get_account(&t.public_key).unwrap();
+        let account = self.get_account(&t.public_key);
 
         for option in rand_elements(self, 11) {
             match option {
                 0 => t.token_id = TokenId(self.gen()),
-                1 => self.mutate_from_account(&mut t.update, &account),
+                1 => {
+                    if let Some(account) = &account {
+                        self.mutate_from_account(&mut t.update, account)
+                    }
+                }
                 2 => {
                     t.balance_change = if self.gen.rng.gen_bool(0.5) {
                         let magnitude =
@@ -613,32 +604,38 @@ impl Mutator<Body> for FuzzerCtx {
                 4 => t.events = self.gen(),
                 5 => t.actions = self.gen(),
                 6 => t.call_data = self.gen(),
-                7 => self.mutate_from_account(&mut t.preconditions, &account),
+                7 => {
+                    if let Some(account) = &account {
+                        self.mutate_from_account(&mut t.preconditions, account)
+                    }
+                }
                 8 => self.mutate(&mut t.use_full_commitment),
                 9 => (), // Can't mutate because it breaks binprot
                 10 => {
-                    let vk_hash = if self.gen.rng.gen_bool(0.5)
-                        && account.zkapp.is_some()
-                        && account.zkapp.as_ref().unwrap().verification_key.is_some()
-                    {
-                        account
-                            .zkapp
-                            .as_ref()
-                            .unwrap()
-                            .verification_key
-                            .as_ref()
-                            .unwrap()
-                            .hash()
-                    } else {
-                        self.gen()
-                    };
+                    if let Some(account) = &account {
+                        let vk_hash = if self.gen.rng.gen_bool(0.5)
+                            && account.zkapp.is_some()
+                            && account.zkapp.as_ref().unwrap().verification_key.is_some()
+                        {
+                            account
+                                .zkapp
+                                .as_ref()
+                                .unwrap()
+                                .verification_key
+                                .as_ref()
+                                .unwrap()
+                                .hash()
+                        } else {
+                            self.gen()
+                        };
 
-                    let options = vec![
-                        zkapp_command::AuthorizationKind::NoneGiven,
-                        zkapp_command::AuthorizationKind::Signature,
-                        zkapp_command::AuthorizationKind::Proof(vk_hash),
-                    ];
-                    t.authorization_kind = options.choose(&mut self.gen.rng).unwrap().clone();
+                        let options = [
+                            zkapp_command::AuthorizationKind::NoneGiven,
+                            zkapp_command::AuthorizationKind::Signature,
+                            zkapp_command::AuthorizationKind::Proof(vk_hash),
+                        ];
+                        t.authorization_kind = options.choose(&mut self.gen.rng).unwrap().clone();
+                    }
                 }
                 _ => unimplemented!(),
             }
@@ -666,7 +663,7 @@ impl Mutator<AccountUpdate> for FuzzerCtx {
                             }
                         };
                     } else {
-                        t.authorization = match vec![0, 1, 2].choose(&mut self.gen.rng).unwrap() {
+                        t.authorization = match [0, 1, 2].choose(&mut self.gen.rng).unwrap() {
                             0 => zkapp_command::Control::NoneGiven,
                             1 => zkapp_command::Control::Signature(Signature::dummy()),
                             2 => zkapp_command::Control::Proof(self.gen()),
@@ -684,32 +681,10 @@ impl Mutator<zkapp_command::CallForest<AccountUpdate>> for FuzzerCtx {
     #[coverage(off)]
     fn mutate(&mut self, t: &mut zkapp_command::CallForest<AccountUpdate>) {
         for i in rand_elements(self, t.0.len()) {
-            let tree_digest = {
-                let tree = &mut t.0[i].elt;
-
-                for option in rand_elements(self, 2) {
-                    match option {
-                        0 => {
-                            self.mutate(&mut tree.account_update);
-                            tree.account_update_digest =
-                                MutableFp::new(tree.account_update.digest());
-                        }
-                        1 => self.mutate(&mut tree.calls),
-                        _ => unimplemented!(),
-                    }
-                }
-
-                tree.digest()
-            };
-
-            let h_tl = if let Some(x) = t.0.get(i + 1) {
-                x.stack_hash.get().unwrap()
-            } else {
-                Fp::zero()
-            };
-
-            t.0[i].stack_hash =
-                MutableFp::new(hash_with_kimchi("MinaAcctUpdateCons", &[tree_digest, h_tl]));
+            self.mutate(&mut t.0[i].elt.account_update);
+            self.mutate(&mut t.0[i].elt.calls);
+            t.0[i].elt.account_update_digest = MutableFp::empty();
+            t.0[i].stack_hash = MutableFp::empty();
         }
     }
 }
@@ -721,16 +696,18 @@ pub fn fix_nonces(
 ) {
     for acc_update in account_updates.0.iter_mut() {
         let account_update = &mut acc_update.elt.account_update;
+        acc_update.stack_hash = MutableFp::empty();
+        acc_update.elt.account_update_digest = MutableFp::empty();
 
         if let zkapp_command::Account {
             nonce: OrIgnore::Check(_),
             ..
         } = &account_update.body.preconditions.account.0
         {
-            let account = ctx.get_account(&account_update.public_key()).unwrap();
-
-            account_update.body.preconditions.account.0.nonce =
-                OrIgnore::Check(ctx.gen_from_account(&account));
+            if let Some(account) = ctx.get_account(&account_update.public_key()) {
+                account_update.body.preconditions.account.0.nonce =
+                    OrIgnore::Check(ctx.gen_from_account(&account));
+            }
         }
 
         fix_nonces(ctx, &mut acc_update.elt.calls);
@@ -751,8 +728,10 @@ impl Mutator<ZkAppCommand> for FuzzerCtx {
 
         // Fix fee_payer nonce.
         let public_key = t.fee_payer.body.public_key.clone();
-        let account = self.get_account(&public_key).unwrap();
-        t.fee_payer.body.nonce = self.gen_from_account(&account);
+
+        if let Some(account) = self.get_account(&public_key) {
+            t.fee_payer.body.nonce = self.gen_from_account(&account);
+        }
 
         // Fix account updates nonces.
         fix_nonces(self, &mut t.account_updates);
@@ -761,8 +740,9 @@ impl Mutator<ZkAppCommand> for FuzzerCtx {
         let mut signer = mina_signer::create_kimchi(NetworkId::TESTNET);
 
         if self.gen.rng.gen_bool(0.9) {
-            let keypair = self.find_keypair(&t.fee_payer.body.public_key).unwrap();
-            t.fee_payer.authorization = signer.sign(keypair, &full_txn_commitment);
+            if let Some(keypair) = self.find_keypair(&t.fee_payer.body.public_key) {
+                t.fee_payer.authorization = signer.sign(keypair, &full_txn_commitment);
+            }
         }
 
         if self.gen.rng.gen_bool(0.9) {
@@ -796,24 +776,6 @@ impl Mutator<Transaction> for FuzzerCtx {
         }
     }
 }
-
-// impl Mutator<MinaStateSnarkedLedgerStateWithSokStableV2> for FuzzerCtx {
-//     #[no_coverage]
-//     fn mutate(&mut self, t: &mut MinaStateSnarkedLedgerStateWithSokStableV2) {
-//         for option in rand_elements(self, 6) {
-//             match option {
-//                 // 0 => self.mutate(&mut t.source),
-//                 // 1 => self.mutate(&mut t.target),
-//                 // 2 => self.mutate(&mut t.connecting_ledger_left),
-//                 // 3 => self.mutate(&mut t.connecting_ledger_right),
-//                 // 4 => self.mutate(&mut t.supply_increase),
-//                 // 5 => self.mutate(&mut t.fee_excess),
-//                 // // 6 => self.mutate(&mut t.sok_digest),
-//                 _ => unimplemented!(),
-//             }
-//         }
-//     }
-// }
 
 impl Mutator<PicklesProofProofsVerified2ReprStableV2PrevEvals> for FuzzerCtx {
     #[coverage(off)]
@@ -884,34 +846,6 @@ impl Mutator<PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals> for FuzzerCt
         }
     }
 }
-
-// impl Mutator<PicklesProofProofsVerified2ReprStableV2ProofOpenings> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn mutate(&mut self, t: &mut PicklesProofProofsVerified2ReprStableV2ProofOpenings) {
-//         for option in rand_elements(self, 3) {
-//             match option {
-//                 0 => self.mutate(&mut t.proof),
-//                 1 => self.mutate(&mut t.evals),
-//                 2 => self.mutate(&mut t.ft_eval1),
-//                 _ => unimplemented!(),
-//             }
-//         }
-//     }
-// }
-
-// impl Mutator<PicklesProofProofsVerified2ReprStableV2Proof> for FuzzerCtx {
-//     #[coverage(off)]
-//     fn mutate(&mut self, t: &mut PicklesProofProofsVerified2ReprStableV2Proof) {
-//         for option in rand_elements(self, 2) {
-//             match option {
-//                 // 0 => self.mutate(&mut t.statement),
-//                 0 => self.mutate(&mut t.messages),
-//                 1 => self.mutate(&mut t.openings),
-//                 _ => unimplemented!(),
-//             }
-//         }
-//     }
-// }
 
 impl Mutator<PicklesWrapWireProofCommitmentsStableV1> for FuzzerCtx {
     #[coverage(off)]
@@ -988,13 +922,6 @@ impl Mutator<TransactionSnarkStableV2> for FuzzerCtx {
     #[coverage(off)]
     fn mutate(&mut self, t: &mut TransactionSnarkStableV2) {
         self.mutate(&mut t.proof)
-        // for option in rand_elements(self, 2) {
-        //     match option {
-        //         0 => self.mutate(&mut t.statement),
-        //         1 => self.mutate(&mut t.proof),
-        //         _ => unimplemented!(),
-        //     }
-        // }
     }
 }
 

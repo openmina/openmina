@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, time::Duration};
+use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2;
@@ -81,7 +81,7 @@ pub enum BlockProducerCurrentState {
         /// `protocol_state.blockchain_state.body_reference`
         diff_hash: v2::ConsensusBodyReferenceStableV1,
         staged_ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
-        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        emitted_ledger_proof: Option<Arc<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
         stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
@@ -91,7 +91,7 @@ pub enum BlockProducerCurrentState {
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<AppliedBlock>,
-        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        emitted_ledger_proof: Option<Arc<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
         stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
@@ -103,7 +103,7 @@ pub enum BlockProducerCurrentState {
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<AppliedBlock>,
-        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        emitted_ledger_proof: Option<Arc<v2::LedgerProofProdStableV2>>,
         pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
         stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
@@ -117,7 +117,7 @@ pub enum BlockProducerCurrentState {
         chain: Vec<AppliedBlock>,
         block: BlockWithoutProof,
         block_hash: v2::StateHash,
-        proof: Box<v2::MinaBaseProofStableV2>,
+        proof: Arc<v2::MinaBaseProofStableV2>,
     },
     Produced {
         time: redux::Timestamp,
@@ -294,7 +294,7 @@ impl BlockProducerCurrentState {
     pub fn won_slot_should_produce(&self, now: redux::Timestamp) -> bool {
         // TODO(binier): maybe have runtime estimate
         #[cfg(not(target_arch = "wasm32"))]
-        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(5).as_nanos() as u64;
+        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(6).as_nanos() as u64;
         #[cfg(target_arch = "wasm32")]
         const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(20).as_nanos() as u64;
 
@@ -302,8 +302,13 @@ impl BlockProducerCurrentState {
         match self {
             Self::WonSlot { won_slot, .. } | Self::WonSlotWait { won_slot, .. } => {
                 // Make sure to only producer blocks when in the slot interval
-                let slot_upper_bound = won_slot.slot_time + slot_interval;
-                let estimated_produced_time = now + BLOCK_PRODUCTION_ESTIMATE;
+                let slot_upper_bound = won_slot
+                    .slot_time
+                    .checked_add(slot_interval)
+                    .expect("overflow");
+                let estimated_produced_time = now
+                    .checked_add(BLOCK_PRODUCTION_ESTIMATE)
+                    .expect("overflow");
                 estimated_produced_time >= won_slot.slot_time && now < slot_upper_bound
             }
             _ => false,
@@ -363,6 +368,13 @@ impl BlockProducerCurrentState {
     pub fn produced_block(&self) -> Option<&ArcBlockWithHash> {
         match self {
             Self::Produced { block, .. } => Some(block),
+            _ => None,
+        }
+    }
+
+    pub fn injected_block(&self) -> Option<&ArcBlockWithHash> {
+        match self {
+            Self::Injected { block, .. } => Some(block),
             _ => None,
         }
     }

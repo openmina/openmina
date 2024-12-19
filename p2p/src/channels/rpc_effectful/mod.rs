@@ -1,3 +1,0 @@
-mod p2p_channels_rpc_effectful_actions;
-pub use p2p_channels_rpc_effectful_actions::P2pChannelsRpcEffectfulAction;
-mod p2p_channels_rpc_effectful_effects;

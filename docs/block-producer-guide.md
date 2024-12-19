@@ -1,4 +1,4 @@
-# Rust Node Block Production Testing on Devnet
+# Run Block Producing Node on Devnet
 
 This guide is intended for setting up block producer nodes on **Mina Devnet** only.  
 Do not use this guide for Mina Mainnet until necessary security audits are complete.
@@ -42,6 +42,12 @@ Ensure Docker and Docker Compose are installed on your system - [Docker Installa
    env COINBASE_RECEIVER="YourWalletAddress" MINA_PRIVKEY_PASS="YourPassword" \
    docker compose -f docker-compose.block-producer.yml up -d --pull always
    ```
+
+   Optional parameters:
+
+   `OPENMINA_LIBP2P_EXTERNAL_IP` Sets your node’s external IP address to help other nodes find it.
+
+   `OPENMINA_LIBP2P_PORT` Sets the port for Libp2p communication.
 
 4. **Go to Dashboard**
 

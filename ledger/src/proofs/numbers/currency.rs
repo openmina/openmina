@@ -14,6 +14,7 @@ use crate::ToInputs;
 
 use super::common::{range_check, ForZkappCheck};
 
+#[derive(Debug)]
 pub enum RangeCheckFlaggedKind {
     Add,
     Sub,
@@ -502,7 +503,7 @@ macro_rules! impl_currency {
         }
 
         impl<F: FieldWitness> ToInputs for $name<F> {
-            fn to_inputs(&self, inputs: &mut crate::Inputs) {
+            fn to_inputs(&self, inputs: &mut poseidon::hash::Inputs) {
                 self.to_inner().to_inputs(inputs)
             }
         }

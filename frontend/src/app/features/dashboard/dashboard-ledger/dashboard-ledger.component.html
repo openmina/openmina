@@ -1,12 +1,14 @@
-<div class="flex-column w-100 bg-surface border-rad-6">
-  <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
-    <div>Ledgers</div>
-    <div class="tertiary f-400">{{ progress }}</div>
-    <div *ngIf="stakingProgress > 0" [style.width.%]="totalProgress"
-         class="progress-bar p-absolute">
-      <div class="highlight p-absolute" *ngIf="totalProgress < 100"></div>
-      <div class="progress p-absolute w-100"></div>
+<div class="flex-column w-100 border-rad-6 background-gradient" [ngClass]="totalProgress === 100 ? 'complete' : 'border'">
+  <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 border-bottom">
+    <div class="fx-row-vert-cent">
+      @if (totalProgress === 100) {
+        <span class="mina-icon f-20 success-primary">check_circle</span>
+      } @else {
+        <mina-loading-spinner></mina-loading-spinner>
+      }
+      <div class="ml-8" [class.success-primary]="totalProgress === 100">Ledgers</div>
     </div>
+    <div class="tertiary f-400">{{ progress }}</div>
   </div>
   <div class="flex-column h-minus-xl primary pl-12 pr-12">
     <div class="group flex-column"
@@ -15,9 +17,11 @@
         <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.stakingEpoch.state }"></ng-container>
         <span class="group-title pl-5">Staking ledger</span>
         <div [style.margin-left]="'auto'">
-          <div class="primary f-600"
-               [class.success-primary]="stakingProgress === 100">{{ stakingProgress | number: '1.0-0' }}%
-          </div>
+          @if (stakingProgress === 100) {
+            <div class="success-primary f-600">100%</div>
+          } @else if (remainingStakingLedger) {
+            <div class="secondary">ETA ~{{ remainingStakingLedger }}s</div>
+          }
         </div>
       </div>
       <ng-container
@@ -29,9 +33,11 @@
         <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.nextEpoch.state }"></ng-container>
         <span class="group-title pl-5">Next epoch ledger</span>
         <div [style.margin-left]="'auto'">
-          <div class="primary f-600" [class.success-primary]="nextProgress === 100">
-            {{ nextProgress | number: '1.0-0' }}%
-          </div>
+          @if (nextProgress === 100) {
+            <div class="success-primary f-600">100%</div>
+          } @else if (remainingNextLedger) {
+            <div class="secondary">ETA ~{{ remainingNextLedger }}s</div>
+          }
         </div>
       </div>
       <ng-container
@@ -43,9 +49,11 @@
         <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.rootSnarked.state }"></ng-container>
         <span class="group-title pl-5">Snarked ledger at the root</span>
         <div [style.margin-left]="'auto'">
-          <div class="primary f-600" [class.success-primary]="rootSnarkedProgress === 100">
-            {{ rootSnarkedProgress | number: '1.0-0' }}%
-          </div>
+          @if (rootSnarkedProgress === 100) {
+            <div class="success-primary f-600">100%</div>
+          } @else if (remainingRootSnarkedLedger) {
+            <div class="secondary">ETA ~{{ remainingRootSnarkedLedger }}s</div>
+          }
         </div>
       </div>
       <ng-container
@@ -57,9 +65,11 @@
         <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.rootStaged.state }"></ng-container>
         <span class="group-title pl-5">Staged ledger at the root</span>
         <div [style.margin-left]="'auto'">
-          <div class="primary f-600" [class.success-primary]="rootStagedProgress === 100">
-            {{ rootStagedProgress | number: '1.0-0' }}%
-          </div>
+          @if ((rootStagedProgress === 100 || !isWebNode) && rootSnarkedProgress === 100) {
+            <div class="f-600" [class.success-primary]="rootStagedProgress === 100">{{ rootStagedProgress }}%</div>
+          } @else if (remainingReconstruct && remainingRootStagedLedgerFetchParts + remainingReconstruct) {
+            <div class="secondary">ETA ~{{ remainingRootStagedLedgerFetchParts + remainingReconstruct }}s</div>
+          }
         </div>
       </div>
       <div class="steps flex-column">
@@ -105,7 +115,7 @@
       </span>
     </ng-container>
     <ng-container *ngSwitchCase="'loading'">
-      <span class="loading-icon mina-icon icon-200 primary">progress_activity</span>
+      <mina-loading-spinner [size]="20" [borderWidth]="2"></mina-loading-spinner>
     </ng-container>
     <ng-container *ngSwitchCase="'success'">
       <span class="pending-icon fx-col-full-cent success">

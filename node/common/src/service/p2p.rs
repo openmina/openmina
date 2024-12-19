@@ -44,7 +44,7 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         &mut self,
         other_pk: &PublicKey,
         message: &T,
-    ) -> Result<T::Encrypted, ()> {
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         let rng = &mut self.rng;
         self.p2p.sec_key.encrypt(other_pk, rng, message)
     }
@@ -53,10 +53,21 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         &mut self,
         other_pk: &PublicKey,
         encrypted: &T::Encrypted,
-    ) -> Result<T, ()> {
+    ) -> Result<T, Box<dyn std::error::Error>> {
         self.p2p.sec_key.decrypt(other_pk, encrypted)
     }
 
+    #[cfg(not(feature = "p2p-webrtc"))]
+    fn auth_encrypt_and_send(
+        &mut self,
+        peer_id: PeerId,
+        other_pub_key: &PublicKey,
+        auth: ConnectionAuth,
+    ) {
+        let _ = (peer_id, other_pub_key, auth);
+    }
+
+    #[cfg(feature = "p2p-webrtc")]
     fn auth_encrypt_and_send(
         &mut self,
         peer_id: PeerId,
@@ -65,7 +76,6 @@ impl webrtc::P2pServiceWebrtc for NodeService {
     ) {
         let encrypted = auth.encrypt(&self.p2p.sec_key, other_pub_key, &mut self.rng);
         if let Some(peer) = self.peers().get(&peer_id) {
-            #[cfg(feature = "p2p-webrtc")]
             let _ = peer
                 .cmd_sender
                 .send(webrtc::PeerCmd::ConnectionAuthorizationSend(encrypted));
@@ -85,6 +95,10 @@ impl webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p for NodeService {
     #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut mio::MioService {
         &mut self.p2p.mio
+    }
+
+    fn connections(&self) -> std::collections::BTreeSet<PeerId> {
+        self.p2p.webrtc.peers.keys().copied().collect()
     }
 }
 

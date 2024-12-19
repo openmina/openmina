@@ -2,7 +2,7 @@
 
 mat-sidenav {
   width: 160px;
-  border-right: 1px solid $base-divider;
+  border-right: none;
   background-color: $base-background;
   transition: 200ms ease-out !important;
   visibility: visible !important;
@@ -44,39 +44,44 @@ mat-sidenav {
 }
 
 mat-sidenav-content {
-  transition: 200ms ease-out !important;
+  @media (min-width: 768px) {
+    transition: 200ms ease-out !important;
+  }
   overflow: hidden;
 }
 
 mat-sidenav-container,
 mat-sidenav-content {
   color: inherit;
-  background-color: $base-surface;
-
-  @media (max-width: 699px) {
-    background-color: $base-background;
-  }
+  background-color: $base-background;
 }
 
-.mina-content {
+#mina-content {
   $toolbar: 40px;
   height: calc(100% - #{$toolbar});
+  border-top-left-radius: 6px;
+  background-color: $base-surface;
 
   &.no-toolbar {
     height: 100%;
   }
 
   &.mobile {
-    $toolbar: 56px;
+    $toolbar: 96px;
     $subMenus: 56px;
-    height: calc(100% - #{$toolbar} - #{$subMenus});
+    $tabs: 56px;
+    height: calc(100% - #{$toolbar} - #{$subMenus} - #{$tabs});
+    margin-left: 4px;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    border-top-right-radius: 6px;
 
     &.no-toolbar {
-      height: calc(100% - #{$subMenus});
+      height: calc(100% - #{$subMenus} - #{$tabs});
     }
 
     &.no-submenus {
-      height: calc(100% - #{$toolbar});
+      height: calc(100% - #{$toolbar} - #{$tabs});
 
       &.no-toolbar {
         height: 100%;

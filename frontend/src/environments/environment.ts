@@ -4,7 +4,7 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  showWebNodeLandingPage: true,
+  showWebNodeLandingPage: false,
   globalConfig: {
     features: {
       dashboard: [],
@@ -16,7 +16,7 @@ export const environment: Readonly<MinaEnv> = {
       'block-production': ['won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
-      zk: ['test'],
+      fuzzing: [],
     },
     graphQL: 'https://adonagy.com/graphql',
     // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
@@ -24,8 +24,8 @@ export const environment: Readonly<MinaEnv> = {
   },
   configs: [
     // {
-    //   name: 'http://116.202.128.230:11010',
-    //   url: 'http://116.202.128.230:11010',
+    //   name: 'http://localhost:8070',
+    //   url: 'http://127.0.0.1:8070/openmina-node',
     // },
     // {
     //   name: 'Producer-0',
@@ -66,7 +66,6 @@ export const environment: Readonly<MinaEnv> = {
     // {
     //   name: 'Local rust node',
     //   url: 'http://127.0.0.1:3000',
-    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
     // {
     //   name: 'feat/frontend-api-peers',
@@ -79,18 +78,18 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
-    // {
-    //   name: 'Docker 11010',
-    //   url: 'http://localhost:11010',
-    // },
-    // {
-    //   name: 'Docker 11012',
-    //   url: 'http://localhost:11012',
-    // },
-    // {
-    //   name: 'Docker 11014',
-    //   url: 'http://localhost:11014',
-    // },
+    {
+      name: 'Docker 11010',
+      url: 'http://localhost:11010',
+    },
+    {
+      name: 'Docker 11012',
+      url: 'http://localhost:11012',
+    },
+    {
+      name: 'Docker 11014',
+      url: 'http://localhost:11014',
+    },
     // {
     //   name: 'Producer',
     //   url: 'http://65.109.105.40:3000',

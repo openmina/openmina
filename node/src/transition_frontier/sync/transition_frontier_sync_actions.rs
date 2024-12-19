@@ -146,7 +146,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 && state
                     .transition_frontier
                     .best_tip()
-                    .map_or(true, |tip| best_tip.hash != tip.hash)
+                    .map_or(false, |tip| best_tip.hash != tip.hash)
                 && state
                     .transition_frontier
                     .sync

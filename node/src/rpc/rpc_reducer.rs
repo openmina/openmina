@@ -1,11 +1,13 @@
 use openmina_core::{
     block::AppliedBlock,
     bug_condition,
-    requests::{RequestId, RpcIdType},
+    requests::{RequestId, RpcId, RpcIdType},
+    transaction::TransactionWithHash,
 };
 use p2p::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     webrtc::P2pConnectionResponse,
+    PeerId,
 };
 use redux::ActionWithMeta;
 
@@ -79,11 +81,20 @@ impl RpcState {
                 state.requests.insert(*rpc_id, rpc_state);
 
                 let dispatcher = state_context.into_dispatcher();
+
                 dispatcher.push(P2pConnectionOutgoingAction::Init {
                     opts: opts.clone(),
                     rpc_id: Some(*rpc_id),
+                    on_success: Some(redux::callback!(
+                        on_p2p_connection_outgoing_rpc_connection_success((peer_id: PeerId, rpc_id: Option<RpcId>)) -> crate::Action {
+                            let Some(rpc_id) = rpc_id else {
+                                unreachable!("RPC ID not provided");
+                            };
+
+                            RpcAction::P2pConnectionOutgoingPending{ rpc_id }
+                        }
+                    )),
                 });
-                dispatcher.push(RpcAction::P2pConnectionOutgoingPending { rpc_id: *rpc_id });
             }
             RpcAction::P2pConnectionOutgoingPending { rpc_id } => {
                 let Some(rpc) = state.requests.get_mut(rpc_id) else {
@@ -489,10 +500,17 @@ impl RpcState {
                 };
                 state.requests.insert(*rpc_id, rpc_state);
 
+                let commands_with_hash = commands
+                    .clone()
+                    .into_iter()
+                    // TODO: do something it it cannot be hashed?
+                    .filter_map(|cmd| TransactionWithHash::try_new(cmd).ok())
+                    .collect();
+
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(RpcAction::TransactionInjectPending { rpc_id: *rpc_id });
                 dispatcher.push(TransactionPoolAction::StartVerify {
-                    commands: commands.clone().into_iter().collect(),
+                    commands: commands_with_hash,
                     from_rpc: Some(*rpc_id),
                 });
             }

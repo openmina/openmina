@@ -9,6 +9,7 @@ use openmina_core::{
         global_sub_window, in_same_checkpoint_window, in_seed_update_range, relative_sub_window,
     },
 };
+use p2p::P2pNetworkPubsubAction;
 use redux::{callback, Dispatcher, Timestamp};
 
 use crate::{
@@ -104,11 +105,37 @@ impl BlockProducerEnabled {
                     };
                 }
             }
+            BlockProducerAction::WonSlotProduceInit => {
+                if let Some(won_slot) = state.current.won_slot() {
+                    if let Some(chain) = best_chain.last().map(|best_tip| {
+                        if best_tip.global_slot() == won_slot.global_slot() {
+                            // We are producing block which replaces current best tip
+                            // instead of extending it.
+                            best_chain
+                                .get(..best_chain.len().saturating_sub(1))
+                                .unwrap_or(&[])
+                                .to_vec()
+                        } else {
+                            best_chain.to_vec()
+                        }
+                    }) {
+                        state.current = BlockProducerCurrentState::WonSlotProduceInit {
+                            time: meta.time(),
+                            won_slot: won_slot.clone(),
+                            chain,
+                        };
+                    };
+                }
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerAction::WonSlotTransactionsGet);
+            }
             BlockProducerAction::WonSlotTransactionsGet => {
                 let BlockProducerCurrentState::WonSlotProduceInit {
                     won_slot, chain, ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::WonSlotTransactionsGet` expected: `BlockProducerCurrentState::WonSlotProduceInit`, found: {:?}", state.current);
                     return;
                 };
 
@@ -128,6 +155,7 @@ impl BlockProducerEnabled {
                     won_slot, chain, ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::WonSlotTransactionsSuccess` expected: `BlockProducerCurrentState::WonSlotTransactionsGet`, found: {:?}", state.current);
                     return;
                 };
 
@@ -141,28 +169,6 @@ impl BlockProducerEnabled {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerAction::StagedLedgerDiffCreateInit);
             }
-            BlockProducerAction::WonSlotProduceInit => {
-                if let Some(won_slot) = state.current.won_slot() {
-                    if let Some(chain) = best_chain.last().map(|best_tip| {
-                        if best_tip.global_slot() == won_slot.global_slot() {
-                            // We are producing block which replaces current best tip
-                            // instead of extending it.
-                            best_chain[..(best_chain.len() - 1)].to_vec()
-                        } else {
-                            best_chain.to_vec()
-                        }
-                    }) {
-                        state.current = BlockProducerCurrentState::WonSlotProduceInit {
-                            time: meta.time(),
-                            won_slot: won_slot.clone(),
-                            chain,
-                        };
-                    };
-                }
-
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(BlockProducerAction::WonSlotTransactionsGet);
-            }
             BlockProducerAction::StagedLedgerDiffCreateInit => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerEffectfulAction::StagedLedgerDiffCreateInit);
@@ -175,6 +181,7 @@ impl BlockProducerEnabled {
                     ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::StagedLedgerDiffCreatePending` expected: `BlockProducerCurrentState::WonSlotTransactionsSuccess`, found: {:?}", state.current);
                     return;
                 };
                 state.current = BlockProducerCurrentState::StagedLedgerDiffCreatePending {
@@ -191,6 +198,7 @@ impl BlockProducerEnabled {
                     ..
                 } = &mut state.current
                 else {
+                    bug_condition!("Invalid state for `BlockProducerAction::StagedLedgerDiffCreateSuccess` expected: `BlockProducerCurrentState::StagedLedgerDiffCreatePending`, found: {:?}", state.current);
                     return;
                 };
                 state.current = BlockProducerCurrentState::StagedLedgerDiffCreateSuccess {
@@ -220,6 +228,8 @@ impl BlockProducerEnabled {
                 dispatcher.push(BlockProducerEffectfulAction::BlockProveInit);
             }
             BlockProducerAction::BlockProvePending => {
+                let current_state = std::mem::take(&mut state.current);
+
                 if let BlockProducerCurrentState::BlockUnprovenBuilt {
                     won_slot,
                     chain,
@@ -230,7 +240,7 @@ impl BlockProducerEnabled {
                     block,
                     block_hash,
                     ..
-                } = std::mem::take(&mut state.current)
+                } = current_state
                 {
                     state.current = BlockProducerCurrentState::BlockProvePending {
                         time: meta.time(),
@@ -243,16 +253,20 @@ impl BlockProducerEnabled {
                         block,
                         block_hash,
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockProvePending` expected: `BlockProducerCurrentState::BlockUnprovenBuilt`, found: {:?}", current_state);
                 }
             }
             BlockProducerAction::BlockProveSuccess { proof } => {
+                let current_state = std::mem::take(&mut state.current);
+
                 if let BlockProducerCurrentState::BlockProvePending {
                     won_slot,
                     chain,
                     block,
                     block_hash,
                     ..
-                } = std::mem::take(&mut state.current)
+                } = current_state
                 {
                     state.current = BlockProducerCurrentState::BlockProveSuccess {
                         time: meta.time(),
@@ -262,12 +276,16 @@ impl BlockProducerEnabled {
                         block_hash,
                         proof: proof.clone(),
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockProveSuccess` expected: `BlockProducerCurrentState::BlockProvePending`, found: {:?}", current_state);
                 }
 
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerEffectfulAction::BlockProveSuccess);
             }
             BlockProducerAction::BlockProduced => {
+                let current_state = std::mem::take(&mut state.current);
+
                 if let BlockProducerCurrentState::BlockProveSuccess {
                     won_slot,
                     chain,
@@ -275,14 +293,16 @@ impl BlockProducerEnabled {
                     block_hash,
                     proof,
                     ..
-                } = std::mem::take(&mut state.current)
+                } = current_state
                 {
                     state.current = BlockProducerCurrentState::Produced {
                         time: meta.time(),
                         won_slot,
                         chain,
-                        block: block.with_hash_and_proof(block_hash, *proof),
+                        block: block.with_hash_and_proof(block_hash, proof),
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockProduced` expected: `BlockProducerCurrentState::BlockProveSuccess`, found: {:?}", current_state);
                 }
 
                 let dispatcher = state_context.into_dispatcher();
@@ -298,6 +318,7 @@ impl BlockProducerEnabled {
                     let blocks_inbetween = iter.map(|b| b.hash().clone()).collect();
                     Some((best_tip.clone(), root_block.clone(), blocks_inbetween))
                 }) else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockInject`: did not find best_tip/root_block in block producer");
                     return;
                 };
 
@@ -333,9 +354,15 @@ impl BlockProducerEnabled {
                         chain: std::mem::take(chain),
                         block: block.clone(),
                     };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockInjected` expected: `BlockProducerCurrentState::Produced`, found: {:?}", state.current);
                 }
 
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
+
+                #[cfg(feature = "p2p-libp2p")]
+                broadcast_injected_block(global_state, dispatcher);
+
                 dispatcher.push(BlockProducerAction::WonSlotSearch);
             }
         }
@@ -346,6 +373,8 @@ impl BlockProducerEnabled {
         consensus_constants: &ConsensusConstants,
         time: Timestamp,
     ) {
+        let current_state = std::mem::take(&mut self.current);
+
         let BlockProducerCurrentState::StagedLedgerDiffCreateSuccess {
             won_slot,
             chain,
@@ -357,11 +386,13 @@ impl BlockProducerEnabled {
             pending_coinbase_witness,
             stake_proof_sparse_ledger,
             ..
-        } = std::mem::take(&mut self.current)
+        } = current_state
         else {
+            bug_condition!("Invalid state for `BlockProducerAction::BlockUnprovenBuild` expected: `BlockProducerCurrentState::StagedLedgerDiffCreateSuccess`, found: {:?}", current_state);
             return;
         };
         let Some(pred_block) = chain.last() else {
+            bug_condition!("Invalid state for `BlockProducerAction::BlockUnprovenBuild`: did not find predecessor block");
             return;
         };
 
@@ -430,14 +461,24 @@ impl BlockProducerEnabled {
                         epoch_length: v2::UnsignedExtendedUInt32StableV1(1.into()),
                     };
                 let epoch_count = v2::UnsignedExtendedUInt32StableV1(
-                    (pred_consensus_state.epoch_count.as_u32() + 1).into(),
+                    (pred_consensus_state
+                        .epoch_count
+                        .as_u32()
+                        .checked_add(1)
+                        .expect("overflow"))
+                    .into(),
                 );
                 (staking_data, next_data, epoch_count)
             } else {
                 assert_eq!(pred_epoch, next_epoch);
                 let mut next_data = pred_consensus_state.next_epoch_data.clone();
                 next_data.epoch_length = v2::UnsignedExtendedUInt32StableV1(
-                    (next_data.epoch_length.as_u32() + 1).into(),
+                    (next_data
+                        .epoch_length
+                        .as_u32()
+                        .checked_add(1)
+                        .expect("overflow"))
+                    .into(),
                 );
                 (
                     pred_consensus_state.staking_epoch_data.clone(),
@@ -475,7 +516,8 @@ impl BlockProducerEnabled {
 
             let is_same_global_sub_window = pred_global_sub_window == next_global_sub_window;
             let are_windows_overlapping = pred_global_sub_window
-                + constraint_constants().sub_windows_per_window as u32
+                .checked_add(constraint_constants().sub_windows_per_window as u32)
+                .expect("overflow")
                 >= next_global_sub_window;
 
             let current_sub_window_densities = pred_sub_window_densities
@@ -525,7 +567,7 @@ impl BlockProducerEnabled {
                             0
                         };
                         if incr_window {
-                            density + 1
+                            density.saturating_add(1)
                         } else {
                             density
                         }
@@ -545,7 +587,9 @@ impl BlockProducerEnabled {
             &global_slot_since_genesis,
         );
         let consensus_state = v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-            blockchain_length: v2::UnsignedExtendedUInt32StableV1((pred_block.height() + 1).into()),
+            blockchain_length: v2::UnsignedExtendedUInt32StableV1(
+                (pred_block.height().checked_add(1).expect("overflow")).into(),
+            ),
             epoch_count,
             min_window_density,
             sub_window_densities,
@@ -592,7 +636,11 @@ impl BlockProducerEnabled {
             0 => (pred_block.hash().clone(), List::new()),
             chain_proof_len => {
                 // TODO(binier): test
-                let mut iter = chain.iter().rev().take(chain_proof_len + 1).rev();
+                let mut iter = chain
+                    .iter()
+                    .rev()
+                    .take(chain_proof_len.saturating_add(1))
+                    .rev();
                 if let Some(first_block) = iter.next() {
                     let first_hash = first_block.hash().clone();
                     let body_hashes = iter
@@ -703,6 +751,24 @@ impl BlockProducerEnabled {
             dispatcher.push(BlockProducerAction::WonSlotSearch);
         }
     }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+fn broadcast_injected_block(global_state: &State, dispatcher: &mut Dispatcher<Action, State>) {
+    use mina_p2p_messages::gossip::GossipNetMessageV2;
+
+    let Some(block) = global_state
+        .block_producer
+        .as_ref()
+        .and_then(|bp| bp.current.injected_block())
+        .map(|pb| pb.block.clone())
+    else {
+        // Should be impossible, we call this immediately after having injected the block.
+        return;
+    };
+
+    let message = GossipNetMessageV2::NewState(block);
+    dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
 }
 
 fn can_apply_supercharged_coinbase(

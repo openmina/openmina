@@ -70,7 +70,7 @@ pub enum LedgerWriteResponse {
     StagedLedgerDiffCreate {
         pred_block_hash: v2::StateHash,
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
-        result: Result<Box<StagedLedgerDiffCreateOutput>, String>,
+        result: Result<Arc<StagedLedgerDiffCreateOutput>, String>,
     },
     BlockApply {
         block_hash: v2::StateHash,
@@ -89,7 +89,7 @@ pub struct BlockApplyResult {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct CommitResult {
-    pub available_jobs: Vec<OneOrTwo<AvailableJobMessage>>,
+    pub available_jobs: Arc<Vec<OneOrTwo<AvailableJobMessage>>>,
     pub needed_protocol_states: BTreeSet<v2::StateHash>,
 }
 

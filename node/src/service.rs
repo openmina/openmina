@@ -1,7 +1,7 @@
 pub use crate::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorService;
 pub use crate::block_producer_effectful::BlockProducerService;
 pub use crate::event_source::EventSourceService;
-pub use crate::external_snark_worker::ExternalSnarkWorkerService;
+pub use crate::external_snark_worker_effectful::ExternalSnarkWorkerService;
 pub use crate::ledger::LedgerService;
 pub use crate::p2p::service::*;
 pub use crate::recorder::Recorder;
@@ -34,4 +34,5 @@ pub trait Service:
 {
     fn stats(&mut self) -> Option<&mut Stats>;
     fn recorder(&mut self) -> &mut Recorder;
+    fn is_replay(&self) -> bool;
 }

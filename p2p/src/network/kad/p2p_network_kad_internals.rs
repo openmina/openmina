@@ -66,6 +66,12 @@ mod u256_serde {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
 
+impl P2pNetworkKadKey {
+    pub fn distance(self, rhs: &Self) -> P2pNetworkKadDist {
+        P2pNetworkKadDist(self.0 ^ rhs.0)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
 pub enum P2pNetworkKadKeyError {
     #[error("decoding error")]
@@ -110,7 +116,7 @@ impl Debug for P2pNetworkKadKey {
 impl Add<&P2pNetworkKadDist> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadKey;
 
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl, clippy::arithmetic_side_effects)]
     fn add(self, rhs: &P2pNetworkKadDist) -> Self::Output {
         P2pNetworkKadKey(self.0 ^ rhs.0)
     }
@@ -119,36 +125,36 @@ impl Add<&P2pNetworkKadDist> for &P2pNetworkKadKey {
 impl Sub for P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl, clippy::arithmetic_side_effects)]
     fn sub(self, rhs: Self) -> Self::Output {
-        P2pNetworkKadDist(self.0 ^ rhs.0)
+        self.distance(&rhs)
     }
 }
 
 impl Sub<&P2pNetworkKadKey> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl, clippy::arithmetic_side_effects)]
     fn sub(self, rhs: &P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(self.0 ^ rhs.0)
+        self.distance(rhs)
     }
 }
 
 impl Sub<P2pNetworkKadKey> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl, clippy::arithmetic_side_effects)]
     fn sub(self, rhs: P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(self.0 ^ rhs.0)
+        self.distance(&rhs)
     }
 }
 
 impl Sub<&P2pNetworkKadKey> for P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
-    #[allow(clippy::suspicious_arithmetic_impl)]
+    #[allow(clippy::suspicious_arithmetic_impl, clippy::arithmetic_side_effects)]
     fn sub(self, rhs: &P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(self.0 ^ rhs.0)
+        self.distance(rhs)
     }
 }
 
@@ -560,11 +566,18 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
                 );
             }
 
-            for addr in entry.addrs {
+            let addrs = entry
+                .addrs
+                .into_iter()
+                .filter(|addr| !e.addrs.contains(addr))
+                .collect::<Vec<_>>();
+
+            for addr in addrs {
                 if e.addrs.len() >= P2pNetworkKadEntry::MAX_ADDRS {
                     openmina_core::warn!(
                         openmina_core::log::system_time();
                         kind = "P2pNetworkKadBucket insert",
+                        peer_id = e.peer_id.to_string(),
                         summary = format!("Skipping updates to Kad entry multiaddress list"),
                     );
                     break;

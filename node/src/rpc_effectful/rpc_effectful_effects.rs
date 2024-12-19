@@ -26,10 +26,7 @@ use ledger::{
     scan_state::currency::{Balance, Magnitude},
     Account,
 };
-use mina_p2p_messages::{
-    rpc_kernel::QueryHeader,
-    v2::{MinaBaseTransactionStatusStableV2, TransactionHash},
-};
+use mina_p2p_messages::{rpc_kernel::QueryHeader, v2::MinaBaseTransactionStatusStableV2};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use p2p::channels::streaming_rpc::{
@@ -64,6 +61,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     height: b.height(),
                     global_slot: b.global_slot(),
                 };
+            let current_block_production_attempt = store
+                .service
+                .stats()
+                .and_then(|stats| Some(stats.block_producer().collect_attempts().last()?.clone()));
             let status = RpcNodeStatus {
                 chain_id,
                 transition_frontier: RpcNodeStatusTransitionFrontier {
@@ -79,14 +80,19 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 snark_pool: state.snark_pool.jobs_iter().fold(
                     Default::default(),
                     |mut acc, job| {
-                        acc.snarks += job.snark.is_some() as usize;
-                        acc.total_jobs += 1;
+                        if job.snark.is_some() {
+                            acc.snarks = acc.snarks.saturating_add(1);
+                        }
+                        acc.total_jobs = acc.total_jobs.saturating_add(1);
                         acc
                     },
                 ),
                 transaction_pool: RpcNodeStatusTransactionPool {
                     transactions: state.transaction_pool.size(),
+                    transactions_for_propagation: state.transaction_pool.for_propagation_size(),
+                    transaction_candidates: state.transaction_pool.candidates.transactions_count(),
                 },
+                current_block_production_attempt,
             };
             let _ = store.service.respond_status_get(rpc_id, Some(status));
         }
@@ -127,22 +133,38 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             let mut create_response = || {
                 let state = store.state.get();
                 let best_tip = state.transition_frontier.best_tip()?;
+                let public_key = state.block_producer.config()?.pub_key.clone();
                 let won_slots = &state.block_producer.vrf_evaluator()?.won_slots;
 
                 let stats = store.service.stats()?;
                 let attempts = stats.block_producer().collect_attempts();
-                let future_slot = attempts.last().map_or(0, |v| v.won_slot.global_slot + 1);
+                let future_slot = attempts.last().map_or(0, |v| {
+                    v.won_slot.global_slot.checked_add(1).expect("overflow")
+                });
 
                 let cur_global_slot = state.cur_global_slot();
+                let current_epoch = state.current_epoch();
                 let slots_per_epoch = best_tip.constants().slots_per_epoch.as_u32();
-                let epoch_start =
-                    cur_global_slot.map(|slot| (slot / slots_per_epoch) * slots_per_epoch);
+                let epoch_start = cur_global_slot.map(|slot| {
+                    (slot.checked_div(slots_per_epoch).expect("division by 0"))
+                        .checked_mul(slots_per_epoch)
+                        .expect("overflow")
+                });
+
+                let current_epoch_vrf_stats = current_epoch
+                    .and_then(|epoch| stats.block_producer().vrf_evaluator.get(&epoch).cloned());
+                let vrf_stats = stats.block_producer().vrf_evaluator.clone();
 
                 Some(RpcBlockProducerStats {
                     current_time: meta.time(),
                     current_global_slot: cur_global_slot,
+                    current_epoch,
+                    current_epoch_vrf_stats,
+                    vrf_stats,
                     epoch_start,
-                    epoch_end: epoch_start.map(|slot| slot + slots_per_epoch),
+                    epoch_end: epoch_start
+                        .map(|slot| slot.checked_add(slots_per_epoch).expect("overflow")),
+                    public_key: public_key.into(),
                     attempts,
                     future_won_slots: won_slots
                         .range(future_slot..)
@@ -177,9 +199,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     let current_request = if buffer.len() < 8 {
                         None
                     } else {
-                        let received_bytes = buffer.len() - 8;
+                        let received_bytes = buffer.len().saturating_sub(8);
                         let total_bytes = u64::from_le_bytes(
-                            buffer[..8].try_into().expect("cannot fail checked above"),
+                            buffer
+                                .get(..8)
+                                .expect("slice with incorrect length")
+                                .try_into()
+                                .expect("cannot fail checked above"),
                         ) as usize;
                         Some(CurrentMessageProgress {
                             name,
@@ -709,9 +735,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 .transaction_pool
                 .get_all_transactions()
                 .iter()
-                .any(|tx_with_hash| {
-                    Some(TransactionHash::from(tx_with_hash.hash.as_ref())) == tx_hash
-                });
+                .any(|tx_with_hash| Some(&tx_with_hash.hash) == tx_hash.as_ref());
 
             if in_tx_pool {
                 respond_or_log!(

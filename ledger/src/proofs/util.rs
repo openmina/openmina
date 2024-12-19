@@ -62,7 +62,7 @@ where
     let mut bigint: [u64; 4] = [0; 4];
     bigint[..4].copy_from_slice(v);
 
-    let bigint = BigInteger256(bigint);
+    let bigint = BigInteger256::from_64x4(bigint);
     F::try_from(bigint)
 }
 
@@ -73,7 +73,7 @@ where
     let mut bigint: [u64; 4] = [0; 4];
     bigint[..2].copy_from_slice(v);
 
-    let bigint = BigInteger256(bigint);
+    let bigint = BigInteger256::from_64x4(bigint);
     F::try_from(bigint).unwrap() // Never fail with 2 limbs
 }
 

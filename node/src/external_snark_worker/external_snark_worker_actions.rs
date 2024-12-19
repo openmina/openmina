@@ -47,7 +47,6 @@ pub enum ExternalSnarkWorkerAction {
     },
 }
 
-pub type ExternalSnarkWorkerActionWithMeta = redux::ActionWithMeta<ExternalSnarkWorkerAction>;
 pub type ExternalSnarkWorkerActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a ExternalSnarkWorkerAction>;
 

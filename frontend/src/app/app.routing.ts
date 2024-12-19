@@ -15,6 +15,7 @@ export const BLOCK_PRODUCTION_TITLE: string = APP_TITLE + ' - Block Production';
 export const MEMPOOL_TITLE: string = APP_TITLE + ' - Mempool';
 export const BENCHMARKS_TITLE: string = APP_TITLE + ' - Benchmarks';
 export const WEBNODE_TITLE: string = APP_TITLE + ' - Web Node';
+export const FUZZING_TITLE: string = APP_TITLE + ' - Fuzzing';
 
 
 function generateRoutes(): Routes {
@@ -57,17 +58,22 @@ function generateRoutes(): Routes {
     },
     {
       path: 'mempool',
-      loadChildren: () => import('./features/mempool/mempool.module').then(m => m.MempoolModule),
+      loadChildren: () => import('@mempool/mempool.module').then(m => m.MempoolModule),
       title: MEMPOOL_TITLE,
     },
     {
       path: 'benchmarks',
-      loadChildren: () => import('./features/benchmarks/benchmarks.module').then(m => m.BenchmarksModule),
+      loadChildren: () => import('@benchmarks/benchmarks.module').then(m => m.BenchmarksModule),
       title: BENCHMARKS_TITLE,
     },
     {
+      path: 'fuzzing',
+      loadChildren: () => import('@fuzzing/fuzzing.module').then(m => m.FuzzingModule),
+      title: FUZZING_TITLE,
+    },
+    {
       path: 'loading-web-node',
-      loadChildren: () => import('./features/webnode/webnode.module').then(m => m.WebnodeModule),
+      loadChildren: () => import('@web-node/web-node.module').then(m => m.WebNodeModule),
       title: WEBNODE_TITLE,
     },
   ];

@@ -1,4 +1,8 @@
 use once_cell::sync::OnceCell;
+use poseidon::hash::{
+    legacy,
+    params::{CODA_SIGNATURE, MAINNET_ZKAPP_BODY, MINA_SIGNATURE_MAINNET, TESTNET_ZKAPP_BODY},
+};
 
 use crate::constants::ConstraintConstants;
 
@@ -16,8 +20,9 @@ pub enum NetworkId {
 pub struct NetworkConfig {
     pub name: &'static str,
     pub network_id: NetworkId,
-    pub signature_prefix: &'static str,
-    pub account_update_hash_param: &'static str,
+    pub signature_prefix: &'static poseidon::hash::LazyParam,
+    pub legacy_signature_prefix: &'static poseidon::hash::LazyParam,
+    pub account_update_hash_param: &'static poseidon::hash::LazyParam,
     pub constraint_system_digests: &'static [[u8; 16]; 3],
     pub default_peers: Vec<&'static str>,
     pub circuits_config: &'static CircuitsConfig,
@@ -76,8 +81,9 @@ impl NetworkConfig {
         Self {
             name: mainnet::NAME,
             network_id: mainnet::NETWORK_ID,
-            signature_prefix: mainnet::SIGNATURE_PREFIX,
-            account_update_hash_param: mainnet::ACCOUNT_UPDATE_HASH_PARAM,
+            signature_prefix: &MINA_SIGNATURE_MAINNET,
+            legacy_signature_prefix: &legacy::params::MINA_SIGNATURE_MAINNET,
+            account_update_hash_param: &MAINNET_ZKAPP_BODY,
             constraint_system_digests: &mainnet::CONSTRAINT_SYSTEM_DIGESTS,
             default_peers: mainnet::default_peers(),
             circuits_config: &mainnet::CIRCUITS_CONFIG,
@@ -89,8 +95,9 @@ impl NetworkConfig {
         Self {
             name: devnet::NAME,
             network_id: devnet::NETWORK_ID,
-            signature_prefix: devnet::SIGNATURE_PREFIX,
-            account_update_hash_param: devnet::ACCOUNT_UPDATE_HASH_PARAM,
+            signature_prefix: &CODA_SIGNATURE,
+            legacy_signature_prefix: &legacy::params::CODA_SIGNATURE,
+            account_update_hash_param: &TESTNET_ZKAPP_BODY,
             constraint_system_digests: &devnet::CONSTRAINT_SYSTEM_DIGESTS,
             default_peers: devnet::default_peers(),
             circuits_config: &devnet::CIRCUITS_CONFIG,

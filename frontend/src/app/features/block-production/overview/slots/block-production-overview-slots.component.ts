@@ -13,7 +13,7 @@ import {
   BlockProductionOverviewFilters,
 } from '@shared/types/block-production/overview/block-production-overview-filters.type';
 import { untilDestroyed } from '@ngneat/until-destroy';
-import { ONE_THOUSAND, toReadableDate } from '@openmina/shared';
+import { ONE_THOUSAND, safelyExecuteInBrowser, toReadableDate } from '@openmina/shared';
 import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
@@ -211,7 +211,10 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
 
     let desiredLeft = Math.min(nodeRect.left + nodeRect.width / 2 - tooltipWidth / 2, chartLeft + this.width - tooltipWidth);
     desiredLeft = Math.max(desiredLeft, chartLeft);
-    let desiredTop = nodeRect.bottom + window.scrollY + 12;
+    let desiredTop = 0;
+    safelyExecuteInBrowser(() => {
+      desiredTop = nodeRect.bottom + window.scrollY + 12;
+    });
     if (desiredTop + tooltipHeight > chartBottom) {
       desiredTop = nodeRect.top - tooltipHeight - 12;
     }

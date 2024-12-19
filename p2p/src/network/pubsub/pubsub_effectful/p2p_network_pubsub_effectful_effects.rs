@@ -1,5 +1,3 @@
-use openmina_core::bug_condition;
-
 use libp2p_identity::{DecodingError, PublicKey};
 
 use super::super::pb;
@@ -10,85 +8,100 @@ use crate::{
 
 use super::P2pNetworkPubsubEffectfulAction;
 
+#[derive(Debug, thiserror::Error)]
+pub enum PubSubError {
+    #[error("Message does not contain a signature.")]
+    MissingSignature,
+    #[error("Message does not contain a verifying key.")]
+    MissingVerifyingKey,
+    #[error("Failed to retrieve the originator's public key.")]
+    OriginatorFailed,
+    #[error("Message serialization failed.")]
+    SerializationError,
+    #[error("Message's signature is invalid.")]
+    InvalidSignature,
+}
+
 impl P2pNetworkPubsubEffectfulAction {
     pub fn effects<Store, S>(self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pCryptoService,
     {
-        let state = &store.state().network.scheduler.broadcast_state;
-
         match self {
-            P2pNetworkPubsubEffectfulAction::Sign { author, topic } => {
-                if let Some(to_sign) = state.to_sign.front() {
-                    let mut publication = vec![];
-                    if prost::Message::encode(to_sign, &mut publication).is_err() {
-                        store.dispatch(P2pNetworkPubsubAction::SignError { author, topic });
-                    } else {
-                        let signature = store.service().sign_publication(&publication).into();
-                        store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
-                    }
+            P2pNetworkPubsubEffectfulAction::Sign {
+                author,
+                topic,
+                message,
+            } => {
+                let mut publication = vec![];
+                if prost::Message::encode(&message, &mut publication).is_err() {
+                    store.dispatch(P2pNetworkPubsubAction::SignError { author, topic });
+                } else {
+                    let signature = store.service().sign_publication(&publication).into();
+                    store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
                 }
             }
-            P2pNetworkPubsubEffectfulAction::IncomingData {
+            P2pNetworkPubsubEffectfulAction::ValidateIncomingMessages {
                 peer_id,
                 seen_limit,
+                addr,
+                messages,
             } => {
-                let Some(state) = state.clients.get(&peer_id) else {
-                    // TODO: investigate, cannot reproduce this
-                    // bug_condition!("{:?} not found in state.clients", peer_id);
-                    return;
-                };
-                let messages = state.incoming_messages.clone();
+                let mut valid_messages = Vec::with_capacity(messages.len());
 
                 for message in messages {
-                    let result = if let Some(signature) = message.signature.clone() {
-                        if let Ok(Some(pk)) = originator(&message) {
-                            // the message is mutable only in this function
-                            let mut message = message;
-                            let Ok(data) = encode_without_signature_and_key(&mut message) else {
-                                // should never happen;
-                                // we just decode this message, so it should encode without error
-                                bug_condition!("serialization error");
-                                return;
-                            };
-                            // keep the binding immutable
-                            let message = message;
+                    match validate_message(message, store) {
+                        Ok(valid_msg) => valid_messages.push(valid_msg),
+                        Err(error) => {
+                            store.dispatch(P2pNetworkSchedulerAction::Error {
+                                addr,
+                                error: P2pNetworkConnectionError::PubSubError(error.to_string()),
+                            });
 
-                            if store.service().verify_publication(&pk, &data, &signature) {
-                                store.dispatch(P2pNetworkPubsubAction::IncomingMessage {
-                                    peer_id,
-                                    message,
-                                    seen_limit,
-                                });
-                                Ok(())
-                            } else {
-                                Err("invalid signature")
-                            }
-                        } else {
-                            Err("message doesn't contain verifying key")
+                            return; // Early exit, no need to process the rest
                         }
-                    } else {
-                        Err("message doesn't contain signature")
-                    };
-
-                    if let Err(error) = result {
-                        let Some((addr, _)) = store.state().network.scheduler.find_peer(&peer_id)
-                        else {
-                            bug_condition!("{:?} not found in scheduler state", peer_id);
-                            return;
-                        };
-
-                        store.dispatch(P2pNetworkSchedulerAction::Error {
-                            addr: *addr,
-                            error: P2pNetworkConnectionError::PubSubError(error.to_string()),
-                        });
-
-                        return;
                     }
+                }
+
+                // All good, we can continue with these validated messages
+                for message in valid_messages {
+                    store.dispatch(P2pNetworkPubsubAction::IncomingMessage {
+                        peer_id,
+                        message,
+                        seen_limit,
+                    });
                 }
             }
         }
+    }
+}
+
+fn validate_message<Store, S>(
+    message: pb::Message,
+    store: &mut Store,
+) -> Result<pb::Message, PubSubError>
+where
+    Store: crate::P2pStore<S>,
+    Store::Service: P2pCryptoService,
+{
+    let signature = message
+        .signature
+        .clone()
+        .ok_or(PubSubError::MissingSignature)?;
+
+    let pk = originator(&message)
+        .map_err(|_| PubSubError::OriginatorFailed)?
+        .ok_or(PubSubError::MissingVerifyingKey)?;
+
+    let mut message = message;
+    let data = encode_without_signature_and_key(&mut message)
+        .map_err(|_| PubSubError::SerializationError)?;
+
+    if store.service().verify_publication(&pk, &data, &signature) {
+        Ok(message)
+    } else {
+        Err(PubSubError::InvalidSignature)
     }
 }
 

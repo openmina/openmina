@@ -1,17 +1,18 @@
 mod rpc_service;
 
 use std::collections::VecDeque;
+use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 use std::{collections::BTreeMap, sync::Arc};
 
 use ledger::dummy::dummy_transaction_proof;
 use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
-use mina_p2p_messages::list::List;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    self, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
@@ -20,8 +21,9 @@ use node::account::AccountPublicKey;
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
+use node::core::invariants::InvariantsState;
 use node::core::snark::{Snark, SnarkJobId};
-use node::external_snark_worker::ExternalSnarkWorkerEvent;
+use node::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
@@ -40,7 +42,8 @@ use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
-    external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
+    external_snark_worker::SnarkWorkSpec,
+    external_snark_worker_effectful::ExternalSnarkWorkerService,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState},
@@ -133,12 +136,19 @@ pub struct NodeTestingService {
     dyn_effects: Option<DynEffects>,
 
     snarker_sok_digest: Option<ByteString>,
+
+    cluster_invariants_state: Arc<StdMutex<InvariantsState>>,
     /// Once dropped, it will cause all threads associated to shutdown.
     _shutdown: mpsc::Receiver<()>,
 }
 
 impl NodeTestingService {
-    pub fn new(real: NodeService, id: ClusterNodeId, _shutdown: mpsc::Receiver<()>) -> Self {
+    pub fn new(
+        real: NodeService,
+        id: ClusterNodeId,
+        cluster_invariants_state: Arc<StdMutex<InvariantsState>>,
+        _shutdown: mpsc::Receiver<()>,
+    ) -> Self {
         Self {
             real,
             id,
@@ -149,6 +159,7 @@ impl NodeTestingService {
             pending_events: PendingEvents::new(),
             dyn_effects: None,
             snarker_sok_digest: None,
+            cluster_invariants_state,
             _shutdown,
         }
     }
@@ -273,6 +284,10 @@ impl node::Service for NodeTestingService {
     fn recorder(&mut self) -> &mut Recorder {
         self.real.recorder()
     }
+
+    fn is_replay(&self) -> bool {
+        self.is_replay
+    }
 }
 
 impl P2pCryptoService for NodeTestingService {
@@ -364,7 +379,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         &mut self,
         other_pk: &node::p2p::identity::PublicKey,
         message: &T,
-    ) -> Result<T::Encrypted, ()> {
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         self.real.encrypt(other_pk, message)
     }
 
@@ -372,7 +387,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         &mut self,
         other_pub_key: &node::p2p::identity::PublicKey,
         encrypted: &T::Encrypted,
-    ) -> Result<T, ()> {
+    ) -> Result<T, Box<dyn std::error::Error>> {
         self.real.decrypt(other_pub_key, encrypted)
     }
 
@@ -399,6 +414,10 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
         self.real.mio()
+    }
+
+    fn connections(&self) -> std::collections::BTreeSet<PeerId> {
+        self.real.connections()
     }
 }
 
@@ -432,17 +451,9 @@ impl SnarkUserCommandVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkUserCommandVerifyId,
-        verifier_index: TransactionVerifier,
-        verifier_srs: Arc<VerifierSRS>,
-        commands: List<v2::MinaBaseUserCommandStableV2>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
     ) {
-        SnarkUserCommandVerifyService::verify_init(
-            &mut self.real,
-            req_id,
-            verifier_index,
-            verifier_srs,
-            commands,
-        )
+        SnarkUserCommandVerifyService::verify_init(&mut self.real, req_id, commands)
     }
 }
 
@@ -490,7 +501,7 @@ impl BlockProducerVrfEvaluatorService for NodeTestingService {
 
 use std::cell::RefCell;
 thread_local! {
-    static GENESIS_PROOF: RefCell<Option<(StateHash, Box<MinaBaseProofStableV2>)>> = const { RefCell::new(None)};
+    static GENESIS_PROOF: RefCell<Option<(StateHash, Arc<MinaBaseProofStableV2>)>> = const { RefCell::new(None)};
 }
 
 impl BlockProducerService for NodeTestingService {
@@ -642,7 +653,24 @@ impl ExternalSnarkWorkerService for NodeTestingService {
 }
 
 impl node::core::invariants::InvariantService for NodeTestingService {
-    fn invariants_state(&mut self) -> &mut openmina_core::invariants::InvariantsState {
+    type ClusterInvariantsState<'a> = std::sync::MutexGuard<'a, InvariantsState>;
+
+    fn node_id(&self) -> usize {
+        self.node_id().index()
+    }
+
+    fn invariants_state(&mut self) -> &mut InvariantsState {
         node::core::invariants::InvariantService::invariants_state(&mut self.real)
+    }
+
+    fn cluster_invariants_state<'a>(&'a mut self) -> Option<Self::ClusterInvariantsState<'a>>
+    where
+        Self: 'a,
+    {
+        Some(
+            self.cluster_invariants_state.try_lock().expect(
+                "locking should never fail, since we are running all nodes in the same thread",
+            ),
+        )
     }
 }

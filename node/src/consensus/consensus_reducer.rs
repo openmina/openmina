@@ -1,5 +1,5 @@
 use openmina_core::{
-    block::BlockHash,
+    block::{ArcBlockWithHash, BlockHash},
     bug_condition,
     consensus::{is_short_range_fork, long_range_fork_take, short_range_fork_take},
 };
@@ -48,9 +48,35 @@ impl ConsensusState {
                 );
 
                 // Dispatch
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+
+                let hash = hash.clone();
+                let block = ArcBlockWithHash {
+                    hash: hash.clone(),
+                    block: block.clone(),
+                };
+                let allow_block_too_late = allow_block_too_late(state, &block);
+
+                match state.prevalidate_block(&block, allow_block_too_late) {
+                    Ok(()) => {
+                        dispatcher.push(ConsensusAction::BlockPrevalidateSuccess { hash });
+                    }
+                    Err(error) => {
+                        dispatcher.push(ConsensusAction::BlockPrevalidateError { hash, error });
+                    }
+                }
+            }
+            ConsensusAction::BlockPrevalidateSuccess { hash } => {
+                let Some(block) = state.blocks.get_mut(hash) else {
+                    return;
+                };
+                block.status = ConsensusBlockStatus::Prevalidated;
+
+                // Dispatch
+                let block = (hash.clone(), block.block.clone()).into();
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(SnarkBlockVerifyAction::Init {
-                    block: (hash.clone(), block.clone()).into(),
+                    block,
                     on_init: redux::callback!(
                         on_received_block_snark_verify_init((hash: BlockHash, req_id: SnarkBlockVerifyId)) -> crate::Action {
                             ConsensusAction::BlockSnarkVerifyPending { hash, req_id }
@@ -64,6 +90,9 @@ impl ConsensusState {
                             ConsensusAction::BlockSnarkVerifyError { hash, error }
                         }),
                 });
+            }
+            ConsensusAction::BlockPrevalidateError { hash, .. } => {
+                state.blocks.remove(hash);
             }
             ConsensusAction::BlockChainProofUpdate { hash, chain_proof } => {
                 if state.best_tip.as_ref() == Some(hash) {
@@ -306,4 +335,27 @@ impl ConsensusState {
             }
         }
     }
+}
+
+/// Decide if the time-reception check should be done for this block or not.
+///
+/// The check is skipped if the block's global_slot is greater than the
+/// current best tip and the difference greater than 2.
+///
+/// Ideally we would differentiate between requested blocks and blocks
+/// received from gossip, but this difference doesn't really exist
+/// in the WebRTC transport, hence this heuristic.
+fn allow_block_too_late(state: &crate::State, block: &ArcBlockWithHash) -> bool {
+    let (has_greater_blobal_slot, diff_with_best_tip) = state
+        .transition_frontier
+        .best_tip()
+        .map(|b| {
+            (
+                block.global_slot() > b.global_slot(),
+                b.global_slot().abs_diff(block.global_slot()),
+            )
+        })
+        .unwrap_or((false, 0));
+
+    has_greater_blobal_slot && diff_with_best_tip > 2
 }

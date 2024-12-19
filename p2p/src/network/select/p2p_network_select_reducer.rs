@@ -122,6 +122,7 @@ impl P2pNetworkSelectState {
                 addr, fin, data, ..
             } => {
                 select_state.recv.buffer.clear();
+                select_state.recv.buffer.shrink_to(0x2000);
 
                 P2pNetworkSelectState::handle_negotiated_token(
                     state_context,
@@ -253,6 +254,7 @@ impl P2pNetworkSelectState {
                     Err(ParseTokenError) => {
                         self.inner = P2pNetworkSelectStateInner::Error("parse_token".to_owned());
                         self.recv.buffer.clear();
+                        self.recv.buffer.shrink_to(0x2000);
                         break;
                     }
                     Ok(None) => break,

@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use node::transition_frontier::sync::TransitionFrontierSyncState;
+use openmina_core::constants::constraint_constants;
 use redux::Instant;
 
 use crate::{
@@ -19,6 +20,24 @@ use crate::{
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct SoloNodeBootstrap;
 
+// TODO(tizoc): this is ugly, do a cleaner conversion or figure out a better way.
+// This test will fail if we don't start with this as the initial time because
+// the time validation for the first block will reject it.
+fn first_block_slot_timestamp_nanos(config: &RustNodeTestingConfig) -> u64 {
+    let first_block_global_slot = 46891; // Update if replay changes
+    let protocol_constants = config.genesis.protocol_constants().unwrap();
+    let genesis_timestamp_ms = protocol_constants.genesis_state_timestamp.0.as_u64();
+    let milliseconds_per_slot = constraint_constants().block_window_duration_ms;
+    let first_block_global_slot_delta_ms = first_block_global_slot * milliseconds_per_slot;
+
+    // Convert to nanos
+    genesis_timestamp_ms
+        .checked_add(first_block_global_slot_delta_ms)
+        .unwrap()
+        .checked_mul(1_000_000)
+        .unwrap()
+}
+
 impl SoloNodeBootstrap {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         use self::TransitionFrontierSyncState::*;
@@ -27,10 +46,12 @@ impl SoloNodeBootstrap {
 
         let replayer = hosts::replayer();
 
-        let node_id = runner.add_rust_node(
-            RustNodeTestingConfig::devnet_default()
-                .initial_peers(vec![ListenerNode::Custom(replayer)]),
-        );
+        let mut config = RustNodeTestingConfig::devnet_default();
+
+        config.initial_time = redux::Timestamp::new(first_block_slot_timestamp_nanos(&config));
+
+        let node_id =
+            runner.add_rust_node(config.initial_peers(vec![ListenerNode::Custom(replayer)]));
         eprintln!("launch Openmina node with default configuration, id: {node_id}");
 
         let mut timeout = TIMEOUT;

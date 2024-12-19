@@ -1,4 +1,5 @@
 use crate::{ConnectionAddr, Data, P2pAction, P2pState, PeerId, StreamId};
+use multiaddr::Multiaddr;
 use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
@@ -38,6 +39,12 @@ pub enum P2pNetworkIdentifyStreamAction {
         peer_id: PeerId,
         stream_id: StreamId,
     },
+    SendIdentify {
+        addr: ConnectionAddr,
+        peer_id: PeerId,
+        stream_id: StreamId,
+        addresses: Vec<Multiaddr>,
+    },
 }
 
 macro_rules! enum_field {
@@ -48,6 +55,7 @@ macro_rules! enum_field {
                 | P2pNetworkIdentifyStreamAction::IncomingData { $field, .. }
                 | P2pNetworkIdentifyStreamAction::Close { $field, .. }
                 | P2pNetworkIdentifyStreamAction::RemoteClose { $field, .. }
+                | P2pNetworkIdentifyStreamAction::SendIdentify { $field, .. }
                 | P2pNetworkIdentifyStreamAction::Prune { $field, .. } => $field,
             }
         }

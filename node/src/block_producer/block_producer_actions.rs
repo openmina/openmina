@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2::MinaBaseProofStableV2;
 use openmina_core::block::ArcBlockWithHash;
@@ -51,13 +53,13 @@ pub enum BlockProducerAction {
     StagedLedgerDiffCreateInit,
     StagedLedgerDiffCreatePending,
     StagedLedgerDiffCreateSuccess {
-        output: Box<StagedLedgerDiffCreateOutput>,
+        output: Arc<StagedLedgerDiffCreateOutput>,
     },
     BlockUnprovenBuild,
     BlockProveInit,
     BlockProvePending,
     BlockProveSuccess {
-        proof: Box<MinaBaseProofStableV2>,
+        proof: Arc<MinaBaseProofStableV2>,
     },
     BlockProduced,
     #[action_event(level = trace)]
@@ -100,9 +102,18 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
             BlockProducerAction::WonSlotWait => state
                 .block_producer
                 .with(false, |this| this.current.won_slot_should_wait(time)),
-            BlockProducerAction::WonSlotProduceInit { .. } => state
-                .block_producer
-                .with(false, |this| this.current.won_slot_should_produce(time)),
+            BlockProducerAction::WonSlotProduceInit { .. } => {
+                state.block_producer.with(false, |this| {
+                    let has_genesis_proven_if_needed = || {
+                        state.transition_frontier.best_tip().map_or(false, |tip| {
+                            let proven_block = state.transition_frontier.genesis.proven_block();
+                            !tip.is_genesis()
+                                || proven_block.map_or(false, |b| Arc::ptr_eq(&b.block, &tip.block))
+                        })
+                    };
+                    this.current.won_slot_should_produce(time) && has_genesis_proven_if_needed()
+                })
+            }
             BlockProducerAction::WonSlotTransactionsGet => {
                 state.block_producer.with(false, |this| {
                     matches!(
@@ -175,10 +186,21 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                     BlockProducerCurrentState::BlockProveSuccess { .. }
                 )
             }),
-            BlockProducerAction::BlockInject => state.block_producer.with(false, |this| {
-                matches!(this.current, BlockProducerCurrentState::Produced { .. })
-                    && !state.transition_frontier.sync.is_commit_pending()
-            }),
+            BlockProducerAction::BlockInject => {
+                state
+                    .block_producer
+                    .with(false, |this| match &this.current {
+                        BlockProducerCurrentState::Produced { block, .. } => {
+                            block
+                                .timestamp()
+                                // broadcast 1s late to account for time drift between nodes
+                                .checked_add(1_000_000_000)
+                                .is_some_and(|block_time| time >= block_time)
+                                && !state.transition_frontier.sync.is_commit_pending()
+                        }
+                        _ => false,
+                    })
+            }
             BlockProducerAction::BlockInjected => state.block_producer.with(false, |this| {
                 matches!(this.current, BlockProducerCurrentState::Produced { .. })
             }),

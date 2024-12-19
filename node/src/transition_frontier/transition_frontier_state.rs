@@ -6,6 +6,7 @@ use mina_p2p_messages::v2::{
     TransactionHash,
 };
 use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
+use openmina_core::bug_condition;
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisState;
@@ -128,22 +129,39 @@ impl TransitionFrontierState {
             }
             Some((new_chain_start_at, _)) => {
                 // `new_chain_start_at` is the index of `new_root` in `old_chain`
-                let old_chain_advanced = &old_chain[new_chain_start_at..];
+                let Some(old_chain_advanced) = &old_chain.get(new_chain_start_at..) else {
+                    bug_condition!("old_chain[{}] out of bounds", new_chain_start_at);
+                    return None;
+                };
 
                 // Common length
                 let len = old_chain_advanced.len().min(new_chain.len());
 
                 // Find the first different block, search from the end
-                let diff_start_at = old_chain_advanced[..len]
+                let diff_start_at = old_chain_advanced
+                    .get(..len)
+                    .unwrap() // can't fail because len is the minimum len
                     .iter()
                     .rev()
-                    .zip(new_chain[..len].iter().rev())
+                    .zip(
+                        new_chain
+                            .get(..len)
+                            .unwrap() // can't fail because len is the minimum len
+                            .iter()
+                            .rev(),
+                    )
                     .position(|(old_block, new_block)| old_block == new_block)
-                    .map(|index| len - index) // we started from the end
+                    .map(|index| len.saturating_sub(index)) // we started from the end
                     .unwrap(); // Never panics because we know there is the common root block
 
-                let diff_old_chain = &old_chain_advanced[diff_start_at..];
-                let diff_new_chain = &new_chain[diff_start_at..];
+                let Some(diff_old_chain) = old_chain_advanced.get(diff_start_at..) else {
+                    bug_condition!("old_chain[{}] out of bounds", diff_start_at);
+                    return None;
+                };
+                let Some(diff_new_chain) = new_chain.get(diff_start_at..) else {
+                    bug_condition!("new_chain[{}] out of bounds", diff_start_at);
+                    return None;
+                };
 
                 (diff_old_chain, diff_new_chain)
             }

@@ -1,9 +1,8 @@
-use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
-use mina_p2p_messages::{list::List, v2};
+use ledger::scan_state::transaction_logic::{valid, verifiable, WithStatus};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
-use openmina_core::ActionEvent;
+use openmina_core::{requests::RpcId, ActionEvent};
 
 use super::{SnarkUserCommandVerifyError, SnarkUserCommandVerifyId};
 
@@ -12,10 +11,10 @@ pub type SnarkUserCommandVerifyActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a SnarkUserCommandVerifyAction>;
 
 // define this alias, or `build.rs` cannot parse the enum
-type OnSuccess = Callback<(
+pub(super) type OnSuccess = Callback<(
     SnarkUserCommandVerifyId,
-    String,
-    Vec<WithStatus<verifiable::UserCommand>>,
+    Vec<valid::UserCommand>,
+    Option<RpcId>,
 )>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -24,9 +23,10 @@ pub enum SnarkUserCommandVerifyAction {
     #[action_event(level = info)]
     Init {
         req_id: SnarkUserCommandVerifyId,
-        commands: List<v2::MinaBaseUserCommandStableV2>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        from_rpc: Option<RpcId>,
         on_success: OnSuccess,
-        on_error: Callback<(SnarkUserCommandVerifyId, String)>,
+        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>)>,
     },
     Pending {
         req_id: SnarkUserCommandVerifyId,
@@ -38,6 +38,7 @@ pub enum SnarkUserCommandVerifyAction {
     #[action_event(level = info)]
     Success {
         req_id: SnarkUserCommandVerifyId,
+        commands: Vec<valid::UserCommand>,
     },
     Finish {
         req_id: SnarkUserCommandVerifyId,
@@ -60,7 +61,7 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkUserCommandVerifyActio
                 .jobs
                 .get(*req_id)
                 .map_or(false, |v| v.is_pending()),
-            SnarkUserCommandVerifyAction::Success { req_id } => state
+            SnarkUserCommandVerifyAction::Success { req_id, .. } => state
                 .user_command_verify
                 .jobs
                 .get(*req_id)

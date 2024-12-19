@@ -1,6 +1,6 @@
 import { createReducer, on } from '@ngrx/store';
 import { BlockProductionWonSlotsState } from '@block-production/won-slots/block-production-won-slots.state';
-import { isMobile, sort, SortDirection, TableSort } from '@openmina/shared';
+import { isDesktop, isMobile, sort, SortDirection, TableSort } from '@openmina/shared';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import {
   BlockProductionWonSlotsSlot,
@@ -24,6 +24,7 @@ const initialState: BlockProductionWonSlotsState = {
     sortBy: 'slotTime',
     sortDirection: SortDirection.ASC,
   },
+  serverResponded: false,
 };
 
 export const blockProductionWonSlotsReducer = createReducer(
@@ -31,6 +32,7 @@ export const blockProductionWonSlotsReducer = createReducer(
   on(BlockProductionWonSlotsActions.init, (state, { activeSlotRoute }) => ({
     ...state,
     activeSlotRoute,
+    serverResponded: false,
   })),
   on(BlockProductionWonSlotsActions.getSlotsSuccess, (state, { slots, epoch, activeSlot }) => ({
     ...state,
@@ -38,7 +40,8 @@ export const blockProductionWonSlotsReducer = createReducer(
     epoch,
     filteredSlots: filterSlots(sortSlots(slots, state.sort), state.filters),
     activeSlot,
-    openSidePanel: !!activeSlot,
+    openSidePanel: state.activeSlot ? state.openSidePanel : isDesktop(),
+    serverResponded: true,
   })),
   on(BlockProductionWonSlotsActions.setActiveSlot, (state, { slot }) => ({
     ...state,
@@ -56,7 +59,12 @@ export const blockProductionWonSlotsReducer = createReducer(
     filters,
     filteredSlots: filterSlots(sortSlots(state.slots, state.sort), filters),
   })),
-  on(BlockProductionWonSlotsActions.toggleSidePanel, state => ({ ...state, openSidePanel: !state.openSidePanel })),
+  on(BlockProductionWonSlotsActions.toggleSidePanel, state => ({
+    ...state,
+    openSidePanel: !state.openSidePanel,
+    activeSlot: state.openSidePanel ? undefined : state.activeSlot,
+    activeSlotRoute: state.openSidePanel ? undefined : state.activeSlotRoute,
+  })),
   on(BlockProductionWonSlotsActions.close, () => initialState),
 );
 

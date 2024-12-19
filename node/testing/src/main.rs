@@ -1,5 +1,6 @@
 use clap::Parser;
 
+use node::p2p::webrtc::Host;
 use openmina_node_testing::cluster::{Cluster, ClusterConfig};
 use openmina_node_testing::scenario::Scenario;
 use openmina_node_testing::scenarios::Scenarios;
@@ -24,8 +25,13 @@ pub enum Command {
 
 #[derive(Debug, clap::Args)]
 pub struct CommandServer {
-    #[arg(long, short, env, default_value = "11000")]
+    #[arg(long, short, default_value = "127.0.0.1")]
+    pub host: Host,
+
+    #[arg(long, short, default_value = "11000")]
     pub port: u16,
+    #[arg(long, short)]
+    pub ssl_port: Option<u16>,
 }
 
 #[derive(Debug, clap::Args)]
@@ -66,38 +72,33 @@ impl Command {
 
         match self {
             Self::Server(args) => {
-                server(args.port);
+                server(rt, args.host, args.port, args.ssl_port);
                 Ok(())
             }
             Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
-                    let config = ClusterConfig::new(None).map_err(|err| {
-                        anyhow::anyhow!("failed to create cluster configuration: {err}")
-                    })?;
-                    let config = if cmd.use_debugger {
-                        config.use_debugger()
-                    } else {
-                        config
+                    let run_scenario = |scenario: Scenarios| -> Result<_, anyhow::Error> {
+                        let mut config = scenario.default_cluster_config()?;
+                        if cmd.use_debugger {
+                            config.use_debugger();
+                        }
+                        Ok(scenario.run_only_from_scratch(config))
                     };
-
                     let fut = async move {
                         if let Some(name) = cmd.name {
                             if let Some(scenario) = Scenarios::find_by_name(&name) {
-                                scenario.run_only_from_scratch(config).await;
-                                // scenario.run_and_save_from_scratch(config).await;
+                                run_scenario(scenario)?.await;
                             } else {
                                 anyhow::bail!("no such scenario: \"{name}\"");
                             }
                         } else {
                             for scenario in Scenarios::iter() {
-                                scenario.run_only_from_scratch(config.clone()).await;
-                                // scenario.run_and_save_from_scratch(config.clone()).await;
+                                run_scenario(scenario)?.await;
                             }
                         }
                         Ok(())
                     };
-
                     rt.block_on(async {
                         tokio::select! {
                             res = fut => res,
@@ -113,10 +114,10 @@ impl Command {
                     .into())
             }
             Self::ScenariosRun(cmd) => {
-                let config = ClusterConfig::new(None).map_err(|err| {
+                let mut config = ClusterConfig::new(None).map_err(|err| {
                     anyhow::anyhow!("failed to create cluster configuration: {err}")
                 })?;
-                let config = config.set_replay();
+                config.set_replay();
 
                 let id = cmd.name.parse()?;
                 let fut = async move {

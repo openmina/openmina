@@ -2,8 +2,10 @@ use openmina_core::{bug_condition, error, Substate};
 use p2p::{P2pAction, P2pEffectfulAction, P2pInitializeAction, P2pState};
 
 use crate::{
-    rpc::RpcState, state::BlockProducerState, Action, ActionWithMeta, ConsensusAction,
-    EventSourceAction, P2p, State,
+    external_snark_worker::ExternalSnarkWorkers,
+    rpc::RpcState,
+    state::{BlockProducerState, LedgerState},
+    Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State,
 };
 
 pub fn reducer(
@@ -32,27 +34,32 @@ pub fn reducer(
                 }
                 dispatcher.push(P2pEffectfulAction::Initialize);
             }
-            action => match &mut state.p2p {
+            p2p_action => match &mut state.p2p {
                 P2p::Pending(_) => {
-                    error!(meta.time(); summary = "p2p is not initialized", action = debug(action))
+                    error!(meta.time(); summary = "p2p is not initialized", action = debug(p2p_action))
                 }
                 P2p::Ready(_) => {
                     let time = meta.time();
                     let result = p2p::P2pState::reducer(
                         Substate::new(state, dispatcher),
-                        meta.with_action(action.clone()),
+                        meta.with_action(p2p_action.clone()),
                     );
 
                     if let Err(error) = result {
-                        error!(time; error = display(error));
+                        use crate::ActionKindGet as _;
+                        error!(time;
+                            summary = "Failure when handling a P2P action",
+                            action_kind = format!("{}", p2p_action.kind()),
+                            error = display(error));
                     }
                 }
             },
         },
         Action::P2pEffectful(_) => {}
-        Action::Ledger(a) => {
-            state.ledger.reducer(meta.with_action(a));
+        Action::Ledger(action) => {
+            LedgerState::reducer(Substate::new(state, dispatcher), meta.with_action(action));
         }
+        Action::LedgerEffects(_) => {}
         Action::Snark(a) => {
             snark::SnarkState::reducer(Substate::new(state, dispatcher), meta.with_action(a));
         }
@@ -86,9 +93,13 @@ pub fn reducer(
             BlockProducerState::reducer(Substate::new(state, dispatcher), meta.with_action(action));
         }
         Action::BlockProducerEffectful(_) => {}
-        Action::ExternalSnarkWorker(a) => {
-            state.external_snark_worker.reducer(meta.with_action(a));
+        Action::ExternalSnarkWorker(action) => {
+            ExternalSnarkWorkers::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(action),
+            );
         }
+        Action::ExternalSnarkWorkerEffects(_) => {}
         Action::Rpc(action) => {
             RpcState::reducer(Substate::new(state, dispatcher), meta.with_action(action));
         }

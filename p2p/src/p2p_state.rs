@@ -1,8 +1,9 @@
 use openmina_core::{
     block::{ArcBlockWithHash, BlockWithHash},
-    impl_substate_access,
+    bug_condition, impl_substate_access,
     requests::RpcId,
     snark::{Snark, SnarkInfo, SnarkJobCommitment},
+    transaction::{TransactionInfo, TransactionWithHash},
     ChainId, SubstateAccess,
 };
 use redux::{Callback, Timestamp};
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{
@@ -34,7 +36,7 @@ use crate::{
     Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
     P2pNetworkSchedulerState, P2pTimeouts, PeerId,
 };
-use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
+use mina_p2p_messages::v2;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pState {
@@ -42,6 +44,9 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
+
+    pub last_random_disconnection_try: redux::Timestamp,
+
     pub callbacks: P2pCallbacks,
 }
 
@@ -119,6 +124,9 @@ impl P2pState {
             config,
             network,
             peers,
+
+            last_random_disconnection_try: redux::Timestamp::ZERO,
+
             callbacks,
         }
     }
@@ -170,10 +178,11 @@ impl P2pState {
             .filter_map(|(id, p)| Some((id, p.status.as_ready()?)))
     }
 
-    pub fn ready_rpc_peers_iter(&self) -> impl '_ + Iterator<Item = (PeerId, P2pRpcId)> {
+    pub fn ready_rpc_peers_iter(
+        &self,
+    ) -> impl '_ + Iterator<Item = (&PeerId, &P2pPeerStatusReady)> {
         self.ready_peers_iter()
             .filter(|(_, p)| p.channels.rpc.can_send_request())
-            .map(|(peer_id, p)| (*peer_id, p.channels.next_local_rpc_id()))
     }
 
     pub fn ready_peers(&self) -> Vec<PeerId> {
@@ -386,9 +395,17 @@ impl P2pPeerState {
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Error { time, .. },
                 )) => is_time_passed(now, *time, timeouts.outgoing_error_reconnect_timeout),
-                P2pPeerStatus::Disconnected { time } | P2pPeerStatus::Disconnecting { time } => {
+                P2pPeerStatus::Disconnected { time } => {
                     *time == Timestamp::ZERO
                         || is_time_passed(now, *time, timeouts.reconnect_timeout)
+                }
+                P2pPeerStatus::Disconnecting { time } => {
+                    if !is_time_passed(now, *time, timeouts.reconnect_timeout) {
+                        false
+                    } else {
+                        bug_condition!("peer stuck in `P2pPeerStatus::Disconnecting` state?");
+                        true
+                    }
                 }
                 _ => false,
             }
@@ -475,6 +492,10 @@ impl P2pPeerStatusReady {
             best_tip: None,
         }
     }
+
+    pub fn connected_for(&self, now: redux::Timestamp) -> Duration {
+        now.checked_sub(self.connected_since).unwrap_or_default()
+    }
 }
 
 impl SubstateAccess<P2pState> for P2pState {
@@ -491,9 +512,10 @@ type OptionalCallback<T> = Option<Callback<T>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pCallbacks {
+    /// Callback for [`P2pChannelsTransactionAction::Received`]
+    pub on_p2p_channels_transaction_received: OptionalCallback<(PeerId, Box<TransactionInfo>)>,
     /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
-    pub on_p2p_channels_transaction_libp2p_received:
-        OptionalCallback<Box<MinaBaseUserCommandStableV2>>,
+    pub on_p2p_channels_transaction_libp2p_received: OptionalCallback<Box<TransactionWithHash>>,
     /// Callback for [`P2pChannelsSnarkJobCommitmentAction::Received`]
     pub on_p2p_channels_snark_job_commitment_received:
         OptionalCallback<(PeerId, Box<SnarkJobCommitment>)>,
@@ -525,7 +547,8 @@ pub struct P2pCallbacks {
         OptionalCallback<(RpcId, PeerId, P2pConnectionResponse)>,
 
     /// Callback for [`P2pPeerAction::BestTipUpdate`]
-    pub on_p2p_peer_best_tip_update: OptionalCallback<BlockWithHash<Arc<MinaBlockBlockStableV2>>>,
+    pub on_p2p_peer_best_tip_update:
+        OptionalCallback<BlockWithHash<Arc<v2::MinaBlockBlockStableV2>>>,
 
     /// Callback for [`P2pChannelsRpcAction::Ready`]
     pub on_p2p_channels_rpc_ready: OptionalCallback<PeerId>,

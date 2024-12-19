@@ -1,60 +1,16 @@
 @import 'openmina';
 
-:host {
-  max-width: 384px;
-}
+.background-gradient {
+  background: linear-gradient(120deg, $base-background 0%, $base-background 20%, $base-background 40%, $success-container 50%, $base-surface 80%, $base-surface 100%);
+  background-size: 500%;
+  background-position: 0 50%;
+  transition: background-position 0.7s ease;
 
-.loading-icon {
-  animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0);
-  }
-  100% {
-    transform: rotate(360deg);
+  &.complete {
+    background-position: 100% 50%;
   }
 }
 
-
-.progress-bar {
-  overflow: hidden;
-  height: 6px;
-  left: 0;
-  bottom: 0;
-  transition: width 0.6s ease-in-out;
-  min-width: 20px;
-
-  .highlight {
-    height: 4px;
-    top: 1px;
-    left: -50px;
-    width: 50px;
-    background: radial-gradient($success-primary, $success-primary, $success-primary, $success-primary, transparent, transparent);
-    border-radius: 20px;
-    animation: move 9s linear infinite;
-  }
-
-  .progress {
-    height: 2px;
-    background-color: $success-primary;
-    top: 2px;
-    left: 0;
-  }
-}
-
-@keyframes move {
-  0% {
-    left: -50px;
-  }
-  10% {
-    left: -50px;
-  }
-  80% {
-    left: 100%;
-  }
-  100% {
-    left: 100%;
-  }
+.mina-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 300 !important;
 }

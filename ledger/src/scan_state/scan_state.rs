@@ -112,10 +112,11 @@ pub mod transaction_snark {
         },
         sparse_ledger::SparseLedger,
         staged_ledger::hash::OCamlString,
-        Inputs, ToInputs,
+        AppendToInputs as _, ToInputs,
     };
 
     use super::Fee;
+    use poseidon::hash::Inputs;
 
     pub type LedgerHash = Fp;
 
@@ -393,7 +394,7 @@ pub mod transaction_snark {
 
     impl ToInputs for Statement<SokDigest> {
         /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/mina_state/snarked_ledger_state.ml#L263
-        fn to_inputs(&self, inputs: &mut crate::Inputs) {
+        fn to_inputs(&self, inputs: &mut Inputs) {
             let Self {
                 source,
                 target,
@@ -2364,7 +2365,7 @@ impl ScanState {
     }
 }
 
-pub fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + '_
+pub fn group_list<'a, F, T, R>(slice: &'a [T], fun: F) -> impl Iterator<Item = OneOrTwo<R>> + 'a
 where
     F: Fn(&'a T) -> R + 'a,
 {

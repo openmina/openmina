@@ -47,7 +47,7 @@ impl P2pStreamingRpcKind {
     pub fn timeout(self, _config: &P2pTimeouts) -> Option<Duration> {
         match self {
             // TODO(binier): use config
-            Self::StagedLedgerParts => Some(Duration::from_secs(20)),
+            Self::StagedLedgerParts => Some(Duration::from_secs(30)),
         }
     }
 }

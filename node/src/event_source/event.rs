@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub use crate::block_producer::BlockProducerEvent;
-pub use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+pub use crate::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
 pub use crate::ledger::LedgerEvent;
 pub use crate::p2p::{P2pConnectionEvent, P2pEvent};
 pub use crate::rpc::{RpcId, RpcRequest};

@@ -4,25 +4,27 @@ use std::fmt::Display;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
-use mina_hasher::{create_kimchi, Fp};
+use mina_hasher::{Fp, Hashable, ROInput};
 use mina_p2p_messages::binprot;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
+use mina_signer::NetworkId;
 use openmina_core::constants::ConstraintConstants;
 use openmina_macros::SerdeYojsonEnum;
+use poseidon::hash::params::{CODA_RECEIPT_UC, MINA_ZKAPP_MEMO};
+use poseidon::hash::{hash_noinputs, hash_with_kimchi, Inputs};
 
 use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
 use crate::zkapps::non_snark::{LedgerNonSnark, ZkappNonSnark};
 use crate::{
-    hash_with_kimchi, zkapps, AccountIdOrderable, BaseLedger, ControlTag, Inputs,
-    VerificationKeyWire,
-};
-use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},
     Account, AccountId, ReceiptChainHash, Timing, TokenId,
+};
+use crate::{
+    zkapps, AccountIdOrderable, AppendToInputs, BaseLedger, ControlTag, VerificationKeyWire,
 };
 
 use self::zkapp_command::AccessedOrNot;
@@ -620,31 +622,12 @@ impl Memo {
     }
 
     pub fn hash(&self) -> Fp {
-        use mina_hasher::ROInput as LegacyInput;
+        use ::poseidon::hash::{hash_with_kimchi, legacy};
 
-        let inputs = LegacyInput::new();
-        let inputs = inputs.append_bytes(&self.0);
-
-        use mina_hasher::{Hashable, Hasher, ROInput};
-
-        #[derive(Clone)]
-        struct MyInput(LegacyInput);
-
-        impl Hashable for MyInput {
-            type D = ();
-
-            fn to_roinput(&self) -> ROInput {
-                self.0.clone()
-            }
-
-            fn domain_string(_: Self::D) -> Option<String> {
-                Some("MinaZkappMemo".to_string())
-            }
-        }
-
-        let mut hasher = create_kimchi::<MyInput>(());
-        hasher.update(&MyInput(inputs));
-        hasher.digest()
+        // For some reason we are mixing legacy inputs and "new" hashing
+        let mut inputs = legacy::Inputs::new();
+        inputs.append_bytes(&self.0);
+        hash_with_kimchi(&MINA_ZKAPP_MEMO, &inputs.to_fields())
     }
 
     pub fn as_slice(&self) -> &[u8] {
@@ -923,10 +906,14 @@ pub mod zkapp_command {
     use ark_ff::UniformRand;
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
     use mina_signer::Signature;
+    use poseidon::hash::params::{
+        MINA_ACCOUNT_UPDATE_CONS, MINA_ACCOUNT_UPDATE_NODE, MINA_ZKAPP_EVENT, MINA_ZKAPP_EVENTS,
+        MINA_ZKAPP_SEQ_EVENTS, NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY, NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY,
+    };
     use rand::{seq::SliceRandom, Rng};
 
     use crate::{
-        dummy, gen_compressed, gen_keypair, hash_noinputs,
+        dummy, gen_compressed, gen_keypair,
         proofs::{
             field::{Boolean, ToBoolean},
             to_field_elements::ToFieldElements,
@@ -951,7 +938,7 @@ pub mod zkapp_command {
             Self(Vec::new())
         }
         pub fn hash(&self) -> Fp {
-            hash_with_kimchi("MinaZkappEvent", &self.0[..])
+            hash_with_kimchi(&MINA_ZKAPP_EVENT, &self.0[..])
         }
         pub fn len(&self) -> usize {
             let Self(list) = self;
@@ -981,21 +968,27 @@ pub mod zkapp_command {
             .collect()
     }
 
+    use poseidon::hash::LazyParam;
+
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
     pub trait MakeEvents {
-        const SALT_PHRASE: &'static str;
-        const HASH_PREFIX: &'static str;
         const DERIVER_NAME: (); // Unused here for now
 
+        fn get_salt_phrase() -> &'static LazyParam;
+        fn get_hash_prefix() -> &'static LazyParam;
         fn events(&self) -> &[Event];
         fn empty_hash() -> Fp;
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L100
     impl MakeEvents for Events {
-        const SALT_PHRASE: &'static str = "MinaZkappEventsEmpty";
-        const HASH_PREFIX: &'static str = "MinaZkappEvents";
         const DERIVER_NAME: () = ();
+        fn get_salt_phrase() -> &'static LazyParam {
+            &NO_INPUT_MINA_ZKAPP_EVENTS_EMPTY
+        }
+        fn get_hash_prefix() -> &'static poseidon::hash::LazyParam {
+            &MINA_ZKAPP_EVENTS
+        }
         fn events(&self) -> &[Event] {
             self.0.as_slice()
         }
@@ -1006,9 +999,13 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L156
     impl MakeEvents for Actions {
-        const SALT_PHRASE: &'static str = "MinaZkappActionsEmpty";
-        const HASH_PREFIX: &'static str = "MinaZkappSeqEvents";
         const DERIVER_NAME: () = ();
+        fn get_salt_phrase() -> &'static LazyParam {
+            &NO_INPUT_MINA_ZKAPP_ACTIONS_EMPTY
+        }
+        fn get_hash_prefix() -> &'static poseidon::hash::LazyParam {
+            &MINA_ZKAPP_SEQ_EVENTS
+        }
         fn events(&self) -> &[Event] {
             self.0.as_slice()
         }
@@ -1022,10 +1019,10 @@ pub mod zkapp_command {
     where
         E: MakeEvents,
     {
-        let init = hash_noinputs(E::SALT_PHRASE);
+        let init = hash_noinputs(E::get_salt_phrase());
 
         e.events().iter().rfold(init, |accum, elem| {
-            hash_with_kimchi(E::HASH_PREFIX, &[accum, elem.hash()])
+            hash_with_kimchi(E::get_hash_prefix(), &[accum, elem.hash()])
         })
     }
 
@@ -1183,17 +1180,17 @@ pub mod zkapp_command {
         }
 
         pub fn push_event(acc: Fp, event: Event) -> Fp {
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, event.hash()])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, event.hash()])
         }
 
         pub fn push_events(&self, acc: Fp) -> Fp {
             let hash = self
                 .0
                 .iter()
-                .rfold(hash_noinputs(Self::SALT_PHRASE), |acc, e| {
+                .rfold(hash_noinputs(Self::get_salt_phrase()), |acc, e| {
                     Self::push_event(acc, e.clone())
                 });
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, hash])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, hash])
         }
     }
 
@@ -1207,17 +1204,17 @@ pub mod zkapp_command {
         }
 
         pub fn push_event(acc: Fp, event: Event) -> Fp {
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, event.hash()])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, event.hash()])
         }
 
         pub fn push_events(&self, acc: Fp) -> Fp {
             let hash = self
                 .0
                 .iter()
-                .rfold(hash_noinputs(Self::SALT_PHRASE), |acc, e| {
+                .rfold(hash_noinputs(Self::get_salt_phrase()), |acc, e| {
                     Self::push_event(acc, e.clone())
                 });
-            hash_with_kimchi(Self::HASH_PREFIX, &[acc, hash])
+            hash_with_kimchi(Self::get_hash_prefix(), &[acc, hash])
         }
     }
 
@@ -3136,8 +3133,6 @@ pub mod zkapp_command {
     }
 
     impl<AccUpdate: Clone + AccountUpdateRef> Tree<AccUpdate> {
-        pub const HASH_PARAM: &'static str = "MinaAcctUpdateNode";
-
         // TODO: Cache this result somewhere ?
         pub fn digest(&self) -> Fp {
             let stack_hash = match self.calls.0.first() {
@@ -3145,7 +3140,10 @@ pub mod zkapp_command {
                 None => Fp::zero(),
             };
             let account_update_digest = self.account_update_digest.get().unwrap();
-            hash_with_kimchi(Self::HASH_PARAM, &[account_update_digest, stack_hash])
+            hash_with_kimchi(
+                &MINA_ACCOUNT_UPDATE_NODE,
+                &[account_update_digest, stack_hash],
+            )
         }
 
         fn fold<F>(&self, init: Vec<AccountId>, f: &mut F) -> Vec<AccountId>
@@ -3165,8 +3163,7 @@ pub mod zkapp_command {
 
     impl<AccUpdate: Clone + AccountUpdateRef + PartialEq> PartialEq for WithStackHash<AccUpdate> {
         fn eq(&self, other: &Self) -> bool {
-            self.elt == other.elt
-                && self.stack_hash.get().unwrap() == other.stack_hash.get().unwrap()
+            self.elt == other.elt && self.stack_hash == other.stack_hash
         }
     }
 
@@ -3185,8 +3182,6 @@ pub mod zkapp_command {
         caller: TokenId,
         this: TokenId,
     }
-
-    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &str = "MinaAcctUpdateCons";
 
     pub trait AccountUpdateRef {
         fn account_update_ref(&self) -> &AccountUpdate;
@@ -3258,7 +3253,7 @@ pub mod zkapp_command {
             let hash = tree.digest();
             let h_tl = self.hash();
 
-            let stack_hash = hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl]);
+            let stack_hash = hash_with_kimchi(&MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl]);
             let node = WithStackHash::<AccUpdate> {
                 elt: tree,
                 stack_hash: MutableFp::new(stack_hash),
@@ -3458,7 +3453,7 @@ pub mod zkapp_command {
         pub fn accumulate_hashes(&self) {
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293
             fn cons(hash: Fp, h_tl: Fp) -> Fp {
-                hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl])
+                hash_with_kimchi(&MINA_ACCOUNT_UPDATE_CONS, &[hash, h_tl])
             }
 
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561
@@ -4191,8 +4186,10 @@ pub mod zkapp_command {
 }
 
 pub mod zkapp_statement {
+    use poseidon::hash::params::MINA_ACCOUNT_UPDATE_CONS;
+
     use super::{
-        zkapp_command::{CallForest, Tree, ACCOUNT_UPDATE_CONS_HASH_PARAM},
+        zkapp_command::{CallForest, Tree},
         *,
     };
 
@@ -4208,7 +4205,7 @@ pub mod zkapp_statement {
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368
         pub fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
             Self(hash_with_kimchi(
-                ACCOUNT_UPDATE_CONS_HASH_PARAM,
+                &MINA_ACCOUNT_UPDATE_CONS,
                 &[memo_hash, fee_payer_hash, self.0],
             ))
         }
@@ -4218,18 +4215,19 @@ pub mod zkapp_statement {
         }
     }
 
-    impl mina_hasher::Hashable for TransactionCommitment {
-        type D = mina_signer::NetworkId;
+    impl Hashable for TransactionCommitment {
+        type D = NetworkId;
 
-        fn to_roinput(&self) -> mina_hasher::ROInput {
-            mina_hasher::ROInput::new().append_field(self.0)
+        fn to_roinput(&self) -> ROInput {
+            let mut roi = ROInput::new();
+            roi = roi.append_field(self.0);
+            roi
         }
 
-        fn domain_string(network_id: mina_signer::NetworkId) -> Option<String> {
-            // Domain strings must have length <= 20
+        fn domain_string(network_id: NetworkId) -> Option<String> {
             match network_id {
-                mina_signer::NetworkId::MAINNET => "MinaSignatureMainnet",
-                mina_signer::NetworkId::TESTNET => "CodaSignature",
+                NetworkId::MAINNET => openmina_core::network::mainnet::SIGNATURE_PREFIX,
+                NetworkId::TESTNET => openmina_core::network::devnet::SIGNATURE_PREFIX,
             }
             .to_string()
             .into()
@@ -4289,7 +4287,6 @@ pub mod verifiable {
     use std::ops::Neg;
 
     use ark_ff::{BigInteger, PrimeField};
-    use mina_signer::Signer;
 
     use super::*;
 
@@ -4328,13 +4325,7 @@ pub mod verifiable {
         let payload = TransactionUnionPayload::of_user_command_payload(payload);
         let pubkey = compressed_to_pubkey(pubkey);
 
-        let network_id = match openmina_core::NetworkConfig::global().network_id {
-            openmina_core::network::NetworkId::TESTNET => mina_signer::NetworkId::TESTNET,
-            openmina_core::network::NetworkId::MAINNET => mina_signer::NetworkId::MAINNET,
-        };
-        let mut signer = mina_signer::create_legacy(network_id);
-
-        if signer.verify(signature, &pubkey, &payload) {
+        if crate::verifier::common::legacy_verify_signature(signature, &pubkey, &payload) {
             Ok(valid::UserCommand::SignedCommand(cmd))
         } else {
             Err(cmd)
@@ -5122,6 +5113,8 @@ pub mod protocol_state {
 pub mod local_state {
     use std::{cell::RefCell, rc::Rc};
 
+    use poseidon::hash::params::MINA_ACCOUNT_UPDATE_STACK_FRAME;
+
     use crate::{
         proofs::{
             field::{field, Boolean, ToBoolean},
@@ -5328,7 +5321,7 @@ pub mod local_state {
             };
             inputs.append_field(field);
 
-            hash_with_kimchi("MinaAcctUpdStckFrm", &inputs.to_fields())
+            hash_with_kimchi(&MINA_ACCOUNT_UPDATE_STACK_FRAME, &inputs.to_fields())
         }
 
         pub fn digest(&self) -> Fp {
@@ -5373,10 +5366,10 @@ pub mod local_state {
 
             if self.is_default {
                 use crate::proofs::transaction::transaction_snark::checked_hash3;
-                checked_hash3("MinaAcctUpdStckFrm", &fields, w)
+                checked_hash3(&MINA_ACCOUNT_UPDATE_STACK_FRAME, &fields, w)
             } else {
                 use crate::proofs::transaction::transaction_snark::checked_hash;
-                checked_hash("MinaAcctUpdStckFrm", &fields, w)
+                checked_hash(&MINA_ACCOUNT_UPDATE_STACK_FRAME, &fields, w)
             }
         }
     }
@@ -5434,10 +5427,10 @@ pub mod local_state {
         }
     }
 
-    /// NOTE: It looks like there are different instances of the polymorphic LocalEnv type
-    /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
-    /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
-    /// Maybe a better solution is to keep the LocalState name and put it under a different module
+    // NOTE: It looks like there are different instances of the polymorphic LocalEnv type
+    // One with concrete types for the stack frame, call stack, and ledger. Created from the Env
+    // And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
+    // Maybe a better solution is to keep the LocalState name and put it under a different module
     // pub type LocalStateEnv<L> = LocalStateSkeleton<
     //     L,                            // ledger
     //     StackFrame,                   // stack_frame
@@ -7279,8 +7272,8 @@ pub mod transaction_union_payload {
                 arbitrary values different from the default token-id, for this
                 we will extract the LS u64 of the token-id.
             */
-            let fee_token_id = self.common.fee_token.0.into_repr().0[0];
-            let token_id = self.body.token_id.0.into_repr().0[0];
+            let fee_token_id = self.common.fee_token.0.into_repr().to_64x4()[0];
+            let token_id = self.body.token_id.0.into_repr().to_64x4()[0];
 
             let mut roi = LegacyInput::new()
                 .append_field(self.common.fee_payer_pk.x)
@@ -7353,32 +7346,32 @@ pub mod transaction_union_payload {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_union_payload.ml#L309
-        pub fn to_input_legacy(&self) -> LegacyInput {
-            let mut roi = LegacyInput::new();
+        pub fn to_input_legacy(&self) -> ::poseidon::hash::legacy::Inputs<Fp> {
+            let mut roi = ::poseidon::hash::legacy::Inputs::new();
 
             // Self.common
             {
-                roi = roi.append_u64(self.common.fee.0);
+                roi.append_u64(self.common.fee.0);
 
                 // TokenId.default
                 // https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L19
-                roi = roi.append_bool(true);
+                roi.append_bool(true);
                 for _ in 0..63 {
-                    roi = roi.append_bool(false);
+                    roi.append_bool(false);
                 }
 
                 // fee_payer_pk
-                roi = roi.append_field(self.common.fee_payer_pk.x);
-                roi = roi.append_bool(self.common.fee_payer_pk.is_odd);
+                roi.append_field(self.common.fee_payer_pk.x);
+                roi.append_bool(self.common.fee_payer_pk.is_odd);
 
                 // nonce
-                roi = roi.append_u32(self.common.nonce.0);
+                roi.append_u32(self.common.nonce.0);
 
                 // valid_until
-                roi = roi.append_u32(self.common.valid_until.0);
+                roi.append_u32(self.common.valid_until.0);
 
                 // memo
-                roi = roi.append_bytes(&self.common.memo.0);
+                roi.append_bytes(&self.common.memo.0);
             }
 
             // Self.body
@@ -7386,25 +7379,25 @@ pub mod transaction_union_payload {
                 // tag
                 let tag = self.body.tag.clone() as u8;
                 for bit in [4, 2, 1] {
-                    roi = roi.append_bool(tag & bit != 0);
+                    roi.append_bool(tag & bit != 0);
                 }
 
                 // source_pk
-                roi = roi.append_field(self.body.source_pk.x);
-                roi = roi.append_bool(self.body.source_pk.is_odd);
+                roi.append_field(self.body.source_pk.x);
+                roi.append_bool(self.body.source_pk.is_odd);
 
                 // receiver_pk
-                roi = roi.append_field(self.body.receiver_pk.x);
-                roi = roi.append_bool(self.body.receiver_pk.is_odd);
+                roi.append_field(self.body.receiver_pk.x);
+                roi.append_bool(self.body.receiver_pk.is_odd);
 
                 // default token_id
-                roi = roi.append_u64(1);
+                roi.append_u64(1);
 
                 // amount
-                roi = roi.append_u64(self.body.amount.0);
+                roi.append_u64(self.body.amount.0);
 
                 // token_locked
-                roi = roi.append_bool(false);
+                roi.append_bool(false);
             }
 
             roi
@@ -7541,35 +7534,18 @@ pub fn cons_signed_command_payload(
     command_payload: &SignedCommandPayload,
     last_receipt_chain_hash: ReceiptChainHash,
 ) -> ReceiptChainHash {
-    // Note: Not sure why the use the legacy way of hashing here
+    // Note: Not sure why they use the legacy way of hashing here
 
-    use mina_hasher::ROInput as LegacyInput;
+    use ::poseidon::hash::legacy;
 
+    let ReceiptChainHash(last_receipt_chain_hash) = last_receipt_chain_hash;
     let union = TransactionUnionPayload::of_user_command_payload(command_payload);
 
-    let inputs = union.to_input_legacy();
-    let inputs = inputs.append_field(last_receipt_chain_hash.0);
+    let mut inputs = union.to_input_legacy();
+    inputs.append_field(last_receipt_chain_hash);
+    let hash = legacy::hash_with_kimchi(&legacy::params::CODA_RECEIPT_UC, &inputs.to_fields());
 
-    use mina_hasher::{create_legacy, Hashable, Hasher, ROInput};
-
-    #[derive(Clone)]
-    struct MyInput(LegacyInput);
-
-    impl Hashable for MyInput {
-        type D = ();
-
-        fn to_roinput(&self) -> ROInput {
-            self.0.clone()
-        }
-
-        fn domain_string(_: Self::D) -> Option<String> {
-            Some(ReceiptChainHash::HASH_PREFIX.to_string())
-        }
-    }
-
-    let mut hasher = create_legacy::<MyInput>(());
-    hasher.update(&MyInput(inputs));
-    ReceiptChainHash(hasher.digest())
+    ReceiptChainHash(hash)
 }
 
 /// Returns the new `receipt_chain_hash`
@@ -7580,11 +7556,12 @@ pub fn checked_cons_signed_command_payload(
 ) -> ReceiptChainHash {
     use crate::proofs::transaction::legacy_input::CheckedLegacyInput;
     use crate::proofs::transaction::transaction_snark::checked_legacy_hash;
+    use ::poseidon::hash::legacy;
 
     let mut inputs = payload.to_checked_legacy_input_owned(w);
     inputs.append_field(last_receipt_chain_hash.0);
 
-    let receipt_chain_hash = checked_legacy_hash(ReceiptChainHash::HASH_PREFIX, inputs, w);
+    let receipt_chain_hash = checked_legacy_hash(&legacy::params::CODA_RECEIPT_UC, inputs, w);
 
     ReceiptChainHash(receipt_chain_hash)
 }
@@ -7605,10 +7582,7 @@ pub fn cons_zkapp_command_commitment(
     inputs.append_field(x.0);
     inputs.append(receipt_hash);
 
-    ReceiptChainHash(hash_with_kimchi(
-        ReceiptChainHash::HASH_PREFIX,
-        &inputs.to_fields(),
-    ))
+    ReceiptChainHash(hash_with_kimchi(&CODA_RECEIPT_UC, &inputs.to_fields()))
 }
 
 fn validate_nonces(txn_nonce: Nonce, account_nonce: Nonce) -> Result<(), String> {

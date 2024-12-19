@@ -126,7 +126,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     visit_dirs(&node_dir, &mut |file| {
         let mut path = file.path();
-        let path_str = path.to_str().unwrap();
+        let path_str = path.to_str().expect("path");
         if !path_str.ends_with("_actions.rs") && !path_str.ends_with("action.rs") {
             return;
         }
@@ -156,7 +156,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     if let Some(action_name) = matches.get(2) {
                         let action_name = action_name.as_str().to_owned();
                         // Without 'Action' suffix
-                        let action_name_base = action_name[..(action_name.len() - 6)].to_string();
+                        let action_name_base =
+                            action_name[..(action_name.len().saturating_sub(6))].to_string();
                         let mut variant_lines = vec![];
                         loop {
                             let Some(line) = lines.next() else { break };
@@ -252,10 +253,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|(k, v)| {
             let mut s = "use crate::".to_owned();
             if !k.is_empty() {
-                s += &k.join("::");
-                s += "::";
+                s.push_str(&format!("{}::", k.join("::")));
             }
-            s += &format!("{{{}}};", v.join(", "));
+            s.push_str(&format!("{{{}}};", v.join(", ")));
             s
         })
         .collect::<Vec<_>>()
@@ -268,8 +268,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             if meta.is_inlined() {
                 meta.action_kinds()
             } else {
-                // Remove suffix `Action` from action name.
-                vec![name[..(name.len() - 6)].to_string()]
+                vec![name[..name.len().saturating_sub(6)].to_string()]
             }
         });
     let action_kinds = std::iter::once("None".to_owned())
@@ -304,7 +303,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         while let Some(action_name) = queue.pop_front() {
             let fn_body = match actions.get(dbg!(&action_name)).unwrap() {
                 ActionMeta::Struct => {
-                    let action_kind = &action_name[..(action_name.len() - 6)];
+                    let action_kind = &action_name[..(action_name.len().saturating_sub(6))];
                     format!("ActionKind::{action_kind}")
                 }
                 ActionMeta::Enum(variants) => {

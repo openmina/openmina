@@ -1,0 +1,14 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="fx-row-vert-cent f-600 flex-between pr-10 secondary">
+    <span class="border-rad-4 mr-5">
+      <span [style.width.%]="row.coverage"></span>
+    </span>
+    <span style="align-self: flex-end">{{ row.coverage }} %</span>
+  </span>
+  <span class="secondary">
+    <mina-copy [value]="row.path"></mina-copy>
+  </span>
+</ng-template>
+

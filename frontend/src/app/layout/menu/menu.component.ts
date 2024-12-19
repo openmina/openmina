@@ -6,7 +6,8 @@ import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { AppActions } from '@app/app.actions';
 import {
-  getMergedRoute,
+  getMergedRoute, isDesktop,
+  isMobile,
   ManualDetection,
   MergedRoute,
   removeParamsFromURL,
@@ -15,17 +16,21 @@ import {
   TooltipPosition,
 } from '@openmina/shared';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
-import { filter, map, tap } from 'rxjs';
+import { filter, map, merge, take, tap } from 'rxjs';
 import { CONFIG, getAvailableFeatures } from '@shared/constants/config';
 import { MinaNetwork } from '@shared/types/core/mina/mina.type';
+import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
+import { Overlay, OverlayRef } from '@angular/cdk/overlay';
+import { ComponentPortal } from '@angular/cdk/portal';
+import { EnvBuildModalComponent } from '@app/layout/env-build-modal/env-build-modal.component';
 
-interface MenuItem {
+export interface MenuItem {
   name: string;
   icon: string;
   tooltip?: string;
 }
 
-const MENU_ITEMS: MenuItem[] = [
+export const MENU_ITEMS: MenuItem[] = [
   { name: 'Dashboard', icon: 'dashboard' },
   { name: 'Block Production', icon: 'library_add' },
   { name: 'Nodes', icon: 'margin' },
@@ -35,6 +40,7 @@ const MENU_ITEMS: MenuItem[] = [
   { name: 'State', icon: 'code_blocks' },
   { name: 'SNARKs', icon: 'assignment_turned_in' },
   { name: 'Benchmarks', icon: 'dynamic_form' },
+  { name: 'Fuzzing', icon: 'shuffle' },
 ];
 
 @UntilDestroy()
@@ -53,18 +59,25 @@ export class MenuComponent extends ManualDetection implements OnInit {
   menu: AppMenu;
   currentTheme: ThemeType;
   appIdentifier: string = CONFIG.identifier;
+  hideNodeStats: boolean = CONFIG.hideNodeStats;
   activeNode: MinaNode;
   activeRoute: string;
   network?: MinaNetwork;
   chainId?: string;
+  envBuild: AppEnvBuild;
 
-  constructor(private store: Store<MinaState>,
+  private overlayRef: OverlayRef;
+
+  constructor(private overlay: Overlay,
+              private store: Store<MinaState>,
               private themeService: ThemeSwitcherService) { super(); }
 
   ngOnInit(): void {
     this.currentTheme = this.themeService.activeTheme;
     this.listenToCollapsingMenu();
     this.listenToActiveNodeChange();
+    this.listenToEnvBuild();
+
     let lastUrl: string;
     this.store.select(getMergedRoute)
       .pipe(
@@ -118,6 +131,18 @@ export class MenuComponent extends ManualDetection implements OnInit {
       });
   }
 
+  private listenToEnvBuild(): void {
+    this.store.select(AppSelectors.envBuild)
+      .pipe(
+        filter(Boolean),
+        untilDestroyed(this),
+      )
+      .subscribe((env: AppEnvBuild | undefined) => {
+        this.envBuild = env;
+        this.detect();
+      });
+  }
+
   private get allowedMenuItems(): MenuItem[] {
     const features = getAvailableFeatures(this.activeNode || { features: {} } as any);
     return MENU_ITEMS.filter((opt: MenuItem) => features.find(f => f === opt.name.toLowerCase().split(' ').join('-')));
@@ -139,5 +164,29 @@ export class MenuComponent extends ManualDetection implements OnInit {
 
   collapseMenu(): void {
     this.store.dispatch(AppActions.changeMenuCollapsing({ isCollapsing: !this.menu.collapsed }));
+  }
+
+  openEnvBuildModal(): void {
+    this.overlayRef = this.overlay.create({
+      hasBackdrop: true,
+      backdropClass: 'openmina-backdrop',
+      width: '99%',
+      height: '99%',
+      maxWidth: 600,
+      maxHeight: 460,
+      positionStrategy: this.overlay.position().global().centerVertically().centerHorizontally(),
+    });
+
+    const portal = new ComponentPortal(EnvBuildModalComponent);
+    const component = this.overlayRef.attach<EnvBuildModalComponent>(portal);
+    component.instance.envBuild = this.envBuild;
+    component.instance.detect();
+
+    merge(
+      component.instance.close,
+      this.overlayRef.backdropClick(),
+    )
+      .pipe(take(1))
+      .subscribe(() => this.overlayRef.dispose());
   }
 }

@@ -3,7 +3,7 @@ use ark_ff::PrimeField;
 use ledger::AccountIndex;
 use message::VrfMessage;
 use mina_p2p_messages::v2::EpochSeed;
-use num::{BigInt, ToPrimitive};
+use num::{rational::Ratio, BigInt, ToPrimitive};
 use openmina_node_account::AccountPublicKey;
 use output::VrfOutput;
 use serde::{Deserialize, Serialize};
@@ -52,6 +52,17 @@ pub enum VrfError {
     IvalidWitness,
 }
 
+/// 256 bits
+pub(crate) type BigInt256 = BigInt<4>;
+
+/// 2048 bits
+pub(crate) type BigInt2048 = BigInt<32>;
+pub(crate) type BigRational2048 = Ratio<BigInt2048>;
+
+/// 4096 bits
+pub(crate) type BigInt4096 = BigInt<64>;
+pub(crate) type BigRational4096 = Ratio<BigInt4096>;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VrfWonSlot {
     pub producer: AccountPublicKey,
@@ -79,35 +90,13 @@ impl VrfEvaluationOutput {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct VrfEvaluationInput {
-    producer_key: Keypair,
-    global_slot: u32,
-    epoch_seed: EpochSeed,
-    account_pub_key: AccountPublicKey,
-    delegator_index: AccountIndex,
-    delegated_stake: BigInt,
-    total_currency: BigInt,
-}
-
-impl VrfEvaluationInput {
-    pub fn new(
-        producer_key: Keypair,
-        epoch_seed: EpochSeed,
-        account_pub_key: AccountPublicKey,
-        global_slot: u32,
-        delegator_index: AccountIndex,
-        delegated_stake: BigInt,
-        total_currency: BigInt,
-    ) -> Self {
-        Self {
-            producer_key,
-            global_slot,
-            epoch_seed,
-            delegator_index,
-            delegated_stake,
-            total_currency,
-            account_pub_key,
-        }
-    }
+    pub producer_key: Keypair,
+    pub global_slot: u32,
+    pub epoch_seed: EpochSeed,
+    pub account_pub_key: AccountPublicKey,
+    pub delegator_index: AccountIndex,
+    pub delegated_stake: BigInt,
+    pub total_currency: BigInt,
 }
 
 /// Generates the VRF output for the genesis block

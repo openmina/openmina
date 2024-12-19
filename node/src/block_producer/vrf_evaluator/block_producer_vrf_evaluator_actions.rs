@@ -78,6 +78,7 @@ pub enum BlockProducerVrfEvaluatorAction {
     #[action_event(level = info, fields(current_global_slot, best_tip_height))]
     SelectInitialSlot {
         current_global_slot: u32,
+        current_slot: u32,
         best_tip_slot: u32,
         best_tip_global_slot: u32,
         best_tip_epoch: u32,
@@ -85,11 +86,12 @@ pub enum BlockProducerVrfEvaluatorAction {
         next_epoch_first_slot: u32,
     },
     /// Starting epoch evaluation.
-    #[action_event(level = info, fields(best_tip_epoch, best_tip_slot, best_tip_global_slot))]
+    #[action_event(level = info, fields(evaluation_epoch, best_tip_epoch, best_tip_slot, best_tip_global_slot))]
     BeginEpochEvaluation {
         best_tip_slot: u32,
         best_tip_global_slot: u32,
         best_tip_epoch: u32,
+        evaluation_epoch: u32,
         staking_epoch_data: EpochData,
         latest_evaluated_global_slot: u32,
     },
@@ -133,7 +135,11 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             } => state.block_producer.with(false, |this| {
                 if this.vrf_evaluator.is_slot_requested() {
                     if let Some(current_evaluation) = this.vrf_evaluator.current_evaluation() {
-                        current_evaluation.latest_evaluated_slot + 1 == vrf_output.global_slot()
+                        current_evaluation
+                            .latest_evaluated_slot
+                            .checked_add(1)
+                            .expect("overflow")
+                            == vrf_output.global_slot()
                             && current_evaluation.epoch_data.ledger == *staking_ledger_hash
                     } else {
                         false

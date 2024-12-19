@@ -14,7 +14,6 @@ impl SnarkBlockVerifyEffectfulAction {
                 block,
                 verifier_index,
                 verifier_srs,
-                ..
             } => {
                 store
                     .service()

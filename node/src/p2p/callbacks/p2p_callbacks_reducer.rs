@@ -1,6 +1,6 @@
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
-use openmina_core::{block::BlockWithHash, bug_condition};
+use openmina_core::{block::BlockWithHash, bug_condition, transaction::TransactionWithHash};
 use p2p::{
     channels::{
         best_tip::P2pChannelsBestTipAction,
@@ -15,6 +15,7 @@ use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 use crate::{
     p2p_ready,
     snark_pool::candidate::SnarkPoolCandidateAction,
+    transaction_pool::candidate::TransactionPoolCandidateAction,
     transition_frontier::sync::{
         ledger::{
             snarked::{
@@ -32,6 +33,14 @@ use crate::{
 };
 
 use super::P2pCallbacksAction;
+
+fn get_rpc_request<'a>(state: &'a State, peer_id: &PeerId) -> Option<&'a P2pRpcRequest> {
+    state
+        .p2p
+        .get_ready_peer(peer_id)
+        .and_then(|s| s.channels.rpc.local_responded_request())
+        .map(|(_, req)| req)
+}
 
 impl crate::State {
     pub fn p2p_callback_reducer(
@@ -74,6 +83,13 @@ impl crate::State {
                 };
 
                 dispatcher.push(
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
+                        peer_id,
+                        rpc_id,
+                        error: PeerLedgerQueryError::Timeout,
+                    },
+                );
+                dispatcher.push(
                     TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
                         peer_id,
                         rpc_id,
@@ -102,7 +118,10 @@ impl crate::State {
                 id,
                 response,
             } => {
-                State::handle_rpc_channels_response(dispatcher, meta, *id, *peer_id, response);
+                let request = || get_rpc_request(state, peer_id);
+                State::handle_rpc_channels_response(
+                    dispatcher, meta, *id, *peer_id, request, response,
+                );
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
                 dispatcher.push(TransitionFrontierSyncAction::BlocksPeersQuery);
@@ -257,6 +276,7 @@ impl crate::State {
                     })
                     .for_each(|action| dispatcher.push(action));
 
+                dispatcher.push(TransactionPoolCandidateAction::PeerPrune { peer_id });
                 dispatcher.push(SnarkPoolCandidateAction::PeerPrune { peer_id });
             }
             P2pCallbacksAction::RpcRespondBestTip { peer_id } => {
@@ -332,6 +352,20 @@ impl crate::State {
                 // async ledger request will be triggered
                 // by `LedgerReadAction::FindTodos`.
             }
+            P2pRpcRequest::Transaction(hash) => {
+                let tx = state.transaction_pool.get(&hash);
+                let response = tx
+                    .map(|v| v.forget_check())
+                    .map(|tx| (&tx).into())
+                    .map(P2pRpcResponse::Transaction)
+                    .map(Box::new);
+
+                dispatcher.push(P2pChannelsRpcAction::ResponseSend {
+                    peer_id,
+                    id,
+                    response,
+                });
+            }
             P2pRpcRequest::Snark(job_id) => {
                 let job = state.snark_pool.get(&job_id);
                 let response = job
@@ -364,15 +398,39 @@ impl crate::State {
         }
     }
 
-    fn handle_rpc_channels_response(
+    fn handle_rpc_channels_response<'a>(
         dispatcher: &mut Dispatcher<Action, State>,
         meta: ActionMeta,
         id: u64,
         peer_id: PeerId,
+        request: impl FnOnce() -> Option<&'a P2pRpcRequest>,
         response: &Option<Box<P2pRpcResponse>>,
     ) {
         match response.as_deref() {
             None => {
+                match request() {
+                    Some(P2pRpcRequest::Transaction(hash)) => {
+                        let hash = hash.clone();
+                        dispatcher
+                            .push(TransactionPoolCandidateAction::FetchError { peer_id, hash });
+                        return;
+                    }
+                    Some(P2pRpcRequest::Snark(job_id)) => {
+                        let job_id = job_id.clone();
+                        dispatcher
+                            .push(SnarkPoolCandidateAction::WorkFetchError { peer_id, job_id });
+                        return;
+                    }
+                    _ => {}
+                }
+
+                dispatcher.push(
+                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
+                        peer_id,
+                        rpc_id: id,
+                        error: PeerLedgerQueryError::DataUnavailable,
+                    },
+                );
                 dispatcher.push(
                     TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
                         peer_id,
@@ -495,8 +553,19 @@ impl crate::State {
                     response: block,
                 });
             }
+            Some(P2pRpcResponse::Transaction(transaction)) => {
+                match TransactionWithHash::try_new(transaction.clone()) {
+                    Err(err) => bug_condition!("tx hashing failed: {err}"),
+                    Ok(transaction) => {
+                        dispatcher.push(TransactionPoolCandidateAction::FetchSuccess {
+                            peer_id,
+                            transaction,
+                        })
+                    }
+                }
+            }
             Some(P2pRpcResponse::Snark(snark)) => {
-                dispatcher.push(SnarkPoolCandidateAction::WorkReceived {
+                dispatcher.push(SnarkPoolCandidateAction::WorkFetchSuccess {
                     peer_id,
                     work: snark.clone(),
                 });

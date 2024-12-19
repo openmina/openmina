@@ -4,6 +4,89 @@
   background-color: $base-background;
 }
 
-div {
+.comps {
   gap: 8px;
+  padding-right: 8px;
+}
+
+mina-dashboard-network {
+  max-width: 384px;
+}
+
+mina-dashboard-ledger {
+  width: 100%;
+  max-width: 384px;
+  min-width: 250px;
+}
+
+mina-dashboard-blocks-sync {
+  width: 100%;
+  max-width: 644px;
+}
+
+@media (max-width: 767px) {
+  mina-dashboard-network,
+  mina-dashboard-ledger,
+  mina-dashboard-blocks-sync {
+    max-width: 100%;
+  }
+}
+
+.header {
+  transition: height .6s ease-in, opacity .4s .4s ease-in;
+
+  &.hide {
+    height: 0 !important;
+    opacity: 0;
+  }
+
+  @media (max-width: 767px) {
+    &.hide {
+      height: 8px !important;
+    }
+    .primary {
+      padding-left: 4px;
+    }
+  }
+}
+
+.progress-bar {
+  overflow: hidden;
+  height: 4px;
+  left: 0;
+  top: -2px;
+  transition: width 0.6s ease-in-out;
+  min-width: 20px;
+
+  .highlight {
+    height: 4px;
+    top: 1px;
+    left: -50px;
+    width: 50px;
+    background: radial-gradient($success-primary, $success-primary, $success-primary, $success-primary, transparent, transparent);
+    border-radius: 20px;
+    animation: move 9s linear infinite;
+  }
+
+  .progress {
+    height: 2px;
+    background-color: $success-primary;
+    top: 2px;
+    left: 0;
+  }
+}
+
+@keyframes move {
+  0% {
+    left: -50px;
+  }
+  10% {
+    left: -50px;
+  }
+  80% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
 }

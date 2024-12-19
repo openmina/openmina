@@ -11,7 +11,7 @@ import {
   ZkappCommand,
 } from '@shared/types/mempool/mempool-transaction.type';
 import { decodeMemo, getTimeFromMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
-import { ONE_BILLION } from '@openmina/shared';
+import { getLocalStorage, ONE_BILLION } from '@openmina/shared';
 import { MempoolTransactionResponseKind } from '@app/features/mempool/mempool.service';
 
 export const WALLETS: { privateKey: string, publicKey: string }[] = [
@@ -4029,8 +4029,8 @@ export class BenchmarksWalletsService {
   private client: Client = new Client({ network: 'testnet' });
 
   constructor(private rust: RustService) {
-    if (!localStorage.getItem('browserId')) {
-      localStorage.setItem('browserId', Math.floor(Math.random() * 999999999).toString());
+    if (!getLocalStorage()?.getItem('browserId')) {
+      getLocalStorage()?.setItem('browserId', Math.floor(Math.random() * 999999999).toString());
     }
   }
 
@@ -4120,7 +4120,7 @@ export class BenchmarksWalletsService {
               memo: removeUnicodeEscapes(memo),
               transactionData: tx,
               sentFromStressingTool: memo.includes('S.T.'),
-              sentByMyBrowser: memo.includes(localStorage.getItem('browserId')),
+              sentByMyBrowser: memo.includes(getLocalStorage()?.getItem('browserId')),
             } as MempoolTransaction;
           case MempoolTransactionResponseKind.ZkappCommand:
             const zkTx = command as ZkappCommand;
@@ -4133,7 +4133,7 @@ export class BenchmarksWalletsService {
               memo: removeUnicodeEscapes(zkMemo),
               transactionData: zkTx,
               sentFromStressingTool: zkMemo.includes('S.T.'),
-              sentByMyBrowser: zkMemo.includes(localStorage.getItem('browserId')),
+              sentByMyBrowser: zkMemo.includes(getLocalStorage()?.getItem('browserId')),
             } as MempoolTransaction;
         }
 

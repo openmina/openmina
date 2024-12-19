@@ -1,6 +1,11 @@
+pub mod distributed_pool;
 pub mod invariants;
 pub mod log;
 pub mod requests;
+
+// TODO(binier): refactor
+#[cfg(target_family = "wasm")]
+pub mod http;
 
 pub mod channels;
 pub mod thread;
@@ -23,6 +28,9 @@ pub use network::NetworkConfig;
 mod chain_id;
 pub use chain_id::*;
 
+pub mod encrypted_key;
+pub use encrypted_key::*;
+
 mod work_dir {
     use once_cell::sync::OnceCell;
     use std::path::PathBuf;
@@ -43,6 +51,12 @@ mod work_dir {
 }
 
 pub use work_dir::{get_debug_dir, get_work_dir, set_work_dir};
+
+use rand::prelude::*;
+#[inline(always)]
+pub fn pseudo_rng(time: redux::Timestamp) -> StdRng {
+    StdRng::seed_from_u64(time.into())
+}
 
 pub fn preshared_key(chain_id: &ChainId) -> [u8; 32] {
     use multihash::Hasher;

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     external_snark_worker::{ExternalSnarkWorker, SnarkWorkId},
     p2p::connection::P2pConnectionResponse,
@@ -14,7 +12,7 @@ use ledger::{
     scan_state::transaction_logic::{valid::UserCommand, zkapp_command::WithHash},
     Account,
 };
-use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
+use mina_p2p_messages::v2::{self, MinaBaseUserCommandStableV2};
 use openmina_core::{
     consensus::ConsensusConstants, requests::RpcId, snark::SnarkJobId, ActionEvent,
 };
@@ -111,7 +109,7 @@ pub enum RpcEffectfulAction {
     },
     TransactionPool {
         rpc_id: RpcId,
-        response: Vec<WithHash<UserCommand, Arc<[u8; 32]>>>,
+        response: Vec<WithHash<UserCommand, v2::TransactionHash>>,
     },
     LedgerAccountsGetSuccess {
         rpc_id: RpcId,

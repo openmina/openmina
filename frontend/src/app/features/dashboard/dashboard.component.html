@@ -1,4 +1,18 @@
-<div class="flex-row flex-column-lg pl-12 pr-12 w-100 h-100 overflow-auto pb-12">
+<div class="header h-lg fx-row-vert-cent p-relative"
+     [class.hide]="connectedProgress + ledgerProgress + blockSyncProgress === 100">
+  <div [style.width.%]="connectedProgress + ledgerProgress + blockSyncProgress"
+       class="progress-bar p-absolute">
+    @if (connectedProgress + ledgerProgress + blockSyncProgress < 100) {
+      <div class="highlight p-absolute"></div>
+    }
+    <div class="progress p-absolute w-100"></div>
+  </div>
+  <div class="primary">
+    {{ updateAction }}<span class="tertiary">{{ updateDetail }}</span>
+  </div>
+</div>
+<div class="comps flex-row flex-column-lg w-100 flex-grow overflow-auto pb-12">
   <mina-dashboard-network></mina-dashboard-network>
-  <mina-dashboard-transition-frontier></mina-dashboard-transition-frontier>
+  <mina-dashboard-ledger></mina-dashboard-ledger>
+  <mina-dashboard-blocks-sync class="flex-1 flex-column"></mina-dashboard-blocks-sync>
 </div>

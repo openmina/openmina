@@ -74,6 +74,10 @@ impl P2pServiceWebrtcWithLibp2p for ClusterService {
     fn mio(&mut self) -> &mut p2p::service_impl::mio::MioService {
         &mut self.mio
     }
+
+    fn connections(&self) -> std::collections::BTreeSet<p2p::PeerId> {
+        Default::default()
+    }
 }
 
 impl P2pServiceWebrtc for ClusterService {
@@ -104,7 +108,7 @@ impl P2pServiceWebrtc for ClusterService {
         &mut self,
         _other_pk: &p2p::identity::PublicKey,
         _message: &T,
-    ) -> Result<T::Encrypted, ()> {
+    ) -> Result<T::Encrypted, Box<dyn std::error::Error>> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
 
@@ -112,7 +116,7 @@ impl P2pServiceWebrtc for ClusterService {
         &mut self,
         _other_pub_key: &p2p::identity::PublicKey,
         _encrypted: &T::Encrypted,
-    ) -> Result<T, ()> {
+    ) -> Result<T, Box<dyn std::error::Error>> {
         unreachable!("this is webrtc only and this crate tests libp2p only")
     }
 

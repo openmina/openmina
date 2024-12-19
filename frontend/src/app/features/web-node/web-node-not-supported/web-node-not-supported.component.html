@@ -1,0 +1,50 @@
+<div class="header border-bottom fx-row-full-cent">
+  <img class="mina-svg" src="assets/images/logo/text-logo-text.svg" height="40" width="346"/>
+</div>
+@if (isPhone) {
+  <div class="phone-content flex-column align-center flex-center">
+    <div class="ios fx-col-full-cent bg-warn-container f-400 warn-primary" (click)="addDevKey2()">iOS</div>
+    <div class="ios-box w-100 fx-col-vert-cent text-center">
+      <div class="headline">Your iOS {{ iOSVersion ?? '' }} isn't supported</div>
+      <div class="sub-headline tertiary">
+        To use the Web Node please update your device to the latest iOS version.
+      </div>
+    </div>
+
+    <button class="learn-btn w-100 f-600 f-14 h-xl fx-col-full-cent" (click)="howToUpdate()">Learn how to update</button>
+  </div>
+} @else {
+  <div class="browser-content flex-column flex-center text-center">
+    <div class="w-100 fx-col-vert-cent">
+      <div class="headline mb-16">Your browser isn't supported</div>
+      <div class="sub-headline tertiary">
+        <div>To run a Mina node in your browser,</div>
+        <div>we recommend one of the following.</div>
+      </div>
+    </div>
+
+    <div class="browser w-100 fx-col-vert-cent sub-headline">
+      <div class="img-wrapper flex-row align-center w-100 flex-between">
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/chrome.svg" alt="" class="mb-8" (click)="addDevKey(1)">
+          Chrome
+        </div>
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/safari.svg" alt="" class="mb-8" (click)="addDevKey(2)">
+          Safari
+        </div>
+        <div class="fx-col-full-cent tertiary">
+          <img src="assets/images/web-node-demo/edge.svg" alt="" class="mb-8" (click)="addDevKey(3)">
+          Edge
+        </div>
+      </div>
+    </div>
+  </div>
+}
+@if (devMode) {
+  <div>You entered Dev mode!</div>
+  <div class="fx-row-vert-cent mt-10 mb-10">
+    <input type="password" placeholder="Password" class="mina-input mr-10 border-rad-8 h-xl p-12" #inp (keyup.enter)="c_hcK1_V_a_l_id(inp)">
+    <button class="bg-aware-container h-xl p-10 primary" (click)="c_hcK1_V_a_l_id(inp)">Run Web Node</button>
+  </div>
+}

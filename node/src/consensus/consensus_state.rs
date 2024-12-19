@@ -44,6 +44,7 @@ pub enum ConsensusBlockStatus {
     Received {
         time: redux::Timestamp,
     },
+    Prevalidated,
     SnarkVerifyPending {
         time: redux::Timestamp,
         req_id: SnarkBlockVerifyId,
@@ -71,6 +72,10 @@ pub enum ConsensusBlockStatus {
 impl ConsensusBlockStatus {
     pub fn is_received(&self) -> bool {
         matches!(self, Self::Received { .. })
+    }
+
+    pub fn is_prevalidated(&self) -> bool {
+        matches!(self, Self::Prevalidated)
     }
 
     pub fn is_snark_verify_pending(&self) -> bool {
@@ -167,6 +172,7 @@ impl ConsensusState {
         };
         match &candidate.status {
             ConsensusBlockStatus::Received { .. } => false,
+            ConsensusBlockStatus::Prevalidated => false,
             ConsensusBlockStatus::SnarkVerifyPending { .. } => false,
             ConsensusBlockStatus::SnarkVerifySuccess { .. } => false,
             ConsensusBlockStatus::ForkRangeDetected { .. } => false,
@@ -218,7 +224,7 @@ pub struct BlockRef<'a> {
     pub status: &'a ConsensusBlockStatus,
 }
 
-impl<'a> BlockRef<'a> {
+impl BlockRef<'_> {
     pub fn height(&self) -> u32 {
         self.header
             .protocol_state

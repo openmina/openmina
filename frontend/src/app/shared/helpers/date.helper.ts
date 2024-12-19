@@ -6,7 +6,7 @@ import { ONE_THOUSAND } from '@openmina/shared';
  * @param time
  * @param config - withSecs: boolean, fromTime: number
  */
-export function getTimeDiff(time: number, config?: { withSecs: boolean, fromTime?: number }): {
+export function getTimeDiff(time: number, config?: { withSecs?: boolean, only1unit?: boolean, fromTime?: number }): {
   diff: string,
   inFuture: boolean
 } {
@@ -36,6 +36,36 @@ export function getTimeDiff(time: number, config?: { withSecs: boolean, fromTime
   const seconds = Math.floor(timeDifference / 1000);
 
   let timeAgo = '';
+
+  if (config?.only1unit) {
+    if (days > 0) {
+      if (hours >= 12) {
+        timeAgo += `<${days + 1}d `;
+      } else {
+        timeAgo += `~${days}d `;
+      }
+    } else if (hours > 0) {
+      if (minutes >= 30) {
+        timeAgo += `<${hours + 1}h `;
+      } else {
+        timeAgo += `~${hours}h `;
+      }
+    } else if (minutes > 0) {
+      if (seconds >= 30) {
+        timeAgo += `<${minutes + 1}m `;
+      } else {
+        timeAgo += `~${minutes}m `;
+      }
+    } else {
+      if (config?.withSecs) {
+        timeAgo += `${seconds}s `;
+      } else {
+        timeAgo = '<1m ';
+      }
+    }
+    return { diff: timeAgo.trim(), inFuture };
+  }
+
   if (days > 0) {
     timeAgo += `${days}d `;
   }
@@ -56,4 +86,15 @@ export function getTimeDiff(time: number, config?: { withSecs: boolean, fromTime
   }
 
   return { diff: timeAgo.trim(), inFuture };
+}
+
+export function getElapsedTime(timeInSeconds: number): string {
+  if (timeInSeconds < 60) {
+    return `${timeInSeconds}s`;
+  }
+
+  const minutes = Math.floor(timeInSeconds / 60);
+  const seconds = timeInSeconds % 60;
+
+  return `${minutes}m ${seconds}s`;
 }

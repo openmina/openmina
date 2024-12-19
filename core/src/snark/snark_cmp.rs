@@ -11,13 +11,13 @@ pub struct SnarkCmp<'a> {
     pub prover: &'a NonZeroCurvePoint,
 }
 
-impl<'a> SnarkCmp<'a> {
+impl SnarkCmp<'_> {
     pub fn tie_breaker_hash(&self) -> [u8; 32] {
         super::tie_breaker_hash(&self.job_id, self.prover)
     }
 }
 
-impl<'a> Ord for SnarkCmp<'a> {
+impl Ord for SnarkCmp<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.job_id
             .cmp(&other.job_id)
@@ -26,7 +26,7 @@ impl<'a> Ord for SnarkCmp<'a> {
     }
 }
 
-impl<'a> PartialOrd for SnarkCmp<'a> {
+impl PartialOrd for SnarkCmp<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }

@@ -1,6 +1,6 @@
 use super::{stream::P2pNetworkIdentifyStreamState, P2pNetworkIdentifyAction};
 use crate::P2pLimits;
-use openmina_core::{Substate, SubstateAccess};
+use openmina_core::Substate;
 use redux::ActionWithMeta;
 
 impl super::P2pNetworkIdentifyState {
@@ -10,7 +10,7 @@ impl super::P2pNetworkIdentifyState {
         limits: &P2pLimits,
     ) -> Result<(), String>
     where
-        State: SubstateAccess<Self>,
+        State: crate::P2pStateTrait,
         Action: crate::P2pActionTrait<State>,
     {
         let (action, meta) = action.split();

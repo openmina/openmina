@@ -32,7 +32,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
-            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_889607b9.json".to_owned()),
             block_producer: None,
         };
 
@@ -67,7 +67,6 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         eprintln!("OCaml nodes should be ready now");
 
         let config = RustNodeTestingConfig::devnet_default()
-            .ask_initial_peers_interval(Duration::from_secs(3600))
             //.with_daemon_json("genesis_ledgers/devnet-full.json")
             .max_peers(100)
             .initial_peers(

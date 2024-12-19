@@ -1,9 +1,10 @@
 use mina_hasher::Fp;
 
-use crate::{
-    hash::{hash_with_kimchi, Inputs},
-    proofs::block::ProtocolState,
-    ToInputs,
+use crate::{proofs::block::ProtocolState, ToInputs};
+use poseidon::hash::{
+    hash_with_kimchi,
+    params::{MINA_PROTO_STATE, MINA_PROTO_STATE_BODY},
+    Inputs,
 };
 
 pub trait MinaHash {
@@ -12,7 +13,7 @@ pub trait MinaHash {
 
 impl MinaHash for crate::proofs::block::ProtocolStateBody {
     fn hash(&self) -> Fp {
-        self.hash_with_param("MinaProtoStateBody")
+        self.hash_with_param(&MINA_PROTO_STATE_BODY)
     }
 }
 
@@ -22,7 +23,7 @@ pub fn hashes_abstract(previous_state_hash: Fp, body_hash: Fp) -> Fp {
     inputs.append_field(previous_state_hash);
     inputs.append_field(body_hash);
 
-    hash_with_kimchi("MinaProtoState", &inputs.to_fields())
+    hash_with_kimchi(&MINA_PROTO_STATE, &inputs.to_fields())
 }
 
 impl ProtocolState {

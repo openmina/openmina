@@ -9,14 +9,8 @@ impl SnarkUserCommandVerifyEffectfulAction {
         Store::Service: SnarkUserCommandVerifyService,
     {
         match self {
-            Self::Init {
-                req_id, commands, ..
-            } => {
-                let verifier_index = store.state().work_verify.verifier_index.clone();
-                let verifier_srs = store.state().work_verify.verifier_srs.clone();
-                store
-                    .service()
-                    .verify_init(req_id, verifier_index, verifier_srs, commands);
+            SnarkUserCommandVerifyEffectfulAction::Init { req_id, commands } => {
+                store.service().verify_init(req_id, commands);
             }
         }
     }

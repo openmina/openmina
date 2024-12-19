@@ -3,13 +3,10 @@ use redux::ActionMeta;
 
 use crate::{
     connection::{
-        outgoing::{
-            P2pConnectionOutgoingAction, P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts,
-            P2pConnectionOutgoingState,
-        },
-        P2pConnectionService, P2pConnectionState,
+        outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingError},
+        P2pConnectionService,
     },
-    webrtc, P2pPeerStatus,
+    webrtc,
 };
 
 use super::P2pConnectionOutgoingEffectfulAction;
@@ -21,8 +18,7 @@ impl P2pConnectionOutgoingEffectfulAction {
         Store::Service: P2pConnectionService,
     {
         match self {
-            P2pConnectionOutgoingEffectfulAction::RandomInit => {
-                let peers = store.state().disconnected_peers().collect::<Vec<_>>();
+            P2pConnectionOutgoingEffectfulAction::RandomInit { peers } => {
                 let picked_peer = store.service().random_pick(&peers);
                 if let Some(picked_peer) = picked_peer {
                     store.dispatch(P2pConnectionOutgoingAction::Reconnect {
@@ -38,28 +34,19 @@ impl P2pConnectionOutgoingEffectfulAction {
                 store.service().outgoing_init(opts);
                 store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id });
             }
-            P2pConnectionOutgoingEffectfulAction::OfferSend { peer_id, offer } => {
-                let (state, service) = store.state_and_service();
-                let Some(peer) = state.peers.get(&peer_id) else {
-                    return;
-                };
-                let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
-                    P2pConnectionOutgoingState::OfferReady { opts, .. },
-                )) = &peer.status
-                else {
-                    return;
-                };
-                let signaling_method = match opts {
-                    P2pConnectionOutgoingInitOpts::WebRTC { signaling, .. } => signaling,
-                    #[allow(unreachable_patterns)]
-                    _ => return,
-                };
+            P2pConnectionOutgoingEffectfulAction::OfferSend {
+                peer_id,
+                offer,
+                signaling_method,
+            } => {
                 match signaling_method {
-                    webrtc::SignalingMethod::Http(_) | webrtc::SignalingMethod::Https(_) => {
+                    webrtc::SignalingMethod::Http(_)
+                    | webrtc::SignalingMethod::Https(_)
+                    | webrtc::SignalingMethod::HttpsProxy(_, _) => {
                         let Some(url) = signaling_method.http_url() else {
                             return;
                         };
-                        service.http_signaling_request(url, *offer);
+                        store.service().http_signaling_request(url, *offer);
                     }
                     webrtc::SignalingMethod::P2p { .. } => {
                         bug_condition!("`P2pConnectionOutgoingEffectfulAction::OfferSend` shouldn't be called for `webrtc::SignalingMethod::P2p`");

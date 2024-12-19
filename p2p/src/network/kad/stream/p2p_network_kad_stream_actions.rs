@@ -7,6 +7,8 @@ use crate::{
     P2pState, PeerId, StreamId,
 };
 
+use super::P2pNetworkKademliaStreamWaitOutgoingCallback;
+
 /// Kademlia stream related actions.
 #[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
 #[action_event(fields(display(addr), display(peer_id), stream_id, incoming, debug(data)))]
@@ -44,6 +46,7 @@ pub enum P2pNetworkKademliaStreamAction {
         addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
+        callback: P2pNetworkKademliaStreamWaitOutgoingCallback,
     },
 
     /// Sends request to the stream.

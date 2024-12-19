@@ -1,28 +1,25 @@
 use openmina_core::log::ActionEvent;
+use redux::Callback;
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pState, PeerId};
+use crate::{
+    identity::PublicKey,
+    webrtc::{EncryptedAnswer, EncryptedOffer, Offer, P2pConnectionResponse},
+    P2pState, PeerId,
+};
 
 use super::{
     best_tip::P2pChannelsBestTipAction,
-    best_tip_effectful::P2pChannelsBestTipEffectfulAction,
     rpc::P2pChannelsRpcAction,
-    rpc_effectful::P2pChannelsRpcEffectfulAction,
     signaling::{
         discovery::P2pChannelsSignalingDiscoveryAction,
-        discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
         exchange::P2pChannelsSignalingExchangeAction,
-        exchange_effectful::P2pChannelsSignalingExchangeEffectfulAction,
     },
     snark::P2pChannelsSnarkAction,
-    snark_effectful::P2pChannelsSnarkEffectfulAction,
     snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-    snark_job_commitment_effectful::P2pChannelsSnarkJobCommitmentEffectfulAction,
     streaming_rpc::P2pChannelsStreamingRpcAction,
-    streaming_rpc_effectful::P2pChannelsStreamingRpcEffectfulAction,
     transaction::P2pChannelsTransactionAction,
-    transaction_effectful::P2pChannelsTransactionEffectfulAction,
-    ChannelMsg,
+    ChannelId, ChannelMsg, MsgId,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, openmina_core::ActionEvent)]
@@ -40,14 +37,36 @@ pub enum P2pChannelsAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone, openmina_core::ActionEvent)]
 pub enum P2pChannelsEffectfulAction {
-    SignalingDiscovery(P2pChannelsSignalingDiscoveryEffectfulAction),
-    SignalingExchange(P2pChannelsSignalingExchangeEffectfulAction),
-    BestTip(P2pChannelsBestTipEffectfulAction),
-    Rpc(P2pChannelsRpcEffectfulAction),
-    Snark(P2pChannelsSnarkEffectfulAction),
-    SnarkJobCommitment(P2pChannelsSnarkJobCommitmentEffectfulAction),
-    StreamingRpc(P2pChannelsStreamingRpcEffectfulAction),
-    Transaction(P2pChannelsTransactionEffectfulAction),
+    InitChannel {
+        peer_id: PeerId,
+        id: ChannelId,
+        on_success: Callback<PeerId>,
+    },
+    MessageSend {
+        peer_id: PeerId,
+        msg_id: MsgId,
+        msg: ChannelMsg,
+    },
+    SignalingDiscoveryAnswerDecrypt {
+        peer_id: PeerId,
+        pub_key: PublicKey,
+        answer: EncryptedAnswer,
+    },
+    SignalingDiscoveryOfferEncryptAndSend {
+        peer_id: PeerId,
+        pub_key: PublicKey,
+        offer: Box<Offer>,
+    },
+    SignalingExchangeOfferDecrypt {
+        peer_id: PeerId,
+        pub_key: PublicKey,
+        offer: EncryptedOffer,
+    },
+    SignalingExchangeAnswerEncryptAndSend {
+        peer_id: PeerId,
+        pub_key: PublicKey,
+        answer: Option<P2pConnectionResponse>,
+    },
 }
 
 impl P2pChannelsAction {
@@ -83,17 +102,8 @@ impl redux::EnablingCondition<crate::P2pState> for P2pChannelsAction {
 }
 
 impl redux::EnablingCondition<crate::P2pState> for P2pChannelsEffectfulAction {
-    fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
-        match self {
-            P2pChannelsEffectfulAction::SignalingDiscovery(a) => a.is_enabled(state, time),
-            P2pChannelsEffectfulAction::SignalingExchange(a) => a.is_enabled(state, time),
-            P2pChannelsEffectfulAction::BestTip(a) => a.is_enabled(state, time),
-            P2pChannelsEffectfulAction::Transaction(a) => a.is_enabled(state, time),
-            P2pChannelsEffectfulAction::StreamingRpc(a) => a.is_enabled(state, time),
-            P2pChannelsEffectfulAction::SnarkJobCommitment(a) => a.is_enabled(state, time),
-            P2pChannelsEffectfulAction::Rpc(a) => a.is_enabled(state, time),
-            P2pChannelsEffectfulAction::Snark(a) => a.is_enabled(state, time),
-        }
+    fn is_enabled(&self, _state: &crate::P2pState, _time: redux::Timestamp) -> bool {
+        true
     }
 }
 

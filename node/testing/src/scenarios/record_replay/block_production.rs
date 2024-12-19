@@ -39,7 +39,7 @@ impl RecordReplayBlockProduction {
             recorder: Recorder::StateWithInputActions,
         };
         let mut simulator = Simulator::new(initial_time, cfg);
-        simulator.run(&mut runner).await;
+        simulator.setup_and_run(&mut runner).await;
 
         // flush the recorded data.
         node::recorder::Recorder::graceful_shutdown();

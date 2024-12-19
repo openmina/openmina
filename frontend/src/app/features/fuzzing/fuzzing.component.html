@@ -1,0 +1,21 @@
+<mina-fuzzing-toolbar></mina-fuzzing-toolbar>
+<div #parent class="h-minus-xl w-100">
+	<mina-horizontal-resizable-container [leftTemplate]="left"
+																			 [rightTemplate]="right"
+																			 [show]="isActiveRow"
+																			 [minWidth]="600"
+																			 [maxWidthElement]="parent"
+																			 localStorageKey="fuzzing-side-panel-width">
+	</mina-horizontal-resizable-container>
+
+	<ng-template #left>
+		<div class="tables-container h-100 flex-row">
+			<mina-fuzzing-directories-table></mina-fuzzing-directories-table>
+			<mina-fuzzing-files-table></mina-fuzzing-files-table>
+		</div>
+	</ng-template>
+
+	<ng-template #right>
+		<mina-fuzzing-code></mina-fuzzing-code>
+	</ng-template>
+</div>

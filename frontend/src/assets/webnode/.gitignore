@@ -1,4 +1,6 @@
 #.gitignore
+/circuit-blobs
 circuit-blobs
+circuit-blobs/**
 pkg
 web-node-secrets.json

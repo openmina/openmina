@@ -1,17 +1,14 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
-import { getMergedRoute, isDesktop, MergedRoute } from '@openmina/shared';
-import { debounceTime, filter, fromEvent, skip, take } from 'rxjs';
+import { getMergedRoute, isDesktop, MergedRoute, safelyExecuteInBrowser } from '@openmina/shared';
+import { debounceTime, filter, fromEvent, take } from 'rxjs';
 import { isNaN } from 'mathjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import { SLOTS_PER_EPOCH } from '@shared/constants/mina';
-import {
-  BlockProductionOverviewEpoch,
-} from '@shared/types/block-production/overview/block-production-overview-epoch.type';
+import { BlockProductionOverviewEpoch } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
 import { AppSelectors } from '@app/app.state';
-import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 
 @Component({
   selector: 'mina-block-production-overview',
@@ -64,16 +61,18 @@ export class BlockProductionOverviewComponent extends StoreDispatcher implements
   }
 
   private listenToResize(): void {
-    fromEvent(window, 'resize')
-      .pipe(
-        debounceTime(100),
-        filter(() => this.showSidePanel !== isDesktop()),
-        untilDestroyed(this),
-      )
-      .subscribe(() => {
-        this.showSidePanel = isDesktop();
-        this.detect();
-      });
+    safelyExecuteInBrowser(() => {
+      fromEvent(window, 'resize')
+        .pipe(
+          debounceTime(100),
+          filter(() => this.showSidePanel !== isDesktop()),
+          untilDestroyed(this),
+        )
+        .subscribe(() => {
+          this.showSidePanel = isDesktop();
+          this.detect();
+        });
+    });
   }
 
   override ngOnDestroy(): void {

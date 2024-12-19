@@ -1,0 +1,40 @@
+<div class="h-xl f-600 secondary pl-12 pr-12 fx-row-vert-cent flex-between w-100">
+  Source Code
+  <span class="mina-icon pointer tertiary primary-hover f-18"
+        (click)="closeSidePanel()">close
+  </span>
+</div>
+<div class="h-minus-xl flex-column">
+  <div class="h-xl f-600 tertiary pl-12 pr-12 fx-row-vert-cent flex-between border-bottom">
+    <div class="fx-row-vert-cent">
+      <span>Total lines</span>
+      <span class="secondary ml-5 mr-10">{{ fileDetails?.lines?.length }}</span>
+      <span>Hit lines</span>
+      <span class="secondary ml-5">{{ fileDetails?.executedLines }}</span>
+    </div>
+    <button class="h-sm w-sm fx-row-full-cent"
+            [tooltip]="'Toggle code highlighting'"
+            [ngClass]="'btn-' + (codeHighlighted ? 'selected' : 'primary')"
+            (click)="toggleCodeHighlighting()">
+      <span class="mina-icon f-20 icon-200">format_ink_highlighter</span>
+    </button>
+  </div>
+
+  <div #codeContainer class="flex-column h-minus-xl">
+    <div class="h-sm code-row tertiary">
+      <span>Line</span>
+      <span>Rust Code</span>
+    </div>
+    <div #codeHolder class="h-minus-sm monospace secondary overflow-y-auto"
+         [class.no-fuzzing-highlight]="!codeHighlighted">
+      <div class="code-row" *ngFor="let line of fileDetails?.lines; let i=index">
+        <span [tooltip]="'Copy permalink'" [showDelay]="200"
+              [class.primary]="activeLineFromUrl === i+1"
+              [style.border-color]="'var(--' + line.lineColor + '-primary)'"
+              [copyToClipboard]="link + (i+1)"
+              (click)="onRowClick(i+1)">{{ i + 1 }}</span>
+        <span [innerHtml]="line.html | safeHtml" [ngClass]="'bg-' + line.lineColor + '-container'"></span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -12,7 +12,7 @@ use mina_curves::pasta::{
 use mina_hasher::Fp;
 use mina_poseidon::{constants::PlonkSpongeConstantsKimchi, sponge::DefaultFqSponge};
 
-use crate::SpongeParamsForField;
+use poseidon::SpongeParamsForField;
 
 use super::{
     public_input::plonk_checks::{self, ShiftedValue},

@@ -105,32 +105,84 @@ download_wasm_files() {
 
             # Inject caching logic into openmina_node_web.js
             OPENMINA_JS="$TARGET_DIR/openmina_node_web.js"
-            inject_caching_logic "$OPENMINA_JS"
+            INDEX_HTML="/usr/local/apache2/htdocs/index.html"
+            inject_caching_logic "$OPENMINA_JS" "$INDEX_HTML"
         fi
     fi
 
     rm "/tmp/openmina-$OPENMINA_WASM_VERSION-webnode-wasm.tar.gz"
 }
 
-inject_caching_logic() {
-  local js_file="$1"
-  if [ -f "$js_file" ]; then
-    echo "Injecting caching logic into $js_file"
-
-    # Generate a unique hash
-    local hash=$(openssl rand -hex 8)
-
-    sed -i 's/module_or_path = fetch(module_or_path);/module_or_path = fetch(module_or_path, { cache: "force-cache", headers: { "Cache-Control": "max-age=31536000, immutable" } });/' "$js_file"
-    if [[ $? -ne 0 ]]; then
-      echo "Failed to inject caching logic into $js_file"
-    else
-      echo "Successfully injected caching logic into $js_file"
+get_short_sha1() {
+    local file="$1"
+    if [ -z "$file" ]; then
+        echo "Usage: get_short_sha1 filename" >&2
+        return 1
     fi
-  else
-    echo "Warning: $js_file not found. Caching logic not injected."
-  fi
+    if [ ! -f "$file" ]; then
+        echo "Error: File not found: $file" >&2
+        return 1
+    fi
+
+    if command -v sha1sum >/dev/null 2>&1; then
+        sha1sum "$file" | awk '{ print substr($1,1,8) }'
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl sha1 "$file" | awk '{ print substr($2,1,8) }'
+    else
+        echo "Error: Neither sha1sum nor openssl is available for hashing." >&2
+        return 1
+    fi
 }
 
+inject_caching_logic() {
+    local js_file="$1"
+    local index_html="$2"
+
+    # Check if JavaScript file exists
+    if [ ! -f "$js_file" ]; then
+        echo "Warning: $js_file not found. Caching logic not injected."
+        return 0
+    fi
+
+    echo "Injecting caching logic into $js_file"
+
+    # Define target files
+    local js_target_file="${TARGET_DIR}/openmina_node_web.js"
+    local wasm_target_file="${TARGET_DIR}/openmina_node_web_bg.wasm"
+
+    # Generate checksum hashes
+    local js_file_hash
+    js_file_hash=$(get_short_sha1 "$js_target_file") || { echo "Failed to get hash for $js_target_file"; return 1; }
+
+    local wasm_file_hash
+    wasm_file_hash=$(get_short_sha1 "$wasm_target_file") || { echo "Failed to get hash for $wasm_target_file"; return 1; }
+
+    # Check if hashed files already exist to prevent multiple injections
+    local js_new_file="${TARGET_DIR}/openmina_node_web.${js_file_hash}.js"
+    local wasm_new_file="${TARGET_DIR}/openmina_node_web_bg.${wasm_file_hash}.wasm"
+
+    if [[ -f "$js_new_file" ]] && [[ -f "$wasm_new_file" ]]; then
+        echo "Hashed files already exist. Skipping caching logic injection."
+        return 0
+    fi
+
+    # Replace openmina_node_web_bg.wasm with openmina_node_web_bg.<hash>.wasm in JS file
+    sed -i "s/openmina_node_web_bg\.wasm/openmina_node_web_bg.${wasm_file_hash}.wasm/g" "$js_file" || { echo "Failed to update wasm filename in $js_file"; return 1; }
+
+    # Add cache headers to fetch calls in JS file
+    sed -i 's/module_or_path = fetch(module_or_path);/module_or_path = fetch(module_or_path, { cache: "force-cache", headers: { "Cache-Control": "max-age=31536000, immutable" } });/' "$js_file" || { echo "Failed to inject cache headers into $js_file"; return 1; }
+
+    # Rename wasm file with hash
+    mv "$wasm_target_file" "$wasm_new_file" || { echo "Failed to rename $wasm_target_file to $wasm_new_file"; return 1; }
+
+    # Rename JS file with hash
+    mv "$js_target_file" "$js_new_file" || { echo "Failed to rename $js_target_file to $js_new_file"; return 1; }
+
+    # Replace JS filename in index.html
+    sed -i "s/openmina_node_web\.js/openmina_node_web.${js_file_hash}.js/g" "$index_html" || { echo "Failed to update JS filename in $index_html"; return 1; }
+
+    echo "Successfully injected caching logic into $js_file"
+}
 
 if [ -n "$OPENMINA_FRONTEND_ENVIRONMENT" ]; then
   echo "Using environment: $OPENMINA_FRONTEND_ENVIRONMENT"

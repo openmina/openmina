@@ -35,6 +35,9 @@ import { MempoolState } from '@app/features/mempool/mempool.state';
 import { mempoolReducer } from '@app/features/mempool/mempool.reducer';
 import { BenchmarksState } from '@benchmarks/benchmarks.state';
 import { benchmarksReducer } from '@benchmarks/benchmarks.reducer';
+import { fuzzingReducer } from '@fuzzing/fuzzing.reducer';
+import { FuzzingState } from '@fuzzing/fuzzing.state';
+import { FuzzingAction } from '@fuzzing/fuzzing.actions';
 
 export interface MinaState {
   [APP_KEY]: AppState;
@@ -49,6 +52,7 @@ export interface MinaState {
   state: StateState;
   snarks: SnarksState;
   benchmarks: BenchmarksState;
+  fuzzing: FuzzingState;
 }
 
 type MinaAction =
@@ -59,6 +63,7 @@ type MinaAction =
   & ResourcesAction
   & StateAction
   & SnarksAction
+  & FuzzingAction
   ;
 
 export const reducers: ActionReducerMap<MinaState, MinaAction> = {
@@ -74,6 +79,7 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   state: stateReducer,
   snarks: snarksReducer,
   benchmarks: benchmarksReducer,
+  fuzzing: fuzzingReducer,
 };
 
 export const metaReducers: MetaReducer<MinaState, MinaAction>[] = [];

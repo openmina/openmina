@@ -4,7 +4,7 @@ use redux::ActionWithMeta;
 
 use crate::{
     stream::P2pNetworkKadOutgoingStreamError, Data, P2pLimits, P2pNetworkConnectionError,
-    P2pNetworkKadState, P2pNetworkKademliaAction, P2pNetworkKademliaRpcReply,
+    P2pNetworkKadRequestAction, P2pNetworkKadState, P2pNetworkKademliaRpcReply,
     P2pNetworkKademliaRpcRequest, P2pNetworkSchedulerAction, P2pNetworkStreamProtobufError,
     P2pNetworkYamuxAction, P2pState, YamuxFlags,
 };
@@ -12,6 +12,7 @@ use crate::{
 use super::{
     super::Message, P2pNetworkKadIncomingStreamError, P2pNetworkKadIncomingStreamState,
     P2pNetworkKadOutgoingStreamState, P2pNetworkKadStreamState, P2pNetworkKademliaStreamAction,
+    P2pNetworkKademliaStreamWaitOutgoingCallback,
 };
 
 impl P2pNetworkKadIncomingStreamState {
@@ -95,17 +96,11 @@ impl P2pNetworkKadIncomingStreamState {
                     P2pNetworkKadIncomingStreamState::RequestIsReady {
                         data: P2pNetworkKademliaRpcRequest::FindNode { key },
                     } => {
-                        // TODO: add callback
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
                             addr,
                             peer_id,
                             stream_id,
-                        });
-                        dispatcher.push(P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                            addr,
-                            peer_id,
-                            stream_id,
-                            key,
+                            callback: P2pNetworkKademliaStreamWaitOutgoingCallback::answer_find_node_request(key)
                         });
                     }
                     P2pNetworkKadIncomingStreamState::Error(error) => {
@@ -149,17 +144,11 @@ impl P2pNetworkKadIncomingStreamState {
                     P2pNetworkKadIncomingStreamState::RequestIsReady {
                         data: P2pNetworkKademliaRpcRequest::FindNode { key },
                     } => {
-                        // TODO: add callbacks
                         dispatcher.push(P2pNetworkKademliaStreamAction::WaitOutgoing {
                             addr,
                             peer_id,
                             stream_id,
-                        });
-                        dispatcher.push(P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                            addr,
-                            peer_id,
-                            stream_id,
-                            key,
+                            callback: P2pNetworkKademliaStreamWaitOutgoingCallback::answer_find_node_request(key)
                         });
                     }
                     P2pNetworkKadIncomingStreamState::Error(error) => {
@@ -178,9 +167,25 @@ impl P2pNetworkKadIncomingStreamState {
             }
             (
                 P2pNetworkKadIncomingStreamState::RequestIsReady { .. },
-                P2pNetworkKademliaStreamAction::WaitOutgoing { .. },
+                P2pNetworkKademliaStreamAction::WaitOutgoing {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    callback,
+                },
             ) => {
                 *state = P2pNetworkKadIncomingStreamState::WaitingForReply;
+                let dispatcher = state_context.into_dispatcher();
+                match callback {
+                    P2pNetworkKademliaStreamWaitOutgoingCallback::AnswerFindNodeRequest {
+                        callback,
+                        args,
+                    } => dispatcher.push_callback(callback, (addr, peer_id, stream_id, args)),
+                    P2pNetworkKademliaStreamWaitOutgoingCallback::UpdateFindNodeRequest {
+                        callback,
+                        args,
+                    } => dispatcher.push_callback(callback, (addr, peer_id, stream_id, args)),
+                };
                 Ok(())
             }
             (
@@ -338,6 +343,7 @@ impl P2pNetworkKadOutgoingStreamState {
                     peer_id,
                     stream_id,
                 });
+                dispatcher.push(P2pNetworkKadRequestAction::RequestSent { peer_id });
                 Ok(())
             }
             (
@@ -409,12 +415,7 @@ impl P2pNetworkKadOutgoingStreamState {
                             addr,
                             peer_id,
                             stream_id,
-                        });
-                        dispatcher.push(P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                            addr,
-                            peer_id,
-                            stream_id,
-                            closest_peers,
+                            callback: P2pNetworkKademliaStreamWaitOutgoingCallback::update_find_node_request(closest_peers)
                         });
                     }
                     P2pNetworkKadOutgoingStreamState::Error(error) => {
@@ -466,12 +467,7 @@ impl P2pNetworkKadOutgoingStreamState {
                             addr,
                             peer_id,
                             stream_id,
-                        });
-                        dispatcher.push(P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                            addr,
-                            peer_id,
-                            stream_id,
-                            closest_peers,
+                            callback: P2pNetworkKademliaStreamWaitOutgoingCallback::update_find_node_request(closest_peers)
                         });
                     }
                     P2pNetworkKadOutgoingStreamState::Error(error) => {
@@ -490,9 +486,25 @@ impl P2pNetworkKadOutgoingStreamState {
             }
             (
                 P2pNetworkKadOutgoingStreamState::ResponseIsReady { .. },
-                P2pNetworkKademliaStreamAction::WaitOutgoing { .. },
+                P2pNetworkKademliaStreamAction::WaitOutgoing {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    callback,
+                },
             ) => {
                 *state = P2pNetworkKadOutgoingStreamState::WaitingForRequest { expect_close: true };
+                let dispatcher = state_context.into_dispatcher();
+                match callback {
+                    P2pNetworkKademliaStreamWaitOutgoingCallback::AnswerFindNodeRequest {
+                        callback,
+                        args,
+                    } => dispatcher.push_callback(callback, (addr, peer_id, stream_id, args)),
+                    P2pNetworkKademliaStreamWaitOutgoingCallback::UpdateFindNodeRequest {
+                        callback,
+                        args,
+                    } => dispatcher.push_callback(callback, (addr, peer_id, stream_id, args)),
+                };
                 Ok(())
             }
             (

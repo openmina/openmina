@@ -2,9 +2,9 @@ use openmina_core::{bug_condition, Substate};
 use redux::ActionWithMeta;
 
 use crate::{
-    channels::signaling::{
-        discovery_effectful::P2pChannelsSignalingDiscoveryEffectfulAction,
-        exchange::P2pChannelsSignalingExchangeAction,
+    channels::{
+        signaling::exchange::P2pChannelsSignalingExchangeAction, ChannelId, MsgId,
+        P2pChannelsEffectfulAction,
     },
     connection::{
         outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts},
@@ -44,7 +44,15 @@ impl P2pChannelsSignalingDiscoveryState {
                 *state = Self::Init { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSignalingDiscoveryEffectfulAction::Init { peer_id });
+                dispatcher.push(P2pChannelsEffectfulAction::InitChannel {
+                    peer_id,
+                    id: ChannelId::SignalingDiscovery,
+                    on_success: redux::callback!(
+                        on_signaling_discovery_channel_init(peer_id: crate::PeerId) -> crate::P2pAction {
+                            P2pChannelsSignalingDiscoveryAction::Pending { peer_id }
+                        }
+                    ),
+                });
                 Ok(())
             }
             P2pChannelsSignalingDiscoveryAction::Pending { .. } => {
@@ -73,10 +81,12 @@ impl P2pChannelsSignalingDiscoveryState {
                 *local = SignalingDiscoveryState::Requested { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingDiscoveryChannelMsg::GetNext;
-                dispatcher.push(P2pChannelsSignalingDiscoveryEffectfulAction::MessageSend {
+
+                let msg = SignalingDiscoveryChannelMsg::GetNext.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    message,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
                 Ok(())
             }
@@ -112,11 +122,12 @@ impl P2pChannelsSignalingDiscoveryState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pChannelsSignalingDiscoveryEffectfulAction::MessageSend {
+
+                let msg = SignalingDiscoveryChannelMsg::Discovered { target_public_key }.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    message: SignalingDiscoveryChannelMsg::Discovered {
-                        target_public_key: target_public_key.clone(),
-                    },
+                    msg_id: MsgId::first(),
+                    msg,
                 });
                 Ok(())
             }
@@ -195,10 +206,12 @@ impl P2pChannelsSignalingDiscoveryState {
                 *local = SignalingDiscoveryState::Answered { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingDiscoveryChannelMsg::Answer(answer.clone());
-                dispatcher.push(P2pChannelsSignalingDiscoveryEffectfulAction::MessageSend {
+
+                let msg = SignalingDiscoveryChannelMsg::Answer(answer.clone()).into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    message,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
                 Ok(())
             }
@@ -223,10 +236,12 @@ impl P2pChannelsSignalingDiscoveryState {
 
                 *remote = SignalingDiscoveryState::DiscoveryRequested { time: meta.time() };
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingDiscoveryChannelMsg::Discover;
-                dispatcher.push(P2pChannelsSignalingDiscoveryEffectfulAction::MessageSend {
+
+                let msg = SignalingDiscoveryChannelMsg::Discover.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    message,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
                 Ok(())
             }
@@ -254,6 +269,7 @@ impl P2pChannelsSignalingDiscoveryState {
                         },
                     },
                     rpc_id: None,
+                    on_success: None,
                 };
                 let accepted = redux::EnablingCondition::is_enabled(&action, state, meta.time());
                 if accepted {
@@ -289,10 +305,12 @@ impl P2pChannelsSignalingDiscoveryState {
                     target_public_key,
                 };
                 let dispatcher = state_context.into_dispatcher();
-                let message = SignalingDiscoveryChannelMsg::DiscoveredReject;
-                dispatcher.push(P2pChannelsSignalingDiscoveryEffectfulAction::MessageSend {
+
+                let msg = SignalingDiscoveryChannelMsg::DiscoveredReject.into();
+                dispatcher.push(P2pChannelsEffectfulAction::MessageSend {
                     peer_id,
-                    message,
+                    msg_id: MsgId::first(),
+                    msg,
                 });
                 Ok(())
             }
@@ -327,10 +345,10 @@ impl P2pChannelsSignalingDiscoveryState {
                     peer_id: target_public_key.peer_id(),
                 });
                 dispatcher.push(
-                    P2pChannelsSignalingDiscoveryEffectfulAction::OfferEncryptAndSend {
+                    P2pChannelsEffectfulAction::SignalingDiscoveryOfferEncryptAndSend {
                         peer_id,
                         pub_key: target_public_key,
-                        offer: offer.clone(),
+                        offer,
                     },
                 );
                 Ok(())
@@ -363,7 +381,7 @@ impl P2pChannelsSignalingDiscoveryState {
                         error: P2pConnectionErrorResponse::InternalError,
                     }),
                     Some(answer) => dispatcher.push(
-                        P2pChannelsSignalingDiscoveryEffectfulAction::AnswerDecrypt {
+                        P2pChannelsEffectfulAction::SignalingDiscoveryAnswerDecrypt {
                             peer_id,
                             pub_key: target_public_key,
                             answer: answer.clone(),

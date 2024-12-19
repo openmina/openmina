@@ -18,6 +18,10 @@ export class RustService {
     this.node = node;
   }
 
+  get activeNodeIsWebNode(): boolean {
+    return this.node.isWebNode;
+  }
+
   get URL(): string {
     return this.node.url;
   }
@@ -51,6 +55,9 @@ export class RustService {
   }
 
   private getFromWebNode<T>(path: string): Observable<T> {
+    if (path.includes('/stats/actions')) {
+      return this.webNodeService.actions$(path);
+    }
     switch (path) {
       case '/status':
         return this.webNodeService.status$;
@@ -68,6 +75,8 @@ export class RustService {
         return this.webNodeService.accounts$;
       case '/best-chain-user-commands':
         return this.webNodeService.bestChainUserCommands$;
+      case '/build_env':
+        return this.webNodeService.envBuildDetails$;
       default:
         throw new Error(`Web node doesn't support "${path}" path!`);
     }

@@ -5,13 +5,11 @@ use std::{
 
 use multiaddr::{multiaddr, Multiaddr};
 use p2p::{
-    identity::SecretKey,
     network::identify::{
-        stream_effectful::P2pNetworkIdentifyStreamEffectfulAction, P2pNetworkIdentify,
+        stream_effectful::P2pNetworkIdentifyStreamEffectfulAction,
         P2pNetworkIdentifyEffectfulAction, P2pNetworkIdentifyStreamAction,
     },
-    token::{self, DiscoveryAlgorithm},
-    Data, P2pEffectfulAction, P2pNetworkEffectfulAction, P2pNetworkYamuxAction, PeerId,
+    P2pEffectfulAction, P2pNetworkEffectfulAction, PeerId,
 };
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, Listener},
@@ -181,14 +179,15 @@ fn bad_node_effects(
             }
             Action::P2pEffectful(P2pEffectfulAction::Network(
                 P2pNetworkEffectfulAction::Identify(P2pNetworkIdentifyEffectfulAction::Stream(
-                    P2pNetworkIdentifyStreamEffectfulAction::SendIdentify {
+                    P2pNetworkIdentifyStreamEffectfulAction::GetListenAddresses {
                         addr,
                         peer_id,
                         stream_id,
+                        addresses: _,
                     },
                 )),
             )) => {
-                let listen_addrs = vec![
+                let addresses = vec![
                     multiaddr!(Ip4([127, 0, 0, 1]), Tcp(10500u16)),
                     multiaddr!(Ip4([127, 0, 0, 1]), Tcp(10500u16)),
                     multiaddr!(Ip6([0; 16]), Tcp(10500u16)),
@@ -203,46 +202,12 @@ fn bad_node_effects(
                     multiaddr!(Https),
                 ];
 
-                let public_key = Some(SecretKey::rand().public_key());
-
-                let protocols = vec![
-                    token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
-                    token::StreamKind::Broadcast(p2p::token::BroadcastAlgorithm::Meshsub1_1_0),
-                    p2p::token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
-                    p2p::token::StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0),
-                ];
-
-                let identify_msg = P2pNetworkIdentify {
-                    protocol_version: Some("ipfs/0.1.0".to_string()),
-                    agent_version: Some("openmina".to_owned()),
-                    public_key,
-                    listen_addrs,
-                    observed_addr: None,
-                    protocols,
-                };
-
-                let mut out = Vec::new();
-                let identify_msg_proto =
-                    identify_msg.to_proto_message().expect("serialized message");
-
-                prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
-                    .expect("Error converting message");
-
                 store.dispatch(Action::P2p(
-                    P2pNetworkYamuxAction::OutgoingData {
-                        addr,
-                        stream_id,
-                        data: Data(out.into_boxed_slice()),
-                        flags: Default::default(),
-                    }
-                    .into(),
-                ));
-
-                store.dispatch(Action::P2p(
-                    P2pNetworkIdentifyStreamAction::Close {
+                    P2pNetworkIdentifyStreamAction::SendIdentify {
                         addr,
                         peer_id,
                         stream_id,
+                        addresses,
                     }
                     .into(),
                 ));

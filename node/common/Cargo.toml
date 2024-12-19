@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-common"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -18,7 +18,7 @@ mina-signer = { workspace = true }
 vrf = { workspace = true }
 ledger = { workspace = true }
 sha3 = "0.10.8"
-ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std" ] }
+ark-ff = { workspace = true }
 
 node = { path = "../../node", features = ["replay"] }
 openmina-core = { path = "../../core" }
@@ -26,7 +26,7 @@ openmina-core = { path = "../../core" }
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }
 wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4.42"
+wasm-bindgen-futures = "0.4"
 gloo-timers = { version = "0.3", features = ["futures"] }
 gloo-utils = "0.2"
 tracing-wasm = "0.2"

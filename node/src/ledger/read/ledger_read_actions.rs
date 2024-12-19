@@ -5,7 +5,6 @@ use super::{
     LedgerReadResponse,
 };
 
-pub type LedgerReadActionWithMeta = redux::ActionWithMeta<LedgerReadAction>;
 pub type LedgerReadActionWithMetaRef<'a> = redux::ActionWithMeta<&'a LedgerReadAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,11 +1,11 @@
-use openmina_core::{bug_condition, Substate, SubstateAccess};
+use openmina_core::{bug_condition, requests::RpcId, Substate, SubstateAccess};
 use redux::{ActionWithMeta, Dispatcher};
 
 use crate::{
     connection::outgoing::P2pConnectionOutgoingAction, ConnectionAddr,
     P2pNetworkConnectionMuxState, P2pNetworkKadBootstrapAction, P2pNetworkKadEffectfulAction,
     P2pNetworkKadState, P2pNetworkKademliaRpcRequest, P2pNetworkKademliaStreamAction,
-    P2pNetworkYamuxAction, P2pPeerState, P2pState,
+    P2pNetworkYamuxAction, P2pPeerState, P2pState, PeerId,
 };
 
 use super::{P2pNetworkKadRequestAction, P2pNetworkKadRequestState, P2pNetworkKadRequestStatus};
@@ -47,14 +47,19 @@ impl P2pNetworkKadRequestState {
                 let peer_state = p2p_state.peers.get(&peer_id);
 
                 let on_initialize_connection = |dispatcher: &mut Dispatcher<Action, State>| {
-                    // initialize connection to the peer.
-                    // when connection is establised and yamux layer is ready, we will continue with TODO
-                    // TODO: add callbacks
                     let opts = crate::connection::outgoing::P2pConnectionOutgoingInitOpts::LibP2P(
                         (peer_id, addr).into(),
                     );
-                    dispatcher.push(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
-                    dispatcher.push(P2pNetworkKadRequestAction::PeerIsConnecting { peer_id });
+                    let callback = redux::callback!(
+                        on_p2p_connection_outgoing_kad_connection_success((peer_id: PeerId, _rpc_id: Option<RpcId>)) -> crate::P2pAction {
+                            P2pNetworkKadRequestAction::PeerIsConnecting { peer_id }
+                        }
+                    );
+                    dispatcher.push(P2pConnectionOutgoingAction::Init {
+                        opts,
+                        rpc_id: None,
+                        on_success: Some(callback),
+                    });
                     Ok(())
                 };
 
@@ -172,6 +177,7 @@ impl P2pNetworkKadRequestState {
                 peer_id,
                 stream_id,
                 addr,
+                callback,
             } => {
                 let find_node = match P2pNetworkKademliaRpcRequest::find_node(request_state.key) {
                     Ok(find_node) => find_node,
@@ -193,20 +199,8 @@ impl P2pNetworkKadRequestState {
                     super::P2pNetworkKadRequestStatus::Request,
                 );
 
-                let key = request_state.key;
-
                 let dispatcher = state_context.into_dispatcher();
-                let data =
-                    P2pNetworkKademliaRpcRequest::find_node(key).map_err(|e| e.to_string())?;
-
-                // TODO: move action bellow to callback
-                dispatcher.push(P2pNetworkKademliaStreamAction::SendRequest {
-                    addr,
-                    peer_id,
-                    stream_id,
-                    data,
-                });
-                dispatcher.push(P2pNetworkKadRequestAction::RequestSent { peer_id });
+                dispatcher.push_callback(callback, (addr, peer_id, stream_id, find_node));
                 Ok(())
             }
             P2pNetworkKadRequestAction::RequestSent { .. } => {

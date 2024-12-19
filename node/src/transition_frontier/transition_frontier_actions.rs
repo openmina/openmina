@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::sync::Arc;
 
 use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
@@ -25,6 +26,8 @@ pub enum TransitionFrontierAction {
     /// block, otherwise we don't need it so we use dummy proof instead.
     #[action_event(level = info)]
     GenesisInject,
+    #[action_event(level = info)]
+    GenesisProvenInject,
 
     Sync(TransitionFrontierSyncAction),
     /// Transition frontier synced.
@@ -44,15 +47,20 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
             TransitionFrontierAction::Genesis(a) => a.is_enabled(state, time),
             TransitionFrontierAction::GenesisEffect(a) => a.is_enabled(state, time),
             TransitionFrontierAction::GenesisInject => {
-                if state.transition_frontier.best_tip().is_some() {
+                state.transition_frontier.root().is_none()
+                    && state
+                        .transition_frontier
+                        .genesis
+                        .block_with_real_or_dummy_proof()
+                        .is_some()
+            }
+            TransitionFrontierAction::GenesisProvenInject => {
+                let Some(genesis) = state.transition_frontier.genesis.proven_block() else {
                     return false;
-                }
-                let genesis_state = &state.transition_frontier.genesis;
-                if state.should_produce_blocks_after_genesis() {
-                    genesis_state.proven_block().is_some()
-                } else {
-                    genesis_state.block_with_dummy_proof().is_some()
-                }
+                };
+                state.transition_frontier.root().map_or(true, |b| {
+                    b.is_genesis() && !Arc::ptr_eq(&genesis.block, &b.block)
+                })
             }
             TransitionFrontierAction::Sync(a) => a.is_enabled(state, time),
             TransitionFrontierAction::Synced { .. } => matches!(

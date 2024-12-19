@@ -18,7 +18,6 @@ pub mod p2p;
 
 mod driver;
 pub use driver::*;
-use p2p::signaling::P2pSignaling;
 
 pub use crate::cluster::runner::*;
 
@@ -29,13 +28,31 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
+use self::multi_node::connection_discovery::RustNodeAsSeed as P2pConnectionDiscoveryRustNodeAsSeed;
+use self::multi_node::connection_discovery::{
+    OCamlToRust, OCamlToRustViaSeed, RustToOCaml, RustToOCamlViaSeed,
+};
 use self::multi_node::pubsub_advanced::MultiNodePubsubPropagateBlock;
 use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
 use self::multi_node::vrf_correct_ledgers::MultiNodeVrfGetCorrectLedgers;
 use self::multi_node::vrf_correct_slots::MultiNodeVrfGetCorrectSlots;
 use self::multi_node::vrf_epoch_bounds_correct_ledgers::MultiNodeVrfEpochBoundsCorrectLedger;
 use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
+use self::p2p::basic_connection_handling::{
+    AllNodesConnectionsAreSymmetric, MaxNumberOfPeersIncoming, MaxNumberOfPeersIs1,
+    SeedConnectionsAreSymmetric, SimultaneousConnections,
+};
+use self::p2p::basic_incoming_connections::{
+    AcceptIncomingConnection, AcceptMultipleIncomingConnections,
+};
+use self::p2p::basic_outgoing_connections::{
+    ConnectToInitialPeers, ConnectToInitialPeersBecomeReady, ConnectToUnavailableInitialPeers,
+    DontConnectToInitialPeerWithSameId, DontConnectToNodeWithSameId, DontConnectToSelfInitialPeer,
+    MakeMultipleOutgoingConnections, MakeOutgoingConnection,
+};
+use self::p2p::kademlia::KademliaBootstrap;
 use self::p2p::pubsub::P2pReceiveBlock;
+use self::p2p::signaling::P2pSignaling;
 use self::record_replay::block_production::RecordReplayBlockProduction;
 use self::record_replay::bootstrap::RecordReplayBootstrap;
 use self::simulation::small::SimulationSmall;
@@ -68,9 +85,31 @@ pub enum Scenarios {
     SimulationSmallForeverRealTime(SimulationSmallForeverRealTime),
     P2pReceiveBlock(P2pReceiveBlock),
     P2pSignaling(P2pSignaling),
+    P2pConnectionDiscoveryRustNodeAsSeed(P2pConnectionDiscoveryRustNodeAsSeed),
     MultiNodePubsubPropagateBlock(MultiNodePubsubPropagateBlock),
     RecordReplayBootstrap(RecordReplayBootstrap),
     RecordReplayBlockProduction(RecordReplayBlockProduction),
+
+    RustToOCaml(RustToOCaml),
+    OCamlToRust(OCamlToRust),
+    OCamlToRustViaSeed(OCamlToRustViaSeed),
+    RustToOCamlViaSeed(RustToOCamlViaSeed),
+    KademliaBootstrap(KademliaBootstrap),
+    AcceptIncomingConnection(AcceptIncomingConnection),
+    MakeOutgoingConnection(MakeOutgoingConnection),
+    AcceptMultipleIncomingConnections(AcceptMultipleIncomingConnections),
+    MakeMultipleOutgoingConnections(MakeMultipleOutgoingConnections),
+    DontConnectToNodeWithSameId(DontConnectToNodeWithSameId),
+    DontConnectToInitialPeerWithSameId(DontConnectToInitialPeerWithSameId),
+    DontConnectToSelfInitialPeer(DontConnectToSelfInitialPeer),
+    SimultaneousConnections(SimultaneousConnections),
+    ConnectToInitialPeers(ConnectToInitialPeers),
+    ConnectToUnavailableInitialPeers(ConnectToUnavailableInitialPeers),
+    AllNodesConnectionsAreSymmetric(AllNodesConnectionsAreSymmetric),
+    ConnectToInitialPeersBecomeReady(ConnectToInitialPeersBecomeReady),
+    SeedConnectionsAreSymmetric(SeedConnectionsAreSymmetric),
+    MaxNumberOfPeersIncoming(MaxNumberOfPeersIncoming),
+    MaxNumberOfPeersIs1(MaxNumberOfPeersIs1),
 }
 
 impl Scenarios {
@@ -152,9 +191,43 @@ impl Scenarios {
             Self::SimulationSmallForeverRealTime(_) => SimulationSmallForeverRealTime::DOCS,
             Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
             Self::P2pSignaling(_) => P2pSignaling::DOCS,
+            Self::P2pConnectionDiscoveryRustNodeAsSeed(_) => {
+                P2pConnectionDiscoveryRustNodeAsSeed::DOCS
+            }
             Self::MultiNodePubsubPropagateBlock(_) => MultiNodePubsubPropagateBlock::DOCS,
             Self::RecordReplayBootstrap(_) => RecordReplayBootstrap::DOCS,
             Self::RecordReplayBlockProduction(_) => RecordReplayBlockProduction::DOCS,
+
+            Self::RustToOCaml(_) => RustToOCaml::DOCS,
+            Self::OCamlToRust(_) => OCamlToRust::DOCS,
+            Self::OCamlToRustViaSeed(_) => OCamlToRustViaSeed::DOCS,
+            Self::RustToOCamlViaSeed(_) => RustToOCamlViaSeed::DOCS,
+            Self::KademliaBootstrap(_) => KademliaBootstrap::DOCS,
+            Self::AcceptIncomingConnection(_) => AcceptIncomingConnection::DOCS,
+            Self::MakeOutgoingConnection(_) => MakeOutgoingConnection::DOCS,
+            Self::AcceptMultipleIncomingConnections(_) => AcceptMultipleIncomingConnections::DOCS,
+            Self::MakeMultipleOutgoingConnections(_) => MakeMultipleOutgoingConnections::DOCS,
+            Self::DontConnectToNodeWithSameId(_) => DontConnectToNodeWithSameId::DOCS,
+            Self::DontConnectToInitialPeerWithSameId(_) => DontConnectToInitialPeerWithSameId::DOCS,
+            Self::DontConnectToSelfInitialPeer(_) => DontConnectToSelfInitialPeer::DOCS,
+            Self::SimultaneousConnections(_) => SimultaneousConnections::DOCS,
+            Self::ConnectToInitialPeers(_) => ConnectToInitialPeers::DOCS,
+            Self::ConnectToUnavailableInitialPeers(_) => ConnectToUnavailableInitialPeers::DOCS,
+            Self::AllNodesConnectionsAreSymmetric(_) => AllNodesConnectionsAreSymmetric::DOCS,
+            Self::ConnectToInitialPeersBecomeReady(_) => ConnectToInitialPeersBecomeReady::DOCS,
+            Self::SeedConnectionsAreSymmetric(_) => SeedConnectionsAreSymmetric::DOCS,
+            Self::MaxNumberOfPeersIncoming(_) => MaxNumberOfPeersIncoming::DOCS,
+            Self::MaxNumberOfPeersIs1(_) => MaxNumberOfPeersIs1::DOCS,
+        }
+    }
+
+    pub fn default_cluster_config(self) -> Result<ClusterConfig, anyhow::Error> {
+        let config = ClusterConfig::new(None)
+            .map_err(|err| anyhow::anyhow!("failed to create cluster configuration: {err}"))?;
+
+        match self {
+            Self::P2pSignaling(v) => v.default_cluster_config(config),
+            _ => Ok(config),
         }
     }
 
@@ -168,7 +241,7 @@ impl Scenarios {
 
     async fn run<F>(self, cluster: &mut Cluster, add_step: F)
     where
-        F: FnMut(&ScenarioStep),
+        F: Send + FnMut(&ScenarioStep),
     {
         let runner = ClusterRunner::new(cluster, add_step);
         match self {
@@ -189,9 +262,31 @@ impl Scenarios {
             Self::SimulationSmallForeverRealTime(v) => v.run(runner).await,
             Self::P2pReceiveBlock(v) => v.run(runner).await,
             Self::P2pSignaling(v) => v.run(runner).await,
+            Self::P2pConnectionDiscoveryRustNodeAsSeed(v) => v.run(runner).await,
             Self::MultiNodePubsubPropagateBlock(v) => v.run(runner).await,
             Self::RecordReplayBootstrap(v) => v.run(runner).await,
             Self::RecordReplayBlockProduction(v) => v.run(runner).await,
+
+            Self::RustToOCaml(v) => v.run(runner).await,
+            Self::OCamlToRust(v) => v.run(runner).await,
+            Self::OCamlToRustViaSeed(v) => v.run(runner).await,
+            Self::RustToOCamlViaSeed(v) => v.run(runner).await,
+            Self::KademliaBootstrap(v) => v.run(runner).await,
+            Self::AcceptIncomingConnection(v) => v.run(runner).await,
+            Self::MakeOutgoingConnection(v) => v.run(runner).await,
+            Self::AcceptMultipleIncomingConnections(v) => v.run(runner).await,
+            Self::MakeMultipleOutgoingConnections(v) => v.run(runner).await,
+            Self::DontConnectToNodeWithSameId(v) => v.run(runner).await,
+            Self::DontConnectToInitialPeerWithSameId(v) => v.run(runner).await,
+            Self::DontConnectToSelfInitialPeer(v) => v.run(runner).await,
+            Self::SimultaneousConnections(v) => v.run(runner).await,
+            Self::ConnectToInitialPeers(v) => v.run(runner).await,
+            Self::ConnectToUnavailableInitialPeers(v) => v.run(runner).await,
+            Self::AllNodesConnectionsAreSymmetric(v) => v.run(runner).await,
+            Self::ConnectToInitialPeersBecomeReady(v) => v.run(runner).await,
+            Self::SeedConnectionsAreSymmetric(v) => v.run(runner).await,
+            Self::MaxNumberOfPeersIncoming(v) => v.run(runner).await,
+            Self::MaxNumberOfPeersIs1(v) => v.run(runner).await,
         }
     }
 

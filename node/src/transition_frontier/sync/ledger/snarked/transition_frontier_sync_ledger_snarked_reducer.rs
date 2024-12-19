@@ -43,6 +43,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {
                 let mut retry_addresses: Vec<_> = state.sync_address_retry_iter().collect();
                 let mut addresses: Vec<_> = state.sync_address_query_iter().collect();
+                let is_num_accounts_pending = matches!(state, Self::NumAccountsPending { .. });
 
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
 
@@ -55,24 +56,26 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     .collect::<Vec<_>>();
                 peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
 
-                // If this dispatches, we can avoid even trying the following steps because we will
-                // not query address unless we have completed the Num_accounts request first.
-                if let Some((peer_id, _)) = peer_ids.first() {
-                    if dispatcher.push_if_enabled(
-                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit {
-                            peer_id: *peer_id,
-                        },
-                        global_state,
-                        meta.time(),
-                    ) || dispatcher.push_if_enabled(
-                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsRetry {
-                            peer_id: *peer_id,
-                        },
-                        global_state,
-                        meta.time(),
-                    ) {
-                        return;
+                if is_num_accounts_pending {
+                    for (peer_id, _) in peer_ids {
+                        if dispatcher.push_if_enabled(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit {
+                                peer_id,
+                            },
+                            global_state,
+                            meta.time(),
+                        ) || dispatcher.push_if_enabled(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsRetry {
+                                peer_id,
+                            },
+                            global_state,
+                            meta.time(),
+                        ) {
+                            return;
+                        }
                     }
+                    // we will not query addresses unless we have num accounts.
+                    return;
                 }
 
                 for (peer_id, _) in peer_ids {
@@ -316,7 +319,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
                 // We know at which node to begin querying, so we skip all the intermediary depths
                 let first_node_address = ledger::Address::first(
-                    LEDGER_DEPTH - tree_height_for_num_accounts(*num_accounts),
+                    LEDGER_DEPTH.saturating_sub(tree_height_for_num_accounts(*num_accounts)),
                 );
                 let expected_hash = contents_hash.clone();
                 let first_query = (first_node_address, expected_hash);
@@ -528,8 +531,16 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 // from that subtree will be skipped and add them to the count.
 
                 // Empty node hashes are not counted in the stats.
-                let empty = ledger_empty_hash_at_depth(address.length() + 1);
-                *num_hashes_accepted += (*left != empty) as u64 + (*right != empty) as u64;
+                let empty =
+                    ledger_empty_hash_at_depth(address.length().checked_add(1).expect("overflow"));
+
+                if *left != empty {
+                    *num_hashes_accepted = num_hashes_accepted.checked_add(1).expect("overflow")
+                }
+
+                if *right != empty {
+                    *num_hashes_accepted = num_hashes_accepted.checked_add(1).expect("overflow")
+                }
 
                 if left != previous_left {
                     let previous = queue.insert(address.child_left(), left.clone());
@@ -572,7 +583,8 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     return;
                 };
 
-                *synced_accounts_count += count;
+                *synced_accounts_count =
+                    synced_accounts_count.checked_add(*count).expect("overflow");
                 pending.remove(address);
 
                 // Dispatch

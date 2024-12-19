@@ -1,4 +1,7 @@
 import { BehaviorSubject } from 'rxjs';
+import { safelyExecuteInBrowser } from '@openmina/shared';
+
+const WASM_FILE_SIZE = 30653596;
 
 class AssetMonitor {
   readonly downloads: Map<string, any> = new Map();
@@ -6,7 +9,9 @@ class AssetMonitor {
 
   constructor(progress$: BehaviorSubject<any>) {
     this.progress$ = progress$;
-    this.setupInterceptor();
+    safelyExecuteInBrowser(() => {
+      this.setupInterceptor();
+    });
   }
 
   private setupInterceptor(): void {
@@ -29,7 +34,7 @@ class AssetMonitor {
         url: resource.toString(),
         startTime,
         progress: 0,
-        totalSize: 0,
+        totalSize: WASM_FILE_SIZE,
         status: 'pending',
         endTime: 0,
         duration: 0,
@@ -41,8 +46,6 @@ class AssetMonitor {
       try {
         const response = await originalFetch(resource, options);
         const reader = response.clone().body.getReader();
-        const contentLength = +response.headers.get('Content-Length');
-        downloadInfo.totalSize = contentLength;
         let receivedLength = 0;
 
         while (true) {
@@ -54,7 +57,7 @@ class AssetMonitor {
             }
 
             receivedLength += value.length;
-            downloadInfo.progress = (receivedLength / contentLength) * 100;
+            downloadInfo.progress = (receivedLength / downloadInfo.totalSize) * 100;
             self.emitProgress(downloadInfo);
           } catch (error) {
             downloadInfo.status = 'error';

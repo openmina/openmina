@@ -62,8 +62,7 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
   protected readonly AppNodeStatus = AppNodeStatus;
   protected readonly canAddNodes = CONFIG.canAddNodes;
 
-  @Input() switchForbidden: boolean;
-
+  switchForbidden: boolean;
   isMobile: boolean;
   activeNode: MinaNode;
   details: AppNodeDetails;
@@ -73,7 +72,7 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
 
   @ViewChild('overlayOpener') private overlayOpener: ElementRef<HTMLDivElement>;
 
-  private nodes: MinaNode[] = [];
+  nodes: MinaNode[] = [];
   private tooltipOverlayRef: OverlayRef;
   private nodePickerOverlayRef: OverlayRef;
   private nodePickerComponent: ComponentRef<NodePickerComponent>;
@@ -162,7 +161,7 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
       minWidth: isMobile() ? '100%' : '220px',
       scrollStrategy: this.overlay.scrollStrategies.close(),
       positionStrategy: this.overlay.position()
-        .flexibleConnectedTo(this.overlayOpener.nativeElement)
+        .flexibleConnectedTo(this.overlayOpener ? this.overlayOpener.nativeElement : (event.target as HTMLElement))
         .withPositions([{
           originX: 'end',
           originY: 'bottom',

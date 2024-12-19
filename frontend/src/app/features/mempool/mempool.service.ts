@@ -8,7 +8,7 @@ import {
   ZkappCommand,
 } from '@shared/types/mempool/mempool-transaction.type';
 import { decodeMemo, removeUnicodeEscapes } from '@shared/helpers/transaction.helper';
-import { ONE_BILLION } from '@openmina/shared';
+import { getLocalStorage, ONE_BILLION } from '@openmina/shared';
 
 @Injectable({
   providedIn: 'root',
@@ -31,7 +31,7 @@ export class MempoolService {
           const memo = decodeMemo(tx.data[1].payload.common.memo);
           return {
             kind: MempoolTransactionKind.PAYMENT,
-            txHash: tx.hash.join(''),
+            txHash: tx.hash,
             sender: tx.data[1].payload.common.fee_payer_pk,
             fee: Number(tx.data[1].payload.common.fee),
             amount: Number(tx.data[1].payload.body[1].amount) / ONE_BILLION,
@@ -39,14 +39,14 @@ export class MempoolService {
             memo: removeUnicodeEscapes(memo),
             transactionData: tx.data[1],
             sentFromStressingTool: memo.includes('S.T.'),
-            sentByMyBrowser: memo.includes(localStorage.getItem('browserId')),
+            sentByMyBrowser: memo.includes(getLocalStorage()?.getItem('browserId')),
           } as MempoolTransaction;
         case MempoolTransactionResponseKind.ZkappCommand:
           const zkapp = tx.data[1] as ZkappCommand;
           const zkMemo = decodeMemo(zkapp.memo);
           return {
             kind: MempoolTransactionKind.ZK_APP,
-            txHash: tx.hash.join(''),
+            txHash: tx.hash,
             sender: zkapp.fee_payer.body.public_key,
             fee: Number(zkapp.fee_payer.body.fee),
             amount: null,
@@ -54,7 +54,7 @@ export class MempoolService {
             memo: removeUnicodeEscapes(zkMemo),
             transactionData: tx.data[1],
             sentFromStressingTool: zkMemo.includes('S.T.'),
-            sentByMyBrowser: zkMemo.includes(localStorage.getItem('browserId')),
+            sentByMyBrowser: zkMemo.includes(getLocalStorage()?.getItem('browserId')),
           } as MempoolTransaction;
       }
     });
@@ -64,7 +64,7 @@ export class MempoolService {
 
 export interface MempoolTransactionResponse {
   data: [MempoolTransactionResponseKind, SignedCommand | ZkappCommand];
-  hash: number[];
+  hash: string;
 }
 
 export enum MempoolTransactionResponseKind {
