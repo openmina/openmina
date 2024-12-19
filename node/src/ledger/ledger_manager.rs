@@ -457,12 +457,12 @@ impl LedgerManager {
 
 impl LedgerCaller {
     pub fn call(&self, request: LedgerRequest) {
-        self.0
-            .send(LedgerRequestWithChan {
-                request,
-                responder: None,
-            })
-            .unwrap();
+        if let Err(err) = self.0.send(LedgerRequestWithChan {
+            request,
+            responder: None,
+        }) {
+            eprintln!("Error sending request: {:?}", err);
+        }
     }
 
     fn call_sync(
@@ -470,12 +470,12 @@ impl LedgerCaller {
         request: LedgerRequest,
     ) -> Result<LedgerResponse, std::sync::mpsc::RecvError> {
         let (responder, receiver) = std::sync::mpsc::sync_channel(0);
-        self.0
-            .send(LedgerRequestWithChan {
-                request,
-                responder: Some(responder),
-            })
-            .unwrap();
+        if let Err(err) = self.0.send(LedgerRequestWithChan {
+            request,
+            responder: Some(responder),
+        }) {
+            eprintln!("Error sending request: {:?}", err);
+        }
         receiver.recv()
     }
 }
