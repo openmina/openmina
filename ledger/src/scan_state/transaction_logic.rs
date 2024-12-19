@@ -3584,7 +3584,7 @@ pub mod zkapp_command {
         pub memo: Memo,
     }
 
-    #[derive(Debug, Clone, PartialEq, Hash, Eq)]
+    #[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
     pub enum AccessedOrNot {
         Accessed,
         NotAccessed,

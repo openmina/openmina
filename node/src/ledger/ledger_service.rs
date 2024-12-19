@@ -721,17 +721,14 @@ impl LedgerCtx {
         let senders = block
             .body()
             .transactions()
-            .filter_map(|tx| {
-                // TODO(adonagy): Do not ignore the error from try_from
-                UserCommand::try_from(tx).ok().map(|cmd| cmd.fee_payer())
-            })
+            .filter_map(|tx| UserCommand::try_from(tx).ok().map(|cmd| cmd.fee_payer()))
             .collect::<BTreeSet<_>>()
             .into_iter();
 
         let coinbase_receiver_id = AccountId::new(coinbase_receiver, TokenId::default());
 
         // https://github.com/MinaProtocol/mina/blob/85149735ca3a76d026e8cf36b8ff22941a048e31/src/app/archive/lib/diff.ml#L78
-        let mut account_ids_accessed: BTreeSet<_> = block
+        let (accessed, not_accessed): (BTreeSet<_>, BTreeSet<_>) = block
             .body()
             .tranasctions_with_status()
             .flat_map(|(tx, status)| {
@@ -741,14 +738,22 @@ impl LedgerCtx {
                     .map(|cmd| cmd.account_access_statuses(&status))
                     .into_iter()
                     .flatten()
-                    .filter(|(_, status)| *status == AccessedOrNot::Accessed)
-                    .map(|(id, _)| id)
             })
-            .collect();
+            .partition(|(_, status)| *status == AccessedOrNot::Accessed);
+
+        let mut account_ids_accessed: BTreeSet<_> =
+            accessed.into_iter().map(|(id, _)| id).collect();
+        let mut account_ids_not_accessed: BTreeSet<_> =
+            not_accessed.into_iter().map(|(id, _)| id).collect();
 
         // Coinbase receiver is included only when the coinbase is not zero
-        if block.body().coinbase_sum() > 0 {
+        // FIXME: Use the coinbase tx as base instead of the coinbase sum
+        let has_coinbase = block.body().coinbase_sum() > 0;
+
+        if has_coinbase {
             account_ids_accessed.insert(coinbase_receiver_id);
+        } else {
+            account_ids_not_accessed.insert(coinbase_receiver_id);
         }
 
         // Include the coinbase fee transfer accounts
@@ -784,14 +789,23 @@ impl LedgerCtx {
             .map(|id| (id.clone(), account_creation_fee))
             .collect();
 
-        let tokens_used: BTreeSet<(TokenId, Option<AccountId>)> = account_ids_accessed
-            .iter()
-            .map(|id| {
-                let token_id = id.token_id.clone();
-                let token_owner = staged_ledger.ledger().token_owner(token_id.clone());
-                (token_id, token_owner)
-            })
+        // A token is used regardless of txn status
+        // https://github.com/MinaProtocol/mina/blob/85149735ca3a76d026e8cf36b8ff22941a048e31/src/app/archive/lib/diff.ml#L114
+        let all_account_ids: BTreeSet<_> = account_ids_accessed
+            .union(&account_ids_not_accessed)
             .collect();
+        let tokens_used: BTreeSet<(TokenId, Option<AccountId>)> = if has_coinbase {
+            all_account_ids
+                .iter()
+                .map(|id| {
+                    let token_id = id.token_id.clone();
+                    let token_owner = staged_ledger.ledger().token_owner(token_id.clone());
+                    (token_id, token_owner)
+                })
+                .collect()
+        } else {
+            BTreeSet::new()
+        };
 
         let sender_receipt_chains_from_parent_ledger = senders
             .filter_map(|sender| {
