@@ -27,8 +27,8 @@ crypto_secretbox = { version = "0.1.1", features = ["std"] }
 base64 = "0.22"
 bs58 = "0.4.0"
 thiserror = "1.0.37"
-graphannis-malloc_size_of = "2.0.0"
-graphannis-malloc_size_of_derive = "2.0.0"
+graphannis-malloc_size_of = { git = "https://github.com/openmina/graphannis-malloc_size_of.git" }
+graphannis-malloc_size_of_derive = { git = "https://github.com/openmina/graphannis-malloc_size_of_derive.git" }
 
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }

@@ -1,3 +1,5 @@
+use std::{collections::BTreeMap, time::Duration};
+
 use super::{super::rpc, RpcEffectfulAction};
 use crate::{
     block_producer::BlockProducerWonSlot,
@@ -26,6 +28,7 @@ use ledger::{
     scan_state::currency::{Balance, Magnitude},
     Account,
 };
+use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use mina_p2p_messages::{rpc_kernel::QueryHeader, v2::MinaBaseTransactionStatusStableV2};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
@@ -33,7 +36,6 @@ use p2p::channels::streaming_rpc::{
     staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
 };
 use redux::ActionWithMeta;
-use std::{collections::BTreeMap, time::Duration};
 
 macro_rules! respond_or_log {
     ($e:expr, $t:expr) => {
@@ -93,6 +95,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     transaction_candidates: state.transaction_pool.candidates.transactions_count(),
                 },
                 current_block_production_attempt,
+                p2p_malloc_size: {
+                    let mut ops = MallocSizeOfOps::new(None, None);
+                    state.p2p.size_of(&mut ops)
+                },
             };
             let _ = store.service.respond_status_get(rpc_id, Some(status));
         }
