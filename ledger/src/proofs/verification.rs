@@ -741,7 +741,9 @@ pub fn verify_block(
     };
 
     let Ok(protocol_state) = ProtocolState::try_from(protocol_state) else {
-        openmina_core::warn!(openmina_core::log::system_time(); message = format!("verify_block: Protocol state contains invalid field"));
+        openmina_core::warn!(
+            message = format!("verify_block: Protocol state contains invalid field")
+        );
         return false; // invalid bigint
     };
     let protocol_state_hash = MinaHash::hash(&protocol_state);
@@ -751,7 +753,7 @@ pub fn verify_block(
     let verified = verify_impl(&protocol_state_hash, protocol_state_proof, &vk).unwrap_or(false);
     let ok = accum_check && verified;
 
-    openmina_core::info!(openmina_core::log::system_time(); message = format!("verify_block OK={ok:?}"));
+    openmina_core::info!(message = format!("verify_block OK={ok:?}"));
 
     if !ok {
         on_fail::dump_block_verification(header);
@@ -792,7 +794,7 @@ pub fn verify_transaction<'a>(
     let verified = batch_verify_impl(inputs.as_slice()).unwrap_or(false);
     let ok = accum_check && verified;
 
-    openmina_core::info!(openmina_core::log::system_time(); message = format!("verify_transactions OK={ok:?}"));
+    openmina_core::info!(message = format!("verify_transactions OK={ok:?}"));
 
     if !ok {
         on_fail::dump_tx_verification(&inputs);
@@ -822,7 +824,7 @@ pub fn verify_zkapp(
 
     let ok = accum_check && verified;
 
-    openmina_core::info!(openmina_core::log::system_time(); message = format!("verify_zkapp OK={ok:?}"));
+    openmina_core::info!(message = format!("verify_zkapp OK={ok:?}"));
 
     if !ok {
         on_fail::dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof);
@@ -982,7 +984,6 @@ mod on_fail {
 
         if let Err(e) = dump_to_file_impl(data, filename) {
             openmina_core::error!(
-                openmina_core::log::system_time();
                 message = "Failed to dump proof verification data",
                 error = format!("{e:?}")
             );
@@ -1007,7 +1008,9 @@ mod on_fail {
         file.write_all(&bin)?;
         file.sync_all()?;
 
-        openmina_core::error!(openmina_core::log::system_time(); message = format!("proof verication failed, dumped data to {:?}", &filename));
+        openmina_core::error!(
+            message = format!("proof verication failed, dumped data to {:?}", &filename)
+        );
 
         Ok(())
     }

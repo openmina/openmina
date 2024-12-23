@@ -43,12 +43,18 @@ macro_rules! trace {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(trace, $time; $($tts)*);
     };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(trace; $($tts)*);
+    };
 }
 
 #[macro_export]
 macro_rules! debug {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(debug, $time; $($tts)*);
+    };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(debug; $($tts)*);
     };
 }
 
@@ -57,6 +63,9 @@ macro_rules! info {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(info, $time; $($tts)*);
     };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(info; $($tts)*);
+    };
 }
 
 #[macro_export]
@@ -64,12 +73,18 @@ macro_rules! warn {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(warn, $time; $($tts)*);
     };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(warn; $($tts)*);
+    };
 }
 
 #[macro_export]
 macro_rules! error {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(error, $time; $($tts)*);
+    };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(error; $($tts)*);
     };
 }
 
