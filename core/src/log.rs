@@ -164,7 +164,7 @@ pub use crate::{debug, error, info, trace, warn};
 macro_rules! bug_condition {
     ($($arg:tt)*) => {{
         if std::env::var("OPENMINA_PANIC_ON_BUG")
-        .map(|v| v.to_lowercase() == "true")
+        .map(|v| ["true", "1"].contains(&v.to_lowercase().as_str()))
         .unwrap_or(false) {
             panic!($($arg)*)
         } else {
