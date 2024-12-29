@@ -845,10 +845,18 @@ pub trait P2pServiceWebrtc: redux::Service {
         }
     }
 
-    fn disconnect(&mut self, peer_id: PeerId) {
-        // By removing the peer, `cmd_sender` gets dropped which will
+    fn disconnect(&mut self, peer_id: PeerId) -> bool {
+        // By removing the peer, `abort` gets dropped which will
         // cause `peer_loop` to end.
-        self.peers().remove(&peer_id);
+        if let Some(peer) = self.peers().remove(&peer_id) {
+            if peer.abort.receiver_count() > 0 {
+                // peer disconnection not yet finished
+                return false;
+            }
+        } else {
+            openmina_core::error!(openmina_core::log::system_time(); "`disconnect` shouldn't be used for libp2p peers");
+        }
+        true
     }
 
     fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {
