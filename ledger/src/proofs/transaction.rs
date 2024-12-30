@@ -4142,6 +4142,7 @@ pub(super) mod tests {
     use mina_p2p_messages::binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
+        BinProtRead,
     };
 
     use crate::{
@@ -4719,6 +4720,67 @@ pub(super) mod tests {
 
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         let _sum = dbg!(sha256_sum(&proof_json));
+    }
+
+    #[test]
+    #[ignore]
+    fn make_rsa_key() {
+        use rsa::pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey};
+        use rsa::pkcs8::LineEnding::LF;
+        use rsa::{RsaPrivateKey, RsaPublicKey};
+
+        let mut rng = rand::thread_rng();
+        let bits = 2048;
+        let priv_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
+        let pub_key = RsaPublicKey::from(&priv_key);
+
+        let priv_key = priv_key.to_pkcs1_pem(LF).unwrap();
+        let priv_key: &str = priv_key.as_ref();
+        println!("private:\n{}", priv_key);
+
+        let pub_key = pub_key.to_pkcs1_pem(LF).unwrap();
+        println!("public:\n{}", pub_key);
+    }
+
+    #[test]
+    fn add_private_key_to_block_proof_input() {
+        use mina_p2p_messages::binprot::BinProtWrite;
+        use rsa::pkcs1::DecodeRsaPrivateKey;
+        use rsa::Pkcs1v15Encrypt;
+
+        #[derive(binprot::macros::BinProtRead)]
+        struct DumpBlockProof {
+            input: Box<v2::ProverExtendBlockchainInputStableV2>,
+            key: Vec<u8>,
+        }
+
+        let rsa_private_key = {
+            let Ok(string) = std::fs::read_to_string("~/.openmina/debug/rsa.priv") else {
+                eprintln!("Missing private key");
+                return;
+            };
+            rsa::RsaPrivateKey::from_pkcs1_pem(&string).unwrap()
+        };
+
+        let DumpBlockProof { mut input, key } = {
+            let Ok(data) = std::fs::read("/tmp/block_proof.binprot") else {
+                eprintln!("Missing block proof");
+                return;
+            };
+            DumpBlockProof::binprot_read(&mut data.as_slice()).unwrap()
+        };
+
+        let producer_private_key = {
+            let producer_private_key = rsa_private_key.decrypt(Pkcs1v15Encrypt, &key).unwrap();
+            v2::SignatureLibPrivateKeyStableV1::binprot_read(&mut producer_private_key.as_slice())
+                .unwrap()
+        };
+
+        input.prover_state.producer_private_key = producer_private_key;
+
+        let mut file = std::fs::File::create("/tmp/block_proof_with_key.binprot").unwrap();
+        input.binprot_write(&mut file).unwrap();
+        file.sync_all().unwrap();
     }
 
     #[test]

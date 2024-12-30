@@ -90,6 +90,7 @@ reqwest = { version = "0.11.24", features = ["blocking"] }
 rand_pcg = "0.3"
 rand_seeder = "0.2"
 tuple-map = "0.4.0"
+rsa = "0.9"
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

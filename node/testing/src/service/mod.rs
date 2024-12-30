@@ -509,7 +509,11 @@ impl BlockProducerService for NodeTestingService {
         self.real.provers()
     }
 
-    fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
+    fn prove(
+        &mut self,
+        block_hash: StateHash,
+        mut input: Box<ProverExtendBlockchainInputStableV2>,
+    ) {
         fn dummy_proof_event(block_hash: StateHash) -> Event {
             let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
             BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into())).into()
@@ -523,8 +527,8 @@ impl BlockProducerService for NodeTestingService {
             ProofKind::ConstraintsChecked => {
                 match openmina_node_native::block_producer::prove(
                     self.provers(),
-                    input,
-                    keypair,
+                    &mut input,
+                    &keypair,
                     true,
                 ) {
                     Err(ProofError::ConstraintsOk) => {
@@ -552,8 +556,8 @@ impl BlockProducerService for NodeTestingService {
                     } else {
                         openmina_node_native::block_producer::prove(
                             self.provers(),
-                            input,
-                            keypair,
+                            &mut input,
+                            &keypair,
                             false,
                         )
                         .map_err(|err| format!("{err:?}"))

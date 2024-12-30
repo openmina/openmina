@@ -132,6 +132,12 @@ impl From<AccountSecretKey> for Keypair {
     }
 }
 
+impl From<&AccountSecretKey> for SignatureLibPrivateKeyStableV1 {
+    fn from(value: &AccountSecretKey) -> Self {
+        Self(BigInt::from_bytes(value.to_bytes()))
+    }
+}
+
 impl From<AccountSecretKey> for SignatureLibPrivateKeyStableV1 {
     fn from(value: AccountSecretKey) -> Self {
         Self(BigInt::from_bytes(value.to_bytes()))
