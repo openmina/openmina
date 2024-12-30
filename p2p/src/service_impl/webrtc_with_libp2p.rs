@@ -142,12 +142,8 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
 }
 
 impl<T: P2pServiceWebrtcWithLibp2p> P2pDisconnectionService for T {
-    fn disconnect(&mut self, peer_id: PeerId) {
-        // By removing the peer, `cmd_sender` gets dropped which will
-        // cause `peer_loop` to end.
-        if self.peers().remove(&peer_id).is_none() {
-            openmina_core::error!(openmina_core::log::system_time(); "`disconnect` shouldn't be used for libp2p peers");
-        }
+    fn disconnect(&mut self, peer_id: PeerId) -> bool {
+        P2pServiceWebrtc::disconnect(self, peer_id)
     }
 }
 

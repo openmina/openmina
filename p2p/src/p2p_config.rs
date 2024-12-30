@@ -102,7 +102,7 @@ impl Default for P2pTimeouts {
                 "OUTGOING_CONNECTION_TIMEOUT",
                 Some(Duration::from_secs(15)),
             ),
-            reconnect_timeout: from_env_or("RECONNECT_TIMEOUT", Some(Duration::from_secs(1))),
+            reconnect_timeout: from_env_or("RECONNECT_TIMEOUT", Some(Duration::from_secs(30))),
             incoming_error_reconnect_timeout: from_env_or(
                 "INCOMING_ERROR_RECONNECT_TIMEOUT",
                 Some(Duration::from_secs(30)),

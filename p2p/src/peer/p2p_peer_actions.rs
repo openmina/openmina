@@ -37,7 +37,7 @@ impl P2pPeerAction {
 impl redux::EnablingCondition<P2pState> for P2pPeerAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
-            Self::Discovered { peer_id, .. } => {
+            P2pPeerAction::Discovered { peer_id, .. } => {
                 peer_id != &state.my_id()
                     && state
                         .peers
@@ -45,16 +45,16 @@ impl redux::EnablingCondition<P2pState> for P2pPeerAction {
                         .map_or(true, |p| p.dial_opts.is_none())
                     && state.peers.len() < state.config.limits.max_peers_in_state()
             }
-            Self::Ready { peer_id, .. } => state
+            P2pPeerAction::Ready { peer_id, .. } => state
                 .peers
                 .get(peer_id)
                 .map_or(false, |p| p.status.is_connecting_success()),
-            Self::BestTipUpdate { peer_id, .. } => {
+            P2pPeerAction::BestTipUpdate { peer_id, .. } => {
                 // TODO: don't enable if block inferior than existing peer's
                 // best tip.
                 state.get_ready_peer(peer_id).is_some()
             }
-            Self::Remove { peer_id } => {
+            P2pPeerAction::Remove { peer_id } => {
                 state.peers.len() > state.config.limits.min_peers_in_state()
                     && state.peers.contains_key(peer_id)
             }

@@ -187,7 +187,7 @@ impl Node {
         false
     }
 
-    pub fn p2p_disconnect(&mut self, peer_id: PeerId) {
+    pub fn p2p_disconnect(&mut self, peer_id: PeerId) -> bool {
         self.service_mut().disconnect(peer_id)
     }
 }
