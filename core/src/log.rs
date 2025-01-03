@@ -1,4 +1,4 @@
-/// Must only be used in logging and even there it's not prefferable.
+/// Must only be used in logging and even there it's not preferable.
 ///
 /// This **MUST** only be used in places which doesn't have access to any
 /// of the following: `redux::Store`, global state where time is stored,

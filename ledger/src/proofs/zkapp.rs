@@ -217,7 +217,7 @@ pub mod group {
                 new_list
             }
 
-            // I don't take responsability for this code, see OCaml comments
+            // I don't take responsibility for this code, see OCaml comments
             // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/mina_base/zkapp_command.ml#L1590
             match (zkapp_commands, stmtss) {
                 ([] | [[]], [ _ ]) => {

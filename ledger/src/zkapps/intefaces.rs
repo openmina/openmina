@@ -554,7 +554,7 @@ where
 /// - During witness generation (in-snark), we want to evaluate both branches
 ///   when there is a condition (`on_if`)
 /// - But during tx application (non-snark), we just want to evaluate 1 branch.
-///   Evaluating both branches in that case would be a waste of cpu/ressource
+///   Evaluating both branches in that case would be a waste of cpu/resource
 ///   and would result in a slower application
 ///
 /// Note that in `zkapp_logic::apply`, we don't always use that interface, we
