@@ -57,6 +57,7 @@ impl MultiNodeVrfGetCorrectSlots {
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
             recorder: Default::default(),
+            peer_discovery: true,
         });
 
         tokio::time::sleep(Duration::from_secs(2)).await;

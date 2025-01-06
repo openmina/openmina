@@ -280,7 +280,7 @@ impl Cluster {
                 initial_peers,
                 external_addrs: vec![],
                 enabled_channels: ChannelId::iter_all().collect(),
-                peer_discovery: true,
+                peer_discovery: testing_config.peer_discovery,
                 timeouts: testing_config.timeouts,
                 limits: P2pLimits::default().with_max_peers(Some(testing_config.max_peers)),
                 meshsub: P2pMeshsubConfig {

@@ -50,6 +50,7 @@ impl Simulator {
             timeouts: Default::default(),
             libp2p_port: None,
             recorder: self.config.recorder.clone(),
+            peer_discovery: true,
         }
     }
 
