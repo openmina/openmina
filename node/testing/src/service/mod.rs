@@ -8,11 +8,11 @@ use std::{collections::BTreeMap, sync::Arc};
 use ledger::dummy::dummy_transaction_proof;
 use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
-use mina_p2p_messages::list::List;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    self, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
@@ -284,6 +284,10 @@ impl node::Service for NodeTestingService {
     fn recorder(&mut self) -> &mut Recorder {
         self.real.recorder()
     }
+
+    fn is_replay(&self) -> bool {
+        self.is_replay
+    }
 }
 
 impl P2pCryptoService for NodeTestingService {
@@ -411,6 +415,10 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
         self.real.mio()
     }
+
+    fn connections(&self) -> std::collections::BTreeSet<PeerId> {
+        self.real.connections()
+    }
 }
 
 impl SnarkBlockVerifyService for NodeTestingService {
@@ -443,17 +451,9 @@ impl SnarkUserCommandVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkUserCommandVerifyId,
-        verifier_index: TransactionVerifier,
-        verifier_srs: Arc<VerifierSRS>,
-        commands: List<v2::MinaBaseUserCommandStableV2>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
     ) {
-        SnarkUserCommandVerifyService::verify_init(
-            &mut self.real,
-            req_id,
-            verifier_index,
-            verifier_srs,
-            commands,
-        )
+        SnarkUserCommandVerifyService::verify_init(&mut self.real, req_id, commands)
     }
 }
 
@@ -509,7 +509,11 @@ impl BlockProducerService for NodeTestingService {
         self.real.provers()
     }
 
-    fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
+    fn prove(
+        &mut self,
+        block_hash: StateHash,
+        mut input: Box<ProverExtendBlockchainInputStableV2>,
+    ) {
         fn dummy_proof_event(block_hash: StateHash) -> Event {
             let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
             BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into())).into()
@@ -523,8 +527,8 @@ impl BlockProducerService for NodeTestingService {
             ProofKind::ConstraintsChecked => {
                 match openmina_node_native::block_producer::prove(
                     self.provers(),
-                    input,
-                    keypair,
+                    &mut input,
+                    &keypair,
                     true,
                 ) {
                     Err(ProofError::ConstraintsOk) => {
@@ -552,8 +556,8 @@ impl BlockProducerService for NodeTestingService {
                     } else {
                         openmina_node_native::block_producer::prove(
                             self.provers(),
-                            input,
-                            keypair,
+                            &mut input,
+                            &keypair,
                             false,
                         )
                         .map_err(|err| format!("{err:?}"))

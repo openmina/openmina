@@ -4,15 +4,18 @@ import * as Sentry from '@sentry/angular';
 import { NodesOverviewBlock, NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import { lastItem, ONE_BILLION } from '@openmina/shared';
 import { RustService } from '@core/services/rust.service';
+import { getElapsedTime } from '@shared/helpers/date.helper';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SentryService {
 
+  private readonly rustService: RustService = inject(RustService);
   private ledgerIsSynced: boolean = false;
   private blockIsSynced: boolean = false;
-  private rustService: RustService = inject(RustService);
+  private ledgerSyncedTime: number;
+  private blockSyncedTime: number;
 
   updateLedgerSyncStatus(ledger: NodesOverviewLedger): void {
     if (this.ledgerIsSynced) {
@@ -40,8 +43,9 @@ export class SentryService {
       };
 
       const syncedIn = Math.round((ledger.rootStaged.staged.reconstructEnd - ledger.stakingEpoch.snarked.fetchHashesStart) / ONE_BILLION);
+      this.ledgerSyncedTime = syncedIn;
 
-      Sentry.captureMessage(`Ledger synced in ${syncedIn}s`, {
+      Sentry.captureMessage(`Ledger synced in ${getElapsedTime(syncedIn)}s`, {
         level: 'info',
         tags: { type: 'webnode', subType: 'sync.ledger' },
         contexts: { ledger: syncDetails },
@@ -60,11 +64,20 @@ export class SentryService {
       blocks = blocks.slice(1);
       const bestTipBlock = blocks[0].height;
       const root = lastItem(blocks).height;
-      Sentry.captureMessage(`Last 290 blocks synced in ${Math.round((Date.now() - startTime) / 1000)}s`, {
+      this.blockSyncedTime = Math.round((Date.now() - startTime) / 1000);
+      Sentry.captureMessage(`Last 290 blocks synced in ${getElapsedTime(this.blockSyncedTime)}s`, {
         level: 'info',
         tags: { type: 'webnode', subType: 'sync.block' },
         contexts: { blocks: { bestTipBlock, root } },
       });
+
+      const syncTotal = this.ledgerSyncedTime + this.blockSyncedTime;
+      setTimeout(() => {
+        Sentry.captureMessage(`Web Node Synced in ${getElapsedTime(syncTotal)}`, {
+          level: 'info',
+          tags: { type: 'webnode', subType: 'sync.total' },
+        });
+      }, 2000);
     }
   }
 }

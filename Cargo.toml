@@ -87,6 +87,9 @@ ark-ec = { git = "https://github.com/openmina/algebra", rev = "d0343f5" } # bran
 ark-poly = { git = "https://github.com/openmina/algebra", rev = "d0343f5" } # branch: fix-openmina-webnode
 ark-serialize = { git = "https://github.com/openmina/algebra", rev = "d0343f5" } # branch: fix-openmina-webnode
 
+num-bigint = { git = "https://github.com/openmina/num-bigint", rev = "8bb5ee4" } # branch: on-stack
+num-rational = { git = "https://github.com/openmina/num-rational", rev = "336f11d" } # branch: on-stack
+
 [profile.test.package."*"]
 opt-level = 3
 debug-assertions = true

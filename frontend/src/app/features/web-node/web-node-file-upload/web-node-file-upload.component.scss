@@ -1,0 +1,82 @@
+@import 'openmina';
+
+.header {
+  height: 56px;
+
+  .mina-svg {
+    height: 32px;
+  }
+}
+
+.content {
+  height: calc(100% - 56px);
+  max-width: 391px;
+  padding: 0 8px;
+
+  h2 {
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 150%;
+  }
+
+  main {
+    gap: 24px;
+
+    .admin-container {
+      height: 128px;
+
+      .mina-icon {
+        font-size: 48px;
+      }
+    }
+
+    .upload-container {
+      height: 48px;
+
+      button {
+        gap: 3px;
+      }
+
+      .check_circle {
+        font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+      }
+
+      &.special-node-bg {
+        background-color: $special-node;
+      }
+
+      .close-file:hover {
+        background-color: $base-divider !important;
+      }
+    }
+
+    .warn-explanation {
+      top: 0;
+    }
+
+    .buttons-container {
+      margin-top: 24px;
+      padding-top: 24px;
+
+      .develop-buttons {
+        gap: 4px;
+      }
+    }
+  }
+}
+
+
+button.whitey {
+  background-color: $base-background;
+  color: $base-primary;
+  filter: invert(1);
+
+  &.disabled {
+    opacity: 0.25;
+    pointer-events: none;
+  }
+
+  &:hover:not(.disabled) {
+    background-color: $base-surface;
+  }
+}

@@ -1,35 +1,43 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { WebNodeInitializationComponent } from '@app/features/webnode/web-node-initialization/web-node-initialization.component';
 import { Platform } from '@angular/cdk/platform';
-import { WebNodeNotSupportedComponent } from '@app/features/webnode/web-node-not-supported/web-node-not-supported.component';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { getMergedRoute, MergedRoute } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { WebNodeService } from '@core/services/web-node.service';
 import { iOSversion } from '@shared/helpers/webnode.helper';
+import { WebNodeInitializationComponent } from '@web-node/web-node-initialization/web-node-initialization.component';
+import { WebNodeNotSupportedComponent } from '@web-node/web-node-not-supported/web-node-not-supported.component';
+import { WebNodeFileUploadComponent } from '@web-node/web-node-file-upload/web-node-file-upload.component';
 
 @Component({
-  selector: 'mina-webnode',
+  selector: 'mina-web-node',
   standalone: true,
   imports: [
     WebNodeInitializationComponent,
     WebNodeNotSupportedComponent,
+    WebNodeFileUploadComponent,
   ],
-  templateUrl: './webnode.component.html',
-  styleUrl: './webnode.component.scss',
+  templateUrl: './web-node.component.html',
+  styleUrl: './web-node.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class WebnodeComponent extends StoreDispatcher implements OnInit {
+export class WebNodeComponent extends StoreDispatcher implements OnInit {
 
   supported: boolean = false;
   isPhone: boolean = false;
+  showFileUpload: boolean = true;
 
   constructor(private platform: Platform,
               private webNodeService: WebNodeService) { super(); }
 
   ngOnInit(): void {
+    this.listenToFileUploadingEvents();
     this.checkIfDeviceIsSupported();
     this.listenToRoute();
+  }
+
+  private listenToFileUploadingEvents(): void {
+    // this.showFileUpload = false;
   }
 
   private listenToRoute(): void {

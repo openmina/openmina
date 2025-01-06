@@ -7,7 +7,7 @@ use crate::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
         P2pConnectionState,
     },
-    disconnection::P2pDisconnectedState,
+    disconnection::{P2pDisconnectedState, P2pDisconnectionAction},
     P2pAction, P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkPnetAction,
     P2pNetworkRpcAction, P2pNetworkSelectAction, P2pNetworkState, P2pPeerState, P2pState, PeerId,
 };
@@ -81,7 +81,9 @@ impl P2pState {
 
         state.p2p_connection_timeouts_dispatch(dispatcher, time)?;
         dispatcher.push(P2pConnectionOutgoingAction::RandomInit);
+        dispatcher.push(P2pDisconnectionAction::RandomTry);
 
+        state.p2p_connect_initial_peers(dispatcher);
         state.p2p_try_reconnect_disconnected_peers(dispatcher, time)?;
         state.p2p_discovery(dispatcher, time)?;
 
@@ -150,6 +152,29 @@ impl P2pState {
             .map(|opts| P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: None })
             .for_each(|action| dispatcher.push(action));
         Ok(())
+    }
+
+    fn p2p_connect_initial_peers<State, Action>(&self, dispatcher: &mut Dispatcher<Action, State>)
+    where
+        State: crate::P2pStateTrait,
+        Action: crate::P2pActionTrait<State>,
+    {
+        if self.ready_peers_iter().count() >= self.config.initial_peers.len() {
+            return;
+        }
+
+        self.config
+            .initial_peers
+            .iter()
+            .filter(|opts| !self.peers.contains_key(opts.peer_id()))
+            .cloned()
+            .for_each(|opts| {
+                dispatcher.push(P2pConnectionOutgoingAction::Init {
+                    opts,
+                    rpc_id: None,
+                    on_success: None,
+                });
+            });
     }
 
     fn rpc_timeouts<State, Action>(

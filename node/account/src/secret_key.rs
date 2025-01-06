@@ -1,4 +1,4 @@
-use std::{fmt, fs, path::Path, str::FromStr};
+use std::{fmt, fs, io, path::Path, str::FromStr};
 
 use mina_p2p_messages::{bigint::BigInt, v2::SignatureLibPrivateKeyStableV1};
 use mina_signer::seckey::SecKeyError;
@@ -87,9 +87,22 @@ impl AccountSecretKey {
         path: impl AsRef<Path>,
         password: &str,
     ) -> Result<Self, EncryptionError> {
-        let key_file = fs::File::open(path)?;
-        let encrypted: EncryptedSecretKeyFile = serde_json::from_reader(key_file)?;
-        let decrypted: Vec<u8> = Self::try_decrypt(&encrypted, password)?;
+        Self::from_encrypted_reader(fs::File::open(path)?, password)
+    }
+
+    pub fn from_encrypted_reader(
+        reader: impl io::Read,
+        password: &str,
+    ) -> Result<Self, EncryptionError> {
+        let encrypted: EncryptedSecretKeyFile = serde_json::from_reader(reader)?;
+        Self::from_encrypted(&encrypted, password)
+    }
+
+    pub fn from_encrypted(
+        encrypted: &EncryptedSecretKeyFile,
+        password: &str,
+    ) -> Result<Self, EncryptionError> {
+        let decrypted: Vec<u8> = Self::try_decrypt(encrypted, password)?;
         AccountSecretKey::from_bytes(&decrypted[1..])
             .map_err(|err| EncryptionError::Other(err.to_string()))
     }
@@ -116,6 +129,12 @@ impl EncryptedSecretKey for AccountSecretKey {}
 impl From<AccountSecretKey> for Keypair {
     fn from(value: AccountSecretKey) -> Self {
         value.0
+    }
+}
+
+impl From<&AccountSecretKey> for SignatureLibPrivateKeyStableV1 {
+    fn from(value: &AccountSecretKey) -> Self {
+        Self(BigInt::from_bytes(value.to_bytes()))
     }
 }
 

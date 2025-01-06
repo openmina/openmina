@@ -741,6 +741,9 @@ pub fn verify_block(
     };
 
     let Ok(protocol_state) = ProtocolState::try_from(protocol_state) else {
+        openmina_core::warn!(
+            message = format!("verify_block: Protocol state contains invalid field")
+        );
         return false; // invalid bigint
     };
     let protocol_state_hash = MinaHash::hash(&protocol_state);
@@ -748,8 +751,15 @@ pub fn verify_block(
     let accum_check =
         accumulator_check::accumulator_check(srs, &[protocol_state_proof]).unwrap_or(false);
     let verified = verify_impl(&protocol_state_hash, protocol_state_proof, &vk).unwrap_or(false);
+    let ok = accum_check && verified;
 
-    accum_check && verified
+    openmina_core::info!(message = format!("verify_block OK={ok:?}"));
+
+    if !ok {
+        on_fail::dump_block_verification(header);
+    }
+
+    ok
 }
 
 pub fn verify_transaction<'a>(
@@ -781,9 +791,16 @@ pub fn verify_transaction<'a>(
 
     let accum_check =
         accumulator_check::accumulator_check(srs, &accum_check_proofs).unwrap_or(false);
-
     let verified = batch_verify_impl(inputs.as_slice()).unwrap_or(false);
-    accum_check && verified
+    let ok = accum_check && verified;
+
+    openmina_core::info!(message = format!("verify_transactions OK={ok:?}"));
+
+    if !ok {
+        on_fail::dump_tx_verification(&inputs);
+    }
+
+    ok
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_proof.rs#L116
@@ -807,18 +824,10 @@ pub fn verify_zkapp(
 
     let ok = accum_check && verified;
 
-    openmina_core::info!(openmina_core::log::system_time(); message = format!("verify_zkapp OK={ok:?}"));
+    openmina_core::info!(message = format!("verify_zkapp OK={ok:?}"));
 
-    #[cfg(not(test))]
     if !ok {
-        if let Err(e) = dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
-        {
-            openmina_core::error!(
-                openmina_core::log::system_time();
-                message = "Failed to dump zkapp verification",
-                error = format!("{e:?}")
-            );
-        }
+        on_fail::dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof);
     }
 
     ok
@@ -916,59 +925,109 @@ where
 }
 
 /// Dump data when it fails, to reproduce and compare in OCaml
-fn dump_zkapp_verification(
-    verification_key: &VerificationKey,
-    zkapp_statement: &ZkappStatement,
-    sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
-) -> std::io::Result<()> {
-    use mina_p2p_messages::binprot;
-    use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
+mod on_fail {
+    use super::*;
 
-    #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
-    struct VerifyZkapp {
-        vk: v2::MinaBaseVerificationKeyWireStableV1,
-        zkapp_statement: v2::MinaBaseZkappStatementStableV2,
-        proof: v2::PicklesProofProofsVerified2ReprStableV2,
+    pub(super) fn dump_zkapp_verification(
+        verification_key: &VerificationKey,
+        zkapp_statement: &ZkappStatement,
+        sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
+    ) {
+        use mina_p2p_messages::binprot;
+        use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
+
+        #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+        struct VerifyZkapp {
+            vk: v2::MinaBaseVerificationKeyWireStableV1,
+            zkapp_statement: v2::MinaBaseZkappStatementStableV2,
+            proof: v2::PicklesProofProofsVerified2ReprStableV2,
+        }
+
+        let data = VerifyZkapp {
+            vk: verification_key.into(),
+            zkapp_statement: zkapp_statement.into(),
+            proof: sideloaded_proof.clone(),
+        };
+
+        dump_to_file(&data, "verify_zkapp")
     }
 
-    let data = VerifyZkapp {
-        vk: verification_key.into(),
-        zkapp_statement: zkapp_statement.into(),
-        proof: sideloaded_proof.clone(),
-    };
+    pub(super) fn dump_block_verification(header: &MinaBlockHeaderStableV2) {
+        dump_to_file(header, "verify_block")
+    }
 
-    let bin = {
-        let mut vec = Vec::with_capacity(128 * 1024);
-        data.binprot_write(&mut vec)?;
-        vec
-    };
+    pub(super) fn dump_tx_verification(
+        txs: &[(
+            &Statement<SokDigest>,
+            &PicklesProofProofsVerified2ReprStableV2,
+            &VK,
+        )],
+    ) {
+        let data = txs
+            .iter()
+            .map(|(statement, proof, _vk)| {
+                let statement: v2::MinaStateSnarkedLedgerStateWithSokStableV2 = (*statement).into();
+                (statement, (*proof).clone())
+            })
+            .collect::<Vec<_>>();
 
-    let debug_dir = openmina_core::get_debug_dir();
-    let filename = debug_dir
-        .join(generate_new_filename("verify_zapp", "binprot", &bin)?)
-        .to_string_lossy()
-        .to_string();
-    std::fs::create_dir_all(&debug_dir)?;
+        dump_to_file(&data, "verify_txs")
+    }
 
-    let mut file = std::fs::File::create(filename)?;
-    file.write_all(&bin)?;
-    file.sync_all()?;
+    #[allow(unreachable_code)]
+    fn dump_to_file<D: BinProtWrite>(data: &D, filename: &str) {
+        #[cfg(test)]
+        {
+            let (_, _) = (data, filename); // avoid unused vars
+            return;
+        }
 
-    Ok(())
-}
-
-fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::Result<String> {
-    use crate::proofs::util::sha256_sum;
-
-    let sum = sha256_sum(data);
-    for index in 0..100_000 {
-        let name = format!("{}_{}_{}.{}", name, sum, index, extension);
-        let path = std::path::Path::new(&name);
-        if !path.try_exists().unwrap_or(true) {
-            return Ok(name);
+        if let Err(e) = dump_to_file_impl(data, filename) {
+            openmina_core::error!(
+                message = "Failed to dump proof verification data",
+                error = format!("{e:?}")
+            );
         }
     }
-    Err(std::io::Error::other("no filename available"))
+
+    fn dump_to_file_impl<D: BinProtWrite>(data: &D, filename: &str) -> std::io::Result<()> {
+        let bin = {
+            let mut vec = Vec::with_capacity(128 * 1024);
+            data.binprot_write(&mut vec)?;
+            vec
+        };
+
+        let debug_dir = openmina_core::get_debug_dir();
+        let filename = debug_dir
+            .join(generate_new_filename(filename, "binprot", &bin)?)
+            .to_string_lossy()
+            .to_string();
+        std::fs::create_dir_all(&debug_dir)?;
+
+        let mut file = std::fs::File::create(&filename)?;
+        file.write_all(&bin)?;
+        file.sync_all()?;
+
+        openmina_core::error!(
+            message = format!("proof verication failed, dumped data to {:?}", &filename)
+        );
+
+        Ok(())
+    }
+
+    fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::Result<String> {
+        use crate::proofs::util::sha256_sum;
+
+        let sum = sha256_sum(data);
+        for index in 0..100_000 {
+            let name = format!("{}_{}_{}.{}", name, sum, index, extension);
+            let path = std::path::Path::new(&name);
+            if !path.try_exists().unwrap_or(true) {
+                return Ok(name);
+            }
+        }
+        Err(std::io::Error::other("no filename available"))
+    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-<div class="flex-column w-100 border-rad-6" [ngClass]="totalProgress === 100 ? 'bg-surface' : 'border'">
+<div class="flex-column w-100 border-rad-6 background-gradient" [ngClass]="totalProgress === 100 ? 'complete' : 'border'">
   <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 border-bottom">
     <div class="fx-row-vert-cent">
       @if (totalProgress === 100) {
@@ -115,7 +115,7 @@
       </span>
     </ng-container>
     <ng-container *ngSwitchCase="'loading'">
-      <span class="loading-icon mina-icon icon-200 primary">progress_activity</span>
+      <mina-loading-spinner [size]="20" [borderWidth]="2"></mina-loading-spinner>
     </ng-container>
     <ng-container *ngSwitchCase="'success'">
       <span class="pending-icon fx-col-full-cent success">

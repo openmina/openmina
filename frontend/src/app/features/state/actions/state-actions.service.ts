@@ -4,7 +4,6 @@ import { StateActionGroup } from '@shared/types/state/actions/state-action-group
 import { StateActionGroupAction } from '@shared/types/state/actions/state-action-group-action.type';
 import { StateActionColumn } from '@shared/types/state/actions/state-action-column.type';
 import { NANOSEC_IN_1_SEC, ONE_MILLION, toReadableDate } from '@openmina/shared';
-import { HttpClient } from '@angular/common/http';
 import { StateActionsStats } from '@shared/types/state/actions/state-actions-stats.type';
 import { RustService } from '@core/services/rust.service';
 
@@ -13,18 +12,16 @@ import { RustService } from '@core/services/rust.service';
 })
 export class StateActionsService {
 
-  constructor(private http: HttpClient,
-              private rust: RustService) { }
+  constructor(private rust: RustService) { }
 
   getEarliestSlot(): Observable<number> {
-    return this.http.get<any>(this.rust.URL + '/stats/actions?id=latest').pipe(
+    return this.rust.get<any>('/stats/actions?id=latest').pipe(
       map(res => res.id),
     );
   }
 
   getActions(slot: number): Observable<[StateActionsStats, StateActionGroup[]]> {
-    // return of(JSON.parse(JSON.stringify(mock))).pipe(
-    return this.http.get<any>(this.rust.URL + `/stats/actions?id=${slot}`).pipe(
+    return this.rust.get<any>(`/stats/actions?id=${slot}`).pipe(
       map(res => [this.mapActionStats(res), this.mapActions(res.stats)]),
     );
   }

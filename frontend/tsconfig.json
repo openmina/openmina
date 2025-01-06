@@ -72,8 +72,14 @@
       "@block-production/*": [
         "src/app/features/block-production/*"
       ],
-      "@mempool": [
+      "@mempool/*": [
         "src/app/features/mempool/*"
+      ],
+      "@web-node/*": [
+        "src/app/features/web-node/*"
+      ],
+      "@fuzzing/*": [
+        "src/app/features/fuzzing/*"
       ]
     }
   },

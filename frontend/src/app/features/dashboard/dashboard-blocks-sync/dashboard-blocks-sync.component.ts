@@ -6,6 +6,7 @@ import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/node
 import { isDesktop, lastItem, ONE_MILLION } from '@openmina/shared';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
 import { SentryService } from '@core/services/sentry.service';
+import { AppActions } from '@app/app.actions';
 
 const PENDING = 'Pending';
 const SYNCED = 'Synced';
@@ -30,6 +31,7 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
   syncProgress: string;
   isDesktop: boolean = isDesktop();
   remaining: number;
+  lengthWithoutRoot: number = null;
 
   private syncStartTime: number = Date.now();
 
@@ -83,6 +85,10 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
         this.extractPeersData(peers);
 
         this.sentryService.updateBlockSyncStatus(nodes[0].blocks, this.syncStartTime);
+
+        if (this.appliedPercentage === 100) {
+          this.dispatch2(AppActions.getNodeDetails());
+        }
       }
       this.detect();
     });
@@ -118,12 +124,16 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
       this.root = null;
       this.rootText = PENDING;
     }
+    // blocks can be 292
     blocks = blocks.slice(1);
+
+    this.lengthWithoutRoot = blocks.length ?? null; // 290 or 291
+    console.log(this.lengthWithoutRoot);
 
     this.fetched = blocks.filter(b => ![NodesOverviewNodeBlockStatus.MISSING, NodesOverviewNodeBlockStatus.FETCHING].includes(b.status)).length;
     this.applied = blocks.filter(b => b.status === NodesOverviewNodeBlockStatus.APPLIED).length;
-    this.fetchedPercentage = Math.round(this.fetched * 100 / 290) + '%';
-    this.appliedPercentage = Math.round(this.applied * 100 / 290);
+    this.fetchedPercentage = Math.floor(this.fetched * 100 / (this.lengthWithoutRoot || 100)) + '%';
+    this.appliedPercentage = Math.floor(this.applied * 100 / (this.lengthWithoutRoot || 100));
   }
 
   private calculateProgressTime(timestamp: number): string {

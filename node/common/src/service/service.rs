@@ -22,6 +22,7 @@ use super::{
     p2p::webrtc_with_libp2p::P2pServiceCtx,
     replay::ReplayerState,
     rpc::{RpcSender, RpcService},
+    snarks::SnarkBlockVerifyArgs,
     EventReceiver, EventSender,
 };
 
@@ -35,6 +36,8 @@ pub struct NodeService {
     /// `event_source` state machine defined in the `openmina-node` crate.
     pub event_sender: EventSender,
     pub event_receiver: EventReceiver,
+
+    pub snark_block_proof_verify: mpsc::UnboundedSender<SnarkBlockVerifyArgs>,
 
     pub ledger_manager: LedgerManager,
     pub block_producer: Option<BlockProducerService>,
@@ -105,6 +108,7 @@ impl NodeService {
             rng: StdRng::from_seed(rng_seed),
             event_sender: mpsc::unbounded_channel().0,
             event_receiver: mpsc::unbounded_channel().1.into(),
+            snark_block_proof_verify: mpsc::unbounded_channel().0,
             ledger_manager: LedgerManager::spawn(Default::default()),
             block_producer: None,
             p2p: P2pServiceCtx::mocked(p2p_sec_key),
@@ -137,6 +141,10 @@ impl node::Service for NodeService {
 
     fn recorder(&mut self) -> &mut Recorder {
         &mut self.recorder
+    }
+
+    fn is_replay(&self) -> bool {
+        self.replayer.is_some()
     }
 }
 

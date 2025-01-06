@@ -499,6 +499,7 @@ pub struct RpcBlockProducerStats {
     pub current_epoch: Option<u32>,
     pub epoch_start: Option<u32>,
     pub epoch_end: Option<u32>,
+    pub public_key: AccountPublicKey,
     pub attempts: Vec<BlockProductionAttempt>,
     pub future_won_slots: Vec<BlockProductionAttemptWonSlot>,
     pub current_epoch_vrf_stats: Option<VrfEvaluatorStats>,

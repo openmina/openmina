@@ -191,7 +191,7 @@ jobs:
          rustup default nightly
          rustup component add rustfmt rust-src
          rustup target add wasm32-unknown-unknown
-         cargo install -f wasm-bindgen-cli --version 0.2.95
+         cargo install -f wasm-bindgen-cli --version 0.2.99
 
      - name: Setup Rust Cache
        uses: Swatinem/rust-cache@v2
@@ -280,7 +280,7 @@ jobs:
     needs: [ build-tests, build-tests-webrtc ]
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+      image: gcr.io/o1labs-192920/mina-daemon:3.0.4-alpha1-889607b-bullseye-devnet
       options: --volume debugger_data:/tmp/db
     env:
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
@@ -362,7 +362,7 @@ jobs:
       - build-tests-webrtc
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+      image: gcr.io/o1labs-192920/mina-daemon:3.0.4-alpha1-889607b-bullseye-devnet
       options: --volume debugger_data:/tmp/db
     env:
       # to allow local addrs discovery
@@ -442,7 +442,7 @@ jobs:
       - build-tests-webrtc
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
+      image: gcr.io/o1labs-192920/mina-daemon:3.0.4-alpha1-889607b-bullseye-devnet
     env:
       # to allow local addrs discovery
       OPENMINA_DISCOVERY_FILTER_ADDR: false

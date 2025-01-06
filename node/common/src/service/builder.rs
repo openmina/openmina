@@ -125,8 +125,11 @@ impl NodeServiceCommonBuilder {
                 .chain(b"static")
                 .finalize_xof(),
             rng: self.rng,
-            event_sender: self.event_sender,
+            event_sender: self.event_sender.clone(),
             event_receiver: self.event_receiver,
+            snark_block_proof_verify: NodeService::snark_block_proof_verifier_spawn(
+                self.event_sender,
+            ),
             ledger_manager,
             block_producer: self.block_producer,
             p2p,

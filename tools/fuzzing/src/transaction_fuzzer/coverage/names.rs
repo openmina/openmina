@@ -6,9 +6,9 @@ use super::util::{get_names, Leb128};
 #[allow(dead_code)]
 pub struct Names(Vec<String>);
 
-impl Names {
+impl Default for Names {
     #[coverage(off)]
-    pub fn new() -> Self {
+    fn default() -> Self {
         let names_buf = unsafe { get_names() }.to_vec();
         let mut cursor = Cursor::new(&names_buf);
         let mut output = Vec::new();
@@ -38,6 +38,13 @@ impl Names {
         }
 
         Self(output)
+    }
+}
+
+impl Names {
+    #[coverage(off)]
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[coverage(off)]

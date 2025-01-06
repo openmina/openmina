@@ -1,5 +1,5 @@
 use ledger::{
-    scan_state::transaction_logic::{GenericCommand, UserCommand},
+    scan_state::transaction_logic::{valid, GenericCommand, UserCommand},
     transaction_pool::{
         diff::{self, DiffVerified},
         transaction_hash, ApplyDecision, TransactionPoolErrors,
@@ -7,10 +7,14 @@ use ledger::{
     Account, AccountId,
 };
 use openmina_core::{
-    bug_condition, constants::constraint_constants, requests::RpcId, transaction::Transaction,
+    bug_condition,
+    constants::constraint_constants,
+    requests::RpcId,
+    transaction::{Transaction, TransactionWithHash},
 };
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
+use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyId};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{BlockProducerAction, RpcAction};
@@ -56,6 +60,7 @@ impl TransactionPoolState {
             TransactionPoolAction::StartVerify { commands, from_rpc } => {
                 let Ok(commands) = commands
                     .iter()
+                    .map(TransactionWithHash::body)
                     .map(UserCommand::try_from)
                     .collect::<Result<Vec<_>, _>>()
                 else {
@@ -95,6 +100,7 @@ impl TransactionPoolState {
                 // TODO: Convert those commands only once
                 let Ok(commands) = commands
                     .iter()
+                    .map(TransactionWithHash::body)
                     .map(UserCommand::try_from)
                     .collect::<Result<Vec<_>, _>>()
                 else {
@@ -102,21 +108,38 @@ impl TransactionPoolState {
                 };
                 let diff = diff::Diff { list: commands };
 
-                match substate.pool.verify(diff, accounts) {
-                    Ok(valids) => {
-                        let valids = valids
-                            .into_iter()
-                            .map(transaction_hash::hash_command)
-                            .collect::<Vec<_>>();
-                        let best_tip_hash = substate.best_tip_hash.clone().unwrap();
-                        let diff = DiffVerified { list: valids };
+                match substate
+                    .pool
+                    .prevalidate(diff)
+                    .and_then(|diff| substate.pool.convert_diff_to_verifiable(diff, accounts))
+                {
+                    Ok(verifiable) => {
+                        let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                        let req_id = global_state.snark.user_command_verify.next_req_id();
 
-                        let dispatcher = state.into_dispatcher();
-                        dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
-                            best_tip_hash,
-                            diff,
-                            is_sender_local: from_rpc.is_some(),
+                        dispatcher.push(SnarkUserCommandVerifyAction::Init {
+                            req_id,
+                            commands: verifiable,
                             from_rpc: *from_rpc,
+                            on_success: callback!(
+                                on_snark_user_command_verify_success(
+                                    (req_id: SnarkUserCommandVerifyId, valids: Vec<valid::UserCommand>, from_rpc: Option<RpcId>)
+                                ) -> crate::Action {
+                                    TransactionPoolAction::VerifySuccess {
+                                        valids,
+                                        from_rpc,
+                                    }
+                                }
+                            ),
+                            on_error: callback!(
+                                on_snark_user_command_verify_error(
+                                    (req_id: SnarkUserCommandVerifyId, errors: Vec<String>)
+                                ) -> crate::Action {
+                                    TransactionPoolAction::VerifyError {
+                                        errors
+                                    }
+                                }
+                            )
                         });
                     }
                     Err(e) => {
@@ -145,6 +168,23 @@ impl TransactionPoolState {
                         }
                     }
                 }
+            }
+            TransactionPoolAction::VerifySuccess { valids, from_rpc } => {
+                let valids = valids
+                    .iter()
+                    .cloned()
+                    .map(transaction_hash::hash_command)
+                    .collect::<Vec<_>>();
+                let best_tip_hash = substate.best_tip_hash.clone().unwrap();
+                let diff = DiffVerified { list: valids };
+
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
+                    best_tip_hash,
+                    diff,
+                    is_sender_local: from_rpc.is_some(),
+                    from_rpc: *from_rpc,
+                });
             }
             TransactionPoolAction::VerifyError { .. } => {
                 // just logging the errors
@@ -215,14 +255,16 @@ impl TransactionPoolState {
                 };
 
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
-                let (rpc_action, accepted, rejected) = match substate.pool.unsafe_apply(
-                    meta.time(),
-                    global_slot_from_genesis,
-                    global_slot,
-                    &diff,
-                    accounts,
-                    is_sender_local,
-                ) {
+                let (rpc_action, was_accepted, accepted, rejected) = match substate
+                    .pool
+                    .unsafe_apply(
+                        meta.time(),
+                        global_slot_from_genesis,
+                        global_slot,
+                        &diff,
+                        accounts,
+                        is_sender_local,
+                    ) {
                     Ok((ApplyDecision::Accept, accepted, rejected, dropped)) => {
                         for hash in dropped {
                             substate.dpool.remove(&hash);
@@ -238,7 +280,7 @@ impl TransactionPoolState {
                                 rpc_id,
                                 response: accepted.clone(),
                             });
-                        (rpc_action, accepted, rejected)
+                        (rpc_action, true, accepted, rejected)
                     }
                     Ok((ApplyDecision::Reject, accepted, rejected, _)) => {
                         let rpc_action =
@@ -246,7 +288,7 @@ impl TransactionPoolState {
                                 rpc_id,
                                 response: rejected.clone(),
                             });
-                        (rpc_action, accepted, rejected)
+                        (rpc_action, false, accepted, rejected)
                     }
                     Err(e) => {
                         crate::core::warn!(meta.time(); kind = "TransactionPoolUnsafeApplyError", summary = e);
@@ -258,7 +300,12 @@ impl TransactionPoolState {
                 if let Some(rpc_action) = rpc_action {
                     dispatcher.push(rpc_action);
                 }
-                dispatcher.push(TransactionPoolAction::Rebroadcast { accepted, rejected });
+                // TODO: we only rebroadcast locally injected transactions here.
+                // libp2p logic already broadcasts everything right now and doesn't
+                // wait for validation, thad needs to be fixed. See #952
+                if is_sender_local && was_accepted {
+                    dispatcher.push(TransactionPoolAction::Rebroadcast { accepted, rejected });
+                }
             }
             TransactionPoolAction::ApplyTransitionFrontierDiff {
                 best_tip_hash,

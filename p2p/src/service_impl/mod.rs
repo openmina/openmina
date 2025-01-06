@@ -67,7 +67,9 @@ pub mod webrtc {
 
         fn http_signaling_request(&mut self, url: String, offer: webrtc::Offer) {}
 
-        fn disconnect(&mut self, peer_id: PeerId) {}
+        fn disconnect(&mut self, peer_id: PeerId) -> bool {
+            false
+        }
 
         fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {}
 

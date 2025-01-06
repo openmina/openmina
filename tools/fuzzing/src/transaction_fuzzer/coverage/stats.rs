@@ -76,7 +76,7 @@ impl Stats {
     }
 
     #[coverage(off)]
-    pub fn from_file_counters(filecounters: &Vec<FileCounters>) -> Self {
+    pub fn from_file_counters(filecounters: &[FileCounters]) -> Self {
         let mut result = BTreeMultiMap::new();
 
         for FileCounters {
@@ -109,7 +109,7 @@ impl Stats {
     }
 
     #[coverage(off)]
-    pub fn from_bisect_dump(bisect_dump: &Vec<(String, Vec<i64>, Vec<i64>)>) -> Self {
+    pub fn from_bisect_dump(bisect_dump: &[(String, Vec<i64>, Vec<i64>)]) -> Self {
         let mut result = BTreeMultiMap::new();
 
         for (filename, _points, counts) in bisect_dump.iter() {
@@ -134,13 +134,13 @@ impl fmt::Display for Stats {
     #[coverage(off)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (percent, (filename, total, covered)) in self.0.iter() {
-            write!(
+            writeln!(
                 f,
-                "{:>3}% {:>4}/{:>4}: {}\n",
+                "{:>3}% {:>4}/{:>4}: {}",
                 percent, covered, total, filename
             )?;
         }
         let (percent, total, covered) = self.get_total();
-        write!(f, "{:>3}% {:>4}/{:>4}: Total\n", percent, covered, total)
+        writeln!(f, "{:>3}% {:>4}/{:>4}: Total", percent, covered, total)
     }
 }

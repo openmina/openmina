@@ -1,0 +1,14 @@
+<div [ngClass]="'bg-' + coverageColor + '-container'"
+     class="h-sm f-600 tertiary pl-8 pr-8 border-rad-4 fx-row-full-cent">
+  <span [ngClass]="coverageColor + '-primary'" class="pr-5">{{ overallCoverage || 0 | number: '.2-2' }}%</span>
+  Overall coverage
+</div>
+<form [formGroup]="formGroup"
+      [class.active]="formGroup.get('search').value"
+      class="h-sm p-relative ml-10 border-rad-4">
+  <span class="mina-icon icon-200 p-absolute f-20">search</span>
+  <input type="text" formControlName="search" placeholder="Search files"
+         class="border-remove f-600 h-100">
+  <span class="mina-icon icon-200 p-absolute pointer"
+        (click)="formGroup.get('search').setValue('')">close</span>
+</form>

@@ -16,7 +16,7 @@ export const environment: Readonly<MinaEnv> = {
       'block-production': ['won-slots'],
       mempool: [],
       benchmarks: ['wallets'],
-      // zk: ['test'],
+      fuzzing: [],
     },
     graphQL: 'https://adonagy.com/graphql',
     // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',

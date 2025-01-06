@@ -683,10 +683,21 @@ pub struct MutableFp {
     fp: Arc<std::sync::Mutex<Option<Fp>>>,
 }
 
+// We skip some hashing during fuzzing to speedup things, but we still need to catch potential in transaction application.
+// The fuzzer will call apply_transactions with GLOBAL_SKIP_PARTIAL_EQ disabled and enable it for everything else.
+#[cfg(feature = "fuzzing")]
+pub static GLOBAL_SKIP_PARTIAL_EQ: Lazy<std::sync::RwLock<bool>> =
+    Lazy::new(|| std::sync::RwLock::new(false));
+
 impl Eq for MutableFp {}
 
 impl PartialEq for MutableFp {
     fn eq(&self, other: &Self) -> bool {
+        #[cfg(feature = "fuzzing")]
+        if *GLOBAL_SKIP_PARTIAL_EQ.read().unwrap() {
+            return true;
+        }
+
         self.get().unwrap() == other.get().unwrap()
     }
 }

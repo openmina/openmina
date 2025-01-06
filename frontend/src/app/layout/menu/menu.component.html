@@ -47,39 +47,41 @@
     </div>
   </div>
 
-  <div class="w-100 pl-8 pr-8 mb-5 mt-8">
-    <div class="bottom-btn-action w-100 flex-row align-center flex-between p-relative h-sm border-rad-6 pointer"
-         (click)="openEnvBuildModal()">
-      <div class="fx-row-vert-cent">
-        <span class="mina-icon f-18 secondary">commit</span>
-        <span [class.hid]="menu.collapsed && !menu.isMobile"
-              class="network text-capitalize ml-5">Build</span>
-      </div>
-      <div class="chain-id tertiary fx-row-vert-cent"
-           [class.hid]="menu.collapsed && !menu.isMobile">
-        <span>{{ envBuild ? envBuild.git.commit_hash.slice(0, 6) : '' }}..</span>
-        <span class="mina-icon icon-200 f-18">open_in_full</span>
-      </div>
-    </div>
-  </div>
-  <div class="w-100 pl-8 pr-8 mb-8 mt-5">
-    <div class="bottom-btn-action w-100 flex-row align-center flex-between p-relative h-sm border-rad-6 pointer"
-         [copyToClipboard]="chainId"
-         [position]="TooltipPosition.RIGHT"
-         [html]="true"
-         [maxWidth]="1500"
-         [cancelFormatting]="true"
-         [tooltip]="'Copy ' + network + ' ID<span class=\'tertiary ml-10\'>' + chainId + '</span>'">
-      <div class="fx-row-vert-cent">
-        <span class="mina-icon f-18 secondary">wifi_tethering</span>
-        <span [class.hid]="menu.collapsed && !menu.isMobile"
-              class="network text-capitalize ml-5">{{ network }}</span>
-      </div>
-      <div class="chain-id tertiary fx-row-vert-cent"
-           [class.hid]="menu.collapsed && !menu.isMobile">
-        <span>{{ chainId?.slice(0, 6) }}..</span>
-        <span class="mina-icon icon-200 f-18">content_copy</span>
+  @if (!hideNodeStats) {
+    <div class="w-100 pl-8 pr-8 mb-5 mt-8">
+      <div class="bottom-btn-action w-100 flex-row align-center flex-between p-relative h-sm border-rad-6 pointer"
+           (click)="openEnvBuildModal()">
+        <div class="fx-row-vert-cent">
+          <span class="mina-icon f-18 secondary">commit</span>
+          <span [class.hid]="menu.collapsed && !menu.isMobile"
+                class="network text-capitalize ml-5">Build</span>
+        </div>
+        <div class="chain-id tertiary fx-row-vert-cent"
+             [class.hid]="menu.collapsed && !menu.isMobile">
+          <span>{{ envBuild ? envBuild.git.commit_hash.slice(0, 6) : '' }}..</span>
+          <span class="mina-icon icon-200 f-18">open_in_full</span>
+        </div>
       </div>
     </div>
-  </div>
+    <div class="w-100 pl-8 pr-8 mb-8 mt-5">
+      <div class="bottom-btn-action w-100 flex-row align-center flex-between p-relative h-sm border-rad-6 pointer"
+           [copyToClipboard]="chainId"
+           [position]="TooltipPosition.RIGHT"
+           [html]="true"
+           [maxWidth]="1500"
+           [cancelFormatting]="true"
+           [tooltip]="'Copy ' + network + ' ID<span class=\'tertiary ml-10\'>' + chainId + '</span>'">
+        <div class="fx-row-vert-cent">
+          <span class="mina-icon f-18 secondary">wifi_tethering</span>
+          <span [class.hid]="menu.collapsed && !menu.isMobile"
+                class="network text-capitalize ml-5">{{ network }}</span>
+        </div>
+        <div class="chain-id tertiary fx-row-vert-cent"
+             [class.hid]="menu.collapsed && !menu.isMobile">
+          <span>{{ chainId?.slice(0, 6) }}..</span>
+          <span class="mina-icon icon-200 f-18">content_copy</span>
+        </div>
+      </div>
+    </div>
+  }
 </div>

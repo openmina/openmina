@@ -15,6 +15,8 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, thiserror::Error)]
 pub enum P2pDisconnectionReason {
+    #[error("random disconnection in order to free up space so that more peers can connect")]
+    FreeUpSpace,
     #[error("message is unexpected for channel {0}")]
     P2pChannelMsgUnexpected(ChannelId),
     #[error("failed to send message to channel: {0}")]

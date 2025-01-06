@@ -15,7 +15,7 @@ use crate::{
         currency::{Amount, Balance, BlockTime, Fee, Magnitude, Nonce, Slot},
         fee_rate::FeeRate,
         transaction_logic::{
-            valid,
+            valid, verifiable,
             zkapp_command::{
                 from_unapplied_sequence::{self, FromUnappliedSequence},
                 MaybeWithStatus, WithHash,
@@ -2095,11 +2095,7 @@ impl TransactionPool {
         }
     }
 
-    pub fn verify(
-        &self,
-        diff: diff::Diff,
-        accounts: &BTreeMap<AccountId, Account>,
-    ) -> Result<Vec<valid::UserCommand>, TransactionPoolErrors> {
+    pub fn prevalidate(&self, diff: diff::Diff) -> Result<diff::Diff, TransactionPoolErrors> {
         let well_formedness_errors: HashSet<_> = diff
             .list
             .iter()
@@ -2118,6 +2114,14 @@ impl TransactionPool {
             ));
         }
 
+        Ok(diff)
+    }
+
+    pub fn convert_diff_to_verifiable(
+        &self,
+        diff: diff::Diff,
+        accounts: &BTreeMap<AccountId, Account>,
+    ) -> Result<Vec<WithStatus<verifiable::UserCommand>>, TransactionPoolErrors> {
         let cs = diff
             .list
             .iter()
@@ -2167,10 +2171,18 @@ impl TransactionPool {
             .into_iter()
             .map(|MaybeWithStatus { cmd, status: _ }| WithStatus {
                 data: cmd,
+                // TODO: is this correct?
                 status: Applied,
             })
             .collect::<Vec<_>>();
 
+        Ok(diff)
+    }
+
+    pub fn verify_proofs(
+        &self,
+        diff: Vec<WithStatus<verifiable::UserCommand>>,
+    ) -> Result<Vec<valid::UserCommand>, TransactionPoolErrors> {
         let (verified, invalid): (Vec<_>, Vec<_>) = Verifier
             .verify_commands(diff, None)
             .into_iter()

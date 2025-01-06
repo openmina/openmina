@@ -26,9 +26,16 @@ pub type Result<T> = std::result::Result<T, webrtc::Error>;
 
 pub type RTCConnectionState = RTCPeerConnectionState;
 
+pub type Api = Arc<webrtc::api::API>;
+
+pub fn build_api() -> Api {
+    APIBuilder::new().build().into()
+}
+
 pub struct RTCConnection(Arc<RTCPeerConnection>, bool);
 
-pub struct RTCChannel(Arc<RTCDataChannel>, bool);
+#[derive(Clone)]
+pub struct RTCChannel(Arc<RTCDataChannel>);
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
 pub enum RTCSignalingError {
@@ -39,10 +46,8 @@ pub enum RTCSignalingError {
 }
 
 impl RTCConnection {
-    pub async fn create(config: RTCConfig) -> Result<Self> {
-        let webrtc = APIBuilder::new().build();
-        webrtc
-            .new_peer_connection(config.into())
+    pub async fn create(api: &Api, config: RTCConfig) -> Result<Self> {
+        api.new_peer_connection(config.into())
             .await
             .map(|v| Self(v.into(), true))
     }
@@ -64,7 +69,7 @@ impl RTCConnection {
                 }),
             )
             .await
-            .map(|chan| RTCChannel(chan, true))
+            .map(RTCChannel)
     }
 
     pub async fn offer_create(&self) -> Result<RTCSessionDescription> {
@@ -112,15 +117,17 @@ impl RTCConnection {
     }
 
     pub async fn close(self) {
-        let _ = self.0.close().await;
+        if let Err(error) = self.0.close().await {
+            openmina_core::warn!(
+                openmina_core::log::system_time();
+                summary = "CONNECTION LEAK: Failure when closing RTCConnection",
+                error = error.to_string(),
+            )
+        }
     }
 }
 
 impl RTCChannel {
-    pub fn is_main(&self) -> bool {
-        self.1
-    }
-
     pub fn on_open<Fut>(&self, f: impl FnOnce() -> Fut + Send + Sync + 'static)
     where
         Fut: Future<Output = ()> + Send + 'static,
@@ -175,12 +182,6 @@ pub async fn webrtc_signal_send(
 }
 
 impl Clone for RTCConnection {
-    fn clone(&self) -> Self {
-        Self(self.0.clone(), false)
-    }
-}
-
-impl Clone for RTCChannel {
     fn clone(&self) -> Self {
         Self(self.0.clone(), false)
     }

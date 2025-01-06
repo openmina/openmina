@@ -102,7 +102,7 @@ impl TransactionPoolCandidatesState {
 
                 let transaction_hashes = batch.iter().map(|tx| tx.hash().clone()).collect();
                 dispatcher.push(TransactionPoolAction::StartVerify {
-                    commands: batch.into_iter().map(|tx| tx.into_body()).collect(),
+                    commands: batch.into_iter().collect(),
                     from_rpc: None,
                 });
                 dispatcher.push(TransactionPoolCandidateAction::VerifyPending {

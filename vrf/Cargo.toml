@@ -1,6 +1,6 @@
 [package]
 name = "vrf"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -22,7 +22,8 @@ poseidon = { workspace = true }
 ark-ff = { workspace = true }
 ark-ec = { version = "0.3.0", features = [ "std" ] }
 ark-serialize = { version = "0.3.0", features = [ "std" ] }
-num = "0.4"
+num = {version = "0.4", features = [ "std" ] }
+# num = "0.4"
 itertools = "0.12"
 sha2 = "0.10"
 bs58 = "0.4.0"

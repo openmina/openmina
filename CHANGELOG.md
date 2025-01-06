@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-01-06
+
+### Fixed
+
+- **Mempool**: Inside the transaction and snark pool reducers, only broadcast locally injected transactions and producer snarks. Libp2p layer takes care of diffs received from gossip already.
+- **P2P**: Don't forget the initial peers list.
+- WebRTC connection leaks.
+- zkApp transaction proofs are now verified on a separate thread.
+- Sometimes produced blocks were broadcasted too early.
+- `OneOrTwo::zip` never panics now, on failure it returns an error.
+
+### Changed
+
+- On native, use jemalloc as the default allocator.
+- Allocations reduced considerably by using stack-allocated bignums in the VRF evaluator.
+- The same thread is now reused to verify all block proofs.
+- `RUST_BACKTRACE` is always set to `full` now.
+
 ## [0.12.0] - 2024-12-04
 
 ### Fixed
@@ -330,7 +348,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.12.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.13.0...develop
+[0.13.0]: https://github.com/openmina/openmina/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openmina/openmina/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/openmina/openmina/compare/v0.10.3...v0.11.0
 [0.10.3]: https://github.com/openmina/openmina/compare/v0.10.0...v0.10.3

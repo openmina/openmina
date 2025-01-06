@@ -102,7 +102,7 @@ impl Default for P2pTimeouts {
                 "OUTGOING_CONNECTION_TIMEOUT",
                 Some(Duration::from_secs(15)),
             ),
-            reconnect_timeout: from_env_or("RECONNECT_TIMEOUT", Some(Duration::from_secs(1))),
+            reconnect_timeout: from_env_or("RECONNECT_TIMEOUT", Some(Duration::from_secs(30))),
             incoming_error_reconnect_timeout: from_env_or(
                 "INCOMING_ERROR_RECONNECT_TIMEOUT",
                 Some(Duration::from_secs(30)),
@@ -330,6 +330,11 @@ impl P2pLimits {
     limit!(
         /// Minimum number of peers.
         min_peers(&self): self.max_peers.map(|v| (v / 2).max(3).min(v))
+    );
+
+    limit!(
+        /// Above this limit, peers will be randomly disconnected to free up space.
+        max_stable_peers(&self): self.max_peers.map(|v| v.saturating_mul(8).saturating_div(10))
     );
 
     limit!(

@@ -3,7 +3,7 @@ use openmina_core::{
     impl_substate_access,
     requests::RpcId,
     snark::{Snark, SnarkInfo, SnarkJobCommitment},
-    transaction::TransactionInfo,
+    transaction::{TransactionInfo, TransactionWithHash},
     ChainId, SubstateAccess,
 };
 use redux::{Callback, Timestamp};
@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{
@@ -35,7 +36,7 @@ use crate::{
     Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
     P2pNetworkSchedulerState, P2pTimeouts, PeerId,
 };
-use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaBlockBlockStableV2};
+use mina_p2p_messages::v2;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pState {
@@ -43,6 +44,9 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
+
+    pub last_random_disconnection_try: redux::Timestamp,
+
     pub callbacks: P2pCallbacks,
 }
 
@@ -72,14 +76,10 @@ impl P2pState {
             );
         }
 
-        let initial_peers = config
-            .initial_peers
-            .iter()
-            .filter(|peer| peer.peer_id() != &my_id);
-
         let known_peers = if cfg!(feature = "p2p-libp2p") {
-            initial_peers
-                .clone()
+            config
+                .initial_peers
+                .iter()
                 .filter_map(|peer| {
                     if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
                         Some(peer.into())
@@ -92,22 +92,6 @@ impl P2pState {
             Vec::new()
         };
 
-        let peers = initial_peers
-            .map(|peer| {
-                (
-                    *peer.peer_id(),
-                    P2pPeerState {
-                        dial_opts: Some(peer.clone()),
-                        is_libp2p: peer.is_libp2p(),
-                        status: P2pPeerStatus::Disconnected {
-                            time: Timestamp::ZERO,
-                        },
-                        identify: None,
-                    },
-                )
-            })
-            .collect();
-
         let network = P2pNetworkState::new(
             config.identity_pub_key.clone(),
             addrs,
@@ -119,7 +103,10 @@ impl P2pState {
             chain_id: chain_id.clone(),
             config,
             network,
-            peers,
+            peers: Default::default(),
+
+            last_random_disconnection_try: redux::Timestamp::ZERO,
+
             callbacks,
         }
     }
@@ -388,9 +375,24 @@ impl P2pPeerState {
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Error { time, .. },
                 )) => is_time_passed(now, *time, timeouts.outgoing_error_reconnect_timeout),
-                P2pPeerStatus::Disconnected { time } | P2pPeerStatus::Disconnecting { time } => {
+                P2pPeerStatus::Disconnected { time } => {
                     *time == Timestamp::ZERO
                         || is_time_passed(now, *time, timeouts.reconnect_timeout)
+                }
+                P2pPeerStatus::Disconnecting { time } => {
+                    if !is_time_passed(now, *time, timeouts.reconnect_timeout) {
+                        false
+                    } else {
+                        #[cfg(not(test))]
+                        openmina_core::bug_condition!(
+                            "peer stuck in `P2pPeerStatus::Disconnecting` state?"
+                        );
+                        #[cfg(test)]
+                        // in test, since time is virtual, timeout can pass before service finishes cleanup.
+                        // Hence it shouldn't be a bug condition in such case.
+                        openmina_core::warn!(*time; "peer stuck in `P2pPeerStatus::Disconnecting` state?");
+                        true
+                    }
                 }
                 _ => false,
             }
@@ -427,7 +429,14 @@ impl P2pPeerStatus {
     }
 
     pub fn is_disconnected_or_disconnecting(&self) -> bool {
-        matches!(self, Self::Disconnecting { .. } | Self::Disconnected { .. })
+        self.disconnected_or_disconnecting_time().is_some()
+    }
+
+    pub fn disconnected_or_disconnecting_time(&self) -> Option<redux::Timestamp> {
+        match self {
+            Self::Disconnecting { time } | Self::Disconnected { time } => Some(*time),
+            _ => None,
+        }
     }
 
     pub fn as_connecting(&self) -> Option<&P2pConnectionState> {
@@ -477,6 +486,10 @@ impl P2pPeerStatusReady {
             best_tip: None,
         }
     }
+
+    pub fn connected_for(&self, now: redux::Timestamp) -> Duration {
+        now.checked_sub(self.connected_since).unwrap_or_default()
+    }
 }
 
 impl SubstateAccess<P2pState> for P2pState {
@@ -496,8 +509,7 @@ pub struct P2pCallbacks {
     /// Callback for [`P2pChannelsTransactionAction::Received`]
     pub on_p2p_channels_transaction_received: OptionalCallback<(PeerId, Box<TransactionInfo>)>,
     /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
-    pub on_p2p_channels_transaction_libp2p_received:
-        OptionalCallback<Box<MinaBaseUserCommandStableV2>>,
+    pub on_p2p_channels_transaction_libp2p_received: OptionalCallback<Box<TransactionWithHash>>,
     /// Callback for [`P2pChannelsSnarkJobCommitmentAction::Received`]
     pub on_p2p_channels_snark_job_commitment_received:
         OptionalCallback<(PeerId, Box<SnarkJobCommitment>)>,
@@ -529,7 +541,8 @@ pub struct P2pCallbacks {
         OptionalCallback<(RpcId, PeerId, P2pConnectionResponse)>,
 
     /// Callback for [`P2pPeerAction::BestTipUpdate`]
-    pub on_p2p_peer_best_tip_update: OptionalCallback<BlockWithHash<Arc<MinaBlockBlockStableV2>>>,
+    pub on_p2p_peer_best_tip_update:
+        OptionalCallback<BlockWithHash<Arc<v2::MinaBlockBlockStableV2>>>,
 
     /// Callback for [`P2pChannelsRpcAction::Ready`]
     pub on_p2p_channels_rpc_ready: OptionalCallback<PeerId>,

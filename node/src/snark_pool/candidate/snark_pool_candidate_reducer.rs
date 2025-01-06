@@ -169,6 +169,7 @@ impl SnarkPoolCandidatesState {
                     dispatcher.push(SnarkPoolAction::WorkAdd {
                         snark: snark.clone(),
                         sender: *peer_id,
+                        is_sender_local: false,
                     });
                 }
             }

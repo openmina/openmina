@@ -35,7 +35,7 @@ impl RecordReplayBlockProduction {
             block_producers: 3,
             advance_time: RunCfgAdvanceTime::Rand(1..=200),
             run_until: SimulatorRunUntil::BlockchainLength(10),
-            run_until_timeout: Duration::from_secs(10 * 60),
+            run_until_timeout: Duration::from_secs(15 * 60),
             recorder: Recorder::StateWithInputActions,
         };
         let mut simulator = Simulator::new(initial_time, cfg);

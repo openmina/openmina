@@ -60,7 +60,6 @@ mat-sidenav-content {
   $toolbar: 40px;
   height: calc(100% - #{$toolbar});
   border-top-left-radius: 6px;
-  overflow: hidden;
   background-color: $base-surface;
 
   &.no-toolbar {

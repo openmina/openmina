@@ -1,7 +1,19 @@
+@import 'openmina';
 
 :host {
   .mina-icon {
     font-variation-settings: 'FILL' 1, 'wght' 300 !important;
+  }
+
+  .background-gradient {
+    background: linear-gradient(145deg, $base-background 0%, $base-background 50%, $success-container 60%, $base-surface 85%, $base-surface 100%);
+    background-size: 500%;
+    background-position: 0 50%;
+    transition: background-position 0.7s ease;
+
+    &.complete {
+      background-position: 100% 50%;
+    }
   }
 
   @media (max-width: 767px) {

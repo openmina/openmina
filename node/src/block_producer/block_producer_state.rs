@@ -294,9 +294,9 @@ impl BlockProducerCurrentState {
     pub fn won_slot_should_produce(&self, now: redux::Timestamp) -> bool {
         // TODO(binier): maybe have runtime estimate
         #[cfg(not(target_arch = "wasm32"))]
-        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(5).as_nanos() as u64;
+        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(6).as_nanos() as u64;
         #[cfg(target_arch = "wasm32")]
-        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(18).as_nanos() as u64;
+        const BLOCK_PRODUCTION_ESTIMATE: u64 = Duration::from_secs(20).as_nanos() as u64;
 
         let slot_interval = Duration::from_secs(3 * 60).as_nanos() as u64;
         match self {

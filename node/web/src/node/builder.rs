@@ -202,6 +202,10 @@ impl NodeBuilder {
         } else {
             self.initial_peers
         };
+        let initial_peers = initial_peers
+            .into_iter()
+            .filter(|opts| *opts.peer_id() != p2p_sec_key.public_key().peer_id())
+            .collect();
 
         let srs = self.verifier_srs.unwrap_or_else(get_srs);
         let block_verifier_index = self

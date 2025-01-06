@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
@@ -24,6 +26,8 @@ pub struct P2pServiceCtx {
 pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
     #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut MioService;
+
+    fn connections(&self) -> BTreeSet<PeerId>;
 
     fn init<S: TaskSpawner>(sec_key: SecretKey, spawner: S) -> P2pServiceCtx {
         P2pServiceCtx {
@@ -70,6 +74,10 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pNetworkService for T {
 }
 
 impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
+    fn connections(&self) -> std::collections::BTreeSet<PeerId> {
+        P2pServiceWebrtcWithLibp2p::connections(self)
+    }
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -134,12 +142,8 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
 }
 
 impl<T: P2pServiceWebrtcWithLibp2p> P2pDisconnectionService for T {
-    fn disconnect(&mut self, peer_id: PeerId) {
-        // By removing the peer, `cmd_sender` gets dropped which will
-        // cause `peer_loop` to end.
-        if self.peers().remove(&peer_id).is_none() {
-            openmina_core::error!(openmina_core::log::system_time(); "`disconnect` shouldn't be used for libp2p peers");
-        }
+    fn disconnect(&mut self, peer_id: PeerId) -> bool {
+        P2pServiceWebrtc::disconnect(self, peer_id)
     }
 }
 

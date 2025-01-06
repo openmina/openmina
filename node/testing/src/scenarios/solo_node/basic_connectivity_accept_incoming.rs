@@ -108,7 +108,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                     let node_id = runner.add_ocaml_node(OcamlNodeTestingConfig {
                         initial_peers: vec![node_addr.clone()],
                         daemon_json: DaemonJson::Custom(
-                            "/var/lib/coda/config_dc6bf78b.json".to_owned(),
+                            "/var/lib/coda/config_889607b9.json".to_owned(),
                         ),
                         block_producer: None,
                     });

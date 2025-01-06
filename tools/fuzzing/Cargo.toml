@@ -1,6 +1,6 @@
 [package]
 name = "transaction_fuzzer"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2021"
 
 
@@ -34,8 +34,8 @@ num-bigint = "0.4.0"
 tuple-map = "0.4.0"
 itertools = "0.11.0"
 #binprot = "0.1.7"
-binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
-binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
 clap = "4.5.20"
 
 

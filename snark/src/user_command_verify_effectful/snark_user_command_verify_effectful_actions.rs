@@ -1,9 +1,5 @@
-use std::sync::Arc;
-
-use mina_p2p_messages::{list::List, v2};
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use serde::{Deserialize, Serialize};
-
-use crate::{TransactionVerifier, VerifierSRS};
 
 use super::SnarkUserCommandVerifyId;
 
@@ -11,11 +7,7 @@ use super::SnarkUserCommandVerifyId;
 pub enum SnarkUserCommandVerifyEffectfulAction {
     Init {
         req_id: SnarkUserCommandVerifyId,
-        commands: List<v2::MinaBaseUserCommandStableV2>,
-        // commands: Vec<WithStatus<verifiable::UserCommand>>,
-        // sender: String,
-        verifier_index: TransactionVerifier,
-        verifier_srs: Arc<VerifierSRS>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
     },
 }
 

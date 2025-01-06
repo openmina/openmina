@@ -198,6 +198,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     },
                     P2pConnectionEvent::Closed(peer_id) => {
                         store.dispatch(P2pDisconnectionAction::PeerClosed { peer_id });
+                        store.dispatch(P2pDisconnectionAction::Finish { peer_id });
                     }
                 },
                 P2pEvent::Channel(e) => match e {
@@ -289,13 +290,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
                 SnarkEvent::UserCommandVerify(req_id, result) => {
-                    if result.iter().any(|res| res.is_err()) {
+                    if let Ok(commands) = result {
+                        store.dispatch(SnarkUserCommandVerifyAction::Success { req_id, commands });
+                    } else {
                         store.dispatch(SnarkUserCommandVerifyAction::Error {
                             req_id,
                             error: SnarkUserCommandVerifyError::VerificationFailed,
                         });
-                    } else {
-                        store.dispatch(SnarkUserCommandVerifyAction::Success { req_id });
                     }
                 }
             },

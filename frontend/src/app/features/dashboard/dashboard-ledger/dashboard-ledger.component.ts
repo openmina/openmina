@@ -15,6 +15,7 @@ import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.t
 import { AppSelectors } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { SentryService } from '@core/services/sentry.service';
+import { take } from 'rxjs';
 
 type LedgerConfigMap = {
   stakingEpoch: SecDurationConfig,

@@ -56,9 +56,21 @@ pub struct Node {
     #[arg(long, env, default_value = "8302")]
     pub libp2p_port: u16,
 
-    /// Verbosity level
+    /// Verbosity level (options: trace, debug, info, warn, error)
     #[arg(long, short, env, default_value = "info")]
     pub verbosity: Level,
+
+    /// Disable filesystem logging
+    #[arg(
+        long,
+        env = "OPENMINA_DISABLE_FILESYSTEM_LOGGING",
+        default_value_t = false
+    )]
+    pub disable_filesystem_logging: bool,
+
+    /// Specify custom path for log files
+    #[arg(long, env = "OPENMINA_LOG_PATH", default_value = "$OPENMINA_HOME")]
+    pub log_path: String,
 
     #[arg(long, short = 'P', alias = "peer")]
     pub peers: Vec<P2pConnectionOutgoingInitOpts>,
@@ -74,6 +86,9 @@ pub struct Node {
     /// Each line should contain peer's multiaddr.
     #[arg(long, env)]
     pub peer_list_url: Option<Url>,
+
+    #[arg(long, default_value = "100")]
+    pub max_peers: usize,
 
     /// Run the node in seed mode. No default peers will be added.
     #[arg(long, env)]
@@ -128,8 +143,20 @@ impl Node {
     pub fn run(self) -> anyhow::Result<()> {
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
 
-        let _guard =
-            tracing::initialize_with_filesystem_output(self.verbosity, work_dir.clone().into());
+        let _guard = if !self.disable_filesystem_logging {
+            let log_output_dir = if self.log_path == "$OPENMINA_HOME" {
+                work_dir.clone()
+            } else {
+                self.log_path.clone()
+            };
+            Some(tracing::initialize_with_filesystem_output(
+                self.verbosity,
+                log_output_dir.into(),
+            ))
+        } else {
+            tracing::initialize(self.verbosity);
+            None
+        };
 
         rayon::ThreadPoolBuilder::new()
             .num_threads(num_cpus::get().max(2) - 1)
@@ -206,6 +233,7 @@ impl Node {
                 .filter_map(|s| s.parse().ok()),
         );
 
+        node_builder.p2p_max_peers(self.max_peers);
         self.seed.then(|| node_builder.p2p_seed_node());
         self.no_peers_discovery
             .then(|| node_builder.p2p_no_discovery());

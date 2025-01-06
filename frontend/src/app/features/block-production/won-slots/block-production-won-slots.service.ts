@@ -108,6 +108,7 @@ export class BlockProductionWonSlotsService {
                 evaluated: response.current_epoch_vrf_stats?.evaluated_slots,
                 total: response.current_epoch_vrf_stats?.total_slots,
               },
+              publicKey: response.public_key,
             },
           };
         }),
@@ -171,6 +172,7 @@ export interface WonSlotResponse {
       total_slots: number;
     };
   };
+  public_key: string;
 }
 
 interface Attempt {

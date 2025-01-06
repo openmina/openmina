@@ -23,7 +23,7 @@
                                [ngClass]="'h-minus-lg' + (thGroupsTemplate ? '-doubled' : '')"
                                [style.min-width.px]="minWidth"
                                [itemSize]="rowSize">
-    <div *cdkVirtualFor="let row of rows; let i=index; trackBy: trackByFn"
+    <div *cdkVirtualFor="let row of rows; let i=index; trackBy: trackByFn; templateCacheSize: 0"
          [class.active]="activeRow && (propertyForActiveCheck ? activeRow[propertyForActiveCheck] === row[propertyForActiveCheck] : activeRow === row)"
          [attr.idx]="i"
          class="row">

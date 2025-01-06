@@ -37,16 +37,48 @@ pub fn build_env() -> JsValue {
     JsValue::from_serde(&::node::BuildEnv::get()).unwrap_or_default()
 }
 
+fn parse_bp_key(key: JsValue) -> Option<AccountSecretKey> {
+    if key.is_falsy() {
+        return None;
+    }
+
+    if key.is_string() {
+        return Some(
+            key.as_string()
+                .unwrap()
+                .parse()
+                .expect("failed to parse passed block producer keys"),
+        );
+    }
+
+    let (encrypted, password) = if key.is_array() {
+        let arr: js_sys::Array = key.into();
+        let password = arr
+            .at(1)
+            .as_string()
+            .expect("invalid block_producer password");
+        let encrypted = arr
+            .at(0)
+            .into_serde()
+            .expect("block_producer encrypted key decode failed");
+        (encrypted, password)
+    } else {
+        panic!("unsupported block_producer keys type: {key:?}");
+    };
+
+    Some(
+        AccountSecretKey::from_encrypted(&encrypted, &password)
+            .expect("block_producer secret key decrypt failed"),
+    )
+}
+
 #[wasm_bindgen]
 pub async fn run(
-    block_producer: Option<String>,
+    block_producer: JsValue,
     seed_nodes_url: Option<String>,
     genesis_config_url: Option<String>,
 ) -> RpcSender {
-    let block_producer: Option<AccountSecretKey> = block_producer.map(|key| {
-        key.parse()
-            .expect("failed to parse passed block producer keys")
-    });
+    let block_producer = parse_bp_key(block_producer);
 
     let (rpc_sender_tx, rpc_sender_rx) = ::node::core::channels::oneshot::channel();
     let _ = thread::spawn(move || {

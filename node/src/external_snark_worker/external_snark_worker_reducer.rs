@@ -125,7 +125,11 @@ impl ExternalSnarkWorker {
                 };
                 let sender = p2p.my_id();
                 // Directly add snark to the snark pool as it's produced by us.
-                dispatcher.push(SnarkPoolAction::WorkAdd { snark, sender });
+                dispatcher.push(SnarkPoolAction::WorkAdd {
+                    snark,
+                    sender,
+                    is_sender_local: true,
+                });
                 dispatcher.push(ExternalSnarkWorkerAction::PruneWork);
             }
             ExternalSnarkWorkerAction::WorkError { error } => {
