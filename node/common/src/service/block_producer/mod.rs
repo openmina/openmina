@@ -6,14 +6,16 @@ use ledger::proofs::{
     block::BlockParams, generate_block_proof, provers::BlockProver, transaction::ProofError,
 };
 use mina_p2p_messages::{
-    binprot::BinProtWrite,
-    v2::{MinaBaseProofStableV2, ProverExtendBlockchainInputStableV2, StateHash},
+    bigint::BigInt,
+    binprot::{self, BinProtWrite},
+    v2::{self, MinaBaseProofStableV2, ProverExtendBlockchainInputStableV2, StateHash},
 };
 use node::{
     account::AccountSecretKey,
     block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
     core::{channels::mpsc, constants::constraint_constants, thread},
 };
+use rsa::pkcs1::DecodeRsaPublicKey;
 
 use crate::EventSender;
 
@@ -91,12 +93,9 @@ fn prover_loop(
         Box<ProverExtendBlockchainInputStableV2>,
     )>,
 ) {
-    while let Some((provers, block_hash, input)) = rx.blocking_recv() {
-        let res =
-            prove(provers, input.clone(), keypair.clone(), false).map_err(|err| format!("{err:?}"));
+    while let Some((provers, block_hash, mut input)) = rx.blocking_recv() {
+        let res = prove(provers, &mut input, &keypair, false).map_err(|err| format!("{err:?}"));
         if res.is_err() {
-            // IMPORTANT: Make sure that `input` here is a copy from before `prove` is called, we don't
-            // want to leak the private key.
             if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
                 openmina_core::error!(
                         openmina_core::log::system_time();
@@ -109,8 +108,8 @@ fn prover_loop(
 
 pub fn prove(
     provers: BlockProver,
-    mut input: Box<ProverExtendBlockchainInputStableV2>,
-    keypair: AccountSecretKey,
+    input: &mut ProverExtendBlockchainInputStableV2,
+    keypair: &AccountSecretKey,
     only_verify_constraints: bool,
 ) -> Result<Arc<MinaBaseProofStableV2>, ProofError> {
     let height = input
@@ -129,7 +128,7 @@ pub fn prove(
     }
 
     let res = generate_block_proof(BlockParams {
-        input: &input,
+        input,
         block_step_prover: &provers.block_step_prover,
         block_wrap_prover: &provers.block_wrap_prover,
         tx_wrap_prover: &provers.tx_wrap_prover,
@@ -167,18 +166,57 @@ impl node::service::BlockProducerService for crate::NodeService {
 
 fn dump_failed_block_proof_input(
     block_hash: StateHash,
-    input: Box<ProverExtendBlockchainInputStableV2>,
+    mut input: Box<ProverExtendBlockchainInputStableV2>,
 ) -> std::io::Result<()> {
+    use rsa::Pkcs1v15Encrypt;
+
+    const PUBLIC_KEY: &str = "-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAqVZJX+m/xMB32rMAb9CSh9M4+TGzV037/R7yLCYuLm6VgX0HBtvE
+wC7IpZeSQKsc7gx0EVn9+u24nw7ep0TJlJb7bWolRdelnOQK0t9KMn20n8QKYPvA
+5zmUXBUI/4Hja+Nck5sErut/PAamzoUK1SeYdbsLRM70GiPALe+buSBb3qEEOgm8
+6EYqichDSd1yry2hLy/1EvKm51Va+D92/1SB1TNLFLpUJ6PuSelfYC95wJ+/g+1+
+kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
+1fvtAVOmYJ3s4CfRCC3SudYc8ZVvERcylwIDAQAB
+-----END RSA PUBLIC KEY-----";
+
+    #[derive(binprot::macros::BinProtWrite)]
+    struct DumpBlockProof {
+        input: Box<ProverExtendBlockchainInputStableV2>,
+        key: Vec<u8>,
+    }
+
+    let producer_private_key = {
+        let mut buffer = Vec::with_capacity(1024);
+        input
+            .prover_state
+            .producer_private_key
+            .binprot_write(&mut buffer)
+            .unwrap();
+        buffer
+    };
+
+    let encrypted_producer_private_key = {
+        let mut rng = rand::thread_rng();
+        let public_key = rsa::RsaPublicKey::from_pkcs1_pem(PUBLIC_KEY).unwrap();
+        public_key
+            .encrypt(&mut rng, Pkcs1v15Encrypt, &producer_private_key)
+            .unwrap()
+    };
+
+    // IMPORTANT: Make sure that `input` doesn't leak the private key.
+    input.prover_state.producer_private_key = v2::SignatureLibPrivateKeyStableV1(BigInt::one());
+
+    let input = DumpBlockProof {
+        input,
+        key: encrypted_producer_private_key,
+    };
+
     let debug_dir = openmina_core::get_debug_dir();
     let filename = debug_dir
         .join(format!("failed_block_proof_input_{block_hash}.binprot"))
         .to_string_lossy()
         .to_string();
-    openmina_core::warn!(
-        openmina_core::log::system_time();
-        message = "Dumping failed block proof.",
-        filename = filename
-    );
+    openmina_core::warn!(message = "Dumping failed block proof.", filename = filename);
     std::fs::create_dir_all(&debug_dir)?;
     let mut file = std::fs::File::create(&filename)?;
     input.binprot_write(&mut file)?;
