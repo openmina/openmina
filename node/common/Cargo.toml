@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-common"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -22,6 +22,7 @@ ark-ff = { workspace = true }
 
 node = { path = "../../node", features = ["replay"] }
 openmina-core = { path = "../../core" }
+rsa = "0.9"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }

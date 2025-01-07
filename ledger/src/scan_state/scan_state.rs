@@ -779,14 +779,13 @@ pub mod transaction_snark {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/one_or_two/one_or_two.ml#L54
-        pub fn zip<B>(a: OneOrTwo<T>, b: OneOrTwo<B>) -> OneOrTwo<(T, B)> {
+        pub fn zip<B>(a: OneOrTwo<T>, b: OneOrTwo<B>) -> Result<OneOrTwo<(T, B)>, String> {
             use OneOrTwo::*;
 
             match (a, b) {
-                (One(a), One(b)) => One((a, b)),
-                (Two((a1, a2)), Two((b1, b2))) => Two(((a1, b1), (a2, b2))),
-                (One(_), Two(_)) => panic!("One_or_two.zip mismatched"),
-                (Two(_), One(_)) => panic!("One_or_two.zip mismatched"),
+                (One(a), One(b)) => Ok(One((a, b))),
+                (Two((a1, a2)), Two((b1, b2))) => Ok(Two(((a1, b1), (a2, b2)))),
+                (One(_), Two(_)) | (Two(_), One(_)) => Err("One_or_two.zip mismatched".to_string()),
             }
         }
 

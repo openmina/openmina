@@ -1,4 +1,4 @@
-/// Must only be used in logging and even there it's not prefferable.
+/// Must only be used in logging and even there it's not preferable.
 ///
 /// This **MUST** only be used in places which doesn't have access to any
 /// of the following: `redux::Store`, global state where time is stored,
@@ -43,12 +43,18 @@ macro_rules! trace {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(trace, $time; $($tts)*);
     };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(trace; $($tts)*);
+    };
 }
 
 #[macro_export]
 macro_rules! debug {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(debug, $time; $($tts)*);
+    };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(debug; $($tts)*);
     };
 }
 
@@ -57,6 +63,9 @@ macro_rules! info {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(info, $time; $($tts)*);
     };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(info; $($tts)*);
+    };
 }
 
 #[macro_export]
@@ -64,12 +73,18 @@ macro_rules! warn {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(warn, $time; $($tts)*);
     };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(warn; $($tts)*);
+    };
 }
 
 #[macro_export]
 macro_rules! error {
     ($time:expr; $($tts:tt)*) => {
         $crate::log_entry!(error, $time; $($tts)*);
+    };
+    ($($tts:tt)*) => {
+        $crate::log_entry!(error; $($tts)*);
     };
 }
 
@@ -164,7 +179,7 @@ pub use crate::{debug, error, info, trace, warn};
 macro_rules! bug_condition {
     ($($arg:tt)*) => {{
         if std::env::var("OPENMINA_PANIC_ON_BUG")
-        .map(|v| v.to_lowercase() == "true")
+        .map(|v| ["true", "1"].contains(&v.to_lowercase().as_str()))
         .unwrap_or(false) {
             panic!($($arg)*)
         } else {

@@ -123,7 +123,18 @@ impl P2pDisconnectedState {
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
-                dispatcher.push(P2pPeerAction::Remove { peer_id });
+
+                // remove oldest disconnected peer
+                if let Some((peer_id, _)) = p2p_state
+                    .peers
+                    .iter()
+                    .filter_map(|(id, p)| {
+                        Some((*id, p.status.disconnected_or_disconnecting_time()?))
+                    })
+                    .min_by_key(|(_, t)| *t)
+                {
+                    dispatcher.push(P2pPeerAction::Remove { peer_id });
+                }
 
                 if let Some(callback) = &p2p_state.callbacks.on_p2p_disconnection_finish {
                     dispatcher.push_callback(callback.clone(), peer_id);

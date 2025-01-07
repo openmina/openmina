@@ -45,7 +45,20 @@ mod unsafe_signal_handlers {
     }
 }
 
+fn setup_var_from_single_and_only_thread() {
+    const VARS: &[(&str, &str)] = &[("RUST_BACKTRACE", "full")];
+
+    for (name, value) in VARS {
+        if std::env::var(name).is_err() {
+            // Safe to call, we didn't launch any threads yet
+            unsafe { std::env::set_var(name, value) };
+        }
+    }
+}
+
 fn main() -> anyhow::Result<()> {
+    setup_var_from_single_and_only_thread();
+
     #[cfg(feature = "unsafe-signal-handlers")]
     unsafe_signal_handlers::setup();
     let app = commands::OpenminaCli::parse();

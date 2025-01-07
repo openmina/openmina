@@ -825,16 +825,16 @@ impl StagedLedger {
         let work_count = completed_works.len() as u64;
         let jobs_pairs = scan_state.k_work_pairs_for_new_diff(work_count);
 
-        let job_msg_proofs: Vec<(AvailableJob, SokMessage, LedgerProof)> = jobs_pairs
-            .into_iter()
-            .zip(completed_works)
-            .flat_map(|(jobs, work)| {
-                let message = SokMessage::create(work.fee, work.prover);
-                OneOrTwo::zip(jobs, work.proofs)
-                    .into_map(|(job, proof)| (job, message.clone(), proof))
-                    .into_iter()
-            })
-            .collect();
+        let mut job_msg_proofs =
+            Vec::<(AvailableJob, SokMessage, LedgerProof)>::with_capacity(work_count as usize * 2);
+
+        for (jobs, work) in jobs_pairs.into_iter().zip(completed_works) {
+            let message = SokMessage::create(work.fee, work.prover);
+            let jobs = OneOrTwo::zip(jobs, work.proofs)?
+                .into_map(|(job, proof)| (job, message.clone(), proof))
+                .into_iter();
+            job_msg_proofs.extend(jobs);
+        }
 
         Self::verify(logger, verifier, job_msg_proofs)
     }

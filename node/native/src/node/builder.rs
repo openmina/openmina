@@ -301,6 +301,7 @@ impl NodeBuilder {
             .p2p
             .initial_peers
             .into_iter()
+            .filter(|opts| *opts.peer_id() != p2p_sec_key.public_key().peer_id())
             .filter_map(|opts| match opts {
                 P2pConnectionOutgoingInitOpts::LibP2P(mut opts) => {
                     opts.host = opts.host.resolve()?;
