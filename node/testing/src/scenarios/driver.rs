@@ -190,6 +190,26 @@ impl<'cluster> Driver<'cluster> {
         }
     }
 
+    /// Waits for a specific event that satisfies the given predicate, executing all events encountered along the way.
+    ///
+    /// # Arguments
+    ///
+    /// * `duration` - Maximum time to wait for the event
+    /// * `f` - A predicate function that takes a node ID, event, and state, returning true when the desired event is found
+    ///
+    /// # Returns
+    ///
+    /// Returns a Result containing:
+    /// * `Some((node_id, event))` - If an event satisfying the predicate is found before the timeout
+    /// * `None` - If no matching event is found within the timeout period
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// driver.wait_for(Duration::from_secs(5), |node_id, event, state| {
+    ///     matches!(event, Event::BlockReceived { .. })
+    /// }).await?;
+    /// ```
     pub async fn wait_for(
         &mut self,
         duration: Duration,
