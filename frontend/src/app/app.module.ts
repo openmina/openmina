@@ -41,6 +41,7 @@ import { getAnalytics, provideAnalytics, ScreenTrackingService } from '@angular/
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
 import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
+import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -195,6 +196,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     //   return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
     // }),
     providePerformance(() => getPerformance()),
+    provideFirestore(() => getFirestore()),
   ],
   bootstrap: [AppComponent],
   exports: [

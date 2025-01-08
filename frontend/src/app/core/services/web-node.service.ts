@@ -228,10 +228,14 @@ export class WebNodeService {
     );
   }
 
-  actions$(param: any): Observable<any> {
+  actions$(path: string): Observable<any> {
+    let slot: string | number = path.split('?id=')[1];
+    if (!isNaN(Number(slot))) {
+      slot = Number(slot);
+    }
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(webnode => webnode.actions()),
+      switchMap(webnode => webnode.stats().actions(slot)),
     );
   }
 }
