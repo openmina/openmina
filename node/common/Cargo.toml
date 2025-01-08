@@ -20,8 +20,8 @@ ledger = { workspace = true }
 sha3 = "0.10.8"
 ark-ff = { workspace = true }
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
-binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
-binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
 mio = { version = "1.0.2", features = ["os-poll", "net"] }
 
 node = { path = "../../node", features = ["replay"] }
