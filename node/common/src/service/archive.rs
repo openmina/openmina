@@ -9,6 +9,8 @@ pub struct ArchiveService {
 }
 
 const ARCHIVE_SEND_RETRIES: u8 = 5;
+const MAX_EVENT_COUNT: u64 = 100;
+const RETRY_INTERVAL_MS: u64 = 1000;
 
 impl ArchiveService {
     fn new(archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>) -> Self {
@@ -20,7 +22,6 @@ impl ArchiveService {
         address: SocketAddr,
     ) {
         while let Some(breadcrumb) = archive_receiver.blocking_recv() {
-            println!("[archive-service] Received breadcrumb, sending to archive...");
             let mut retries = ARCHIVE_SEND_RETRIES;
             while retries > 0 {
                 match rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
@@ -28,7 +29,7 @@ impl ArchiveService {
                         if result.should_retry() {
                             node::core::warn!(node::core::log::system_time(); summary = "Archive suddenly closed connection, retrying...");
                             retries -= 1;
-                            std::thread::sleep(std::time::Duration::from_millis(1000));
+                            std::thread::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS));
                         } else {
                             node::core::warn!(node::core::log::system_time(); summary = "Successfully sent diff to archive");
                             break;
@@ -37,7 +38,7 @@ impl ArchiveService {
                     Err(e) => {
                         node::core::warn!(node::core::log::system_time(); summary = "Failed sending diff to archive", error = e.to_string(), retries = retries);
                         retries -= 1;
-                        std::thread::sleep(std::time::Duration::from_millis(1000));
+                        std::thread::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS));
                     }
                 }
             }
@@ -148,7 +149,6 @@ mod rpc {
     }
 
     fn process_rpc(address: SocketAddr, data: &[u8]) -> io::Result<HandleResult> {
-        println!("[archive-service] Data length: {}", data.len());
         let mut poll = Poll::new()?;
         let mut events = Events::with_capacity(128);
         let mut event_count = 0;
@@ -175,15 +175,12 @@ mod rpc {
 
             for event in events.iter() {
                 event_count += 1;
-                println!(
-                    "[archive-service] Event: {:?} [R/W:{}/{}]",
-                    event_count,
-                    event.is_readable(),
-                    event.is_writable()
-                );
-                // TODO: remove this after debugging
-                if event_count > 100 {
-                    panic!("FAILSAFE triggered, event count: {}", event_count);
+                // Failsafe to prevent infinite loops
+                if event_count > super::MAX_EVENT_COUNT {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("FAILSAFE triggered, event count: {}", event_count),
+                    ));
                 }
                 match event.token() {
                     TOKEN => {
@@ -245,14 +242,8 @@ mod rpc {
                 connection.flush()?;
                 Ok(HandleResult::ConnectionAlive)
             }
-            Err(ref err) if would_block(err) => {
-                println!("[archive-service] Heartbeat would block");
-                Ok(HandleResult::MessageWouldBlock)
-            }
-            Err(ref err) if interrupted(err) => {
-                println!("[archive-service] Heartbeat interrupted");
-                Ok(HandleResult::MessageWouldBlock)
-            }
+            Err(ref err) if would_block(err) => Ok(HandleResult::MessageWouldBlock),
+            Err(ref err) if interrupted(err) => Ok(HandleResult::MessageWouldBlock),
             Err(err) => Err(err),
         }
     }
@@ -284,7 +275,7 @@ mod rpc {
         connection: &mut TcpStream,
         data: &[u8],
         recursion_guard: &mut RecursionGuard,
-        // I want this to be a closure that can be called when the data is sent
+        // closure that can be called when the data is sent
         on_success: F,
     ) -> io::Result<HandleResult>
     where
@@ -330,7 +321,6 @@ mod rpc {
                     &msg,
                     &mut RecursionGuard::new(MAX_RECURSION_DEPTH),
                     || {
-                        println!("[archive-service] Handshake sent");
                         *handshake_sent = true;
                         Ok(HandleResult::ConnectionAlive)
                     },
@@ -345,7 +335,6 @@ mod rpc {
                     data,
                     &mut RecursionGuard::new(MAX_RECURSION_DEPTH),
                     || {
-                        println!("[archive-service] Message sent");
                         *message_sent = true;
                         Ok(HandleResult::ConnectionAlive)
                     },
@@ -381,7 +370,6 @@ mod rpc {
 
             if connection_closed {
                 registry.deregister(connection)?;
-                println!("[archive-service] Remote closed connection");
                 connection.shutdown(std::net::Shutdown::Both)?;
                 return Ok(HandleResult::ConnectionClosed);
             }
@@ -398,21 +386,17 @@ mod rpc {
                 match message {
                     ParsedMessage::Header => {
                         *handshake_received = true;
-                        println!("[archive-service] Handshake received");
                     }
                     ParsedMessage::Ok | ParsedMessage::Close => {
-                        println!("[archive-service] Received close message");
                         connection.flush()?;
                         registry.deregister(connection)?;
                         connection.shutdown(std::net::Shutdown::Both)?;
                         return Ok(HandleResult::MessageSent);
                     }
                     ParsedMessage::Heartbeat => {
-                        println!("[archive-service] Received heartbeat message");
                         *first_heartbeat_received = true;
                     }
                     ParsedMessage::Unknown(unknown) => {
-                        println!("[archive-service] Received unknown message: {:?}", unknown);
                         registry.deregister(connection)?;
                         connection.shutdown(std::net::Shutdown::Both)?;
                         return Ok(HandleResult::ConnectionClosed);
@@ -447,7 +431,6 @@ mod rpc {
 
     impl RawMessage {
         fn from_bytes(bytes: &[u8]) -> Self {
-            println!("[archive-service-parser] Raw message: {:?}", bytes);
             Self {
                 length: bytes.len(),
                 data: bytes.to_vec(),
@@ -468,12 +451,6 @@ mod rpc {
                         .unwrap(),
                 ) as usize;
                 parsed_bytes += 8;
-
-                println!("[archive-service-parser] Parsed length: {}", length);
-                println!(
-                    "[archive-service-parser] Parsed bytes: {:?}",
-                    &self.data[parsed_bytes..parsed_bytes + length]
-                );
 
                 if parsed_bytes + length > self.length {
                     return Err(io::Error::new(
