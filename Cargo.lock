@@ -5961,11 +5961,9 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?rev=9b5b14f3#9b5b14f35d3f5ecebcd4b539c86678d2eef72e72"
+source = "git+https://github.com/openmina/redux-rs.git?rev=ab14890c#ab14890c68fa478ccfec9d499a76d25f20759619"
 dependencies = [
  "enum_dispatch",
- "graphannis-malloc_size_of",
- "graphannis-malloc_size_of_derive",
  "linkme",
  "paste",
  "serde",

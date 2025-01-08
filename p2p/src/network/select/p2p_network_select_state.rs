@@ -11,6 +11,7 @@ use super::*;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkSelectState {
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub time: Option<Timestamp>,
     pub recv: token::State,
     pub tokens: VecDeque<token::Token>,

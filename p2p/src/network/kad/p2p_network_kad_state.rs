@@ -25,6 +25,7 @@ pub enum P2pNetworkKadStatus {
     /// Kademlia is bootstrapped.
     Bootstrapped {
         /// Timestamp of the bootstrap.
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         /// Stats for the latest bootstrap process.
         stats: P2pNetworkKadBootstrapStats,

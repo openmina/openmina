@@ -65,6 +65,7 @@ pub struct P2pNetworkPubsubState {
 #[derive(Default, Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkPubsubIwantRequestCount {
     pub message_id: Vec<u8>,
+    #[with_malloc_size_of_func = "measurement::timestamps"]
     pub count: Vec<Timestamp>,
 }
 
@@ -437,6 +438,7 @@ impl P2pNetworkPubsubClientTopicState {
 
 mod measurement {
     use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+    use std::mem;
 
     use super::*;
 
@@ -466,6 +468,10 @@ mod measurement {
         val.iter()
             .map(|(k, v)| k.size_of(ops) + v.size_of(ops))
             .sum()
+    }
+
+    pub fn timestamps(val: &Vec<Timestamp>, _ops: &mut MallocSizeOfOps) -> usize {
+        val.capacity() * mem::size_of::<Timestamp>()
     }
 
     impl MallocSizeOf for P2pNetworkPubsubRecentlyPublishCache {

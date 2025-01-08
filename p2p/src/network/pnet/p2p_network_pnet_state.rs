@@ -10,6 +10,7 @@ use crate::P2pTimeouts;
 #[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkPnetState {
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub time: Option<Timestamp>,
 
     #[serde_as(as = "serde_with::hex::Hex")]
