@@ -12,6 +12,7 @@ export default {
       'block-production': ['won-slots'],
       'mempool': [],
       'benchmarks': ['wallets'],
+      'state': ['actions'],
     },
   },
   sentry: {

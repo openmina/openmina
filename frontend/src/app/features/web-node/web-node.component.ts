@@ -42,7 +42,7 @@ export class WebNodeComponent extends StoreDispatcher implements OnInit {
 
   private listenToRoute(): void {
     this.select(getMergedRoute, (route: MergedRoute) => {
-      let initial = 174;
+      let initial = 175;
       if (route.queryParams['initial']) {
         initial = Number(route.queryParams['initial']);
       }
