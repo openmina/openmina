@@ -406,8 +406,14 @@ impl P2pPeerState {
 #[serde(tag = "state")]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
-    Disconnecting { time: redux::Timestamp },
-    Disconnected { time: redux::Timestamp },
+    Disconnecting {
+        #[ignore_malloc_size_of = "doesn't allocate"]
+        time: redux::Timestamp,
+    },
+    Disconnected {
+        #[ignore_malloc_size_of = "doesn't allocate"]
+        time: redux::Timestamp,
+    },
 
     Ready(P2pPeerStatusReady),
 }
@@ -471,6 +477,7 @@ impl P2pPeerStatus {
 #[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pPeerStatusReady {
     pub is_incoming: bool,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub connected_since: redux::Timestamp,
     // TODO(vlad):
     #[ignore_malloc_size_of = "TODO"]

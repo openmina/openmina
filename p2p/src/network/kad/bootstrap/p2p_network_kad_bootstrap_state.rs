@@ -62,6 +62,7 @@ pub struct P2pNetworkKadBoostrapRequestState {
     #[ignore_malloc_size_of = "doesn't allocate"]
     pub addr: SocketAddr,
     /// When connection to the peer was initiated.
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub time: Timestamp,
     /// Addresses yet to be used, if current connection will fail.
     // TODO: use Multiaddr
@@ -86,6 +87,7 @@ pub enum P2pNetworkKadBootstrapRequestStat {
 pub struct P2pNetworkKadBootstrapOngoingRequest {
     pub peer_id: PeerId,
     pub address: P2pConnectionOutgoingInitOpts,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub start: Timestamp,
 }
 
@@ -93,7 +95,9 @@ pub struct P2pNetworkKadBootstrapOngoingRequest {
 pub struct P2pNetworkKadBootstrapSuccessfulRequest {
     pub peer_id: PeerId,
     pub address: P2pConnectionOutgoingInitOpts,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub start: Timestamp,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub finish: Timestamp,
     pub closest_peers: P2pNetworkKadLatestRequestPeers,
 }
@@ -102,7 +106,9 @@ pub struct P2pNetworkKadBootstrapSuccessfulRequest {
 pub struct P2pNetworkKadBootstrapFailedRequest {
     pub peer_id: PeerId,
     pub address: P2pConnectionOutgoingInitOpts,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub start: Timestamp,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub finish: Timestamp,
     pub error: String,
 }

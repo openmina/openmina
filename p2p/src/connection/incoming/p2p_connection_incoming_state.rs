@@ -13,18 +13,21 @@ use super::IncomingSignalingMethod;
 #[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pConnectionIncomingState {
     Init {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
     },
     AnswerSdpCreatePending {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
     },
     AnswerSdpCreateSuccess {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
@@ -32,6 +35,7 @@ pub enum P2pConnectionIncomingState {
         rpc_id: Option<RpcId>,
     },
     AnswerReady {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
@@ -39,6 +43,7 @@ pub enum P2pConnectionIncomingState {
         rpc_id: Option<RpcId>,
     },
     AnswerSendSuccess {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
@@ -46,6 +51,7 @@ pub enum P2pConnectionIncomingState {
         rpc_id: Option<RpcId>,
     },
     FinalizePending {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
@@ -53,6 +59,7 @@ pub enum P2pConnectionIncomingState {
         rpc_id: Option<RpcId>,
     },
     FinalizeSuccess {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
@@ -60,11 +67,13 @@ pub enum P2pConnectionIncomingState {
         rpc_id: Option<RpcId>,
     },
     Error {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         error: P2pConnectionIncomingError,
         rpc_id: Option<RpcId>,
     },
     Success {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
         offer: Box<webrtc::Offer>,
@@ -76,9 +85,11 @@ pub enum P2pConnectionIncomingState {
         addr: SocketAddr,
         #[with_malloc_size_of_func = "measurement::socket_vec"]
         close_duplicates: Vec<SocketAddr>,
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
     },
     Libp2pReceived {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: redux::Timestamp,
     },
 }
