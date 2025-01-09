@@ -865,7 +865,7 @@ pub mod signed_command {
             FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
         }
 
-        /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/signed_command_payload.ml#L354
+        /// https://github.com/MinaProtocol/mina/blob/802634fdda92f5cba106fd5f98bd0037c4ec14be/src/lib/mina_base/signed_command_payload.ml#L322
         pub fn account_access_statuses(
             &self,
             status: &TransactionStatus,
@@ -875,7 +875,9 @@ pub mod signed_command {
 
             match status {
                 Applied => vec![(self.fee_payer(), Accessed), (self.receiver(), Accessed)],
-                Failed(_) => vec![(self.receiver(), NotAccessed)],
+                // Note: The fee payer is always accessed, even if the transaction fails
+                // https://github.com/MinaProtocol/mina/blob/802634fdda92f5cba106fd5f98bd0037c4ec14be/src/lib/mina_base/signed_command_payload.mli#L205
+                Failed(_) => vec![(self.fee_payer(), Accessed), (self.receiver(), NotAccessed)],
             }
         }
 
