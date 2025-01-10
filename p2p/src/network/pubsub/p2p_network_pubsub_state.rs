@@ -52,11 +52,9 @@ pub struct P2pNetworkPubsubState {
     pub incoming_block: Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
 
     /// Incoming transactions from peers along with their nonces.
-    #[with_malloc_size_of_func = "measurement::transaction"]
     pub incoming_transactions: Vec<(Transaction, u32)>,
 
     /// Incoming snarks from peers along with their nonces.
-    #[with_malloc_size_of_func = "measurement::snark"]
     pub incoming_snarks: Vec<(Snark, u32)>,
 
     /// Topics and their subscribed peers.
@@ -292,25 +290,16 @@ mod measurement {
 
     use super::*;
 
-    pub fn snark(val: &Vec<(Snark, u32)>, ops: &mut MallocSizeOfOps) -> usize {
-        // TODO(vlad):
-        let _ = (val, ops);
-        0
-    }
-
-    pub fn transaction(val: &Vec<(Transaction, u32)>, ops: &mut MallocSizeOfOps) -> usize {
-        // TODO(vlad):
-        let _ = (val, ops);
-        0
-    }
-
     pub fn block(
         val: &Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
         ops: &mut MallocSizeOfOps,
     ) -> usize {
-        // TODO(vlad):
-        let _ = (val, ops);
-        0
+        let Some((peer_id, block)) = val else {
+            return 0;
+        };
+        usize::from(!ops.have_seen_ptr(Arc::as_ptr(block)))
+            * (size_of::<v2::MinaBlockBlockStableV2>() + block.size_of(ops))
+            + peer_id.size_of(ops)
     }
 
     pub fn clients(

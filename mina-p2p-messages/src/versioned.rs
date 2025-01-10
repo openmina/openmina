@@ -1,12 +1,13 @@
 use std::{fmt::Debug, marker::PhantomData};
 
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 /// `Bin_prot` uses integer to represent type version.
 pub type Ver = u32;
 
 /// Wrapper for a type that adds explicit version information.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, MallocSizeOf)]
 pub struct Versioned<T, const V: Ver>(T);
 
 impl<T, const V: Ver> Versioned<T, V> {

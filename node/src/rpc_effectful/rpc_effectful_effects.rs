@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ffi::c_void,
+    time::Duration,
+};
 
 use super::{super::rpc, RpcEffectfulAction};
 use crate::{
@@ -96,8 +100,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 },
                 current_block_production_attempt,
                 p2p_malloc_size: {
-                    let mut ops = MallocSizeOfOps::new(None, None);
-                    state.p2p.size_of(&mut ops)
+                    let mut set = BTreeSet::new();
+                    let fun = move |ptr: *const c_void| !set.insert(ptr.addr());
+                    let mut ops = MallocSizeOfOps::new(None, Some(Box::new(fun)));
+                    size_of_val(&state.p2p) + state.p2p.size_of(&mut ops)
                 },
             };
             let _ = store.service.respond_status_get(rpc_id, Some(status));

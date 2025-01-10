@@ -4,6 +4,7 @@ use std::{
 };
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
+use malloc_size_of_derive::MallocSizeOf;
 use rsexp::OfSexp;
 
 pub type Backend<T> = LinkedList<T>;
@@ -21,6 +22,7 @@ pub type Backend<T> = LinkedList<T>;
     serde::Deserialize,
     derive_more::From,
     derive_more::Into,
+    MallocSizeOf,
 )]
 pub struct List<T>(Backend<T>);
 

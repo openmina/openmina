@@ -2433,7 +2433,7 @@ dependencies = [
 [[package]]
 name = "graphannis-malloc_size_of"
 version = "2.0.0"
-source = "git+https://github.com/openmina/graphannis-malloc_size_of.git#326834fdc1ff429d03389d379d777b8470c6afd7"
+source = "git+https://github.com/openmina/graphannis-malloc_size_of.git?rev=f7da9f6#f7da9f679a0d5c339fa674e1ffebb00275370141"
 
 [[package]]
 name = "graphannis-malloc_size_of_derive"
@@ -3906,6 +3906,8 @@ dependencies = [
  "clap 4.5.20",
  "derive_more",
  "fuzzcheck",
+ "graphannis-malloc_size_of",
+ "graphannis-malloc_size_of_derive",
  "hex",
  "lazy_static",
  "mina-curves",
