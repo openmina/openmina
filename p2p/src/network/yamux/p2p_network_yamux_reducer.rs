@@ -368,37 +368,44 @@ impl P2pNetworkYamuxState {
                 };
                 match &mut frame.inner {
                     YamuxFrameInner::Data(data) => {
-                        if let Some(new_window) =
-                            stream.window_theirs.checked_sub(data.len() as u32)
-                        {
-                            // their window is big enough, decrease the size
-                            // and send the whole frame
-                            stream.window_theirs = new_window;
-                        } else if stream.window_theirs != 0 && stream.pending.is_empty() {
-                            // their window is not big enough, but has some space,
-                            // and the queue is empty,
-                            // do not send the whole frame,
-                            // split it and put remaining in the queue,
-                            if let Some(remaining) = frame.split_at(stream.window_theirs as usize) {
-                                stream.pending.push_back(remaining);
-                            }
-                            // the window will be zero after sending
-                            stream.window_theirs = 0;
-                        } else {
-                            // either the window cannot accept any byte,
-                            // or the queue is already not empty
-                            // in both cases the whole frame goes in the queue and nothing to send
-                            stream.pending.push_back(frame);
-                            if stream.pending.iter().map(YamuxFrame::len).sum::<usize>()
-                                > yamux_state.pending_outgoing_limit
-                            {
-                                let dispatcher = state_context.into_dispatcher();
-                                let error = P2pNetworkConnectionError::YamuxOverflow(stream_id);
-                                dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
-                            }
+                        stream.window_theirs = stream
+                            .window_theirs
+                            .checked_sub(data.len() as u32)
+                            .unwrap_or_default();
 
-                            return Ok(());
-                        }
+                        // TODO: code bellow include splitting the frame so that data which doesn't fit inside the window doesn't get sent, this breaks the bootstrap to rust
+
+                        // if let Some(new_window) =
+                        //     stream.window_theirs.checked_sub(data.len() as u32)
+                        // {
+                        //     // their window is big enough, decrease the size
+                        //     // and send the whole frame
+                        //     stream.window_theirs = new_window;
+                        // } else if stream.window_theirs != 0 && stream.pending.is_empty() {
+                        //     // their window is not big enough, but has some space,
+                        //     // and the queue is empty,
+                        //     // do not send the whole frame,
+                        //     // split it and put remaining in the queue,
+                        //     if let Some(remaining) = frame.split_at(stream.window_theirs as usize) {
+                        //         stream.pending.push_back(remaining);
+                        //     }
+                        //     // the window will be zero after sending
+                        //     stream.window_theirs = 0;
+                        // } else {
+                        //     // either the window cannot accept any byte,
+                        //     // or the queue is already not empty
+                        //     // in both cases the whole frame goes in the queue and nothing to send
+                        //     stream.pending.push_back(frame);
+                        //     if stream.pending.iter().map(YamuxFrame::len).sum::<usize>()
+                        //         > yamux_state.pending_outgoing_limit
+                        //     {
+                        //         let dispatcher = state_context.into_dispatcher();
+                        //         let error = P2pNetworkConnectionError::YamuxOverflow(stream_id);
+                        //         dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
+                        //     }
+
+                        //     return Ok(());
+                        // }
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
                         stream.update_window(true, *difference);
