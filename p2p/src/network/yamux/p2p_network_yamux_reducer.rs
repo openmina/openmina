@@ -89,7 +89,7 @@ impl P2pNetworkYamuxState {
                                 }
                             }
                             1 => {
-                                let difference = i32::from_be_bytes(b);
+                                let difference = u32::from_be_bytes(b);
                                 let frame = YamuxFrame {
                                     flags,
                                     stream_id,
@@ -100,7 +100,7 @@ impl P2pNetworkYamuxState {
                                 continue;
                             }
                             2 => {
-                                let opaque = i32::from_be_bytes(b);
+                                let opaque = u32::from_be_bytes(b);
                                 let frame = YamuxFrame {
                                     flags,
                                     stream_id,
@@ -224,7 +224,9 @@ impl P2pNetworkYamuxState {
                             .streams
                             .entry(frame.stream_id)
                             .or_insert_with(YamuxStreamState::incoming);
-                        stream.update_window(false, *difference);
+
+                        stream.window_theirs = stream.window_theirs.saturating_add(*difference);
+
                         if *difference > 0 {
                             // have some fresh space in the window
                             // try send as many frames as can
@@ -348,16 +350,9 @@ impl P2pNetworkYamuxState {
                             });
                         }
                     }
-                    YamuxFrameInner::WindowUpdate { difference } => {
-                        if *difference < 0 {
-                            let error =
-                                P2pNetworkConnectionError::YamuxBadWindowUpdate(frame.stream_id);
-                            dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
-                        } else {
-                            while let Some(frame) = pending_outgoing.pop_front() {
-                                dispatcher
-                                    .push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
-                            }
+                    YamuxFrameInner::WindowUpdate { .. } => {
+                        while let Some(frame) = pending_outgoing.pop_front() {
+                            dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
                         }
                     }
                     _ => {}
@@ -412,7 +407,7 @@ impl P2pNetworkYamuxState {
                         // }
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
-                        stream.update_window(true, *difference);
+                        stream.window_ours = stream.window_ours.saturating_add(*difference);
                     }
                     _ => {}
                 }
@@ -476,27 +471,6 @@ impl P2pNetworkYamuxState {
                 });
                 Ok(())
             }
-        }
-    }
-}
-
-impl YamuxStreamState {
-    pub fn update_window(&mut self, ours: bool, difference: i32) {
-        let window = if ours {
-            &mut self.window_ours
-        } else {
-            &mut self.window_theirs
-        };
-        if difference < 0 {
-            let decreasing = (-difference) as u32;
-            if *window < decreasing {
-                *window = 0;
-            } else {
-                *window = (*window).wrapping_sub(decreasing);
-            }
-        } else {
-            let increasing = difference as u32;
-            *window = (*window).wrapping_add(increasing);
         }
     }
 }
