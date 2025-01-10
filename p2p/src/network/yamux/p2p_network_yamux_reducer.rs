@@ -143,11 +143,12 @@ impl P2pNetworkYamuxState {
 
                 yamux_state.buffer = yamux_state.buffer[offset..].to_vec();
 
-                let incoming_data = yamux_state.incoming.clone();
+                let frame_count = yamux_state.incoming.len();
                 let dispatcher = state_context.into_dispatcher();
-                incoming_data.into_iter().for_each(|frame| {
-                    dispatcher.push(P2pNetworkYamuxAction::IncomingFrame { addr, frame })
-                });
+
+                for _ in 0..frame_count {
+                    dispatcher.push(P2pNetworkYamuxAction::IncomingFrame { addr })
+                }
 
                 Ok(())
             }
@@ -181,69 +182,72 @@ impl P2pNetworkYamuxState {
 
                 Ok(())
             }
-            P2pNetworkYamuxAction::IncomingFrame { addr, frame } => {
+            P2pNetworkYamuxAction::IncomingFrame { addr } => {
                 let mut pending_outgoing = VecDeque::default();
-                if let Some(frame) = yamux_state.incoming.pop_front() {
-                    if frame.flags.contains(YamuxFlags::SYN) {
-                        yamux_state
-                            .streams
-                            .insert(frame.stream_id, YamuxStreamState::incoming());
+                let Some(frame) = yamux_state.incoming.pop_front() else {
+                    bug_condition!(
+                        "Frame not found for action `P2pNetworkYamuxAction::IncomingFrame`"
+                    );
+                    return Ok(());
+                };
 
-                        if frame.stream_id != 0 {
-                            connection_state.streams.insert(
-                                frame.stream_id,
-                                P2pNetworkStreamState::new_incoming(meta.time()),
-                            );
+                if frame.flags.contains(YamuxFlags::SYN) {
+                    yamux_state
+                        .streams
+                        .insert(frame.stream_id, YamuxStreamState::incoming());
+
+                    if frame.stream_id != 0 {
+                        connection_state.streams.insert(
+                            frame.stream_id,
+                            P2pNetworkStreamState::new_incoming(meta.time()),
+                        );
+                    }
+                }
+                if frame.flags.contains(YamuxFlags::ACK) {
+                    yamux_state
+                        .streams
+                        .entry(frame.stream_id)
+                        .or_default()
+                        .established = true;
+                }
+
+                match &frame.inner {
+                    YamuxFrameInner::Data(data) => {
+                        if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
+                            // must not underflow
+                            // TODO: check it and disconnect peer that violates flow rules
+                            stream.window_ours = stream.window_ours.wrapping_sub(data.len() as u32);
                         }
                     }
-                    if frame.flags.contains(YamuxFlags::ACK) {
-                        yamux_state
+                    YamuxFrameInner::WindowUpdate { difference } => {
+                        let stream = yamux_state
                             .streams
                             .entry(frame.stream_id)
-                            .or_default()
-                            .established = true;
-                    }
-
-                    match frame.inner {
-                        YamuxFrameInner::Data(data) => {
-                            if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
-                                // must not underflow
-                                // TODO: check it and disconnect peer that violates flow rules
-                                stream.window_ours =
-                                    stream.window_ours.wrapping_sub(data.len() as u32);
-                            }
-                        }
-                        YamuxFrameInner::WindowUpdate { difference } => {
-                            let stream = yamux_state
-                                .streams
-                                .entry(frame.stream_id)
-                                .or_insert_with(YamuxStreamState::incoming);
-                            stream.update_window(false, difference);
-                            if difference > 0 {
-                                // have some fresh space in the window
-                                // try send as many frames as can
-                                let mut window = stream.window_theirs;
-                                while let Some(mut frame) = stream.pending.pop_front() {
-                                    let len = frame.len() as u32;
-                                    if let Some(new_window) = window.checked_sub(len) {
-                                        pending_outgoing.push_back(frame);
-                                        window = new_window;
-                                    } else {
-                                        if let Some(remaining) =
-                                            frame.split_at((len - window) as usize)
-                                        {
-                                            stream.pending.push_front(remaining);
-                                        }
-                                        pending_outgoing.push_back(frame);
-
-                                        break;
+                            .or_insert_with(YamuxStreamState::incoming);
+                        stream.update_window(false, *difference);
+                        if *difference > 0 {
+                            // have some fresh space in the window
+                            // try send as many frames as can
+                            let mut window = stream.window_theirs;
+                            while let Some(mut frame) = stream.pending.pop_front() {
+                                let len = frame.len() as u32;
+                                if let Some(new_window) = window.checked_sub(len) {
+                                    pending_outgoing.push_back(frame);
+                                    window = new_window;
+                                } else {
+                                    if let Some(remaining) = frame.split_at((len - window) as usize)
+                                    {
+                                        stream.pending.push_front(remaining);
                                     }
+                                    pending_outgoing.push_back(frame);
+
+                                    break;
                                 }
                             }
                         }
-                        YamuxFrameInner::Ping { .. } => {}
-                        YamuxFrameInner::GoAway(res) => yamux_state.set_res(res),
                     }
+                    YamuxFrameInner::Ping { .. } => {}
+                    YamuxFrameInner::GoAway(res) => yamux_state.set_res(*res),
                 }
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();

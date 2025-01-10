@@ -232,7 +232,7 @@ pub enum YamuxFrameInner {
     GoAway(Result<(), YamuxSessionError>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum YamuxSessionError {
     Protocol,
     Internal,
