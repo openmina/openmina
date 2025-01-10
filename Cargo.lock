@@ -2503,7 +2503,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -2830,7 +2830,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "smallvec",
+ "smallvec 1.13.2",
  "tokio",
 ]
 
@@ -3012,7 +3012,7 @@ dependencies = [
 [[package]]
 name = "internal-tracing"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 
 [[package]]
 name = "io-lifetimes"
@@ -3176,7 +3176,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3346,7 +3346,7 @@ dependencies = [
  "rand",
  "rw-stream-sink",
  "serde",
- "smallvec",
+ "smallvec 1.13.2",
  "thiserror",
  "unsigned-varint 0.7.2",
  "void",
@@ -3363,7 +3363,7 @@ dependencies = [
  "libp2p-identity",
  "log",
  "parking_lot 0.12.1",
- "smallvec",
+ "smallvec 1.13.2",
  "trust-dns-resolver",
 ]
 
@@ -3394,7 +3394,7 @@ dependencies = [
  "regex",
  "serde",
  "sha2 0.10.8",
- "smallvec",
+ "smallvec 1.13.2",
  "unsigned-varint 0.7.2",
  "void",
 ]
@@ -3416,7 +3416,7 @@ dependencies = [
  "lru",
  "quick-protobuf",
  "quick-protobuf-codec",
- "smallvec",
+ "smallvec 1.13.2",
  "thiserror",
  "void",
 ]
@@ -3462,7 +3462,7 @@ dependencies = [
  "rand",
  "serde",
  "sha2 0.10.8",
- "smallvec",
+ "smallvec 1.13.2",
  "thiserror",
  "uint",
  "unsigned-varint 0.7.2",
@@ -3482,7 +3482,7 @@ dependencies = [
  "libp2p-swarm",
  "log",
  "rand",
- "smallvec",
+ "smallvec 1.13.2",
  "socket2 0.5.5",
  "tokio",
  "trust-dns-proto",
@@ -3592,7 +3592,7 @@ dependencies = [
  "multistream-select",
  "once_cell",
  "rand",
- "smallvec",
+ "smallvec 1.13.2",
  "tokio",
  "void",
 ]
@@ -3856,7 +3856,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3865,7 +3865,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -3918,7 +3918,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3935,7 +3935,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4155,7 +4155,7 @@ dependencies = [
  "futures",
  "log",
  "pin-project",
- "smallvec",
+ "smallvec 1.13.2",
  "unsigned-varint 0.7.2",
 ]
 
@@ -4417,7 +4417,7 @@ dependencies = [
  "num-iter",
  "num-traits",
  "rand",
- "smallvec",
+ "smallvec 1.13.2",
  "zeroize",
 ]
 
@@ -4553,7 +4553,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5087,7 +5087,7 @@ dependencies = [
  "serde_json",
  "serde_with 3.7.0",
  "sha2 0.10.8",
- "smallvec",
+ "smallvec 1.13.2",
  "strum 0.26.2",
  "strum_macros 0.26.4",
  "thiserror",
@@ -5176,7 +5176,7 @@ dependencies = [
  "instant",
  "libc",
  "redox_syscall 0.2.16",
- "smallvec",
+ "smallvec 1.13.2",
  "winapi 0.3.9",
 ]
 
@@ -5189,7 +5189,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "redox_syscall 0.4.1",
- "smallvec",
+ "smallvec 1.13.2",
  "windows-targets 0.48.5",
 ]
 
@@ -5425,7 +5425,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5444,6 +5444,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_with 1.14.0",
+ "smallvec 2.0.0-alpha.9",
  "thiserror",
 ]
 
@@ -6748,6 +6749,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
+name = "smallvec"
+version = "2.0.0-alpha.9"
+source = "git+https://github.com/servo/rust-smallvec.git#a176a870987f61b04e001a7c4d0863fdeb427083"
+
+[[package]]
 name = "smartstring"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6916,7 +6922,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "smallvec",
+ "smallvec 1.13.2",
  "sqlformat",
  "thiserror",
  "tokio",
@@ -6998,7 +7004,7 @@ dependencies = [
  "serde",
  "sha1",
  "sha2 0.10.8",
- "smallvec",
+ "smallvec 1.13.2",
  "sqlx-core",
  "stringprep",
  "thiserror",
@@ -7036,7 +7042,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "smallvec",
+ "smallvec 1.13.2",
  "sqlx-core",
  "stringprep",
  "thiserror",
@@ -7420,9 +7426,9 @@ dependencies = [
 
 [[package]]
 name = "tinyvec"
-version = "1.6.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
+checksum = "022db8904dfa342efe721985167e9fcd16c29b226db4397ed752a761cfce81e8"
 dependencies = [
  "tinyvec_macros",
 ]
@@ -7668,7 +7674,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sharded-slab",
- "smallvec",
+ "smallvec 1.13.2",
  "thread_local",
  "tracing",
  "tracing-core",
@@ -7739,7 +7745,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand",
- "smallvec",
+ "smallvec 1.13.2",
  "socket2 0.5.5",
  "thiserror",
  "tinyvec",
@@ -7762,7 +7768,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand",
  "resolv-conf",
- "smallvec",
+ "smallvec 1.13.2",
  "thiserror",
  "tokio",
  "tracing",
@@ -7823,7 +7829,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=c478b19#c478b197ddb7fcefee87c4cfdc097a217a855086"
+source = "git+https://github.com/openmina/proof-systems?rev=fd30bd6#fd30bd632303b6c1d7ef3bc5319c1d58096e5130"
 dependencies = [
  "ark-ff",
  "hex",
