@@ -36,8 +36,8 @@ mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
 ark-ff = { workspace = true }
 
-graphannis-malloc_size_of = { git = "https://github.com/openmina/graphannis-malloc_size_of.git" }
-graphannis-malloc_size_of_derive = { git = "https://github.com/openmina/graphannis-malloc_size_of_derive.git" }
+graphannis-malloc_size_of = { workspace = true }
+graphannis-malloc_size_of_derive = { workspace = true }
 
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }

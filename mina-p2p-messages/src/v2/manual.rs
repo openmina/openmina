@@ -4,6 +4,7 @@ use ark_ff::BigInteger256;
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
+use malloc_size_of_derive::MallocSizeOf;
 use poseidon::hash::params::NO_INPUT_COINBASE_STACK;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
 use time::OffsetDateTime;
@@ -41,7 +42,7 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 ///
 /// Gid: `83`
 /// Location: [src/string.ml:44:6](https://github.com/MinaProtocol/mina/blob//bfd1009/src/string.ml#L44)
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref, MallocSizeOf)]
 pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
 
 impl MinaBaseSignedCommandMemoStableV1 {
@@ -680,7 +681,17 @@ impl Default for TokenIdKeyHash {
 }
 
 #[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    MallocSizeOf,
 )]
 pub struct NonZeroCurvePointWithVersions {
     x: Versioned<crate::bigint::BigInt, 1>,
@@ -1396,7 +1407,9 @@ mod tests_sgn {
 /// Gid: `602`
 /// Location: [src/lib/currency/signed_poly.ml:6:4](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/currency/signed_poly.ml#L6)
 /// Args: CurrencyFeeStableV1 , SgnStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct SignedAmount {
     pub magnitude: CurrencyFeeStableV1,
     pub sgn: SgnStableV1,

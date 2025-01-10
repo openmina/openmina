@@ -47,11 +47,9 @@ pub struct P2pNetworkPubsubState {
     pub mcache: P2pNetworkPubsubMessageCache,
 
     /// Incoming transactions from peers along with their nonces.
-    #[with_malloc_size_of_func = "measurement::transaction"]
     pub incoming_transactions: Vec<(Transaction, u32)>,
 
     /// Incoming snarks from peers along with their nonces.
-    #[with_malloc_size_of_func = "measurement::snark"]
     pub incoming_snarks: Vec<(Snark, u32)>,
 
     /// Topics and their subscribed peers.

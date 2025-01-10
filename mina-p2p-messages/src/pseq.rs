@@ -1,9 +1,10 @@
 use std::{array, fmt::Formatter, marker::PhantomData};
 
 use binprot::{BinProtRead, BinProtWrite};
+use malloc_size_of_derive::MallocSizeOf;
 use rsexp::{OfSexp, SexpOf};
 use serde::ser::SerializeTuple;
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, MallocSizeOf)]
 pub struct PaddedSeq<T, const N: usize>(pub [T; N]);
 
 impl<T, const N: usize> Default for PaddedSeq<T, N>

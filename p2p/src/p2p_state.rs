@@ -474,16 +474,11 @@ impl P2pPeerStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerStatusReady {
     pub is_incoming: bool,
-    #[ignore_malloc_size_of = "doesn't allocate"]
     pub connected_since: redux::Timestamp,
-    // TODO(vlad):
-    #[ignore_malloc_size_of = "TODO"]
     pub channels: P2pChannelsState,
-    // TODO(vlad): implement `MallocSizeOf` for `Arc`
-    #[ignore_malloc_size_of = "TODO"]
     pub best_tip: Option<ArcBlockWithHash>,
 }
 
@@ -639,6 +634,19 @@ mod measurement {
         fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
             self.peers.values().map(|v| v.size_of(ops)).sum::<usize>()
                 + self.network.scheduler.size_of(ops)
+        }
+    }
+
+    impl MallocSizeOf for P2pPeerStatusReady {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.best_tip
+                .as_ref()
+                .map(|v| {
+                    usize::from(!ops.have_seen_ptr(Arc::as_ptr(&v.block)))
+                        * (size_of::<v2::MinaBlockBlockStableV2>() + v.block.size_of(ops))
+                })
+                .unwrap_or_default()
+            // TODO(vlad): `channels`
         }
     }
 }

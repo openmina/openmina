@@ -1,5 +1,7 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
+use malloc_size_of::MallocSizeOf;
+use malloc_size_of_derive::MallocSizeOf;
 use openmina_macros::SerdeYojsonEnum;
 use rsexp_derive::{OfSexp, SexpOf};
 use serde::{Deserialize, Serialize};
@@ -13,7 +15,9 @@ use super::manual::*;
 ///
 /// Gid: `1102`
 /// Location: [src/lib/mina_block/block.ml:8:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_block/block.ml#L8)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBlockBlockStableV2 {
     pub header: MinaBlockHeaderStableV2,
     pub body: StagedLedgerDiffBodyStableV1,
@@ -140,7 +144,9 @@ pub struct MinaBasePendingCoinbaseStableV2 {
 /// Gid: `1000`
 /// Location: [src/lib/mina_state/protocol_state.ml:38:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_state/protocol_state.ml#L38)
 /// Args: StateHash , MinaStateProtocolStateBodyValueStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaStateProtocolStateValueStableV2 {
     pub previous_state_hash: StateHash,
     pub body: MinaStateProtocolStateBodyValueStableV2,
@@ -187,7 +193,9 @@ pub enum MinaLedgerSyncLedgerAnswerStableV2 {
 /// Gid: `983`
 /// Location: [src/lib/consensus/proof_of_stake.ml:1723:12](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/consensus/proof_of_stake.ml#L1723)
 /// Args: UnsignedExtendedUInt32StableV1 , ConsensusVrfOutputTruncatedStableV1 , CurrencyAmountStableV1 , ConsensusGlobalSlotStableV1 , MinaNumbersGlobalSlotSinceGenesisMStableV1 , ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 , ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 , bool , NonZeroCurvePoint
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     pub blockchain_length: UnsignedExtendedUInt32StableV1,
     pub epoch_count: UnsignedExtendedUInt32StableV1,
@@ -524,6 +532,12 @@ pub struct PicklesProofProofsVerified2ReprStableV2PrevEvals {
     pub ft_eval1: crate::bigint::BigInt,
 }
 
+impl MallocSizeOf for PicklesProofProofsVerified2ReprStableV2PrevEvals {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 /// Derived name: `Pickles__Wrap_wire_proof.Stable.V1.bulletproof`
 ///
 /// Gid: `468`
@@ -548,7 +562,9 @@ pub struct PicklesWrapWireProofStableV1Bulletproof {
 /// Gid: `476`
 /// Location: [src/lib/pickles_types/plonk_verification_key_evals.ml:7:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_verification_key_evals.ml#L7)
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
     pub sigma_comm: PaddedSeq<(crate::bigint::BigInt, crate::bigint::BigInt), 7>,
     pub coefficients_comm: PaddedSeq<(crate::bigint::BigInt, crate::bigint::BigInt), 15>,
@@ -566,7 +582,16 @@ pub struct MinaBaseVerificationKeyWireStableV1WrapIndex {
 /// Location: [src/lib/crypto/kimchi_backend/common/scalar_challenge.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/crypto/kimchi_backend/common/scalar_challenge.ml#L6)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 >
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
     pub inner: PaddedSeq<LimbVectorConstantHex64StableV1, 2>,
@@ -607,7 +632,7 @@ pub enum SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQueryMetrics {
 /// Gid: `508`
 /// Location: [src/lib/one_or_two/one_or_two.ml:7:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/one_or_two/one_or_two.ml#L7)
 /// Args: LedgerProofProdStableV2
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 #[polymorphic_variant]
 pub enum TransactionSnarkWorkTStableV2Proofs {
     #[allow(non_camel_case_types)]
@@ -639,7 +664,9 @@ pub enum SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances {
 ///
 /// Gid: `514`
 /// Location: [src/lib/pickles_base/proofs_verified.ml:8:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_base/proofs_verified.ml#L8)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, SexpOf)]
+#[derive(
+    Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, SexpOf, MallocSizeOf,
+)]
 pub enum PicklesBaseProofsVerifiedStableV1 {
     N0,
     N1,
@@ -654,7 +681,9 @@ pub enum PicklesBaseProofsVerifiedStableV1 {
 ///
 /// Gid: `125`
 /// Location: [src/int64.ml:6:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/int64.ml#L6)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct LimbVectorConstantHex64StableV1(pub crate::number::UInt64);
 
 /// **OCaml name**: `Composition_types__Branch_data.Make_str.Domain_log2.Stable.V1`
@@ -677,10 +706,20 @@ pub struct CompositionTypesBranchDataDomainLog2StableV1(pub crate::char::Char);
 /// Gid: `525`
 /// Location: [src/lib/pickles/composition_types/branch_data.ml:51:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/branch_data.ml#L51)
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct CompositionTypesBranchDataStableV1 {
     pub proofs_verified: PicklesBaseProofsVerifiedStableV1,
+    #[ignore_malloc_size_of = "primitive"]
     pub domain_log2: CompositionTypesBranchDataDomainLog2StableV1,
 }
 
@@ -690,7 +729,16 @@ pub struct CompositionTypesBranchDataStableV1 {
 /// Location: [src/lib/pickles/composition_types/bulletproof_challenge.ml:4:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/bulletproof_challenge.ml#L4)
 /// Args: PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {
     pub prechallenge:
@@ -701,7 +749,9 @@ pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorSt
 ///
 /// Gid: `527`
 /// Location: [src/lib/pickles/composition_types/digest.ml:13:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/digest.ml#L13)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct CompositionTypesDigestConstantStableV1(
     pub PaddedSeq<LimbVectorConstantHex64StableV1, 4>,
 );
@@ -712,7 +762,16 @@ pub struct CompositionTypesDigestConstantStableV1(
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:45:14](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L45)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , bool
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk {
     pub alpha:
@@ -723,6 +782,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
     pub joint_combiner: Option<
         PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge,
     >,
+    #[ignore_malloc_size_of = "primitive"]
     pub feature_flags:
         PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags,
 }
@@ -733,7 +793,16 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:275:12](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L275)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , PicklesProofProofsVerified2ReprStableV2StatementFp , bool , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > , CompositionTypesBranchDataStableV1
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues {
     pub plonk: PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk,
@@ -748,7 +817,16 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:397:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L397)
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2 , 2 >
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
     pub challenge_polynomial_commitment: (crate::bigint::BigInt, crate::bigint::BigInt),
@@ -762,7 +840,16 @@ pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:466:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L466)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , PicklesProofProofsVerified2ReprStableV2StatementFp , bool , PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , CompositionTypesDigestConstantStableV1 , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > , CompositionTypesBranchDataStableV1
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesProofProofsVerified2ReprStableV2StatementProofState {
     pub deferred_values: PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValues,
@@ -777,7 +864,16 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofState {
 /// Location: [src/lib/pickles/composition_types/composition_types.ml:714:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/composition_types/composition_types.ml#L714)
 /// Args: PaddedSeq < LimbVectorConstantHex64StableV1 , 2 > , PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge , PicklesProofProofsVerified2ReprStableV2StatementFp , bool , PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , CompositionTypesDigestConstantStableV1 , PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof , PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > , CompositionTypesBranchDataStableV1
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesProofProofsVerified2ReprStableV2Statement {
     pub proof_state: PicklesProofProofsVerified2ReprStableV2StatementProofState,
@@ -832,13 +928,28 @@ pub struct PicklesWrapWireProofStableV1 {
     pub bulletproof: PicklesWrapWireProofStableV1Bulletproof,
 }
 
+impl MallocSizeOf for PicklesWrapWireProofStableV1 {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2.messages_for_next_step_proof`
 ///
 /// Gid: `542`
 /// Location: [src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml:16:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml#L16)
 /// Args: () , List < (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) > , List < PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > >
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
     #[serde(deserialize_with = "always_unit")]
@@ -858,7 +969,9 @@ pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
 /// Gid: `488`
 /// Location: [src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml:32:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/crypto/kimchi_backend/pasta/basic/kimchi_pasta_basic.ml#L32)
 /// Args: PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2(
     pub PaddedSeq<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A, 15>,
 );
@@ -872,7 +985,9 @@ pub struct PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorSt
 /// Gid: `519`
 /// Location: [src/lib/pickles_base/side_loaded_verification_key.ml:130:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_base/side_loaded_verification_key.ml#L130)
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseVerificationKeyWireStableV1 {
     pub max_proofs_verified: PicklesBaseProofsVerifiedStableV1,
     pub actual_wrap_domain_size: PicklesBaseProofsVerifiedStableV1,
@@ -889,7 +1004,16 @@ pub struct MinaBaseVerificationKeyWireStableV1 {
 /// Location: [src/lib/pickles/proof.ml:47:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/proof.ml#L47)
 /// Args: PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, SexpOf, OfSexp,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    SexpOf,
+    OfSexp,
+    MallocSizeOf,
 )]
 pub struct PicklesProofProofsVerified2ReprStableV2 {
     pub statement: PicklesProofProofsVerified2ReprStableV2Statement,
@@ -906,7 +1030,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2 {
 /// Gid: `546`
 /// Location: [src/lib/pickles/proof.ml:47:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/proof.ml#L47)
 /// Args: PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof , PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, SexpOf, OfSexp)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, SexpOf, OfSexp, MallocSizeOf)]
 pub struct PicklesProofProofsVerifiedMaxStableV2 {
     pub statement: PicklesProofProofsVerified2ReprStableV2Statement,
     pub prev_evals: PicklesProofProofsVerified2ReprStableV2PrevEvals,
@@ -923,7 +1047,17 @@ pub struct PicklesProofProofsVerifiedMaxStableV2 {
 /// Location: [src/lib/non_zero_curve_point/compressed_poly.ml:13:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/non_zero_curve_point/compressed_poly.ml#L13)
 /// Args: crate :: bigint :: BigInt , bool
 #[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    MallocSizeOf,
 )]
 pub struct NonZeroCurvePointUncompressedStableV1 {
     pub x: crate::bigint::BigInt,
@@ -957,7 +1091,16 @@ pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::
 /// Gid: `119`
 /// Location: [src/int32.ml:6:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/int32.ml#L6)
 #[derive(
-    Clone, Copy, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    Deref,
+    Default,
+    MallocSizeOf,
 )]
 pub struct UnsignedExtendedUInt32StableV1(pub crate::number::UInt32);
 
@@ -994,7 +1137,7 @@ pub enum MinaNumbersGlobalSlotSpanStableV1 {
 ///
 /// Gid: `614`
 /// Location: [src/lib/mina_numbers/global_slot_since_genesis.ml:27:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_numbers/global_slot_since_genesis.ml#L27)
-#[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite, MallocSizeOf)]
 #[serde(untagged)]
 pub enum MinaNumbersGlobalSlotSinceGenesisMStableV1 {
     SinceGenesis(UnsignedExtendedUInt32StableV1),
@@ -1004,7 +1147,7 @@ pub enum MinaNumbersGlobalSlotSinceGenesisMStableV1 {
 ///
 /// Gid: `620`
 /// Location: [src/lib/mina_numbers/global_slot_since_hard_fork.ml:27:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_numbers/global_slot_since_hard_fork.ml#L27)
-#[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, Serialize, BinProtRead, BinProtWrite, MallocSizeOf)]
 #[serde(untagged)]
 pub enum MinaNumbersGlobalSlotSinceHardForkMStableV1 {
     SinceHardFork(UnsignedExtendedUInt32StableV1),
@@ -1014,7 +1157,7 @@ pub enum MinaNumbersGlobalSlotSinceHardForkMStableV1 {
 ///
 /// Gid: `636`
 /// Location: [src/lib/sgn/sgn.ml:9:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/sgn/sgn.ml#L9)
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum SgnStableV1 {
     Pos,
     Neg,
@@ -1038,6 +1181,12 @@ pub struct MinaStateBlockchainStateValueStableV2SignedAmount {
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
 pub struct CurrencyFeeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
+impl MallocSizeOf for CurrencyFeeStableV1 {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 /// **OCaml name**: `Currency.Make_str.Amount.Make_str.Stable.V1`
 ///
 /// Gid: `641`
@@ -1045,11 +1194,19 @@ pub struct CurrencyFeeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStab
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct CurrencyAmountStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
+impl MallocSizeOf for CurrencyAmountStableV1 {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 /// **OCaml name**: `Currency.Make_str.Balance.Stable.V1`
 ///
 /// Gid: `644`
 /// Location: [src/lib/currency/currency.ml:1138:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/currency/currency.ml#L1138)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct CurrencyBalanceStableV1(pub CurrencyAmountStableV1);
 
 /// Derived name: `Mina_base__Zkapp_command.Verifiable.Stable.V1.account_updates.data.a`
@@ -1079,6 +1236,7 @@ pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA {
     BinProtRead,
     BinProtWrite,
     Deref,
+    MallocSizeOf,
 )]
 pub struct DataHashLibStateHashStableV1(pub crate::bigint::BigInt);
 
@@ -1127,7 +1285,9 @@ pub struct BlockTimeTimeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsSt
 ///
 /// Gid: `664`
 /// Location: [src/lib/mina_base/account_id.ml:64:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_id.ml#L64)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseAccountIdDigestStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Account_id.Make_str.Stable.V2`
@@ -1167,14 +1327,16 @@ pub enum MinaBaseAccountTimingStableV2 {
 /// Gid: `676`
 /// Location: [src/lib/mina_base/signature.ml:12:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/signature.ml#L12)
 /// Args: crate :: bigint :: BigInt , crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseSignatureStableV1(pub crate::bigint::BigInt, pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Control.Stable.V2`
 ///
 /// Gid: `683`
 /// Location: [src/lib/mina_base/control.ml:11:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/control.ml#L11)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseControlStableV2 {
     Proof(Box<PicklesProofProofsVerifiedMaxStableV2>),
     Signature(Signature),
@@ -1197,7 +1359,9 @@ pub struct MinaBaseTokenIdStableV2(pub MinaBaseAccountIdDigestStableV1);
 /// Gid: `693`
 /// Location: [src/lib/mina_base/payment_payload.ml:14:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/payment_payload.ml#L14)
 /// Args: NonZeroCurvePoint , CurrencyAmountStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBasePaymentPayloadStableV2 {
     pub receiver_pk: NonZeroCurvePoint,
     pub amount: CurrencyAmountStableV1,
@@ -1219,6 +1383,7 @@ pub struct MinaBasePaymentPayloadStableV2 {
     BinProtRead,
     BinProtWrite,
     Deref,
+    MallocSizeOf,
 )]
 pub struct MinaBaseLedgerHash0StableV1(pub crate::bigint::BigInt);
 
@@ -1273,11 +1438,17 @@ pub struct MinaBasePermissionsStableV2 {
     pub set_timing: MinaBasePermissionsAuthRequiredStableV2,
 }
 
+impl MallocSizeOf for MinaBasePermissionsStableV2 {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 /// **OCaml name**: `Mina_base__Stake_delegation.Stable.V2`
 ///
 /// Gid: `712`
 /// Location: [src/lib/mina_base/stake_delegation.ml:11:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/stake_delegation.ml#L11)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseStakeDelegationStableV2 {
     SetDelegate { new_delegate: NonZeroCurvePoint },
 }
@@ -1337,6 +1508,12 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
     Cancelled,
 }
 
+impl MallocSizeOf for MinaBaseTransactionStatusFailureStableV2 {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 /// **OCaml name**: `Mina_base__Transaction_status.Failure.Collection.Stable.V1`
 ///
 /// Gid: `720`
@@ -1351,7 +1528,9 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
 /// Gid: `50`
 /// Location: [src/list0.ml:6:0](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/list0.ml#L6)
 /// Args: List < MinaBaseTransactionStatusFailureStableV2 >
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseTransactionStatusFailureCollectionStableV1(
     pub List<List<MinaBaseTransactionStatusFailureStableV2>>,
 );
@@ -1360,7 +1539,7 @@ pub struct MinaBaseTransactionStatusFailureCollectionStableV1(
 ///
 /// Gid: `721`
 /// Location: [src/lib/mina_base/transaction_status.ml:476:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/transaction_status.ml#L476)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseTransactionStatusStableV2 {
     Applied,
     Failed(MinaBaseTransactionStatusFailureCollectionStableV1),
@@ -1375,11 +1554,14 @@ pub enum MinaBaseTransactionStatusStableV2 {
 /// Gid: `722`
 /// Location: [src/lib/mina_base/signed_command_payload.ml:41:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/signed_command_payload.ml#L41)
 /// Args: CurrencyFeeStableV1 , NonZeroCurvePoint , UnsignedExtendedUInt32StableV1 , MinaNumbersGlobalSlotSinceGenesisMStableV1 , MinaBaseSignedCommandMemoStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseSignedCommandPayloadCommonStableV2 {
     pub fee: CurrencyFeeStableV1,
     pub fee_payer_pk: NonZeroCurvePoint,
     pub nonce: UnsignedExtendedUInt32StableV1,
+    #[ignore_malloc_size_of = "primitive"]
     pub valid_until: MinaNumbersGlobalSlotSinceGenesisMStableV1,
     pub memo: MinaBaseSignedCommandMemoStableV1,
 }
@@ -1388,7 +1570,7 @@ pub struct MinaBaseSignedCommandPayloadCommonStableV2 {
 ///
 /// Gid: `730`
 /// Location: [src/lib/mina_base/signed_command_payload.ml:189:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/signed_command_payload.ml#L189)
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseSignedCommandPayloadBodyStableV2 {
     Payment(MinaBasePaymentPayloadStableV2),
     StakeDelegation(MinaBaseStakeDelegationStableV2),
@@ -1403,7 +1585,9 @@ pub enum MinaBaseSignedCommandPayloadBodyStableV2 {
 /// Gid: `734`
 /// Location: [src/lib/mina_base/signed_command_payload.ml:249:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/signed_command_payload.ml#L249)
 /// Args: MinaBaseSignedCommandPayloadCommonStableV2 , MinaBaseSignedCommandPayloadBodyStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseSignedCommandPayloadStableV2 {
     pub common: MinaBaseSignedCommandPayloadCommonStableV2,
     pub body: MinaBaseSignedCommandPayloadBodyStableV2,
@@ -1418,7 +1602,9 @@ pub struct MinaBaseSignedCommandPayloadStableV2 {
 /// Gid: `741`
 /// Location: [src/lib/mina_base/signed_command.ml:27:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/signed_command.ml#L27)
 /// Args: MinaBaseSignedCommandPayloadStableV2 , NonZeroCurvePoint , Signature
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseSignedCommandStableV2 {
     pub payload: MinaBaseSignedCommandPayloadStableV2,
     pub signer: NonZeroCurvePoint,
@@ -1429,14 +1615,18 @@ pub struct MinaBaseSignedCommandStableV2 {
 ///
 /// Gid: `755`
 /// Location: [src/lib/mina_base/receipt.ml:31:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/receipt.ml#L31)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseReceiptChainHashStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__State_body_hash.Stable.V1`
 ///
 /// Gid: `760`
 /// Location: [src/lib/mina_base/state_body_hash.ml:19:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/state_body_hash.ml#L19)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseStateBodyHashStableV1(pub crate::bigint::BigInt);
 
 /// Derived name: `Mina_base__Account_update.Update.Stable.V1.timing`
@@ -1444,7 +1634,7 @@ pub struct MinaBaseStateBodyHashStableV1(pub crate::bigint::BigInt);
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: MinaBaseAccountUpdateUpdateTimingInfoStableV1
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseAccountUpdateUpdateStableV1Timing {
     Set(Box<MinaBaseAccountUpdateUpdateTimingInfoStableV1>),
     Keep,
@@ -1455,7 +1645,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1Timing {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: MinaBasePermissionsStableV2
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseAccountUpdateUpdateStableV1Permissions {
     Set(Box<MinaBasePermissionsStableV2>),
     Keep,
@@ -1466,7 +1656,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1Permissions {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: MinaBaseVerificationKeyWireStableV1
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseAccountUpdateUpdateStableV1VerificationKey {
     Set(Box<MinaBaseVerificationKeyWireStableV1>),
     Keep,
@@ -1477,7 +1667,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1VerificationKey {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: NonZeroCurvePoint
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseAccountUpdateUpdateStableV1Delegate {
     Set(NonZeroCurvePoint),
     Keep,
@@ -1488,7 +1678,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1Delegate {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: StateHash
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseAccountUpdateUpdateStableV1VotingFor {
     Set(StateHash),
     Keep,
@@ -1499,7 +1689,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1VotingFor {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseAccountUpdateUpdateStableV1AppStateA {
     Set(crate::bigint::BigInt),
     Keep,
@@ -1510,7 +1700,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1AppStateA {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: crate :: string :: ZkAppUri
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseAccountUpdateUpdateStableV1ZkappUri {
     Set(crate::string::ZkAppUri),
     Keep,
@@ -1521,7 +1711,9 @@ pub enum MinaBaseAccountUpdateUpdateStableV1ZkappUri {
 /// Gid: `766`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:100:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L100)
 /// Args: crate :: string :: TokenSymbol
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub enum MinaBaseAccountUpdateUpdateStableV1TokenSymbol {
     Set(crate::string::TokenSymbol),
     Keep,
@@ -1532,7 +1724,7 @@ pub enum MinaBaseAccountUpdateUpdateStableV1TokenSymbol {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: EpochSeed
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed {
     Check(EpochSeed),
     Ignore,
@@ -1543,7 +1735,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: LedgerHash
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash {
     Check(LedgerHash),
     Ignore,
@@ -1554,7 +1746,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseReceiptChainHashStableV1
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash {
     Check(MinaBaseReceiptChainHashStableV1),
     Ignore,
@@ -1565,7 +1757,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: NonZeroCurvePoint
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionAccountStableV2Delegate {
     Check(NonZeroCurvePoint),
     Ignore,
@@ -1576,7 +1768,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2Delegate {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: StateHash
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint {
     Check(StateHash),
     Ignore,
@@ -1587,7 +1779,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint 
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: bool
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionAccountStableV2ProvedState {
     Check(bool),
     Ignore,
@@ -1598,7 +1790,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2ProvedState {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: crate :: bigint :: BigInt
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionAccountStableV2StateA {
     Check(crate::bigint::BigInt),
     Ignore,
@@ -1658,7 +1850,9 @@ pub struct MinaBaseAccountIndexStableV1(pub crate::number::UInt64);
 /// Gid: `781`
 /// Location: [src/lib/mina_base/epoch_ledger.ml:9:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/epoch_ledger.ml#L9)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash , MinaBaseZkappPreconditionProtocolStateStableV1Amount
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger {
     pub hash: MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash,
     pub total_currency: MinaBaseZkappPreconditionProtocolStateStableV1Amount,
@@ -1673,7 +1867,9 @@ pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger {
 /// Gid: `781`
 /// Location: [src/lib/mina_base/epoch_ledger.ml:9:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/epoch_ledger.ml#L9)
 /// Args: LedgerHash , CurrencyAmountStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseEpochLedgerValueStableV1 {
     pub hash: LedgerHash,
     pub total_currency: CurrencyAmountStableV1,
@@ -1683,7 +1879,9 @@ pub struct MinaBaseEpochLedgerValueStableV1 {
 ///
 /// Gid: `785`
 /// Location: [src/lib/mina_base/epoch_seed.ml:14:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/epoch_seed.ml#L14)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseEpochSeedStableV1(pub crate::bigint::BigInt);
 
 /// Derived name: `Mina_base__Zkapp_precondition.Protocol_state.Stable.V1.amount.a`
@@ -1691,7 +1889,9 @@ pub struct MinaBaseEpochSeedStableV1(pub crate::bigint::BigInt);
 /// Gid: `790`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:23:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_precondition.ml#L23)
 /// Args: CurrencyAmountStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
     pub lower: CurrencyAmountStableV1,
     pub upper: CurrencyAmountStableV1,
@@ -1702,7 +1902,9 @@ pub struct MinaBaseZkappPreconditionProtocolStateStableV1AmountA {
 /// Gid: `790`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:23:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_precondition.ml#L23)
 /// Args: CurrencyBalanceStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionAccountStableV2BalanceA {
     pub lower: CurrencyBalanceStableV1,
     pub upper: CurrencyBalanceStableV1,
@@ -1713,7 +1915,9 @@ pub struct MinaBaseZkappPreconditionAccountStableV2BalanceA {
 /// Gid: `790`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:23:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_precondition.ml#L23)
 /// Args: MinaNumbersGlobalSlotSinceGenesisMStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
     pub lower: MinaNumbersGlobalSlotSinceGenesisMStableV1,
     pub upper: MinaNumbersGlobalSlotSinceGenesisMStableV1,
@@ -1724,7 +1928,9 @@ pub struct MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA {
 /// Gid: `790`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:23:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_precondition.ml#L23)
 /// Args: UnsignedExtendedUInt32StableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
     pub lower: UnsignedExtendedUInt32StableV1,
     pub upper: UnsignedExtendedUInt32StableV1,
@@ -1740,7 +1946,7 @@ pub struct MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1AmountA
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1Amount {
     Check(MinaBaseZkappPreconditionProtocolStateStableV1AmountA),
     Ignore,
@@ -1756,7 +1962,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1Amount {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionAccountStableV2BalanceA
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionAccountStableV2Balance {
     Check(MinaBaseZkappPreconditionAccountStableV2BalanceA),
     Ignore,
@@ -1772,7 +1978,7 @@ pub enum MinaBaseZkappPreconditionAccountStableV2Balance {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot {
     Check(MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlotA),
     Ignore,
@@ -1788,7 +1994,7 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot {
 /// Gid: `767`
 /// Location: [src/lib/mina_base/zkapp_basic.ml:232:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_basic.ml#L232)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1LengthA
-#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite)]
+#[derive(Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, MallocSizeOf)]
 pub enum MinaBaseZkappPreconditionProtocolStateStableV1Length {
     Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA),
     Ignore,
@@ -1798,7 +2004,9 @@ pub enum MinaBaseZkappPreconditionProtocolStateStableV1Length {
 ///
 /// Gid: `792`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:465:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_precondition.ml#L465)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionAccountStableV2 {
     pub balance: MinaBaseZkappPreconditionAccountStableV2Balance,
     pub nonce: MinaBaseZkappPreconditionProtocolStateStableV1Length,
@@ -1819,7 +2027,9 @@ pub struct MinaBaseZkappPreconditionAccountStableV2 {
 /// Gid: `788`
 /// Location: [src/lib/mina_base/epoch_data.ml:8:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/epoch_data.ml#L8)
 /// Args: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger , MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed , MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint , MinaBaseZkappPreconditionProtocolStateEpochDataStableV1StartCheckpoint , MinaBaseZkappPreconditionProtocolStateStableV1Length
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1 {
     pub ledger: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochLedger,
     pub seed: MinaBaseZkappPreconditionProtocolStateEpochDataStableV1EpochSeed,
@@ -1837,7 +2047,9 @@ pub struct MinaBaseZkappPreconditionProtocolStateEpochDataStableV1 {
 /// Gid: `794`
 /// Location: [src/lib/mina_base/zkapp_precondition.ml:923:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_precondition.ml#L923)
 /// Args: MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash , MinaBaseZkappPreconditionProtocolStateStableV1Length , MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot , MinaBaseZkappPreconditionProtocolStateStableV1Amount , MinaBaseZkappPreconditionProtocolStateEpochDataStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappPreconditionProtocolStateStableV1 {
     pub snarked_ledger_hash: MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash,
     pub blockchain_length: MinaBaseZkappPreconditionProtocolStateStableV1Length,
@@ -1883,11 +2095,19 @@ pub struct MinaBaseAccountUpdateUpdateTimingInfoStableV1 {
     pub vesting_increment: CurrencyAmountStableV1,
 }
 
+impl MallocSizeOf for MinaBaseAccountUpdateUpdateTimingInfoStableV1 {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 /// **OCaml name**: `Mina_base__Account_update.Update.Stable.V1`
 ///
 /// Gid: `806`
 /// Location: [src/lib/mina_base/account_update.ml:692:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L692)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdateUpdateStableV1 {
     pub app_state: PaddedSeq<MinaBaseAccountUpdateUpdateStableV1AppStateA, 8>,
     pub delegate: MinaBaseAccountUpdateUpdateStableV1Delegate,
@@ -1903,7 +2123,9 @@ pub struct MinaBaseAccountUpdateUpdateStableV1 {
 ///
 /// Gid: `807`
 /// Location: [src/lib/mina_base/account_update.ml:958:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L958)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdateAccountPreconditionStableV1(
     pub MinaBaseZkappPreconditionAccountStableV2,
 );
@@ -1912,7 +2134,9 @@ pub struct MinaBaseAccountUpdateAccountPreconditionStableV1(
 ///
 /// Gid: `808`
 /// Location: [src/lib/mina_base/account_update.ml:1029:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L1029)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdatePreconditionsStableV1 {
     pub network: MinaBaseZkappPreconditionProtocolStateStableV1,
     pub account: MinaBaseAccountUpdateAccountPreconditionStableV1,
@@ -1933,18 +2157,23 @@ pub struct MinaBaseAccountUpdatePreconditionsStableV1 {
 /// Gid: `50`
 /// Location: [src/list0.ml:6:0](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/list0.ml#L6)
 /// Args: ArrayN16 < crate :: bigint :: BigInt >
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdateBodyEventsStableV1(pub List<ArrayN16<crate::bigint::BigInt>>);
 
 /// **OCaml name**: `Mina_base__Account_update.Body.Stable.V1`
 ///
 /// Gid: `812`
 /// Location: [src/lib/mina_base/account_update.ml:1216:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L1216)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdateBodyStableV1 {
     pub public_key: NonZeroCurvePoint,
     pub token_id: TokenIdKeyHash,
     pub update: MinaBaseAccountUpdateUpdateStableV1,
+    #[ignore_malloc_size_of = "primitive"]
     pub balance_change: MinaStateBlockchainStateValueStableV2SignedAmount,
     pub increment_nonce: bool,
     pub events: MinaBaseAccountUpdateBodyEventsStableV1,
@@ -1953,7 +2182,9 @@ pub struct MinaBaseAccountUpdateBodyStableV1 {
     pub preconditions: MinaBaseAccountUpdatePreconditionsStableV1,
     pub use_full_commitment: bool,
     pub implicit_account_creation_fee: bool,
+    #[ignore_malloc_size_of = "primitive"]
     pub may_use_token: MinaBaseAccountUpdateMayUseTokenStableV1,
+    #[ignore_malloc_size_of = "primitive"]
     pub authorization_kind: MinaBaseAccountUpdateAuthorizationKindStableV1,
 }
 
@@ -1961,11 +2192,15 @@ pub struct MinaBaseAccountUpdateBodyStableV1 {
 ///
 /// Gid: `813`
 /// Location: [src/lib/mina_base/account_update.ml:1322:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L1322)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdateBodyFeePayerStableV1 {
     pub public_key: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
+    #[ignore_malloc_size_of = "primitive"]
     pub valid_until: Option<MinaNumbersGlobalSlotSinceGenesisMStableV1>,
+    #[ignore_malloc_size_of = "primitive"]
     pub nonce: UnsignedExtendedUInt32StableV1,
 }
 
@@ -1973,7 +2208,9 @@ pub struct MinaBaseAccountUpdateBodyFeePayerStableV1 {
 ///
 /// Gid: `816`
 /// Location: [src/lib/mina_base/account_update.ml:1694:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L1694)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdateTStableV1 {
     pub body: MinaBaseAccountUpdateBodyStableV1,
     pub authorization: MinaBaseControlStableV2,
@@ -1983,7 +2220,9 @@ pub struct MinaBaseAccountUpdateTStableV1 {
 ///
 /// Gid: `817`
 /// Location: [src/lib/mina_base/account_update.ml:1738:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_update.ml#L1738)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseAccountUpdateFeePayerStableV1 {
     pub body: MinaBaseAccountUpdateBodyFeePayerStableV1,
     pub authorization: Signature,
@@ -1994,7 +2233,9 @@ pub struct MinaBaseAccountUpdateFeePayerStableV1 {
 /// Gid: `818`
 /// Location: [src/lib/mina_base/with_stack_hash.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/with_stack_hash.ml#L6)
 /// Args: Box < MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA > , ()
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
     pub elt: Box<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA>,
     #[serde(deserialize_with = "always_unit")]
@@ -2017,7 +2258,9 @@ pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA {
 /// Gid: `818`
 /// Location: [src/lib/mina_base/with_stack_hash.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/with_stack_hash.ml#L6)
 /// Args: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA , ()
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
     pub elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
     #[serde(deserialize_with = "always_unit")]
@@ -2073,7 +2316,9 @@ pub struct MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStabl
 /// Gid: `819`
 /// Location: [src/lib/mina_base/with_status.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/with_status.ml#L6)
 /// Args: MinaBaseUserCommandStableV2
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B {
     pub data: MinaBaseUserCommandStableV2,
     pub status: MinaBaseTransactionStatusStableV2,
@@ -2110,7 +2355,9 @@ pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA {
 /// Gid: `820`
 /// Location: [src/lib/mina_base/zkapp_command.ml:11:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_command.ml#L11)
 /// Args: MinaBaseAccountUpdateTStableV1 , () , ()
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
     pub account_update: MinaBaseAccountUpdateTStableV1,
     #[serde(deserialize_with = "always_unit")]
@@ -2138,7 +2385,9 @@ pub struct MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(pub crate::
 ///
 /// Gid: `829`
 /// Location: [src/lib/mina_base/zkapp_command.ml:684:12](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_command.ml#L684)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1 {
     pub fee_payer: MinaBaseAccountUpdateFeePayerStableV1,
     pub account_updates: List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
@@ -2166,7 +2415,14 @@ pub struct MinaBaseZkappCommandVerifiableStableV1 {
 /// Location: [src/lib/mina_base/user_command.ml:7:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/user_command.ml#L7)
 /// Args: MinaBaseSignedCommandStableV2 , MinaBaseZkappCommandTStableV1WireStableV1
 #[derive(
-    Clone, Debug, PartialEq, SerdeYojsonEnum, BinProtRead, BinProtWrite, derive_more::From,
+    Clone,
+    Debug,
+    PartialEq,
+    SerdeYojsonEnum,
+    BinProtRead,
+    BinProtWrite,
+    derive_more::From,
+    MallocSizeOf,
 )]
 pub enum MinaBaseUserCommandStableV2 {
     SignedCommand(MinaBaseSignedCommandStableV2),
@@ -2247,14 +2503,18 @@ pub struct MinaBasePendingCoinbaseStackIdStableV1(pub crate::number::UInt64);
 ///
 /// Gid: `851`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:159:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/pending_coinbase.ml#L159)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBasePendingCoinbaseCoinbaseStackStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.Stack_hash.Stable.V1`
 ///
 /// Gid: `856`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:219:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/pending_coinbase.ml#L219)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBasePendingCoinbaseStackHashStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Pending_coinbase.Make_str.State_stack.Stable.V1`
@@ -2266,7 +2526,9 @@ pub struct MinaBasePendingCoinbaseStackHashStableV1(pub crate::bigint::BigInt);
 /// Gid: `859`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:245:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/pending_coinbase.ml#L245)
 /// Args: CoinbaseStackHash
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBasePendingCoinbaseStateStackStableV1 {
     pub init: CoinbaseStackHash,
     pub curr: CoinbaseStackHash,
@@ -2327,7 +2589,9 @@ pub struct MinaBasePendingCoinbaseUpdateStableV1 {
 /// Gid: `869`
 /// Location: [src/lib/mina_base/pending_coinbase.ml:511:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/pending_coinbase.ml#L511)
 /// Args: CoinbaseStackData , MinaBasePendingCoinbaseStateStackStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaBasePendingCoinbaseStackVersionedStableV1 {
     pub data: CoinbaseStackData,
     pub state: MinaBasePendingCoinbaseStateStackStableV1,
@@ -2445,7 +2709,9 @@ pub struct MinaBaseStagedLedgerHashStableV1 {
 ///
 /// Gid: `881`
 /// Location: [src/lib/mina_base/stack_frame.ml:64:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/stack_frame.ml#L64)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseStackFrameStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Sok_message.Make_str.Stable.V1`
@@ -2481,7 +2747,9 @@ pub struct MinaBaseProtocolConstantsCheckedValueStableV1 {
 ///
 /// Gid: `885`
 /// Location: [src/lib/mina_base/proof.ml:12:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/proof.ml#L12)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
 
 /// **OCaml name**: `Mina_base__Pending_coinbase_witness.Stable.V2`
@@ -2498,7 +2766,9 @@ pub struct MinaBasePendingCoinbaseWitnessStableV2 {
 ///
 /// Gid: `887`
 /// Location: [src/lib/mina_base/call_stack_digest.ml:12:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/call_stack_digest.ml#L12)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct MinaBaseCallStackDigestStableV1(pub crate::bigint::BigInt);
 
 /// **OCaml name**: `Mina_base__Fee_with_prover.Stable.V1`
@@ -2543,7 +2813,9 @@ pub enum MinaTransactionTransactionStableV2 {
 /// Gid: `905`
 /// Location: [src/lib/transaction_logic/zkapp_command_logic.ml:196:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_logic/zkapp_command_logic.ml#L196)
 /// Args: MinaBaseStackFrameStableV1 , MinaBaseCallStackDigestStableV1 , SignedAmount , LedgerHash , bool , crate :: bigint :: BigInt , UnsignedExtendedUInt32StableV1 , MinaBaseTransactionStatusFailureCollectionStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
     pub stack_frame: MinaBaseStackFrameStableV1,
     pub call_stack: MinaBaseCallStackDigestStableV1,
@@ -2553,6 +2825,7 @@ pub struct MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
     pub supply_increase: SignedAmount,
     pub ledger: LedgerHash,
     pub success: bool,
+    #[ignore_malloc_size_of = "primitive"]
     pub account_update_index: UnsignedExtendedUInt32StableV1,
     pub failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1,
     pub will_succeed: bool,
@@ -2684,7 +2957,7 @@ pub enum TrustSystemBannedStatusStableV1 {
 ///
 /// Gid: `941`
 /// Location: [src/lib/consensus/vrf/consensus_vrf.ml:168:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/consensus/vrf/consensus_vrf.ml#L168)
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref, MallocSizeOf)]
 pub struct ConsensusVrfOutputTruncatedStableV1(pub crate::string::ByteString);
 
 /// **OCaml name**: `Consensus__Stake_proof.Stable.V2`
@@ -2705,7 +2978,7 @@ pub struct ConsensusStakeProofStableV2 {
 ///
 /// Gid: `959`
 /// Location: [src/lib/consensus/body_reference.ml:17:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/consensus/body_reference.ml#L17)
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref, MallocSizeOf)]
 pub struct ConsensusBodyReferenceStableV1(pub crate::string::ByteString);
 
 /// **OCaml name**: `Consensus__Global_slot.Make_str.Stable.V1`
@@ -2717,7 +2990,9 @@ pub struct ConsensusBodyReferenceStableV1(pub crate::string::ByteString);
 /// Gid: `965`
 /// Location: [src/lib/consensus/global_slot.ml:22:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/consensus/global_slot.ml#L22)
 /// Args: MinaNumbersGlobalSlotSinceHardForkMStableV1 , UnsignedExtendedUInt32StableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct ConsensusGlobalSlotStableV1 {
     pub slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1,
     pub slots_per_epoch: UnsignedExtendedUInt32StableV1,
@@ -2732,7 +3007,9 @@ pub struct ConsensusGlobalSlotStableV1 {
 /// Gid: `788`
 /// Location: [src/lib/mina_base/epoch_data.ml:8:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/epoch_data.ml#L8)
 /// Args: MinaBaseEpochLedgerValueStableV1 , EpochSeed , StateHash , StateHash , UnsignedExtendedUInt32StableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
     pub ledger: MinaBaseEpochLedgerValueStableV1,
     pub seed: EpochSeed,
@@ -2750,7 +3027,9 @@ pub struct ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 
 /// Gid: `788`
 /// Location: [src/lib/mina_base/epoch_data.ml:8:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/epoch_data.ml#L8)
 /// Args: MinaBaseEpochLedgerValueStableV1 , EpochSeed , StateHash , StateHash , UnsignedExtendedUInt32StableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
     pub ledger: MinaBaseEpochLedgerValueStableV1,
     pub seed: EpochSeed,
@@ -2764,7 +3043,9 @@ pub struct ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
 /// Gid: `985`
 /// Location: [src/lib/mina_state/registers.ml:8:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_state/registers.ml#L8)
 /// Args: LedgerHash , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
     pub first_pass_ledger: LedgerHash,
     pub second_pass_ledger: LedgerHash,
@@ -2787,13 +3068,17 @@ pub enum MinaStateSnarkedLedgerStatePendingCoinbaseStackStateInitStackStableV1 {
 /// Gid: `991`
 /// Location: [src/lib/mina_state/snarked_ledger_state.ml:107:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_state/snarked_ledger_state.ml#L107)
 /// Args: LedgerHash , MinaStateBlockchainStateValueStableV2SignedAmount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , () , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaStateBlockchainStateValueStableV2LedgerProofStatement {
     pub source: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub target: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub connecting_ledger_left: LedgerHash,
     pub connecting_ledger_right: LedgerHash,
+    #[ignore_malloc_size_of = "primitive"]
     pub supply_increase: MinaStateBlockchainStateValueStableV2SignedAmount,
+    #[ignore_malloc_size_of = "primitive"]
     pub fee_excess: MinaBaseFeeExcessStableV1,
     #[serde(deserialize_with = "always_unit")]
     pub sok_digest: (),
@@ -2817,13 +3102,17 @@ pub struct MinaStateSnarkedLedgerStateStableV2(
 /// Gid: `991`
 /// Location: [src/lib/mina_state/snarked_ledger_state.ml:107:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_state/snarked_ledger_state.ml#L107)
 /// Args: LedgerHash , MinaStateBlockchainStateValueStableV2SignedAmount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , crate :: string :: ByteString , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaStateSnarkedLedgerStateWithSokStableV2 {
     pub source: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub target: MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
     pub connecting_ledger_left: LedgerHash,
     pub connecting_ledger_right: LedgerHash,
+    #[ignore_malloc_size_of = "primitive"]
     pub supply_increase: MinaStateBlockchainStateValueStableV2SignedAmount,
+    #[ignore_malloc_size_of = "primitive"]
     pub fee_excess: MinaBaseFeeExcessStableV1,
     pub sok_digest: crate::string::ByteString,
 }
@@ -2837,11 +3126,15 @@ pub struct MinaStateSnarkedLedgerStateWithSokStableV2 {
 /// Gid: `996`
 /// Location: [src/lib/mina_state/blockchain_state.ml:10:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_state/blockchain_state.ml#L10)
 /// Args: MinaBaseStagedLedgerHashStableV1 , LedgerHash , MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 , BlockTimeTimeStableV1 , ConsensusBodyReferenceStableV1 , MinaStateBlockchainStateValueStableV2SignedAmount , MinaBasePendingCoinbaseStackVersionedStableV1 , MinaBaseFeeExcessStableV1 , ()
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaStateBlockchainStateValueStableV2 {
+    #[ignore_malloc_size_of = "primitive"]
     pub staged_ledger_hash: MinaBaseStagedLedgerHashStableV1,
     pub genesis_ledger_hash: LedgerHash,
     pub ledger_proof_statement: MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+    #[ignore_malloc_size_of = "primitive"]
     pub timestamp: BlockTimeTimeStableV1,
     pub body_reference: ConsensusBodyReferenceStableV1,
 }
@@ -2871,11 +3164,14 @@ pub struct MinaStateSnarkTransitionValueStableV2 {
 /// Gid: `1001`
 /// Location: [src/lib/mina_state/protocol_state.ml:62:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_state/protocol_state.ml#L62)
 /// Args: StateHash , MinaStateBlockchainStateValueStableV2 , ConsensusProofOfStakeDataConsensusStateValueStableV2 , MinaBaseProtocolConstantsCheckedValueStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct MinaStateProtocolStateBodyValueStableV2 {
     pub genesis_state_hash: StateHash,
     pub blockchain_state: MinaStateBlockchainStateValueStableV2,
     pub consensus_state: ConsensusProofOfStakeDataConsensusStateValueStableV2,
+    #[ignore_malloc_size_of = "primitive"]
     pub constants: MinaBaseProtocolConstantsCheckedValueStableV1,
 }
 
@@ -2883,14 +3179,16 @@ pub struct MinaStateProtocolStateBodyValueStableV2 {
 ///
 /// Gid: `1011`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:69:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_snark/transaction_snark.ml#L69)
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref, MallocSizeOf)]
 pub struct TransactionSnarkProofStableV2(pub PicklesProofProofsVerified2ReprStableV2);
 
 /// **OCaml name**: `Transaction_snark.Make_str.Stable.V2`
 ///
 /// Gid: `1012`
 /// Location: [src/lib/transaction_snark/transaction_snark.ml:80:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_snark/transaction_snark.ml#L80)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct TransactionSnarkStableV2 {
     pub statement: MinaStateSnarkedLedgerStateWithSokStableV2,
     pub proof: TransactionSnarkProofStableV2,
@@ -2900,7 +3198,9 @@ pub struct TransactionSnarkStableV2 {
 ///
 /// Gid: `1014`
 /// Location: [src/lib/ledger_proof/ledger_proof.ml:10:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/ledger_proof/ledger_proof.ml#L10)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+)]
 pub struct LedgerProofProdStableV2(pub TransactionSnarkStableV2);
 
 /// **OCaml name**: `Transaction_snark_work.Statement.Stable.V2`
@@ -2930,7 +3230,9 @@ pub enum TransactionSnarkWorkStatementStableV2 {
 ///
 /// Gid: `1024`
 /// Location: [src/lib/transaction_snark_work/transaction_snark_work.ml:83:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_snark_work/transaction_snark_work.ml#L83)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct TransactionSnarkWorkTStableV2 {
     pub fee: CurrencyFeeStableV1,
     pub proofs: TransactionSnarkWorkTStableV2Proofs,
@@ -2981,10 +3283,13 @@ pub struct StagedLedgerDiffDiffFtStableV1(pub MinaBaseCoinbaseFeeTransferStableV
 /// Gid: `1028`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:104:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/staged_ledger_diff/diff.ml#L104)
 /// Args: TransactionSnarkWorkTStableV2 , StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2 {
     pub completed_works: List<TransactionSnarkWorkTStableV2>,
     pub commands: List<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
+    #[ignore_malloc_size_of = "primitive"]
     pub coinbase: StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
     pub internal_command_statuses: List<MinaBaseTransactionStatusStableV2>,
 }
@@ -2998,10 +3303,13 @@ pub struct StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2 {
 /// Gid: `1029`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:136:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/staged_ledger_diff/diff.ml#L136)
 /// Args: TransactionSnarkWorkTStableV2 , StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2 {
     pub completed_works: List<TransactionSnarkWorkTStableV2>,
     pub commands: List<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
+    #[ignore_malloc_size_of = "primitive"]
     pub coinbase: StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
     pub internal_command_statuses: List<MinaBaseTransactionStatusStableV2>,
 }
@@ -3010,7 +3318,9 @@ pub struct StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2 {
 ///
 /// Gid: `1032`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:206:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/staged_ledger_diff/diff.ml#L206)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct StagedLedgerDiffDiffDiffStableV2(
     pub StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2,
     pub Option<StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2>,
@@ -3020,7 +3330,9 @@ pub struct StagedLedgerDiffDiffDiffStableV2(
 ///
 /// Gid: `1033`
 /// Location: [src/lib/staged_ledger_diff/diff.ml:223:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/staged_ledger_diff/diff.ml#L223)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct StagedLedgerDiffDiffStableV2 {
     pub diff: StagedLedgerDiffDiffDiffStableV2,
 }
@@ -3029,7 +3341,9 @@ pub struct StagedLedgerDiffDiffStableV2 {
 ///
 /// Gid: `1034`
 /// Location: [src/lib/staged_ledger_diff/body.ml:18:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/staged_ledger_diff/body.ml#L18)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct StagedLedgerDiffBodyStableV1 {
     pub staged_ledger_diff: StagedLedgerDiffDiffStableV2,
 }
@@ -3204,6 +3518,15 @@ pub struct MinaBlockHeaderStableV2 {
     pub delta_block_chain_proof: (StateHash, List<StateBodyHash>),
     pub current_protocol_version: ProtocolVersionStableV2,
     pub proposed_protocol_version_opt: Option<ProtocolVersionStableV2>,
+}
+
+impl MallocSizeOf for MinaBlockHeaderStableV2 {
+    fn size_of(&self, ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        let factor = usize::from(!ops.have_seen_ptr(Arc::as_ptr(&self.protocol_state_proof)));
+        self.protocol_state_proof.size_of(ops) * factor
+            + self.protocol_state.size_of(ops)
+            + self.delta_block_chain_proof.1.size_of(ops)
+    }
 }
 
 /// Derived name: `Network_pool__Snark_pool.Diff_versioned.Stable.V2.Add_solved_work.1`

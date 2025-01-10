@@ -71,6 +71,8 @@ juniper = { version = "0.16" }
 ark-ff = { version = "0.3.0", features = ["parallel", "asm", "std"] }
 # UNCOMMENTED_IN_CI ark-ff = { version = "0.3.0", features = [ "parallel", "asm", "std", "32x9" ] }
 
+graphannis-malloc_size_of = { git = "https://github.com/openmina/graphannis-malloc_size_of.git", rev = "f7da9f6" }
+graphannis-malloc_size_of_derive = { git = "https://github.com/openmina/graphannis-malloc_size_of_derive.git" }
 
 [profile.fuzz]
 inherits = "release"
