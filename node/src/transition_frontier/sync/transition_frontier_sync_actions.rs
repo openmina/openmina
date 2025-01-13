@@ -366,7 +366,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 }
                 _ => false,
             },
-            TransitionFrontierSyncAction::BlocksSendToArchive { hash, data } => {
+            TransitionFrontierSyncAction::BlocksSendToArchive { .. } => {
                 state.transition_frontier.archive_enabled
             }
             TransitionFrontierSyncAction::CommitInit => matches!(
