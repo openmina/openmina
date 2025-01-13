@@ -338,8 +338,8 @@ mod measurement {
                 + self.broadcast_state.size_of(ops)
                 + self.identify_state.size_of(ops)
                 + self.discovery_state.size_of(ops)
-
-            // TODO(vlad): `rpc_incoming_streams`, `rpc_outgoing_streams`
+                + self.rpc_incoming_streams.size_of(ops)
+                + self.rpc_outgoing_streams.size_of(ops)
         }
     }
 }
