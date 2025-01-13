@@ -1,5 +1,6 @@
 use std::{fmt::Display, marker::PhantomData, str::FromStr};
 
+use malloc_size_of::MallocSizeOf;
 use serde::{de::Visitor, Deserialize, Serialize};
 
 #[derive(
@@ -11,6 +12,12 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Number<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Avoid vertical alignment
         f.write_fmt(format_args!("Number({inner:?})", inner = self.0))
+    }
+}
+
+impl<T> MallocSizeOf for Number<T> {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
     }
 }
 

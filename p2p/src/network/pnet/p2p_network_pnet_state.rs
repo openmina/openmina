@@ -1,3 +1,4 @@
+use malloc_size_of_derive::MallocSizeOf;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
@@ -7,8 +8,9 @@ use salsa_simple::XSalsa20;
 use crate::P2pTimeouts;
 
 #[serde_with::serde_as]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkPnetState {
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub time: Option<Timestamp>,
 
     #[serde_as(as = "serde_with::hex::Hex")]
@@ -62,4 +64,19 @@ impl P2pNetworkPnetState {
 pub enum Half {
     Buffering { buffer: [u8; 24], offset: usize },
     Done { cipher: XSalsa20, to_send: Vec<u8> },
+}
+
+mod measurement {
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::*;
+
+    impl MallocSizeOf for Half {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+            match self {
+                Self::Done { to_send, .. } => to_send.capacity(),
+                _ => 0,
+            }
+        }
+    }
 }

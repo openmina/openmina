@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use binprot::Nat0;
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{de::Visitor, Deserialize, Serialize};
 use serde_bytes;
 
@@ -19,7 +20,7 @@ pub type ZkAppUri = BoundedCharString<ZKAPP_URI_MAX_LENGTH>;
 pub type TokenSymbol = BoundedCharString<TOKEN_SYMBOL_MAX_LENGTH>;
 
 /// String of bytes.
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, MallocSizeOf)]
 pub struct BoundedByteString<const MAX_LENGTH: usize>(pub Vec<u8>, PhantomData<[u8; MAX_LENGTH]>);
 
 impl<const MAX_LENGTH: usize> std::fmt::Debug for BoundedByteString<MAX_LENGTH> {
@@ -141,7 +142,7 @@ impl<const MAX_LENGTH: usize> binprot::BinProtWrite for BoundedByteString<MAX_LE
 }
 
 /// Human-readable string.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, MallocSizeOf)]
 pub struct BoundedCharString<const MAX_LENGTH: usize>(Vec<u8>, PhantomData<[u8; MAX_LENGTH]>);
 
 impl<const MAX_LENGTH: usize> std::fmt::Debug for BoundedCharString<MAX_LENGTH> {

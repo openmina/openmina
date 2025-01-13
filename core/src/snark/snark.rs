@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use malloc_size_of::MallocSizeOf;
 use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, MinaBaseFeeWithProverStableV1,
@@ -95,5 +96,12 @@ impl From<&Snark> for NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
                 prover: value.snarker.clone(),
             },
         }
+    }
+}
+
+impl MallocSizeOf for Snark {
+    fn size_of(&self, ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        usize::from(!ops.have_seen_ptr(Arc::as_ptr(&self.proofs)))
+            * (size_of::<TransactionSnarkWorkTStableV2Proofs>() + self.proofs.size_of(ops))
     }
 }

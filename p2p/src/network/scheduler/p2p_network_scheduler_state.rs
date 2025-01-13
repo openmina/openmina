@@ -1,8 +1,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     net::{IpAddr, SocketAddr},
+    ops::{Deref, DerefMut},
 };
 
+use malloc_size_of_derive::MallocSizeOf;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -10,13 +12,35 @@ use crate::{disconnection::P2pDisconnectionReason, identity::PublicKey, PeerId};
 
 use super::super::*;
 
-pub type StreamState<T> = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct StreamState<T>(pub BTreeMap<PeerId, BTreeMap<StreamId, T>>);
+
+impl<T> Default for StreamState<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl<T> Deref for StreamState<T> {
+    type Target = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for StreamState<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 #[derive(Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Debug, Clone, Copy)]
 pub struct ConnectionAddr {
     pub sock_addr: SocketAddr,
     pub incoming: bool,
 }
+
 impl std::fmt::Display for ConnectionAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{} (incoming: {})", self.sock_addr, self.incoming)
@@ -77,7 +101,7 @@ impl P2pNetworkSchedulerState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkConnectionState {
     pub incoming: bool,
     pub pnet: P2pNetworkPnetState,
@@ -85,7 +109,9 @@ pub struct P2pNetworkConnectionState {
     pub auth: Option<P2pNetworkAuthState>,
     pub select_mux: P2pNetworkSelectState,
     pub mux: Option<P2pNetworkConnectionMuxState>,
+    #[with_malloc_size_of_func = "measurement::streams_map"]
     pub streams: BTreeMap<StreamId, P2pNetworkStreamState>,
+    #[ignore_malloc_size_of = "error"]
     pub closed: Option<P2pNetworkConnectionCloseReason>,
     // the number of bytes that peer allowed to send us before yamux is negotiated
     pub limit: usize,
@@ -202,7 +228,7 @@ pub enum P2pNetworkConnectionError {
     YamuxBadWindowUpdate(StreamId),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pNetworkAuthState {
     Noise(P2pNetworkNoiseState),
 }
@@ -215,7 +241,7 @@ impl P2pNetworkAuthState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pNetworkConnectionMuxState {
     Yamux(P2pNetworkYamuxState),
 }
@@ -257,4 +283,63 @@ impl P2pNetworkStreamState {
 pub enum P2pNetworkStreamHandlerState {
     Broadcast,
     Discovery,
+}
+mod measurement {
+    use std::mem;
+
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::*;
+
+    pub fn streams_map(
+        val: &BTreeMap<StreamId, P2pNetworkStreamState>,
+        ops: &mut MallocSizeOfOps,
+    ) -> usize {
+        val.iter()
+            .map(|(k, v)| mem::size_of_val(k) + mem::size_of_val(v) + v.size_of(ops))
+            .sum()
+    }
+
+    impl<T> MallocSizeOf for StreamState<T>
+    where
+        T: MallocSizeOf,
+    {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.0
+                .iter()
+                .map(|(k, v)| {
+                    mem::size_of_val(k)
+                        + mem::size_of_val(v)
+                        + v.iter()
+                            .map(|(k, v)| {
+                                mem::size_of_val(k) + mem::size_of_val(v) + v.size_of(ops)
+                            })
+                            .sum::<usize>()
+                })
+                .sum()
+        }
+    }
+
+    impl MallocSizeOf for ConnectionAddr {
+        fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
+            0
+        }
+    }
+
+    impl MallocSizeOf for P2pNetworkSchedulerState {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.interfaces.len() * mem::size_of::<IpAddr>()
+                + self.listeners.len() * mem::size_of::<SocketAddr>()
+                + self
+                    .connections
+                    .iter()
+                    .map(|(k, v)| mem::size_of_val(k) + mem::size_of_val(v) + v.size_of(ops))
+                    .sum::<usize>()
+                + self.broadcast_state.size_of(ops)
+                + self.identify_state.size_of(ops)
+                + self.discovery_state.size_of(ops)
+                + self.rpc_incoming_streams.size_of(ops)
+                + self.rpc_outgoing_streams.size_of(ops)
+        }
+    }
 }

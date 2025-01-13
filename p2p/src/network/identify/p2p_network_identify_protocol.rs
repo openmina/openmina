@@ -3,16 +3,21 @@ use crate::{
     identity::PublicKey,
     token::{self, StreamKind},
 };
+
+use malloc_size_of_derive::MallocSizeOf;
 use multiaddr::Multiaddr;
 use quick_protobuf::{BytesReader, MessageRead, MessageWrite, Writer};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, MallocSizeOf)]
 pub struct P2pNetworkIdentify {
     pub protocol_version: Option<String>,
     pub agent_version: Option<String>,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub public_key: Option<PublicKey>,
+    #[with_malloc_size_of_func = "measurement::multiaddr_vec"]
     pub listen_addrs: Vec<Multiaddr>,
+    #[with_malloc_size_of_func = "measurement::multiaddr_opt"]
     pub observed_addr: Option<Multiaddr>,
     pub protocols: Vec<token::StreamKind>,
 }
@@ -182,5 +187,21 @@ pub struct P2pNetworkIdentifyMultiaddrError(String);
 impl From<multiaddr::Error> for P2pNetworkIdentifyMultiaddrError {
     fn from(value: multiaddr::Error) -> Self {
         P2pNetworkIdentifyMultiaddrError(value.to_string())
+    }
+}
+
+mod measurement {
+    use std::mem;
+
+    use malloc_size_of::MallocSizeOfOps;
+
+    use super::Multiaddr;
+
+    pub fn multiaddr_vec(v: &Vec<Multiaddr>, _ops: &mut MallocSizeOfOps) -> usize {
+        v.capacity() * mem::size_of::<Multiaddr>() + v.iter().map(Multiaddr::len).sum::<usize>()
+    }
+
+    pub fn multiaddr_opt(v: &Option<Multiaddr>, _ops: &mut MallocSizeOfOps) -> usize {
+        v.as_ref().map_or(0, Multiaddr::len)
     }
 }

@@ -7,6 +7,7 @@ use std::str::FromStr;
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 /// Before encoding, data is prepended with the version byte.
@@ -84,7 +85,7 @@ where
 
 /// Wrapper that uses base58check of binprot serialization for the wrapped type
 /// for human readable serializer.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, MallocSizeOf)]
 pub struct Base58CheckOfBinProt<T, U, const V: u8>(T, PhantomData<U>);
 
 impl<T, U, const V: u8> Default for Base58CheckOfBinProt<T, U, V>

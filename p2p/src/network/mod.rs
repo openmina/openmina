@@ -1,4 +1,5 @@
 mod p2p_network_actions;
+use malloc_size_of_derive::MallocSizeOf;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -56,12 +57,13 @@ pub use self::data::{Data, DataSized};
 mod data {
     use std::{fmt, ops};
 
+    use malloc_size_of_derive::MallocSizeOf;
     use serde::{Deserialize, Serialize};
 
-    #[derive(Clone)]
+    #[derive(Clone, MallocSizeOf)]
     pub struct DataSized<const N: usize>(pub [u8; N]);
 
-    #[derive(Clone, Default)]
+    #[derive(Clone, Default, MallocSizeOf)]
     pub struct Data(pub Box<[u8]>);
 
     impl Data {
@@ -185,12 +187,15 @@ mod data {
 }
 
 /// Errors that might happen while handling protobuf messages received via a stream.
-#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2pNetworkStreamProtobufError<T> {
     #[error("error reading message length")]
     MessageLength,
     #[error("message is too long: {0} exceeds {1}")]
-    Limit(usize, Limit<usize>),
+    Limit(
+        usize,
+        #[ignore_malloc_size_of = "doesn't allocate"] Limit<usize>,
+    ),
     #[error("error reading message: {0}")]
     Message(String),
     #[error("error converting protobuf message: {0}")]
