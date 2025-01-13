@@ -95,7 +95,7 @@ bitflags::bitflags! {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct YamuxPing {
     pub stream_id: StreamId,
-    pub opaque: i32,
+    pub opaque: u32,
     pub response: bool,
 }
 
@@ -227,12 +227,12 @@ impl YamuxFrame {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum YamuxFrameInner {
     Data(Data),
-    WindowUpdate { difference: i32 },
-    Ping { opaque: i32 },
+    WindowUpdate { difference: u32 },
+    Ping { opaque: u32 },
     GoAway(Result<(), YamuxSessionError>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum YamuxSessionError {
     Protocol,
     Internal,
