@@ -78,7 +78,6 @@ pub struct Libp2pBehaviour {
     #[behaviour(ignore)]
     port: u16,
 
-    // TODO(vlad9486): move maps inside `RpcBehaviour`
     // map msg_id into (tag, version)
     #[behaviour(ignore)]
     pub ongoing: BTreeMap<(PeerId, u64), (RpcTag, u32)>,

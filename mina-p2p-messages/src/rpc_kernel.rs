@@ -3,6 +3,7 @@ use std::io::Read;
 
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 use crate::versioned::Ver;
@@ -251,14 +252,18 @@ impl<T> From<DebuggerMessage<T>> for Message<T> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq, MallocSizeOf,
+)]
 pub struct QueryHeader {
     pub tag: BinprotTag,
     pub version: Ver,
     pub id: QueryID,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq, MallocSizeOf,
+)]
 pub struct ResponseHeader {
     pub id: QueryID,
 }
