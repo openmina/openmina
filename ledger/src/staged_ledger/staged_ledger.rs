@@ -5900,6 +5900,7 @@ mod tests {
 
         let mut snarked_ledger = Mask::new_root(Database::create(
             CONSTRAINT_CONSTANTS.ledger_depth.try_into().unwrap(),
+            false,
         ));
 
         for account in Vec::<Account>::binprot_read(&mut snarked_ledger_file).unwrap() {
@@ -6009,7 +6010,7 @@ mod tests {
         let scan_state: ScanState = (&scan_state).try_into().unwrap();
         let pending_coinbase: PendingCoinbase = (&pending_coinbase).try_into().unwrap();
 
-        let mut root = Mask::new_root(Database::create(35));
+        let mut root = Mask::new_root(Database::create(35, false));
         for account in accounts {
             root.get_or_create_account(account.id(), account).unwrap();
         }

@@ -272,6 +272,8 @@ impl Cluster {
                 snarker: testing_config.snark_worker,
                 consensus_constants: consensus_consts.clone(),
                 testing_run: true,
+                // FIXME: If we want to include archive mode
+                is_archive: false,
             },
             p2p: P2pConfig {
                 libp2p_port: Some(libp2p_port),

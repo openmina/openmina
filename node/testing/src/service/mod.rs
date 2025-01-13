@@ -12,7 +12,10 @@ use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    ArchiveTransitionFronntierDiff, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2, MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint, ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single, StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs
+    ArchiveTransitionFronntierDiff, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2,
+    MinaBaseProofStableV2, MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
+    ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
+    StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
 use node::account::AccountPublicKey;
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
@@ -338,8 +341,8 @@ impl node::event_source::EventSourceService for NodeTestingService {
 }
 
 impl TransitionFrontierGenesisService for NodeTestingService {
-    fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
-        TransitionFrontierGenesisService::load_genesis(&mut self.real, config);
+    fn load_genesis(&mut self, config: Arc<GenesisConfig>, is_archive: bool) {
+        TransitionFrontierGenesisService::load_genesis(&mut self.real, config, is_archive);
     }
 }
 

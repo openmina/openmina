@@ -87,65 +87,77 @@ pub enum LedgerWriteResponse {
 pub struct BlockApplyResult {
     pub block: ArcBlockWithHash,
     pub just_emitted_a_proof: bool,
+    pub archive_data: Option<BlockApplyResultArchive>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlockApplyResultArchive {
     pub accounts_accessed: Vec<(AccountIndex, Account)>,
     pub accounts_created: Vec<(AccountId, u64)>,
     pub tokens_used: BTreeSet<(TokenId, Option<AccountId>)>,
     pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
 }
 
-impl From<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
-    fn from(value: &BlockApplyResult) -> Self {
-        Self::BreadcrumbAdded {
-            // TODO(adonagy): check if we need the StateBodyHash, if no keep the None
-            block: (
-                (*value.block.block).clone(),
-                (
-                    value
-                        .block
-                        .header()
-                        .protocol_state
-                        .body
-                        .try_hash()
-                        .ok()
-                        .map(StateBodyHash::from),
-                    value.block.hash().clone(),
+impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+    type Error = String;
+
+    fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
+        if let Some(archive_data) = &value.archive_data {
+            let res = Self::BreadcrumbAdded {
+                // TODO(adonagy): check if we need the StateBodyHash, if no keep the None
+                block: (
+                    (*value.block.block).clone(),
+                    (
+                        value
+                            .block
+                            .header()
+                            .protocol_state
+                            .body
+                            .try_hash()
+                            .ok()
+                            .map(StateBodyHash::from),
+                        value.block.hash().clone(),
+                    ),
                 ),
-            ),
-            accounts_accessed: value
-                .accounts_accessed
-                .iter()
-                .map(|(index, account)| (index.0.into(), account.into()))
-                .collect(),
-            accounts_created: value
-                .accounts_created
-                .iter()
-                .map(|(account_id, fee)| {
-                    (
-                        (*account_id).clone().into(),
-                        v2::CurrencyFeeStableV1((*fee).into()),
-                    )
-                })
-                .collect(),
-            tokens_used: value
-                .tokens_used
-                .iter()
-                .map(|(token_id, account_id)| {
-                    (
-                        token_id.into(),
-                        account_id.clone().map(|account_id| account_id.into()),
-                    )
-                })
-                .collect(),
-            sender_receipt_chains_from_parent_ledger: value
-                .sender_receipt_chains_from_parent_ledger
-                .iter()
-                .map(|(account_id, receipt_chain_hash)| {
-                    (
-                        (*account_id).clone().into(),
-                        receipt_chain_hash.clone().into_inner(),
-                    )
-                })
-                .collect(),
+                accounts_accessed: archive_data
+                    .accounts_accessed
+                    .iter()
+                    .map(|(index, account)| (index.0.into(), account.into()))
+                    .collect(),
+                accounts_created: archive_data
+                    .accounts_created
+                    .iter()
+                    .map(|(account_id, fee)| {
+                        (
+                            (*account_id).clone().into(),
+                            v2::CurrencyFeeStableV1((*fee).into()),
+                        )
+                    })
+                    .collect(),
+                tokens_used: archive_data
+                    .tokens_used
+                    .iter()
+                    .map(|(token_id, account_id)| {
+                        (
+                            token_id.into(),
+                            account_id.clone().map(|account_id| account_id.into()),
+                        )
+                    })
+                    .collect(),
+                sender_receipt_chains_from_parent_ledger: archive_data
+                    .sender_receipt_chains_from_parent_ledger
+                    .iter()
+                    .map(|(account_id, receipt_chain_hash)| {
+                        (
+                            (*account_id).clone().into(),
+                            receipt_chain_hash.clone().into_inner(),
+                        )
+                    })
+                    .collect(),
+            };
+            Ok(res)
+        } else {
+            Err("Archive data not available, not running in archive mode".to_string())
         }
     }
 }
