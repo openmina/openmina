@@ -10,8 +10,8 @@ impl TransitionFrontierGenesisEffectfulAction {
         S: redux::Service + TransitionFrontierGenesisService,
     {
         match self {
-            TransitionFrontierGenesisEffectfulAction::LedgerLoadInit { config } => {
-                store.service.load_genesis(config.clone());
+            TransitionFrontierGenesisEffectfulAction::LedgerLoadInit { config, is_archive } => {
+                store.service.load_genesis(config.clone(), *is_archive);
             }
             TransitionFrontierGenesisEffectfulAction::ProveInit { block_hash, input } => {
                 store.service.prove(block_hash.clone(), input.clone());

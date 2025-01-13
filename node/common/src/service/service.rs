@@ -181,8 +181,8 @@ impl node::service::LedgerService for NodeService {
 }
 
 impl node::service::TransitionFrontierGenesisService for NodeService {
-    fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
-        let res = match config.load() {
+    fn load_genesis(&mut self, config: Arc<GenesisConfig>, is_archive: bool) {
+        let res = match config.load(is_archive) {
             Err(err) => Err(err.to_string()),
             Ok((masks, data)) => {
                 masks

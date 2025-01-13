@@ -302,7 +302,6 @@ mod rpc {
         }
     }
 
-    /// Returns `true` if the connection is done.
     fn handle_connection_event(
         registry: &Registry,
         connection: &mut TcpStream,
@@ -396,7 +395,7 @@ mod rpc {
                     ParsedMessage::Heartbeat => {
                         *first_heartbeat_received = true;
                     }
-                    ParsedMessage::Unknown(unknown) => {
+                    ParsedMessage::Unknown(_) => {
                         registry.deregister(connection)?;
                         connection.shutdown(std::net::Shutdown::Both)?;
                         return Ok(HandleResult::ConnectionClosed);

@@ -78,6 +78,9 @@ impl NodeServiceCommonBuilder {
     pub fn ledger_init(&mut self) -> &mut Self {
         let mut ctx = LedgerCtx::default();
         ctx.set_event_sender(self.event_sender.clone());
+        if self.archive.is_some() {
+            ctx.set_archive_mode();
+        };
         self.ledger_manager = Some(LedgerManager::spawn(ctx));
         self
     }
