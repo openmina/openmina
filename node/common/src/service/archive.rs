@@ -236,7 +236,7 @@ mod rpc {
         }
     }
 
-    fn send_heartbeat(connection: &mut TcpStream) -> io::Result<HandleResult> {
+    fn _send_heartbeat(connection: &mut TcpStream) -> io::Result<HandleResult> {
         match connection.write_all(&HEARTBEAT_MSG) {
             Ok(_) => {
                 connection.flush()?;
@@ -302,6 +302,7 @@ mod rpc {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn handle_connection_event(
         registry: &Registry,
         connection: &mut TcpStream,
@@ -395,9 +396,10 @@ mod rpc {
                     ParsedMessage::Heartbeat => {
                         *first_heartbeat_received = true;
                     }
-                    ParsedMessage::Unknown(_) => {
+                    ParsedMessage::Unknown(msg) => {
                         registry.deregister(connection)?;
                         connection.shutdown(std::net::Shutdown::Both)?;
+                        node::core::warn!(node::core::log::system_time(); summary = "Received unknown message", msg = format!("{:?}", msg));
                         return Ok(HandleResult::ConnectionClosed);
                     }
                 }

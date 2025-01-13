@@ -6,8 +6,6 @@ pub mod postgres_types;
 pub mod raw_types;
 pub mod watchdog;
 
-use raw_types::*;
-
 #[derive(Debug, Clone)]
 pub struct ArchiveConnector {
     pool: PgPool,

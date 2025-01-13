@@ -886,7 +886,7 @@ pub trait P2pServiceWebrtc: redux::Service {
     fn auth_send(
         &mut self,
         peer_id: PeerId,
-        other_pub_key: &PublicKey,
+        _other_pub_key: &PublicKey,
         auth: Option<ConnectionAuthEncrypted>,
     ) {
         if let Some(peer) = self.peers().get(&peer_id) {
