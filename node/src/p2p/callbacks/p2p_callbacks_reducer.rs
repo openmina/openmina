@@ -301,33 +301,29 @@ impl crate::State {
                 message_content,
                 peer_id,
             } => {
-                let result = if let Some(message_content) = message_content {
-                    match message_content {
-                        GossipNetMessageV2::NewState(new_best_tip) => {
-                            match BlockWithHash::try_new(new_best_tip.clone()) {
-                                Ok(block) => {
-                                    let allow_block_too_late = allow_block_too_late(state, &block);
-                                    match state.prevalidate_block(&block, allow_block_too_late) {
-                                        Ok(()) => ValidationResult::Valid,
-                                        Err(BlockPrevalidationError::ReceivedTooLate {
-                                            ..
-                                        }) => ValidationResult::Ignore,
-                                        Err(_) => ValidationResult::Reject,
+                let result = match message_content {
+                    GossipNetMessageV2::NewState(new_best_tip) => {
+                        match BlockWithHash::try_new(new_best_tip.clone()) {
+                            Ok(block) => {
+                                let allow_block_too_late = allow_block_too_late(state, &block);
+                                match state.prevalidate_block(&block, allow_block_too_late) {
+                                    Ok(()) => ValidationResult::Valid,
+                                    Err(BlockPrevalidationError::ReceivedTooLate { .. }) => {
+                                        ValidationResult::Ignore
                                     }
-                                }
-                                Err(_) => {
-                                    log::error!(time; "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block");
-                                    return;
+                                    Err(_) => ValidationResult::Reject,
                                 }
                             }
-                        }
-                        _ => {
-                            // TODO: add validation for Snark pool and Transaction pool diffs
-                            ValidationResult::Valid
+                            Err(_) => {
+                                log::error!(time; "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block");
+                                return;
+                            }
                         }
                     }
-                } else {
-                    ValidationResult::Valid
+                    _ => {
+                        // TODO: add pre validation for Snark pool and Transaction pool diffs
+                        ValidationResult::Valid
+                    }
                 };
 
                 dispatcher.push(P2pNetworkPubsubAction::BroadcastValidationCallback {

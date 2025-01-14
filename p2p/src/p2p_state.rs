@@ -565,11 +565,8 @@ pub struct P2pCallbacks {
         OptionalCallback<(PeerId, P2pRpcId, Option<P2pStreamingRpcResponseFull>)>,
 
     /// Callback for received pubsub message
-    pub on_p2p_pubsub_message_received: OptionalCallback<(
-        network::pubsub::pb::Message,
-        Option<GossipNetMessageV2>,
-        PeerId,
-    )>,
+    pub on_p2p_pubsub_message_received:
+        OptionalCallback<(network::pubsub::pb::Message, GossipNetMessageV2, PeerId)>,
 }
 
 impl_substate_access!(P2pState, P2pNetworkState, network);

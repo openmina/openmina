@@ -48,7 +48,7 @@ pub enum P2pCallbacksAction {
         peer_id: PeerId,
     },
     P2pPubsubValidateMessage {
-        message_content: Option<GossipNetMessageV2>,
+        message_content: GossipNetMessageV2,
         message: p2p::network::pubsub::pb::Message,
         peer_id: PeerId,
     },

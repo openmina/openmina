@@ -1,16 +1,13 @@
 use super::pb;
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::Arc,
-    time::Duration,
-};
-
-use mina_p2p_messages::v2;
 use openmina_core::{snark::Snark, transaction::Transaction};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    time::Duration,
+};
 
 pub const IWANT_TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 
@@ -44,9 +41,6 @@ pub struct P2pNetworkPubsubState {
     /// For quick access and reducing redundant data transmission across peers.
     pub mcache: P2pNetworkPubsubMessageCache,
 
-    /// Incoming block from a peer, if any.
-    pub incoming_block: Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
-
     /// Incoming transactions from peers along with their nonces.
     pub incoming_transactions: Vec<(Transaction, u32)>,
 
@@ -59,6 +53,7 @@ pub struct P2pNetworkPubsubState {
     /// `iwant` requests, tracking the number of times peers have expressed interest in specific messages.
     pub iwant: VecDeque<P2pNetworkPubsubIwantRequestCount>,
 
+    /// Block messages currently being processed
     pub block_messages: BTreeMap<mina_p2p_messages::v2::StateHash, P2pNetworkPubsubBlockMessage>,
 }
 
@@ -132,8 +127,6 @@ impl P2pNetworkPubsubState {
 
         self.incoming_transactions.shrink_to(0x20);
         self.incoming_snarks.shrink_to(0x20);
-
-        self.incoming_block = None;
     }
 }
 

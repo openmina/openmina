@@ -206,18 +206,8 @@ impl P2pNetworkPubsubState {
                     }
                 }
 
-                let message_content = match message_content {
-                    ReduceIncomingDataResult::AlreadySeen => {
-                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidationCallback {
-                            message,
-                            message_content: None,
-                            peer_id,
-                            result: super::ValidationResult::Ignore,
-                        });
-                        return Ok(());
-                    }
-                    ReduceIncomingDataResult::None => None,
-                    ReduceIncomingDataResult::Some(message) => Some(message),
+                let Some(message_content) = message_content else {
+                    return Ok(());
                 };
 
                 if let Some(callback) = p2p_state.callbacks.on_p2p_pubsub_message_received.clone() {
@@ -457,7 +447,7 @@ impl P2pNetworkPubsubState {
 
                 match result {
                     super::ValidationResult::Valid => match &message_content {
-                        Some(GossipNetMessageV2::NewState(block)) => {
+                        GossipNetMessageV2::NewState(block) => {
                             let hash = block.try_hash()?;
                             pubsub_state.block_messages.entry(hash).or_insert_with(|| {
                                 P2pNetworkPubsubBlockMessage {
@@ -479,12 +469,12 @@ impl P2pNetworkPubsubState {
                 match result {
                     super::ValidationResult::Valid => {
                         match message_content {
-                            Some(GossipNetMessageV2::NewState(block)) => {
+                            GossipNetMessageV2::NewState(block) => {
                                 let best_tip = BlockWithHash::try_new(block.clone())?;
                                 dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
                                 return Ok(());
                             }
-                            Some(GossipNetMessageV2::TransactionPoolDiff { message, nonce }) => {
+                            GossipNetMessageV2::TransactionPoolDiff { message, nonce } => {
                                 let nonce = nonce.as_u32();
                                 for transaction in message.0 {
                                     dispatcher.push(P2pChannelsTransactionAction::Libp2pReceived {
@@ -494,11 +484,11 @@ impl P2pNetworkPubsubState {
                                     });
                                 }
                             }
-                            Some(GossipNetMessageV2::SnarkPoolDiff {
+                            GossipNetMessageV2::SnarkPoolDiff {
                                 message:
                                     NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work),
                                 nonce,
-                            }) => {
+                            } => {
                                 dispatcher.push(P2pChannelsSnarkAction::Libp2pReceived {
                                     peer_id,
                                     snark: Box::new(work.1.into()),
@@ -511,6 +501,7 @@ impl P2pNetworkPubsubState {
                         Self::broadcast(dispatcher, global_state)
                     }
                     super::ValidationResult::Reject => {
+                        // TODO: add error variants for transactions and snarks
                         dispatcher.push(P2pDisconnectionAction::Init {
                             peer_id,
                             reason: P2pDisconnectionReason::BlockVerifyError,
@@ -521,7 +512,7 @@ impl P2pNetworkPubsubState {
                 }
             }
             P2pNetworkPubsubAction::BroadcastAcceptedBlock { hash } => {
-                let Some(message) = dbg!(pubsub_state.block_messages.remove(&hash)) else {
+                let Some(message) = pubsub_state.block_messages.remove(&hash) else {
                     bug_condition!("Block message not found for: {}", hash);
                     return Ok(());
                 };
@@ -535,12 +526,11 @@ impl P2pNetworkPubsubState {
                 let Some(message_id) = message_id else {
                     return Ok(());
                 };
-                dbg!();
+
                 let Some(message) = pubsub_state.mcache.map.get(&message_id) else {
                     return Ok(());
                 };
 
-                dbg!();
                 let message = message.clone();
                 pubsub_state.reduce_incoming_validated_message(Some(message_id), peer_id, message);
 
@@ -630,7 +620,7 @@ impl P2pNetworkPubsubState {
         &mut self,
         message: &Message,
         seen_limit: usize,
-    ) -> Result<ReduceIncomingDataResult, String> {
+    ) -> Result<Option<GossipNetMessageV2>, String> {
         if let Some(signature) = &message.signature {
             // skip recently seen message
             if !self.seen.contains(signature) {
@@ -640,22 +630,20 @@ impl P2pNetworkPubsubState {
                     self.seen.pop_front();
                 }
             } else {
-                return Ok(ReduceIncomingDataResult::AlreadySeen);
+                return Ok(None);
             }
         }
 
-        let message_content = match &message.data {
+        match &message.data {
             Some(data) if data.len() > 8 => {
                 let mut slice = &data[8..];
-                ReduceIncomingDataResult::Some(
+                Ok(Some(
                     gossip::GossipNetMessageV2::binprot_read(&mut slice)
-                        .map_err(|e| e.to_string())?,
-                )
+                        .map_err(|e| format!("Invalid `GossipNetMessageV2` message, error: {e}"))?,
+                ))
             }
-            _ => ReduceIncomingDataResult::None,
-        };
-
-        Ok(message_content)
+            _ => Err("Invalid message".to_owned()),
+        }
     }
 
     fn combined_with_pending_buffer<'a>(buffer: &'a mut Vec<u8>, data: &'a [u8]) -> &'a [u8] {
@@ -815,10 +803,4 @@ impl P2pNetworkPubsubState {
 
         Ok(())
     }
-}
-
-enum ReduceIncomingDataResult {
-    AlreadySeen,
-    None,
-    Some(GossipNetMessageV2),
 }

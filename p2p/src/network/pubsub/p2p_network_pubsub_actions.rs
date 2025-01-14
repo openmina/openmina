@@ -145,7 +145,7 @@ pub enum P2pNetworkPubsubAction {
 
     BroadcastValidationCallback {
         message: pb::Message,
-        message_content: Option<GossipNetMessageV2>,
+        message_content: GossipNetMessageV2,
         peer_id: PeerId,
         result: ValidationResult,
     },

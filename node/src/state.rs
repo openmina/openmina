@@ -631,7 +631,7 @@ impl P2p {
                 }
             )),
             on_p2p_pubsub_message_received: Some(redux::callback!(
-                on_p2p_pubsub_message_received((message: network::pubsub::pb::Message, message_content: Option<GossipNetMessageV2>, peer_id: PeerId)) -> crate::Action{
+                on_p2p_pubsub_message_received((message: network::pubsub::pb::Message, message_content: GossipNetMessageV2, peer_id: PeerId)) -> crate::Action{
                     P2pCallbacksAction::P2pPubsubValidateMessage { message_content, message, peer_id }
                 }
             )),
