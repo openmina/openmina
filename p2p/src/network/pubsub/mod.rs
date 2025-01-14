@@ -18,11 +18,13 @@ const TOPIC: &str = "coda/consensus-messages/0.0.1";
 
 pub mod pubsub_effectful;
 pub use pubsub_effectful::P2pNetworkPubsubEffectfulAction;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-pub enum ValidationResult {
-    Valid,
-    Reject,
-    Ignore,
+#[derive(serde::Serialize, serde:: Deserialize, Debug, Clone)]
+pub enum BroadcastMessageId {
+    BlockHash {
+        hash: mina_p2p_messages::v2::StateHash,
+    },
+    MessageId {
+        message_id: Vec<u8>,
+    },
 }

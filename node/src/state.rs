@@ -1,12 +1,9 @@
-use std::sync::Arc;
-use std::time::Duration;
-
-use mina_p2p_messages::gossip::GossipNetMessageV2;
 use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
 use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
-use p2p::network;
 use rand::prelude::*;
+use std::sync::Arc;
+use std::time::Duration;
 
 use openmina_core::block::BlockWithHash;
 use openmina_core::requests::RpcId;
@@ -631,8 +628,8 @@ impl P2p {
                 }
             )),
             on_p2p_pubsub_message_received: Some(redux::callback!(
-                on_p2p_pubsub_message_received((message: network::pubsub::pb::Message, message_content: GossipNetMessageV2, peer_id: PeerId)) -> crate::Action{
-                    P2pCallbacksAction::P2pPubsubValidateMessage { message_content, message, peer_id }
+                on_p2p_pubsub_message_received((message_id: Vec<u8>)) -> crate::Action{
+                    P2pCallbacksAction::P2pPubsubValidateMessage { message_id }
                 }
             )),
         }

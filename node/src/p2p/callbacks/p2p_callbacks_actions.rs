@@ -1,4 +1,3 @@
-use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::ActionEvent;
 use p2p::{
     channels::{
@@ -48,9 +47,7 @@ pub enum P2pCallbacksAction {
         peer_id: PeerId,
     },
     P2pPubsubValidateMessage {
-        message_content: GossipNetMessageV2,
-        message: p2p::network::pubsub::pb::Message,
-        peer_id: PeerId,
+        message_id: Vec<u8>,
     },
 }
 

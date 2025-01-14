@@ -14,9 +14,9 @@ use crate::{
 /// 3. Create a node with discovery disabled and first node as only peer
 /// 4. Wait for first node to broadcast message to second one
 #[derive(documented::Documented, Default, Clone, Copy)]
-pub struct P2pReceiveBlock;
+pub struct P2pReceiveMessage;
 
-impl P2pReceiveBlock {
+impl P2pReceiveMessage {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let config = RustNodeTestingConfig::devnet_default().initial_peers(hosts::devnet());
 

@@ -11,7 +11,7 @@ use p2p::{
         streaming_rpc::P2pStreamingRpcResponseFull,
     },
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
-    P2pNetworkPubsubAction, PeerId, ValidationResult,
+    P2pNetworkPubsubAction, PeerId,
 };
 use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 
@@ -296,42 +296,57 @@ impl crate::State {
                     best_tip: best_tip.clone(),
                 });
             }
-            P2pCallbacksAction::P2pPubsubValidateMessage {
-                message,
-                message_content,
-                peer_id,
-            } => {
-                let result = match message_content {
+            P2pCallbacksAction::P2pPubsubValidateMessage { message_id } => {
+                let Some(message_content) = state.p2p.ready().and_then(|p2p| {
+                    p2p.network
+                        .scheduler
+                        .broadcast_state
+                        .mcache
+                        .get_message(message_id)
+                }) else {
+                    return;
+                };
+
+                let pre_validation_result = match message_content {
                     GossipNetMessageV2::NewState(new_best_tip) => {
                         match BlockWithHash::try_new(new_best_tip.clone()) {
                             Ok(block) => {
                                 let allow_block_too_late = allow_block_too_late(state, &block);
                                 match state.prevalidate_block(&block, allow_block_too_late) {
-                                    Ok(()) => ValidationResult::Valid,
-                                    Err(BlockPrevalidationError::ReceivedTooLate { .. }) => {
-                                        ValidationResult::Ignore
+                                    Ok(()) => PreValidationResult::Continue,
+                                    Err(BlockPrevalidationError::ReceivedTooEarly { .. }) => {
+                                        PreValidationResult::Ignore
                                     }
-                                    Err(_) => ValidationResult::Reject,
+                                    Err(_) => PreValidationResult::Reject,
                                 }
                             }
                             Err(_) => {
                                 log::error!(time; "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block");
-                                return;
+                                PreValidationResult::Reject
                             }
                         }
                     }
                     _ => {
                         // TODO: add pre validation for Snark pool and Transaction pool diffs
-                        ValidationResult::Valid
+                        PreValidationResult::Continue
                     }
                 };
 
-                dispatcher.push(P2pNetworkPubsubAction::BroadcastValidationCallback {
-                    message: message.clone(),
-                    message_content: message_content.clone(),
-                    peer_id: *peer_id,
-                    result,
-                });
+                match pre_validation_result {
+                    PreValidationResult::Continue => {
+                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidationCallback {
+                            message_id: message_id.clone(),
+                        });
+                    }
+                    PreValidationResult::Reject => {
+                        dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                            message_id: p2p::BroadcastMessageId::MessageId {
+                                message_id: message_id.clone(),
+                            },
+                        });
+                    }
+                    PreValidationResult::Ignore => {}
+                }
             }
         }
     }
@@ -616,4 +631,10 @@ impl crate::State {
             Some(P2pRpcResponse::InitialPeers(_)) => {}
         }
     }
+}
+
+enum PreValidationResult {
+    Continue,
+    Reject,
+    Ignore,
 }

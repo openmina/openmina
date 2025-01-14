@@ -76,9 +76,6 @@ impl TransitionFrontierSyncAction {
                 if let Some(callback) = on_success {
                     store.dispatch_callback(callback.clone(), ());
                 }
-
-                let hash = best_tip.hash.clone();
-                store.dispatch(P2pNetworkPubsubAction::BroadcastAcceptedBlock { hash });
             }
             // TODO(tizoc): this action is never called with the current implementation,
             // either remove it or figure out how to recover it as a reaction to
@@ -307,6 +304,10 @@ impl TransitionFrontierSyncAction {
                 };
                 let error = SyncError::BlockApplyFailed(failed_block.clone(), error.clone());
                 store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
+                // TODO this should be handled by a callback
+                store.dispatch(P2pNetworkPubsubAction::RejectMessage {
+                    message_id: p2p::BroadcastMessageId::BlockHash { hash: hash.clone() },
+                });
             }
             TransitionFrontierSyncAction::BlocksNextApplySuccess {
                 hash,
@@ -319,6 +320,11 @@ impl TransitionFrontierSyncAction {
                 if !store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
                     store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
                 }
+
+                // TODO this should be handled by a callback
+                store.dispatch(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                    message_id: p2p::BroadcastMessageId::BlockHash { hash: hash.clone() },
+                });
             }
             TransitionFrontierSyncAction::BlocksSuccess => {}
             // Bootstrap/Catchup is practically complete at this point.

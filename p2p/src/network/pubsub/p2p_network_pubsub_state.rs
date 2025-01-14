@@ -1,6 +1,8 @@
-use super::pb;
+use super::{pb, BroadcastMessageId};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
+use libp2p_identity::ParseError;
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::{snark::Snark, transaction::Transaction};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -52,14 +54,11 @@ pub struct P2pNetworkPubsubState {
 
     /// `iwant` requests, tracking the number of times peers have expressed interest in specific messages.
     pub iwant: VecDeque<P2pNetworkPubsubIwantRequestCount>,
-
-    /// Block messages currently being processed
-    pub block_messages: BTreeMap<mina_p2p_messages::v2::StateHash, P2pNetworkPubsubBlockMessage>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubBlockMessage {
-    pub message_id: Option<Vec<u8>>,
+    pub message_id: Vec<u8>,
     pub expiration_time: Timestamp,
     pub peer_id: PeerId,
 }
@@ -174,7 +173,7 @@ pub struct P2pNetworkPubsubClientState {
 
 impl P2pNetworkPubsubClientState {
     pub fn publish(&mut self, message: &pb::Message) {
-        let Some(id) = compute_message_id(message) else {
+        let Ok(id) = compute_message_id(message) else {
             self.message.publish.push(message.clone());
             return;
         };
@@ -209,38 +208,155 @@ pub struct P2pNetworkPubsubRecentlyPublishCache {
 // TODO: store blocks, snarks and txs separately
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubMessageCache {
-    pub map: BTreeMap<Vec<u8>, pb::Message>,
+    pub map: BTreeMap<Vec<u8>, P2pNetworkPubsubMessageCacheMessage>,
     pub queue: VecDeque<Vec<u8>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pNetworkPubsubMessageCacheMessage {
+    Initial {
+        message: pb::Message,
+        content: GossipNetMessageV2,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    PreValidatedBlockMessage {
+        block_hash: mina_p2p_messages::v2::StateHash,
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    // This is temporary handling for transactions and snark pool
+    PreValidated {
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    Rejected {
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    Validated {
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+}
+
+impl P2pNetworkPubsubMessageCacheMessage {
+    pub fn message(&self) -> &pb::Message {
+        match self {
+            Self::Initial { message, .. } => message,
+            Self::PreValidated { message, .. } => message,
+            Self::PreValidatedBlockMessage { message, .. } => message,
+            Self::Rejected { message, .. } => message,
+            Self::Validated { message, .. } => message,
+        }
+    }
+    pub fn time(&self) -> Timestamp {
+        *match self {
+            Self::Initial { time, .. } => time,
+            Self::PreValidated { time, .. } => time,
+            Self::PreValidatedBlockMessage { time, .. } => time,
+            Self::Rejected { time, .. } => time,
+            Self::Validated { time, .. } => time,
+        }
+    }
+    pub fn peer_id(&self) -> PeerId {
+        *match self {
+            Self::Initial { peer_id, .. } => peer_id,
+            Self::PreValidated { peer_id, .. } => peer_id,
+            Self::PreValidatedBlockMessage { peer_id, .. } => peer_id,
+            Self::Rejected { peer_id, .. } => peer_id,
+            Self::Validated { peer_id, .. } => peer_id,
+        }
+    }
 }
 
 impl P2pNetworkPubsubMessageCache {
     const CAPACITY: usize = 100;
 
-    pub fn put(&mut self, message: pb::Message) -> Option<Vec<u8>> {
+    pub fn put(
+        &mut self,
+        message: pb::Message,
+        content: GossipNetMessageV2,
+        peer_id: PeerId,
+        time: Timestamp,
+    ) -> Result<Vec<u8>, ParseError> {
         let id = compute_message_id(&message)?;
-        self.map.insert(id.clone(), message);
+        self.map.insert(
+            id.clone(),
+            P2pNetworkPubsubMessageCacheMessage::Initial {
+                message,
+                content,
+                time,
+                peer_id,
+            },
+        );
+
         self.queue.push_back(id.clone());
         if self.queue.len() > Self::CAPACITY {
             if let Some(id) = self.queue.pop_front() {
                 self.map.remove(&id);
             }
         }
-        Some(id)
+        Ok(id)
+    }
+
+    pub fn get_message(&self, id: &Vec<u8>) -> Option<&GossipNetMessageV2> {
+        let message = self.map.get(id)?;
+        match message {
+            P2pNetworkPubsubMessageCacheMessage::Initial { content, .. } => Some(content),
+            _ => None,
+        }
+    }
+
+    pub fn get_message_id_and_message(
+        &mut self,
+        message_id: BroadcastMessageId,
+    ) -> Option<(Vec<u8>, &mut P2pNetworkPubsubMessageCacheMessage)> {
+        match message_id {
+            super::BroadcastMessageId::BlockHash { hash } => {
+                self.map
+                    .iter_mut()
+                    .find_map(|(message_id, message)| match message {
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage {
+                            block_hash,
+                            ..
+                        } if *block_hash == hash => Some((message_id.clone(), message)),
+                        _ => None,
+                    })
+            }
+            super::BroadcastMessageId::MessageId { message_id } => self
+                .map
+                .get_mut(&message_id)
+                .map(|content| (message_id, content)),
+        }
+    }
+
+    pub fn remove_message(&mut self, message_id: Vec<u8>) {
+        let _ = self.map.remove(&message_id);
+        if let Some(position) = self.queue.iter().position(|id| id == &message_id) {
+            self.queue.remove(position);
+        }
     }
 }
 
-// TODO: what if wasm32?
-// How to test it?
-pub fn compute_message_id(message: &pb::Message) -> Option<Vec<u8>> {
+pub fn source_from_message(message: &pb::Message) -> Result<libp2p_identity::PeerId, ParseError> {
     let source_bytes = message
         .from
         .as_ref()
         .map(AsRef::as_ref)
         .unwrap_or(&[0, 1, 0][..]);
 
-    let mut source_string = libp2p_identity::PeerId::from_bytes(source_bytes)
-        .ok()?
-        .to_base58();
+    libp2p_identity::PeerId::from_bytes(source_bytes)
+}
+
+// TODO: what if wasm32?
+// How to test it?
+pub fn compute_message_id(message: &pb::Message) -> Result<Vec<u8>, ParseError> {
+    let mut source_string = source_from_message(message)?.to_base58();
 
     let sequence_number = message
         .seqno
@@ -249,7 +365,7 @@ pub fn compute_message_id(message: &pb::Message) -> Option<Vec<u8>> {
         .map(u64::from_be_bytes)
         .unwrap_or_default();
     source_string.push_str(&sequence_number.to_string());
-    Some(source_string.into_bytes())
+    Ok(source_string.into_bytes())
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

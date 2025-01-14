@@ -1,6 +1,6 @@
-use super::{pb, ValidationResult};
+use super::{pb, BroadcastMessageId};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, Data, P2pState, PeerId, StreamId};
-use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
@@ -144,17 +144,22 @@ pub enum P2pNetworkPubsubAction {
     },
 
     BroadcastValidationCallback {
+        message_id: Vec<u8>,
+    },
+
+    BroadcastValidatedMessage {
+        message_id: BroadcastMessageId,
+    },
+    HandleIncomingMessage {
         message: pb::Message,
         message_content: GossipNetMessageV2,
         peer_id: PeerId,
-        result: ValidationResult,
-    },
-
-    BroadcastAcceptedBlock {
-        hash: v2::StateHash,
     },
     /// Delete expired messages from state
     PruneMessages {},
+    RejectMessage {
+        message_id: BroadcastMessageId,
+    },
 }
 
 impl From<P2pNetworkPubsubAction> for crate::P2pAction {
@@ -175,9 +180,6 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkPubsubAction {
                 .topics
                 .get(topic_id)
                 .map_or(false, |topics| topics.contains_key(peer_id)),
-            P2pNetworkPubsubAction::BroadcastAcceptedBlock { hash } => {
-                pubsub.block_messages.contains_key(hash)
-            }
             _ => true,
         }
     }

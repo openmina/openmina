@@ -30,14 +30,13 @@ use crate::{
     },
     is_time_passed,
     network::{
-        self,
         identify::{P2pNetworkIdentify, P2pNetworkIdentifyState},
         P2pNetworkState,
     },
     Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
     P2pNetworkSchedulerState, P2pTimeouts, PeerId,
 };
-use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
+use mina_p2p_messages::v2;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pState {
@@ -565,8 +564,7 @@ pub struct P2pCallbacks {
         OptionalCallback<(PeerId, P2pRpcId, Option<P2pStreamingRpcResponseFull>)>,
 
     /// Callback for received pubsub message
-    pub on_p2p_pubsub_message_received:
-        OptionalCallback<(network::pubsub::pb::Message, GossipNetMessageV2, PeerId)>,
+    pub on_p2p_pubsub_message_received: OptionalCallback<Vec<u8>>,
 }
 
 impl_substate_access!(P2pState, P2pNetworkState, network);

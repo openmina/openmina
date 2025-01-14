@@ -404,10 +404,11 @@ pub enum ActionKind {
     P2pNetworkPnetEffectfulOutgoingData,
     P2pNetworkPnetEffectfulSetupNonce,
     P2pNetworkPubsubBroadcast,
-    P2pNetworkPubsubBroadcastAcceptedBlock,
     P2pNetworkPubsubBroadcastSigned,
+    P2pNetworkPubsubBroadcastValidatedMessage,
     P2pNetworkPubsubBroadcastValidationCallback,
     P2pNetworkPubsubGraft,
+    P2pNetworkPubsubHandleIncomingMessage,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubIncomingMessage,
     P2pNetworkPubsubIncomingMessageCleanup,
@@ -418,6 +419,7 @@ pub enum ActionKind {
     P2pNetworkPubsubOutgoingMessageError,
     P2pNetworkPubsubPrune,
     P2pNetworkPubsubPruneMessages,
+    P2pNetworkPubsubRejectMessage,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
     P2pNetworkPubsubValidateIncomingMessages,
@@ -711,7 +713,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 601;
+    pub const COUNT: u16 = 603;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1963,10 +1965,12 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::BroadcastValidationCallback { .. } => {
                 ActionKind::P2pNetworkPubsubBroadcastValidationCallback
             }
-            Self::BroadcastAcceptedBlock { .. } => {
-                ActionKind::P2pNetworkPubsubBroadcastAcceptedBlock
+            Self::BroadcastValidatedMessage { .. } => {
+                ActionKind::P2pNetworkPubsubBroadcastValidatedMessage
             }
+            Self::HandleIncomingMessage { .. } => ActionKind::P2pNetworkPubsubHandleIncomingMessage,
             Self::PruneMessages { .. } => ActionKind::P2pNetworkPubsubPruneMessages,
+            Self::RejectMessage { .. } => ActionKind::P2pNetworkPubsubRejectMessage,
         }
     }
 }

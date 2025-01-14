@@ -51,7 +51,7 @@ use self::p2p::basic_outgoing_connections::{
     MakeMultipleOutgoingConnections, MakeOutgoingConnection,
 };
 use self::p2p::kademlia::KademliaBootstrap;
-use self::p2p::pubsub::P2pReceiveBlock;
+use self::p2p::pubsub::P2pReceiveMessage;
 use self::p2p::signaling::P2pSignaling;
 use self::record_replay::block_production::RecordReplayBlockProduction;
 use self::record_replay::bootstrap::RecordReplayBootstrap;
@@ -83,7 +83,7 @@ pub enum Scenarios {
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
     SimulationSmall(SimulationSmall),
     SimulationSmallForeverRealTime(SimulationSmallForeverRealTime),
-    P2pReceiveBlock(P2pReceiveBlock),
+    P2pReceiveMessage(P2pReceiveMessage),
     P2pSignaling(P2pSignaling),
     P2pConnectionDiscoveryRustNodeAsSeed(P2pConnectionDiscoveryRustNodeAsSeed),
     MultiNodePubsubPropagateBlock(MultiNodePubsubPropagateBlock),
@@ -189,7 +189,7 @@ impl Scenarios {
             }
             Self::SimulationSmall(_) => SimulationSmall::DOCS,
             Self::SimulationSmallForeverRealTime(_) => SimulationSmallForeverRealTime::DOCS,
-            Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
+            Self::P2pReceiveMessage(_) => P2pReceiveMessage::DOCS,
             Self::P2pSignaling(_) => P2pSignaling::DOCS,
             Self::P2pConnectionDiscoveryRustNodeAsSeed(_) => {
                 P2pConnectionDiscoveryRustNodeAsSeed::DOCS
@@ -260,7 +260,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
             Self::SimulationSmall(v) => v.run(runner).await,
             Self::SimulationSmallForeverRealTime(v) => v.run(runner).await,
-            Self::P2pReceiveBlock(v) => v.run(runner).await,
+            Self::P2pReceiveMessage(v) => v.run(runner).await,
             Self::P2pSignaling(v) => v.run(runner).await,
             Self::P2pConnectionDiscoveryRustNodeAsSeed(v) => v.run(runner).await,
             Self::MultiNodePubsubPropagateBlock(v) => v.run(runner).await,
