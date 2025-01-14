@@ -1961,7 +1961,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L2024
-    fn latest_block_accounts_created(&self, previous_block_state_hash: Fp) -> Vec<AccountId> {
+    pub fn latest_block_accounts_created(&self, previous_block_state_hash: Fp) -> Vec<AccountId> {
         use scan_state::transaction_logic::transaction_applied::signed_command_applied::Body;
         use scan_state::transaction_logic::transaction_applied::CommandApplied;
         use scan_state::transaction_logic::transaction_applied::Varying;
@@ -5900,6 +5900,7 @@ mod tests {
 
         let mut snarked_ledger = Mask::new_root(Database::create(
             CONSTRAINT_CONSTANTS.ledger_depth.try_into().unwrap(),
+            false,
         ));
 
         for account in Vec::<Account>::binprot_read(&mut snarked_ledger_file).unwrap() {
@@ -6009,7 +6010,7 @@ mod tests {
         let scan_state: ScanState = (&scan_state).try_into().unwrap();
         let pending_coinbase: PendingCoinbase = (&pending_coinbase).try_into().unwrap();
 
-        let mut root = Mask::new_root(Database::create(35));
+        let mut root = Mask::new_root(Database::create(35, false));
         for account in accounts {
             root.get_or_create_account(account.id(), account).unwrap();
         }

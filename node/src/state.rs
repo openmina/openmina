@@ -282,7 +282,10 @@ impl State {
             snark_pool: SnarkPoolState::new(),
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),
-            transition_frontier: TransitionFrontierState::new(config.transition_frontier),
+            transition_frontier: TransitionFrontierState::new(
+                config.transition_frontier,
+                config.archive.is_some(),
+            ),
             external_snark_worker: ExternalSnarkWorkers::new(now),
             block_producer: BlockProducerState::new(now, config.block_producer),
             rpc: RpcState::new(),

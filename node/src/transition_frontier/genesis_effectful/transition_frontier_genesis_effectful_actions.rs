@@ -16,6 +16,7 @@ pub type TransitionFrontierGenesisEffectfulActionWithMetaRef<'a> =
 pub enum TransitionFrontierGenesisEffectfulAction {
     LedgerLoadInit {
         config: Arc<GenesisConfig>,
+        is_archive: bool,
     },
     ProveInit {
         block_hash: StateHash,

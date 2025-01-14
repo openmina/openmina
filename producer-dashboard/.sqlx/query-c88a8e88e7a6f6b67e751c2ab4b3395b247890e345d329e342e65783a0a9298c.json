@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    zkapp_fee_payer_body_id,\n    zkapp_account_updates_ids,\n    memo,\n    hash\nFROM zkapp_commands;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "zkapp_fee_payer_body_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "zkapp_account_updates_ids",
+        "type_info": "Int4Array"
+      },
+      {
+        "ordinal": 3,
+        "name": "memo",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "hash",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "c88a8e88e7a6f6b67e751c2ab4b3395b247890e345d329e342e65783a0a9298c"
+}

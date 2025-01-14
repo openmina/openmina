@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    b.state_hash AS \"state_hash!\"\nFROM blocks b\nORDER BY b.id DESC\nLIMIT 1;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "state_hash!",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "51208aef4730b5cd251ca00745b48abf2445ff5c7ea1a3db14d78794b08f3045"
+}

@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    balance_id,\n    nonce_id,\n    receipt_chain_hash,\n    delegate_id,\n    state_id,\n    action_state_id,\n    proved_state,\n    is_new\nFROM zkapp_account_precondition;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "balance_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "nonce_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "receipt_chain_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "delegate_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "state_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "action_state_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "proved_state",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 8,
+        "name": "is_new",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "87c9a68ff85eac21b3e1d1b30e9c8edf450e83eabb96d081272617e1fe7ea16e"
+}

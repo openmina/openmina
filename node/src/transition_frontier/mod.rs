@@ -1,3 +1,4 @@
+pub mod archive;
 pub mod genesis;
 pub mod genesis_effectful;
 pub mod sync;

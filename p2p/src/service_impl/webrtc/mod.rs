@@ -883,6 +883,19 @@ pub trait P2pServiceWebrtc: redux::Service {
         encrypted: &T::Encrypted,
     ) -> Result<T, Box<dyn std::error::Error>>;
 
+    fn auth_send(
+        &mut self,
+        peer_id: PeerId,
+        _other_pub_key: &PublicKey,
+        auth: Option<ConnectionAuthEncrypted>,
+    ) {
+        if let Some(peer) = self.peers().get(&peer_id) {
+            let _ = peer
+                .cmd_sender
+                .send(PeerCmd::ConnectionAuthorizationSend(auth));
+        }
+    }
+
     fn auth_encrypt_and_send(
         &mut self,
         peer_id: PeerId,

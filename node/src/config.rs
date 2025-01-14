@@ -11,6 +11,7 @@ pub use crate::ledger::LedgerConfig;
 pub use crate::p2p::P2pConfig;
 pub use crate::snark::SnarkConfig;
 pub use crate::snark_pool::SnarkPoolConfig;
+use crate::transition_frontier::archive::archive_config::ArchiveConfig;
 use crate::transition_frontier::genesis::GenesisConfig;
 pub use crate::transition_frontier::TransitionFrontierConfig;
 pub use mina_p2p_messages::v2::MinaBaseProtocolConstantsCheckedValueStableV1 as ProtocolConstants;
@@ -23,6 +24,7 @@ pub struct Config {
     pub snark: SnarkConfig,
     pub p2p: P2pConfig,
     pub transition_frontier: TransitionFrontierConfig,
+    pub archive: Option<ArchiveConfig>,
     pub block_producer: Option<BlockProducerConfig>,
     pub global: GlobalConfig,
     pub tx_pool: ledger::transaction_pool::Config,
@@ -34,6 +36,7 @@ pub struct GlobalConfig {
     pub snarker: Option<SnarkerConfig>,
     pub consensus_constants: ConsensusConstants,
     pub testing_run: bool,
+    pub is_archive: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -145,7 +148,7 @@ mod tests {
 
     #[test]
     fn devnet_config() {
-        let (_mask, config) = DEVNET_CONFIG.load().expect("should be loadable");
+        let (_mask, config) = DEVNET_CONFIG.load(false).expect("should be loadable");
 
         assert_eq!(
             config.genesis_ledger_hash,

@@ -1,6 +1,9 @@
+use postgres_types::ChainStatus;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
+pub mod postgres_types;
+pub mod raw_types;
 pub mod watchdog;
 
 #[derive(Debug, Clone)]
@@ -8,42 +11,34 @@ pub struct ArchiveConnector {
     pool: PgPool,
 }
 
-impl ArchiveConnector {
-    pub async fn connect() -> Self {
-        // TODO(adonagy): unwrap
-        let db_url = if let Ok(url) = dotenvy::var("DATABASE_URL") {
-            url
-        } else {
-            std::env::var("DATABASE_URL").expect("No db url found, check env var DATABASE_URL")
-        };
+pub enum ArchiveUrl {
+    Url(String),
+    Env,
+}
 
+impl ArchiveConnector {
+    pub async fn connect(postgres_url: ArchiveUrl) -> Self {
+        let db_url = match postgres_url {
+            ArchiveUrl::Url(url) => url,
+            ArchiveUrl::Env => {
+                if let Ok(url) = dotenvy::var("DATABASE_URL") {
+                    url
+                } else {
+                    std::env::var("DATABASE_URL")
+                        .expect("No db url found, check env var DATABASE_URL")
+                }
+            }
+        };
+        // TODO(adonagy): unwrap
         let pool = PgPool::connect(&db_url).await.unwrap();
 
         Self { pool }
     }
 
     pub async fn _get_producer_blocks(&self, producer_pk: &str) -> Result<Vec<Block>, sqlx::Error> {
-        sqlx::query_as!(
+        sqlx::query_file_as!(
             Block,
-            r#"SELECT 
-                    b.id, 
-                    b.state_hash, 
-                    b.height, 
-                    b.timestamp, 
-                    b.chain_status AS "chain_status: ChainStatus",
-                    pk_creator.value AS "creator_key",
-                    pk_winner.value AS "winner_key",
-                    b.global_slot_since_genesis,
-                    b.global_slot_since_hard_fork,
-                    b.parent_id
-                FROM 
-                    blocks b
-                JOIN 
-                    public_keys pk_creator ON b.creator_id = pk_creator.id
-                JOIN 
-                    public_keys pk_winner ON b.block_winner_id = pk_winner.id
-                WHERE 
-                    pk_creator.value = $1"#,
+            "src/archive/sql/query_producer_blocks.sql",
             producer_pk
         )
         .fetch_all(&self.pool)
@@ -55,27 +50,9 @@ impl ArchiveConnector {
         start_slot: i64,
         finish_slot: i64,
     ) -> Result<Vec<Block>, sqlx::Error> {
-        sqlx::query_as!(
+        sqlx::query_file_as!(
             Block,
-            r#"SELECT 
-                    b.id, 
-                    b.state_hash, 
-                    b.height, 
-                    b.timestamp, 
-                    b.chain_status AS "chain_status: ChainStatus",
-                    pk_creator.value AS "creator_key",
-                    pk_winner.value AS "winner_key",
-                    b.global_slot_since_genesis,
-                    b.global_slot_since_hard_fork,
-                    b.parent_id
-                FROM 
-                    blocks b
-                JOIN 
-                    public_keys pk_creator ON b.creator_id = pk_creator.id
-                JOIN 
-                    public_keys pk_winner ON b.block_winner_id = pk_winner.id
-                WHERE 
-                    b.global_slot_since_hard_fork BETWEEN $1 AND $2"#,
+            "src/archive/sql/query_blocks_in_slot_range.sql",
             start_slot,
             finish_slot
         )
@@ -89,38 +66,9 @@ impl ArchiveConnector {
         finish_slot: i64,
         best_tip_hash: String,
     ) -> Result<Vec<Block>, sqlx::Error> {
-        sqlx::query_as!(
+        sqlx::query_file_as!(
             Block,
-            r#"WITH RECURSIVE chain AS (
-                (SELECT * FROM blocks WHERE state_hash = $1)
-              
-                UNION ALL
-              
-                SELECT b.* FROM blocks b
-                INNER JOIN chain
-                ON b.id = chain.parent_id AND chain.id <> chain.parent_id
-              )
-              
-              SELECT 
-                c.id AS "id!", 
-                c.state_hash AS "state_hash!", 
-                c.height AS "height!", 
-                c.timestamp AS "timestamp!", 
-                c.chain_status AS "chain_status!: ChainStatus",
-                pk_creator.value AS "creator_key",
-                pk_winner.value AS "winner_key",
-                c.global_slot_since_genesis AS "global_slot_since_genesis!",
-                c.global_slot_since_hard_fork AS "global_slot_since_hard_fork!",
-                c.parent_id
-              FROM 
-                chain c
-              JOIN 
-                public_keys pk_creator ON c.creator_id = pk_creator.id
-              JOIN 
-                public_keys pk_winner ON c.block_winner_id = pk_winner.id
-              WHERE 
-                c.global_slot_since_hard_fork BETWEEN $2 AND $3
-            "#,
+            "src/archive/sql/query_canonical_chain.sql",
             best_tip_hash,
             start_slot,
             finish_slot
@@ -128,14 +76,34 @@ impl ArchiveConnector {
         .fetch_all(&self.pool)
         .await
     }
+
+    pub async fn get_last_canonical_blocks(
+        &self,
+        best_tip_hash: String,
+        limit: i64,
+    ) -> Result<Vec<Block>, sqlx::Error> {
+        sqlx::query_file_as!(
+            Block,
+            "src/archive/sql/query_last_canonical_blocks.sql",
+            best_tip_hash,
+            limit
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn get_latest_block(&self) -> Result<StateHash, sqlx::Error> {
+        let block = sqlx::query_file_as!(LatestBlock, "src/archive/sql/query_latest_block.sql")
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(block.state_hash)
+    }
 }
 
-#[derive(sqlx::Type, Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[sqlx(type_name = "chain_status_type", rename_all = "lowercase")]
-pub enum ChainStatus {
-    Canonical,
-    Orphaned,
-    Pending,
+pub type StateHash = String;
+struct LatestBlock {
+    state_hash: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -164,7 +132,7 @@ mod test {
 
     #[tokio::test]
     async fn test() {
-        let db = ArchiveConnector::connect().await;
+        let db = ArchiveConnector::connect(ArchiveUrl::Env).await;
 
         let blocks = db
             ._get_producer_blocks("B62qkPpK6z4ktWjxcmFzM4cFWjWLzrjNh6USjUMiYGcF3YAVbdo2p4H")

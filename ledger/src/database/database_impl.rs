@@ -20,6 +20,7 @@ pub struct DatabaseImpl<T: TreeVersion> {
     accounts: Vec<Option<T::Account>>,
     pub hashes_matrix: HashesMatrix,
     id_to_addr: HashMap<AccountId, Address>,
+    token_to_account: Option<HashMap<T::TokenId, AccountId>>,
     depth: u8,
     last_location: Option<Address>,
     naccounts: usize,
@@ -54,6 +55,7 @@ impl DatabaseImpl<V2> {
             // root: self.root.clone(),
             accounts: self.accounts.clone(),
             id_to_addr: self.id_to_addr.clone(),
+            token_to_account: self.token_to_account.clone(),
             depth: self.depth,
             last_location: self.last_location.clone(),
             naccounts: self.naccounts,
@@ -88,6 +90,7 @@ impl DatabaseImpl<V2> {
             return Ok(GetOrCreated::Existed(addr));
         }
 
+        let token_id = account.token_id.clone();
         let location = match self.last_location.as_ref() {
             Some(last) => last.next().ok_or(DatabaseError::OutOfLeaves)?,
             None => Address::first(self.depth as usize),
@@ -102,6 +105,11 @@ impl DatabaseImpl<V2> {
         self.last_location = Some(location.clone());
         self.naccounts += 1;
 
+        if !token_id.is_default() {
+            if let Some(token_to_account) = self.token_to_account.as_mut() {
+                token_to_account.insert(account_id.derive_token_id(), account_id.clone());
+            }
+        }
         self.id_to_addr.insert(account_id, location.clone());
 
         // self.root_hash.borrow_mut().take();
@@ -302,7 +310,7 @@ impl DatabaseImpl<V1> {
 }
 
 impl DatabaseImpl<V2> {
-    pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>) -> Self {
+    pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>, is_archive: bool) -> Self {
         assert!((1..0xfe).contains(&depth));
 
         const NACCOUNTS: usize = 10_000;
@@ -330,12 +338,19 @@ impl DatabaseImpl<V2> {
 
         // std::fs::create_dir_all(&path).ok();
 
+        let token_to_account = if is_archive {
+            Some(HashMap::with_capacity(NACCOUNTS))
+        } else {
+            None
+        };
+
         Self {
             depth,
             accounts: Vec::with_capacity(NACCOUNTS),
             last_location: None,
             naccounts: 0,
             id_to_addr: HashMap::with_capacity(NACCOUNTS),
+            token_to_account,
             uuid,
             directory: path,
             hashes_matrix: HashesMatrix::new(depth as usize),
@@ -343,8 +358,8 @@ impl DatabaseImpl<V2> {
         }
     }
 
-    pub fn create(depth: u8) -> Self {
-        Self::create_with_dir(depth, None)
+    pub fn create(depth: u8, is_archive: bool) -> Self {
+        Self::create_with_dir(depth, None, is_archive)
     }
 
     pub fn root_hash(&mut self) -> Fp {
@@ -516,6 +531,20 @@ impl BaseLedger for DatabaseImpl<V2> {
         self.id_to_addr.keys().cloned().collect()
     }
 
+    fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
+        self.token_to_account
+            .as_ref()
+            .and_then(|token_to_account| token_to_account.get(&token_id).cloned())
+    }
+
+    fn token_owners(&self) -> HashSet<AccountId> {
+        if let Some(token_to_account) = self.token_to_account.as_ref() {
+            token_to_account.values().cloned().collect()
+        } else {
+            HashSet::new()
+        }
+    }
+
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         let mut set = HashSet::with_capacity(100);
 
@@ -673,10 +702,20 @@ impl BaseLedger for DatabaseImpl<V2> {
         if let Some(account) = self.get(addr.clone()) {
             let id = account.id();
             self.id_to_addr.remove(&id);
+            if !id.token_id.is_default() {
+                if let Some(token_to_account) = self.token_to_account.as_mut() {
+                    token_to_account.remove(&id.derive_token_id());
+                }
+            }
         } else {
             self.naccounts += 1;
         }
 
+        if !account.token_id.is_default() {
+            if let Some(token_to_account) = self.token_to_account.as_mut() {
+                token_to_account.insert(account.id().derive_token_id(), id.clone());
+            }
+        }
         self.id_to_addr.insert(id, addr.clone());
         self.accounts[index] = Some(*account);
         // root.add_account_on_path(account, addr.iter());
@@ -806,6 +845,11 @@ impl BaseLedger for DatabaseImpl<V2> {
 
             let id = account.id();
             self.id_to_addr.remove(&id);
+            if !id.token_id.is_default() {
+                if let Some(token_to_account) = self.token_to_account.as_mut() {
+                    token_to_account.remove(&id.derive_token_id());
+                }
+            }
 
             self.naccounts = self
                 .naccounts

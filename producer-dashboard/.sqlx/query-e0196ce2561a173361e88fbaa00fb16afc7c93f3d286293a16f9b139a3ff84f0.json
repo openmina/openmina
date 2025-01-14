@@ -1,0 +1,286 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n    id,\n    edit_state AS \"edit_state: ZkappAuthRequiredType\",\n    send AS \"send: ZkappAuthRequiredType\",\n    receive AS \"receive: ZkappAuthRequiredType\",\n    access AS \"access: ZkappAuthRequiredType\",\n    set_delegate AS \"set_delegate: ZkappAuthRequiredType\",\n    set_permissions AS \"set_permissions: ZkappAuthRequiredType\",\n    set_verification_key_auth AS \"set_verification_key_auth: ZkappAuthRequiredType\",\n    set_verification_key_txn_version, \n    set_zkapp_uri AS \"set_zkapp_uri: ZkappAuthRequiredType\",\n    edit_action_state AS \"edit_action_state: ZkappAuthRequiredType\",\n    set_token_symbol AS \"set_token_symbol: ZkappAuthRequiredType\",\n    increment_nonce AS \"increment_nonce: ZkappAuthRequiredType\",\n    set_voting_for AS \"set_voting_for: ZkappAuthRequiredType\",\n    set_timing AS \"set_timing: ZkappAuthRequiredType\"\nFROM zkapp_permissions;\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "edit_state: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "send: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "receive: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "access: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "set_delegate: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "set_permissions: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "set_verification_key_auth: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "set_verification_key_txn_version",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "set_zkapp_uri: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "edit_action_state: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "set_token_symbol: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "increment_nonce: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "set_voting_for: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "set_timing: ZkappAuthRequiredType",
+        "type_info": {
+          "Custom": {
+            "name": "zkapp_auth_required_type",
+            "kind": {
+              "Enum": [
+                "none",
+                "either",
+                "proof",
+                "signature",
+                "both",
+                "impossible"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e0196ce2561a173361e88fbaa00fb16afc7c93f3d286293a16f9b139a3ff84f0"
+}
