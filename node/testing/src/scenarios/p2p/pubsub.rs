@@ -47,7 +47,7 @@ impl P2pReceiveMessage {
                         node == receiver_openmina_node
                             && matches!(
                                 action.action().kind(),
-                                ActionKind::P2pNetworkPubsubBroadcastValidationCallback
+                                ActionKind::P2pNetworkPubsubValidateIncomingMessage
                             )
                     }),
             )

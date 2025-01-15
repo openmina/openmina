@@ -25,6 +25,8 @@ use super::{
     P2pNetworkPubsubMessageCacheId, P2pNetworkPubsubState, TOPIC,
 };
 
+const MAX_MESSAGE_KEEP_DURATION: Duration = Duration::from_secs(300);
+
 impl P2pNetworkPubsubState {
     pub fn reducer<Action, State>(
         mut state_context: Substate<Action, State, Self>,
@@ -184,9 +186,10 @@ impl P2pNetworkPubsubState {
                 // Check that if we can extract source from message, this is pre check
                 if source_from_message(&message).is_err() {
                     let dispatcher = state_context.into_dispatcher();
-                    dispatcher.push(P2pDisconnectionAction::Init {
-                        peer_id,
-                        reason: P2pDisconnectionReason::InvalidMessage,
+                    dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                        message_id: None,
+                        peer_id: Some(peer_id),
+                        reason: "Invalid originator in message".to_owned(),
                     });
                     return Ok(());
                 }
@@ -218,14 +221,18 @@ impl P2pNetworkPubsubState {
                 }
 
                 // This happens if message was already seen
-                let Some(message_content) = message_content else {
-                    return Ok(());
+                if let Some(message_content) = message_content {
+                    dispatcher.push(P2pNetworkPubsubAction::HandleIncomingMessage {
+                        message,
+                        message_content,
+                        peer_id,
+                    });
+                } else {
+                    dispatcher.push(P2pNetworkPubsubAction::IgnoreMessage {
+                        message_id: None,
+                        reason: "Message already seen".to_owned(),
+                    });
                 };
-                dispatcher.push(P2pNetworkPubsubAction::HandleIncomingMessage {
-                    message,
-                    message_content,
-                    peer_id,
-                });
 
                 Ok(())
             }
@@ -249,8 +256,7 @@ impl P2pNetworkPubsubState {
                 if let Some(callback) = p2p_state.callbacks.on_p2p_pubsub_message_received.clone() {
                     dispatcher.push_callback(callback, message_id);
                 } else {
-                    dispatcher
-                        .push(P2pNetworkPubsubAction::BroadcastValidationCallback { message_id });
+                    dispatcher.push(P2pNetworkPubsubAction::ValidateIncomingMessage { message_id });
                 }
                 Ok(())
             }
@@ -468,19 +474,22 @@ impl P2pNetworkPubsubState {
                 }
                 Ok(())
             }
-            P2pNetworkPubsubAction::BroadcastValidationCallback { message_id } => {
+            P2pNetworkPubsubAction::ValidateIncomingMessage { message_id } => {
                 let Some(message) = pubsub_state.mcache.map.remove(&message_id) else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
                     return Ok(());
                 };
 
-                let P2pNetworkPubsubMessageCacheMessage::Initial {
+                let P2pNetworkPubsubMessageCacheMessage::Init {
                     message,
                     content,
                     time,
                     peer_id,
                 } = message
                 else {
-                    bug_condition!("`P2pNetworkPubsubAction::BroadcastValidationCallback` called on invalid state");
+                    bug_condition!(
+                        "`P2pNetworkPubsubAction::ValidateIncomingMessage` called on invalid state"
+                    );
                     return Ok(());
                 };
 
@@ -542,20 +551,33 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id } => {
-                let Some((message_id, message)) =
-                    pubsub_state.mcache.get_message_id_and_message(message_id)
+                let Some((mcache_message_id, message)) =
+                    pubsub_state.mcache.get_message_id_and_message(&message_id)
                 else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
+                    return Ok(());
+                };
+                let raw_message = message.message().clone();
+                let peer_id = message.peer_id();
+
+                pubsub_state.reduce_incoming_validated_message(
+                    mcache_message_id,
+                    peer_id,
+                    &raw_message,
+                );
+
+                let Some((_message_id, message)) =
+                    pubsub_state.mcache.get_message_id_and_message(&message_id)
+                else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
                     return Ok(());
                 };
 
-                let peer_id = message.peer_id();
-                let raw_message = message.message().clone();
                 *message = P2pNetworkPubsubMessageCacheMessage::Validated {
-                    message: raw_message.clone(),
+                    message: raw_message,
                     peer_id,
                     time: message.time(),
                 };
-                pubsub_state.reduce_incoming_validated_message(message_id, peer_id, &raw_message);
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
 
@@ -567,7 +589,7 @@ impl P2pNetworkPubsubState {
                     .map
                     .iter()
                     .filter_map(|(message_id, message)| {
-                        if message.time() + Duration::from_secs(300) > time {
+                        if message.time() + MAX_MESSAGE_KEEP_DURATION > time {
                             Some(message_id.to_owned())
                         } else {
                             None
@@ -580,28 +602,39 @@ impl P2pNetworkPubsubState {
                 }
                 Ok(())
             }
-            P2pNetworkPubsubAction::RejectMessage { message_id } => {
-                let Some((_message_id, message)) =
-                    pubsub_state.mcache.get_message_id_and_message(message_id)
-                else {
-                    return Ok(());
-                };
+            P2pNetworkPubsubAction::RejectMessage {
+                message_id,
+                peer_id,
+                ..
+            } => {
+                let mut peer_id = peer_id;
+                if let Some(message_id) = message_id {
+                    let Some((_message_id, message)) =
+                        pubsub_state.mcache.get_message_id_and_message(&message_id)
+                    else {
+                        bug_condition!("Message not found for id: {:?}", message_id);
+                        return Ok(());
+                    };
 
-                let peer_id = message.peer_id();
-                *message = P2pNetworkPubsubMessageCacheMessage::Rejected {
-                    message: message.message().clone(),
-                    peer_id,
-                    time: message.time(),
-                };
+                    if peer_id.is_none() {
+                        peer_id = Some(message.peer_id());
+                    }
+
+                    pubsub_state.mcache.remove_message(_message_id);
+                }
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pDisconnectionAction::Init {
-                    peer_id,
-                    reason: P2pDisconnectionReason::InvalidMessage,
-                });
+
+                if let Some(peer_id) = peer_id {
+                    dispatcher.push(P2pDisconnectionAction::Init {
+                        peer_id,
+                        reason: P2pDisconnectionReason::InvalidMessage,
+                    });
+                }
 
                 Ok(())
             }
+            P2pNetworkPubsubAction::IgnoreMessage { .. } => Ok(()),
         }
     }
 
@@ -683,17 +716,20 @@ impl P2pNetworkPubsubState {
         message: &Message,
         seen_limit: usize,
     ) -> Result<Option<GossipNetMessageV2>, String> {
-        if let Some(signature) = &message.signature {
-            // skip recently seen message
-            if !self.seen.contains(signature) {
-                self.seen.push_back(signature.clone());
-                // keep only last `n` to avoid memory leak
-                if self.seen.len() > seen_limit {
-                    self.seen.pop_front();
-                }
-            } else {
-                return Ok(None);
+        let Some(signature) = &message.signature else {
+            bug_condition!("Validation failed: missing signature");
+            return Ok(None);
+        };
+
+        // skip recently seen message
+        if !self.seen.contains(signature) {
+            self.seen.push_back(signature.clone());
+            // keep only last `n` to avoid memory leak
+            if self.seen.len() > seen_limit {
+                self.seen.pop_front();
             }
+        } else {
+            return Ok(None);
         }
 
         match &message.data {

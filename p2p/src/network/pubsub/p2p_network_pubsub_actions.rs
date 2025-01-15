@@ -143,21 +143,31 @@ pub enum P2pNetworkPubsubAction {
         peer_id: PeerId,
     },
 
-    BroadcastValidationCallback {
-        message_id: P2pNetworkPubsubMessageCacheId,
-    },
-
-    BroadcastValidatedMessage {
-        message_id: BroadcastMessageId,
-    },
     HandleIncomingMessage {
         message: pb::Message,
         message_content: GossipNetMessageV2,
         peer_id: PeerId,
     },
+
+    ValidateIncomingMessage {
+        message_id: P2pNetworkPubsubMessageCacheId,
+    },
+
     /// Delete expired messages from state
     PruneMessages {},
+
     RejectMessage {
+        message_id: Option<BroadcastMessageId>,
+        peer_id: Option<PeerId>,
+        reason: String,
+    },
+    IgnoreMessage {
+        message_id: Option<BroadcastMessageId>,
+        reason: String,
+    },
+
+    // After message is fully validated, broadcast it to other peers
+    BroadcastValidatedMessage {
         message_id: BroadcastMessageId,
     },
 }
@@ -180,6 +190,11 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkPubsubAction {
                 .topics
                 .get(topic_id)
                 .map_or(false, |topics| topics.contains_key(peer_id)),
+            P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id }
+            | P2pNetworkPubsubAction::RejectMessage {
+                message_id: Some(message_id),
+                ..
+            } => pubsub.mcache.contains_broadcast_id(message_id),
             _ => true,
         }
     }

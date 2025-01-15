@@ -304,6 +304,7 @@ impl crate::State {
                         .mcache
                         .get_message(message_id)
                 }) else {
+                    bug_condition!("Failed to find message for id: {:?}", message_id);
                     return;
                 };
 
@@ -314,15 +315,27 @@ impl crate::State {
                                 let allow_block_too_late = allow_block_too_late(state, &block);
                                 match state.prevalidate_block(&block, allow_block_too_late) {
                                     Ok(()) => PreValidationResult::Continue,
-                                    Err(BlockPrevalidationError::ReceivedTooEarly { .. }) => {
-                                        PreValidationResult::Ignore
+                                    Err(error)
+                                        if matches!(
+                                            error,
+                                            BlockPrevalidationError::ReceivedTooEarly { .. }
+                                        ) =>
+                                    {
+                                        PreValidationResult::Ignore {
+                                            reason: format!(
+                                                "Block prevalidation failed: {:?}",
+                                                error
+                                            ),
+                                        }
                                     }
-                                    Err(_) => PreValidationResult::Reject,
+                                    Err(error) => PreValidationResult::Reject {
+                                        reason: format!("Block prevalidation failed: {:?}", error),
+                                    },
                                 }
                             }
                             Err(_) => {
                                 log::error!(time; "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block");
-                                PreValidationResult::Reject
+                                PreValidationResult::Reject{reason: "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block".to_owned()}
                             }
                         }
                     }
@@ -334,18 +347,27 @@ impl crate::State {
 
                 match pre_validation_result {
                     PreValidationResult::Continue => {
-                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidationCallback {
+                        dispatcher.push(P2pNetworkPubsubAction::ValidateIncomingMessage {
                             message_id: *message_id,
                         });
                     }
-                    PreValidationResult::Reject => {
+                    PreValidationResult::Reject { reason } => {
                         dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
-                            message_id: p2p::BroadcastMessageId::MessageId {
+                            message_id: Some(p2p::BroadcastMessageId::MessageId {
                                 message_id: *message_id,
-                            },
+                            }),
+                            peer_id: None,
+                            reason,
                         });
                     }
-                    PreValidationResult::Ignore => {}
+                    PreValidationResult::Ignore { reason } => {
+                        dispatcher.push(P2pNetworkPubsubAction::IgnoreMessage {
+                            message_id: Some(p2p::BroadcastMessageId::MessageId {
+                                message_id: *message_id,
+                            }),
+                            reason,
+                        });
+                    }
                 }
             }
         }
@@ -635,6 +657,6 @@ impl crate::State {
 
 enum PreValidationResult {
     Continue,
-    Reject,
-    Ignore,
+    Reject { reason: String },
+    Ignore { reason: String },
 }

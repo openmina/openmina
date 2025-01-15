@@ -306,7 +306,9 @@ impl TransitionFrontierSyncAction {
                 store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
                 // TODO this should be handled by a callback
                 store.dispatch(P2pNetworkPubsubAction::RejectMessage {
-                    message_id: p2p::BroadcastMessageId::BlockHash { hash: hash.clone() },
+                    message_id: Some(p2p::BroadcastMessageId::BlockHash { hash: hash.clone() }),
+                    peer_id: None,
+                    reason: "Failed to apply block".to_owned(),
                 });
             }
             TransitionFrontierSyncAction::BlocksNextApplySuccess {

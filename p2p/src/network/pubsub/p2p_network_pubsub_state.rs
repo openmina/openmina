@@ -211,7 +211,7 @@ pub struct P2pNetworkPubsubMessageCache {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkPubsubMessageCacheMessage {
-    Initial {
+    Init {
         message: pb::Message,
         content: GossipNetMessageV2,
         peer_id: PeerId,
@@ -225,11 +225,6 @@ pub enum P2pNetworkPubsubMessageCacheMessage {
     },
     // This is temporary handling for transactions and snark pool
     PreValidated {
-        message: pb::Message,
-        peer_id: PeerId,
-        time: Timestamp,
-    },
-    Rejected {
         message: pb::Message,
         peer_id: PeerId,
         time: Timestamp,
@@ -275,28 +270,25 @@ impl P2pNetworkPubsubMessageCacheId {
 impl P2pNetworkPubsubMessageCacheMessage {
     pub fn message(&self) -> &pb::Message {
         match self {
-            Self::Initial { message, .. } => message,
+            Self::Init { message, .. } => message,
             Self::PreValidated { message, .. } => message,
             Self::PreValidatedBlockMessage { message, .. } => message,
-            Self::Rejected { message, .. } => message,
             Self::Validated { message, .. } => message,
         }
     }
     pub fn time(&self) -> Timestamp {
         *match self {
-            Self::Initial { time, .. } => time,
+            Self::Init { time, .. } => time,
             Self::PreValidated { time, .. } => time,
             Self::PreValidatedBlockMessage { time, .. } => time,
-            Self::Rejected { time, .. } => time,
             Self::Validated { time, .. } => time,
         }
     }
     pub fn peer_id(&self) -> PeerId {
         *match self {
-            Self::Initial { peer_id, .. } => peer_id,
+            Self::Init { peer_id, .. } => peer_id,
             Self::PreValidated { peer_id, .. } => peer_id,
             Self::PreValidatedBlockMessage { peer_id, .. } => peer_id,
-            Self::Rejected { peer_id, .. } => peer_id,
             Self::Validated { peer_id, .. } => peer_id,
         }
     }
@@ -315,7 +307,7 @@ impl P2pNetworkPubsubMessageCache {
         let id = P2pNetworkPubsubMessageCacheId::compute_message_id(&message)?;
         self.map.insert(
             id,
-            P2pNetworkPubsubMessageCacheMessage::Initial {
+            P2pNetworkPubsubMessageCacheMessage::Init {
                 message,
                 content,
                 time,
@@ -335,14 +327,26 @@ impl P2pNetworkPubsubMessageCache {
     pub fn get_message(&self, id: &P2pNetworkPubsubMessageCacheId) -> Option<&GossipNetMessageV2> {
         let message = self.map.get(id)?;
         match message {
-            P2pNetworkPubsubMessageCacheMessage::Initial { content, .. } => Some(content),
+            P2pNetworkPubsubMessageCacheMessage::Init { content, .. } => Some(content),
             _ => None,
+        }
+    }
+
+    pub fn contains_broadcast_id(&self, message_id: &BroadcastMessageId) -> bool {
+        match message_id {
+            super::BroadcastMessageId::BlockHash { hash } => self
+                .map
+                .values()
+                .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage { block_hash, .. } if block_hash == hash)),
+            super::BroadcastMessageId::MessageId { message_id } => {
+                self.map.contains_key(message_id)
+            }
         }
     }
 
     pub fn get_message_id_and_message(
         &mut self,
-        message_id: BroadcastMessageId,
+        message_id: &BroadcastMessageId,
     ) -> Option<(
         P2pNetworkPubsubMessageCacheId,
         &mut P2pNetworkPubsubMessageCacheMessage,
@@ -355,14 +359,14 @@ impl P2pNetworkPubsubMessageCache {
                         P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage {
                             block_hash,
                             ..
-                        } if *block_hash == hash => Some((*message_id, message)),
+                        } if block_hash == hash => Some((*message_id, message)),
                         _ => None,
                     })
             }
             super::BroadcastMessageId::MessageId { message_id } => self
                 .map
-                .get_mut(&message_id)
-                .map(|content| (message_id, content)),
+                .get_mut(message_id)
+                .map(|content| (*message_id, content)),
         }
     }
 

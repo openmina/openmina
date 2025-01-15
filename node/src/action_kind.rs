@@ -406,9 +406,9 @@ pub enum ActionKind {
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
     P2pNetworkPubsubBroadcastValidatedMessage,
-    P2pNetworkPubsubBroadcastValidationCallback,
     P2pNetworkPubsubGraft,
     P2pNetworkPubsubHandleIncomingMessage,
+    P2pNetworkPubsubIgnoreMessage,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubIncomingMessage,
     P2pNetworkPubsubIncomingMessageCleanup,
@@ -422,6 +422,7 @@ pub enum ActionKind {
     P2pNetworkPubsubRejectMessage,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
+    P2pNetworkPubsubValidateIncomingMessage,
     P2pNetworkPubsubValidateIncomingMessages,
     P2pNetworkPubsubEffectfulSign,
     P2pNetworkPubsubEffectfulValidateIncomingMessages,
@@ -713,7 +714,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 603;
+    pub const COUNT: u16 = 604;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1962,15 +1963,16 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::OutgoingMessageClear { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageClear,
             Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
-            Self::BroadcastValidationCallback { .. } => {
-                ActionKind::P2pNetworkPubsubBroadcastValidationCallback
+            Self::HandleIncomingMessage { .. } => ActionKind::P2pNetworkPubsubHandleIncomingMessage,
+            Self::ValidateIncomingMessage { .. } => {
+                ActionKind::P2pNetworkPubsubValidateIncomingMessage
             }
+            Self::PruneMessages { .. } => ActionKind::P2pNetworkPubsubPruneMessages,
+            Self::RejectMessage { .. } => ActionKind::P2pNetworkPubsubRejectMessage,
+            Self::IgnoreMessage { .. } => ActionKind::P2pNetworkPubsubIgnoreMessage,
             Self::BroadcastValidatedMessage { .. } => {
                 ActionKind::P2pNetworkPubsubBroadcastValidatedMessage
             }
-            Self::HandleIncomingMessage { .. } => ActionKind::P2pNetworkPubsubHandleIncomingMessage,
-            Self::PruneMessages { .. } => ActionKind::P2pNetworkPubsubPruneMessages,
-            Self::RejectMessage { .. } => ActionKind::P2pNetworkPubsubRejectMessage,
         }
     }
 }
