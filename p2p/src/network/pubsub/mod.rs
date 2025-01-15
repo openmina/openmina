@@ -7,7 +7,8 @@ pub use self::p2p_network_pubsub_actions::P2pNetworkPubsubAction;
 
 mod p2p_network_pubsub_state;
 pub use self::p2p_network_pubsub_state::{
-    P2pNetworkPubsubClientState, P2pNetworkPubsubClientTopicState, P2pNetworkPubsubState,
+    P2pNetworkPubsubClientState, P2pNetworkPubsubClientTopicState, P2pNetworkPubsubMessageCacheId,
+    P2pNetworkPubsubState,
 };
 
 #[cfg(feature = "p2p-libp2p")]
@@ -25,6 +26,6 @@ pub enum BroadcastMessageId {
         hash: mina_p2p_messages::v2::StateHash,
     },
     MessageId {
-        message_id: Vec<u8>,
+        message_id: P2pNetworkPubsubMessageCacheId,
     },
 }

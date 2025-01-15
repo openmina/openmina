@@ -22,7 +22,7 @@ use super::{
     },
     pb::{self, Message},
     P2pNetworkPubsubAction, P2pNetworkPubsubClientState, P2pNetworkPubsubEffectfulAction,
-    P2pNetworkPubsubState, TOPIC,
+    P2pNetworkPubsubMessageCacheId, P2pNetworkPubsubState, TOPIC,
 };
 
 impl P2pNetworkPubsubState {
@@ -503,7 +503,7 @@ impl P2pNetworkPubsubState {
                 pubsub_state
                     .mcache
                     .map
-                    .insert(message_id.clone(), new_message_state);
+                    .insert(message_id, new_message_state);
 
                 let dispatcher = state_context.into_dispatcher();
 
@@ -573,7 +573,7 @@ impl P2pNetworkPubsubState {
                             None
                         }
                     })
-                    .collect::<Vec<Vec<_>>>();
+                    .collect::<Vec<_>>();
 
                 for message_id in messages {
                     pubsub_state.mcache.remove_message(message_id);
@@ -632,7 +632,7 @@ impl P2pNetworkPubsubState {
 
     fn reduce_incoming_validated_message(
         &mut self,
-        message_id: Vec<u8>,
+        message_id: P2pNetworkPubsubMessageCacheId,
         peer_id: PeerId,
         message: &Message,
     ) {
@@ -654,7 +654,7 @@ impl P2pNetworkPubsubState {
                     let ctr = state.message.control.get_or_insert_with(Default::default);
                     ctr.ihave.push(pb::ControlIHave {
                         topic_id: Some(message.topic.clone()),
-                        message_ids: vec![message_id.clone()],
+                        message_ids: vec![message_id.to_raw_bytes()],
                     })
                 }
             });
@@ -808,7 +808,7 @@ impl P2pNetworkPubsubState {
         // Respond to iwant requests by publishing available messages from the cache.
         for iwant in iwant_requests {
             for msg_id in &iwant.message_ids {
-                if let Some(msg) = self.mcache.map.get(msg_id) {
+                if let Some(msg) = self.mcache.get_message_from_raw_message_id(msg_id) {
                     if let Some(client) = self.clients.get_mut(peer_id) {
                         client.publish(msg.message());
                     }

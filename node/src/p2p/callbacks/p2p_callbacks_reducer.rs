@@ -335,13 +335,13 @@ impl crate::State {
                 match pre_validation_result {
                     PreValidationResult::Continue => {
                         dispatcher.push(P2pNetworkPubsubAction::BroadcastValidationCallback {
-                            message_id: message_id.clone(),
+                            message_id: *message_id,
                         });
                     }
                     PreValidationResult::Reject => {
                         dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
                             message_id: p2p::BroadcastMessageId::MessageId {
-                                message_id: message_id.clone(),
+                                message_id: *message_id,
                             },
                         });
                     }

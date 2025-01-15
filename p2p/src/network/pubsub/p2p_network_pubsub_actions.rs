@@ -1,4 +1,4 @@
-use super::{pb, BroadcastMessageId};
+use super::{p2p_network_pubsub_state::P2pNetworkPubsubMessageCacheId, pb, BroadcastMessageId};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, Data, P2pState, PeerId, StreamId};
 use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::ActionEvent;
@@ -144,7 +144,7 @@ pub enum P2pNetworkPubsubAction {
     },
 
     BroadcastValidationCallback {
-        message_id: Vec<u8>,
+        message_id: P2pNetworkPubsubMessageCacheId,
     },
 
     BroadcastValidatedMessage {

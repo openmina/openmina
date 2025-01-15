@@ -4,7 +4,7 @@ use p2p::{
         rpc::{P2pRpcId, P2pRpcRequest, P2pRpcResponse},
         streaming_rpc::P2pStreamingRpcResponseFull,
     },
-    PeerId,
+    P2pNetworkPubsubMessageCacheId, PeerId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -47,7 +47,7 @@ pub enum P2pCallbacksAction {
         peer_id: PeerId,
     },
     P2pPubsubValidateMessage {
-        message_id: Vec<u8>,
+        message_id: P2pNetworkPubsubMessageCacheId,
     },
 }
 

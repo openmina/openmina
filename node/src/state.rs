@@ -1,6 +1,7 @@
 use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
 use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
+use p2p::P2pNetworkPubsubMessageCacheId;
 use rand::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
@@ -628,7 +629,7 @@ impl P2p {
                 }
             )),
             on_p2p_pubsub_message_received: Some(redux::callback!(
-                on_p2p_pubsub_message_received((message_id: Vec<u8>)) -> crate::Action{
+                on_p2p_pubsub_message_received((message_id: P2pNetworkPubsubMessageCacheId)) -> crate::Action{
                     P2pCallbacksAction::P2pPubsubValidateMessage { message_id }
                 }
             )),
