@@ -4755,7 +4755,12 @@ pub(super) mod tests {
         }
 
         let rsa_private_key = {
-            let Ok(string) = std::fs::read_to_string("~/.openmina/debug/rsa.priv") else {
+            let Ok(home) = std::env::var("HOME") else {
+                eprintln!("$HOME not set");
+                return;
+            };
+            let Ok(string) = std::fs::read_to_string(format!("{home}/.openmina/debug/rsa.priv"))
+            else {
                 eprintln!("Missing private key");
                 return;
             };
