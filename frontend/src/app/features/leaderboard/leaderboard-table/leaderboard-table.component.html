@@ -1,0 +1,24 @@
+<div class="row-wrap head fx-row-full-cent w-100">
+  <div class="row head h-xl f-600">
+    <span class="pl-12">Web Node Public Key</span>
+    <span>Uptime</span>
+    <span>Produced Blocks</span>
+  </div>
+</div>
+<div class="flex-column h-minus-xl w-100">
+  @for (row of rows; track $index) {
+    <div class="row-wrap fx-row-full-cent w-100">
+      <div class="row">
+      <span class="fx-row-vert-cent text-capitalize pl-12">
+        <span class="mina-icon icon-200 f-big circle" [class.active]="row.isActive">circle</span>
+        {{ row.publicKey | truncateMid: (desktop ? 15 : 6): 6 }}
+      </span>
+        <span class="fx-row-vert-cent">
+        <span class="perc">{{ row.uptimePercentage }}%</span>
+        <span class="mina-icon icon-200 bookmark">bookmark_check</span>
+      </span>
+        <span>{{ row.blocksProduced ?? 0 }}</span>
+      </div>
+    </div>
+  }
+</div>

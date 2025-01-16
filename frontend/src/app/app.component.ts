@@ -11,6 +11,8 @@ import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { WebNodeService } from '@core/services/web-node.service';
 
+declare var AOS: any;
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -23,6 +25,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   readonly menu$: Observable<AppMenu> = this.select$(AppSelectors.menu);
   readonly showLandingPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === '/' || route.url.startsWith('/?')));
   readonly showLoadingWebNodePage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LOADING_WEB_NODE}`)));
+  readonly showLeaderboardPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LEADERBOARD}`)));
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
   loaded: boolean;
@@ -33,6 +36,8 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   constructor(private breakpointObserver: BreakpointObserver,
               private router: Router,
               private webNodeService: WebNodeService) {
+    AOS.init();
+
     super();
     safelyExecuteInBrowser(() => {
       if (any(window).Cypress) {
@@ -55,7 +60,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
       () => this.initAppFunctionalities(),
       filter(Boolean),
       take(1),
-      filter((route: MergedRoute) => route.url !== '/' && !route.url.startsWith('/?')),
+      filter((route: MergedRoute) => route.url !== '/' && !route.url.startsWith('/?') && !route.url.startsWith('/leaderboard')),
     );
     this.select(
       getMergedRoute,

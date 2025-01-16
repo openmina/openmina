@@ -1,0 +1,73 @@
+<div class="gradient fx-row-full-cent p-absolute w-100 pointer">
+  Round 1 Applications Close in 5d 5h 12m - Apply <span class="mina-icon icon-200">arrow_right_alt</span>
+</div>
+
+<div class="flex-column h-100 w-100 overflow-y-scroll">
+  <mina-leaderboard-header></mina-leaderboard-header>
+  <main class="flex-1 flex-column">
+    <ng-container *ngTemplateOutlet="content"></ng-container>
+  </main>
+  <mina-leaderboard-footer></mina-leaderboard-footer>
+</div>
+
+<ng-template #content>
+  <section class="welcome-section flex-column-md flex-row flex-between">
+    <div class="flex-column align-center-md" data-aos="fade-right">
+      <h1>We(b) Node<br>Do You?</h1>
+      <div class="flex-column flex-center align-start align-center-md">
+        <div class="button-description flex-column align-center">
+          <a class="mb-10 fx-row-full-cent pointer" href="https://mdvpmchvuew.typeform.com/to/EtWUgcSz">Apply to be a node runner</a>
+          <p>Round 1 is limited to 100 seats</p>
+        </div>
+      </div>
+    </div>
+    <aside class="h-100 flex-column">
+      <img src="assets/images/landing-page/hero-image.jpg" data-aos="fade-left" alt="" width="100%" height="100%">
+    </aside>
+  </section>
+  <section class="cards-section flex-column-md flex-row flex-between"
+           [style.background-image]="'url(assets/images/landing-page/web-node-bits-bg.png)'">
+    <div class="card fx-col-full-cent">
+      <img src="assets/images/landing-page/icon-verify.svg" alt="">
+      <h3>Don't Trust, Verify</h3>
+      <p>Every piece of data comes from verified sources. Produce, check and confirm blocks right from your device.</p>
+    </div>
+    <div class="card fx-col-full-cent">
+      <img src="assets/images/landing-page/icon-click.svg" alt="">
+      <h3>Start in One Click</h3>
+      <p>A tab in your everyday browser lets you operate and verify the blockchain. No complex setup needed.</p>
+    </div>
+    <div class="card fx-col-full-cent">
+      <img src="assets/images/landing-page/icon-earn.svg" alt="">
+      <h3>Node-To-Earn</h3>
+      <p>Keep a browser tab open to earn rewards while supporting a fairer blockchain system. Testing now live.</p>
+    </div>
+  </section>
+  <section class="run-web-node fx-col-full-cent"
+           [style.background-image]="'url(assets/images/landing-page/cta-section-bg.png)'">
+    <h1>Run a web node <span>on Testnet and enter a</span> 1000 MINA lottery</h1>
+    <div class="button-description flex-column align-center">
+      <a class="mb-10 fx-row-full-cent pointer" href="https://mdvpmchvuew.typeform.com/to/EtWUgcSz">Start Testing & Earn $500 USD</a>
+      <p class="text-center">Apply by DATE. Not Selected? You're first in line next time.</p>
+    </div>
+  </section>
+  <section class="who-are-you">
+    <img src="assets/images/landing-page/mina-intro-image.jpg" alt="" width="100%">
+  </section>
+  <section class="mina">
+    <img src="assets/images/landing-page/mina-intro-lettering.png" alt="">
+    <div class="explanation w-100 flex-row flex-column-md align-center flex-center">
+      <img src="assets/images/landing-page/blog-featured-image.jpg" alt="" class="h-100">
+      <div class="text flex-column h-100">
+        <h4>The Mina Web Node, part 1</h4>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore .
+        </p>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore .</p>
+        <div class="line w-100"></div>
+        <div class="flex-row flex-start">
+          <a href="" class="fx-row-vert-cent">Learn more <span class="mina-icon icon-300">arrow_right_alt</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+</ng-template>

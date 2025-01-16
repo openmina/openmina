@@ -1,0 +1,26 @@
+<section class="fx-row-vert-cent w-100">
+  <div class="filters fx-row-vert-cent w-100 flex-between">
+    <div class="fx-row-vert-cent">
+      <div class="sort h-md fx-row-vert-cent" [class.active]="currentSort.sortBy === 'uptimePercentage'" (click)="sortBy('uptimePercentage')">
+        <div class="sort-content">
+          <span class="mina-icon icon-300"
+                [class.flip]="currentSort.sortDirection === SortDirection.DSC"
+                [class.show]="currentSort.sortBy === 'uptimePercentage'">arrow_upward</span>
+          <span class="text f-400">Uptime</span>
+        </div>
+      </div>
+      <div class="sort h-md fx-row-vert-cent ml-8" [class.active]="currentSort.sortBy === 'blocksProduced'" (click)="sortBy('blocksProduced')">
+        <div class="sort-content">
+          <span class="mina-icon icon-300"
+                [class.flip]="currentSort.sortDirection === SortDirection.DSC"
+                [class.show]="currentSort.sortBy === 'blocksProduced'">arrow_upward</span>
+          <span class="text f-400">Block Production</span>
+        </div>
+      </div>
+    </div>
+    <div class="search p-relative fx-row-vert-cent ml-10" (click)="inputElement.focus()">
+      <span class="mina-icon icon-300 p-absolute">search</span>
+      <input type="text" placeholder="Search Address" #inputElement class="w-100">
+    </div>
+  </div>
+</section>
