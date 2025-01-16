@@ -537,14 +537,6 @@ impl BaseLedger for DatabaseImpl<V2> {
             .and_then(|token_to_account| token_to_account.get(&token_id).cloned())
     }
 
-    fn token_owners(&self) -> HashSet<AccountId> {
-        if let Some(token_to_account) = self.token_to_account.as_ref() {
-            token_to_account.values().cloned().collect()
-        } else {
-            HashSet::new()
-        }
-    }
-
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         let mut set = HashSet::with_capacity(100);
 

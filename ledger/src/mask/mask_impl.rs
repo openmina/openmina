@@ -1130,14 +1130,6 @@ impl BaseLedger for MaskImpl {
         parent.as_ref()?.token_owner(token_id)
     }
 
-    fn token_owners(&self) -> HashSet<AccountId> {
-        // TODO: Not sure if it's the correct impl
-        self.to_list()
-            .into_iter()
-            .map(|account| account.id())
-            .collect()
-    }
-
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         let mut set = HashSet::with_capacity(1024);
 

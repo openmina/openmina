@@ -86,9 +86,6 @@ pub trait BaseLedger {
     /// Get the account id that owns a token.
     fn token_owner(&self, token_id: TokenId) -> Option<AccountId>;
 
-    /// Get the set of all accounts which own a token.
-    fn token_owners(&self) -> HashSet<AccountId>;
-
     /// Get all of the tokens for which a public key has accounts.
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId>;
 

@@ -348,10 +348,6 @@ impl BaseLedger for Mask {
         self.with(|this| this.token_owner(token_id))
     }
 
-    fn token_owners(&self) -> HashSet<AccountId> {
-        self.with(|this| this.token_owners())
-    }
-
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         self.with(|this| this.tokens(public_key))
     }
