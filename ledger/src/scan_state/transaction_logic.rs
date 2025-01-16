@@ -3301,6 +3301,13 @@ pub mod zkapp_command {
             self.fold_impl(init, &mut fun)
         }
 
+        pub fn exists<'a, F>(&'a self, mut fun: F) -> bool
+        where
+            F: FnMut(&'a AccUpdate) -> bool,
+        {
+            self.fold(false, |acc, x| acc || fun(x))
+        }
+
         fn map_to_impl<F, AnotherAccUpdate: Clone + AccountUpdateRef>(
             &self,
             fun: &F,
@@ -3627,16 +3634,15 @@ pub mod zkapp_command {
 
         pub fn has_zero_vesting_period(&self) -> bool {
             self.account_updates
-                .iter()
-                .any(|p| match &p.elt.account_update.body.update.timing {
+                .exists(|account_update| match &account_update.body.update.timing {
                     SetOrKeep::Keep => false,
                     SetOrKeep::Set(Timing { vesting_period, .. }) => vesting_period.is_zero(),
                 })
         }
 
         pub fn is_incompatible_version(&self) -> bool {
-            self.account_updates.iter().any(|p| {
-                match &p.elt.account_update.body.update.permissions {
+            self.account_updates.exists(|account_update| {
+                match &account_update.body.update.permissions {
                     SetOrKeep::Keep => false,
                     SetOrKeep::Set(Permissions {
                         set_verification_key,
