@@ -3,6 +3,7 @@ import * as functions from 'firebase-functions';
 import * as blake2 from 'blake2';
 import bs58check from 'bs58check';
 import Client from 'mina-signer';
+import { submitterAllowed } from './submitterValidator';
 
 interface SignatureJson {
     field: string;
@@ -18,10 +19,6 @@ interface HeartbeatData {
 const minaClient = new Client({ network: 'testnet' });
 
 admin.initializeApp();
-
-// base58 encoded public keys that are allowed to submit data
-const allowedPublicKeys: Set<string> = new Set([
-]);
 
 function validateSignature(
     data: string,
@@ -71,7 +68,7 @@ export const handleValidationAndStore = functions
         console.log('Received data:', data);
         const { publicKey, data: inputData, signature } = data;
 
-        if (!allowedPublicKeys.has(publicKey)) {
+        if (!submitterAllowed(publicKey)) {
             throw new functions.https.HttpsError(
                 'permission-denied',
                 'Public key not authorized'
