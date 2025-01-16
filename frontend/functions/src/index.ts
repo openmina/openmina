@@ -20,6 +20,9 @@ const minaClient = new Client({ network: 'testnet' });
 
 admin.initializeApp();
 
+// Rate limit duration between heartbeats from the same submitter (15 seconds)
+const HEARTBEAT_RATE_LIMIT_MS = 15000;
+
 function validateSignature(
     data: string,
     signature: SignatureJson,
@@ -81,10 +84,10 @@ export const handleValidationAndStore = functions
             await admin.firestore().runTransaction(async (transaction) => {
                 const doc = await transaction.get(rateLimitRef);
                 const now = Date.now();
-                const cutoff = now - 15 * 1000;
+                const cutoff = now - HEARTBEAT_RATE_LIMIT_MS;
 
                 if (doc.exists) {
-                    const lastCall = doc.data()?.lastCall;
+                    const lastCall = doc.data()?.['lastCall'];
                     if (lastCall > cutoff) {
                         throw new functions.https.HttpsError(
                             'resource-exhausted',

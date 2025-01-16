@@ -4,18 +4,18 @@
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
-    "start": "npm run shell",
+    "start": "npm run build && node dist/index.js",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "jest",
     "test:watch": "jest --watch",
-    "build": "tsc",
+    "build": "node build.js && tsc",
     "build:watch": "tsc --watch"
   },
   "engines": {
     "node": "18"
   },
-  "main": "index.ts",
+  "main": "src/index.ts",
   "dependencies": {
     "blake2": "^5.0.0",
     "bs58check": "^3.0.1",

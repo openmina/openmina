@@ -1,4 +1,4 @@
-const { validateSignature } = require('../index');
+const { validateSignature } = require('../src/index');
 
 describe('validateSignature', () => {
     let signedHeartbeat;
