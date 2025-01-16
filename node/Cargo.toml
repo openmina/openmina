@@ -8,6 +8,9 @@ license = "Apache-2.0"
 workspace = true
 
 [dependencies]
+base64 = "0.22"
+blake2 = "0.10"
+hex = "0.4"
 rand = "0.8.0"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }

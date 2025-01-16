@@ -162,6 +162,10 @@ impl node::service::BlockProducerService for crate::NodeService {
             .prove_sender
             .send((provers, block_hash, input));
     }
+
+    fn with_producer_keypair<T>(&self, f: impl FnOnce(&AccountSecretKey) -> T) -> Option<T> {
+        Some(f(&self.block_producer.as_ref()?.keypair))
+    }
 }
 
 fn dump_failed_block_proof_input(

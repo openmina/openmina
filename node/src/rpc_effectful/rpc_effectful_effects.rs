@@ -6,8 +6,8 @@ use crate::{
     p2p_ready,
     rpc::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
-        MessagesStats, RootLedgerSyncProgress, RootStagedLedgerSyncProgress, RpcAction,
-        RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
+        MessagesStats, NodeHeartbeat, RootLedgerSyncProgress, RootStagedLedgerSyncProgress,
+        RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
         RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
         RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
         RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
@@ -26,9 +26,9 @@ use ledger::{
     scan_state::currency::{Balance, Magnitude},
     Account,
 };
-use mina_p2p_messages::{rpc_kernel::QueryHeader, v2::MinaBaseTransactionStatusStableV2};
+use mina_p2p_messages::{rpc_kernel::QueryHeader, v2};
 use mina_signer::CompressedPubKey;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, bug_condition};
 use p2p::channels::streaming_rpc::{
     staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
 };
@@ -53,48 +53,35 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 .respond_state_get(rpc_id, (store.state.get(), filter.as_deref()));
         }
         RpcEffectfulAction::StatusGet { rpc_id } => {
-            let state = store.state.get();
-            let chain_id = state.p2p.ready().map(|p2p| p2p.chain_id.to_hex());
-            let block_summary =
-                |b: &ArcBlockWithHash| RpcNodeStatusTransitionFrontierBlockSummary {
-                    hash: b.hash().clone(),
-                    height: b.height(),
-                    global_slot: b.global_slot(),
-                };
-            let current_block_production_attempt = store
+            let status = compute_node_status(store);
+            let _ = store.service.respond_status_get(rpc_id, Some(status));
+        }
+        RpcEffectfulAction::HeartbeatGet { rpc_id } => {
+            let status = compute_node_status(store);
+            let last_produced_block = store
                 .service
                 .stats()
-                .and_then(|stats| Some(stats.block_producer().collect_attempts().last()?.clone()));
-            let status = RpcNodeStatus {
-                chain_id,
-                transition_frontier: RpcNodeStatusTransitionFrontier {
-                    best_tip: state.transition_frontier.best_tip().map(block_summary),
-                    sync: RpcNodeStatusTransitionFrontierSync {
-                        time: state.transition_frontier.sync.time(),
-                        status: state.transition_frontier.sync.to_string(),
-                        phase: state.transition_frontier.sync.sync_phase().to_string(),
-                        target: state.transition_frontier.sync.best_tip().map(block_summary),
-                    },
-                },
-                peers: rpc::collect_rpc_peers_info(state),
-                snark_pool: state.snark_pool.jobs_iter().fold(
-                    Default::default(),
-                    |mut acc, job| {
-                        if job.snark.is_some() {
-                            acc.snarks = acc.snarks.saturating_add(1);
-                        }
-                        acc.total_jobs = acc.total_jobs.saturating_add(1);
-                        acc
-                    },
-                ),
-                transaction_pool: RpcNodeStatusTransactionPool {
-                    transactions: state.transaction_pool.size(),
-                    transactions_for_propagation: state.transaction_pool.for_propagation_size(),
-                    transaction_candidates: state.transaction_pool.candidates.transactions_count(),
-                },
-                current_block_production_attempt,
+                .and_then(|stats| stats.block_producer().last_produced_block.take());
+
+            let last_produced_block = match base64_encode_block(last_produced_block) {
+                Ok(block) => block,
+                Err(error) => {
+                    bug_condition!("HeartbeatGet: Failed to encode block, returning None: {error}");
+                    None
+                }
             };
-            let _ = store.service.respond_status_get(rpc_id, Some(status));
+
+            let heartbeat = NodeHeartbeat {
+                status,
+                node_timestamp: meta.time(),
+                peer_id: store.state().p2p.my_id(),
+                last_produced_block,
+            };
+            let response = store
+                .service()
+                .with_producer_keypair(move |sk| heartbeat.sign(sk));
+
+            let _ = store.service.respond_heartbeat_get(rpc_id, response);
         }
         RpcEffectfulAction::ActionStatsGet { rpc_id, query } => match query {
             ActionStatsQuery::SinceStart => {
@@ -374,7 +361,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 .map(|_| RpcScanStateSummaryBlockTransaction {
                     hash: None,
                     kind: RpcScanStateSummaryBlockTransactionKind::Coinbase,
-                    status: MinaBaseTransactionStatusStableV2::Applied,
+                    status: v2::MinaBaseTransactionStatusStableV2::Applied,
                 });
             let block_summary = RpcScanStateSummaryBlock {
                 hash: block.hash().clone(),
@@ -775,4 +762,62 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             }
         }
     }
+}
+
+fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
+    let state = store.state.get();
+    let chain_id = state.p2p.ready().map(|p2p| p2p.chain_id.to_hex());
+    let block_summary = |b: &ArcBlockWithHash| RpcNodeStatusTransitionFrontierBlockSummary {
+        hash: b.hash().clone(),
+        height: b.height(),
+        global_slot: b.global_slot(),
+    };
+    let current_block_production_attempt = store
+        .service
+        .stats()
+        .and_then(|stats| Some(stats.block_producer().collect_attempts().last()?.clone()));
+    let status = RpcNodeStatus {
+        chain_id,
+        transition_frontier: RpcNodeStatusTransitionFrontier {
+            best_tip: state.transition_frontier.best_tip().map(block_summary),
+            sync: RpcNodeStatusTransitionFrontierSync {
+                time: state.transition_frontier.sync.time(),
+                status: state.transition_frontier.sync.to_string(),
+                phase: state.transition_frontier.sync.sync_phase().to_string(),
+                target: state.transition_frontier.sync.best_tip().map(block_summary),
+            },
+        },
+        peers: rpc::collect_rpc_peers_info(state),
+        snark_pool: state
+            .snark_pool
+            .jobs_iter()
+            .fold(Default::default(), |mut acc, job| {
+                if job.snark.is_some() {
+                    acc.snarks = acc.snarks.saturating_add(1);
+                }
+                acc.total_jobs = acc.total_jobs.saturating_add(1);
+                acc
+            }),
+        transaction_pool: RpcNodeStatusTransactionPool {
+            transactions: state.transaction_pool.size(),
+            transactions_for_propagation: state.transaction_pool.for_propagation_size(),
+            transaction_candidates: state.transaction_pool.candidates.transactions_count(),
+        },
+        current_block_production_attempt,
+    };
+    status
+}
+
+fn base64_encode_block(block: Option<ArcBlockWithHash>) -> std::io::Result<Option<String>> {
+    use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+    use mina_p2p_messages::binprot::BinProtWrite;
+
+    let Some(block) = block else { return Ok(None) };
+
+    let mut buf = Vec::with_capacity(10 * 1024 * 1024);
+    v2::MinaBlockBlockStableV2::binprot_write(&block.block, &mut buf)?;
+
+    let base64_encoded = URL_SAFE.encode(&buf);
+
+    Ok(Some(base64_encoded))
 }

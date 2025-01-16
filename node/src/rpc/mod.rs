@@ -28,6 +28,9 @@ pub use rpc_reducer::collect_rpc_peers_info;
 
 mod rpc_impls;
 
+mod heartbeat;
+pub use heartbeat::{NodeHeartbeat, SignedNodeHeartbeat};
+
 pub use openmina_core::requests::{RpcId, RpcIdType};
 
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
@@ -54,6 +57,7 @@ use crate::stats::sync::SyncStatsSnapshot;
 pub enum RpcRequest {
     StateGet(Option<String>),
     StatusGet,
+    HeartbeatGet,
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
     BlockProducerStatsGet,
@@ -339,6 +343,7 @@ pub enum RpcStateGetError {
 
 pub type RpcStateGetResponse = Result<serde_json::Value, RpcStateGetError>;
 pub type RpcStatusGetResponse = Option<RpcNodeStatus>;
+pub type RpcHeartbeatGetResponse = Option<SignedNodeHeartbeat>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcBlockProducerStatsGetResponse = Option<RpcBlockProducerStats>;

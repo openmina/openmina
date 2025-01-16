@@ -307,6 +307,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::StatusGet => {
                     store.dispatch(RpcAction::StatusGet { rpc_id });
                 }
+                RpcRequest::HeartbeatGet => {
+                    store.dispatch(RpcAction::HeartbeatGet { rpc_id });
+                }
                 RpcRequest::ActionStatsGet(query) => {
                     store.dispatch(RpcAction::ActionStatsGet { rpc_id, query });
                 }
