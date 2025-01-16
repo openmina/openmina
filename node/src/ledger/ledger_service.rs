@@ -210,7 +210,7 @@ impl LedgerCtx {
                 let _ = Option::<LedgerHash>::binprot_read(&mut file).ok()?;
 
                 let accounts = Vec::<Account>::binprot_read(&mut file).ok()?;
-                let mut mask = Mask::new_root(Database::create(35, false));
+                let mut mask = Mask::new_root(Database::create(35));
                 for account in accounts {
                     let account_id = account.id();
                     mask.get_or_create_account(account_id, account).unwrap();

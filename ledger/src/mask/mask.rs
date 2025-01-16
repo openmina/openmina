@@ -116,7 +116,7 @@ impl Mask {
     }
 
     pub fn create(depth: usize) -> Self {
-        Self::new_root(Database::create(depth as u8, false))
+        Self::new_root(Database::create(depth as u8))
     }
 
     pub fn make_child(&self) -> Mask {
@@ -595,7 +595,7 @@ mod tests {
 
         let mask_root_hash = mask.merkle_root();
 
-        let mut db = Database::create(DEPTH as u8, false);
+        let mut db = Database::create(DEPTH as u8);
         for account in &accounts {
             db.get_or_create_account(account.id(), account.clone())
                 .unwrap();
@@ -711,12 +711,12 @@ mod tests_mask_ocaml {
     pub const FIRST_LOC: Address = Address::first(DEPTH);
 
     pub fn new_instances(depth: usize) -> (Mask, Mask) {
-        let db = Database::<V2>::create(depth as u8, false);
+        let db = Database::<V2>::create(depth as u8);
         (Mask::new_root(db), Mask::new_unattached(depth))
     }
 
     pub fn new_chain(depth: usize) -> (Mask, Mask, Mask) {
-        let db = Database::<V2>::create(depth as u8, false);
+        let db = Database::<V2>::create(depth as u8);
         let layer1 = Mask::new_unattached(depth);
         let layer2 = Mask::new_unattached(depth);
 

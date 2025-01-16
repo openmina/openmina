@@ -6,7 +6,7 @@ fn main() {
 
         let now = redux::Instant::now();
 
-        let mut db = Database::<V2>::create(20, false);
+        let mut db = Database::<V2>::create(20);
 
         let accounts = (0..naccounts).map(|_| Account::rand()).collect::<Vec<_>>();
 

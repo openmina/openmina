@@ -57,8 +57,12 @@ impl Database<V2> {
         }
     }
 
-    pub fn create(depth: u8, is_archive: bool) -> Self {
-        Self::create_with_dir(depth, None, is_archive)
+    pub fn create(depth: u8) -> Self {
+        Self::create_with_dir(depth, None, false)
+    }
+
+    pub fn create_with_archive(depth: u8) -> Self {
+        Self::create_with_dir(depth, None, true)
     }
 
     pub fn root_hash(&mut self) -> Fp {
@@ -367,7 +371,7 @@ mod tests {
         let two: usize = 2;
 
         for depth in 2..15 {
-            let mut db = Database::<V2>::create(depth, false);
+            let mut db = Database::<V2>::create(depth);
 
             for _ in 0..two.pow(depth as u32) {
                 let account = Account::rand();
@@ -507,7 +511,7 @@ export function performance_now() {
         const NACCOUNTS: u64 = 1_000;
 
         let now = redux::Instant::now();
-        let mut db = Database::<V2>::create(20, false);
+        let mut db = Database::<V2>::create(20);
 
         elog!("{:?} accounts natively", NACCOUNTS);
 
@@ -627,7 +631,7 @@ export function performance_now() {
     /// Accounts inserted in a different order produce different root hash
     #[test]
     fn test_root_hash_different_orders() {
-        let mut db = Database::<V2>::create(4, false);
+        let mut db = Database::<V2>::create(4);
 
         let accounts = (0..16).map(|_| Account::rand()).collect::<Vec<_>>();
 
@@ -637,7 +641,7 @@ export function performance_now() {
         }
         let root_hash_1 = db.merkle_root();
 
-        let mut db = Database::<V2>::create(4, false);
+        let mut db = Database::<V2>::create(4);
         for account in accounts.iter().rev() {
             db.get_or_create_account(account.id(), account.clone())
                 .unwrap();
@@ -647,7 +651,7 @@ export function performance_now() {
         // Different orders, different root hash
         assert_ne!(root_hash_1, root_hash_2);
 
-        let mut db = Database::<V2>::create(4, false);
+        let mut db = Database::<V2>::create(4);
         for account in accounts {
             db.get_or_create_account(account.id(), account).unwrap();
         }
@@ -710,7 +714,7 @@ mod tests_ocaml {
     // "add and retrieve an account"
     #[test]
     fn test_add_retrieve_account() {
-        let mut db = Database::<V2>::create(4, false);
+        let mut db = Database::<V2>::create(4);
 
         let account = Account::rand();
         let location = db
@@ -724,7 +728,7 @@ mod tests_ocaml {
     // "accounts are atomic"
     #[test]
     fn test_accounts_are_atomic() {
-        let mut db = Database::<V2>::create(4, false);
+        let mut db = Database::<V2>::create(4);
 
         let account = Box::new(Account::rand());
         let location: Address = db
@@ -743,7 +747,7 @@ mod tests_ocaml {
     #[test]
     fn test_lengths() {
         for naccounts in 50..100 {
-            let mut db = Database::<V2>::create(10, false);
+            let mut db = Database::<V2>::create(10);
             let mut unique = HashSet::with_capacity(naccounts);
 
             for _ in 0..naccounts {
@@ -764,7 +768,7 @@ mod tests_ocaml {
     // "get_or_create_acount does not update an account if key already""
     #[test]
     fn test_no_update_if_exist() {
-        let mut db = Database::<V2>::create(10, false);
+        let mut db = Database::<V2>::create(10);
 
         let mut account1 = Account::rand();
         account1.balance = Balance::from_u64(100);
@@ -792,7 +796,7 @@ mod tests_ocaml {
     #[test]
     fn test_location_of_account() {
         for naccounts in 50..100 {
-            let mut db = Database::<V2>::create(10, false);
+            let mut db = Database::<V2>::create(10);
 
             for _ in 0..naccounts {
                 let account = Account::rand();
@@ -816,7 +820,7 @@ mod tests_ocaml {
     }
 
     fn create_full_db(depth: usize) -> Database<V2> {
-        let mut db = Database::<V2>::create(depth as u8, false);
+        let mut db = Database::<V2>::create(depth as u8);
 
         for _ in 0..2u64.pow(depth as u32) {
             let account = Account::rand();
@@ -874,7 +878,7 @@ mod tests_ocaml {
     fn test_retrieve_account_after_set_batch() {
         const DEPTH: usize = 7;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
 
         let mut addr = Address::root();
         for _ in 0..63 {
@@ -947,7 +951,7 @@ mod tests_ocaml {
     fn test_create_empty_doesnt_modify_hash() {
         const DEPTH: usize = 7;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
 
         let start_hash = db.merkle_root();
 
@@ -967,7 +971,7 @@ mod tests_ocaml {
         const DEPTH: usize = 7;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
         let mut accounts = Vec::with_capacity(NACCOUNTS);
 
         for _ in 0..NACCOUNTS {
@@ -1010,7 +1014,7 @@ mod tests_ocaml {
         const DEPTH: usize = 7;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
         let mut accounts = Vec::with_capacity(NACCOUNTS);
 
         for _ in 0..NACCOUNTS {
@@ -1028,7 +1032,7 @@ mod tests_ocaml {
         const DEPTH: usize = 7;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
         let mut accounts = Vec::with_capacity(NACCOUNTS);
 
         for _ in 0..NACCOUNTS {
@@ -1053,7 +1057,7 @@ mod tests_ocaml {
         const DEPTH: usize = 7;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
 
         let root_hash = db.merkle_root();
 
@@ -1076,7 +1080,7 @@ mod tests_ocaml {
         const DEPTH: usize = 7;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
         let mut total_balance: u128 = 0;
 
         for _ in 0..NACCOUNTS {
@@ -1095,7 +1099,7 @@ mod tests_ocaml {
         const DEPTH: usize = 7;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
         let mut total_balance: u128 = 0;
         let mut last_id: AccountId = Account::empty().id();
 
@@ -1126,7 +1130,7 @@ mod tests_ocaml {
         const DEPTH: usize = 4;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
 
         for index in 0..NACCOUNTS / 2 {
             let mut account = Account::empty();
@@ -1262,7 +1266,7 @@ mod tests_ocaml {
         const DEPTH: usize = 20;
         const NACCOUNTS: usize = 2u64.pow(DEPTH as u32) as usize;
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
         db.merkle_path(Address::first(20));
     }
 
@@ -1290,7 +1294,7 @@ mod tests_ocaml {
         // db.get_or_create_account(account.id(), account).unwrap();
         // db.merkle_root();
 
-        let mut db = Database::<V2>::create(DEPTH as u8, false);
+        let mut db = Database::<V2>::create(DEPTH as u8);
 
         // for _ in 0..NACCOUNTS {
         //     let account = Account::rand();

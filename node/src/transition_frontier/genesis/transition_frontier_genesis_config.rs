@@ -516,7 +516,11 @@ impl GenesisConfig {
         accounts: impl IntoIterator<Item = Result<ledger::Account, InvalidBigInt>>,
         is_archive: bool,
     ) -> Result<(ledger::Mask, v2::CurrencyAmountStableV1), InvalidBigInt> {
-        let db = ledger::Database::create(constraint_constants().ledger_depth as u8, is_archive);
+        let db = if is_archive {
+            ledger::Database::create_with_archive(constraint_constants().ledger_depth as u8)
+        } else {
+            ledger::Database::create(constraint_constants().ledger_depth as u8)
+        };
         let mask = ledger::Mask::new_root(db);
         let (mask, total_currency) = accounts.into_iter().try_fold(
             (mask, 0),
