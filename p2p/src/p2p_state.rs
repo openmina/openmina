@@ -33,8 +33,8 @@ use crate::{
         identify::{P2pNetworkIdentify, P2pNetworkIdentifyState},
         P2pNetworkState,
     },
-    Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
-    P2pNetworkSchedulerState, P2pTimeouts, PeerId,
+    Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubMessageCacheId,
+    P2pNetworkPubsubState, P2pNetworkSchedulerState, P2pTimeouts, PeerId,
 };
 use mina_p2p_messages::v2;
 
@@ -562,6 +562,9 @@ pub struct P2pCallbacks {
     /// Callback for [`P2pChannelsStreamingRpcAction::ResponseReceived`]
     pub on_p2p_channels_streaming_rpc_response_received:
         OptionalCallback<(PeerId, P2pRpcId, Option<P2pStreamingRpcResponseFull>)>,
+
+    /// Callback for received pubsub message
+    pub on_p2p_pubsub_message_received: OptionalCallback<P2pNetworkPubsubMessageCacheId>,
 }
 
 impl_substate_access!(P2pState, P2pNetworkState, network);

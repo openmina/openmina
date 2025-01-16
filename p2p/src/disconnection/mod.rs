@@ -41,4 +41,6 @@ pub enum P2pDisconnectionReason {
     Timeout,
     #[error("rpc protocol not supported")]
     Unsupported,
+    #[error("invalid pubsub message")]
+    InvalidMessage,
 }

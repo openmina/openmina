@@ -1,16 +1,15 @@
-use super::pb;
+use super::{pb, BroadcastMessageId};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    sync::Arc,
-    time::Duration,
-};
-
-use mina_p2p_messages::v2;
+use libp2p_identity::ParseError;
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::{snark::Snark, transaction::Transaction};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    time::Duration,
+};
 
 pub const IWANT_TIMEOUT_DURATION: Duration = Duration::from_secs(5);
 
@@ -44,9 +43,6 @@ pub struct P2pNetworkPubsubState {
     /// For quick access and reducing redundant data transmission across peers.
     pub mcache: P2pNetworkPubsubMessageCache,
 
-    /// Incoming block from a peer, if any.
-    pub incoming_block: Option<(PeerId, Arc<v2::MinaBlockBlockStableV2>)>,
-
     /// Incoming transactions from peers along with their nonces.
     pub incoming_transactions: Vec<(Transaction, u32)>,
 
@@ -71,15 +67,19 @@ impl P2pNetworkPubsubState {
         self.clients.remove(peer_id);
     }
 
-    pub fn filter_iwant_message_ids(&mut self, message_id: &Vec<u8>, timestamp: Timestamp) -> bool {
-        if self.mcache.map.contains_key(message_id) {
+    pub fn filter_iwant_message_ids(&mut self, message_id: &[u8], timestamp: Timestamp) -> bool {
+        if self
+            .mcache
+            .get_message_from_raw_message_id(message_id)
+            .is_some()
+        {
             return false;
         }
 
         let message_count = self
             .iwant
             .iter_mut()
-            .find(|message| &message.message_id == message_id);
+            .find(|message| message.message_id == message_id);
 
         match message_count {
             Some(message) => {
@@ -103,7 +103,7 @@ impl P2pNetworkPubsubState {
             }
             None => {
                 let message_count = P2pNetworkPubsubIwantRequestCount {
-                    message_id: message_id.to_owned(),
+                    message_id: message_id.to_vec(),
                     count: vec![timestamp],
                 };
 
@@ -123,8 +123,6 @@ impl P2pNetworkPubsubState {
 
         self.incoming_transactions.shrink_to(0x20);
         self.incoming_snarks.shrink_to(0x20);
-
-        self.incoming_block = None;
     }
 }
 
@@ -172,11 +170,11 @@ pub struct P2pNetworkPubsubClientState {
 
 impl P2pNetworkPubsubClientState {
     pub fn publish(&mut self, message: &pb::Message) {
-        let Some(id) = compute_message_id(message) else {
+        let Ok(id) = P2pNetworkPubsubMessageCacheId::compute_message_id(message) else {
             self.message.publish.push(message.clone());
             return;
         };
-        if self.cache.map.insert(id.clone()) {
+        if self.cache.map.insert(id) {
             self.message.publish.push(message.clone());
         }
         self.cache.queue.push_back(id);
@@ -200,54 +198,207 @@ impl P2pNetworkPubsubClientState {
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubRecentlyPublishCache {
-    pub map: BTreeSet<Vec<u8>>,
-    pub queue: VecDeque<Vec<u8>>,
+    pub map: BTreeSet<P2pNetworkPubsubMessageCacheId>,
+    pub queue: VecDeque<P2pNetworkPubsubMessageCacheId>,
 }
 
 // TODO: store blocks, snarks and txs separately
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubMessageCache {
-    pub map: BTreeMap<Vec<u8>, pb::Message>,
-    pub queue: VecDeque<Vec<u8>>,
+    pub map: BTreeMap<P2pNetworkPubsubMessageCacheId, P2pNetworkPubsubMessageCacheMessage>,
+    pub queue: VecDeque<P2pNetworkPubsubMessageCacheId>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pNetworkPubsubMessageCacheMessage {
+    Init {
+        message: pb::Message,
+        content: GossipNetMessageV2,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    PreValidatedBlockMessage {
+        block_hash: mina_p2p_messages::v2::StateHash,
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    // This is temporary handling for transactions and snark pool
+    PreValidated {
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    Validated {
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
+pub struct P2pNetworkPubsubMessageCacheId {
+    pub source: libp2p_identity::PeerId,
+    pub seqno: u64,
+}
+
+impl P2pNetworkPubsubMessageCacheId {
+    // TODO: what if wasm32?
+    // How to test it?
+    pub fn compute_message_id(
+        message: &pb::Message,
+    ) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
+        let source = source_from_message(message)?;
+
+        let seqno = message
+            .seqno
+            .as_ref()
+            .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
+            .map(u64::from_be_bytes)
+            .unwrap_or_default();
+
+        Ok(P2pNetworkPubsubMessageCacheId { source, seqno })
+    }
+
+    pub fn to_raw_bytes(&self) -> Vec<u8> {
+        let mut message_id = self.source.to_base58();
+        message_id.push_str(&self.seqno.to_string());
+        message_id.into_bytes()
+    }
+}
+
+impl P2pNetworkPubsubMessageCacheMessage {
+    pub fn message(&self) -> &pb::Message {
+        match self {
+            Self::Init { message, .. } => message,
+            Self::PreValidated { message, .. } => message,
+            Self::PreValidatedBlockMessage { message, .. } => message,
+            Self::Validated { message, .. } => message,
+        }
+    }
+    pub fn time(&self) -> Timestamp {
+        *match self {
+            Self::Init { time, .. } => time,
+            Self::PreValidated { time, .. } => time,
+            Self::PreValidatedBlockMessage { time, .. } => time,
+            Self::Validated { time, .. } => time,
+        }
+    }
+    pub fn peer_id(&self) -> PeerId {
+        *match self {
+            Self::Init { peer_id, .. } => peer_id,
+            Self::PreValidated { peer_id, .. } => peer_id,
+            Self::PreValidatedBlockMessage { peer_id, .. } => peer_id,
+            Self::Validated { peer_id, .. } => peer_id,
+        }
+    }
 }
 
 impl P2pNetworkPubsubMessageCache {
     const CAPACITY: usize = 100;
 
-    pub fn put(&mut self, message: pb::Message) -> Option<Vec<u8>> {
-        let id = compute_message_id(&message)?;
-        self.map.insert(id.clone(), message);
-        self.queue.push_back(id.clone());
+    pub fn put(
+        &mut self,
+        message: pb::Message,
+        content: GossipNetMessageV2,
+        peer_id: PeerId,
+        time: Timestamp,
+    ) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
+        let id = P2pNetworkPubsubMessageCacheId::compute_message_id(&message)?;
+        self.map.insert(
+            id,
+            P2pNetworkPubsubMessageCacheMessage::Init {
+                message,
+                content,
+                time,
+                peer_id,
+            },
+        );
+
+        self.queue.push_back(id);
         if self.queue.len() > Self::CAPACITY {
             if let Some(id) = self.queue.pop_front() {
                 self.map.remove(&id);
             }
         }
-        Some(id)
+        Ok(id)
+    }
+
+    pub fn get_message(&self, id: &P2pNetworkPubsubMessageCacheId) -> Option<&GossipNetMessageV2> {
+        let message = self.map.get(id)?;
+        match message {
+            P2pNetworkPubsubMessageCacheMessage::Init { content, .. } => Some(content),
+            _ => None,
+        }
+    }
+
+    pub fn contains_broadcast_id(&self, message_id: &BroadcastMessageId) -> bool {
+        match message_id {
+            super::BroadcastMessageId::BlockHash { hash } => self
+                .map
+                .values()
+                .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage { block_hash, .. } if block_hash == hash)),
+            super::BroadcastMessageId::MessageId { message_id } => {
+                self.map.contains_key(message_id)
+            }
+        }
+    }
+
+    pub fn get_message_id_and_message(
+        &mut self,
+        message_id: &BroadcastMessageId,
+    ) -> Option<(
+        P2pNetworkPubsubMessageCacheId,
+        &mut P2pNetworkPubsubMessageCacheMessage,
+    )> {
+        match message_id {
+            super::BroadcastMessageId::BlockHash { hash } => {
+                self.map
+                    .iter_mut()
+                    .find_map(|(message_id, message)| match message {
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage {
+                            block_hash,
+                            ..
+                        } if block_hash == hash => Some((*message_id, message)),
+                        _ => None,
+                    })
+            }
+            super::BroadcastMessageId::MessageId { message_id } => self
+                .map
+                .get_mut(message_id)
+                .map(|content| (*message_id, content)),
+        }
+    }
+
+    pub fn remove_message(&mut self, message_id: P2pNetworkPubsubMessageCacheId) {
+        let _ = self.map.remove(&message_id);
+        if let Some(position) = self.queue.iter().position(|id| id == &message_id) {
+            self.queue.remove(position);
+        }
+    }
+
+    pub fn get_message_from_raw_message_id(
+        &self,
+        message_id: &[u8],
+    ) -> Option<&P2pNetworkPubsubMessageCacheMessage> {
+        self.map.iter().find_map(|(key, value)| {
+            if key.to_raw_bytes() == message_id {
+                Some(value)
+            } else {
+                None
+            }
+        })
     }
 }
 
-// TODO: what if wasm32?
-// How to test it?
-pub fn compute_message_id(message: &pb::Message) -> Option<Vec<u8>> {
+pub fn source_from_message(message: &pb::Message) -> Result<libp2p_identity::PeerId, ParseError> {
     let source_bytes = message
         .from
         .as_ref()
         .map(AsRef::as_ref)
         .unwrap_or(&[0, 1, 0][..]);
 
-    let mut source_string = libp2p_identity::PeerId::from_bytes(source_bytes)
-        .ok()?
-        .to_base58();
-
-    let sequence_number = message
-        .seqno
-        .as_ref()
-        .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
-        .map(u64::from_be_bytes)
-        .unwrap_or_default();
-    source_string.push_str(&sequence_number.to_string());
-    Some(source_string.into_bytes())
+    libp2p_identity::PeerId::from_bytes(source_bytes)
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

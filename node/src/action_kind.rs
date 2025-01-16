@@ -206,6 +206,7 @@ pub enum ActionKind {
     P2pCallbacksP2pChannelsStreamingRpcResponseReceived,
     P2pCallbacksP2pChannelsStreamingRpcTimeout,
     P2pCallbacksP2pDisconnection,
+    P2pCallbacksP2pPubsubValidateMessage,
     P2pCallbacksRpcRespondBestTip,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
@@ -404,7 +405,10 @@ pub enum ActionKind {
     P2pNetworkPnetEffectfulSetupNonce,
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
+    P2pNetworkPubsubBroadcastValidatedMessage,
     P2pNetworkPubsubGraft,
+    P2pNetworkPubsubHandleIncomingMessage,
+    P2pNetworkPubsubIgnoreMessage,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubIncomingMessage,
     P2pNetworkPubsubIncomingMessageCleanup,
@@ -414,8 +418,11 @@ pub enum ActionKind {
     P2pNetworkPubsubOutgoingMessageClear,
     P2pNetworkPubsubOutgoingMessageError,
     P2pNetworkPubsubPrune,
+    P2pNetworkPubsubPruneMessages,
+    P2pNetworkPubsubRejectMessage,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
+    P2pNetworkPubsubValidateIncomingMessage,
     P2pNetworkPubsubValidateIncomingMessages,
     P2pNetworkPubsubEffectfulSign,
     P2pNetworkPubsubEffectfulValidateIncomingMessages,
@@ -707,7 +714,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 597;
+    pub const COUNT: u16 = 604;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -809,6 +816,9 @@ impl ActionKindGet for P2pCallbacksAction {
             }
             Self::P2pDisconnection { .. } => ActionKind::P2pCallbacksP2pDisconnection,
             Self::RpcRespondBestTip { .. } => ActionKind::P2pCallbacksRpcRespondBestTip,
+            Self::P2pPubsubValidateMessage { .. } => {
+                ActionKind::P2pCallbacksP2pPubsubValidateMessage
+            }
         }
     }
 }
@@ -1953,6 +1963,16 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::OutgoingMessageClear { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageClear,
             Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
+            Self::HandleIncomingMessage { .. } => ActionKind::P2pNetworkPubsubHandleIncomingMessage,
+            Self::ValidateIncomingMessage { .. } => {
+                ActionKind::P2pNetworkPubsubValidateIncomingMessage
+            }
+            Self::PruneMessages { .. } => ActionKind::P2pNetworkPubsubPruneMessages,
+            Self::RejectMessage { .. } => ActionKind::P2pNetworkPubsubRejectMessage,
+            Self::IgnoreMessage { .. } => ActionKind::P2pNetworkPubsubIgnoreMessage,
+            Self::BroadcastValidatedMessage { .. } => {
+                ActionKind::P2pNetworkPubsubBroadcastValidatedMessage
+            }
         }
     }
 }

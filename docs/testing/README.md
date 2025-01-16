@@ -103,8 +103,8 @@ Test that node discovers peers another rust node and is able to bootstrap
 
 Tests related to pubsub layer.
 
-* `P2pReceiveBlock`
-Test that node receives block over meshsub from node
+* `P2pReceiveMessage`
+Test that node receives message over meshsub from node
 
 ### [P2P Incoming](../../node/testing/tests/p2p_basic_incoming.rs)
 

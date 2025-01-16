@@ -1,10 +1,10 @@
-use std::sync::Arc;
-use std::time::Duration;
-
 use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
 use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
+use p2p::P2pNetworkPubsubMessageCacheId;
 use rand::prelude::*;
+use std::sync::Arc;
+use std::time::Duration;
 
 use openmina_core::block::BlockWithHash;
 use openmina_core::requests::RpcId;
@@ -626,6 +626,11 @@ impl P2p {
             on_p2p_channels_streaming_rpc_timeout: Some(redux::callback!(
                 on_p2p_channels_streaming_rpc_timeout((peer_id: PeerId, id: P2pRpcId)) -> crate::Action {
                     P2pCallbacksAction::P2pChannelsStreamingRpcTimeout { peer_id, id }
+                }
+            )),
+            on_p2p_pubsub_message_received: Some(redux::callback!(
+                on_p2p_pubsub_message_received((message_id: P2pNetworkPubsubMessageCacheId)) -> crate::Action{
+                    P2pCallbacksAction::P2pPubsubValidateMessage { message_id }
                 }
             )),
         }

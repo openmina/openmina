@@ -1,6 +1,9 @@
 use ark_ff::fields::arithmetic::InvalidBigInt;
-use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
-use openmina_core::{block::BlockWithHash, bug_condition, transaction::TransactionWithHash};
+use mina_p2p_messages::{
+    gossip::GossipNetMessageV2,
+    v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash},
+};
+use openmina_core::{block::BlockWithHash, bug_condition, log, transaction::TransactionWithHash};
 use p2p::{
     channels::{
         best_tip::P2pChannelsBestTipAction,
@@ -8,13 +11,15 @@ use p2p::{
         streaming_rpc::P2pStreamingRpcResponseFull,
     },
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
-    PeerId,
+    P2pNetworkPubsubAction, PeerId,
 };
 use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 
 use crate::{
+    consensus::allow_block_too_late,
     p2p_ready,
     snark_pool::candidate::SnarkPoolCandidateAction,
+    state::BlockPrevalidationError,
     transaction_pool::candidate::TransactionPoolCandidateAction,
     transition_frontier::sync::{
         ledger::{
@@ -48,6 +53,7 @@ impl crate::State {
         action: ActionWithMeta<&P2pCallbacksAction>,
     ) {
         let (action, meta) = action.split();
+        let time = meta.time();
         let (dispatcher, state) = state_context.into_dispatcher_and_state();
 
         match action {
@@ -289,6 +295,80 @@ impl crate::State {
                     peer_id: *peer_id,
                     best_tip: best_tip.clone(),
                 });
+            }
+            P2pCallbacksAction::P2pPubsubValidateMessage { message_id } => {
+                let Some(message_content) = state.p2p.ready().and_then(|p2p| {
+                    p2p.network
+                        .scheduler
+                        .broadcast_state
+                        .mcache
+                        .get_message(message_id)
+                }) else {
+                    bug_condition!("Failed to find message for id: {:?}", message_id);
+                    return;
+                };
+
+                let pre_validation_result = match message_content {
+                    GossipNetMessageV2::NewState(new_best_tip) => {
+                        match BlockWithHash::try_new(new_best_tip.clone()) {
+                            Ok(block) => {
+                                let allow_block_too_late = allow_block_too_late(state, &block);
+                                match state.prevalidate_block(&block, allow_block_too_late) {
+                                    Ok(()) => PreValidationResult::Continue,
+                                    Err(error)
+                                        if matches!(
+                                            error,
+                                            BlockPrevalidationError::ReceivedTooEarly { .. }
+                                        ) =>
+                                    {
+                                        PreValidationResult::Ignore {
+                                            reason: format!(
+                                                "Block prevalidation failed: {:?}",
+                                                error
+                                            ),
+                                        }
+                                    }
+                                    Err(error) => PreValidationResult::Reject {
+                                        reason: format!("Block prevalidation failed: {:?}", error),
+                                    },
+                                }
+                            }
+                            Err(_) => {
+                                log::error!(time; "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block");
+                                PreValidationResult::Reject{reason: "P2pCallbacksAction::P2pPubsubValidateMessage: Invalid bigint in block".to_owned()}
+                            }
+                        }
+                    }
+                    _ => {
+                        // TODO: add pre validation for Snark pool and Transaction pool diffs
+                        PreValidationResult::Continue
+                    }
+                };
+
+                match pre_validation_result {
+                    PreValidationResult::Continue => {
+                        dispatcher.push(P2pNetworkPubsubAction::ValidateIncomingMessage {
+                            message_id: *message_id,
+                        });
+                    }
+                    PreValidationResult::Reject { reason } => {
+                        dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                            message_id: Some(p2p::BroadcastMessageId::MessageId {
+                                message_id: *message_id,
+                            }),
+                            peer_id: None,
+                            reason,
+                        });
+                    }
+                    PreValidationResult::Ignore { reason } => {
+                        dispatcher.push(P2pNetworkPubsubAction::IgnoreMessage {
+                            message_id: Some(p2p::BroadcastMessageId::MessageId {
+                                message_id: *message_id,
+                            }),
+                            reason,
+                        });
+                    }
+                }
             }
         }
     }
@@ -573,4 +653,10 @@ impl crate::State {
             Some(P2pRpcResponse::InitialPeers(_)) => {}
         }
     }
+}
+
+enum PreValidationResult {
+    Continue,
+    Reject { reason: String },
+    Ignore { reason: String },
 }

@@ -345,7 +345,7 @@ impl ConsensusState {
 /// Ideally we would differentiate between requested blocks and blocks
 /// received from gossip, but this difference doesn't really exist
 /// in the WebRTC transport, hence this heuristic.
-fn allow_block_too_late(state: &crate::State, block: &ArcBlockWithHash) -> bool {
+pub fn allow_block_too_late(state: &crate::State, block: &ArcBlockWithHash) -> bool {
     let (has_greater_blobal_slot, diff_with_best_tip) = state
         .transition_frontier
         .best_tip()
