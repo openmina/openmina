@@ -574,6 +574,13 @@ impl BlockProducerService for NodeTestingService {
             }
         }
     }
+
+    fn with_producer_keypair<T>(
+        &self,
+        _f: impl FnOnce(&node::account::AccountSecretKey) -> T,
+    ) -> Option<T> {
+        None
+    }
 }
 
 impl ExternalSnarkWorkerService for NodeTestingService {

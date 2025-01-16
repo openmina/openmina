@@ -126,6 +126,7 @@ pub enum ActionKind {
     BlockProducerWonSlotTransactionsGet,
     BlockProducerWonSlotTransactionsSuccess,
     BlockProducerWonSlotWait,
+    BlockProducerEffectfulBlockInjected,
     BlockProducerEffectfulBlockProveInit,
     BlockProducerEffectfulBlockProveSuccess,
     BlockProducerEffectfulBlockUnprovenBuild,
@@ -489,6 +490,7 @@ pub enum ActionKind {
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
+    RpcHeartbeatGet,
     RpcLedgerAccountsGetInit,
     RpcLedgerAccountsGetPending,
     RpcLedgerAccountsGetSuccess,
@@ -533,6 +535,7 @@ pub enum ActionKind {
     RpcEffectfulDiscoveryRoutingTable,
     RpcEffectfulGlobalStateGet,
     RpcEffectfulHealthCheck,
+    RpcEffectfulHeartbeatGet,
     RpcEffectfulLedgerAccountsGetSuccess,
     RpcEffectfulMessageProgressGet,
     RpcEffectfulP2pConnectionIncomingError,
@@ -714,7 +717,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 604;
+    pub const COUNT: u16 = 607;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1037,6 +1040,7 @@ impl ActionKindGet for BlockProducerEffectfulAction {
             Self::BlockUnprovenBuild => ActionKind::BlockProducerEffectfulBlockUnprovenBuild,
             Self::BlockProveInit => ActionKind::BlockProducerEffectfulBlockProveInit,
             Self::BlockProveSuccess => ActionKind::BlockProducerEffectfulBlockProveSuccess,
+            Self::BlockInjected { .. } => ActionKind::BlockProducerEffectfulBlockInjected,
         }
     }
 }
@@ -1046,6 +1050,7 @@ impl ActionKindGet for RpcAction {
         match self {
             Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
             Self::StatusGet { .. } => ActionKind::RpcStatusGet,
+            Self::HeartbeatGet { .. } => ActionKind::RpcHeartbeatGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
             Self::BlockProducerStatsGet { .. } => ActionKind::RpcBlockProducerStatsGet,
@@ -1114,6 +1119,7 @@ impl ActionKindGet for RpcEffectfulAction {
         match self {
             Self::GlobalStateGet { .. } => ActionKind::RpcEffectfulGlobalStateGet,
             Self::StatusGet { .. } => ActionKind::RpcEffectfulStatusGet,
+            Self::HeartbeatGet { .. } => ActionKind::RpcEffectfulHeartbeatGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcEffectfulActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcEffectfulSyncStatsGet,
             Self::BlockProducerStatsGet { .. } => ActionKind::RpcEffectfulBlockProducerStatsGet,

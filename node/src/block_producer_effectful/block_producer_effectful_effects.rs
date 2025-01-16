@@ -221,5 +221,10 @@ pub fn block_producer_effects<S: crate::Service>(
             }
             store.dispatch(BlockProducerAction::WonSlotSearch);
         }
+        BlockProducerEffectfulAction::BlockInjected { block } => {
+            if let Some(stats) = store.service.stats() {
+                stats.block_producer().last_produced_block = Some(block.clone());
+            }
+        }
     }
 }

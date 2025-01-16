@@ -7,6 +7,7 @@ use mina_p2p_messages::v2::{
     MinaBaseStagedLedgerHashStableV1, ProverExtendBlockchainInputStableV2,
     StagedLedgerDiffDiffStableV2, StateHash,
 };
+use openmina_node_account::AccountSecretKey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -24,4 +25,5 @@ pub struct StagedLedgerDiffCreateOutput {
 pub trait BlockProducerService {
     fn provers(&self) -> BlockProver;
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>);
+    fn with_producer_keypair<T>(&self, f: impl FnOnce(&AccountSecretKey) -> T) -> Option<T>;
 }

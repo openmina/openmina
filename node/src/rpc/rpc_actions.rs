@@ -28,6 +28,9 @@ pub enum RpcAction {
     StatusGet {
         rpc_id: RpcId,
     },
+    HeartbeatGet {
+        rpc_id: RpcId,
+    },
 
     // Stats
     ActionStatsGet {
@@ -220,6 +223,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
         match self {
             RpcAction::GlobalStateGet { .. } => true,
             RpcAction::StatusGet { .. } => true,
+            RpcAction::HeartbeatGet { .. } => true,
             RpcAction::ActionStatsGet { .. } => true,
             RpcAction::SyncStatsGet { .. } => true,
             RpcAction::BlockProducerStatsGet { .. } => true,

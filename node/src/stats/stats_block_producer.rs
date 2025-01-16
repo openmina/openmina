@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, VecDeque};
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2;
-use openmina_core::block::AppliedBlock;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -16,6 +16,7 @@ const MAX_HISTORY: usize = 2048;
 pub struct BlockProducerStats {
     pub(super) attempts: VecDeque<BlockProductionAttempt>,
     pub vrf_evaluator: BTreeMap<u32, VrfEvaluatorStats>,
+    pub last_produced_block: Option<ArcBlockWithHash>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
