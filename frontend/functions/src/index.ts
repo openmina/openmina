@@ -4,6 +4,8 @@ import * as blake2 from 'blake2';
 import bs58check from 'bs58check';
 import Client from 'mina-signer';
 import { submitterAllowed } from './submitterValidator';
+import { CallableRequest, onCall } from 'firebase-functions/v2/https';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 interface SignatureJson {
     field: string;
@@ -11,8 +13,9 @@ interface SignatureJson {
 }
 
 interface HeartbeatData {
-    publicKey: string;
-    data: string;
+    version: number;
+    payload: string;
+    submitter: string;
     signature: SignatureJson;
 }
 
@@ -20,10 +23,13 @@ const minaClient = new Client({ network: 'testnet' });
 
 admin.initializeApp();
 
+// Rate limit duration between heartbeats from the same submitter (15 seconds)
+const HEARTBEAT_RATE_LIMIT_MS = 15000;
+
 function validateSignature(
     data: string,
     signature: SignatureJson,
-    publicKeyBase58: string
+    publicKeyBase58: string,
 ): boolean {
     try {
         const h = blake2.createHash('blake2b', { digestLength: 32 });
@@ -62,48 +68,54 @@ function validateSignature(
     }
 }
 
-export const handleValidationAndStore = functions
-    .region('us-central1')
-    .https.onCall(async (data: HeartbeatData, context: functions.https.CallableContext) => {
-        console.log('Received data:', data);
-        const { publicKey, data: inputData, signature } = data;
+export const handleValidationAndStore = onCall(
+    { region: 'us-central1', enforceAppCheck: false },
+    async (request: CallableRequest<HeartbeatData>) => {
+        console.log('Received data:', request.data);
+        const data = request.data;
+        const { submitter, payload, signature } = data;
 
-        if (!submitterAllowed(publicKey)) {
+        if (!submitterAllowed(submitter)) {
             throw new functions.https.HttpsError(
                 'permission-denied',
-                'Public key not authorized'
+                'Public key not authorized',
             );
         }
 
-        const rateLimitRef = admin.firestore().collection('publicKeyRateLimits').doc(publicKey);
+        const db = getFirestore();
 
         try {
-            await admin.firestore().runTransaction(async (transaction) => {
+            if (!validateSignature(payload, signature, submitter)) {
+                throw new functions.https.HttpsError(
+                    'unauthenticated',
+                    'Signature validation failed',
+                );
+            }
+
+            const rateLimitRef = db.collection('publicKeyRateLimits').doc(submitter);
+            const newHeartbeatRef = db.collection('heartbeats').doc();
+
+            await db.runTransaction(async (transaction) => {
                 const doc = await transaction.get(rateLimitRef);
                 const now = Date.now();
-                const cutoff = now - 15 * 1000;
+                const cutoff = now - HEARTBEAT_RATE_LIMIT_MS;
 
                 if (doc.exists) {
-                    const lastCall = doc.data()?.lastCall;
+                    const lastCall = doc.data()?.['lastCall'];
                     if (lastCall > cutoff) {
                         throw new functions.https.HttpsError(
                             'resource-exhausted',
-                            'Rate limit exceeded for this public key'
+                            'Rate limit exceeded for this public key',
                         );
                     }
                 }
 
-                transaction.set(rateLimitRef, { lastCall: now }, { merge: true });
+                transaction.set(rateLimitRef, { lastCall: FieldValue.serverTimestamp() }, { merge: true });
+                transaction.create(newHeartbeatRef, {
+                    ...data,
+                    createTime: FieldValue.serverTimestamp(),
+                });
             });
-
-            if (!validateSignature(inputData, signature, publicKey)) {
-                throw new functions.https.HttpsError(
-                    'unauthenticated',
-                    'Signature validation failed'
-                );
-            }
-
-            await admin.firestore().collection('heartbeat').add(data);
 
             return { message: 'Data validated and stored successfully' };
         } catch (error) {
@@ -113,9 +125,10 @@ export const handleValidationAndStore = functions
             }
             throw new functions.https.HttpsError(
                 'internal',
-                'An error occurred during validation or storage'
+                'An error occurred during validation or storage',
             );
         }
-    });
+    },
+);
 
 export { validateSignature };
