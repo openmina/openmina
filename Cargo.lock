@@ -138,6 +138,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator"
+version = "0.1.0"
+dependencies = [
+ "compiler_builtins",
+ "libc",
+ "libc-print",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1087,6 +1096,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 name = "cli"
 version = "0.13.0"
 dependencies = [
+ "allocator",
  "anyhow",
  "bytes",
  "clap 4.5.20",
@@ -1151,6 +1161,12 @@ dependencies = [
  "memchr",
  "unreachable",
 ]
+
+[[package]]
+name = "compiler_builtins"
+version = "0.1.144"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d18a7b7b5a56aa131e62314b4d862c9f6aa2860f615f3770094ec9064d7ec572"
 
 [[package]]
 name = "concurrent-queue"
@@ -3251,6 +3267,15 @@ name = "libc"
 version = "0.2.155"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
+
+[[package]]
+name = "libc-print"
+version = "0.1.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4a660208db49e35faf57b37484350f1a61072f2a5becf0592af6015d9ddd4b0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "libloading"
