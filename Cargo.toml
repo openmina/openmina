@@ -35,7 +35,7 @@ members = [
 
     "producer-dashboard",
 
-    "fuzzer",
+    "fuzzer", "allocator",
 ]
 
 resolver = "2"
@@ -48,6 +48,7 @@ indexing_slicing = "warn"
 [workspace.dependencies]
 mina-p2p-messages = { path = "mina-p2p-messages" }
 poseidon = { path = "poseidon" }
+allocator = { path = "allocator" }
 ledger = { path = "ledger", package = "mina-tree" }
 
 mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
@@ -79,6 +80,9 @@ graphannis-malloc_size_of = { git = "https://github.com/openmina/graphannis-mall
 graphannis-malloc_size_of_derive = { git = "https://github.com/openmina/graphannis-malloc_size_of_derive.git" }
 
 openmina-producer-dashboard = { path = "producer-dashboard" }
+
+[profile.release]
+debug = true
 
 [profile.fuzz]
 inherits = "release"
