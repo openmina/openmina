@@ -7,14 +7,15 @@ import { submitterAllowed } from './submitterValidator';
 import { CallableRequest, onCall } from 'firebase-functions/v2/https';
 
 interface SignatureJson {
-  field: string;
-  scalar: string;
+    field: string;
+    scalar: string;
 }
 
 interface HeartbeatData {
-  publicKey: string;
-  data: string;
-  signature: SignatureJson;
+    version: number;
+    payload: string;
+    submitter: string;
+    signature: SignatureJson;
 }
 
 const minaClient = new Client({ network: 'testnet' });
@@ -25,103 +26,103 @@ admin.initializeApp();
 const HEARTBEAT_RATE_LIMIT_MS = 15000;
 
 function validateSignature(
-  data: string,
-  signature: SignatureJson,
-  publicKeyBase58: string,
+    data: string,
+    signature: SignatureJson,
+    publicKeyBase58: string,
 ): boolean {
-  try {
-    const h = blake2.createHash('blake2b', { digestLength: 32 });
-    h.update(Buffer.from(data));
-    const digest: string = h.digest().toString('hex');
-
     try {
-      // TODO: remove this validation later, since the list is
-      // hardcoded and we check that the key is there,
-      // we know it is valid.
-      let publicKeyBytes: Uint8Array;
-      try {
-        publicKeyBytes = bs58check.decode(publicKeyBase58);
-      } catch (e) {
-        console.error('Failed to decode public key:', e);
-        return false;
-      }
+        const h = blake2.createHash('blake2b', { digestLength: 32 });
+        h.update(Buffer.from(data));
+        const digest: string = h.digest().toString('hex');
 
-      if (publicKeyBytes[0] !== 0xcb) {
-        console.error('Invalid public key prefix');
-        return false;
-      }
+        try {
+            // TODO: remove this validation later, since the list is
+            // hardcoded and we check that the key is there,
+            // we know it is valid.
+            let publicKeyBytes: Uint8Array;
+            try {
+                publicKeyBytes = bs58check.decode(publicKeyBase58);
+            } catch (e) {
+                console.error('Failed to decode public key:', e);
+                return false;
+            }
 
-      return minaClient.verifyMessage({
-        data: digest,
-        signature,
-        publicKey: publicKeyBase58,
-      });
+            if (publicKeyBytes[0] !== 0xcb) {
+                console.error('Invalid public key prefix');
+                return false;
+            }
+
+            return minaClient.verifyMessage({
+                data: digest,
+                signature,
+                publicKey: publicKeyBase58,
+            });
+        } catch (e) {
+            console.error('Error parsing signature or verifying:', e);
+            return false;
+        }
     } catch (e) {
-      console.error('Error parsing signature or verifying:', e);
-      return false;
+        console.error('Error in signature validation:', e);
+        return false;
     }
-  } catch (e) {
-    console.error('Error in signature validation:', e);
-    return false;
-  }
 }
 
 export const handleValidationAndStore = onCall(
-  { region: 'us-central1' },
-  async (request: CallableRequest<HeartbeatData>) => {
-    console.log('Received data:', request.data);
-    const data = request.data;
-    const { publicKey, data: inputData, signature } = data;
+    { region: 'us-central1' },
+    async (request: CallableRequest<HeartbeatData>) => {
+        console.log('Received data:', request.data);
+        const data = request.data;
+        const { submitter, payload, signature } = data;
 
-    if (!submitterAllowed(publicKey)) {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'Public key not authorized',
-      );
-    }
-
-    const rateLimitRef = admin.firestore().collection('publicKeyRateLimits').doc(publicKey);
-
-    try {
-      await admin.firestore().runTransaction(async (transaction) => {
-        const doc = await transaction.get(rateLimitRef);
-        const now = Date.now();
-        const cutoff = now - HEARTBEAT_RATE_LIMIT_MS;
-
-        if (doc.exists) {
-          const lastCall = doc.data()?.['lastCall'];
-          if (lastCall > cutoff) {
+        if (!submitterAllowed(submitter)) {
             throw new functions.https.HttpsError(
-              'resource-exhausted',
-              'Rate limit exceeded for this public key',
+                'permission-denied',
+                'Public key not authorized',
             );
-          }
         }
 
-        transaction.set(rateLimitRef, { lastCall: now }, { merge: true });
-      });
+        const rateLimitRef = admin.firestore().collection('publicKeyRateLimits').doc(submitter);
 
-      if (!validateSignature(inputData, signature, publicKey)) {
-        throw new functions.https.HttpsError(
-          'unauthenticated',
-          'Signature validation failed',
-        );
-      }
+        try {
+            await admin.firestore().runTransaction(async (transaction) => {
+                const doc = await transaction.get(rateLimitRef);
+                const now = Date.now();
+                const cutoff = now - HEARTBEAT_RATE_LIMIT_MS;
 
-      await admin.firestore().collection('heartbeat').add(data);
+                if (doc.exists) {
+                    const lastCall = doc.data()?.['lastCall'];
+                    if (lastCall > cutoff) {
+                        throw new functions.https.HttpsError(
+                            'resource-exhausted',
+                            'Rate limit exceeded for this public key',
+                        );
+                    }
+                }
 
-      return { message: 'Data validated and stored successfully' };
-    } catch (error) {
-      console.error('Error during data validation and storage:', error);
-      if (error instanceof functions.https.HttpsError) {
-        throw error;
-      }
-      throw new functions.https.HttpsError(
-        'internal',
-        'An error occurred during validation or storage',
-      );
-    }
-  },
+                transaction.set(rateLimitRef, { lastCall: now }, { merge: true });
+            });
+
+            if (!validateSignature(payload, signature, submitter)) {
+                throw new functions.https.HttpsError(
+                    'unauthenticated',
+                    'Signature validation failed',
+                );
+            }
+
+            await admin.firestore().collection('heartbeat').add(data);
+
+            return { message: 'Data validated and stored successfully' };
+        } catch (error) {
+            console.error('Error during data validation and storage:', error);
+            if (error instanceof functions.https.HttpsError) {
+                throw error;
+            }
+            throw new functions.https.HttpsError(
+                'internal',
+                'An error occurred during validation or storage',
+            );
+        }
+    },
 );
 
 export { validateSignature };
