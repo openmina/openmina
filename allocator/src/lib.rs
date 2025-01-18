@@ -254,8 +254,8 @@ impl MinallocImpl {
 
         for class in &self.classes.inner {
             eprintln!(
-                "[STATS-{:?}] class size:{:?} max:{:?}",
-                index, class.elem_size, class.max_nallocated.load(Relaxed)
+                "[STATS-{:?}] class size:{:?} max:{:?} current:{:?}",
+                index, class.elem_size, class.max_nallocated.load(Relaxed), class.nallocated.load(Relaxed),
             );
         }
 
@@ -298,54 +298,55 @@ impl Class {
             'inner: loop {
                 let bitfield = bitfield_ref.load(Acquire);
                 if bitfield == 0 {
-                    continue 'outer; // full
+                     // full
+                    continue 'outer;
                 }
                 let index_free = bitfield.trailing_zeros() as usize;
 
                 if (bitfield_index * 64) + index_free >= info.nelems {
+                    // Going past end of `base`
                     continue 'outer;
                 }
 
                 let bit = 1 << index_free;
                 let previous_bitfield = bitfield_ref.fetch_and(!bit, AcqRel);
                 if previous_bitfield & bit == 0 {
+                    // Acquired by another thread
                     continue 'inner;
                 }
-                if previous_bitfield & bit != 0 {
 
-                    free_hint.store(bitfield_index, Release);
+                free_hint.store(bitfield_index, Release);
 
-                    let mut res = self.get(bitfield_index, index_free);
+                let mut res = self.get(bitfield_index, index_free);
 
-                    let ptr_unmodified = res;
+                let ptr_unmodified = res;
 
-                    if layout.align() > 8 {
-                        let offset = res.align_offset(layout.align());
-                        res = unsafe { res.byte_add(offset) };
-                    }
-
-                    assert!(unsafe { res.byte_add(layout.size()) } <= {
-                        let (bitfield_index, index_free) = if index_free == 63 {
-                            (bitfield_index + 1, 0)
-                        } else {
-                            assert!(index_free < 63);
-                            (bitfield_index, index_free + 1)
-                        };
-                        self.get(bitfield_index, index_free)
-                    });
-                    assert_eq!((bitfield_index, index_free), self.compute_offsets(res.as_ptr(), "alloc"));
-                    assert_eq!(
-                        res.as_ptr() as usize % layout.align(), 0,
-                        "ptr: {:?} align: {:?} size: {:?} ptr_unmod: {:?}",
-                        res, layout.align(), layout.size(), ptr_unmodified
-                    );
-                    // eprintln!("alloc size: {:?} align: {:?}", layout.size(), layout.align());
-                    // eprintln!(
-                    //     "[{:?}] alloc: base: {:?} size: {:?} align: {:?} bitfield_index:{:?} index_free:{:?} ptr: {:?} offset: {:?} nallocated:{:?}",
-                    //     n_op, self.base, layout.size(), layout.align(), bitfield_index, index_free, res, unsafe { res.offset_from(self.base) }, nallocated
-                    // );
-                    return res;
+                if layout.align() > 8 {
+                    let offset = res.align_offset(layout.align());
+                    res = unsafe { res.byte_add(offset) };
                 }
+
+                assert!(unsafe { res.byte_add(layout.size()) } <= {
+                    let (bitfield_index, index_free) = if index_free == 63 {
+                        (bitfield_index + 1, 0)
+                    } else {
+                        assert!(index_free < 63);
+                        (bitfield_index, index_free + 1)
+                    };
+                    self.get(bitfield_index, index_free)
+                });
+                assert_eq!((bitfield_index, index_free), self.compute_offsets(res.as_ptr(), "alloc"));
+                assert_eq!(
+                    res.as_ptr() as usize % layout.align(), 0,
+                    "ptr: {:?} align: {:?} size: {:?} ptr_unmod: {:?}",
+                    res, layout.align(), layout.size(), ptr_unmodified
+                );
+                // eprintln!("alloc size: {:?} align: {:?}", layout.size(), layout.align());
+                // eprintln!(
+                //     "[{:?}] alloc: base: {:?} size: {:?} align: {:?} bitfield_index:{:?} index_free:{:?} ptr: {:?} offset: {:?} nallocated:{:?}",
+                //     n_op, self.base, layout.size(), layout.align(), bitfield_index, index_free, res, unsafe { res.offset_from(self.base) }, nallocated
+                // );
+                return res;
             }
         }
 
@@ -366,8 +367,8 @@ impl Class {
         let Self { elem_size, base, end_ptr, .. } = self;
         if !(ptr >= base.as_ptr() && ptr < end_ptr.as_ptr()) {
             eprintln!("{} Invalid class PTR ptr:{:?} base:{:?} end_ptr:{:?} size:{:?}", from, ptr, base, end_ptr, elem_size);
+            assert!(ptr >= base.as_ptr() && ptr < end_ptr.as_ptr());
         }
-        assert!(ptr >= base.as_ptr() && ptr < end_ptr.as_ptr());
         let offset = (ptr as usize).checked_sub(base.as_ptr() as usize).unwrap();
         let offset = offset / *elem_size;
         let bitfield_index = offset / 64;
@@ -439,7 +440,7 @@ impl Classes {
 
             // dbg!(bitfields_length);
 
-            let nbytes = {
+            let bitfields_nbytes = {
                 let bitfields: &mut [AtomicU64] = unsafe { bitfields.as_mut() };
                 let bitfields: &mut [u64] = unsafe {
                      core::mem::transmute(bitfields)
@@ -448,9 +449,8 @@ impl Classes {
                 bitfields.len() * core::mem::size_of::<u64>()
             };
 
-            let before = current;
-            let bitfields_nbytes = nbytes;
-            total_bitfields_nbytes += nbytes;
+            // let before = current;
+            total_bitfields_nbytes += bitfields_nbytes;
             // let bitfields_nbytes = nelems * std::mem::size_of::<u64>();
             current = unsafe { current.byte_add(bitfields_nbytes) };
             // dbg!(before, current, nbytes);
@@ -466,7 +466,7 @@ impl Classes {
 
             assert!(current < end_ptr);
 
-            eprintln!("size: {:?} bitfields: {:?} bitfields_len: {:?} base: {:?} bitfields_nbytes: {:?} nbytes:{:?}", size, bitfields, bitfields_length, base, bitfields_nbytes, nbytes);
+            eprintln!("size: {:?} bitfields: {:?} bitfields_len: {:?} base: {:?} bitfields_nbytes: {:?}", size, bitfields, bitfields_length, base, bitfields_nbytes);
             // eprintln!("size: {:?} bitfields: {:?} base: {:?} bitfields_nbytes: {:?} nbytes:{:?}", size, bitfields, base, bitfields_nbytes, nbytes);
 
             Class {
