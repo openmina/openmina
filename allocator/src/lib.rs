@@ -43,7 +43,7 @@ const CLASSES: [ClassInfo; N_CLASSES] = [
     ClassInfo { size: 16384, nelems: 30_000 },
     ClassInfo { size: 65536, nelems: 20_000 },
     ClassInfo { size: 0x100000, nelems: 200 },
-    ClassInfo { size: 0x1000000, nelems: 150 },
+    ClassInfo { size: 0x1000000, nelems: 200 },
     ClassInfo { size: 0x2000000, nelems: 10 },
     ClassInfo { size: 0x3000000, nelems: 10 },
     ClassInfo { size: 0x10000000, nelems: 5 },
@@ -127,7 +127,8 @@ struct Class {
     nallocated: AtomicUsize,
     max_nallocated: AtomicUsize,
     info: &'static ClassInfo,
-
+    end_ptr: NonNull<u8>,
+    // TODO: Make this thread-local
     free_hint: AtomicUsize,
 }
 
@@ -141,10 +142,7 @@ struct MinallocImpl {
     classes: Classes,
 }
 
-// unsafe impl Send for MinallocImpl {}
-// unsafe impl Sync for MinallocImpl {}
-
-static mut MINALLOC_IMPL: Option<MinallocImpl> = None;
+static mut MINALLOC_STORAGE: Option<MinallocImpl> = None;
 static MINALLOC_PTR: AtomicPtr<MinallocImpl> = AtomicPtr::new(core::ptr::null_mut());
 
 pub struct Minalloc;
@@ -172,8 +170,8 @@ impl Minalloc {
                 continue;
             }
             let ptr = unsafe {
-                MINALLOC_IMPL = Some(MinallocImpl::new());
-                MINALLOC_IMPL.as_mut().unwrap() as *mut MinallocImpl
+                MINALLOC_STORAGE = Some(MinallocImpl::new());
+                MINALLOC_STORAGE.as_mut().unwrap() as *mut MinallocImpl
             };
             MINALLOC_PTR.store(ptr, Release);
         }
@@ -195,6 +193,10 @@ impl MinallocImpl {
 
     fn alloc(&self, layout: Layout) -> *mut u8 {
         // self.show_stats();
+
+        if layout.size() == 0 {
+            return NonNull::dangling().as_ptr();
+        }
 
         let size = if layout.align() > 8 {
             layout.size() + layout.align()
@@ -219,6 +221,10 @@ impl MinallocImpl {
     fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         // dbg!(&layout);
 
+        if layout.size() == 0 {
+            return;
+        }
+
         let size = if layout.align() > 8 {
             layout.size() + layout.align()
         } else {
@@ -231,18 +237,20 @@ impl MinallocImpl {
             }
         }
 
-        eprintln!("DEALLOC size too big: size:{:?} align:{:?}", layout.size(), layout.align());
+        eprintln!("DEALLOC size too big: ptr:{:?} size:{:?} align:{:?}", ptr, layout.size(), layout.align());
 
         todo!() // Implement linked list based allocations
     }
 
     fn show_stats(&self) {
+        const INTERVAL: usize = 200_000;
+
         let n_op = N_OP.load(Relaxed);
-        if n_op % 200_000 != 0 {
+        if n_op % INTERVAL != 0 {
             return;
         }
 
-        let index = n_op / 200_000;
+        let index = n_op / INTERVAL;
 
         for class in &self.classes.inner {
             eprintln!(
@@ -257,7 +265,7 @@ impl MinallocImpl {
 
 impl Class {
     fn take_next(&self, layout: &Layout) -> NonNull<u8> {
-        let Self { bitfields, base, length, elem_size, nallocated, max_nallocated, info, free_hint } = self;
+        let Self { bitfields, base, length, elem_size, nallocated, max_nallocated, info, free_hint, end_ptr } = self;
 
         TOTAL_NBYTES.fetch_add(layout.size(), Relaxed);
         let n_op = N_OP.fetch_add(1, AcqRel);
@@ -276,28 +284,36 @@ impl Class {
 
         let bitfields: &[AtomicU64] = unsafe { bitfields.as_ref() };
 
-        // let start = free_hint.load(Acquire).min(bitfields.len() - 1);
+        // TODO: Make this thread-local
+        let start = free_hint.load(Acquire).min(bitfields.len() - 1);
         // let start = 0;
 
-        // TODO: Make that faster
-        'outer: for (bitfield_index, bitfield_ref) in bitfields.iter().enumerate() {
-        // 'outer: for (bitfield_index, bitfield_ref) in bitfields[start..]
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(index, bits)| (index + start, bits))
-        //     .chain(bitfields[..start].iter().enumerate())
-        // {
-            loop {
-                let bitfield = bitfield_ref.load(Relaxed);
+        // 'outer: for (bitfield_index, bitfield_ref) in bitfields.iter().enumerate() {
+        'outer: for (bitfield_index, bitfield_ref) in bitfields[start..]
+            .iter()
+            .enumerate()
+            .map(|(index, bits)| (index + start, bits))
+            .chain(bitfields[..start].iter().enumerate())
+        {
+            'inner: loop {
+                let bitfield = bitfield_ref.load(Acquire);
                 if bitfield == 0 {
                     continue 'outer; // full
                 }
                 let index_free = bitfield.trailing_zeros() as usize;
+
+                if (bitfield_index * 64) + index_free >= info.nelems {
+                    continue 'outer;
+                }
+
                 let bit = 1 << index_free;
                 let previous_bitfield = bitfield_ref.fetch_and(!bit, AcqRel);
+                if previous_bitfield & bit == 0 {
+                    continue 'inner;
+                }
                 if previous_bitfield & bit != 0 {
 
-                    // free_hint.store(bitfield_index, Release);
+                    free_hint.store(bitfield_index, Release);
 
                     let mut res = self.get(bitfield_index, index_free);
 
@@ -317,7 +333,7 @@ impl Class {
                         };
                         self.get(bitfield_index, index_free)
                     });
-                    assert_eq!((bitfield_index, index_free), self.compute_offsets(res.as_ptr()));
+                    assert_eq!((bitfield_index, index_free), self.compute_offsets(res.as_ptr(), "alloc"));
                     assert_eq!(
                         res.as_ptr() as usize % layout.align(), 0,
                         "ptr: {:?} align: {:?} size: {:?} ptr_unmod: {:?}",
@@ -333,6 +349,10 @@ impl Class {
             }
         }
 
+        let nallocated = self.nallocated.load(Acquire);
+
+        eprintln!("\nallocated:{:?} info.nelems:{:?} size:{:?} align:{:?}\n", nallocated, info.nelems, layout.size(), layout.align());
+
         panic!("limit reached {:?}", elem_size);
     }
 
@@ -342,8 +362,12 @@ impl Class {
         unsafe { self.base.byte_add((bitfield_index * 64) + bit) }
     }
 
-    fn compute_offsets(&self, ptr: *mut u8) -> (usize, usize) {
-        let Self { elem_size, base, .. } = self;
+    fn compute_offsets(&self, ptr: *mut u8, from: &str) -> (usize, usize) {
+        let Self { elem_size, base, end_ptr, .. } = self;
+        if !(ptr >= base.as_ptr() && ptr < end_ptr.as_ptr()) {
+            eprintln!("{} Invalid class PTR ptr:{:?} base:{:?} end_ptr:{:?} size:{:?}", from, ptr, base, end_ptr, elem_size);
+        }
+        assert!(ptr >= base.as_ptr() && ptr < end_ptr.as_ptr());
         let offset = (ptr as usize).checked_sub(base.as_ptr() as usize).unwrap();
         let offset = offset / *elem_size;
         let bitfield_index = offset / 64;
@@ -352,17 +376,19 @@ impl Class {
     }
 
     fn free(&self, ptr: *mut u8, layout: &Layout) {
-        let Self { elem_size, bitfields, base, length, nallocated, info, max_nallocated, free_hint } = self;
+        let Self { elem_size, bitfields, base, length, nallocated, info, max_nallocated, free_hint, end_ptr } = self;
 
         TOTAL_NBYTES.fetch_sub(layout.size(), Relaxed);
         let n_op = N_OP.fetch_add(1, AcqRel);
 
-        let offset = (ptr as usize).checked_sub(base.as_ptr() as usize).unwrap();
-        let offset = offset / *elem_size;
+        let (bitfield_index, bit_index) = self.compute_offsets(ptr, "free");
 
-        // let offset = self.base.as_ptr() as usize - ptr as usize;
-        let bitfield_index = offset / 64;
-        let bit_index = offset % 64;
+        // let offset = (ptr as usize).checked_sub(base.as_ptr() as usize).unwrap();
+        // let offset = offset / *elem_size;
+
+        // // let offset = self.base.as_ptr() as usize - ptr as usize;
+        // let bitfield_index = offset / 64;
+        // let bit_index = offset % 64;
 
         let bit = 1 << bit_index;
 
@@ -380,9 +406,9 @@ impl Class {
         // fetch_add is faster than fetch_or (xadd vs cmpxchg), and
         // we're sure to be the only thread to set this bit.
         let previous = bitfields[bitfield_index].fetch_add(bit, AcqRel);
-        assert_eq!(previous & bit, 0);
+        assert_eq!(previous & bit, 0); // Double free
 
-        // free_hint.store(bitfield_index, Release);
+        free_hint.store(bitfield_index, Release);
     }
 }
 
@@ -433,6 +459,8 @@ impl Classes {
             let base = current;
             let length = size * nelems;
 
+            // let end_ptr = unsafe { base.byte_add(bitfields_nbytes + length) };
+
             current = unsafe { current.byte_add(length) };
             assert!(current.cast::<u64>().is_aligned()); // TODO: u32 in wasm32
 
@@ -449,6 +477,7 @@ impl Classes {
                 nallocated: AtomicUsize::new(0),
                 max_nallocated: AtomicUsize::new(0),
                 info,
+                end_ptr: current,
                 free_hint: AtomicUsize::new(0),
             }
         });
@@ -476,8 +505,8 @@ mod mmap {
 #[cfg(not(target_family = "wasm"))]
 mod mmap {
     pub fn initialize() -> (*mut u8, usize) {
-        /// 8 GB
-        const LENGTH: usize = 4294967296 * 2;
+        /// 12 GB
+        const LENGTH: usize = 4294967296 * 3;
         // 4 GB
         // const LENGTH: usize = 4294967296;
 
