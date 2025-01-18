@@ -126,6 +126,7 @@ struct Class {
     length: usize,
     nallocated: AtomicUsize,
     max_nallocated: AtomicUsize,
+    max_nallocated_since_last: AtomicUsize,
     info: &'static ClassInfo,
     end_ptr: NonNull<u8>,
     // TODO: Make this thread-local
@@ -254,26 +255,30 @@ impl MinallocImpl {
 
         for class in &self.classes.inner {
             eprintln!(
-                "[STATS-{:?}] class size:{:?} max:{:?} current:{:?}",
-                index, class.elem_size, class.max_nallocated.load(Relaxed), class.nallocated.load(Relaxed),
+                "[STATS-{:?}] class size:{:?} max:{:?} current:{:?} max_since_last:{:?}",
+                index, class.elem_size, class.max_nallocated.load(Relaxed), class.nallocated.load(Relaxed), class.max_nallocated_since_last.load(Acquire),
             );
+            class.max_nallocated_since_last.store(0, Release);
         }
 
         eprintln!("[STATS-{:?}] TOTAL:{:?}", index, TOTAL_NBYTES.load(Relaxed));
+
     }
 }
 
 impl Class {
     fn take_next(&self, layout: &Layout) -> NonNull<u8> {
-        let Self { bitfields, base, length, elem_size, nallocated, max_nallocated, info, free_hint, end_ptr } = self;
+        let Self { bitfields, base, length, elem_size, nallocated, max_nallocated, info, free_hint, end_ptr, max_nallocated_since_last } = self;
 
         TOTAL_NBYTES.fetch_add(layout.size(), Relaxed);
         let n_op = N_OP.fetch_add(1, AcqRel);
 
         let nallocated = nallocated.fetch_add(1, Relaxed) + 1;
-
         if nallocated > max_nallocated.load(Relaxed) {
             max_nallocated.store(nallocated, Relaxed);
+        }
+        if nallocated > max_nallocated_since_last.load(Relaxed) {
+            max_nallocated_since_last.store(nallocated, Relaxed);
         }
 
         if nallocated >= info.nelems {
@@ -377,7 +382,7 @@ impl Class {
     }
 
     fn free(&self, ptr: *mut u8, layout: &Layout) {
-        let Self { elem_size, bitfields, base, length, nallocated, info, max_nallocated, free_hint, end_ptr } = self;
+        let Self { elem_size, bitfields, base, length, nallocated, info, max_nallocated, free_hint, end_ptr, max_nallocated_since_last } = self;
 
         TOTAL_NBYTES.fetch_sub(layout.size(), Relaxed);
         let n_op = N_OP.fetch_add(1, AcqRel);
@@ -476,6 +481,7 @@ impl Classes {
                 elem_size: *size,
                 nallocated: AtomicUsize::new(0),
                 max_nallocated: AtomicUsize::new(0),
+                max_nallocated_since_last: AtomicUsize::new(0),
                 info,
                 end_ptr: current,
                 free_hint: AtomicUsize::new(0),
