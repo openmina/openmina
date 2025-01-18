@@ -480,6 +480,8 @@ where
             }
             Recv(addr, limit) => {
                 if let Some(mut connection) = self.connections.remove(&addr) {
+                    let limit = limit.min(5 * 1024 * 2024);
+
                     // Ensure the buffer has enough space for the requested limit
                     if limit > self.recv_buf.len() {
                         // TODO: upper bound? resize to `limit` or try to allocate some extra space too?
