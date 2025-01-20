@@ -20,7 +20,7 @@ pub struct DatabaseImpl<T: TreeVersion> {
     accounts: Vec<Option<T::Account>>,
     pub hashes_matrix: HashesMatrix,
     id_to_addr: HashMap<AccountId, Address>,
-    token_to_account: Option<HashMap<T::TokenId, AccountId>>,
+    token_owners: Option<HashMap<T::TokenId, AccountId>>,
     depth: u8,
     last_location: Option<Address>,
     naccounts: usize,
@@ -55,7 +55,7 @@ impl DatabaseImpl<V2> {
             // root: self.root.clone(),
             accounts: self.accounts.clone(),
             id_to_addr: self.id_to_addr.clone(),
-            token_to_account: self.token_to_account.clone(),
+            token_owners: self.token_owners.clone(),
             depth: self.depth,
             last_location: self.last_location.clone(),
             naccounts: self.naccounts,
@@ -106,7 +106,7 @@ impl DatabaseImpl<V2> {
         self.naccounts += 1;
 
         if !token_id.is_default() {
-            if let Some(token_to_account) = self.token_to_account.as_mut() {
+            if let Some(token_to_account) = self.token_owners.as_mut() {
                 token_to_account.insert(account_id.derive_token_id(), account_id.clone());
             }
         }
@@ -350,7 +350,7 @@ impl DatabaseImpl<V2> {
             last_location: None,
             naccounts: 0,
             id_to_addr: HashMap::with_capacity(NACCOUNTS),
-            token_to_account,
+            token_owners: token_to_account,
             uuid,
             directory: path,
             hashes_matrix: HashesMatrix::new(depth as usize),
@@ -532,7 +532,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     }
 
     fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
-        self.token_to_account
+        self.token_owners
             .as_ref()
             .and_then(|token_to_account| token_to_account.get(&token_id).cloned())
     }
@@ -695,7 +695,7 @@ impl BaseLedger for DatabaseImpl<V2> {
             let id = account.id();
             self.id_to_addr.remove(&id);
             if !id.token_id.is_default() {
-                if let Some(token_to_account) = self.token_to_account.as_mut() {
+                if let Some(token_to_account) = self.token_owners.as_mut() {
                     token_to_account.remove(&id.derive_token_id());
                 }
             }
@@ -704,7 +704,7 @@ impl BaseLedger for DatabaseImpl<V2> {
         }
 
         if !account.token_id.is_default() {
-            if let Some(token_to_account) = self.token_to_account.as_mut() {
+            if let Some(token_to_account) = self.token_owners.as_mut() {
                 token_to_account.insert(account.id().derive_token_id(), id.clone());
             }
         }
@@ -838,7 +838,7 @@ impl BaseLedger for DatabaseImpl<V2> {
             let id = account.id();
             self.id_to_addr.remove(&id);
             if !id.token_id.is_default() {
-                if let Some(token_to_account) = self.token_to_account.as_mut() {
+                if let Some(token_to_account) = self.token_owners.as_mut() {
                     token_to_account.remove(&id.derive_token_id());
                 }
             }

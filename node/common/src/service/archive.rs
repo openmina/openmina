@@ -27,16 +27,22 @@ impl ArchiveService {
                 match rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
                     Ok(result) => {
                         if result.should_retry() {
-                            node::core::warn!(node::core::log::system_time(); summary = "Archive suddenly closed connection, retrying...");
+                            node::core::warn!(
+                                summary = "Archive suddenly closed connection, retrying..."
+                            );
                             retries -= 1;
                             std::thread::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS));
                         } else {
-                            node::core::warn!(node::core::log::system_time(); summary = "Successfully sent diff to archive");
+                            node::core::warn!(summary = "Successfully sent diff to archive");
                             break;
                         }
                     }
                     Err(e) => {
-                        node::core::warn!(node::core::log::system_time(); summary = "Failed sending diff to archive", error = e.to_string(), retries = retries);
+                        node::core::warn!(
+                            summary = "Failed sending diff to archive",
+                            error = e.to_string(),
+                            retries = retries
+                        );
                         retries -= 1;
                         std::thread::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS));
                     }
@@ -65,7 +71,6 @@ impl node::transition_frontier::archive::archive_service::ArchiveService for Nod
         if let Some(archive) = self.archive.as_mut() {
             if let Err(e) = archive.archive_sender.send(data.clone()) {
                 node::core::warn!(
-                    node::core::log::system_time();
                     summary = "Failed sending diff to archive service",
                     error = e.to_string()
                 );
@@ -131,7 +136,6 @@ mod rpc {
         .binprot_write(&mut v)
         {
             node::core::warn!(
-                node::core::log::system_time();
                 summary = "Failed binprot serializastion",
                 error = e.to_string()
             );
@@ -399,7 +403,10 @@ mod rpc {
                     ParsedMessage::Unknown(msg) => {
                         registry.deregister(connection)?;
                         connection.shutdown(std::net::Shutdown::Both)?;
-                        node::core::warn!(node::core::log::system_time(); summary = "Received unknown message", msg = format!("{:?}", msg));
+                        node::core::warn!(
+                            summary = "Received unknown message",
+                            msg = format!("{:?}", msg)
+                        );
                         return Ok(HandleResult::ConnectionClosed);
                     }
                 }

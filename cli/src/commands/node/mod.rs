@@ -274,7 +274,6 @@ impl Node {
 
         if let Some(address) = self.archive_address {
             node::core::info!(
-                node::core::log::system_time();
                 summary = "Archive mode enabled",
                 address = address.to_string()
             );
