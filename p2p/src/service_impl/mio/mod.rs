@@ -484,6 +484,11 @@ where
                     if limit > self.recv_buf.len() {
                         // TODO: upper bound? resize to `limit` or try to allocate some extra space too?
                         self.recv_buf.resize(limit, 0);
+
+                        openmina_core::warn!(
+                            openmina_core::log::system_time();
+                            summary = format!("Increasing buffer size to {}kb", limit / 1024)
+                        );
                     }
 
                     let mut keep = false;
