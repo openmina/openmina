@@ -9,8 +9,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release --package=cli --bin=openmina && \
     cp -r /openmina/target/release /openmina/release-bin/
 
-RUN ls -la /openmina/release-bin/ #1
-# RUN cargo build --release --features scenario-generators --bin openmina-node-testing
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/openmina/target,id=rust-target \
+    cargo build --release --features scenario-generators --bin openmina-node-testing && \
+    cp -r /openmina/target/release /openmina/testing-release-bin/
 
 # necessary for proof generation when running a block producer.
 RUN git clone --depth 1 https://github.com/openmina/circuit-blobs.git \
@@ -19,8 +21,8 @@ RUN git clone --depth 1 https://github.com/openmina/circuit-blobs.git \
 FROM debian:buster
 RUN apt-get update && apt-get install -y libjemalloc2 libssl1.1 libpq5 curl jq procps && apt-get clean
 
-# COPY --from=build /openmina/target/release/openmina /usr/local/bin/
 COPY --from=build /openmina/release-bin/openmina /usr/local/bin/
+COPY --from=build /openmina/testing-release-bin/openmina-node-testing /usr/local/bin/
 
 RUN mkdir -p /usr/local/lib/openmina/circuit-blobs
 COPY --from=build /openmina/circuit-blobs/ /usr/local/lib/openmina/circuit-blobs/
