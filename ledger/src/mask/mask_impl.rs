@@ -27,7 +27,7 @@ pub enum MaskImpl {
     Attached {
         parent: Mask,
         owning_account: HashMap<AccountIndex, Account>,
-        token_owners: HashMap<TokenId, AccountId>,
+        token_owners: Option<HashMap<TokenId, AccountId>>,
         id_to_addr: HashMap<AccountId, Address>,
         last_location: Option<Address>,
         depth: u8,
@@ -39,7 +39,7 @@ pub enum MaskImpl {
         depth: u8,
         childs: HashMap<Uuid, Mask>,
         owning_account: HashMap<AccountIndex, Account>,
-        token_owners: HashMap<TokenId, AccountId>,
+        token_owners: Option<HashMap<TokenId, AccountId>>,
         id_to_addr: HashMap<AccountId, Address>,
         last_location: Option<Address>,
         hashes: HashesMatrix,
@@ -133,7 +133,10 @@ impl std::fmt::Debug for MaskImpl {
                 .field("uuid", uuid)
                 .field("parent", &parent.get_uuid())
                 .field("owning_account", &owning_account.len())
-                .field("token_owners", &token_owners.len())
+                .field(
+                    "token_owners",
+                    &token_owners.as_ref().map(|to| to.len()).unwrap_or(0),
+                )
                 .field("id_to_addr", &id_to_addr.len())
                 .field("last_location", last_location)
                 .field("depth", depth)
@@ -155,7 +158,10 @@ impl std::fmt::Debug for MaskImpl {
                 .field("depth", depth)
                 .field("childs", &childs.len())
                 .field("owning_account", &owning_account.len())
-                .field("token_owners", &token_owners.len())
+                .field(
+                    "token_owners",
+                    &token_owners.as_ref().map(|to| to.len()).unwrap_or(0),
+                )
                 .field("id_to_addr", &id_to_addr.len())
                 .field("last_location", last_location)
                 .field("uuid", uuid)
@@ -386,7 +392,7 @@ impl MaskImpl {
                 assert_ne!(parent.get_uuid(), self_uuid);
 
                 let (accounts, hashes) = {
-                    token_owners.clear();
+                    token_owners.as_mut().map(|to| to.clear());
                     id_to_addr.clear();
                     (std::mem::take(owning_account), hashes.take())
                 };
@@ -816,8 +822,9 @@ impl MaskImpl {
 
                     let account = owning_account.remove(&account_index).unwrap();
                     token_owners
-                        .remove(&account.id().derive_token_id())
-                        .unwrap();
+                        .as_mut()
+                        .map(|to| to.remove(&account.id().derive_token_id()))
+                        .unwrap_or_default();
 
                     if last_location
                         .as_ref()
@@ -870,7 +877,9 @@ impl MaskImpl {
 
                 owning_account.insert(account_index, *account);
                 id_to_addr.insert(account_id.clone(), addr.clone());
-                token_owners.insert(account_id.derive_token_id(), account_id);
+                token_owners
+                    .as_mut()
+                    .map(|to| to.insert(account_id.derive_token_id(), account_id));
 
                 if last_location
                     .as_ref()
@@ -1123,7 +1132,10 @@ impl BaseLedger for MaskImpl {
             Unattached { token_owners, .. } => (None, token_owners),
         };
 
-        if let Some(account_id) = token_owners.get(&token_id).cloned() {
+        if let Some(account_id) = token_owners
+            .as_ref()
+            .and_then(|to| to.get(&token_id).cloned())
+        {
             return Some(account_id);
         };
 
@@ -1209,7 +1221,9 @@ impl BaseLedger for MaskImpl {
 
                 id_to_addr.insert(account_id.clone(), location.clone());
                 *last_location = Some(location.clone());
-                token_owners.insert(account_id.derive_token_id(), account_id);
+                token_owners
+                    .as_mut()
+                    .map(|to| to.insert(account_id.derive_token_id(), account_id));
                 owning_account.insert(account_index, account);
 
                 self.invalidate_hashes(account_index);
