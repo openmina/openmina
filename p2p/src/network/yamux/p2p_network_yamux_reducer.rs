@@ -216,7 +216,8 @@ impl P2pNetworkYamuxState {
                         if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
                             // must not underflow
                             // TODO: check it and disconnect peer that violates flow rules
-                            stream.window_ours = stream.window_ours.wrapping_sub(data.len() as u32);
+                            stream.window_ours =
+                                stream.window_ours.saturating_sub(data.len() as u32);
                         }
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
