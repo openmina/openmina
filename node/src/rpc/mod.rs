@@ -1,5 +1,5 @@
 mod rpc_state;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 
 use ark_ff::fields::arithmetic::InvalidBigInt;
@@ -461,7 +461,29 @@ pub struct RpcNodeStatus {
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
+    pub resources_status: RpcNodeStatusResources,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusResources {
     pub p2p_malloc_size: usize,
+    pub transition_frontier: RpcNodeStatusResourcesTransitionFrontier,
+    pub snark_pool: RpcNodeStatusResourcesSnarkPool,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusResourcesTransitionFrontier {
+    pub best_chain_size: usize,
+    pub needed_protocol_states_size: usize,
+    pub blacklist_size: usize,
+    pub diff_tx_size: usize,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusResourcesSnarkPool {
+    pub pool_size: usize,
+    pub candidates_size: usize,
+    pub candidates_inconsistency: BTreeSet<(PeerId, SnarkJobId)>,
 }
 
 #[derive(Serialize, Debug, Clone)]

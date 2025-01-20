@@ -15,7 +15,7 @@ use super::SnarkPoolConfig;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkPoolState {
     config: SnarkPoolConfig,
-    pool: DistributedPool<JobState, SnarkJobId>,
+    pub pool: DistributedPool<JobState, SnarkJobId>,
     pub candidates: SnarkPoolCandidatesState,
     pub(super) last_check_timeouts: Timestamp,
 }

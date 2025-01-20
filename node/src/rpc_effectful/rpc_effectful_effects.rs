@@ -14,13 +14,15 @@ use crate::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
         MessagesStats, NodeHeartbeat, RootLedgerSyncProgress, RootStagedLedgerSyncProgress,
         RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
-        RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
-        RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
-        RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
-        RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
-        RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
-        RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-        RpcTransactionInjectResponse, TransactionStatus,
+        RpcNodeStatusResources, RpcNodeStatusResourcesSnarkPool,
+        RpcNodeStatusResourcesTransitionFrontier, RpcNodeStatusTransactionPool,
+        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
+        RpcNodeStatusTransitionFrontierSync, RpcRequestExtraData, RpcScanStateSummary,
+        RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
+        RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryScanStateJob,
+        RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
+        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcTransactionInjectResponse,
+        TransactionStatus,
     },
     snark_pool::SnarkPoolAction,
     transition_frontier::sync::{
@@ -810,11 +812,33 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             transaction_candidates: state.transaction_pool.candidates.transactions_count(),
         },
         current_block_production_attempt,
-        p2p_malloc_size: {
-            let mut set = BTreeSet::new();
-            let fun = move |ptr: *const c_void| !set.insert(ptr.addr());
-            let mut ops = MallocSizeOfOps::new(None, Some(Box::new(fun)));
-            size_of_val(&state.p2p) + state.p2p.size_of(&mut ops)
+        resources_status: RpcNodeStatusResources {
+            p2p_malloc_size: {
+                let mut set = BTreeSet::new();
+                let fun = move |ptr: *const c_void| !set.insert(ptr.addr());
+                let mut ops = MallocSizeOfOps::new(None, Some(Box::new(fun)));
+                size_of_val(&state.p2p) + state.p2p.size_of(&mut ops)
+            },
+            transition_frontier: RpcNodeStatusResourcesTransitionFrontier {
+                best_chain_size: state.transition_frontier.best_chain.len(),
+                needed_protocol_states_size: state.transition_frontier.needed_protocol_states.len(),
+                blacklist_size: state.transition_frontier.blacklist.len(),
+                diff_tx_size: state
+                    .transition_frontier
+                    .chain_diff
+                    .as_ref()
+                    .map(|d| d.new_commands.len() + d.removed_commands.len())
+                    .unwrap_or_default(),
+            },
+            snark_pool: {
+                let (candidates_size, candidates_inconsistency) =
+                    state.snark_pool.candidates.check();
+                RpcNodeStatusResourcesSnarkPool {
+                    pool_size: state.snark_pool.pool.len(),
+                    candidates_size,
+                    candidates_inconsistency,
+                }
+            },
         },
     };
     status

@@ -51,6 +51,24 @@ impl SnarkPoolCandidatesState {
         Self::default()
     }
 
+    pub fn check(&self) -> (usize, BTreeSet<(PeerId, SnarkJobId)>) {
+        let len = self.by_peer.iter().map(|(_, v)| v.len()).sum::<usize>();
+        let lhs = self
+            .by_job_id
+            .iter()
+            .map(|(job_id, v)| v.iter().map(|peer_id| (*peer_id, job_id.clone())))
+            .flatten()
+            .collect::<BTreeSet<_>>();
+        let rhs = self
+            .by_peer
+            .iter()
+            .map(|(peer_id, v)| v.keys().map(|job_id| (*peer_id, job_id.clone())))
+            .flatten()
+            .collect::<BTreeSet<_>>();
+        let inconsistency = lhs.symmetric_difference(&rhs).cloned().collect();
+        (len, inconsistency)
+    }
+
     pub fn peer_work_count(&self, peer_id: &PeerId) -> usize {
         self.by_peer.get(peer_id).map(|v| v.len()).unwrap_or(0)
     }
