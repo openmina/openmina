@@ -8,15 +8,15 @@ use super::{
     ArchiveConnector, ArchiveUrl, ChainStatus,
 };
 
-macro_rules! define_fetch_all {
-    ($fn_name:ident, $struct_name:ty, $sql_file:expr) => {
-        pub async fn $fn_name(&self) -> Result<Vec<$struct_name>, sqlx::Error> {
-            sqlx::query_file_as!($struct_name, $sql_file)
-                .fetch_all(&self.inner.pool)
-                .await
-        }
-    };
-}
+// macro_rules! define_fetch_all {
+//     ($fn_name:ident, $struct_name:ty, $sql_file:expr) => {
+//         pub async fn $fn_name(&self) -> Result<Vec<$struct_name>, sqlx::Error> {
+//             sqlx::query_file_as!($struct_name, $sql_file)
+//                 .fetch_all(&self.inner.pool)
+//                 .await
+//         }
+//     };
+// }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RawBlock {
@@ -450,6 +450,7 @@ pub struct RawZkappVerificationKeys {
     hash_id: i32,
 }
 
+
 pub struct ArchiveConnectorForTest {
     inner: ArchiveConnector,
 }
@@ -460,222 +461,4 @@ impl ArchiveConnectorForTest {
             inner: ArchiveConnector::connect(url).await,
         }
     }
-
-    define_fetch_all!(all_blocks, RawBlock, "src/archive/sql/test/all_blocks.sql");
-    define_fetch_all!(
-        all_account_identifiers,
-        RawAccountIdentifier,
-        "src/archive/sql/test/all_account_identifiers.sql"
-    );
-    define_fetch_all!(
-        all_accounts_accessed,
-        RawAccountsAccessed,
-        "src/archive/sql/test/all_accounts_accessed.sql"
-    );
-    define_fetch_all!(
-        all_accounts_created,
-        RawAccountsCreated,
-        "src/archive/sql/test/all_accounts_created.sql"
-    );
-    define_fetch_all!(
-        all_blocks_internal_commands,
-        RawBlocksInternalCommands,
-        "src/archive/sql/test/all_blocks_internal_commands.sql"
-    );
-    define_fetch_all!(
-        all_blocks_user_commands,
-        RawBlocksUserCommands,
-        "src/archive/sql/test/all_blocks_user_commands.sql"
-    );
-    define_fetch_all!(
-        all_blocks_zkapp_commands,
-        RawBlocksZkappCommands,
-        "src/archive/sql/test/all_blocks_zkapp_commands.sql"
-    );
-    define_fetch_all!(
-        all_epoch_data,
-        RawEpochData,
-        "src/archive/sql/test/all_epoch_data.sql"
-    );
-    define_fetch_all!(
-        all_internal_commands,
-        RawInternalCommands,
-        "src/archive/sql/test/all_internal_commands.sql"
-    );
-    define_fetch_all!(
-        all_protocol_versions,
-        RawProtocolVersion,
-        "src/archive/sql/test/all_protocol_versions.sql"
-    );
-    define_fetch_all!(
-        all_public_keys,
-        RawPublicKeys,
-        "src/archive/sql/test/all_public_keys.sql"
-    );
-    define_fetch_all!(
-        all_snarked_ledger_hashes,
-        RawSnarkedLedgerHashes,
-        "src/archive/sql/test/all_snarked_ledger_hashes.sql"
-    );
-    define_fetch_all!(
-        all_timing_info,
-        RawTimingInfo,
-        "src/archive/sql/test/all_timing_info.sql"
-    );
-    define_fetch_all!(
-        all_token_symbols,
-        RawTokenSymbols,
-        "src/archive/sql/test/all_token_symbols.sql"
-    );
-    define_fetch_all!(all_tokens, RawTokens, "src/archive/sql/test/all_tokens.sql");
-    define_fetch_all!(
-        all_user_commands,
-        RawUserCommands,
-        "src/archive/sql/test/all_user_commands.sql"
-    );
-    define_fetch_all!(
-        all_voting_for,
-        RawVotingFor,
-        "src/archive/sql/test/all_voting_for.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_account_preconditions,
-        RawZkappAccountPrecondition,
-        "src/archive/sql/test/all_zkapp_account_preconditions.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_account_updates,
-        RawZkappAccountUpdate,
-        "src/archive/sql/test/all_zkapp_account_updates.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_account_update_bodies,
-        RawZkappAccountUpdateBody,
-        "src/archive/sql/test/all_zkapp_account_update_bodies.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_account_update_failures,
-        RawZkappAccountUpdateFailure,
-        "src/archive/sql/test/all_zkapp_account_update_failures.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_accounts,
-        RawZkappAccount,
-        "src/archive/sql/test/all_zkapp_accounts.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_action_states,
-        RawZkappActionState,
-        "src/archive/sql/test/all_zkapp_action_states.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_amount_bounds,
-        RawZkappAmountBounds,
-        "src/archive/sql/test/all_zkapp_amount_bounds.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_balance_bounds,
-        RawZkappBalanceBounds,
-        "src/archive/sql/test/all_zkapp_balance_bounds.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_commands,
-        RawZkappCommands,
-        "src/archive/sql/test/all_zkapp_commands.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_epoch_data,
-        RawZkappEpochData,
-        "src/archive/sql/test/all_zkapp_epoch_data.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_epoch_ledger,
-        RawZkappEpochLedger,
-        "src/archive/sql/test/all_zkapp_epoch_ledger.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_events,
-        RawZkappEvents,
-        "src/archive/sql/test/all_zkapp_events.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_fee_payer_body,
-        RawZkappFeePayerBody,
-        "src/archive/sql/test/all_zkapp_fee_payer_body.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_field,
-        RawZkappField,
-        "src/archive/sql/test/all_zkapp_field.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_field_array,
-        RawZkappFieldArray,
-        "src/archive/sql/test/all_zkapp_field_array.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_global_slot_bounds,
-        RawZkappGlobalSlotBounds,
-        "src/archive/sql/test/all_zkapp_global_slot_bounds.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_length_bounds,
-        RawZkappLengthBounds,
-        "src/archive/sql/test/all_zkapp_length_bounds.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_network_precondition,
-        RawZkappNetworkPrecondition,
-        "src/archive/sql/test/all_zkapp_network_precondition.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_nonce_bounds,
-        RawZkappNonceBounds,
-        "src/archive/sql/test/all_zkapp_nonce_bounds.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_permissions,
-        RawZkappPermissions,
-        "src/archive/sql/test/all_zkapp_permissions.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_states,
-        RawZkappStates,
-        "src/archive/sql/test/all_zkapp_states.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_states_nullable,
-        RawZkappStatesNullable,
-        "src/archive/sql/test/all_zkapp_states_nullable.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_timing_info,
-        RawZkappTimingInfo,
-        "src/archive/sql/test/all_zkapp_timing_info.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_token_id_bounds,
-        RawZkappTokenIdBounds,
-        "src/archive/sql/test/all_zkapp_token_id_bounds.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_updates,
-        RawZkappUpdates,
-        "src/archive/sql/test/all_zkapp_updates.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_uris,
-        RawZkappUris,
-        "src/archive/sql/test/all_zkapp_uris.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_verification_key_hashes,
-        RawZkappVerificationKeyHashes,
-        "src/archive/sql/test/all_zkapp_verification_key_hashes.sql"
-    );
-    define_fetch_all!(
-        all_zkapp_verification_keys,
-        RawZkappVerificationKeys,
-        "src/archive/sql/test/all_zkapp_verification_keys.sql"
-    );
 }

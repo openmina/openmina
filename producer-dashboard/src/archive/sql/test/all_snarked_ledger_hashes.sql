@@ -1,1 +1,0 @@
-SELECT id, value FROM snarked_ledger_hashes;
