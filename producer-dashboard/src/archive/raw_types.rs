@@ -450,7 +450,7 @@ pub struct RawZkappVerificationKeys {
     hash_id: i32,
 }
 
-
+#[allow(dead_code)]
 pub struct ArchiveConnectorForTest {
     inner: ArchiveConnector,
 }

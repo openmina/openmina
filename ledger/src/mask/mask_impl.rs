@@ -392,7 +392,9 @@ impl MaskImpl {
                 assert_ne!(parent.get_uuid(), self_uuid);
 
                 let (accounts, hashes) = {
-                    token_owners.as_mut().map(|to| to.clear());
+                    if let Some(to) = token_owners.as_mut() {
+                        to.clear()
+                    }
                     id_to_addr.clear();
                     (std::mem::take(owning_account), hashes.take())
                 };

@@ -1,3 +1,5 @@
+# Note: Disabling this workflow for now, have to figure out how to run the complicated setup on github actions
+
 name: Archive Comparison
 
 # TODO: Add proper triggers

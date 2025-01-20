@@ -652,7 +652,7 @@ impl LedgerCtx {
         skip_verification: Option<SkipVerification>,
     ) -> Result<BlockApplyResult, String> {
         openmina_core::info!(openmina_core::log::system_time();
-            kind = "LedgerService::zy",
+            kind = "LedgerService::block_apply",
             summary = format!("{}, {} <- {}", block.height(), block.hash(), block.pred_hash()),
             pred_staged_ledger_hash = pred_block.merkle_root_hash().to_string(),
             staged_ledger_hash = block.merkle_root_hash().to_string(),
