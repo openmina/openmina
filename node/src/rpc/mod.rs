@@ -467,23 +467,8 @@ pub struct RpcNodeStatus {
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatusResources {
     pub p2p_malloc_size: usize,
-    pub transition_frontier: RpcNodeStatusResourcesTransitionFrontier,
-    pub snark_pool: RpcNodeStatusResourcesSnarkPool,
-}
-
-#[derive(Serialize, Debug, Clone)]
-pub struct RpcNodeStatusResourcesTransitionFrontier {
-    pub best_chain_size: usize,
-    pub needed_protocol_states_size: usize,
-    pub blacklist_size: usize,
-    pub diff_tx_size: usize,
-}
-
-#[derive(Serialize, Debug, Clone)]
-pub struct RpcNodeStatusResourcesSnarkPool {
-    pub pool_size: usize,
-    pub candidates_size: usize,
-    pub candidates_inconsistency: BTreeSet<(PeerId, SnarkJobId)>,
+    pub transition_frontier: serde_json::Value,
+    pub snark_pool: serde_json::Value,
 }
 
 #[derive(Serialize, Debug, Clone)]

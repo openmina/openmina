@@ -15,7 +15,7 @@ use super::SnarkPoolConfig;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkPoolState {
     config: SnarkPoolConfig,
-    pub pool: DistributedPool<JobState, SnarkJobId>,
+    pool: DistributedPool<JobState, SnarkJobId>,
     pub candidates: SnarkPoolCandidatesState,
     pub(super) last_check_timeouts: Timestamp,
 }
@@ -202,6 +202,16 @@ impl SnarkPoolState {
     pub fn next_snarks_to_send(&self, index_and_limit: (u64, u8)) -> (Vec<SnarkInfo>, u64, u64) {
         self.pool
             .next_messages_to_send(index_and_limit, |job| job.snark_msg())
+    }
+
+    pub fn resources_usage(&self) -> serde_json::Value {
+        let (size, inconsistency) = self.candidates.check();
+
+        serde_json::json!({
+            "pool_size": self.pool.len(),
+            "candidates_size": size,
+            "candidates_inconsistency": inconsistency,
+        })
     }
 }
 

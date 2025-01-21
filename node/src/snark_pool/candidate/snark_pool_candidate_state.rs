@@ -51,7 +51,7 @@ impl SnarkPoolCandidatesState {
         Self::default()
     }
 
-    pub fn check(&self) -> (usize, BTreeSet<(PeerId, SnarkJobId)>) {
+    pub fn check(&self) -> (usize, Vec<(PeerId, SnarkJobId)>) {
         let len = self.by_peer.iter().map(|(_, v)| v.len()).sum::<usize>();
         let lhs = self
             .by_job_id
