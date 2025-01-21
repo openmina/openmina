@@ -4,24 +4,35 @@ use openmina_core::{bug_condition, fuzz_maybe, fuzzed_maybe, Substate, SubstateA
 
 use crate::P2pLimits;
 
-use self::p2p_network_yamux_state::{
-    YamuxFlags, YamuxFrame, YamuxFrameInner, YamuxFrameParseError, YamuxSessionError,
-    YamuxStreamState,
-};
+use self::p2p_network_yamux_state::{YamuxFlags, YamuxFrame, YamuxFrameInner, YamuxStreamState};
 
 use super::{super::*, *};
 
 impl P2pNetworkYamuxState {
-    pub fn set_err(&mut self, err: YamuxFrameParseError) {
-        self.terminated = Some(Err(err));
-    }
-
-    pub fn set_res(&mut self, res: Result<(), YamuxSessionError>) {
-        self.terminated = Some(Ok(res));
-    }
-
-    /// Substate is accessed
+    /// Handles the main reducer logic for Yamux protocol actions. It processes incoming and outgoing
+    /// data, selects appropriate behavior based on frame types, and manages the state of streams
+    /// within a Yamux session.
+    ///
+    /// # High-Level Overview
+    ///
+    /// - When data arrives, it is appended to an internal buffer. The buffer is then parsed for
+    ///   valid Yamux frames (using protocol-specific header fields and logic). Incomplete data
+    ///   remains in the buffer for future parsing.
+    /// - On successful parsing, frames are enqueued for further handling (e.g., dispatching
+    ///   actions to notify higher-level protocols or responding to pings).
+    /// - If protocol inconsistencies or invalid headers are encountered, it marks an error or
+    ///   terminates gracefully, preventing further processing of unexpected data.
+    /// - Outgoing data is prepared as frames that respect the window constraints and established
+    ///   flags (e.g., SYN, ACK, FIN), and they are dispatched for transmission.
+    /// - Once frames are processed, the function checks if the buffer has grown beyond a certain
+    ///   threshold relative to its initial capacity. If so, and if the remaining data is small,
+    ///   it resets the buffer capacity to a default size to avoid excessive memory usage.
+    /// - The function also manages streams and their states, ensuring that proper handshake
+    ///   flags are set (SYN, ACK) when a new stream is opened or accepted, enforcing limits on
+    ///   the number of streams, and notifying higher-level components about events like
+    ///   incoming data or connection errors.
     pub fn reducer<State, Action>(
+        // Substate is accessed
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
         action: redux::ActionWithMeta<P2pNetworkYamuxAction>,
     ) -> Result<(), String>
@@ -47,107 +58,10 @@ impl P2pNetworkYamuxState {
 
         match action {
             P2pNetworkYamuxAction::IncomingData { data, addr } => {
-                // TODO: this may grow over the capacity, if that happens make sure to eventually
-                // truncate it to a reasonable size.
-                yamux_state.buffer.extend_from_slice(&data);
-                let mut offset = 0;
-                loop {
-                    let buf = &yamux_state.buffer[offset..];
-                    if buf.len() >= 12 {
-                        let _version = match buf[0] {
-                            0 => 0,
-                            unknown => {
-                                yamux_state.set_err(YamuxFrameParseError::Version(unknown));
-                                break;
-                            }
-                        };
-                        let flags = u16::from_be_bytes(buf[2..4].try_into().expect("cannot fail"));
-                        let Some(flags) = YamuxFlags::from_bits(flags) else {
-                            yamux_state.set_err(YamuxFrameParseError::Flags(flags));
-                            break;
-                        };
-                        let stream_id =
-                            u32::from_be_bytes(buf[4..8].try_into().expect("cannot fail"));
-                        let b = buf[8..12].try_into().expect("cannot fail");
+                yamux_state.extend_buffer(&data);
+                yamux_state.parse_frames();
 
-                        match buf[1] {
-                            0 => {
-                                let len = u32::from_be_bytes(b) as usize;
-                                if len > yamux_state.message_size_limit {
-                                    yamux_state.set_res(Err(YamuxSessionError::Internal));
-                                    break;
-                                }
-                                if buf.len() >= 12 + len {
-                                    let frame = YamuxFrame {
-                                        flags,
-                                        stream_id,
-                                        inner: YamuxFrameInner::Data(
-                                            buf[12..(12 + len)].to_vec().into(),
-                                        ),
-                                    };
-                                    yamux_state.incoming.push_back(frame);
-                                    offset += 12 + len;
-                                    continue;
-                                }
-                            }
-                            1 => {
-                                let difference = u32::from_be_bytes(b);
-                                let frame = YamuxFrame {
-                                    flags,
-                                    stream_id,
-                                    inner: YamuxFrameInner::WindowUpdate { difference },
-                                };
-                                yamux_state.incoming.push_back(frame);
-                                offset += 12;
-                                continue;
-                            }
-                            2 => {
-                                let opaque = u32::from_be_bytes(b);
-                                let frame = YamuxFrame {
-                                    flags,
-                                    stream_id,
-                                    inner: YamuxFrameInner::Ping { opaque },
-                                };
-                                yamux_state.incoming.push_back(frame);
-                                offset += 12;
-                                continue;
-                            }
-                            3 => {
-                                let code = u32::from_be_bytes(b);
-                                let result = match code {
-                                    0 => Ok(()),
-                                    1 => Err(YamuxSessionError::Protocol),
-                                    2 => Err(YamuxSessionError::Internal),
-                                    unknown => {
-                                        yamux_state
-                                            .set_err(YamuxFrameParseError::ErrorCode(unknown));
-                                        break;
-                                    }
-                                };
-                                let frame = YamuxFrame {
-                                    flags,
-                                    stream_id,
-                                    inner: YamuxFrameInner::GoAway(result),
-                                };
-                                yamux_state.incoming.push_back(frame);
-                                offset += 12;
-                                continue;
-                            }
-                            unknown => {
-                                yamux_state.set_err(YamuxFrameParseError::Type(unknown));
-                                break;
-                            }
-                        }
-                    }
-
-                    break;
-                }
-
-                let new_len = yamux_state.buffer.len() - offset;
-                yamux_state.buffer.copy_within(offset.., 0);
-                yamux_state.buffer.truncate(new_len);
-
-                let frame_count = yamux_state.incoming.len();
+                let frame_count = yamux_state.incoming_frame_count();
                 let dispatcher = state_context.into_dispatcher();
 
                 for _ in 0..frame_count {
