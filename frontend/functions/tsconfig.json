@@ -1,16 +1,27 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "target": "ES2019",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "noImplicitReturns": true,
     "noUnusedLocals": true,
     "outDir": "lib",
     "sourceMap": true,
     "strict": true,
-    "target": "es2017",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src/**/*"
+  ],
+  "exclude": [
+    "build.js",
+    "jest.config.js"
+  ],
+  "types": [
+    "node",
+    "jest"
   ]
 }
