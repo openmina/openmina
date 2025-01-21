@@ -1,6 +1,13 @@
 #![no_std]
 
-use core::{alloc::{GlobalAlloc, Layout}, ptr::NonNull, sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, AtomicUsize, Ordering::{AcqRel, Acquire, Relaxed, Release}}};
+use core::{
+    alloc::{GlobalAlloc, Layout},
+    ptr::NonNull,
+    sync::atomic::{
+        AtomicBool, AtomicPtr, AtomicU64, AtomicUsize,
+        Ordering::{AcqRel, Acquire, Relaxed, Release},
+    },
+};
 
 use libc_print::{libc_dbg as dbg, libc_eprintln as eprintln};
 
@@ -14,109 +21,75 @@ static TOTAL_NBYTES: AtomicUsize = AtomicUsize::new(0);
 
 const N_CLASSES: usize = 32;
 
+#[rustfmt::skip]
 const CLASSES: [ClassInfo; N_CLASSES] = [
-    ClassInfo { size: 16, nelems: 20_000 },
-    ClassInfo { size: 24, nelems: 30_000 },
-    ClassInfo { size: 32, nelems: 2_000_000 },
-    ClassInfo { size: 48, nelems: 50_000 },
-    ClassInfo { size: 64, nelems: 1_000_000 },
-    ClassInfo { size: 80, nelems: 80_000 },
-    ClassInfo { size: 96, nelems: 20_000 },
-    ClassInfo { size: 112, nelems: 20_000 },
-    ClassInfo { size: 128, nelems: 20_000 },
-    ClassInfo { size: 160, nelems: 300_000 },
-    ClassInfo { size: 192, nelems: 20_000 },
-    ClassInfo { size: 224, nelems: 60_000 },
-    ClassInfo { size: 256, nelems: 200_000 },
-    ClassInfo { size: 320, nelems: 50_000 },
-    ClassInfo { size: 384, nelems: 100_000 },
-    ClassInfo { size: 448, nelems: 20_000 },
-    ClassInfo { size: 512, nelems: 500_000 },
-    ClassInfo { size: 1024, nelems: 50_000 },
-    ClassInfo { size: 1280, nelems: 10_000 },
-    ClassInfo { size: 1536, nelems: 30_000 },
-    ClassInfo { size: 1792, nelems: 10_000 },
-    ClassInfo { size: 2048, nelems: 50_000 },
-    ClassInfo { size: 3072, nelems: 50_000 },
-    ClassInfo { size: 4096, nelems: 50_000 },
-    ClassInfo { size: 8192, nelems: 50_000 },
-    ClassInfo { size: 16384, nelems: 30_000 },
-    ClassInfo { size: 65536, nelems: 20_000 },
-    ClassInfo { size: 0x100000, nelems: 200 },
-    ClassInfo { size: 0x1000000, nelems: 200 },
+    ClassInfo { size: 16, nelems: 20_00 },
+    ClassInfo { size: 24, nelems: 30_00 },
+    ClassInfo { size: 32, nelems: 2_000_00 },
+    ClassInfo { size: 48, nelems: 50_00 },
+    ClassInfo { size: 64, nelems: 1_000_00 },
+    ClassInfo { size: 80, nelems: 80_00 },
+    ClassInfo { size: 96, nelems: 20_00 },
+    ClassInfo { size: 112, nelems: 20_00 },
+    ClassInfo { size: 128, nelems: 20_00 },
+    ClassInfo { size: 160, nelems: 300_00 },
+    ClassInfo { size: 192, nelems: 20_00 },
+    ClassInfo { size: 224, nelems: 60_00 },
+    ClassInfo { size: 256, nelems: 200_00 },
+    ClassInfo { size: 320, nelems: 50_00 },
+    ClassInfo { size: 384, nelems: 100_00 },
+    ClassInfo { size: 448, nelems: 20_00 },
+    ClassInfo { size: 512, nelems: 500_00 },
+    ClassInfo { size: 1024, nelems: 50_00 },
+    ClassInfo { size: 1280, nelems: 10_00 },
+    ClassInfo { size: 1536, nelems: 30_00 },
+    ClassInfo { size: 1792, nelems: 10_00 },
+    ClassInfo { size: 2048, nelems: 50_00 },
+    ClassInfo { size: 3072, nelems: 50_00 },
+    ClassInfo { size: 4096, nelems: 50_00 },
+    ClassInfo { size: 8192, nelems: 50_00 },
+    ClassInfo { size: 16384, nelems: 30_00 },
+    ClassInfo { size: 65536, nelems: 20_00 },
+    ClassInfo { size: 0x100000, nelems: 20 },
+    ClassInfo { size: 0x1000000, nelems: 20 },
     ClassInfo { size: 0x2000000, nelems: 10 },
     ClassInfo { size: 0x3000000, nelems: 10 },
     ClassInfo { size: 0x10000000, nelems: 5 },
 ];
 
-// const CLASSES: [ClassInfo; N_CLASSES] = [
-//     ClassInfo { size: 16, nelems: 7000 },
-//     ClassInfo { size: 24, nelems: 12_000 },
-//     ClassInfo { size: 32, nelems: 1_300_000 },
-//     ClassInfo { size: 48, nelems: 29_000 },
-//     ClassInfo { size: 64, nelems: 610_000 },
-//     ClassInfo { size: 80, nelems: 75_000 },
-//     ClassInfo { size: 96, nelems: 13_500 },
-//     ClassInfo { size: 112, nelems: 150 },
-//     ClassInfo { size: 128, nelems: 850 },
-//     ClassInfo { size: 160, nelems: 8_000 },
-//     ClassInfo { size: 192, nelems: 5_000 },
-//     ClassInfo { size: 224, nelems: 12_500 },
-//     ClassInfo { size: 256, nelems: 2500 },
-//     ClassInfo { size: 320, nelems: 38_000 },
-//     ClassInfo { size: 384, nelems: 450 },
-//     ClassInfo { size: 448, nelems: 11_000 },
-//     ClassInfo { size: 512, nelems: 220_000 },
-//     ClassInfo { size: 1024, nelems: 31_000 },
-//     ClassInfo { size: 1280, nelems: 6_000 },
-//     ClassInfo { size: 1536, nelems: 18_000 },
-//     ClassInfo { size: 1792, nelems: 5_600 },
-//     ClassInfo { size: 2048, nelems: 26_000 },
-//     ClassInfo { size: 3072, nelems: 37_500 },
-//     ClassInfo { size: 4096, nelems: 12_500 },
-//     ClassInfo { size: 8192, nelems: 650 },
-//     ClassInfo { size: 16384, nelems: 16_000 },
-//     ClassInfo { size: 65536, nelems: 4_000 },
-//     ClassInfo { size: 0x100000, nelems: 152 },
-//     ClassInfo { size: 0x1000000, nelems: 30 },
-//     ClassInfo { size: 0x2000000, nelems: 6 },
-//     ClassInfo { size: 0x3000000, nelems: 5 },
-//     ClassInfo { size: 0x10000000, nelems: 2 },
-// ];
-
-// [STATS-588] class size:16 max:6677
-// [STATS-588] class size:24 max:10886
-// [STATS-588] class size:32 max:1259172
-// [STATS-588] class size:48 max:27647
-// [STATS-588] class size:64 max:592569
-// [STATS-588] class size:80 max:69234
-// [STATS-588] class size:96 max:12851
-// [STATS-588] class size:112 max:92
-// [STATS-588] class size:128 max:645
-// [STATS-588] class size:160 max:5385
-// [STATS-588] class size:192 max:3733
-// [STATS-588] class size:224 max:11492
-// [STATS-588] class size:256 max:2309
-// [STATS-588] class size:320 max:36761
-// [STATS-588] class size:384 max:355
-// [STATS-588] class size:448 max:10379
-// [STATS-588] class size:512 max:205067
-// [STATS-588] class size:1024 max:29414
-// [STATS-588] class size:1280 max:5393
-// [STATS-588] class size:1536 max:17034
-// [STATS-588] class size:1792 max:5214
-// [STATS-588] class size:2048 max:24494
-// [STATS-588] class size:3072 max:36940
-// [STATS-588] class size:4096 max:12060
-// [STATS-588] class size:8192 max:531
-// [STATS-588] class size:16384 max:15017
-// [STATS-588] class size:65536 max:2407
-// [STATS-588] class size:1048576 max:147
-// [STATS-588] class size:16777216 max:22
-// [STATS-588] class size:33554432 max:4
-// [STATS-588] class size:50331648 max:3
-// [STATS-588] class size:268435456 max:1
-// [STATS-588] TOTAL:742610483
+// [STATS-780] class size:16 max:8701 current:8522 max_since_last:8555
+// [STATS-780] class size:24 max:12950 current:12418 max_since_last:12474
+// [STATS-780] class size:32 max:1418131 current:1399429 max_since_last:1416208
+// [STATS-780] class size:48 max:31395 current:23872 max_since_last:24487
+// [STATS-780] class size:64 max:592771 current:127434 max_since_last:127442
+// [STATS-780] class size:80 max:73541 current:57574 max_since_last:57851
+// [STATS-780] class size:96 max:13138 current:3352 max_since_last:3370
+// [STATS-780] class size:112 max:86 current:15 max_since_last:42
+// [STATS-780] class size:128 max:940 current:670 max_since_last:704
+// [STATS-780] class size:160 max:5807 current:5709 max_since_last:5740
+// [STATS-780] class size:192 max:4056 current:587 max_since_last:620
+// [STATS-780] class size:224 max:11929 current:11915 max_since_last:11922
+// [STATS-780] class size:256 max:2429 current:154 max_since_last:158
+// [STATS-780] class size:320 max:39992 current:39685 max_since_last:39961
+// [STATS-780] class size:384 max:455 current:378 max_since_last:384
+// [STATS-780] class size:448 max:10827 current:10804 max_since_last:10827
+// [STATS-780] class size:512 max:229507 current:218130 max_since_last:218136
+// [STATS-780] class size:1024 max:31831 current:30060 max_since_last:30069
+// [STATS-780] class size:1280 max:5877 current:5852 max_since_last:5856
+// [STATS-780] class size:1536 max:17593 current:17564 max_since_last:17591
+// [STATS-780] class size:1792 max:5512 current:2570 max_since_last:2590
+// [STATS-780] class size:2048 max:27458 current:22688 max_since_last:22898
+// [STATS-780] class size:3072 max:43727 current:34855 max_since_last:34863
+// [STATS-780] class size:4096 max:12111 current:11755 max_since_last:11757
+// [STATS-780] class size:8192 max:742 current:444 max_since_last:450
+// [STATS-780] class size:16384 max:16000 current:15444 max_since_last:15454
+// [STATS-780] class size:65536 max:3230 current:3126 max_since_last:3220
+// [STATS-780] class size:1048576 max:166 current:61 max_since_last:70
+// [STATS-780] class size:16777216 max:176 current:10 max_since_last:13
+// [STATS-780] class size:33554432 max:5 current:5 max_since_last:0
+// [STATS-780] class size:50331648 max:3 current:0 max_since_last:0
+// [STATS-780] class size:268435456 max:1 current:0 max_since_last:0
+// [STATS-780] TOTAL:835846079
 
 struct Class {
     elem_size: usize,
@@ -135,12 +108,110 @@ struct Class {
 
 struct Classes {
     inner: [Class; N_CLASSES],
+    /// end of `Classes` arena
+    end_ptr: NonNull<u8>,
+}
+
+const HEADER_SIZE: usize = core::mem::size_of::<Header>();
+
+struct Header {
+    /// MSB to LSB:
+    /// 1 bit: is_free
+    /// 5 bits: class index
+    /// 1 bit: is_offset
+    /// 9 bits: unused,
+    /// 48 bits: next ptr to free Header
+    header: AtomicU64,
+}
+
+impl Header {
+    /// Returns (is_free, class_index, next free ptr)
+    pub fn read(&self) -> (bool, usize, Option<NonNull<Header>>) {
+        let this = self.header.load(Acquire);
+        let is_free = (this >> 63) != 0;
+        let class_index = (this >> 58) as usize & 0b11111;
+        // let class_index = (this >> 58) as usize & 0x11111;
+        // eprintln!("header: {:064b} class_index:{:?} (this >> 58):{:?}", this, class_index, this >> 58);
+        let _is_offset = (this >> 57) & 1 != 0;
+        let next_ptr = {
+            let [_, _, a, b, c, d, e, f] = this.to_be_bytes();
+            // TODO: Handle 32 bits pointers
+            let ptr = usize::from_be_bytes([0, 0, a, b, c, d, e, f]);
+            NonNull::new(ptr as *mut Header)
+        };
+        (is_free, class_index, next_ptr)
+    }
+
+    /// Returns `true` if it was acquired
+    fn acquire(&self) -> bool {
+        let previous = self.header.fetch_and(!(1 << 63), AcqRel);
+        let was_free = (previous >> 63) != 0;
+        // eprintln!("acquire was_free:{:?}", was_free);
+        was_free
+    }
+
+    fn initialize(&mut self, class_index: usize) {
+        assert!(class_index & 0b11111 == class_index);
+
+        let mut header = 0u64;
+        header |= 0 << 63; // is_free
+        header |= (class_index as u64) << 58;
+        self.header.store(header, Release);
+    }
+
+    fn initialize_offset(&self, offset: u64) {
+        let [unused1, unused2, ..] = (offset as u64).to_be_bytes();
+        // 2 most significant bytes are not set
+        assert_eq!([unused1, unused2], [0, 0]);
+
+        let mut header = 0u64;
+        header |= 1 << 57;
+        header |= offset;
+        self.header.store(header, Release);
+    }
+
+    fn get_offset(&self) -> Option<usize> {
+        let this = self.header.load(Acquire);
+        let is_offset = (this >> 57) & 1 != 0;
+
+        is_offset.then(|| {
+            let [_, _, a, b, c, d, e, f] = this.to_be_bytes();
+            usize::from_be_bytes([0, 0, a, b, c, d, e, f])
+        })
+    }
+
+    fn make_free(&self) {
+        let previous = self.header.fetch_or(1 << 63, Release);
+        let was_free = (previous >> 63) != 0;
+        assert!(!was_free) // Double free
+    }
+
+    fn set_next_free(&self, next: *mut Header) {
+        // TODO: 32 bits pointers
+        assert_eq!(core::mem::size_of::<Header>(), 8);
+
+        let [unused1, unused2, ..] = (next as u64).to_be_bytes();
+        // 2 most significant bytes are not set
+        assert_eq!([unused1, unused2], [0, 0]);
+
+        let previous = self.header.load(Acquire);
+        self.header
+            .store((previous & (0b1111111 << 57)) | (next as u64), Release);
+    }
+}
+
+struct FreeList {
+    elem_size: usize,
+    next_free: AtomicPtr<Header>,
+    nitems: AtomicUsize,
 }
 
 struct MinallocImpl {
     base: NonNull<u8>,
     base_len: usize,
     classes: Classes,
+    current: AtomicPtr<u8>,
+    lists: [FreeList; N_CLASSES],
 }
 
 static mut MINALLOC_STORAGE: Option<MinallocImpl> = None;
@@ -150,11 +221,17 @@ pub struct Minalloc;
 
 unsafe impl GlobalAlloc for Minalloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        self.get().alloc(layout)
+        let n_op = N_OP.load(Relaxed);
+        // eprintln!("  alloc[{:?}] size:{:?} [...]", n_op, layout.size());
+        let res = self.get().alloc(&layout);
+        // eprintln!("  alloc[{:?}] size:{:?} ptr:{:?}", n_op, layout.size(), res);
+        res
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        self.get().dealloc(ptr, layout)
+        let n_op = N_OP.load(Relaxed);
+        // eprintln!("dealloc[{:?}] size:{:?} ptr:{:?}", n_op, layout.size(), ptr);
+        self.get().dealloc(ptr, &layout);
     }
 }
 
@@ -184,20 +261,36 @@ impl MinallocImpl {
         let (base, base_len) = mmap::initialize();
         let base = NonNull::new(base).expect("Failed to initialize allocator");
         let classes = Classes::new(base, base_len);
+        let lists = Self::make_lists();
 
         Self {
             base,
             base_len,
+            current: AtomicPtr::new(classes.end_ptr.as_ptr()),
             classes,
+            lists,
         }
     }
 
-    fn alloc(&self, layout: Layout) -> *mut u8 {
-        // self.show_stats();
+    fn make_lists() -> [FreeList; 32] {
+        CLASSES.each_ref().map(|info| {
+            FreeList {
+                elem_size: info.size,
+                next_free: AtomicPtr::default(), // null
+                nitems: AtomicUsize::new(0),
+            }
+        })
+    }
+
+    fn alloc(&self, layout: &Layout) -> *mut u8 {
+        self.show_stats(false);
 
         if layout.size() == 0 {
             return NonNull::dangling().as_ptr();
         }
+
+        TOTAL_NBYTES.fetch_add(layout.size(), Relaxed);
+        let _n_op = N_OP.fetch_add(1, AcqRel);
 
         let size = if layout.align() > 8 {
             layout.size() + layout.align()
@@ -208,23 +301,31 @@ impl MinallocImpl {
         // assert!(layout.align() <= 8, "size: {:?} align: {:?}", layout.size(), layout.align());
         // eprintln!("alloc size: {:?} align: {:?}", layout.size(), layout.align());
 
-        for class in &self.classes.inner {
-            if size <= class.elem_size {
-                return class.take_next(&layout).as_ptr();
-            }
-        }
+        // for class in &self.classes.inner {
+        //     if size <= class.elem_size {
+        //         match class.take_next(layout) {
+        //             Some(ptr) => return ptr.as_ptr(),
+        //             None => break,
+        //         }
+        //     }
+        // }
 
-        eprintln!("size too big: size:{:?} align:{:?}", layout.size(), layout.align());
+        self.alloc_in_list(size, layout).as_ptr()
 
-        todo!() // Implement linked list based allocations
+        // eprintln!("size too big: size:{:?} align:{:?}", layout.size(), layout.align());
+
+        // todo!() // Implement linked list based allocations
     }
 
-    fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    fn dealloc(&self, ptr: *mut u8, layout: &Layout) {
         // dbg!(&layout);
 
         if layout.size() == 0 {
             return;
         }
+
+        TOTAL_NBYTES.fetch_sub(layout.size(), Relaxed);
+        let n_op = N_OP.fetch_add(1, AcqRel);
 
         let size = if layout.align() > 8 {
             layout.size() + layout.align()
@@ -232,46 +333,271 @@ impl MinallocImpl {
             layout.size()
         };
 
-        for class in &self.classes.inner {
-            if size <= class.elem_size {
-                return class.free(ptr, &layout);
+        // if ptr < self.classes.end_ptr.as_ptr() {
+        //     for class in &self.classes.inner {
+        //         if size <= class.elem_size {
+        //             return class.free(ptr, layout);
+        //         }
+        //     }
+        //     todo!()
+        // }
+
+        self.dealloc_in_list(ptr);
+
+        // eprintln!("DEALLOC size too big: ptr:{:?} size:{:?} align:{:?}", ptr, layout.size(), layout.align());
+
+        // todo!() // Implement linked list based allocations
+    }
+
+    fn dealloc_in_list(&self, ptr: *mut u8) {
+        let mut header = unsafe { &*ptr.byte_sub(HEADER_SIZE).cast::<Header>() };
+
+        if let Some(offset) = header.get_offset() {
+            header = unsafe { &*ptr.byte_sub(offset).byte_sub(HEADER_SIZE).cast::<Header>() };
+        }
+
+        // eprintln!("header: (is_free, class_index, next):{:?}", header.read());
+
+        let (is_free, _class_index, _) = header.read();
+        assert!(!is_free);
+
+        header.make_free();
+
+        let (is_free, class_index, _) = header.read();
+
+        let list = &self.lists[class_index];
+
+        list.nitems.fetch_sub(1, Relaxed);
+
+        loop {
+            let next_free = list.next_free.load(Acquire);
+            // eprintln!("next_free: {:?} this_header:{:?}", next_free, header as *const Header);
+            assert_ne!(header as *const Header, next_free);
+            // eprintln!("next_free: {:?} bytes:{:?} be_bytes:{:?}", next_free, (next_free as u64).to_ne_bytes(), (next_free as u64).to_be_bytes());
+            header.set_next_free(next_free);
+
+            let (_, _, ptr) = header.read();
+            assert_eq!(
+                ptr.map(|p| p.as_ptr()).unwrap_or(core::ptr::null_mut()),
+                next_free
+            );
+
+            let Ok(_new_current) = list.next_free.compare_exchange(
+                next_free,
+                header as *const Header as *mut Header,
+                AcqRel,
+                Relaxed,
+            ) else {
+                continue;
+            };
+
+            return;
+        }
+    }
+
+    fn alloc_in_list(&self, size: usize, layout: &Layout) -> NonNull<u8> {
+        let mut first_matching_size = None;
+
+        // eprintln!("alloc_in_list {:?}", size);
+
+        // skip_while
+        // take_while
+        // take(2)
+
+        // self.lists
+        //     .iter()
+        //     .enumerate()
+        //     .skip_while(|(index, free_list)| size > free_list.elem_size)
+        // .take_while(|(index, free_list)| size * 2 > )
+
+        for (index, free_list) in self.lists.iter().enumerate() {
+            if size <= free_list.elem_size {
+                if first_matching_size.is_none() {
+                    first_matching_size = Some((index, free_list.elem_size));
+                }
+                // if size * 2 <= free_list.elem_size {
+                //     break; // Don't go too far in our lists, allocate new ones instead
+                // }
+                if let Some(acquired_header) = self.try_take_in_list(free_list) {
+                    // eprintln!("AAA");
+                    return self.get_from_header(acquired_header, layout, index);
+                } else {
+                    break;
+                }
             }
         }
 
-        eprintln!("DEALLOC size too big: ptr:{:?} size:{:?} align:{:?}", ptr, layout.size(), layout.align());
+        let (index_free_list, first_matching_size) = first_matching_size.unwrap();
 
-        todo!() // Implement linked list based allocations
+        // eprintln!("alloc_in_list: grow current {:?}", size);
+
+        loop {
+            let current = self.current.load(Acquire);
+            // eprintln!("current:{:?}", current);
+            if unsafe { current.byte_add(size) } < self.end_ptr().as_ptr() {
+                let Ok(_new_current) = self.current.compare_exchange(
+                    current,
+                    unsafe { current.byte_add(first_matching_size + HEADER_SIZE) },
+                    AcqRel,
+                    Relaxed,
+                ) else {
+                    continue;
+                };
+                let header = unsafe { &mut *(current as *mut Header) };
+                header.initialize(index_free_list);
+
+                self.lists[index_free_list].nitems.fetch_add(1, Relaxed);
+
+                return self.get_from_header(NonNull::from(header), layout, index_free_list);
+            } else {
+                break;
+            }
+        }
+
+        let current = self.current.load(Relaxed);
+        let offset = unsafe { current.offset_from(self.base.as_ptr()) };
+
+        let n_op = N_OP.load(Relaxed);
+
+        eprintln!(
+            "[{:?}] implement grow base:{:?} current:{:?} diff:{:?} size:{:?}",
+            n_op, self.base, current, offset, size
+        );
+
+        self.show_stats(true);
+
+        todo!("implement grow")
     }
 
-    fn show_stats(&self) {
+    fn end_ptr(&self) -> NonNull<u8> {
+        unsafe { self.base.byte_add(self.base_len) }
+    }
+
+    fn get_from_header(
+        &self,
+        header: NonNull<Header>,
+        layout: &Layout,
+        class_index: usize,
+    ) -> NonNull<u8> {
+        unsafe {
+            let header = header.as_ref();
+            let (_is_free, header_class_index, _next) = header.read();
+            if header_class_index != class_index {
+                eprintln!(
+                    "header_class_index:{:?} class_index:{:?}",
+                    header_class_index, class_index
+                );
+                assert_eq!(header_class_index, class_index);
+            }
+            // eprintln!("header: (is_free, class_index, next):{:?}", header.read());
+        }
+
+        let mut ptr = unsafe { header.add(1) }.cast();
+
+        if layout.align() <= 8 {
+            // assert!(ptr )
+            return ptr;
+        }
+
+        // align > 8
+        let offset = ptr.align_offset(layout.align());
+        if offset == 0 {
+            return ptr;
+        }
+        assert!(offset >= 8);
+
+        // eprintln!("offset:{:?} layout.size:{:?} layout.align:{:?}", offset, layout.size(), layout.align());
+        ptr = unsafe { ptr.byte_add(offset) };
+
+        {
+            let header = unsafe { ptr.byte_sub(HEADER_SIZE).cast::<Header>().as_ref() };
+            header.initialize_offset(offset.try_into().unwrap());
+        }
+
+        ptr
+    }
+
+    fn try_take_in_list(&self, free_list: &FreeList) -> Option<NonNull<Header>> {
+        loop {
+            let next_header: &Header = {
+                let next = free_list.next_free.load(Acquire);
+                unsafe { next.as_ref()? }
+            };
+
+            let (is_free, _class_index, next_free_ptr) = next_header.read();
+
+            let next_free_ptr = next_free_ptr
+                .map(NonNull::as_ptr)
+                .unwrap_or(core::ptr::null_mut());
+
+            if free_list
+                .next_free
+                .compare_exchange(
+                    next_header as *const Header as *mut _,
+                    next_free_ptr,
+                    AcqRel,
+                    Relaxed,
+                )
+                .is_err()
+            {
+                continue;
+            }
+
+            let (is_free, _class_index, _next_free_ptr) = next_header.read();
+
+            if is_free && next_header.acquire() {
+                free_list.nitems.fetch_add(1, Relaxed);
+                return Some(NonNull::from(next_header));
+            }
+
+            panic!()
+        }
+    }
+
+    fn show_stats(&self, force: bool) {
         const INTERVAL: usize = 200_000;
 
         let n_op = N_OP.load(Relaxed);
-        if n_op % INTERVAL != 0 {
+        if n_op % INTERVAL != 0 && !force {
             return;
         }
 
         let index = n_op / INTERVAL;
 
-        for class in &self.classes.inner {
+        // for class in &self.classes.inner {
+        //     eprintln!(
+        //         "[STATS-{:?}] class size:{:?} max:{:?} current:{:?} max_since_last:{:?}",
+        //         index, class.elem_size, class.max_nallocated.load(Relaxed), class.nallocated.load(Relaxed), class.max_nallocated_since_last.load(Acquire),
+        //     );
+        //     class.max_nallocated_since_last.store(0, Release);
+        // }
+
+        for list in &self.lists {
             eprintln!(
-                "[STATS-{:?}] class size:{:?} max:{:?} current:{:?} max_since_last:{:?}",
-                index, class.elem_size, class.max_nallocated.load(Relaxed), class.nallocated.load(Relaxed), class.max_nallocated_since_last.load(Acquire),
+                "[STATS-{:?}] class size:{:?} nitems:{:?}",
+                index, list.elem_size, list.nitems,
             );
-            class.max_nallocated_since_last.store(0, Release);
+            // class.max_nallocated_since_last.store(0, Release);
         }
 
         eprintln!("[STATS-{:?}] TOTAL:{:?}", index, TOTAL_NBYTES.load(Relaxed));
-
     }
 }
 
 impl Class {
-    fn take_next(&self, layout: &Layout) -> NonNull<u8> {
-        let Self { bitfields, base, length, elem_size, nallocated, max_nallocated, info, free_hint, end_ptr, max_nallocated_since_last } = self;
-
-        TOTAL_NBYTES.fetch_add(layout.size(), Relaxed);
-        let n_op = N_OP.fetch_add(1, AcqRel);
+    fn take_next(&self, layout: &Layout) -> Option<NonNull<u8>> {
+        let Self {
+            bitfields,
+            base,
+            length,
+            elem_size,
+            nallocated,
+            max_nallocated,
+            info,
+            free_hint,
+            end_ptr,
+            max_nallocated_since_last,
+        } = self;
 
         let nallocated = nallocated.fetch_add(1, Relaxed) + 1;
         if nallocated > max_nallocated.load(Relaxed) {
@@ -281,11 +607,11 @@ impl Class {
             max_nallocated_since_last.store(nallocated, Relaxed);
         }
 
-        if nallocated >= info.nelems {
-            eprintln!("\n\nnallocated:{:?} info.nelems:{:?} size:{:?} align:{:?}\n", nallocated, info.nelems, layout.size(), layout.align());
-        }
+        // if nallocated >= info.nelems {
+        //     eprintln!("\n\nnallocated:{:?} info.nelems:{:?} size:{:?} align:{:?}\n", nallocated, info.nelems, layout.size(), layout.align());
+        // }
 
-        assert!(nallocated < info.nelems, "\n\nnallocated:{:?} info.nelems:{:?} size:{:?} align:{:?}\n", nallocated, info.nelems, layout.size(), layout.align());
+        // assert!(nallocated < info.nelems, "\n\nnallocated:{:?} info.nelems:{:?} size:{:?} align:{:?}\n", nallocated, info.nelems, layout.size(), layout.align());
 
         let bitfields: &[AtomicU64] = unsafe { bitfields.as_ref() };
 
@@ -303,7 +629,7 @@ impl Class {
             'inner: loop {
                 let bitfield = bitfield_ref.load(Acquire);
                 if bitfield == 0 {
-                     // full
+                    // full
                     continue 'outer;
                 }
                 let index_free = bitfield.trailing_zeros() as usize;
@@ -331,35 +657,46 @@ impl Class {
                     res = unsafe { res.byte_add(offset) };
                 }
 
-                assert!(unsafe { res.byte_add(layout.size()) } <= {
-                    let (bitfield_index, index_free) = if index_free == 63 {
-                        (bitfield_index + 1, 0)
-                    } else {
-                        assert!(index_free < 63);
-                        (bitfield_index, index_free + 1)
-                    };
-                    self.get(bitfield_index, index_free)
-                });
-                assert_eq!((bitfield_index, index_free), self.compute_offsets(res.as_ptr(), "alloc"));
+                assert!(
+                    unsafe { res.byte_add(layout.size()) } <= {
+                        let (bitfield_index, index_free) = if index_free == 63 {
+                            (bitfield_index + 1, 0)
+                        } else {
+                            assert!(index_free < 63);
+                            (bitfield_index, index_free + 1)
+                        };
+                        self.get(bitfield_index, index_free)
+                    }
+                );
                 assert_eq!(
-                    res.as_ptr() as usize % layout.align(), 0,
+                    (bitfield_index, index_free),
+                    self.compute_offsets(res.as_ptr(), "alloc")
+                );
+                assert_eq!(
+                    res.as_ptr() as usize % layout.align(),
+                    0,
                     "ptr: {:?} align: {:?} size: {:?} ptr_unmod: {:?}",
-                    res, layout.align(), layout.size(), ptr_unmodified
+                    res,
+                    layout.align(),
+                    layout.size(),
+                    ptr_unmodified
                 );
                 // eprintln!("alloc size: {:?} align: {:?}", layout.size(), layout.align());
                 // eprintln!(
                 //     "[{:?}] alloc: base: {:?} size: {:?} align: {:?} bitfield_index:{:?} index_free:{:?} ptr: {:?} offset: {:?} nallocated:{:?}",
                 //     n_op, self.base, layout.size(), layout.align(), bitfield_index, index_free, res, unsafe { res.offset_from(self.base) }, nallocated
                 // );
-                return res;
+                return Some(res);
             }
         }
 
-        let nallocated = self.nallocated.load(Acquire);
+        None
 
-        eprintln!("\nallocated:{:?} info.nelems:{:?} size:{:?} align:{:?}\n", nallocated, info.nelems, layout.size(), layout.align());
+        // let nallocated = self.nallocated.load(Acquire);
 
-        panic!("limit reached {:?}", elem_size);
+        // eprintln!("\nallocated:{:?} info.nelems:{:?} size:{:?} align:{:?}\n", nallocated, info.nelems, layout.size(), layout.align());
+
+        // panic!("limit reached {:?}", elem_size);
     }
 
     fn get(&self, bitfield_index: usize, bit: usize) -> NonNull<u8> {
@@ -369,9 +706,17 @@ impl Class {
     }
 
     fn compute_offsets(&self, ptr: *mut u8, from: &str) -> (usize, usize) {
-        let Self { elem_size, base, end_ptr, .. } = self;
+        let Self {
+            elem_size,
+            base,
+            end_ptr,
+            ..
+        } = self;
         if !(ptr >= base.as_ptr() && ptr < end_ptr.as_ptr()) {
-            eprintln!("{} Invalid class PTR ptr:{:?} base:{:?} end_ptr:{:?} size:{:?}", from, ptr, base, end_ptr, elem_size);
+            eprintln!(
+                "{} Invalid class PTR ptr:{:?} base:{:?} end_ptr:{:?} size:{:?}",
+                from, ptr, base, end_ptr, elem_size
+            );
             assert!(ptr >= base.as_ptr() && ptr < end_ptr.as_ptr());
         }
         let offset = (ptr as usize).checked_sub(base.as_ptr() as usize).unwrap();
@@ -382,10 +727,18 @@ impl Class {
     }
 
     fn free(&self, ptr: *mut u8, layout: &Layout) {
-        let Self { elem_size, bitfields, base, length, nallocated, info, max_nallocated, free_hint, end_ptr, max_nallocated_since_last } = self;
-
-        TOTAL_NBYTES.fetch_sub(layout.size(), Relaxed);
-        let n_op = N_OP.fetch_add(1, AcqRel);
+        let Self {
+            elem_size,
+            bitfields,
+            base,
+            length,
+            nallocated,
+            info,
+            max_nallocated,
+            free_hint,
+            end_ptr,
+            max_nallocated_since_last,
+        } = self;
 
         let (bitfield_index, bit_index) = self.compute_offsets(ptr, "free");
 
@@ -441,15 +794,14 @@ impl Classes {
             // assert_eq!(remaining, 0);
             // let bitfields_length = nelems.div_ceil(core::mem::size_of::<AtomicU64>());
             let bitfields_length = nelems.div_ceil(64);
-            let mut bitfields: NonNull<[AtomicU64]> = NonNull::slice_from_raw_parts(bitfields.cast::<AtomicU64>(), bitfields_length);
+            let mut bitfields: NonNull<[AtomicU64]> =
+                NonNull::slice_from_raw_parts(bitfields.cast::<AtomicU64>(), bitfields_length);
 
             // dbg!(bitfields_length);
 
             let bitfields_nbytes = {
                 let bitfields: &mut [AtomicU64] = unsafe { bitfields.as_mut() };
-                let bitfields: &mut [u64] = unsafe {
-                     core::mem::transmute(bitfields)
-                };
+                let bitfields: &mut [u64] = unsafe { core::mem::transmute(bitfields) };
                 bitfields.fill(u64::MAX);
                 bitfields.len() * core::mem::size_of::<u64>()
             };
@@ -471,7 +823,10 @@ impl Classes {
 
             assert!(current < end_ptr);
 
-            eprintln!("size: {:?} bitfields: {:?} bitfields_len: {:?} base: {:?} bitfields_nbytes: {:?}", size, bitfields, bitfields_length, base, bitfields_nbytes);
+            eprintln!(
+                "size: {:?} bitfields: {:?} bitfields_len: {:?} base: {:?} bitfields_nbytes: {:?}",
+                size, bitfields, bitfields_length, base, bitfields_nbytes
+            );
             // eprintln!("size: {:?} bitfields: {:?} base: {:?} bitfields_nbytes: {:?} nbytes:{:?}", size, bitfields, base, bitfields_nbytes, nbytes);
 
             Class {
@@ -489,10 +844,14 @@ impl Classes {
         });
 
         eprintln!("total_bitfields_nbytes: {:?}", total_bitfields_nbytes);
-        eprintln!("remaining spaces: {:?}", unsafe { end_ptr.offset_from(current) });
+        eprintln!("remaining spaces: {:?}", unsafe {
+            end_ptr.offset_from(current)
+        });
+        eprintln!("end_ptr: {:?}", current);
 
         Self {
-            inner: classes
+            inner: classes,
+            end_ptr: current,
         }
     }
 }
@@ -511,8 +870,8 @@ mod mmap {
 #[cfg(not(target_family = "wasm"))]
 mod mmap {
     pub fn initialize() -> (*mut u8, usize) {
-        /// 12 GB
-        const LENGTH: usize = 4294967296 * 3;
+        /// 16 GB
+        const LENGTH: usize = 4294967296 * 4;
         // 4 GB
         // const LENGTH: usize = 4294967296;
 
