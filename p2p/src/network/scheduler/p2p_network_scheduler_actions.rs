@@ -126,11 +126,9 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
             | P2pNetworkSchedulerAction::IncomingConnectionIsReady { .. }
             | P2pNetworkSchedulerAction::SelectDone { .. }
             | P2pNetworkSchedulerAction::SelectError { .. } => true,
-            P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => {
-                addr.as_ref().map_or(false, |addr| {
-                    !state.network.scheduler.connections.contains_key(addr)
-                })
-            }
+            P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => addr
+                .as_ref()
+                .is_some_and(|addr| !state.network.scheduler.connections.contains_key(addr)),
             P2pNetworkSchedulerAction::OutgoingConnect { addr } => state
                 .network
                 .scheduler
@@ -145,7 +143,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .scheduler
                 .connections
                 .get(addr)
-                .map_or(false, |conn_state| !conn_state.incoming),
+                .is_some_and(|conn_state| !conn_state.incoming),
             P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, .. }
             | P2pNetworkSchedulerAction::IncomingDataIsReady { addr }
             | P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {
@@ -157,22 +155,20 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .scheduler
                 .connections
                 .get(addr)
-                .map_or(false, |conn_state| conn_state.closed.is_none()),
+                .is_some_and(|conn_state| conn_state.closed.is_none()),
             P2pNetworkSchedulerAction::Disconnected { addr, reason } => state
                 .network
                 .scheduler
                 .connections
                 .get(addr)
-                .map_or(false, |conn_state| {
-                    conn_state.closed.as_ref() == Some(reason)
-                }),
+                .is_some_and(|conn_state| conn_state.closed.as_ref() == Some(reason)),
             // TODO: introduce state for closed connection
             P2pNetworkSchedulerAction::Prune { addr } => state
                 .network
                 .scheduler
                 .connections
                 .get(addr)
-                .map_or(false, |conn_state| conn_state.closed.is_some()),
+                .is_some_and(|conn_state| conn_state.closed.is_some()),
             P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id } => state
                 .network
                 .scheduler

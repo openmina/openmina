@@ -309,7 +309,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 pending_addresses.iter().find(|(_, s)| {
                     s.attempts
                         .get(peer_id)
-                        .map_or(false, |s| s.rpc_id() == Some(expected_rpc_id))
+                        .is_some_and(|s| s.rpc_id() == Some(expected_rpc_id))
                 })
             }
             _ => None,

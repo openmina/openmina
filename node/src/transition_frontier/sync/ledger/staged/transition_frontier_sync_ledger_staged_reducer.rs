@@ -88,7 +88,7 @@ impl TransitionFrontierSyncLedgerStagedState {
 
                             if list
                                 .last()
-                                .map_or(false, |(_, _, ord): &(_, _, u8)| *ord > order)
+                                .is_some_and(|(_, _, ord): &(_, _, u8)| *ord > order)
                             {
                                 // remove less priority peers
                                 list.clear();

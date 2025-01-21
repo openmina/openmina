@@ -89,7 +89,7 @@ fn is_time_passed(
     then: redux::Timestamp,
     duration: Option<std::time::Duration>,
 ) -> bool {
-    duration.map_or(false, |d| now.checked_sub(then) >= Some(d))
+    duration.is_some_and(|d| now.checked_sub(then) >= Some(d))
 }
 
 pub trait P2pStateTrait:

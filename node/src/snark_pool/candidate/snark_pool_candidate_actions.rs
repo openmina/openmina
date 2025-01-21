@@ -76,15 +76,13 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                 let is_peer_available = state
                     .p2p
                     .get_ready_peer(peer_id)
-                    .map_or(false, |peer| peer.channels.rpc.can_send_request());
+                    .is_some_and(|peer| peer.channels.rpc.can_send_request());
                 is_peer_available
                     && state
                         .snark_pool
                         .candidates
                         .get(*peer_id, job_id)
-                        .map_or(false, |s| {
-                            matches!(s, SnarkPoolCandidateState::InfoReceived { .. })
-                        })
+                        .is_some_and(|s| matches!(s, SnarkPoolCandidateState::InfoReceived { .. }))
             }
             SnarkPoolCandidateAction::WorkFetchPending {
                 peer_id, job_id, ..
@@ -92,16 +90,12 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                 .snark_pool
                 .candidates
                 .get(*peer_id, job_id)
-                .map_or(false, |s| {
-                    matches!(s, SnarkPoolCandidateState::InfoReceived { .. })
-                }),
+                .is_some_and(|s| matches!(s, SnarkPoolCandidateState::InfoReceived { .. })),
             SnarkPoolCandidateAction::WorkFetchError { peer_id, job_id } => state
                 .snark_pool
                 .candidates
                 .get(*peer_id, job_id)
-                .map_or(false, |s| {
-                    matches!(s, SnarkPoolCandidateState::WorkFetchPending { .. })
-                }),
+                .is_some_and(|s| matches!(s, SnarkPoolCandidateState::WorkFetchPending { .. })),
             SnarkPoolCandidateAction::WorkFetchSuccess { peer_id, work } => {
                 let job_id = work.job_id();
                 state.snark_pool.contains(&job_id)

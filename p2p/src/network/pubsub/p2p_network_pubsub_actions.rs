@@ -185,11 +185,11 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkPubsubAction {
             P2pNetworkPubsubAction::OutgoingMessage { peer_id } => pubsub
                 .clients
                 .get(peer_id)
-                .map_or(false, |s| !s.message_is_empty()),
+                .is_some_and(|s| !s.message_is_empty()),
             P2pNetworkPubsubAction::Prune { peer_id, topic_id } => pubsub
                 .topics
                 .get(topic_id)
-                .map_or(false, |topics| topics.contains_key(peer_id)),
+                .is_some_and(|topics| topics.contains_key(peer_id)),
             P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id }
             | P2pNetworkPubsubAction::RejectMessage {
                 message_id: Some(message_id),

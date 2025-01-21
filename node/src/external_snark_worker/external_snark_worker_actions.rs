@@ -73,7 +73,7 @@ impl EnablingCondition<State> for ExternalSnarkWorkerAction {
                     ExternalSnarkWorkerState::Starting
                 ) && now
                     .checked_sub(state.external_snark_worker.0.timestamp)
-                    .map_or(false, |d| d > TIMEOUT)
+                    .is_some_and(|d| d > TIMEOUT)
             }
             ExternalSnarkWorkerAction::Kill => !matches!(
                 state.external_snark_worker.0.state,
@@ -105,7 +105,7 @@ impl EnablingCondition<State> for ExternalSnarkWorkerAction {
                     &state.external_snark_worker.0.state
                 {
                     now.checked_sub(state.external_snark_worker.0.timestamp)
-                        .map_or(false, |d| d > summary.estimated_duration())
+                        .is_some_and(|d| d > summary.estimated_duration())
                 } else {
                     false
                 }

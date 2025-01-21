@@ -68,7 +68,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| match s {
+                .is_some_and(|s| match s {
                     TransitionFrontierSyncLedgerSnarkedState::Success { target, .. } => {
                         target.staged.is_some()
                     }
@@ -79,11 +79,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
-                .map_or(false, |staged| {
+                .is_some_and(|staged| {
                     let Some(p2p) = state.p2p.ready() else {
                         return false;
                     };
-                    staged.fetch_attempts().map_or(false, |attempts| {
+                    staged.fetch_attempts().is_some_and(|attempts| {
                         attempts.is_empty() || attempts.iter().all(|(_, s)| s.is_error())
                     }) && p2p.ready_rpc_peers_iter().next().is_some()
                 }),
@@ -92,7 +92,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerStagedState::PartsFetchPending { .. }
@@ -108,7 +108,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .ledger()
                 .and_then(|s| s.staged()?.fetch_attempts()?.get(peer_id))
                 .and_then(|s| s.fetch_pending_rpc_id())
-                .map_or(false, |fetch_rpc_id| fetch_rpc_id == *rpc_id),
+                .is_some_and(|fetch_rpc_id| fetch_rpc_id == *rpc_id),
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess {
                 peer_id,
                 rpc_id,
@@ -119,13 +119,13 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .ledger()
                 .and_then(|s| s.staged()?.fetch_attempts()?.get(peer_id))
                 .and_then(|s| s.fetch_pending_rpc_id())
-                .map_or(false, |fetch_rpc_id| fetch_rpc_id == *rpc_id),
+                .is_some_and(|fetch_rpc_id| fetch_rpc_id == *rpc_id),
             TransitionFrontierSyncLedgerStagedAction::PartsPeerInvalid { sender, .. } => state
                 .transition_frontier
                 .sync
                 .ledger()
                 .and_then(|s| s.staged()?.fetch_attempts()?.get(sender))
-                .map_or(false, |s| match s {
+                .is_some_and(|s| match s {
                     PeerStagedLedgerPartsFetchState::Success { parts, .. } => !parts.is_valid(),
                     _ => false,
                 }),
@@ -134,7 +134,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged()?.fetch_attempts()?.get(sender))
-                .map_or(false, |s| match s {
+                .is_some_and(|s| match s {
                     PeerStagedLedgerPartsFetchState::Success { parts, .. } => parts.is_valid(),
                     _ => false,
                 }),
@@ -143,7 +143,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged()?.fetch_attempts()?.get(sender))
-                .map_or(false, |s| s.is_valid()),
+                .is_some_and(|s| s.is_valid()),
             TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty => state
                 .transition_frontier
                 .sync
@@ -155,7 +155,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                     }
                     _ => None,
                 })
-                .map_or(false, |target| {
+                .is_some_and(|target| {
                     let hashes = &target.staged.hashes;
                     target.snarked_ledger_hash == hashes.non_snark.ledger_hash
                         && hashes.non_snark.aux_hash == v2::StagedLedgerHashAuxHash::zero()
@@ -169,7 +169,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerStagedState::PartsFetchSuccess { .. }
@@ -181,7 +181,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerStagedState::PartsFetchSuccess { .. }
@@ -193,7 +193,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerStagedState::ReconstructPending { .. }
@@ -204,7 +204,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     // Assumption here is that if the hash doesn't match, it is because the reconstruct
                     // is stale (best tip changed while reconstruction was happening). The staging
                     // ledger reconstruction logic itself will already validate that the resulting
@@ -220,7 +220,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerStagedState::ReconstructSuccess { .. }

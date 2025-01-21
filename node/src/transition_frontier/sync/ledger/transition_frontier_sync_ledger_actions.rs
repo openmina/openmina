@@ -24,11 +24,11 @@ pub enum TransitionFrontierSyncLedgerAction {
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
-            TransitionFrontierSyncLedgerAction::Init => {
-                state.transition_frontier.sync.ledger().map_or(false, |s| {
-                    matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
-                })
-            }
+            TransitionFrontierSyncLedgerAction::Init => state
+                .transition_frontier
+                .sync
+                .ledger()
+                .is_some_and(|s| matches!(s, TransitionFrontierSyncLedgerState::Init { .. })),
             TransitionFrontierSyncLedgerAction::Snarked(a) => a.is_enabled(state, time),
             TransitionFrontierSyncLedgerAction::Staged(a) => a.is_enabled(state, time),
             TransitionFrontierSyncLedgerAction::Success => {

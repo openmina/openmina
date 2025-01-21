@@ -65,7 +65,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.snark_job_commitment,
                         P2pChannelsSnarkJobCommitmentState::Enabled
@@ -73,7 +73,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
                 })
             }
             P2pChannelsSnarkJobCommitmentAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.snark_job_commitment,
                         P2pChannelsSnarkJobCommitmentState::Init { .. }
@@ -81,7 +81,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
                 })
             }
             P2pChannelsSnarkJobCommitmentAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.snark_job_commitment,
                         P2pChannelsSnarkJobCommitmentState::Pending { .. }
@@ -89,7 +89,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
                 })
             }
             P2pChannelsSnarkJobCommitmentAction::RequestSend { peer_id, .. } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.snark_job_commitment,
                         P2pChannelsSnarkJobCommitmentState::Ready {
@@ -103,7 +103,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
             P2pChannelsSnarkJobCommitmentAction::PromiseReceived {
                 peer_id,
                 promised_count,
-            } => state.get_ready_peer(peer_id).map_or(false, |p| {
+            } => state.get_ready_peer(peer_id).is_some_and(|p| {
                 matches!(
                     &p.channels.snark_job_commitment,
                     P2pChannelsSnarkJobCommitmentState::Ready {
@@ -115,7 +115,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
                 )
             }),
             P2pChannelsSnarkJobCommitmentAction::Received { peer_id, .. } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.snark_job_commitment,
                         P2pChannelsSnarkJobCommitmentState::Ready {
@@ -127,7 +127,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
             }
             P2pChannelsSnarkJobCommitmentAction::RequestReceived { peer_id, limit } => {
                 *limit > 0
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                    && state.get_ready_peer(peer_id).is_some_and(|p| {
                         matches!(
                             &p.channels.snark_job_commitment,
                             P2pChannelsSnarkJobCommitmentState::Ready {
@@ -146,7 +146,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
             } => {
                 !commitments.is_empty()
                     && first_index <= last_index
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                    && state.get_ready_peer(peer_id).is_some_and(|p| {
                         match &p.channels.snark_job_commitment {
                             P2pChannelsSnarkJobCommitmentState::Ready {
                                 remote,

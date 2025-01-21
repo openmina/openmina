@@ -54,7 +54,7 @@ impl P2pNetworkRpcState {
     pub fn should_send_heartbeat(&self, now: redux::Timestamp) -> bool {
         self.last_heartbeat_sent.map_or(true, |last_sent| {
             now.checked_sub(last_sent)
-                .map_or(false, |dur| dur >= HEARTBEAT_INTERVAL)
+                .is_some_and(|dur| dur >= HEARTBEAT_INTERVAL)
         })
     }
 }

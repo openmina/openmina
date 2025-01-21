@@ -117,12 +117,12 @@ const READY: Duration = Duration::from_secs(20 * 60);
 
 fn is_healthy() -> bool {
     reqwest::blocking::get(format!("http://localhost:{HTTP_PORT}/healthz"))
-        .map_or(false, |res| res.status().is_success())
+        .is_ok_and(|res| res.status().is_success())
 }
 
 fn is_ready() -> bool {
     let ready = reqwest::blocking::get(format!("http://localhost:{HTTP_PORT}/readyz"))
-        .map_or(false, |res| res.status().is_success());
+        .is_ok_and(|res| res.status().is_success());
 
     if let Err(err) = sync_stats() {
         println!("error getting stats: {err}");

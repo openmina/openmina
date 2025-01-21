@@ -98,7 +98,7 @@ impl TransitionFrontierSyncLedgerState {
                 if new_target
                     .staged
                     .as_ref()
-                    .map_or(false, |cur| cur.hashes == staged.target().staged.hashes)
+                    .is_some_and(|cur| cur.hashes == staged.target().staged.hashes)
                 {
                     // root staged ledger hash is still the same. Do nothing.
                 } else if staged.target().snarked_ledger_hash == new_target.snarked_ledger_hash {

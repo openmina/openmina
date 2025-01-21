@@ -264,7 +264,7 @@ impl TransitionFrontierSyncState {
         match self {
             Self::StakingLedgerPending(s) => s.ledger.is_snarked_ledger_synced(),
             Self::NextEpochLedgerPending(s) => s.ledger.is_snarked_ledger_synced(),
-            Self::RootLedgerPending(s) => s.ledger.staged().map_or(false, |s| s.is_success()),
+            Self::RootLedgerPending(s) => s.ledger.staged().is_some_and(|s| s.is_success()),
             _ => false,
         }
     }
@@ -319,7 +319,7 @@ impl TransitionFrontierSyncState {
         rpc_id: P2pRpcId,
     ) -> bool {
         self.block_state(hash)
-            .map_or(false, |s| s.is_fetch_pending_from_peer(peer_id, rpc_id))
+            .is_some_and(|s| s.is_fetch_pending_from_peer(peer_id, rpc_id))
     }
 
     pub fn blocks_fetch_from_peer_pending_rpc_ids<'a>(
@@ -467,7 +467,7 @@ impl TransitionFrontierSyncBlockState {
         let Self::FetchPending { attempts, .. } = self else {
             return false;
         };
-        attempts.get(peer_id).map_or(false, |s| s.is_fetch_init())
+        attempts.get(peer_id).is_some_and(|s| s.is_fetch_init())
     }
 
     pub fn is_fetch_pending_from_peer(&self, peer_id: &PeerId, rpc_id: P2pRpcId) -> bool {
@@ -477,7 +477,7 @@ impl TransitionFrontierSyncBlockState {
         attempts
             .get(peer_id)
             .and_then(|s| s.fetch_pending_rpc_id())
-            .map_or(false, |expected| expected == rpc_id)
+            .is_some_and(|expected| expected == rpc_id)
     }
 
     pub fn fetch_pending_attempts_mut(&mut self) -> Option<&mut BTreeMap<PeerId, PeerRpcState>> {

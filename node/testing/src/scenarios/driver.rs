@@ -422,8 +422,8 @@ impl<'cluster> Driver<'cluster> {
 }
 
 /// Runs the cluster until each of the `nodes` is listening on the localhost interface.
-pub async fn wait_for_nodes_listening_on_localhost<'cluster>(
-    driver: &mut Driver<'cluster>,
+pub async fn wait_for_nodes_listening_on_localhost(
+    driver: &mut Driver<'_>,
     duration: Duration,
     nodes: impl IntoIterator<Item = ClusterNodeId>,
 ) -> anyhow::Result<bool> {
@@ -503,8 +503,8 @@ fn is_network_connection_finalized(conn_state: &P2pNetworkConnectionState) -> Op
 }
 
 /// Runst the cluster until the node is connected to the node that satisfies the predicate.
-pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
-    driver: &mut Driver<'cluster>,
+pub async fn wait_for_connection_established<F: PeerPredicate>(
+    driver: &mut Driver<'_>,
     duration: Duration,
     mut f: F,
 ) -> anyhow::Result<bool> {
@@ -585,8 +585,8 @@ where
 /// Runs cluster until there is a `quiet_dur` period of no events, returning
 /// `Ok(true)` in this case. If there is no such period for `timeout` period of
 /// time, then returns `Ok(false)`
-pub async fn run_until_no_events<'cluster>(
-    driver: &mut Driver<'cluster>,
+pub async fn run_until_no_events(
+    driver: &mut Driver<'_>,
     quiet_dur: Duration,
     timeout: Duration,
 ) -> anyhow::Result<bool> {
@@ -671,8 +671,8 @@ where
     }
 }
 
-pub async fn wait_for_connection_event<'cluster, F>(
-    driver: &mut Driver<'cluster>,
+pub async fn wait_for_connection_event<F>(
+    driver: &mut Driver<'_>,
     duration: Duration,
     mut f: F,
 ) -> anyhow::Result<bool>
@@ -699,15 +699,13 @@ where
                         })
                 })
         })
-        .map_or(false, |(peer_id, peer)| {
-            f.matches(node_id, peer_id, &peer.status)
-        })
+        .is_some_and(|(peer_id, peer)| f.matches(node_id, peer_id, &peer.status))
     };
     driver.exec_steps_until(duration, pred).await
 }
 
-pub async fn wait_for_connection_error<'cluster, F>(
-    driver: &mut Driver<'cluster>,
+pub async fn wait_for_connection_error<F>(
+    driver: &mut Driver<'_>,
     duration: Duration,
     mut f: F,
 ) -> anyhow::Result<bool>
@@ -720,9 +718,7 @@ where
             let p2p = state.p2p.ready()?;
             p2p.peers.iter().find(|(_, peer)| peer_has_addr(peer, addr))
         })
-        .map_or(false, |(peer_id, peer)| {
-            f.matches(node_id, peer_id, &peer.status)
-        })
+        .is_some_and(|(peer_id, peer)| f.matches(node_id, peer_id, &peer.status))
     };
     driver.exec_steps_until(duration, pred).await
 }

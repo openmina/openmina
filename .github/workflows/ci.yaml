@@ -131,7 +131,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.83
+          rustup default 1.84
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -157,7 +157,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.83
+          rustup default 1.84
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -217,7 +217,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.83
+          rustup default 1.84
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -253,7 +253,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.83
+          rustup default 1.84
           rustup component add rustfmt
 
       - name: Setup Rust Cache

@@ -122,7 +122,7 @@ pub fn prove(
         || constraint_constants()
             .fork
             .as_ref()
-            .map_or(false, |fork| fork.blockchain_length + 1 == height);
+            .is_some_and(|fork| fork.blockchain_length + 1 == height);
     if !is_genesis {
         input.prover_state.producer_private_key = keypair.into();
     }

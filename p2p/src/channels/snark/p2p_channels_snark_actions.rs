@@ -77,23 +77,19 @@ impl P2pChannelsSnarkAction {
 impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
-            P2pChannelsSnarkAction::Init { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
-                    matches!(&p.channels.snark, P2pChannelsSnarkState::Enabled)
-                })
-            }
-            P2pChannelsSnarkAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
-                    matches!(&p.channels.snark, P2pChannelsSnarkState::Init { .. })
-                })
-            }
+            P2pChannelsSnarkAction::Init { peer_id } => state
+                .get_ready_peer(peer_id)
+                .is_some_and(|p| matches!(&p.channels.snark, P2pChannelsSnarkState::Enabled)),
+            P2pChannelsSnarkAction::Pending { peer_id } => state
+                .get_ready_peer(peer_id)
+                .is_some_and(|p| matches!(&p.channels.snark, P2pChannelsSnarkState::Init { .. })),
             P2pChannelsSnarkAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(&p.channels.snark, P2pChannelsSnarkState::Pending { .. })
                 })
             }
             P2pChannelsSnarkAction::RequestSend { peer_id, .. } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.snark,
                         P2pChannelsSnarkState::Ready {
@@ -107,7 +103,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
             P2pChannelsSnarkAction::PromiseReceived {
                 peer_id,
                 promised_count,
-            } => state.get_ready_peer(peer_id).map_or(false, |p| {
+            } => state.get_ready_peer(peer_id).is_some_and(|p| {
                 matches!(
                     &p.channels.snark,
                     P2pChannelsSnarkState::Ready {
@@ -118,7 +114,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
                 )
             }),
             P2pChannelsSnarkAction::Received { peer_id, .. } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.snark,
                         P2pChannelsSnarkState::Ready {
@@ -130,7 +126,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
             }
             P2pChannelsSnarkAction::RequestReceived { peer_id, limit } => {
                 *limit > 0
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                    && state.get_ready_peer(peer_id).is_some_and(|p| {
                         matches!(
                             &p.channels.snark,
                             P2pChannelsSnarkState::Ready {
@@ -151,7 +147,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
                     && first_index <= last_index
                     && state
                         .get_ready_peer(peer_id)
-                        .map_or(false, |p| match &p.channels.snark {
+                        .is_some_and(|p| match &p.channels.snark {
                             P2pChannelsSnarkState::Ready {
                                 remote,
                                 next_send_index,
@@ -177,7 +173,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
                         .get(peer_id)
                         .filter(|p| p.is_libp2p())
                         .and_then(|p| p.status.as_ready())
-                        .map_or(false, |p| p.channels.snark.is_ready())
+                        .is_some_and(|p| p.channels.snark.is_ready())
             }
             P2pChannelsSnarkAction::Libp2pBroadcast { .. } => {
                 cfg!(feature = "p2p-libp2p")

@@ -105,7 +105,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 state.incoming_accept(opts.peer_id, &opts.offer).is_ok()
             }
             P2pConnectionIncomingAction::AnswerSdpCreatePending { peer_id } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -115,7 +115,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 })
             }
             P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -125,7 +125,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 })
             }
             P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -135,7 +135,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 })
             }
             P2pConnectionIncomingAction::AnswerReady { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -145,7 +145,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 })
             }
             P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -155,7 +155,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 })
             }
             P2pConnectionIncomingAction::FinalizePending { peer_id } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -165,7 +165,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 })
             }
             P2pConnectionIncomingAction::FinalizeError { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -175,7 +175,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 })
             }
             P2pConnectionIncomingAction::FinalizeSuccess { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -188,11 +188,11 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 .peers
                 .get(peer_id)
                 .and_then(|peer| peer.status.as_connecting()?.as_incoming())
-                .map_or(false, |s| s.is_timed_out(time, &state.config.timeouts)),
+                .is_some_and(|s| s.is_timed_out(time, &state.config.timeouts)),
             P2pConnectionIncomingAction::Error { peer_id, error } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
+                .is_some_and(|peer| match &peer.status {
                     P2pPeerStatus::Connecting(P2pConnectionState::Incoming(s)) => match error {
                         P2pConnectionIncomingError::SdpCreateError(_) => {
                             matches!(s, P2pConnectionIncomingState::AnswerSdpCreatePending { .. })
@@ -208,7 +208,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                     _ => false,
                 }),
             P2pConnectionIncomingAction::Success { peer_id } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     matches!(
                         &peer.status,
                         P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
@@ -222,7 +222,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
             }
             P2pConnectionIncomingAction::Libp2pReceived { peer_id, .. } => {
                 cfg!(feature = "p2p-libp2p")
-                    && state.peers.get(peer_id).map_or(false, |peer| {
+                    && state.peers.get(peer_id).is_some_and(|peer| {
                         matches!(
                             &peer.status,
                             P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
