@@ -54,6 +54,7 @@ redux = { workspace = true, features=["serializable_callbacks"] }
 wasm-bindgen = "0.2"
 
 [features]
+serializable_callbacks = []
 replay = []
 p2p-webrtc = ["p2p/p2p-webrtc"]
 p2p-libp2p = ["p2p/p2p-libp2p"]

@@ -86,6 +86,7 @@ tokio = { version = "1.26", features = ["macros"] }
 getrandom = { version = "0.2", features = ["js"] }
 
 [features]
+serializable_callbacks = []
 p2p-webrtc = ["p2p-webrtc-rs"]
 p2p-webrtc-rs = ["webrtc"]
 p2p-webrtc-cpp = ["datachannel"]
