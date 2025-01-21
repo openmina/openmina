@@ -1,4 +1,4 @@
-FROM rust:1.83 AS app-builder
+FROM rust:1.84 AS app-builder
 
 WORKDIR /usr/src/openmina-producer-dashboard
 
