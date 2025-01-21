@@ -6,3 +6,6 @@ pub use public_key::PublicKey;
 
 mod secret_key;
 pub use secret_key::{EncryptableType, SecretKey};
+
+mod signature;
+pub use signature::Signature;
