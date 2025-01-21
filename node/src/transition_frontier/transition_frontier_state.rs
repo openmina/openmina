@@ -207,7 +207,9 @@ impl TransitionFrontierState {
             "diff_tx_size": self
                 .chain_diff
                 .as_ref()
-                .map(|d| d.new_commands.len() + d.removed_commands.len())
+                // `saturating_add` is not needed here as collection size cannot overflow usize
+                // but it makes clippy satisfied
+                .map(|d| d.new_commands.len().saturating_add(d.removed_commands.len()))
                 .unwrap_or_default()
         })
     }

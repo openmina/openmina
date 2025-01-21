@@ -1,5 +1,5 @@
 mod rpc_state;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use ark_ff::fields::arithmetic::InvalidBigInt;

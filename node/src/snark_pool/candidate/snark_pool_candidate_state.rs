@@ -52,18 +52,16 @@ impl SnarkPoolCandidatesState {
     }
 
     pub fn check(&self) -> (usize, Vec<(PeerId, SnarkJobId)>) {
-        let len = self.by_peer.iter().map(|(_, v)| v.len()).sum::<usize>();
+        let len = self.by_peer.values().map(BTreeMap::len).sum::<usize>();
         let lhs = self
             .by_job_id
             .iter()
-            .map(|(job_id, v)| v.iter().map(|peer_id| (*peer_id, job_id.clone())))
-            .flatten()
+            .flat_map(|(job_id, v)| v.iter().map(|peer_id| (*peer_id, job_id.clone())))
             .collect::<BTreeSet<_>>();
         let rhs = self
             .by_peer
             .iter()
-            .map(|(peer_id, v)| v.keys().map(|job_id| (*peer_id, job_id.clone())))
-            .flatten()
+            .flat_map(|(peer_id, v)| v.keys().map(|job_id| (*peer_id, job_id.clone())))
             .collect::<BTreeSet<_>>();
         let inconsistency = lhs.symmetric_difference(&rhs).cloned().collect();
         (len, inconsistency)

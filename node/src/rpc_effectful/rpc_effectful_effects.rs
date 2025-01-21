@@ -815,7 +815,7 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
                 let mut set = BTreeSet::new();
                 let fun = move |ptr: *const c_void| !set.insert(ptr.addr());
                 let mut ops = MallocSizeOfOps::new(None, Some(Box::new(fun)));
-                size_of_val(&state.p2p) + state.p2p.size_of(&mut ops)
+                size_of_val(&state.p2p).saturating_add(state.p2p.size_of(&mut ops))
             },
             transition_frontier: state.transition_frontier.resources_usage(),
             snark_pool: state.snark_pool.resources_usage(),

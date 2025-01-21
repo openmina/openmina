@@ -440,18 +440,6 @@ mod measurement {
 
     use super::*;
 
-    pub fn snark(val: &Vec<(Snark, u32)>, ops: &mut MallocSizeOfOps) -> usize {
-        // TODO(vlad):
-        let _ = (val, ops);
-        0
-    }
-
-    pub fn transaction(val: &Vec<(Transaction, u32)>, ops: &mut MallocSizeOfOps) -> usize {
-        // TODO(vlad):
-        let _ = (val, ops);
-        0
-    }
-
     pub fn clients(
         val: &BTreeMap<PeerId, P2pNetworkPubsubClientState>,
         ops: &mut MallocSizeOfOps,
