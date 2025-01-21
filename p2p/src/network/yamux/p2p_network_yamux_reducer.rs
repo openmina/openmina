@@ -47,6 +47,8 @@ impl P2pNetworkYamuxState {
 
         match action {
             P2pNetworkYamuxAction::IncomingData { data, addr } => {
+                // TODO: this may grow over the capacity, if that happens make sure to eventually
+                // truncate it to a reasonable size.
                 yamux_state.buffer.extend_from_slice(&data);
                 let mut offset = 0;
                 loop {
@@ -141,7 +143,9 @@ impl P2pNetworkYamuxState {
                     break;
                 }
 
-                yamux_state.buffer = yamux_state.buffer[offset..].to_vec();
+                let new_len = yamux_state.buffer.len() - offset;
+                yamux_state.buffer.copy_within(offset.., 0);
+                yamux_state.buffer.truncate(new_len);
 
                 let frame_count = yamux_state.incoming.len();
                 let dispatcher = state_context.into_dispatcher();

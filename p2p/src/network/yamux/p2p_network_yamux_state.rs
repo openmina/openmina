@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::super::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkYamuxState {
     pub message_size_limit: Limit<usize>,
     pub pending_outgoing_limit: Limit<usize>,
@@ -13,6 +13,20 @@ pub struct P2pNetworkYamuxState {
     pub streams: BTreeMap<StreamId, YamuxStreamState>,
     pub terminated: Option<Result<Result<(), YamuxSessionError>, YamuxFrameParseError>>,
     pub init: bool,
+}
+
+impl Default for P2pNetworkYamuxState {
+    fn default() -> Self {
+        Self {
+            message_size_limit: Default::default(),
+            pending_outgoing_limit: Default::default(),
+            buffer: Vec::with_capacity(0x40000),   // 256kb
+            incoming: VecDeque::with_capacity(10), // TODO: measure and see what is a good default
+            streams: Default::default(),
+            terminated: Default::default(),
+            init: Default::default(),
+        }
+    }
 }
 
 impl P2pNetworkYamuxState {
