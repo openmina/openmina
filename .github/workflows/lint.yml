@@ -36,4 +36,4 @@ jobs:
         name: clippy
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets -- -D warnings --allow clippy::mutable_key_type --allow clippy::result_unit_err
+          args: --all-targets -- -D warnings --allow clippy::mutable_key_type
