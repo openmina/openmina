@@ -60,7 +60,7 @@ impl crate::State {
             P2pCallbacksAction::P2pChannelsRpcReady { peer_id } => {
                 let peer_id = *peer_id;
 
-                if state.p2p.get_peer(&peer_id).map_or(false, |p| p.is_libp2p) {
+                if state.p2p.get_peer(&peer_id).is_some_and(|p| p.is_libp2p) {
                     // for webrtc peers, we don't need to send this rpc, as we
                     // will receive current best tip in best tip channel anyways.
                     dispatcher.push(P2pChannelsRpcAction::RequestSend {

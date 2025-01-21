@@ -130,12 +130,12 @@ impl SnarkPoolState {
     }
 
     pub fn should_create_commitment(&self, job_id: &SnarkJobId) -> bool {
-        self.get(job_id).map_or(false, |s| s.is_available())
+        self.get(job_id).is_some_and(|s| s.is_available())
     }
 
     pub fn is_commitment_timed_out(&self, id: &SnarkJobId, time_now: Timestamp) -> bool {
         self.get(id)
-            .map_or(false, |job| is_job_commitment_timed_out(job, time_now))
+            .is_some_and(|job| is_job_commitment_timed_out(job, time_now))
     }
 
     pub fn timed_out_commitments_iter(
@@ -212,7 +212,7 @@ fn is_job_commitment_timed_out(job: &JobState, time_now: Timestamp) -> bool {
 
     let timeout = job.estimated_duration();
     let passed_time = time_now.checked_sub(commitment.commitment.timestamp());
-    let is_timed_out = passed_time.map_or(false, |dur| dur >= timeout);
+    let is_timed_out = passed_time.is_some_and(|dur| dur >= timeout);
     let didnt_deliver = job
         .snark
         .as_ref()

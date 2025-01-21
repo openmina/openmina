@@ -155,7 +155,7 @@ impl LedgerWriteState {
                 },
             ) => {
                 let best_tip = state.transition_frontier.sync.best_tip();
-                if best_tip.map_or(false, |tip| tip.hash() == &best_tip_hash) {
+                if best_tip.is_some_and(|tip| tip.hash() == &best_tip_hash) {
                     dispatcher.push(TransitionFrontierSyncAction::CommitSuccess { result });
                 }
             }

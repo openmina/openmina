@@ -647,7 +647,7 @@ impl Cluster {
         while self
             .scenario
             .peek()
-            .map_or(false, |(scenario, _)| scenario.info.id != target_scenario)
+            .is_some_and(|(scenario, _)| scenario.info.id != target_scenario)
         {
             if !self.exec_next().await? {
                 break;
@@ -657,7 +657,7 @@ impl Cluster {
         while self
             .scenario
             .peek()
-            .map_or(false, |(scenario, _)| scenario.info.id == target_scenario)
+            .is_some_and(|(scenario, _)| scenario.info.id == target_scenario)
         {
             if let Some(step_i) = step_i {
                 if self.scenario.peek_i().unwrap().1 >= step_i {

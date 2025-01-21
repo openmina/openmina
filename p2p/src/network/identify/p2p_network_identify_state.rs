@@ -37,7 +37,7 @@ impl P2pNetworkIdentifyState {
     pub fn remove_identify_stream_state(&mut self, peer_id: &PeerId, stream_id: &StreamId) -> bool {
         self.streams
             .get_mut(peer_id)
-            .map_or(false, |m| m.remove(stream_id).is_some())
+            .is_some_and(|m| m.remove(stream_id).is_some())
     }
 
     pub fn prune_peer_state(&mut self, peer_id: &PeerId) {

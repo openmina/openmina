@@ -194,7 +194,7 @@ where
                         .iter()
                         .position(|(_id, _v)| _id == &id && _v == &v)
                 })
-                .map_or(false, |i| {
+                .is_some_and(|i| {
                     nodes_items.swap_remove(i);
                     nodes_items.is_empty()
                 })

@@ -89,7 +89,7 @@ impl TransitionFrontierSyncState {
                         } else if substate
                             .ledger
                             .staged()
-                            .map_or(false, |s| s.is_parts_fetched())
+                            .is_some_and(|s| s.is_parts_fetched())
                             && root_block.pred_hash() == old_root_block.hash()
                         {
                             // Optimization. Prevent changing staging ledger target,
@@ -144,7 +144,7 @@ impl TransitionFrontierSyncState {
                     let old_chain_has_new_root_applied = old_chain
                         .iter()
                         .find(|b| b.block_hash() == &new_root.hash)
-                        .map_or(false, |b| b.is_apply_success());
+                        .is_some_and(|b| b.is_apply_success());
 
                     if applied_blocks.contains_key(&new_root.hash) || old_chain_has_new_root_applied
                     {
@@ -753,9 +753,8 @@ fn next_required_ledger_to_sync(
                 .into();
         (SyncLedgerTargetKind::NextEpoch, ledger)
     } else if old_root.snarked_ledger_hash() == new_root.snarked_ledger_hash()
-        || cur_best_root.map_or(false, |cur| {
-            cur.snarked_ledger_hash() == new_root.snarked_ledger_hash()
-        })
+        || cur_best_root
+            .is_some_and(|cur| cur.snarked_ledger_hash() == new_root.snarked_ledger_hash())
     {
         let ledger = TransitionFrontierSyncLedgerSnarkedState::Success {
             time,

@@ -90,7 +90,7 @@ impl P2pNetworkPubsubState {
                     .filter(|time| {
                         timestamp
                             .checked_sub(*time)
-                            .map_or(false, |duration| duration < IWANT_TIMEOUT_DURATION)
+                            .is_some_and(|duration| duration < IWANT_TIMEOUT_DURATION)
                     })
                     .collect();
 

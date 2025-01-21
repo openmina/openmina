@@ -40,7 +40,7 @@ impl NonDeterministicEvent {
     }
 
     pub fn should_drop_event(event: &Event) -> bool {
-        Self::new(event).map_or(false, |e| e.should_drop())
+        Self::new(event).is_some_and(|e| e.should_drop())
     }
 
     pub fn should_drop(&self) -> bool {

@@ -102,7 +102,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
     fn is_enabled(&self, state: &P2pState, now: redux::Timestamp) -> bool {
         match self {
             P2pChannelsSignalingDiscoveryAction::Init { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.signaling.discovery,
                         P2pChannelsSignalingDiscoveryState::Enabled
@@ -110,7 +110,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 })
             }
             P2pChannelsSignalingDiscoveryAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.signaling.discovery,
                         P2pChannelsSignalingDiscoveryState::Init { .. }
@@ -118,7 +118,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 })
             }
             P2pChannelsSignalingDiscoveryAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.signaling.discovery,
                         P2pChannelsSignalingDiscoveryState::Pending { .. }
@@ -126,7 +126,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 })
             }
             P2pChannelsSignalingDiscoveryAction::RequestSend { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     match &p.channels.signaling.discovery {
                         P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
                             match local {
@@ -136,7 +136,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                                     // Allow one discovery request per minute.
                                     // TODO(binier): make configurable
                                     now.checked_sub(*time)
-                                        .map_or(false, |dur| dur.as_secs() >= 60)
+                                        .is_some_and(|dur| dur.as_secs() >= 60)
                                 }
                                 _ => false,
                             }
@@ -147,7 +147,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
             }
             P2pChannelsSignalingDiscoveryAction::DiscoveryRequestReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
                         matches!(local, SignalingDiscoveryState::Requested { .. })
                     }
@@ -159,17 +159,16 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 ..
             } => {
                 let target_peer_id = target_public_key.peer_id();
-                let has_peer_requested_discovery =
-                    state.get_ready_peer(peer_id).map_or(false, |p| {
-                        match &p.channels.signaling.discovery {
-                            P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
-                                matches!(local, SignalingDiscoveryState::DiscoveryRequested { .. })
-                            }
-                            _ => false,
+                let has_peer_requested_discovery = state.get_ready_peer(peer_id).is_some_and(|p| {
+                    match &p.channels.signaling.discovery {
+                        P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
+                            matches!(local, SignalingDiscoveryState::DiscoveryRequested { .. })
                         }
-                    });
+                        _ => false,
+                    }
+                });
                 let target_peer_already_discovering_them =
-                    state.get_ready_peer(&target_peer_id).map_or(false, |p| {
+                    state.get_ready_peer(&target_peer_id).is_some_and(|p| {
                         p.channels.signaling.sent_discovered_peer_id() == Some(*peer_id)
                     });
                 has_peer_requested_discovery
@@ -180,7 +179,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
             }
             P2pChannelsSignalingDiscoveryAction::DiscoveredRejectReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
                         matches!(local, SignalingDiscoveryState::Discovered { .. })
                     }
@@ -188,7 +187,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             P2pChannelsSignalingDiscoveryAction::DiscoveredAcceptReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
                         matches!(local, SignalingDiscoveryState::Discovered { .. })
                     }
@@ -196,7 +195,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             P2pChannelsSignalingDiscoveryAction::AnswerSend { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { local, .. } => {
                         matches!(local, SignalingDiscoveryState::DiscoveredAccepted { .. })
                     }
@@ -204,7 +203,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             P2pChannelsSignalingDiscoveryAction::RequestReceived { peer_id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => matches!(
                         remote,
                         SignalingDiscoveryState::WaitingForRequest { .. }
@@ -217,7 +216,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
             // to handle malicious peers.
             P2pChannelsSignalingDiscoveryAction::DiscoveryRequestSend { peer_id, .. } => {
                 !state.already_has_min_peers()
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                    && state.get_ready_peer(peer_id).is_some_and(|p| {
                         match &p.channels.signaling.discovery {
                             P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
                                 matches!(remote, SignalingDiscoveryState::Requested { .. })
@@ -228,7 +227,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
             }
             P2pChannelsSignalingDiscoveryAction::DiscoveredReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
                         matches!(remote, SignalingDiscoveryState::DiscoveryRequested { .. })
                     }
@@ -236,7 +235,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             P2pChannelsSignalingDiscoveryAction::DiscoveredReject { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
                         matches!(remote, SignalingDiscoveryState::Discovered { .. })
                     }
@@ -244,7 +243,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             P2pChannelsSignalingDiscoveryAction::DiscoveredAccept { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
                         matches!(remote, SignalingDiscoveryState::Discovered { .. })
                     }
@@ -252,7 +251,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             P2pChannelsSignalingDiscoveryAction::AnswerReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
                         matches!(remote, SignalingDiscoveryState::DiscoveredAccepted { .. })
                     }
@@ -260,7 +259,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingDiscoveryAction 
                 }),
             P2pChannelsSignalingDiscoveryAction::AnswerDecrypted { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.discovery {
+                .is_some_and(|p| match &p.channels.signaling.discovery {
                     P2pChannelsSignalingDiscoveryState::Ready { remote, .. } => {
                         matches!(remote, SignalingDiscoveryState::DiscoveredAccepted { .. })
                     }

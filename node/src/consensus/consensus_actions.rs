@@ -84,7 +84,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                 .consensus
                 .blocks
                 .get(hash)
-                .map_or(false, |block| block.status.is_received()),
+                .is_some_and( |block| block.status.is_received()),
             ConsensusAction::BlockChainProofUpdate { hash, .. } => {
                 (state.consensus.best_tip.as_ref() == Some(hash)
                     && state.consensus.best_tip_chain_proof.is_none())
@@ -92,14 +92,14 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                         .consensus
                         .blocks
                         .get(hash)
-                        .map_or(false, |b| b.status.is_pending() && b.chain_proof.is_none())
+                        .is_some_and( |b| b.status.is_pending() && b.chain_proof.is_none())
             },
             ConsensusAction::BlockSnarkVerifyPending { req_id, hash } => {
                 state
                     .consensus
                     .blocks
                     .get(hash)
-                    .map_or(false, |block| block.status.is_prevalidated())
+                    .is_some_and( |block| block.status.is_prevalidated())
                     && state.snark.block_verify.jobs.contains(*req_id)
             },
             ConsensusAction::BlockSnarkVerifySuccess { hash } => {
@@ -107,21 +107,21 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     .consensus
                     .blocks
                     .get(hash)
-                    .map_or(false, |block| block.status.is_snark_verify_pending())
+                    .is_some_and( |block| block.status.is_snark_verify_pending())
             },
             ConsensusAction::BlockSnarkVerifyError { hash, .. } => {
                 state
                     .consensus
                     .blocks
                     .get(hash)
-                    .map_or(false, |block| block.status.is_snark_verify_pending())
+                    .is_some_and( |block| block.status.is_snark_verify_pending())
             },
             ConsensusAction::DetectForkRange { hash } => {
                 state
                     .consensus
                     .blocks
                     .get(hash)
-                    .map_or(false, |block| {
+                    .is_some_and( |block| {
                         matches!(
                             block.status,
                             ConsensusBlockStatus::SnarkVerifySuccess { .. }
@@ -133,7 +133,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     .consensus
                     .blocks
                     .get(hash)
-                    .map_or(false, |block| match state.consensus.best_tip() {
+                    .is_some_and( |block| match state.consensus.best_tip() {
                         Some(tip) => {
                             matches!(
                                 &block.status,
@@ -149,7 +149,7 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     .consensus
                     .blocks
                     .get(hash)
-                    .map_or(false, |block| match state.consensus.best_tip() {
+                    .is_some_and( |block| match state.consensus.best_tip() {
                         Some(tip) => {
                             matches!(
                                 &block.status,

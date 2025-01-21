@@ -368,11 +368,7 @@ impl OcamlNode {
         tokio::time::timeout(timeout, async {
             loop {
                 interval.tick().await;
-                if self
-                    .synced_best_tip()
-                    .await
-                    .map_or(false, |tip| tip.is_some())
-                {
+                if self.synced_best_tip().await.is_ok_and(|tip| tip.is_some()) {
                     return;
                 }
             }

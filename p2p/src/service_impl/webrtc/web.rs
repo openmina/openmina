@@ -113,7 +113,7 @@ impl RTCConnection {
             let mut tx = Some(tx);
             let conn = self.weak_ref();
             let callback = Closure::<dyn FnMut()>::new(move || {
-                if conn.upgrade().map_or(false, |conn| {
+                if conn.upgrade().is_some_and(|conn| {
                     matches!(conn.ice_gathering_state(), RtcIceGatheringState::Complete)
                 }) {
                     if let Some(tx) = tx.take() {

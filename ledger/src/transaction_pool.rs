@@ -1257,6 +1257,7 @@ impl IndexedPool {
         };
 
         // TODO: Should `self.all_by_fee` be a `BTreeSet` instead ?
+        #[allow(clippy::mutable_key_type)]
         let bset: BTreeSet<_> = set.iter().collect();
         // TODO: Not sure if OCaml compare the same way than we do
         let min = bset.first().map(|min| (*min).clone()).unwrap();
@@ -1755,9 +1756,12 @@ impl TransactionPool {
             let mut new_commands = collect_hashed(new_commands);
             let mut removed_commands = collect_hashed(removed_commands);
 
+            #[allow(clippy::mutable_key_type)]
             let new_commands_set = new_commands.iter().collect::<HashSet<_>>();
+            #[allow(clippy::mutable_key_type)]
             let removed_commands_set = removed_commands.iter().collect::<HashSet<_>>();
 
+            #[allow(clippy::mutable_key_type)]
             let duplicates = new_commands_set
                 .intersection(&removed_commands_set)
                 .map(|cmd| (*cmd).clone())

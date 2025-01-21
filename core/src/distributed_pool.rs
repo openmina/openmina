@@ -37,7 +37,7 @@ where
     pub fn contains(&self, key: &Key) -> bool {
         self.by_key
             .get(key)
-            .map_or(false, |i| self.list.contains_key(i))
+            .is_some_and(|i| self.list.contains_key(i))
     }
 
     pub fn get(&self, key: &Key) -> Option<&State> {

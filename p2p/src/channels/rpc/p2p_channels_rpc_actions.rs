@@ -75,21 +75,15 @@ impl P2pChannelsRpcAction {
 impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
     fn is_enabled(&self, state: &P2pState, time: Timestamp) -> bool {
         match self {
-            P2pChannelsRpcAction::Init { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
-                    matches!(p.channels.rpc, P2pChannelsRpcState::Enabled)
-                })
-            }
-            P2pChannelsRpcAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
-                    matches!(p.channels.rpc, P2pChannelsRpcState::Init { .. })
-                })
-            }
-            P2pChannelsRpcAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
-                    matches!(p.channels.rpc, P2pChannelsRpcState::Pending { .. })
-                })
-            }
+            P2pChannelsRpcAction::Init { peer_id } => state
+                .get_ready_peer(peer_id)
+                .is_some_and(|p| matches!(p.channels.rpc, P2pChannelsRpcState::Enabled)),
+            P2pChannelsRpcAction::Pending { peer_id } => state
+                .get_ready_peer(peer_id)
+                .is_some_and(|p| matches!(p.channels.rpc, P2pChannelsRpcState::Init { .. })),
+            P2pChannelsRpcAction::Ready { peer_id } => state
+                .get_ready_peer(peer_id)
+                .is_some_and(|p| matches!(p.channels.rpc, P2pChannelsRpcState::Pending { .. })),
             P2pChannelsRpcAction::RequestSend {
                 peer_id,
                 id,
@@ -100,7 +94,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                 .get(peer_id)
                 .filter(|p| !p.is_libp2p() || request.kind().supported_by_libp2p())
                 .and_then(|p| p.status.as_ready())
-                .map_or(false, |p| {
+                .is_some_and(|p| {
                     matches!(
                         &p.channels.rpc,
                         P2pChannelsRpcState::Ready {
@@ -111,7 +105,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     )
                 }),
             P2pChannelsRpcAction::Timeout { peer_id, id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.rpc,
                         P2pChannelsRpcState::Ready {
@@ -124,7 +118,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
             P2pChannelsRpcAction::ResponseReceived { peer_id, id, .. } => {
                 // TODO(binier): use consensus to enforce that peer doesn't send
                 // us inferior block than it has in the past.
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     match &p.channels.rpc {
                         P2pChannelsRpcState::Ready { local, .. } => {
                             // TODO(binier): validate that response corresponds to request.
@@ -140,7 +134,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
             }
             P2pChannelsRpcAction::RequestReceived { peer_id, id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.rpc {
+                .is_some_and(|p| match &p.channels.rpc {
                     P2pChannelsRpcState::Ready { remote, .. } => {
                         remote.pending_requests.len() < MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS
                             && remote.pending_requests.iter().all(|v| v.id != *id)
@@ -149,7 +143,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                 }),
             P2pChannelsRpcAction::ResponsePending { peer_id, id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.rpc {
+                .is_some_and(|p| match &p.channels.rpc {
                     P2pChannelsRpcState::Ready { remote, .. } => remote
                         .pending_requests
                         .iter()
@@ -177,7 +171,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     };
                 }
 
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     match &p.channels.rpc {
                         P2pChannelsRpcState::Ready { remote, .. } => {
                             // TODO(binier): validate that response corresponds to request.

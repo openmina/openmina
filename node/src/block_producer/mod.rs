@@ -131,7 +131,7 @@ impl PartialOrd for BlockProducerWonSlot {
 
 impl PartialEq<ArcBlockWithHash> for BlockProducerWonSlot {
     fn eq(&self, other: &ArcBlockWithHash) -> bool {
-        self.partial_cmp(other).map_or(false, |ord| ord.is_eq())
+        self.partial_cmp(other).is_some_and(|ord| ord.is_eq())
     }
 }
 

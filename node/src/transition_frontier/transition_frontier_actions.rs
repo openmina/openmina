@@ -69,12 +69,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
             ),
             TransitionFrontierAction::SyncFailed { best_tip, error } => {
                 let sync = &state.transition_frontier.sync;
-                sync.best_tip()
-                    .map_or(false, |b| b.hash() == best_tip.hash())
+                sync.best_tip().is_some_and(|b| b.hash() == best_tip.hash())
                     && match error {
                         SyncError::BlockApplyFailed(block, _) => sync
                             .block_state(block.hash())
-                            .map_or(false, |s| s.is_apply_error()),
+                            .is_some_and(|s| s.is_apply_error()),
                     }
             }
         }

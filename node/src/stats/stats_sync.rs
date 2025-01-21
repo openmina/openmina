@@ -305,7 +305,7 @@ impl SyncStats {
             .iter()
             .rev()
             // .take_while(|s| {
-            //     !s.is_apply_success() || s.block().map_or(false, |b| b.height() == root_height)
+            //     !s.is_apply_success() || s.block().is_some_and( |b| b.height() == root_height)
             // })
             .enumerate()
             .map(|(i, s)| {

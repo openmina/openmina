@@ -246,6 +246,6 @@ impl SoloNodeSyncRootSnarkedLedger {
 
     fn is_event_first_ledger_query(self, state: &State, event: &Event) -> bool {
         self.event_ledger_query_addr(state, event)
-            .map_or(false, |addr| addr == LedgerAddress::first(addr.length()))
+            .is_some_and(|addr| addr == LedgerAddress::first(addr.length()))
     }
 }

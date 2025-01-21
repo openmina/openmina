@@ -115,9 +115,9 @@ pub struct P2pChannelsMessageReceivedAction {
 
 impl redux::EnablingCondition<P2pState> for P2pChannelsMessageReceivedAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
-        state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            p.channels.is_channel_ready(self.message.channel_id())
-        })
+        state
+            .get_ready_peer(&self.peer_id)
+            .is_some_and(|p| p.channels.is_channel_ready(self.message.channel_id()))
     }
 }
 

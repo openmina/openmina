@@ -118,7 +118,7 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
             || constraint_constants()
                 .fork
                 .as_ref()
-                .map_or(false, |fork| fork.blockchain_length + 1 == self.height())
+                .is_some_and(|fork| fork.blockchain_length + 1 == self.height())
     }
 
     pub fn root_block_height(&self) -> u32 {

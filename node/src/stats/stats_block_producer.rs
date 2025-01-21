@@ -112,7 +112,7 @@ impl BlockProducerStats {
         self.attempts
             .back()
             .and_then(|v| v.block.as_ref())
-            .map_or(false, |b| &b.hash == hash)
+            .is_some_and(|b| &b.hash == hash)
     }
 
     pub fn collect_attempts(&self) -> Vec<BlockProductionAttempt> {

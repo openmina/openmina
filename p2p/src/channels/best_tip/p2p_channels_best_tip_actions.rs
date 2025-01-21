@@ -59,18 +59,16 @@ impl P2pChannelsBestTipAction {
 impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
-            P2pChannelsBestTipAction::Init { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
-                    matches!(&p.channels.best_tip, P2pChannelsBestTipState::Enabled)
-                })
-            }
+            P2pChannelsBestTipAction::Init { peer_id } => state
+                .get_ready_peer(peer_id)
+                .is_some_and(|p| matches!(&p.channels.best_tip, P2pChannelsBestTipState::Enabled)),
             P2pChannelsBestTipAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(&p.channels.best_tip, P2pChannelsBestTipState::Init { .. })
                 })
             }
             P2pChannelsBestTipAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.best_tip,
                         P2pChannelsBestTipState::Pending { .. }
@@ -79,7 +77,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
             }
             P2pChannelsBestTipAction::RequestSend { peer_id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.best_tip {
+                .is_some_and(|p| match &p.channels.best_tip {
                     P2pChannelsBestTipState::Ready { local, .. } => matches!(
                         local,
                         BestTipPropagationState::WaitingForRequest { .. }
@@ -92,7 +90,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
                 // us inferior block than it has in the past.
                 state
                     .get_ready_peer(peer_id)
-                    .map_or(false, |p| match &p.channels.best_tip {
+                    .is_some_and(|p| match &p.channels.best_tip {
                         P2pChannelsBestTipState::Ready { local, .. } => {
                             matches!(local, BestTipPropagationState::Requested { .. })
                         }
@@ -101,7 +99,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
             }
             P2pChannelsBestTipAction::RequestReceived { peer_id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.best_tip {
+                .is_some_and(|p| match &p.channels.best_tip {
                     P2pChannelsBestTipState::Ready { remote, .. } => matches!(
                         remote,
                         BestTipPropagationState::WaitingForRequest { .. }
@@ -111,7 +109,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
                 }),
             P2pChannelsBestTipAction::ResponseSend { peer_id, best_tip } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.best_tip {
+                .is_some_and(|p| match &p.channels.best_tip {
                     P2pChannelsBestTipState::Ready {
                         remote, last_sent, ..
                     } => {

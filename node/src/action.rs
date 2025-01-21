@@ -84,12 +84,12 @@ impl redux::EnablingCondition<crate::State> for Action {
                 other => state
                     .p2p
                     .ready()
-                    .map_or(false, |p2p| other.is_enabled(p2p, time)),
+                    .is_some_and(|p2p| other.is_enabled(p2p, time)),
             },
             Action::P2pEffectful(a) => state
                 .p2p
                 .ready()
-                .map_or(false, |state| a.is_enabled(state, time)),
+                .is_some_and(|state| a.is_enabled(state, time)),
             Action::Ledger(a) => a.is_enabled(state, time),
             Action::LedgerEffects(a) => a.is_enabled(state, time),
             Action::Snark(a) => a.is_enabled(&state.snark, time),

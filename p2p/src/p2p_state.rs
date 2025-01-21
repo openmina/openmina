@@ -184,17 +184,17 @@ impl P2pState {
         self.peers
             .get(peer_id)
             .and_then(|p| p.status.as_connecting())
-            .map_or(false, |p| !p.is_error())
+            .is_some_and(|p| !p.is_error())
     }
 
     pub fn is_peer_connected_or_connecting(&self, peer_id: &PeerId) -> bool {
         self.peers
             .get(peer_id)
-            .map_or(false, |p| p.status.is_connected_or_connecting())
+            .is_some_and(|p| p.status.is_connected_or_connecting())
     }
 
     pub fn is_libp2p_peer(&self, peer_id: &PeerId) -> bool {
-        self.peers.get(peer_id).map_or(false, |p| p.is_libp2p())
+        self.peers.get(peer_id).is_some_and(|p| p.is_libp2p())
     }
 
     pub fn is_peer_rpc_timed_out(
@@ -203,7 +203,7 @@ impl P2pState {
         rpc_id: P2pRpcId,
         now: redux::Timestamp,
     ) -> bool {
-        self.get_ready_peer(peer_id).map_or(false, |p| {
+        self.get_ready_peer(peer_id).is_some_and(|p| {
             p.channels
                 .rpc
                 .is_timed_out(rpc_id, now, &self.config.timeouts)
@@ -216,7 +216,7 @@ impl P2pState {
         rpc_id: P2pStreamingRpcId,
         now: redux::Timestamp,
     ) -> bool {
-        self.get_ready_peer(peer_id).map_or(false, |p| {
+        self.get_ready_peer(peer_id).is_some_and(|p| {
             p.channels
                 .streaming_rpc
                 .is_timed_out(rpc_id, now, &self.config.timeouts)

@@ -47,7 +47,7 @@ pub enum RunDecision {
 
 pub struct DynEffectsData<T>(Arc<Mutex<T>>);
 
-impl<'a> super::ClusterRunner<'a> {
+impl super::ClusterRunner<'_> {
     /// Execute cluster in the infinite loop, based on conditions specified
     /// in the `RunCfg`.
     pub async fn run<EH, AH>(

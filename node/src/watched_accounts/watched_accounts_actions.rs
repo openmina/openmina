@@ -65,7 +65,7 @@ fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCu
         .watched_accounts
         .get(pub_key)
         .filter(|_| state.consensus.best_tip.is_some())
-        .map_or(false, |a| match &a.initial_state {
+        .is_some_and(|a| match &a.initial_state {
             WatchedAccountLedgerInitialState::Idle { .. } => true,
             WatchedAccountLedgerInitialState::Error { .. } => true,
             WatchedAccountLedgerInitialState::Pending { block, .. } => {
@@ -94,7 +94,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
                 should_request_ledger_initial_state(state, pub_key)
             }
             WatchedAccountsAction::LedgerInitialStateGetError { pub_key, .. } => {
-                state.watched_accounts.get(pub_key).map_or(false, |a| {
+                state.watched_accounts.get(pub_key).is_some_and(|a| {
                     matches!(
                         &a.initial_state,
                         WatchedAccountLedgerInitialState::Pending { .. }
@@ -104,14 +104,14 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
             WatchedAccountsAction::LedgerInitialStateGetRetry { pub_key } => state
                 .watched_accounts
                 .get(pub_key)
-                .map_or(false, |a| match &a.initial_state {
+                .is_some_and(|a| match &a.initial_state {
                     WatchedAccountLedgerInitialState::Error { time: t, .. } => {
-                        time.checked_sub(*t).map_or(false, |d| d.as_secs() >= 3)
+                        time.checked_sub(*t).is_some_and(|d| d.as_secs() >= 3)
                     }
                     _ => false,
                 }),
             WatchedAccountsAction::LedgerInitialStateGetSuccess { pub_key, .. } => {
-                state.watched_accounts.get(pub_key).map_or(false, |a| {
+                state.watched_accounts.get(pub_key).is_some_and(|a| {
                     matches!(
                         &a.initial_state,
                         WatchedAccountLedgerInitialState::Pending { .. }
@@ -123,7 +123,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
                 state
                     .watched_accounts
                     .get(pub_key)
-                    .map_or(false, |v| v.initial_state.is_success())
+                    .is_some_and(|v| v.initial_state.is_success())
                     && super::account_relevant_transactions_in_diff_iter(pub_key, diff)
                         .any(|_| true)
             }
@@ -163,7 +163,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
                 //         let peer = state.p2p.get_ready_peer(&self.peer_id)?;
                 //         peer.rpc.outgoing.get(self.p2p_rpc_id)
                 //     })
-                //     .map_or(false, |v| v.is_init() || v.is_pending());
+                //     .is_some_and( |v| v.is_init() || v.is_pending());
 
                 should_req_for_block && p2p_rpc_is_pending
             }

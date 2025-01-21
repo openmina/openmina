@@ -135,11 +135,11 @@ pub enum TransitionFrontierSyncLedgerSnarkedAction {
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnarkedAction {
     fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
-            TransitionFrontierSyncLedgerSnarkedAction::Pending => {
-                state.transition_frontier.sync.ledger().map_or(false, |s| {
-                    matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
-                })
-            }
+            TransitionFrontierSyncLedgerSnarkedAction::Pending => state
+                .transition_frontier
+                .sync
+                .ledger()
+                .is_some_and(|s| matches!(s, TransitionFrontierSyncLedgerState::Init { .. })),
             TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {
                 // This condition passes if:
                 // - there are available peers to query
@@ -155,7 +155,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     .sync
                     .ledger()
                     .and_then(|s| s.snarked())
-                    .map_or(false, |s| {
+                    .is_some_and(|s| {
                         s.is_num_accounts_query_next() || s.contains_pending_address_queries()
                     });
                 peers_available && sync_next_available
@@ -187,7 +187,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked()?.num_accounts_pending())
-                .map_or(false, |pending| {
+                .is_some_and(|pending| {
                     pending
                         .attempts
                         .get(peer_id)
@@ -221,10 +221,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     s.peer_num_account_query_get(peer_id, *rpc_id)
                         .and_then(|s| s.attempts.get(peer_id))
-                        .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
+                        .is_some_and(|s| matches!(s, PeerRpcState::Pending { .. }))
                 }),
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsSuccess {
                 peer_id,
@@ -235,11 +235,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     // TODO(tizoc): check if expected response kind is correct.
                     s.peer_num_account_query_get(peer_id, *rpc_id)
                         .and_then(|s| s.attempts.get(peer_id))
-                        .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
+                        .is_some_and(|s| matches!(s, PeerRpcState::Pending { .. }))
                 }),
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived { sender, .. }
             | TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted { sender, .. }
@@ -250,7 +250,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     .ledger()
                     .and_then(|s| s.snarked()?.num_accounts_pending())
                     .and_then(|s| s.attempts.get(sender))
-                    .map_or(false, |s| s.is_success())
+                    .is_some_and(|s| s.is_success())
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess { .. } => state
                 .transition_frontier
@@ -264,7 +264,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerSnarkedState::NumAccountsSuccess { .. }
@@ -275,7 +275,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| match s {
+                .is_some_and(|s| match s {
                     TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
                         queue,
                         pending_addresses: pending,
@@ -349,7 +349,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked()?.fetch_pending())
-                .map_or(false, |pending| {
+                .is_some_and(|pending| {
                     pending
                         .iter()
                         .filter_map(|(_, query_state)| query_state.attempts.get(peer_id))
@@ -364,10 +364,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     s.peer_address_query_get(peer_id, *rpc_id)
                         .and_then(|(_, s)| s.attempts.get(peer_id))
-                        .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
+                        .is_some_and(|s| matches!(s, PeerRpcState::Pending { .. }))
                 }),
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressSuccess {
                 peer_id,
@@ -379,11 +379,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     .sync
                     .ledger()
                     .and_then(|s| s.snarked())
-                    .map_or(false, |s| {
+                    .is_some_and(|s| {
                         // TODO(binier): check if expected response kind is correct.
                         s.peer_address_query_get(peer_id, *rpc_id)
                             .and_then(|(_, s)| s.attempts.get(peer_id))
-                            .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
+                            .is_some_and(|s| matches!(s, PeerRpcState::Pending { .. }))
                     })
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived {
@@ -408,7 +408,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                         .ledger()
                         .and_then(|s| s.snarked()?.fetch_pending()?.get(address))
                         .and_then(|s| s.attempts.get(sender))
-                        .map_or(false, |s| s.is_success())
+                        .is_some_and(|s| s.is_success())
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived {
                 address,
@@ -424,7 +424,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .ledger()
                 .and_then(|s| s.snarked()?.fetch_pending()?.get(address))
                 .and_then(|s| s.attempts.get(sender))
-                .map_or(false, |s| s.is_success()),
+                .is_some_and(|s| s.is_success()),
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsAccepted {
                 address,
                 count,
@@ -437,14 +437,14 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                         .ledger()
                         .and_then(|s| s.snarked()?.fetch_pending()?.get(address))
                         .and_then(|s| s.attempts.get(sender))
-                        .map_or(false, |s| s.is_success())
+                        .is_some_and(|s| s.is_success())
             }
             TransitionFrontierSyncLedgerSnarkedAction::Success => state
                 .transition_frontier
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| {
+                .is_some_and(|s| {
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncSuccess { .. }

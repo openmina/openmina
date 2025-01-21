@@ -112,14 +112,14 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 .get(peer_id)
                 .filter(|p| !p.is_libp2p())
                 .and_then(|p| p.status.as_ready())
-                .map_or(false, |p| {
+                .is_some_and(|p| {
                     matches!(
                         p.channels.streaming_rpc,
                         P2pChannelsStreamingRpcState::Enabled
                     )
                 }),
             P2pChannelsStreamingRpcAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         p.channels.streaming_rpc,
                         P2pChannelsStreamingRpcState::Init { .. }
@@ -127,7 +127,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 })
             }
             P2pChannelsStreamingRpcAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         p.channels.streaming_rpc,
                         P2pChannelsStreamingRpcState::Pending { .. }
@@ -135,7 +135,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 })
             }
             P2pChannelsStreamingRpcAction::RequestSend { peer_id, id, .. } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.streaming_rpc,
                         P2pChannelsStreamingRpcState::Ready {
@@ -147,7 +147,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 })
             }
             P2pChannelsStreamingRpcAction::Timeout { peer_id, id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.streaming_rpc,
                         P2pChannelsStreamingRpcState::Ready {
@@ -160,7 +160,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
             }
             P2pChannelsStreamingRpcAction::ResponseNextPartGet { peer_id, id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.streaming_rpc {
+                .is_some_and(|p| match &p.channels.streaming_rpc {
                     P2pChannelsStreamingRpcState::Ready {
                         local:
                             P2pStreamingRpcLocalState::Requested {
@@ -178,7 +178,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 response,
             } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.streaming_rpc {
+                .is_some_and(|p| match &p.channels.streaming_rpc {
                     P2pChannelsStreamingRpcState::Ready {
                         local:
                             P2pStreamingRpcLocalState::Requested {
@@ -196,7 +196,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 response,
             } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.streaming_rpc {
+                .is_some_and(|p| match &p.channels.streaming_rpc {
                     P2pChannelsStreamingRpcState::Ready {
                         local:
                             P2pStreamingRpcLocalState::Requested {
@@ -217,7 +217,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 }),
             P2pChannelsStreamingRpcAction::RequestReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.streaming_rpc {
+                .is_some_and(|p| match &p.channels.streaming_rpc {
                     P2pChannelsStreamingRpcState::Ready { remote, .. } => {
                         matches!(
                             remote,
@@ -230,7 +230,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
             P2pChannelsStreamingRpcAction::ResponsePending { peer_id, id } => state
                 .get_ready_peer(peer_id)
                 .and_then(|p| p.channels.streaming_rpc.remote_todo_request())
-                .map_or(false, |(rpc_id, _)| rpc_id == *id),
+                .is_some_and(|(rpc_id, _)| rpc_id == *id),
             P2pChannelsStreamingRpcAction::ResponseSendInit {
                 peer_id,
                 id,
@@ -238,7 +238,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
             } => state
                 .get_ready_peer(peer_id)
                 .and_then(|p| p.channels.streaming_rpc.remote_pending_request())
-                .map_or(false, |(rpc_id, req)| {
+                .is_some_and(|(rpc_id, req)| {
                     rpc_id == *id
                         && response
                             .as_ref()
@@ -246,7 +246,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 }),
             P2pChannelsStreamingRpcAction::ResponsePartNextSend { peer_id, id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.streaming_rpc {
+                .is_some_and(|p| match &p.channels.streaming_rpc {
                     P2pChannelsStreamingRpcState::Ready {
                         remote:
                             P2pStreamingRpcRemoteState::Requested {
@@ -264,7 +264,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 response,
             } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.streaming_rpc {
+                .is_some_and(|p| match &p.channels.streaming_rpc {
                     P2pChannelsStreamingRpcState::Ready {
                         remote:
                             P2pStreamingRpcRemoteState::Requested {
@@ -279,7 +279,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                 }),
             P2pChannelsStreamingRpcAction::ResponseSent { peer_id, id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.streaming_rpc {
+                .is_some_and(|p| match &p.channels.streaming_rpc {
                     P2pChannelsStreamingRpcState::Ready {
                         remote:
                             P2pStreamingRpcRemoteState::Requested {
