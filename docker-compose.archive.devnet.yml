@@ -5,15 +5,15 @@ services:
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", "psql -U postgres -d archive -tAc \"SELECT COUNT(*) FROM pg_database WHERE datname='archive';\" | grep -q '^1$'"]
-      # test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # test: ["CMD-SHELL", "psql -U postgres -d archive -tAc \"SELECT COUNT(*) FROM pg_database WHERE datname='archive';\" | grep -q '^1$'"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 10s
       retries: 10
     volumes:
       - /tmp/archive-data-openmina:/var/lib/postgresql/data
     # ports:
-    #   - "127.0.0.1:4444:${PG_PORT}"
+    #   - "127.0.0.1:${PG_PORT}:${PG_PORT}"
 
   create-db:
     image: postgres
@@ -22,6 +22,7 @@ services:
       - .env
     command: >
       bash -c '
+      sleep 10;
       psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT} -c "CREATE DATABASE ${PG_DB};";
       psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB} -c "
       ALTER SYSTEM SET max_connections = 500;
@@ -35,9 +36,10 @@ services:
       - ./producer-dashboard/src/archive/sql:/sql
     depends_on:
       postgres-openmina:
-        condition: service_started
+        condition: service_healthy
 
   archive-openmina:
+    # Note: Modified with patch ./docker/producer-dashboard/output_binprot_breadcrumbs.patch to output binprot breadcrumbs
     image: adrnagy/mina-archive
     container_name: archive-openmina
     env_file:
@@ -58,14 +60,15 @@ services:
     ports:
       - "127.0.0.1:3086:3086"
 
-  # node-openmina:
-  #   image: adrnagy/openmina:archive-test
-  #   container_name: node-openmina
-  #   command: >
-  #     node
-  #     --archive-address http://archive-openmina:3086
-  #   ports:
-  #     - "127.0.0.1:3000:3000"
-  #   depends_on:
-  #     archive-openmina:
-  #       condition: service_started
+  node-openmina:
+    # TODO: Update once we have a new release
+    image: openmina/openmina:0.13.0
+    container_name: node-openmina
+    command: >
+      node
+      --archive-address http://archive-openmina:3086
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      archive-openmina:
+        condition: service_started

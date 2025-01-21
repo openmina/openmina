@@ -4,7 +4,6 @@ use std::{collections::HashSet, path::PathBuf};
 use anyhow::Result;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tokio::time::{interval, timeout, Duration};
 
 #[derive(Parser, Debug)]
@@ -303,36 +302,84 @@ fn compare_diffs(
     match (ocaml, openmina) {
         (
             ArchiveTransitionFronntierDiff::BreadcrumbAdded {
-                block: b1,
+                block: (b1, (body_hash1, state_hash1)),
                 accounts_accessed: a1,
                 accounts_created: c1,
                 tokens_used: t1,
                 sender_receipt_chains_from_parent_ledger: s1,
             },
             ArchiveTransitionFronntierDiff::BreadcrumbAdded {
-                block: b2,
+                block: (b2, (body_hash2, state_hash2)),
                 accounts_accessed: a2,
                 accounts_created: c2,
                 tokens_used: t2,
                 sender_receipt_chains_from_parent_ledger: s2,
             },
         ) => {
-            if b1 != b2 {
+            let mut mismatches = Vec::new();
+
+            if body_hash1 != body_hash2 {
+                if body_hash1.is_some() {
+                    mismatches.push(format!(
+                        "Body hash mismatch:\nOCaml: {:?}\nOpenmina: {:?}",
+                        body_hash1, body_hash2
+                    ));
+                }
+            } else if state_hash1 != state_hash2 {
+                mismatches.push(format!(
+                    "State hash mismatch:\nOCaml: {}\nOpenmina: {}",
+                    state_hash1, state_hash2
+                ));
+            } else if b1.header.protocol_state_proof != b2.header.protocol_state_proof {
+                // Note this is not a real mismatch, we can have different protocol state proofs for the same block.
+                // If both proofs are valid, we can ignore the mismatch.
+                // Create a temporary copy of b1 with b2's proof for comparison
+                let mut b1_with_b2_proof = b1.clone();
+                b1_with_b2_proof.header.protocol_state_proof =
+                    b2.header.protocol_state_proof.clone();
+
+                if b1_with_b2_proof != b2 {
+                    let ocaml_json =
+                        serde_json::to_string_pretty(&serde_json::to_value(b1).unwrap()).unwrap();
+                    let openmina_json =
+                        serde_json::to_string_pretty(&serde_json::to_value(b2).unwrap()).unwrap();
+                    mismatches.push(format!(
+                        "Block data mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
+                        ocaml_json, openmina_json
+                    ));
+                }
+            } else if b1 != b2 {
                 let ocaml_json =
                     serde_json::to_string_pretty(&serde_json::to_value(b1).unwrap()).unwrap();
                 let openmina_json =
                     serde_json::to_string_pretty(&serde_json::to_value(b2).unwrap()).unwrap();
-                return Some(format!(
+                mismatches.push(format!(
                     "Block data mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
                     ocaml_json, openmina_json
                 ));
             }
+
             if a1 != a2 {
+                let ids_ocaml = a1.iter().map(|(id, _)| id.as_u64()).collect::<HashSet<_>>();
+                let ids_openmina = a2.iter().map(|(id, _)| id.as_u64()).collect::<HashSet<_>>();
+
+                // Find missing IDs in openmina (present in ocaml but not in openmina)
+                let missing_in_openmina: Vec<_> = ids_ocaml.difference(&ids_openmina).collect();
+                // Find extra IDs in openmina (present in openmina but not in ocaml)
+                let extra_in_openmina: Vec<_> = ids_openmina.difference(&ids_ocaml).collect();
+
+                if !missing_in_openmina.is_empty() {
+                    println!("Missing in Openmina: {:?}", missing_in_openmina);
+                }
+                if !extra_in_openmina.is_empty() {
+                    println!("Extra in Openmina: {:?}", extra_in_openmina);
+                }
+
                 let ocaml_json =
                     serde_json::to_string_pretty(&serde_json::to_value(a1).unwrap()).unwrap();
                 let openmina_json =
                     serde_json::to_string_pretty(&serde_json::to_value(a2).unwrap()).unwrap();
-                return Some(format!(
+                mismatches.push(format!(
                     "Accounts accessed mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
                     ocaml_json, openmina_json
                 ));
@@ -342,7 +389,7 @@ fn compare_diffs(
                     serde_json::to_string_pretty(&serde_json::to_value(c1).unwrap()).unwrap();
                 let openmina_json =
                     serde_json::to_string_pretty(&serde_json::to_value(c2).unwrap()).unwrap();
-                return Some(format!(
+                mismatches.push(format!(
                     "Accounts created mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
                     ocaml_json, openmina_json
                 ));
@@ -352,7 +399,7 @@ fn compare_diffs(
                     serde_json::to_string_pretty(&serde_json::to_value(t1).unwrap()).unwrap();
                 let openmina_json =
                     serde_json::to_string_pretty(&serde_json::to_value(t2).unwrap()).unwrap();
-                return Some(format!(
+                mismatches.push(format!(
                     "Tokens used mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
                     ocaml_json, openmina_json
                 ));
@@ -362,12 +409,17 @@ fn compare_diffs(
                     serde_json::to_string_pretty(&serde_json::to_value(s1).unwrap()).unwrap();
                 let openmina_json =
                     serde_json::to_string_pretty(&serde_json::to_value(s2).unwrap()).unwrap();
-                return Some(format!(
+                mismatches.push(format!(
                     "Sender receipt chains mismatch:\nOCaml:\n{}\nOpenmina:\n{}",
                     ocaml_json, openmina_json
                 ));
             }
-            None
+
+            if mismatches.is_empty() {
+                None
+            } else {
+                Some(mismatches.join("\n\n"))
+            }
         }
         _ => {
             let ocaml_json =
@@ -430,6 +482,8 @@ async fn main() -> Result<()> {
 
     let mut best_chain = Vec::new();
 
+    println!("Checking for missing breadcrumbs...");
+
     if args.check_missing {
         check_missing_breadcrumbs(
             args.openmina_node_dir,
@@ -462,6 +516,13 @@ async fn main() -> Result<()> {
         println!("✅ All binary diffs match perfectly!");
     } else {
         println!("\n❌ Found {} mismatches:", mismatches.len());
+
+        // let first_mismatch = mismatches.first().unwrap();
+        // println!(
+        //     "\nMismatch #{}: \nState Hash: {}\nReason: {}",
+        //     1, first_mismatch.state_hash, first_mismatch.reason
+        // );
+        // println!("Another {} missmatches are pending", mismatches.len() - 1);
         for (i, mismatch) in mismatches.iter().enumerate() {
             println!(
                 "\nMismatch #{}: \nState Hash: {}\nReason: {}",

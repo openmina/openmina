@@ -99,56 +99,41 @@ services:
       postgres-openmina:
         condition: service_healthy
 
-  generate-libp2p-keys:
-    image: gcr.io/o1labs-192920/mina-daemon:3.0.0-dc6bf78-bullseye-devnet
-    container_name: generate-libp2p-keys
-    environment:
-      MINA_LIBP2P_PASS: v3rys3cr3t
-      VERBOSE: true
-    command: >
-      libp2p generate-keypair --privkey-path /keys/mina-privkey
-    volumes:
-      - /tmp/ocaml-node-keys:/keys
-    depends_on:
-      archive-ocaml:
-        condition: service_started
-
-  libp2p-keys-permissions:
-    image: gcr.io/o1labs-192920/mina-daemon:3.0.0-dc6bf78-bullseye-devnet
-    container_name: libp2p-keys-permissions
-    entrypoint: >
-      bash -c "chmod 600 /keys/mina-privkey && chmod 700 /keys"
-    volumes:
-      - /tmp/ocaml-node-keys:/keys
-    depends_on:
-      generate-libp2p-keys:
-        condition: service_completed_successfully
-
   node-ocaml:
-    image: gcr.io/o1labs-192920/mina-daemon:3.0.0-dc6bf78-bullseye-devnet
+    image: gcr.io/o1labs-192920/mina-daemon:3.0.4-alpha1-889607b-bullseye-devnet
     container_name: node-ocaml
     environment:
       MINA_CLIENT_TRUSTLIST: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
       VERBOSE: true
       LOG_LEVEL: Info
       MINA_LIBP2P_PASS: v3rys3cr3t
+      PEERS: | 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40101/p2p/12D3KooWNGY3guz8pYHrVEqs8se4MSnnmpgguyQYDazMbVCyrMnS 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40102/p2p/12D3KooWSqZ4qtysb8Du4yVpcc5SYc3gsRuNqgMomggw6hekATWg 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40103/p2p/12D3KooWSHiGavQpamDPEc6rPaqT4PoS1Lr9aDfrfg5dKM2V6x3H 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40104/p2p/12D3KooWA3yPrTaLXsggVSCG4mr7c33YNdz5DSs87LszRUVt9vLT 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40105/p2p/12D3KooWCLcUWCdU4VstETztxE3feQyS57dVDdzBhmkj5tiCaha8 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40106/p2p/12D3KooWNZWqEoCuhMrc9tTMxtEsfxmeFhjh2agUcmzJFNKxQnNA 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40107/p2p/12D3KooWAMSP94SM3icSeAXeBmPUuZ5JvwrZ5w87fpRHVeJkdboe 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40108/p2p/12D3KooWL5gPf5CrARVPhBi6KsDHmB1gsJKZ4vWrcLweWyMjpB5e 
+         /dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40109/p2p/12D3KooWT1nNJLGE8jWcshPSq3FmSXmmNn2MzfmvJcWYZ1HrtHnZ 
     command: >
       daemon
-      --libp2p-keypair /keys/mina-privkey
       --archive-address archive-ocaml:3086
       --insecure-rest-server
       --rest-port 5000
       --enable-peer-exchange true
-      --peer-list-url https://bootnodes.minaprotocol.com/networks/devnet.txt
-    volumes:
-      - /tmp/ocaml-node-keys:/keys
+    # volumes:
+    #   # - /tmp/ocaml-node-keys:/keys
     ports:
       - 8302:8302
       - 8301:8301
       - 5000:5000
     depends_on:
-      libp2p-keys-permissions:
-        condition: service_completed_successfully
+      # libp2p-keys-permissions:
+      #   condition: service_completed_successfully
+      archive-ocaml:
+        condition: service_started
 
   node-openmina:
     image: adrnagy/openmina:archive-test
@@ -157,7 +142,7 @@ services:
       node
       --archive-address http://archive-openmina:3087
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     depends_on:
       archive-openmina:
         condition: service_started
