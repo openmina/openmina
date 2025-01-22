@@ -307,6 +307,7 @@ fn synced_effects<S: crate::Service>(
             best_tip: best_tip.block.clone(),
         });
     }
+    // rebroadcast block if received from webrtc network, otherwise noop.
     store.dispatch(P2pNetworkPubsubAction::WebRtcRebroadcast {
         message: GossipNetMessageV2::NewState(best_tip.block().clone()),
     });

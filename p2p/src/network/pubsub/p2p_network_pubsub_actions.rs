@@ -78,6 +78,13 @@ pub enum P2pNetworkPubsubAction {
     },
 
     /// Rebroadcast message received from WebRTC connection.
+    ///
+    /// Expected to be dispatched after the message has been processed,
+    /// in spite of whether it was received from libp2p or webrtc network.
+    ///
+    /// If received from libp2p network, or if we have already broadcasted
+    /// this message, the message will be in the `mcache` state,
+    /// in which case the action won't be enabled (will be filtered out).
     WebRtcRebroadcast {
         message: GossipNetMessageV2,
     },

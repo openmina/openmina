@@ -226,6 +226,7 @@ impl P2pChannelsSnarkState {
                 if is_local {
                     dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
                 } else {
+                    // rebroadcast snark if received from webrtc network, otherwise noop.
                     dispatcher.push(P2pNetworkPubsubAction::WebRtcRebroadcast { message });
                 }
                 Ok(())
