@@ -2,6 +2,7 @@
 
 use core::{
     alloc::{GlobalAlloc, Layout},
+    num::NonZeroU64,
     ptr::NonNull,
     sync::atomic::{
         AtomicBool, AtomicPtr, AtomicU64, AtomicUsize,
@@ -112,7 +113,48 @@ struct Classes {
     end_ptr: NonNull<u8>,
 }
 
-const HEADER_SIZE: usize = core::mem::size_of::<Header>();
+const HEADER_SIZE: usize = core::mem::size_of::<u64>();
+
+struct HeaderPtr {
+    ptr: NonNull<u64>,
+}
+
+impl HeaderPtr {
+    fn new(ptr: *mut u64) -> Option<Self> {
+        assert!(ptr.is_aligned());
+        Some(Self {
+            ptr: NonNull::new(ptr)?,
+        })
+    }
+
+    fn read(&self) -> Header {
+        let atomic = unsafe { AtomicU64::from_ptr(self.ptr.as_ptr()) };
+        let header: u64 = atomic.load(Acquire);
+        Header::of_u64(header)
+    }
+
+    fn write(&self, header: &Header) {
+        let atomic = unsafe { AtomicU64::from_ptr(self.ptr.as_ptr()) };
+        atomic.store(header.to_u64(), Release);
+    }
+
+    /// Returns `true` if it was acquired
+    fn acquire(&self) -> bool {
+        let atomic = unsafe { AtomicU64::from_ptr(self.ptr.as_ptr()) };
+        let previous = atomic.fetch_and(!(1 << 63), AcqRel);
+        let was_free = (previous >> 63) != 0;
+        // eprintln!("acquire was_free:{:?}", was_free);
+        was_free
+    }
+
+    fn as_ptr(&self) -> *mut u64 {
+        self.ptr.as_ptr()
+    }
+
+    fn as_nonnull_ptr(&self) -> NonNull<u64> {
+        self.ptr
+    }
+}
 
 struct Header {
     /// MSB to LSB:
@@ -120,83 +162,101 @@ struct Header {
     /// 5 bits: class index
     /// 1 bit: is_offset
     /// 9 bits: unused,
-    /// 48 bits: next ptr to free Header
-    header: AtomicU64,
+    /// 48 bits: next ptr to free Header, or offset
+    is_free: bool,
+    class_index: usize,
+    is_offset: bool,
+    next_free: Option<NonZeroU64>, // or offset
 }
 
 impl Header {
-    /// Returns (is_free, class_index, next free ptr)
-    pub fn read(&self) -> (bool, usize, Option<NonNull<Header>>) {
-        let this = self.header.load(Acquire);
-        let is_free = (this >> 63) != 0;
-        let class_index = (this >> 58) as usize & 0b11111;
-        // let class_index = (this >> 58) as usize & 0x11111;
-        // eprintln!("header: {:064b} class_index:{:?} (this >> 58):{:?}", this, class_index, this >> 58);
-        let _is_offset = (this >> 57) & 1 != 0;
+    fn of_u64(value: u64) -> Self {
+        let is_free = (value >> 63) != 0;
+        let class_index = (value >> 58) as usize & 0b11111;
+        // let class_index = (value >> 58) as usize & 0x11111;
+        // eprintln!("header: {:064b} class_index:{:?} (value >> 58):{:?}", value, class_index, value >> 58);
+        let is_offset = (value >> 57) & 1 != 0;
         let next_ptr = {
-            let [_, _, a, b, c, d, e, f] = this.to_be_bytes();
-            // TODO: Handle 32 bits pointers
-            let ptr = usize::from_be_bytes([0, 0, a, b, c, d, e, f]);
-            NonNull::new(ptr as *mut Header)
+            // 48 bits
+            value & 0xFFFFFFFFFFFF
+            // let [_, _, a, b, c, d, e, f] = value.to_be_bytes();
+            // // TODO: Handle 32 bits pointers
+            // let ptr = usize::from_be_bytes([0, 0, a, b, c, d, e, f]);
+            // NonNull::new(ptr as *mut Header)
         };
-        (is_free, class_index, next_ptr)
+        Self {
+            is_free,
+            class_index,
+            is_offset,
+            next_free: NonZeroU64::new(next_ptr),
+        }
     }
 
-    /// Returns `true` if it was acquired
-    fn acquire(&self) -> bool {
-        let previous = self.header.fetch_and(!(1 << 63), AcqRel);
-        let was_free = (previous >> 63) != 0;
-        // eprintln!("acquire was_free:{:?}", was_free);
-        was_free
+    fn to_u64(&self) -> u64 {
+        let Self {
+            is_free,
+            class_index,
+            is_offset,
+            next_free,
+        } = *self;
+
+        let mut value = 0u64;
+        value |= (is_free as u64) << 63;
+        value |= ((class_index & 0b11111) as u64) << 58;
+        value |= (is_offset as u64) << 57;
+        value |= next_free.map(NonZeroU64::get).unwrap_or(0u64);
+
+        value
     }
 
-    fn initialize(&mut self, class_index: usize) {
+    fn new(class_index: usize) -> Self {
         assert!(class_index & 0b11111 == class_index);
-
-        let mut header = 0u64;
-        header |= 0 << 63; // is_free
-        header |= (class_index as u64) << 58;
-        self.header.store(header, Release);
+        Self {
+            is_free: false,
+            class_index,
+            is_offset: false,
+            next_free: None,
+        }
     }
 
-    fn initialize_offset(&self, offset: u64) {
+    fn new_offset(offset: u64) -> Self {
+        assert_ne!(offset, 0);
+
         let [unused1, unused2, ..] = (offset as u64).to_be_bytes();
         // 2 most significant bytes are not set
         assert_eq!([unused1, unused2], [0, 0]);
 
-        let mut header = 0u64;
-        header |= 1 << 57;
-        header |= offset;
-        self.header.store(header, Release);
+        Self {
+            is_free: false,
+            class_index: 0,
+            is_offset: true,
+            next_free: NonZeroU64::new(offset),
+        }
     }
 
     fn get_offset(&self) -> Option<usize> {
-        let this = self.header.load(Acquire);
-        let is_offset = (this >> 57) & 1 != 0;
-
-        is_offset.then(|| {
-            let [_, _, a, b, c, d, e, f] = this.to_be_bytes();
-            usize::from_be_bytes([0, 0, a, b, c, d, e, f])
+        self.is_offset.then(|| {
+            self.next_free
+                .map(NonZeroU64::get)
+                .unwrap_or(0u64)
+                .try_into()
+                .unwrap()
         })
     }
 
-    fn make_free(&self) {
-        let previous = self.header.fetch_or(1 << 63, Release);
-        let was_free = (previous >> 63) != 0;
-        assert!(!was_free) // Double free
+    fn set_free(&mut self) {
+        self.is_free = true;
     }
 
-    fn set_next_free(&self, next: *mut Header) {
+    fn set_next_free(&mut self, next: *mut Header) {
         // TODO: 32 bits pointers
-        assert_eq!(core::mem::size_of::<Header>(), 8);
+        assert_eq!(HEADER_SIZE, 8);
 
         let [unused1, unused2, ..] = (next as u64).to_be_bytes();
         // 2 most significant bytes are not set
         assert_eq!([unused1, unused2], [0, 0]);
 
-        let previous = self.header.load(Acquire);
-        self.header
-            .store((previous & (0b1111111 << 57)) | (next as u64), Release);
+        self.next_free = NonZeroU64::new(next as u64);
     }
 }
 
@@ -350,46 +410,76 @@ impl MinallocImpl {
     }
 
     fn dealloc_in_list(&self, ptr: *mut u8) {
-        let mut header = unsafe { &*ptr.byte_sub(HEADER_SIZE).cast::<Header>() };
+        let header_ptr = unsafe { ptr.byte_sub(HEADER_SIZE) }.cast::<u64>();
+        let mut header_ptr = HeaderPtr::new(header_ptr).unwrap();
+        let mut header = header_ptr.read();
 
         if let Some(offset) = header.get_offset() {
-            header = unsafe { &*ptr.byte_sub(offset).byte_sub(HEADER_SIZE).cast::<Header>() };
+            let ptr = unsafe { ptr.byte_sub(offset).byte_sub(HEADER_SIZE) }.cast::<u64>();
+            header_ptr = HeaderPtr::new(ptr).unwrap();
+            header = header_ptr.read();
         }
 
         // eprintln!("header: (is_free, class_index, next):{:?}", header.read());
 
-        let (is_free, _class_index, _) = header.read();
+        let Header {
+            is_free,
+            class_index,
+            is_offset,
+            next_free,
+        } = header;
+        // let (is_free, class_index, _) = header.read();
         assert!(!is_free);
 
-        header.make_free();
+        header.set_free();
 
-        let (is_free, class_index, _) = header.read();
+        // let (is_free, class_index, _) = header.read();
 
         let list = &self.lists[class_index];
 
         list.nitems.fetch_sub(1, Relaxed);
 
+        let mut next_free = list.next_free.load(Acquire);
+
         loop {
-            let next_free = list.next_free.load(Acquire);
             // eprintln!("next_free: {:?} this_header:{:?}", next_free, header as *const Header);
-            assert_ne!(header as *const Header, next_free);
+            assert_ne!(header_ptr.as_ptr() as *const Header, next_free);
             // eprintln!("next_free: {:?} bytes:{:?} be_bytes:{:?}", next_free, (next_free as u64).to_ne_bytes(), (next_free as u64).to_be_bytes());
+
             header.set_next_free(next_free);
+            header_ptr.write(&header);
 
-            let (_, _, ptr) = header.read();
-            assert_eq!(
-                ptr.map(|p| p.as_ptr()).unwrap_or(core::ptr::null_mut()),
-                next_free
-            );
+            // let (_, _, ptr) = header_ptr.read().read();
+            {
+                let Header {
+                    next_free: ptr,
+                    is_free,
+                    class_index: ci,
+                    is_offset,
+                } = header_ptr.read();
+                assert_eq!(
+                    ptr.map(|p| p.get() as _).unwrap_or(core::ptr::null_mut()),
+                    next_free
+                );
+                assert!(is_free);
+                assert_eq!(ci, class_index);
+                assert!(!is_offset);
+            }
 
-            let Ok(_new_current) = list.next_free.compare_exchange(
+            match list.next_free.compare_exchange(
                 next_free,
-                header as *const Header as *mut Header,
+                header_ptr.as_ptr() as *mut Header,
                 AcqRel,
-                Relaxed,
-            ) else {
-                continue;
-            };
+                Acquire,
+            ) {
+                Ok(previous) => {
+                    assert_eq!(previous, next_free);
+                }
+                Err(previous) => {
+                    next_free = previous;
+                    continue;
+                }
+            }
 
             return;
         }
@@ -431,24 +521,33 @@ impl MinallocImpl {
 
         // eprintln!("alloc_in_list: grow current {:?}", size);
 
+        let slot_size = first_matching_size + HEADER_SIZE;
+        let mut current = self.current.load(Acquire);
+
         loop {
-            let current = self.current.load(Acquire);
+            let new_current = unsafe { current.byte_add(slot_size) };
+
             // eprintln!("current:{:?}", current);
-            if unsafe { current.byte_add(size) } < self.end_ptr().as_ptr() {
-                let Ok(_new_current) = self.current.compare_exchange(
-                    current,
-                    unsafe { current.byte_add(first_matching_size + HEADER_SIZE) },
-                    AcqRel,
-                    Relaxed,
-                ) else {
-                    continue;
-                };
-                let header = unsafe { &mut *(current as *mut Header) };
-                header.initialize(index_free_list);
+            if new_current < self.end_ptr().as_ptr() {
+                match self
+                    .current
+                    .compare_exchange(current, new_current, AcqRel, Acquire)
+                {
+                    Ok(previous) => {
+                        assert_eq!(previous, current);
+                    }
+                    Err(previous) => {
+                        current = previous;
+                        continue;
+                    }
+                }
+
+                let header_ptr = HeaderPtr::new(current.cast()).unwrap();
+                header_ptr.write(&Header::new(index_free_list));
 
                 self.lists[index_free_list].nitems.fetch_add(1, Relaxed);
 
-                return self.get_from_header(NonNull::from(header), layout, index_free_list);
+                return self.get_from_header(header_ptr, layout, index_free_list);
             } else {
                 break;
             }
@@ -475,13 +574,19 @@ impl MinallocImpl {
 
     fn get_from_header(
         &self,
-        header: NonNull<Header>,
+        header_ptr: HeaderPtr,
         layout: &Layout,
         class_index: usize,
     ) -> NonNull<u8> {
-        unsafe {
-            let header = header.as_ref();
-            let (_is_free, header_class_index, _next) = header.read();
+        let Header {
+            is_free,
+            class_index: header_class_index,
+            is_offset,
+            next_free,
+        } = header_ptr.read();
+
+        {
+            // let (_is_free, header_class_index, _next) = header.read();
             if header_class_index != class_index {
                 eprintln!(
                     "header_class_index:{:?} class_index:{:?}",
@@ -492,7 +597,7 @@ impl MinallocImpl {
             // eprintln!("header: (is_free, class_index, next):{:?}", header.read());
         }
 
-        let mut ptr = unsafe { header.add(1) }.cast();
+        let mut ptr = unsafe { header_ptr.as_nonnull_ptr().add(1) }.cast::<u8>();
 
         if layout.align() <= 8 {
             // assert!(ptr )
@@ -510,45 +615,66 @@ impl MinallocImpl {
         ptr = unsafe { ptr.byte_add(offset) };
 
         {
-            let header = unsafe { ptr.byte_sub(HEADER_SIZE).cast::<Header>().as_ref() };
-            header.initialize_offset(offset.try_into().unwrap());
+            let header_ptr = unsafe { ptr.byte_sub(HEADER_SIZE) }.cast::<u64>();
+            let header_ptr = HeaderPtr::new(header_ptr.as_ptr()).unwrap();
+            header_ptr.write(&Header::new_offset(offset.try_into().unwrap()));
         }
 
         ptr
     }
 
-    fn try_take_in_list(&self, free_list: &FreeList) -> Option<NonNull<Header>> {
+    fn try_take_in_list(&self, free_list: &FreeList) -> Option<HeaderPtr> {
+        let mut header_ptr: HeaderPtr = {
+            let next = free_list.next_free.load(Acquire);
+            HeaderPtr::new(next.cast())?
+        };
+
         loop {
-            let next_header: &Header = {
-                let next = free_list.next_free.load(Acquire);
-                unsafe { next.as_ref()? }
-            };
+            let Header {
+                is_free: was_free,
+                class_index,
+                is_offset,
+                next_free,
+            } = header_ptr.read();
+            // let (was_free, _class_index, next_free_ptr) = header.read();
 
-            let (is_free, _class_index, next_free_ptr) = next_header.read();
-
-            let next_free_ptr = next_free_ptr
-                .map(NonNull::as_ptr)
+            let next_free_ptr = next_free
+                .map(|ptr| ptr.get() as *mut Header)
                 .unwrap_or(core::ptr::null_mut());
 
-            if free_list
-                .next_free
-                .compare_exchange(
-                    next_header as *const Header as *mut _,
-                    next_free_ptr,
-                    AcqRel,
-                    Relaxed,
-                )
-                .is_err()
-            {
-                continue;
+            match free_list.next_free.compare_exchange(
+                header_ptr.as_ptr() as *mut Header,
+                next_free_ptr,
+                AcqRel,
+                Acquire,
+            ) {
+                Ok(previous) => {
+                    assert_eq!(previous, header_ptr.as_ptr() as *mut _);
+                }
+                Err(previous) => {
+                    header_ptr = HeaderPtr::new(previous.cast())?;
+                    continue;
+                }
             }
 
-            let (is_free, _class_index, _next_free_ptr) = next_header.read();
+            let Header {
+                is_free,
+                class_index,
+                is_offset,
+                next_free,
+            } = header_ptr.read();
+            // let (is_free, class_index, next_free_ptr) = header.read();
 
-            if is_free && next_header.acquire() {
+            // let (is_free, _class_index, _next_free_ptr) = next_header.read();
+
+            let is_acquired = header_ptr.acquire();
+
+            if is_free && is_acquired {
                 free_list.nitems.fetch_add(1, Relaxed);
-                return Some(NonNull::from(next_header));
+                return Some(header_ptr);
             }
+
+            eprintln!("\npanic here is_free:{:?} is_acquired:{:?} was_free:{:?} class_index:{:?} next_free:{:?}\n", is_free, is_acquired, was_free, class_index, next_free_ptr);
 
             panic!()
         }
