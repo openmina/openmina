@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use super::super::*;
 
+pub const INITIAL_RECV_BUFFER_CAPACITY: usize = 0x40000; // 256kb
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pNetworkYamuxState {
     pub message_size_limit: Limit<usize>,
@@ -43,6 +45,147 @@ impl P2pNetworkYamuxState {
             .sum::<usize>();
 
         windows + headers * SIZE_OF_HEADER
+    }
+
+    pub fn set_err(&mut self, err: YamuxFrameParseError) {
+        self.terminated = Some(Err(err));
+    }
+
+    pub fn set_res(&mut self, res: Result<(), YamuxSessionError>) {
+        self.terminated = Some(Ok(res));
+    }
+
+    /// Attempts to parse a Yamux frame from the buffer starting at the given offset.
+    /// Returns the number of bytes consumed if a frame was successfully parsed.
+    pub fn try_parse_frame(&mut self, offset: usize) -> Option<usize> {
+        let buf = &self.buffer[offset..];
+        if buf.len() < 12 {
+            return None;
+        }
+
+        let _version = match buf[0] {
+            0 => 0,
+            unknown => {
+                self.set_err(YamuxFrameParseError::Version(unknown));
+                return None;
+            }
+        };
+
+        let flags = u16::from_be_bytes(buf[2..4].try_into().expect("cannot fail"));
+        let Some(flags) = YamuxFlags::from_bits(flags) else {
+            self.set_err(YamuxFrameParseError::Flags(flags));
+            return None;
+        };
+        let stream_id = u32::from_be_bytes(buf[4..8].try_into().expect("cannot fail"));
+        let b = buf[8..12].try_into().expect("cannot fail");
+
+        match buf[1] {
+            // Data frame - contains actual payload data for the stream
+            0 => {
+                let len = u32::from_be_bytes(b) as usize;
+                if len > self.message_size_limit {
+                    self.set_res(Err(YamuxSessionError::Internal));
+                    return None;
+                }
+                if buf.len() >= 12 + len {
+                    let frame = YamuxFrame {
+                        flags,
+                        stream_id,
+                        inner: YamuxFrameInner::Data(buf[12..(12 + len)].to_vec().into()),
+                    };
+                    self.incoming.push_back(frame);
+                    Some(12 + len)
+                } else {
+                    None
+                }
+            }
+            // Window Update frame - used for flow control, updates available window size
+            1 => {
+                let difference = u32::from_be_bytes(b);
+                let frame = YamuxFrame {
+                    flags,
+                    stream_id,
+                    inner: YamuxFrameInner::WindowUpdate { difference },
+                };
+                self.incoming.push_back(frame);
+                Some(12)
+            }
+            // Ping frame - used for keepalive and round-trip time measurements
+            2 => {
+                let opaque = u32::from_be_bytes(b);
+                let frame = YamuxFrame {
+                    flags,
+                    stream_id,
+                    inner: YamuxFrameInner::Ping { opaque },
+                };
+                self.incoming.push_back(frame);
+                Some(12)
+            }
+            // GoAway frame - signals session termination with optional error code
+            3 => {
+                let code = u32::from_be_bytes(b);
+                let result = match code {
+                    0 => Ok(()),                           // Normal termination
+                    1 => Err(YamuxSessionError::Protocol), // Protocol error
+                    2 => Err(YamuxSessionError::Internal), // Internal error
+                    unknown => {
+                        self.set_err(YamuxFrameParseError::ErrorCode(unknown));
+                        return None;
+                    }
+                };
+                let frame = YamuxFrame {
+                    flags,
+                    stream_id,
+                    inner: YamuxFrameInner::GoAway(result),
+                };
+                self.incoming.push_back(frame);
+                Some(12)
+            }
+            // Unknown frame type
+            unknown => {
+                self.set_err(YamuxFrameParseError::Type(unknown));
+                None
+            }
+        }
+    }
+
+    /// Attempts to parse all available complete frames from the buffer,
+    /// then shifts and compacts the buffer as needed.
+    pub fn parse_frames(&mut self) {
+        let mut offset = 0;
+        while let Some(consumed) = self.try_parse_frame(offset) {
+            offset += consumed;
+        }
+        self.shift_and_compact_buffer(offset);
+    }
+
+    fn shift_and_compact_buffer(&mut self, offset: usize) {
+        let new_len = self.buffer.len() - offset;
+        if self.buffer.capacity() > INITIAL_RECV_BUFFER_CAPACITY * 2
+            && new_len < INITIAL_RECV_BUFFER_CAPACITY / 2
+        {
+            let old_buffer = &self.buffer;
+            let mut new_buffer = Vec::with_capacity(INITIAL_RECV_BUFFER_CAPACITY);
+            new_buffer.extend_from_slice(&old_buffer[offset..]);
+            self.buffer = new_buffer;
+        } else {
+            self.buffer.copy_within(offset.., 0);
+            self.buffer.truncate(new_len);
+        }
+    }
+
+    /// Extends the internal buffer with new data, ensuring it has appropriate capacity.
+    /// On first use, reserves the initial capacity.
+    pub fn extend_buffer(&mut self, data: &[u8]) {
+        if self.buffer.capacity() == 0 {
+            self.buffer.reserve(INITIAL_RECV_BUFFER_CAPACITY);
+        }
+        self.buffer.extend_from_slice(data);
+    }
+
+    /// Returns the number of incoming frames that have been parsed and are ready for processing.
+    pub fn incoming_frame_count(&self) -> usize {
+        self.incoming.len()
     }
 }
 
