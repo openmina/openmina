@@ -322,11 +322,6 @@ impl TransitionFrontierSyncAction {
                 if !store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
                     store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
                 }
-
-                // TODO this should be handled by a callback
-                store.dispatch(P2pNetworkPubsubAction::BroadcastValidatedMessage {
-                    message_id: p2p::BroadcastMessageId::BlockHash { hash: hash.clone() },
-                });
             }
             TransitionFrontierSyncAction::BlocksSuccess => {}
             // Bootstrap/Catchup is practically complete at this point.

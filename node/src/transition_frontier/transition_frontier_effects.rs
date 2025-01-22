@@ -307,10 +307,18 @@ fn synced_effects<S: crate::Service>(
             best_tip: best_tip.block.clone(),
         });
     }
-    // rebroadcast block if received from webrtc network, otherwise noop.
-    store.dispatch(P2pNetworkPubsubAction::WebRtcRebroadcast {
-        message: GossipNetMessageV2::NewState(best_tip.block().clone()),
-    });
+    // TODO this should be handled by a callback
+    // If this get dispatched, we received block from libp2p.
+    if !store.dispatch(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+        message_id: p2p::BroadcastMessageId::BlockHash {
+            hash: best_tip.hash().clone(),
+        },
+    }) {
+        // Otherwise block was received from WebRTC so inject it in libp2p.
+        store.dispatch(P2pNetworkPubsubAction::WebRtcRebroadcast {
+            message: GossipNetMessageV2::NewState(best_tip.block().clone()),
+        });
+    }
 
     let best_tip_hash = best_tip.merkle_root_hash().clone();
     store.dispatch(ConsensusAction::Prune);
