@@ -115,6 +115,7 @@ struct Classes {
 
 const HEADER_SIZE: usize = core::mem::size_of::<u64>();
 
+#[derive(Clone)]
 struct HeaderPtr {
     ptr: NonNull<u64>,
 }
@@ -133,7 +134,7 @@ impl HeaderPtr {
         Header::of_u64(header)
     }
 
-    fn write(&self, header: &Header) {
+    fn write(&self, header: Header) {
         let atomic = unsafe { AtomicU64::from_ptr(self.ptr.as_ptr()) };
         atomic.store(header.to_u64(), Release);
     }
@@ -156,6 +157,7 @@ impl HeaderPtr {
     }
 }
 
+#[derive(Clone)]
 struct Header {
     /// MSB to LSB:
     /// 1 bit: is_free
@@ -200,13 +202,10 @@ impl Header {
             next_free,
         } = *self;
 
-        let mut value = 0u64;
-        value |= (is_free as u64) << 63;
-        value |= ((class_index & 0b11111) as u64) << 58;
-        value |= (is_offset as u64) << 57;
-        value |= next_free.map(NonZeroU64::get).unwrap_or(0u64);
-
-        value
+        (is_free as u64) << 63
+            | ((class_index & 0b11111) as u64) << 58
+            | (is_offset as u64) << 57
+            | next_free.map(NonZeroU64::get).unwrap_or(0u64)
     }
 
     fn new(class_index: usize) -> Self {
@@ -409,7 +408,7 @@ impl MinallocImpl {
         // todo!() // Implement linked list based allocations
     }
 
-    fn dealloc_in_list(&self, ptr: *mut u8) {
+    fn find_header(ptr: *mut u8) -> (HeaderPtr, Header) {
         let header_ptr = unsafe { ptr.byte_sub(HEADER_SIZE) }.cast::<u64>();
         let mut header_ptr = HeaderPtr::new(header_ptr).unwrap();
         let mut header = header_ptr.read();
@@ -419,6 +418,12 @@ impl MinallocImpl {
             header_ptr = HeaderPtr::new(ptr).unwrap();
             header = header_ptr.read();
         }
+
+        (header_ptr, header)
+    }
+
+    fn dealloc_in_list(&self, ptr: *mut u8) {
+        let (header_ptr, mut header) = Self::find_header(ptr);
 
         // eprintln!("header: (is_free, class_index, next):{:?}", header.read());
 
@@ -430,6 +435,7 @@ impl MinallocImpl {
         } = header;
         // let (is_free, class_index, _) = header.read();
         assert!(!is_free);
+        assert!(!is_offset);
 
         header.set_free();
 
@@ -443,11 +449,11 @@ impl MinallocImpl {
 
         loop {
             // eprintln!("next_free: {:?} this_header:{:?}", next_free, header as *const Header);
-            assert_ne!(header_ptr.as_ptr() as *const Header, next_free);
+            assert_ne!(header_ptr.as_ptr() as *mut Header, next_free);
             // eprintln!("next_free: {:?} bytes:{:?} be_bytes:{:?}", next_free, (next_free as u64).to_ne_bytes(), (next_free as u64).to_be_bytes());
 
             header.set_next_free(next_free);
-            header_ptr.write(&header);
+            header_ptr.write(header.clone());
 
             // let (_, _, ptr) = header_ptr.read().read();
             {
@@ -477,6 +483,7 @@ impl MinallocImpl {
                 }
                 Err(previous) => {
                     next_free = previous;
+                    assert_ne!(header_ptr.as_ptr() as *mut Header, next_free);
                     continue;
                 }
             }
@@ -543,7 +550,7 @@ impl MinallocImpl {
                 }
 
                 let header_ptr = HeaderPtr::new(current.cast()).unwrap();
-                header_ptr.write(&Header::new(index_free_list));
+                header_ptr.write(Header::new(index_free_list));
 
                 self.lists[index_free_list].nitems.fetch_add(1, Relaxed);
 
@@ -573,6 +580,31 @@ impl MinallocImpl {
     }
 
     fn get_from_header(
+        &self,
+        header_ptr: HeaderPtr,
+        layout: &Layout,
+        class_index: usize,
+    ) -> NonNull<u8> {
+        let ptr = self.get_from_header_impl(header_ptr.clone(), layout, class_index);
+
+        {
+            // Making sure we can retrieve the header
+            let (hdr_ptr, header) = Self::find_header(ptr.as_ptr());
+            assert_eq!(hdr_ptr.as_ptr(), header_ptr.as_ptr());
+            assert_eq!(header.class_index, class_index);
+
+            let end_of_obj = unsafe { ptr.byte_add(layout.size()) };
+            let end_of_dedicated = {
+                let hdr_ptr = hdr_ptr.as_nonnull_ptr().cast::<u8>();
+                unsafe { hdr_ptr.byte_add(HEADER_SIZE + self.lists[class_index].elem_size) }
+            };
+            assert!(end_of_obj <= end_of_dedicated);
+        }
+
+        ptr
+    }
+
+    fn get_from_header_impl(
         &self,
         header_ptr: HeaderPtr,
         layout: &Layout,
@@ -617,7 +649,7 @@ impl MinallocImpl {
         {
             let header_ptr = unsafe { ptr.byte_sub(HEADER_SIZE) }.cast::<u64>();
             let header_ptr = HeaderPtr::new(header_ptr.as_ptr()).unwrap();
-            header_ptr.write(&Header::new_offset(offset.try_into().unwrap()));
+            header_ptr.write(Header::new_offset(offset as u64));
         }
 
         ptr
@@ -674,7 +706,15 @@ impl MinallocImpl {
                 return Some(header_ptr);
             }
 
-            eprintln!("\npanic here is_free:{:?} is_acquired:{:?} was_free:{:?} class_index:{:?} next_free:{:?}\n", is_free, is_acquired, was_free, class_index, next_free_ptr);
+            static IS_PANICKING: AtomicBool = AtomicBool::new(false);
+
+            loop {
+                if IS_PANICKING.swap(true, AcqRel) {
+                    continue; // spin loop
+                }
+                eprintln!("\npanic here is_free:{:?} is_acquired:{:?} was_free:{:?} class_index:{:?} next_free:{:?}\n", is_free, is_acquired, was_free, class_index, next_free_ptr);
+                IS_PANICKING.store(false, Release);
+            }
 
             panic!()
         }
