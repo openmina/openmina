@@ -178,6 +178,15 @@ impl SecretKey {
     pub fn libp2p_pubsub_sign(&mut self, msg: &[u8]) -> Signature {
         self.sign(&[b"libp2p-pubsub:", msg].concat())
     }
+
+    pub fn libp2p_pubsub_pb_message_sign(
+        &mut self,
+        msg: &crate::pb::Message,
+    ) -> Result<Signature, prost::EncodeError> {
+        let mut buf = Vec::new();
+        prost::Message::encode(msg, &mut buf)?;
+        Ok(self.libp2p_pubsub_sign(&buf))
+    }
 }
 
 pub trait EncryptableType: Serialize + for<'a> Deserialize<'a> {

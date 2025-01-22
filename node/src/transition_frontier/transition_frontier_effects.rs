@@ -1,9 +1,11 @@
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use redux::Timestamp;
 
 use crate::block_producer::BlockProducerAction;
 use crate::consensus::ConsensusAction;
 use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
+use crate::p2p::P2pNetworkPubsubAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
 use crate::{Store, TransactionPoolAction};
@@ -305,6 +307,9 @@ fn synced_effects<S: crate::Service>(
             best_tip: best_tip.block.clone(),
         });
     }
+    store.dispatch(P2pNetworkPubsubAction::WebRtcRebroadcast {
+        message: GossipNetMessageV2::NewState(best_tip.block().clone()),
+    });
 
     let best_tip_hash = best_tip.merkle_root_hash().clone();
     store.dispatch(ConsensusAction::Prune);

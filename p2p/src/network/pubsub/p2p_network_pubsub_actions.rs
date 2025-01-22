@@ -77,6 +77,11 @@ pub enum P2pNetworkPubsubAction {
         topic_id: String,
     },
 
+    /// Rebroadcast message received from WebRTC connection.
+    WebRtcRebroadcast {
+        message: GossipNetMessageV2,
+    },
+
     /// Initiate the broadcasting of a message to all subscribed peers.
     ///
     /// **Fields:**
@@ -190,6 +195,17 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkPubsubAction {
                 .topics
                 .get(topic_id)
                 .is_some_and(|topics| topics.contains_key(peer_id)),
+            P2pNetworkPubsubAction::WebRtcRebroadcast { message } => {
+                let source = super::webrtc_source_sk(message)
+                    .public_key()
+                    .peer_id()
+                    .try_into()
+                    .unwrap();
+                pubsub
+                    .mcache
+                    .get_message(&P2pNetworkPubsubMessageCacheId { source, seqno: 0 })
+                    .is_none()
+            }
             P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id }
             | P2pNetworkPubsubAction::RejectMessage {
                 message_id: Some(message_id),

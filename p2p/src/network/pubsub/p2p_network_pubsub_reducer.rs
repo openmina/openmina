@@ -389,18 +389,74 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::OutgoingMessageError { .. } => Ok(()),
+            P2pNetworkPubsubAction::WebRtcRebroadcast { message } => {
+                let data = match super::encode_message(&message) {
+                    Err(err) => {
+                        bug_condition!("binprot serialization error: {err}");
+                        return Ok(());
+                    }
+                    Ok(data) => data,
+                };
+
+                let mut source_sk = super::webrtc_source_sk_from_bytes(&data[8..]);
+                let source_peer_id = source_sk.public_key().peer_id();
+                let message_id = P2pNetworkPubsubMessageCacheId {
+                    source: libp2p_identity::PeerId::try_from(source_peer_id).unwrap(),
+                    seqno: 0,
+                };
+                let mut msg = pb::Message {
+                    from: Some(message_id.source.to_bytes().to_vec()),
+                    data: Some(data),
+                    seqno: Some(message_id.seqno.to_be_bytes().to_vec()),
+                    topic: super::TOPIC.to_owned(),
+                    signature: None,
+                    key: None,
+                };
+
+                msg.signature = match source_sk.libp2p_pubsub_pb_message_sign(&msg) {
+                    Err(err) => {
+                        bug_condition!("pubsub prost encode error: {err}");
+                        return Ok(());
+                    }
+                    Ok(sig) => Some(sig.to_bytes().to_vec()),
+                };
+
+                let message_state = match &message {
+                    GossipNetMessageV2::NewState(block) => {
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage {
+                            block_hash: block.try_hash()?,
+                            message: msg,
+                            peer_id: source_peer_id,
+                            time,
+                        }
+                    }
+                    _ => P2pNetworkPubsubMessageCacheMessage::PreValidated {
+                        message: msg,
+                        peer_id: source_peer_id,
+                        time,
+                    },
+                };
+
+                pubsub_state.mcache.map.insert(message_id, message_state);
+
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                    message_id: super::BroadcastMessageId::MessageId { message_id },
+                });
+
+                Ok(())
+            }
             P2pNetworkPubsubAction::Broadcast { message } => {
-                let mut buffer = vec![0; 8];
+                let data = match super::encode_message(&message) {
+                    Err(err) => {
+                        bug_condition!("binprot serialization error: {err}");
+                        return Ok(());
+                    }
+                    Ok(data) => data,
+                };
 
-                if binprot::BinProtWrite::binprot_write(&message, &mut buffer).is_err() {
-                    bug_condition!("binprot serialization error");
-                    return Ok(());
-                }
-
-                let len = buffer.len() - 8;
-                buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
-
-                Self::prepare_to_sign(state_context, buffer)
+                Self::prepare_to_sign(state_context, data)
             }
             P2pNetworkPubsubAction::Sign {
                 seqno,
@@ -428,11 +484,7 @@ impl P2pNetworkPubsubState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkPubsubEffectfulAction::Sign {
-                    author,
-                    topic,
-                    message,
-                });
+                dispatcher.push(P2pNetworkPubsubEffectfulAction::Sign { author, message });
                 Ok(())
             }
             P2pNetworkPubsubAction::SignError { .. } => {

@@ -230,14 +230,22 @@ impl P2pChannelsTransactionState {
             #[cfg(not(feature = "p2p-libp2p"))]
             P2pChannelsTransactionAction::Libp2pBroadcast { .. } => Ok(()),
             #[cfg(feature = "p2p-libp2p")]
-            P2pChannelsTransactionAction::Libp2pBroadcast { transaction, nonce } => {
+            P2pChannelsTransactionAction::Libp2pBroadcast {
+                transaction,
+                nonce,
+                is_local,
+            } => {
                 let dispatcher = state_context.into_dispatcher();
                 let message = v2::NetworkPoolTransactionPoolDiffVersionedStableV2(
                     std::iter::once(*transaction).collect(),
                 );
                 let nonce = nonce.into();
                 let message = GossipNetMessageV2::TransactionPoolDiff { message, nonce };
-                dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
+                if is_local {
+                    dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
+                } else {
+                    dispatcher.push(P2pNetworkPubsubAction::WebRtcRebroadcast { message });
+                }
                 Ok(())
             }
         }

@@ -54,6 +54,7 @@ pub enum P2pChannelsSnarkAction {
     Libp2pBroadcast {
         snark: Snark,
         nonce: u32,
+        is_local: bool,
     },
 }
 
