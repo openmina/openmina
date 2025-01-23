@@ -461,6 +461,14 @@ pub struct RpcNodeStatus {
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
+    pub resources_status: RpcNodeStatusResources,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusResources {
+    pub p2p_malloc_size: usize,
+    pub transition_frontier: serde_json::Value,
+    pub snark_pool: serde_json::Value,
 }
 
 #[derive(Serialize, Debug, Clone)]

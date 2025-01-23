@@ -1,3 +1,9 @@
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+    time::Duration,
+};
+
 use openmina_core::{
     block::{ArcBlockWithHash, BlockWithHash},
     impl_substate_access,
@@ -6,13 +12,10 @@ use openmina_core::{
     transaction::{TransactionInfo, TransactionWithHash},
     ChainId, SubstateAccess,
 };
+
+use malloc_size_of_derive::MallocSizeOf;
 use redux::{Callback, Timestamp};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-    time::Duration,
-};
 
 use crate::{
     bootstrap::P2pNetworkKadBootstrapState,
@@ -343,7 +346,7 @@ impl P2pState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pPeerState {
     pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
@@ -399,12 +402,18 @@ impl P2pPeerState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 #[serde(tag = "state")]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
-    Disconnecting { time: redux::Timestamp },
-    Disconnected { time: redux::Timestamp },
+    Disconnecting {
+        #[ignore_malloc_size_of = "doesn't allocate"]
+        time: redux::Timestamp,
+    },
+    Disconnected {
+        #[ignore_malloc_size_of = "doesn't allocate"]
+        time: redux::Timestamp,
+    },
 
     Ready(P2pPeerStatusReady),
 }
@@ -615,3 +624,29 @@ impl_substate_access!(
     network.scheduler.broadcast_state
 );
 impl_substate_access!(P2pState, P2pConfig, config);
+
+mod measurement {
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::*;
+
+    impl MallocSizeOf for P2pState {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.peers.values().map(|v| v.size_of(ops)).sum::<usize>()
+                + self.network.scheduler.size_of(ops)
+        }
+    }
+
+    impl MallocSizeOf for P2pPeerStatusReady {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.best_tip
+                .as_ref()
+                .map(|v| {
+                    usize::from(!ops.have_seen_ptr(Arc::as_ptr(&v.block)))
+                        * (size_of::<v2::MinaBlockBlockStableV2>() + v.block.size_of(ops))
+                })
+                .unwrap_or_default()
+            // TODO(vlad): `channels`
+        }
+    }
+}

@@ -1,3 +1,9 @@
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ffi::c_void,
+    time::Duration,
+};
+
 use super::{super::rpc, RpcEffectfulAction};
 use crate::{
     block_producer::BlockProducerWonSlot,
@@ -8,7 +14,7 @@ use crate::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
         MessagesStats, NodeHeartbeat, RootLedgerSyncProgress, RootStagedLedgerSyncProgress,
         RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
-        RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
+        RpcNodeStatusResources, RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
         RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
         RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
         RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
@@ -26,6 +32,7 @@ use ledger::{
     scan_state::currency::{Balance, Magnitude},
     Account,
 };
+use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use mina_p2p_messages::{rpc_kernel::QueryHeader, v2};
 use mina_signer::CompressedPubKey;
 use openmina_core::{block::ArcBlockWithHash, bug_condition};
@@ -33,7 +40,6 @@ use p2p::channels::streaming_rpc::{
     staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
 };
 use redux::ActionWithMeta;
-use std::{collections::BTreeMap, time::Duration};
 
 macro_rules! respond_or_log {
     ($e:expr, $t:expr) => {
@@ -804,6 +810,16 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             transaction_candidates: state.transaction_pool.candidates.transactions_count(),
         },
         current_block_production_attempt,
+        resources_status: RpcNodeStatusResources {
+            p2p_malloc_size: {
+                let mut set = BTreeSet::new();
+                let fun = move |ptr: *const c_void| !set.insert(ptr.addr());
+                let mut ops = MallocSizeOfOps::new(None, Some(Box::new(fun)));
+                size_of_val(&state.p2p).saturating_add(state.p2p.size_of(&mut ops))
+            },
+            transition_frontier: state.transition_frontier.resources_usage(),
+            snark_pool: state.snark_pool.resources_usage(),
+        },
     };
     status
 }

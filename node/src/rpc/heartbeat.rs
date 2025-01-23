@@ -179,8 +179,8 @@ impl NodeHeartbeat {
 pub(crate) mod tests {
 
     use crate::rpc::{
-        RpcNodeStatusSnarkPool, RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
-        RpcNodeStatusTransitionFrontierSync,
+        RpcNodeStatusResources, RpcNodeStatusSnarkPool, RpcNodeStatusTransactionPool,
+        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierSync,
     };
 
     use super::*;
@@ -252,6 +252,11 @@ pub(crate) mod tests {
                 snark_pool: RpcNodeStatusSnarkPool::default(),
                 transaction_pool: RpcNodeStatusTransactionPool::default(),
                 current_block_production_attempt: None,
+                resources_status: RpcNodeStatusResources {
+                    p2p_malloc_size: 0,
+                    transition_frontier: serde_json::Value::Null,
+                    snark_pool: serde_json::Value::Null,
+                },
             },
             node_timestamp: Timestamp::ZERO,
             peer_id: "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H"

@@ -196,4 +196,21 @@ impl TransitionFrontierState {
             reorg_best_tip: false, // TODO: Unused for now
         })
     }
+
+    pub fn resources_usage(&self) -> serde_json::Value {
+        serde_json::json!({
+            "best_chain_size": self.best_chain.len(),
+            "needed_protocol_states_size": self
+                .needed_protocol_states
+                .len(),
+            "blacklist_size": self.blacklist.len(),
+            "diff_tx_size": self
+                .chain_diff
+                .as_ref()
+                // `saturating_add` is not needed here as collection size cannot overflow usize
+                // but it makes clippy satisfied
+                .map(|d| d.new_commands.len().saturating_add(d.removed_commands.len()))
+                .unwrap_or_default()
+        })
+    }
 }

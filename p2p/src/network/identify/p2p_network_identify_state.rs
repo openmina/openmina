@@ -1,7 +1,8 @@
 use crate::{network::identify::stream::P2pNetworkIdentifyStreamState, PeerId, StreamId};
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, MallocSizeOf)]
 pub struct P2pNetworkIdentifyState {
     pub streams: crate::network::scheduler::StreamState<P2pNetworkIdentifyStreamState>,
 }

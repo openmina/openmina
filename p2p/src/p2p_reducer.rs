@@ -348,8 +348,9 @@ impl P2pState {
 
         scheduler
             .rpc_incoming_streams
+            .0
             .iter()
-            .chain(&scheduler.rpc_outgoing_streams)
+            .chain(&scheduler.rpc_outgoing_streams.0)
             .flat_map(|(peer_id, state)| {
                 state
                     .iter()

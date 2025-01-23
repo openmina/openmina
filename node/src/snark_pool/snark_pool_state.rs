@@ -203,6 +203,16 @@ impl SnarkPoolState {
         self.pool
             .next_messages_to_send(index_and_limit, |job| job.snark_msg())
     }
+
+    pub fn resources_usage(&self) -> serde_json::Value {
+        let (size, inconsistency) = self.candidates.check();
+
+        serde_json::json!({
+            "pool_size": self.pool.len(),
+            "candidates_size": size,
+            "candidates_inconsistency": inconsistency,
+        })
+    }
 }
 
 fn is_job_commitment_timed_out(job: &JobState, time_now: Timestamp) -> bool {

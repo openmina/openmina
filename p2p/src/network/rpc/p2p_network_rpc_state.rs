@@ -20,14 +20,16 @@ use super::super::*;
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
 
 #[serde_with::serde_as]
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pNetworkRpcState {
     pub addr: ConnectionAddr,
     pub stream_id: StreamId,
     pub last_id: P2pRpcId,
+    #[ignore_malloc_size_of = "primitive"]
     pub last_heartbeat_sent: Option<redux::Timestamp>,
     pub pending: Option<QueryHeader>,
     #[serde_as(as = "Vec<(_, _)>")]
+    #[ignore_malloc_size_of = "TODO(vlad)"]
     pub total_stats: BTreeMap<(CharString, Ver), usize>,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
@@ -59,7 +61,7 @@ impl P2pNetworkRpcState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum RpcMessage {
     Handshake,
     Heartbeat,
@@ -104,10 +106,14 @@ impl RpcMessage {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error, MallocSizeOf)]
 pub enum P2pNetworkRpcError {
     #[error("error reading binprot message: {0}")]
     Binprot(String),
     #[error("message {0} with size {1} exceeds limit of {2}")]
-    Limit(String, usize, Limit<usize>),
+    Limit(
+        String,
+        usize,
+        #[ignore_malloc_size_of = "primitive"] Limit<usize>,
+    ),
 }
