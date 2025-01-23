@@ -241,6 +241,7 @@ pub mod diff {
         }
     }
 
+    #[derive(Debug)]
     pub struct Diff {
         pub list: Vec<UserCommand>,
     }

@@ -8,10 +8,9 @@ pub mod transaction_fuzzer {
     pub mod generator;
     pub mod invariants;
     pub mod mutator;
-
     use binprot::{
         macros::{BinProtRead, BinProtWrite},
-        BinProtRead, BinProtSize, BinProtWrite,
+        BinProtRead, BinProtSize, BinProtWrite, SmallString1k,
     };
     use context::{ApplyTxResult, FuzzerCtx, FuzzerCtxBuilder};
     use coverage::{
@@ -20,7 +19,7 @@ pub mod transaction_fuzzer {
         stats::Stats,
     };
     use ledger::{
-        scan_state::transaction_logic::{zkapp_command::ZkAppCommand, Transaction, UserCommand},
+        scan_state::transaction_logic::{Transaction, UserCommand},
         sparse_ledger::LedgerIntf,
         Account, BaseLedger,
     };
@@ -28,6 +27,7 @@ pub mod transaction_fuzzer {
     use mina_p2p_messages::bigint::BigInt;
     use openmina_core::constants::ConstraintConstantsUnversioned;
     use std::io::{Read, Write};
+    use std::panic;
     use std::{
         env,
         process::{ChildStdin, ChildStdout},
@@ -105,6 +105,11 @@ pub mod transaction_fuzzer {
                         .filter_path(".rustup/")
                         .filter_path("mina-p2p-messages/")
                         .filter_path("core/")
+                        .filter_path("tools/")
+                        .filter_path("p2p/")
+                        .filter_path("node/")
+                        .filter_path("vrf/")
+                        .filter_path("snark/")
                         .filter_path("proofs/")
                 );
             }
@@ -115,6 +120,8 @@ pub mod transaction_fuzzer {
     enum Action {
         SetConstraintConstants(ConstraintConstantsUnversioned),
         SetInitialAccounts(Vec<Account>),
+        SetupPool,
+        PoolVerify(UserCommand),
         GetAccounts,
         ApplyTx(UserCommand),
         #[allow(dead_code)]
@@ -125,9 +132,37 @@ pub mod transaction_fuzzer {
     enum ActionOutput {
         ConstraintConstantsSet,
         InitialAccountsSet(BigInt),
+        SetupPool,
+        PoolVerify(Result<Vec<UserCommand>, SmallString1k>),
         Accounts(Vec<Account>),
         TxApplied(ApplyTxResult),
         ExitAck,
+    }
+
+    #[coverage(off)]
+    fn ocaml_setup_pool(stdin: &mut ChildStdin, stdout: &mut ChildStdout) {
+        let action = Action::SetupPool;
+        serialize(&action, stdin);
+        let output: ActionOutput = deserialize(stdout);
+        match output {
+            ActionOutput::SetupPool => (),
+            _ => panic!("Expected SetupPool"),
+        }
+    }
+
+    #[coverage(off)]
+    fn ocaml_pool_verify(
+        stdin: &mut ChildStdin,
+        stdout: &mut ChildStdout,
+        user_command: UserCommand,
+    ) -> Result<Vec<UserCommand>, SmallString1k> {
+        let action = Action::PoolVerify(user_command);
+        serialize(&action, stdin);
+        let output: ActionOutput = deserialize(stdout);
+        match output {
+            ActionOutput::PoolVerify(result) => result,
+            _ => panic!("Expected SetupPool"),
+        }
     }
 
     #[coverage(off)]
@@ -197,6 +232,8 @@ pub mod transaction_fuzzer {
         break_on_invariant: bool,
         seed: u64,
         minimum_fee: u64,
+        pool_fuzzing: bool,
+        transaction_application_fuzzing: bool,
     ) {
         *invariants::BREAK.write().unwrap() = break_on_invariant;
         let mut cov_stats = CoverageStats::new();
@@ -209,6 +246,10 @@ pub mod transaction_fuzzer {
 
         ocaml_set_constraint_constants(&mut ctx, stdin, stdout);
         ocaml_set_initial_accounts(&mut ctx, stdin, stdout);
+
+        if pool_fuzzing {
+            ocaml_setup_pool(stdin, stdout);
+        }
 
         let mut fuzzer_made_progress = false;
 
@@ -238,86 +279,145 @@ pub mod transaction_fuzzer {
             }
 
             let user_command: UserCommand = ctx.random_user_command();
-            let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
-            let mut ledger = ctx.get_ledger_inner().make_child();
 
-            // Apply transaction on the Rust side
-            if let Err(error) =
-                ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result)
-            {
-                println!("!!! {error}");
+            if pool_fuzzing {
+                let ocaml_pool_verify_result =
+                    ocaml_pool_verify(stdin, stdout, user_command.clone());
 
-                // Diff generated command form serialized version (detect hash inconsitencies)
-                if let Transaction::Command(ocaml_user_command) =
-                    ocaml_apply_result.apply_result[0].transaction().data
+                match panic::catch_unwind(
+                    #[coverage(off)]
+                    || ctx.pool_verify(&user_command, &ocaml_pool_verify_result),
+                ) {
+                    Ok(mismatch) => {
+                        if mismatch {
+                            let mut ledger = ctx.get_ledger_inner().make_child();
+                            let bigint: num_bigint::BigUint =
+                                LedgerIntf::merkle_root(&mut ledger).into();
+                            ctx.save_fuzzcase(&user_command, &bigint.to_string());
+
+                            std::process::exit(0);
+                        } else {
+                            if let Err(_error) = ocaml_pool_verify_result {
+                                //println!("Skipping application: {:?}", _error);
+                                continue;
+                            }
+                        }
+                    }
+                    Err(_) => {
+                        println!("!!! PANIC detected");
+                        let mut ledger = ctx.get_ledger_inner().make_child();
+                        let bigint: num_bigint::BigUint =
+                            LedgerIntf::merkle_root(&mut ledger).into();
+                        ctx.save_fuzzcase(&user_command, &bigint.to_string());
+
+                        std::process::exit(0);
+                    }
+                }
+            }
+
+            if transaction_application_fuzzing {
+                let ocaml_apply_result =
+                    ocaml_apply_transaction(stdin, stdout, user_command.clone());
+                let mut ledger = ctx.get_ledger_inner().make_child();
+
+                // Apply transaction on the Rust side
+                if let Err(error) =
+                    ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result)
                 {
-                    if let UserCommand::ZkAppCommand(command) = &ocaml_user_command {
-                        command.account_updates.ensure_hashed();
+                    println!("!!! {error}");
+
+                    // Diff generated command form serialized version (detect hash inconsitencies)
+                    if let Transaction::Command(ocaml_user_command) =
+                        ocaml_apply_result.apply_result[0].transaction().data
+                    {
+                        if let UserCommand::ZkAppCommand(command) = &ocaml_user_command {
+                            command.account_updates.ensure_hashed();
+                        }
+
+                        println!("{}", ctx.diagnostic(&user_command, &ocaml_user_command));
                     }
 
-                    println!("{}", ctx.diagnostic(&user_command, &ocaml_user_command));
-                }
+                    let ocaml_accounts = ocaml_get_accounts(stdin, stdout);
+                    let rust_accounts = ledger.to_list();
 
-                let ocaml_accounts = ocaml_get_accounts(stdin, stdout);
-                let rust_accounts = ledger.to_list();
-
-                for ocaml_account in ocaml_accounts.iter() {
-                    match rust_accounts.iter().find(
-                        #[coverage(off)]
-                        |account| account.public_key == ocaml_account.public_key,
-                    ) {
-                        Some(rust_account) => {
-                            if rust_account != ocaml_account {
+                    for ocaml_account in ocaml_accounts.iter() {
+                        match rust_accounts.iter().find(
+                            #[coverage(off)]
+                            |account| account.public_key == ocaml_account.public_key,
+                        ) {
+                            Some(rust_account) => {
+                                if rust_account != ocaml_account {
+                                    println!(
+                                        "Content mismatch between OCaml and Rust account:\n{}",
+                                        ctx.diagnostic(rust_account, ocaml_account)
+                                    );
+                                }
+                            }
+                            None => {
                                 println!(
-                                    "Content mismatch between OCaml and Rust account:\n{}",
-                                    ctx.diagnostic(rust_account, ocaml_account)
+                                    "OCaml account not present in Rust ledger: {:?}",
+                                    ocaml_account
                                 );
                             }
                         }
-                        None => {
+                    }
+
+                    for rust_account in rust_accounts.iter() {
+                        if !ocaml_accounts.iter().any(
+                            #[coverage(off)]
+                            |account| account.public_key == rust_account.public_key,
+                        ) {
                             println!(
-                                "OCaml account not present in Rust ledger: {:?}",
-                                ocaml_account
+                                "Rust account not present in Ocaml ledger: {:?}",
+                                rust_account
                             );
                         }
                     }
+
+                    let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
+                    ctx.save_fuzzcase(&user_command, &bigint.to_string());
+
+                    // Exiting due to inconsistent state
+                    std::process::exit(0);
                 }
-
-                for rust_account in rust_accounts.iter() {
-                    if !ocaml_accounts.iter().any(
-                        #[coverage(off)]
-                        |account| account.public_key == rust_account.public_key,
-                    ) {
-                        println!(
-                            "Rust account not present in Ocaml ledger: {:?}",
-                            rust_account
-                        );
-                    }
-                }
-
-                let bigint: num_bigint::BigUint = LedgerIntf::merkle_root(&mut ledger).into();
-                ctx.save_fuzzcase(&user_command, &bigint.to_string());
-
-                // Exiting due to inconsistent state
-                std::process::exit(0);
             }
         }
     }
 
     #[coverage(off)]
-    pub fn reproduce(stdin: &mut ChildStdin, stdout: &mut ChildStdout, fuzzcase: &String) {
+    pub fn reproduce(
+        stdin: &mut ChildStdin,
+        stdout: &mut ChildStdout,
+        fuzzcase: &String,
+        pool_fuzzing: bool,
+        transaction_application_fuzzing: bool,
+    ) {
         let mut ctx = FuzzerCtxBuilder::new().build();
         let user_command = ctx.load_fuzzcase(fuzzcase);
 
         ocaml_set_constraint_constants(&mut ctx, stdin, stdout);
         ocaml_set_initial_accounts(&mut ctx, stdin, stdout);
 
-        let mut ledger = ctx.get_ledger_inner().make_child();
-        let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
-        let rust_apply_result =
-            ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result);
+        if pool_fuzzing {
+            ocaml_setup_pool(stdin, stdout);
 
-        println!("apply_transaction: {:?}", rust_apply_result);
+            let ocaml_pool_verify_result = ocaml_pool_verify(stdin, stdout, user_command.clone());
+
+            println!("OCaml pool verify: {:?}", ocaml_pool_verify_result);
+
+            if ctx.pool_verify(&user_command, &ocaml_pool_verify_result) {
+                return;
+            }
+        }
+
+        if transaction_application_fuzzing {
+            let mut ledger = ctx.get_ledger_inner().make_child();
+            let ocaml_apply_result = ocaml_apply_transaction(stdin, stdout, user_command.clone());
+            let rust_apply_result =
+                ctx.apply_transaction(&mut ledger, &user_command, &ocaml_apply_result);
+
+            println!("apply_transaction: {:?}", rust_apply_result);
+        }
     }
 }
 
@@ -339,6 +439,18 @@ fn main() {
                     .long("seed")
                     .default_value("42")
                     .value_parser(clap::value_parser!(u64)),
+            )
+            .arg(
+                clap::Arg::new("pool-fuzzing")
+                    .long("pool-fuzzing")
+                    .default_value("true")
+                    .value_parser(clap::value_parser!(bool)),
+            )
+            .arg(
+                clap::Arg::new("transaction-application-fuzzing")
+                    .long("transaction-application-fuzzing")
+                    .default_value("true")
+                    .value_parser(clap::value_parser!(bool)),
             )
             .get_matches();
 
@@ -363,16 +475,33 @@ fn main() {
         let stdin = child.stdin.as_mut().expect("Failed to open stdin");
         let stdout = child.stdout.as_mut().expect("Failed to open stdout");
 
+        let pool_fuzzing = *matches.get_one::<bool>("pool-fuzzing").unwrap();
+        let transaction_application_fuzzing = *matches
+            .get_one::<bool>("transaction-application-fuzzing")
+            .unwrap();
+
         if let Some(fuzzcase) = matches.get_one::<String>("fuzzcase") {
             println!("Reproducing fuzzcase from file: {}", fuzzcase);
-            transaction_fuzzer::reproduce(stdin, stdout, fuzzcase);
+            transaction_fuzzer::reproduce(
+                stdin,
+                stdout,
+                fuzzcase,
+                pool_fuzzing,
+                transaction_application_fuzzing,
+            );
         } else {
-            let Some(seed) = matches.get_one::<u64>("seed") else {
-                unreachable!()
-            };
+            let seed = *matches.get_one::<u64>("seed").unwrap();
+            println!("Fuzzing [seed: {seed}] [transaction application: {transaction_application_fuzzing} ] [pool: {pool_fuzzing}]...");
 
-            println!("Running the fuzzer with seed {seed}...");
-            transaction_fuzzer::fuzz(stdin, stdout, true, *seed, 1000);
+            transaction_fuzzer::fuzz(
+                stdin,
+                stdout,
+                true,
+                seed,
+                1000,
+                pool_fuzzing,
+                transaction_application_fuzzing,
+            );
         }
     }
 }
