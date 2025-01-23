@@ -471,13 +471,13 @@ pub struct RpcNodeStatusResources {
     pub snark_pool: serde_json::Value,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontier {
     pub best_tip: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
     pub sync: RpcNodeStatusTransitionFrontierSync,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontierSync {
     pub time: Option<redux::Timestamp>,
     pub status: String,
@@ -485,21 +485,21 @@ pub struct RpcNodeStatusTransitionFrontierSync {
     pub target: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontierBlockSummary {
     pub hash: StateHash,
     pub height: u32,
     pub global_slot: u32,
 }
 
-#[derive(Serialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusTransactionPool {
     pub transactions: usize,
     pub transactions_for_propagation: usize,
     pub transaction_candidates: usize,
 }
 
-#[derive(Serialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusSnarkPool {
     pub total_jobs: usize,
     pub snarks: usize,

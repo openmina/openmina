@@ -78,7 +78,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             };
 
             let heartbeat = NodeHeartbeat {
-                status,
+                status: status.into(),
                 node_timestamp: meta.time(),
                 peer_id: store.state().p2p.my_id(),
                 last_produced_block,

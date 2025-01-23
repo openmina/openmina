@@ -2,10 +2,13 @@ use ledger::FpExt;
 use mina_p2p_messages::bigint::BigInt;
 use mina_signer::Signature;
 use redux::Timestamp;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use super::RpcNodeStatus;
-use crate::p2p::PeerId;
+use super::{
+    RpcNodeStatus, RpcNodeStatusSnarkPool, RpcNodeStatusTransactionPool,
+    RpcNodeStatusTransitionFrontier,
+};
+use crate::{p2p::PeerId, stats::block_producer::BlockProductionAttempt};
 use openmina_node_account::{AccountPublicKey, AccountSecretKey};
 
 /// Matches the representation used by o1js where each field is a string
@@ -89,13 +92,36 @@ impl SignedNodeHeartbeat {
 }
 
 /// Node heartbeat
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeHeartbeat {
-    pub status: RpcNodeStatus,
+    pub status: NodeStatus,
     pub node_timestamp: Timestamp,
     pub peer_id: PeerId,
     // binprot+base64 encoded block
     pub last_produced_block: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NodeStatus {
+    pub chain_id: Option<String>,
+    pub transition_frontier: RpcNodeStatusTransitionFrontier,
+    pub peers_count: u32,
+    pub snark_pool: RpcNodeStatusSnarkPool,
+    pub transaction_pool: RpcNodeStatusTransactionPool,
+    pub current_block_production_attempt: Option<BlockProductionAttempt>,
+}
+
+impl From<RpcNodeStatus> for NodeStatus {
+    fn from(status: RpcNodeStatus) -> Self {
+        Self {
+            chain_id: status.chain_id,
+            transition_frontier: status.transition_frontier,
+            peers_count: status.peers.len() as u32,
+            snark_pool: status.snark_pool,
+            transaction_pool: status.transaction_pool,
+            current_block_production_attempt: status.current_block_production_attempt,
+        }
+    }
 }
 
 /// Blake2b hash of the encoded heartbeat payload
@@ -179,8 +205,8 @@ impl NodeHeartbeat {
 pub(crate) mod tests {
 
     use crate::rpc::{
-        RpcNodeStatusResources, RpcNodeStatusSnarkPool, RpcNodeStatusTransactionPool,
-        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierSync,
+        RpcNodeStatusSnarkPool, RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
+        RpcNodeStatusTransitionFrontierSync,
     };
 
     use super::*;
@@ -197,14 +223,14 @@ pub(crate) mod tests {
         println!("Payload: {}", signed.payload);
         println!("Signature: {:?}", signed.signature);
 
-        assert_eq!(&signed.payload, "eyJzdGF0dXMiOnsiY2hhaW5faWQiOm51bGwsInRyYW5zaXRpb25fZnJvbnRpZXIiOnsiYmVzdF90aXAiOm51bGwsInN5bmMiOnsidGltZSI6bnVsbCwic3RhdHVzIjoiU3luY2VkIiwicGhhc2UiOiJSdW5uaW5nIiwidGFyZ2V0IjpudWxsfX0sInBlZXJzIjpbXSwic25hcmtfcG9vbCI6eyJ0b3RhbF9qb2JzIjowLCJzbmFya3MiOjB9LCJ0cmFuc2FjdGlvbl9wb29sIjp7InRyYW5zYWN0aW9ucyI6MCwidHJhbnNhY3Rpb25zX2Zvcl9wcm9wYWdhdGlvbiI6MCwidHJhbnNhY3Rpb25fY2FuZGlkYXRlcyI6MH0sImN1cnJlbnRfYmxvY2tfcHJvZHVjdGlvbl9hdHRlbXB0IjpudWxsfSwibm9kZV90aW1lc3RhbXAiOjAsInBlZXJfaWQiOiIyYkVnQnJQVHpMOHdvdjJENEt6MzRXVkxDeFI0dUNhcnNCbUhZWFdLUUE1d3ZCUXpkOUgiLCJsYXN0X3Byb2R1Y2VkX2Jsb2NrIjpudWxsfQ==");
+        assert_eq!(&signed.payload, "eyJzdGF0dXMiOnsiY2hhaW5faWQiOm51bGwsInRyYW5zaXRpb25fZnJvbnRpZXIiOnsiYmVzdF90aXAiOm51bGwsInN5bmMiOnsidGltZSI6bnVsbCwic3RhdHVzIjoiU3luY2VkIiwicGhhc2UiOiJSdW5uaW5nIiwidGFyZ2V0IjpudWxsfX0sInBlZXJzX2NvdW50IjoxMCwic25hcmtfcG9vbCI6eyJ0b3RhbF9qb2JzIjowLCJzbmFya3MiOjB9LCJ0cmFuc2FjdGlvbl9wb29sIjp7InRyYW5zYWN0aW9ucyI6MCwidHJhbnNhY3Rpb25zX2Zvcl9wcm9wYWdhdGlvbiI6MCwidHJhbnNhY3Rpb25fY2FuZGlkYXRlcyI6MH0sImN1cnJlbnRfYmxvY2tfcHJvZHVjdGlvbl9hdHRlbXB0IjpudWxsfSwibm9kZV90aW1lc3RhbXAiOjAsInBlZXJfaWQiOiIyYkVnQnJQVHpMOHdvdjJENEt6MzRXVkxDeFI0dUNhcnNCbUhZWFdLUUE1d3ZCUXpkOUgiLCJsYXN0X3Byb2R1Y2VkX2Jsb2NrIjpudWxsfQ==");
         assert_eq!(
             &signed.signature.field,
-            "25500978175045040705256298774101531557080530394536110798266178142513301557846"
+            "9079786479394174309544438559429014966597223472549276883268325308999016287311"
         );
         assert_eq!(
             &signed.signature.scalar,
-            "27991123709623419396663280967637181749724990269901703962618583375785482061803"
+            "23390017492020277578751321763314031415515010579676039556553777274088622112706"
         );
         assert!(signed.verify_signature());
     }
@@ -237,7 +263,7 @@ pub(crate) mod tests {
 
     fn create_test_heartbeat() -> NodeHeartbeat {
         NodeHeartbeat {
-            status: RpcNodeStatus {
+            status: NodeStatus {
                 chain_id: None,
                 transition_frontier: RpcNodeStatusTransitionFrontier {
                     best_tip: None,
@@ -248,15 +274,10 @@ pub(crate) mod tests {
                         target: None,
                     },
                 },
-                peers: vec![],
+                peers_count: 10,
                 snark_pool: RpcNodeStatusSnarkPool::default(),
                 transaction_pool: RpcNodeStatusTransactionPool::default(),
                 current_block_production_attempt: None,
-                resources_status: RpcNodeStatusResources {
-                    p2p_malloc_size: 0,
-                    transition_frontier: serde_json::Value::Null,
-                    snark_pool: serde_json::Value::Null,
-                },
             },
             node_timestamp: Timestamp::ZERO,
             peer_id: "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H"
