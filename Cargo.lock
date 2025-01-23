@@ -7782,6 +7782,7 @@ dependencies = [
  "mina-p2p-messages",
  "mina-signer",
  "mina-tree",
+ "node",
  "num-bigint",
  "object 0.36.5",
  "once_cell",
