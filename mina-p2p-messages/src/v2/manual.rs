@@ -1611,9 +1611,9 @@ impl StagedLedgerDiffBodyStableV1 {
             .map(|command| (&command.data, &command.status))
     }
 
-    // FIXME(tizoc): this is not correct, the coinbases are in the commands
-    // what this is returning is the coinbase fee transfers, which is not the same.
-    pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
+    pub fn coinbase_fee_transfers_iter(
+        &self,
+    ) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
         let diff = self.diff();
         let mut coinbases = Vec::with_capacity(4);
         match &diff.0.coinbase {
@@ -1662,8 +1662,7 @@ impl StagedLedgerDiffBodyStableV1 {
                 .map_or(0, |d| d.completed_works.len())
     }
 
-    /// See https://github.com/MinaProtocol/mina/blob/835e581109c6eb5777f9e9d9b600e69b9374d70a/src/lib/staged_ledger_diff/diff.ml#L278
-    pub fn coinbase_sum(&self) -> u64 {
+    pub fn has_coinbase(&self) -> bool {
         let (first_pre_diff, second_pre_diff) = (
             self.diff().0.coinbase.clone(),
             self.diff().1.as_ref().map_or(
@@ -1676,8 +1675,8 @@ impl StagedLedgerDiffBodyStableV1 {
             (
                 StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Zero,
                 StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero,
-            ) => 0,
-            _ => 720000000000, // TODO: get from config/constants
+            ) => false,
+            _ => true,
         }
     }
 

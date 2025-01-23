@@ -362,13 +362,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 );
                 return;
             };
-            let coinbases = block
-                .coinbases_iter()
-                .map(|_| RpcScanStateSummaryBlockTransaction {
-                    hash: None,
-                    kind: RpcScanStateSummaryBlockTransactionKind::Coinbase,
-                    status: v2::MinaBaseTransactionStatusStableV2::Applied,
-                });
+            let coinbases =
+                block
+                    .coinbase_fee_transfers_iter()
+                    .map(|_| RpcScanStateSummaryBlockTransaction {
+                        hash: None,
+                        kind: RpcScanStateSummaryBlockTransactionKind::Coinbase,
+                        status: v2::MinaBaseTransactionStatusStableV2::Applied,
+                    });
             let block_summary = RpcScanStateSummaryBlock {
                 hash: block.hash().clone(),
                 height: block.height(),

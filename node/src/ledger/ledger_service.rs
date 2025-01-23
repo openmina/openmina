@@ -753,9 +753,12 @@ impl LedgerCtx {
             let mut account_ids_not_accessed: BTreeSet<_> =
                 not_accessed.into_iter().map(|(id, _)| id).collect();
 
-            // Coinbase receiver is included only when the coinbase is not zero
-            // FIXME: Use the coinbase tx as base instead of the coinbase sum
-            let has_coinbase = block.body().coinbase_sum() > 0;
+            // Coinbase receiver is included only when the block has a coinbase transaction
+            // Note: If for whatever reason the network has set the coinbase amount to zero,
+            // to mimic the behavior of the ocaml node, we still include the coinbase receiver
+            // in the accessed accounts as a coinbase transaction is created regardless of the coinbase amount.
+            // https://github.com/MinaProtocol/mina/blob/b595a2bf00ae138d745737da628bd94bb2bd91e2/src/lib/staged_ledger/pre_diff_info.ml#L139
+            let has_coinbase = block.body().has_coinbase();
 
             if has_coinbase {
                 account_ids_accessed.insert(coinbase_receiver_id);
@@ -764,11 +767,12 @@ impl LedgerCtx {
             }
 
             // Include the coinbase fee transfer accounts
-            let fee_transfer_accounts = block.body().coinbases_iter().filter_map(|cb| {
-                let receiver: CompressedPubKey = cb.receiver_pk.inner().try_into().ok()?;
-                let account_id = AccountId::new(receiver, TokenId::default());
-                Some(account_id)
-            });
+            let fee_transfer_accounts =
+                block.body().coinbase_fee_transfers_iter().filter_map(|cb| {
+                    let receiver: CompressedPubKey = cb.receiver_pk.inner().try_into().ok()?;
+                    let account_id = AccountId::new(receiver, TokenId::default());
+                    Some(account_id)
+                });
             account_ids_accessed.extend(fee_transfer_accounts);
 
             // TODO(adonagy): Create a struct instead of tuple
