@@ -425,6 +425,7 @@ pub enum ActionKind {
     P2pNetworkPubsubSignError,
     P2pNetworkPubsubValidateIncomingMessage,
     P2pNetworkPubsubValidateIncomingMessages,
+    P2pNetworkPubsubWebRtcRebroadcast,
     P2pNetworkPubsubEffectfulSign,
     P2pNetworkPubsubEffectfulValidateIncomingMessages,
     P2pNetworkRpcHeartbeatSend,
@@ -717,7 +718,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 607;
+    pub const COUNT: u16 = 608;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1961,6 +1962,7 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             }
             Self::Graft { .. } => ActionKind::P2pNetworkPubsubGraft,
             Self::Prune { .. } => ActionKind::P2pNetworkPubsubPrune,
+            Self::WebRtcRebroadcast { .. } => ActionKind::P2pNetworkPubsubWebRtcRebroadcast,
             Self::Broadcast { .. } => ActionKind::P2pNetworkPubsubBroadcast,
             Self::Sign { .. } => ActionKind::P2pNetworkPubsubSign,
             Self::SignError { .. } => ActionKind::P2pNetworkPubsubSignError,

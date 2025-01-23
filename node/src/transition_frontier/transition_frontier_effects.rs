@@ -1,9 +1,11 @@
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use redux::Timestamp;
 
 use crate::block_producer::BlockProducerAction;
 use crate::consensus::ConsensusAction;
 use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
+use crate::p2p::P2pNetworkPubsubAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
 use crate::{Store, TransactionPoolAction};
@@ -303,6 +305,18 @@ fn synced_effects<S: crate::Service>(
         store.dispatch(P2pChannelsBestTipAction::ResponseSend {
             peer_id,
             best_tip: best_tip.block.clone(),
+        });
+    }
+    // TODO this should be handled by a callback
+    // If this get dispatched, we received block from libp2p.
+    if !store.dispatch(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+        message_id: p2p::BroadcastMessageId::BlockHash {
+            hash: best_tip.hash().clone(),
+        },
+    }) {
+        // Otherwise block was received from WebRTC so inject it in libp2p.
+        store.dispatch(P2pNetworkPubsubAction::WebRtcRebroadcast {
+            message: GossipNetMessageV2::NewState(best_tip.block().clone()),
         });
     }
 

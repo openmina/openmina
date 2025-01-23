@@ -300,11 +300,14 @@ impl TransactionPoolState {
                 if let Some(rpc_action) = rpc_action {
                     dispatcher.push(rpc_action);
                 }
-                // TODO: we only rebroadcast locally injected transactions here.
-                // libp2p logic already broadcasts everything right now and doesn't
+                // TODO: libp2p logic already broadcasts everything right now and doesn't
                 // wait for validation, thad needs to be fixed. See #952
-                if is_sender_local && was_accepted {
-                    dispatcher.push(TransactionPoolAction::Rebroadcast { accepted, rejected });
+                if was_accepted {
+                    dispatcher.push(TransactionPoolAction::Rebroadcast {
+                        accepted,
+                        rejected,
+                        is_local: is_sender_local,
+                    });
                 }
             }
             TransactionPoolAction::ApplyTransitionFrontierDiff {
@@ -372,7 +375,11 @@ impl TransactionPoolState {
                     );
                 }
             }
-            TransactionPoolAction::Rebroadcast { accepted, rejected } => {
+            TransactionPoolAction::Rebroadcast {
+                accepted,
+                rejected,
+                is_local,
+            } => {
                 let rejected = rejected.iter().map(|(cmd, _)| cmd.data.forget_check());
 
                 let all_commands = accepted
@@ -387,6 +394,7 @@ impl TransactionPoolState {
                     dispatcher.push(P2pChannelsTransactionAction::Libp2pBroadcast {
                         transaction: Box::new((&cmd).into()),
                         nonce: 0,
+                        is_local: *is_local,
                     });
                 }
             }

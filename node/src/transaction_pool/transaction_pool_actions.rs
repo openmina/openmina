@@ -69,6 +69,7 @@ pub enum TransactionPoolAction {
     Rebroadcast {
         accepted: Vec<ValidCommandWithHash>,
         rejected: Vec<(ValidCommandWithHash, diff::Error)>,
+        is_local: bool,
     },
     CollectTransactionsByFee,
     #[action_event(level = trace)]
@@ -115,9 +116,9 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
                         last_index,
                     )
                 }),
-            TransactionPoolAction::Rebroadcast { accepted, rejected } => {
-                !(accepted.is_empty() && rejected.is_empty())
-            }
+            TransactionPoolAction::Rebroadcast {
+                accepted, rejected, ..
+            } => !(accepted.is_empty() && rejected.is_empty()),
             _ => true,
         }
     }

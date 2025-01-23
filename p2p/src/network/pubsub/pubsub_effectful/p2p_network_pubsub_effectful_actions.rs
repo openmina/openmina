@@ -9,13 +9,8 @@ pub enum P2pNetworkPubsubEffectfulAction {
     ///
     /// **Fields:**
     /// - `author`: The identifier of the peer authoring the message.
-    /// - `topic`: The topic under which the message is published.
     /// - `message`: The protobuf message to be signed.
-    Sign {
-        author: PeerId,
-        topic: String,
-        message: Message,
-    },
+    Sign { author: PeerId, message: Message },
 
     /// Validate a batch of incoming messages from a peer.
     ///

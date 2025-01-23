@@ -77,6 +77,18 @@ pub enum P2pNetworkPubsubAction {
         topic_id: String,
     },
 
+    /// Rebroadcast message received from WebRTC connection.
+    ///
+    /// Expected to be dispatched after the message has been processed,
+    /// in spite of whether it was received from libp2p or webrtc network.
+    ///
+    /// If received from libp2p network, or if we have already broadcasted
+    /// this message, the message will be in the `mcache` state,
+    /// in which case the action won't be enabled (will be filtered out).
+    WebRtcRebroadcast {
+        message: GossipNetMessageV2,
+    },
+
     /// Initiate the broadcasting of a message to all subscribed peers.
     ///
     /// **Fields:**
@@ -190,6 +202,17 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkPubsubAction {
                 .topics
                 .get(topic_id)
                 .is_some_and(|topics| topics.contains_key(peer_id)),
+            P2pNetworkPubsubAction::WebRtcRebroadcast { message } => {
+                let source = super::webrtc_source_sk(message)
+                    .public_key()
+                    .peer_id()
+                    .try_into()
+                    .unwrap();
+                pubsub
+                    .mcache
+                    .get_message(&P2pNetworkPubsubMessageCacheId { source, seqno: 0 })
+                    .is_none()
+            }
             P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id }
             | P2pNetworkPubsubAction::RejectMessage {
                 message_id: Some(message_id),

@@ -1,12 +1,12 @@
 use std::{fmt, path::Path, str::FromStr};
 
 use base64::Engine;
-use ed25519_dalek::SigningKey as Ed25519SecretKey;
+use ed25519_dalek::{ed25519::signature::SignerMut, SigningKey as Ed25519SecretKey};
 use openmina_core::{EncryptedSecretKey, EncryptedSecretKeyFile, EncryptionError};
 use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::identity::PublicKey;
+use super::{PublicKey, Signature};
 
 #[derive(Clone)]
 pub struct SecretKey(Ed25519SecretKey);
@@ -169,6 +169,23 @@ impl SecretKey {
     ) -> Result<M, Box<dyn std::error::Error>> {
         let data: Vec<u8> = self.decrypt_raw(other_pk, ciphertext.as_ref())?;
         serde_json::from_slice(&data).map_err(Box::<dyn std::error::Error>::from)
+    }
+
+    pub fn sign(&mut self, data: &[u8]) -> Signature {
+        Signature(self.0.sign(data))
+    }
+
+    pub fn libp2p_pubsub_sign(&mut self, msg: &[u8]) -> Signature {
+        self.sign(&[b"libp2p-pubsub:", msg].concat())
+    }
+
+    pub fn libp2p_pubsub_pb_message_sign(
+        &mut self,
+        msg: &crate::pb::Message,
+    ) -> Result<Signature, prost::EncodeError> {
+        let mut buf = Vec::new();
+        prost::Message::encode(msg, &mut buf)?;
+        Ok(self.libp2p_pubsub_sign(&buf))
     }
 }
 

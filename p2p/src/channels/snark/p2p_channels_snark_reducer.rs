@@ -210,18 +210,27 @@ impl P2pChannelsSnarkState {
                 }
                 Ok(())
             }
+            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => Ok(()),
             #[cfg(feature = "p2p-libp2p")]
-            P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce } => {
+            P2pChannelsSnarkAction::Libp2pBroadcast {
+                snark,
+                nonce,
+                is_local,
+            } => {
                 let dispatcher = state_context.into_dispatcher();
                 let message = Box::new((snark.statement(), (&snark).into()));
                 let message = v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
                 let nonce = nonce.into();
                 let message = GossipNetMessageV2::SnarkPoolDiff { message, nonce };
-                dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
+                if is_local {
+                    dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
+                } else {
+                    // rebroadcast snark if received from webrtc network, otherwise noop.
+                    dispatcher.push(P2pNetworkPubsubAction::WebRtcRebroadcast { message });
+                }
                 Ok(())
             }
-            #[cfg(not(feature = "p2p-libp2p"))]
-            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => Ok(()),
             P2pChannelsSnarkAction::Libp2pReceived { peer_id, snark, .. } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;

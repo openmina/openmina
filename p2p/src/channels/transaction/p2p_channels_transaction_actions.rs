@@ -52,6 +52,7 @@ pub enum P2pChannelsTransactionAction {
     Libp2pBroadcast {
         transaction: Box<Transaction>,
         nonce: u32,
+        is_local: bool,
     },
 }
 
