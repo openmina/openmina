@@ -338,7 +338,7 @@ fn compare_diffs(
                 b1_with_b2_proof.header.protocol_state_proof =
                     b2.header.protocol_state_proof.clone();
 
-                if b1_with_b2_proof != b2 {
+                if &b1_with_b2_proof != b2 {
                     let ocaml_json =
                         serde_json::to_string_pretty(&serde_json::to_value(b1).unwrap()).unwrap();
                     let openmina_json =
