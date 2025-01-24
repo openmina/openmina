@@ -17,6 +17,7 @@ impl ArchiveService {
         Self { archive_sender }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     fn run(
         mut archive_receiver: mpsc::UnboundedReceiver<ArchiveTransitionFronntierDiff>,
         address: SocketAddr,
@@ -51,6 +52,15 @@ impl ArchiveService {
         }
     }
 
+    // Note: Placeholder for the wasm implementation, if we decide to include an archive mode in the future
+    #[cfg(target_arch = "wasm32")]
+    fn run(
+        mut archive_receiver: mpsc::UnboundedReceiver<ArchiveTransitionFronntierDiff>,
+        address: SocketAddr,
+    ) {
+        unimplemented!()
+    }
+
     pub fn start(address: SocketAddr) -> Self {
         let (archive_sender, archive_receiver) =
             mpsc::unbounded_channel::<ArchiveTransitionFronntierDiff>();
@@ -80,6 +90,7 @@ impl node::transition_frontier::archive::archive_service::ArchiveService for Nod
 }
 
 // We need to replicate the ocaml node's RPC like interface
+#[cfg(not(target_arch = "wasm32"))]
 mod rpc {
     use binprot::BinProtWrite;
     use mina_p2p_messages::rpc_kernel::{Message, NeedsLength, Query, RpcMethod};
@@ -495,3 +506,7 @@ mod rpc {
         }
     }
 }
+
+// Note: Placeholder for the wasm implementation, if we decide to include an archive mode in the future
+#[cfg(target_arch = "wasm32")]
+mod rpc {}
