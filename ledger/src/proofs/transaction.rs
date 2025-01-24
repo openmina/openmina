@@ -4697,29 +4697,51 @@ pub(super) mod tests {
             block_wrap_prover,
             tx_wrap_prover,
         } = BlockProver::make(None, None);
-        let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
-        // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
-        let WrapProof { proof, .. } = generate_block_proof(
-            BlockParams {
-                input: &blockchain_input,
-                block_step_prover: &block_step_prover,
-                block_wrap_prover: &block_wrap_prover,
-                tx_wrap_prover: &tx_wrap_prover,
-                only_verify_constraints: false,
-                expected_step_proof: None,
-                ocaml_wrap_witness: None,
-                // expected_step_proof: Some(
-                //     "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
-                // ),
-                // ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
-            },
-            &mut witnesses,
-        )
-        .unwrap();
+        dbg!(std::process::id());
 
-        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
-        let _sum = dbg!(sha256_sum(&proof_json));
+        for i in 0..2 {
+
+            if i == 1 {
+                use std::io;
+                use std::io::prelude::*;
+
+                let stdin = io::stdin();
+                println!("start ?");
+                for line in stdin.lock().lines() {
+                    println!("{}", line.unwrap());
+                    break;
+                }
+            }
+
+            let now = std::time::Instant::now();
+
+            let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
+            // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
+
+            let WrapProof { proof, .. } = generate_block_proof(
+                BlockParams {
+                    input: &blockchain_input,
+                    block_step_prover: &block_step_prover,
+                    block_wrap_prover: &block_wrap_prover,
+                    tx_wrap_prover: &tx_wrap_prover,
+                    only_verify_constraints: false,
+                    expected_step_proof: None,
+                    ocaml_wrap_witness: None,
+                    // expected_step_proof: Some(
+                    //     "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
+                    // ),
+                    // ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
+                },
+                &mut witnesses,
+            )
+                .unwrap();
+
+            eprintln!("time: {:?}", now.elapsed());
+
+            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+            let _sum = dbg!(sha256_sum(&proof_json));
+        }
     }
 
     #[test]
