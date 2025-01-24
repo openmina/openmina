@@ -228,6 +228,7 @@ impl NodeBuilder {
                 snarker: self.snarker,
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
+                is_archive: false,
             },
             p2p: P2pConfig {
                 libp2p_port: None,
@@ -258,6 +259,7 @@ impl NodeBuilder {
                 pool_max_size: node::daemon_json::Daemon::DEFAULT.tx_pool_max_size(),
                 slot_tx_end: node::daemon_json::Daemon::DEFAULT.slot_tx_end(),
             },
+            archive: None,
         };
 
         // build service
