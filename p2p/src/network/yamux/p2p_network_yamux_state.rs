@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use super::super::*;
 
 pub const INITIAL_RECV_BUFFER_CAPACITY: usize = 0x40000; // 256kb
+pub const INITIAL_WINDOW_SIZE: u32 = INITIAL_RECV_BUFFER_CAPACITY as u32;
+pub const MAX_WINDOW_SIZE: u32 = 16 * 1024 * 1024; // 16mb
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pNetworkYamuxState {
@@ -199,6 +201,7 @@ pub struct YamuxStreamState {
     pub writable: bool,
     pub window_theirs: u32,
     pub window_ours: u32,
+    pub max_window_size: u32,
     pub pending: VecDeque<YamuxFrame>,
 }
 
@@ -210,8 +213,9 @@ impl Default for YamuxStreamState {
             established: false,
             readable: false,
             writable: false,
-            window_theirs: 256 * 1024,
-            window_ours: 256 * 1024,
+            window_theirs: INITIAL_WINDOW_SIZE,
+            window_ours: INITIAL_WINDOW_SIZE,
+            max_window_size: INITIAL_WINDOW_SIZE,
             pending: VecDeque::default(),
         }
     }
