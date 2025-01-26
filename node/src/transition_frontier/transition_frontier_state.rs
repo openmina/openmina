@@ -9,6 +9,7 @@ use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use openmina_core::bug_condition;
 use serde::{Deserialize, Serialize};
 
+use super::candidate::TransitionFrontierCandidatesState;
 use super::genesis::TransitionFrontierGenesisState;
 use super::sync::TransitionFrontierSyncState;
 use super::TransitionFrontierConfig;
@@ -23,6 +24,7 @@ pub struct TransitionFrontierState {
     /// Needed protocol states for applying transactions in the root
     /// scan state that we don't have in the `best_chain` list.
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    pub candidates: TransitionFrontierCandidatesState,
     /// Transition frontier synchronization state
     pub sync: TransitionFrontierSyncState,
 
@@ -38,6 +40,7 @@ impl TransitionFrontierState {
         Self {
             config,
             genesis: TransitionFrontierGenesisState::Idle,
+            candidates: TransitionFrontierCandidatesState::new(),
             best_chain: Vec::with_capacity(290),
             needed_protocol_states: Default::default(),
             sync: TransitionFrontierSyncState::Idle,

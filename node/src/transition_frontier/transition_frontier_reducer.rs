@@ -54,6 +54,12 @@ impl TransitionFrontierState {
                     state.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
                 }
             }
+            TransitionFrontierAction::Candidate(a) => {
+                super::candidate::TransitionFrontierCandidatesState::reducer(
+                    openmina_core::Substate::from_compatible_substate(state_context),
+                    meta.with_action(a),
+                );
+            }
             TransitionFrontierAction::Sync(a) => {
                 let best_chain = state.best_chain.clone();
                 super::sync::TransitionFrontierSyncState::reducer(

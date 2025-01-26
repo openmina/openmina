@@ -2,7 +2,6 @@ use mina_p2p_messages::gossip::GossipNetMessageV2;
 use redux::Timestamp;
 
 use crate::block_producer::BlockProducerAction;
-use crate::consensus::ConsensusAction;
 use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::P2pNetworkPubsubAction;
@@ -10,6 +9,7 @@ use crate::snark_pool::{SnarkPoolAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
 use crate::{Store, TransactionPoolAction};
 
+use super::candidate::TransitionFrontierCandidateAction;
 use super::genesis::TransitionFrontierGenesisAction;
 use super::sync::ledger::snarked::{
     TransitionFrontierSyncLedgerSnarkedAction, ACCOUNT_SUBTREE_HEIGHT,
@@ -56,6 +56,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 synced_effects(&meta, store);
             }
         }
+        TransitionFrontierAction::Candidate(_) => {}
         TransitionFrontierAction::Sync(a) => {
             match a {
                 TransitionFrontierSyncAction::Init {
@@ -321,7 +322,7 @@ fn synced_effects<S: crate::Service>(
     }
 
     let best_tip_hash = best_tip.merkle_root_hash().clone();
-    store.dispatch(ConsensusAction::Prune);
+    store.dispatch(TransitionFrontierCandidateAction::Prune);
     store.dispatch(BlockProducerAction::BestTipUpdate {
         best_tip: best_tip.block.clone(),
     });

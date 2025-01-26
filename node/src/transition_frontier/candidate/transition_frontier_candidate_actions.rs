@@ -7,18 +7,21 @@ use openmina_core::{action_event, ActionEvent};
 use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyError;
 
-use crate::consensus::ConsensusBlockStatus;
 use crate::snark::block_verify::SnarkBlockVerifyId;
 use crate::state::BlockPrevalidationError;
 
-pub type ConsensusActionWithMeta = redux::ActionWithMeta<ConsensusAction>;
-pub type ConsensusActionWithMetaRef<'a> = redux::ActionWithMeta<&'a ConsensusAction>;
+use super::TransitionFrontierCandidateStatus;
+
+pub type TransitionFrontierCandidateActionWithMeta =
+    redux::ActionWithMeta<TransitionFrontierCandidateAction>;
+pub type TransitionFrontierCandidateActionWithMetaRef<'a> =
+    redux::ActionWithMeta<&'a TransitionFrontierCandidateAction>;
 
 // NOTE: `debug(hash)` must be used instead of `display(hash)` because
 // for some reason the later breaks CI. `hash = display(&hash)` works too.
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = debug, fields(debug(hash), debug(error)))]
-pub enum ConsensusAction {
+pub enum TransitionFrontierCandidateAction {
     #[action_event(level = info)]
     BlockReceived {
         hash: StateHash,
@@ -69,104 +72,111 @@ pub enum ConsensusAction {
     Prune,
 }
 
-impl redux::EnablingCondition<crate::State> for ConsensusAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierCandidateAction {
     fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
-            ConsensusAction::BlockReceived { hash, block, .. } => {
+            TransitionFrontierCandidateAction::BlockReceived { hash, block, .. } => {
                 let block = ArcBlockWithHash {
                     hash: hash.clone(),
                     block: block.clone()
                 };
-                !block.is_genesis() && !state.consensus.blocks.contains_key(hash)
+                !block.is_genesis() && !state.transition_frontier.candidates.blocks.contains_key(hash)
             },
-            ConsensusAction::BlockPrevalidateSuccess { hash }
-            | ConsensusAction::BlockPrevalidateError { hash, .. } => state
-                .consensus
+            TransitionFrontierCandidateAction::BlockPrevalidateSuccess { hash }
+            | TransitionFrontierCandidateAction::BlockPrevalidateError { hash, .. } => state
+                .transition_frontier.candidates
                 .blocks
                 .get(hash)
-                .is_some_and( |block| block.status.is_received()),
-            ConsensusAction::BlockChainProofUpdate { hash, .. } => {
-                (state.consensus.best_tip.as_ref() == Some(hash)
-                    && state.consensus.best_tip_chain_proof.is_none())
-                    || state
-                        .consensus
+                .is_some_and(|block| block.status.is_received()),
+            TransitionFrontierCandidateAction::BlockChainProofUpdate { hash, .. } => {
+                (state.transition_frontier.candidates.best_tip.as_ref() == Some(hash)
+                    && state.transition_frontier.candidates.best_tip_chain_proof.is_none())
+                    || state.transition_frontier
+                        .candidates
                         .blocks
                         .get(hash)
                         .is_some_and( |b| b.status.is_pending() && b.chain_proof.is_none())
             },
-            ConsensusAction::BlockSnarkVerifyPending { req_id, hash } => {
+            TransitionFrontierCandidateAction::BlockSnarkVerifyPending { req_id, hash } => {
                 state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .blocks
                     .get(hash)
                     .is_some_and( |block| block.status.is_prevalidated())
                     && state.snark.block_verify.jobs.contains(*req_id)
             },
-            ConsensusAction::BlockSnarkVerifySuccess { hash } => {
+            TransitionFrontierCandidateAction::BlockSnarkVerifySuccess { hash } => {
                 state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .blocks
                     .get(hash)
                     .is_some_and( |block| block.status.is_snark_verify_pending())
             },
-            ConsensusAction::BlockSnarkVerifyError { hash, .. } => {
+            TransitionFrontierCandidateAction::BlockSnarkVerifyError { hash, .. } => {
                 state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .blocks
                     .get(hash)
                     .is_some_and( |block| block.status.is_snark_verify_pending())
             },
-            ConsensusAction::DetectForkRange { hash } => {
+            TransitionFrontierCandidateAction::DetectForkRange { hash } => {
                 state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .blocks
                     .get(hash)
                     .is_some_and( |block| {
                         matches!(
                             block.status,
-                            ConsensusBlockStatus::SnarkVerifySuccess { .. }
+                            TransitionFrontierCandidateStatus::SnarkVerifySuccess { .. }
                         )
                     })
             },
-            ConsensusAction::ShortRangeForkResolve { hash } => {
+            TransitionFrontierCandidateAction::ShortRangeForkResolve { hash } => {
                 state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .blocks
                     .get(hash)
-                    .is_some_and( |block| match state.consensus.best_tip() {
+                    .is_some_and( |block| match state.transition_frontier.candidates.best_tip() {
                         Some(tip) => {
                             matches!(
                                 &block.status,
-                                ConsensusBlockStatus::ForkRangeDetected { compared_with, short_fork, .. }
+                                TransitionFrontierCandidateStatus::ForkRangeDetected { compared_with, short_fork, .. }
                                     if compared_with.as_ref() == Some(tip.hash) && *short_fork
                             )
                         }
                         None => true,
                     })
             },
-            ConsensusAction::LongRangeForkResolve { hash } => {
+            TransitionFrontierCandidateAction::LongRangeForkResolve { hash } => {
                 state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .blocks
                     .get(hash)
-                    .is_some_and( |block| match state.consensus.best_tip() {
+                    .is_some_and( |block| match state.transition_frontier.candidates.best_tip() {
                         Some(tip) => {
                             matches!(
                                 &block.status,
-                                ConsensusBlockStatus::ForkRangeDetected { compared_with, short_fork, .. }
+                                TransitionFrontierCandidateStatus::ForkRangeDetected { compared_with, short_fork, .. }
                                      if compared_with.as_ref() == Some(tip.hash) && !*short_fork
                             )
                         }
                         None => false,
                     })
             },
-            ConsensusAction::BestTipUpdate { hash } => {
+            TransitionFrontierCandidateAction::BestTipUpdate { hash } => {
                 state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .is_candidate_decided_to_use_as_tip(hash)
             },
-            ConsensusAction::TransitionFrontierSyncTargetUpdate => {
-                let Some(best_tip) = state.consensus.best_tip_block_with_hash() else {
+            TransitionFrontierCandidateAction::TransitionFrontierSyncTargetUpdate => {
+                let Some(best_tip) = state.transition_frontier.candidates.best_tip_block_with_hash() else {
                     return false;
                 };
                 // do not need to update transition frontier sync target.
@@ -181,12 +191,18 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                 }
 
                 // has enough data
-                state.consensus.best_tip_chain_proof(&state.transition_frontier).is_some()
+                state.transition_frontier.candidates.best_tip_chain_proof(&state.transition_frontier).is_some()
             },
-            ConsensusAction::P2pBestTipUpdate { .. } => true,
-            ConsensusAction::Prune => {
-                state.consensus.best_tip().is_some()
+            TransitionFrontierCandidateAction::P2pBestTipUpdate { .. } => true,
+            TransitionFrontierCandidateAction::Prune => {
+                state.transition_frontier.candidates.best_tip().is_some()
             },
         }
+    }
+}
+
+impl From<TransitionFrontierCandidateAction> for crate::Action {
+    fn from(value: TransitionFrontierCandidateAction) -> Self {
+        Self::TransitionFrontier(crate::TransitionFrontierAction::Candidate(value))
     }
 }

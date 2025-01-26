@@ -6,6 +6,7 @@ use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
+use super::candidate::TransitionFrontierCandidateAction;
 use super::genesis::TransitionFrontierGenesisAction;
 use super::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use super::sync::{SyncError, TransitionFrontierSyncAction, TransitionFrontierSyncState};
@@ -29,6 +30,7 @@ pub enum TransitionFrontierAction {
     #[action_event(level = info)]
     GenesisProvenInject,
 
+    Candidate(TransitionFrontierCandidateAction),
     Sync(TransitionFrontierSyncAction),
     /// Transition frontier synced.
     Synced {
@@ -62,6 +64,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                     b.is_genesis() && !Arc::ptr_eq(&genesis.block, &b.block)
                 })
             }
+            TransitionFrontierAction::Candidate(a) => a.is_enabled(state, time),
             TransitionFrontierAction::Sync(a) => a.is_enabled(state, time),
             TransitionFrontierAction::Synced { .. } => matches!(
                 state.transition_frontier.sync,
