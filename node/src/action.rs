@@ -6,7 +6,6 @@ pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 
 pub use crate::block_producer::BlockProducerAction;
 pub use crate::block_producer_effectful::BlockProducerEffectfulAction;
-pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
 pub use crate::external_snark_worker::ExternalSnarkWorkerAction;
 use crate::external_snark_worker_effectful::ExternalSnarkWorkerEffectfulAction;
@@ -44,7 +43,6 @@ pub enum Action {
     Ledger(LedgerAction),
     LedgerEffects(LedgerEffectfulAction),
     Snark(SnarkAction),
-    Consensus(ConsensusAction),
     TransitionFrontier(TransitionFrontierAction),
     SnarkPool(SnarkPoolAction),
     SnarkPoolEffect(SnarkPoolEffectfulAction),
@@ -93,7 +91,6 @@ impl redux::EnablingCondition<crate::State> for Action {
             Action::Ledger(a) => a.is_enabled(state, time),
             Action::LedgerEffects(a) => a.is_enabled(state, time),
             Action::Snark(a) => a.is_enabled(&state.snark, time),
-            Action::Consensus(a) => a.is_enabled(state, time),
             Action::TransitionFrontier(a) => a.is_enabled(state, time),
             Action::SnarkPool(a) => a.is_enabled(state, time),
             Action::SnarkPoolEffect(a) => a.is_enabled(state, time),

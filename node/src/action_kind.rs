@@ -19,7 +19,6 @@ use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::BlockProducerAction;
 use crate::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorEffectfulAction;
 use crate::block_producer_effectful::BlockProducerEffectfulAction;
-use crate::consensus::ConsensusAction;
 use crate::event_source::EventSourceAction;
 use crate::external_snark_worker::ExternalSnarkWorkerAction;
 use crate::external_snark_worker_effectful::ExternalSnarkWorkerEffectfulAction;
@@ -81,6 +80,7 @@ use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
 use crate::transaction_pool::candidate::TransactionPoolCandidateAction;
 use crate::transaction_pool::{TransactionPoolAction, TransactionPoolEffectfulAction};
+use crate::transition_frontier::candidate::TransitionFrontierCandidateAction;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
@@ -154,20 +154,6 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorEffectfulInitializeStats,
     BlockProducerVrfEvaluatorEffectfulSlotEvaluated,
     CheckTimeouts,
-    ConsensusBestTipUpdate,
-    ConsensusBlockChainProofUpdate,
-    ConsensusBlockPrevalidateError,
-    ConsensusBlockPrevalidateSuccess,
-    ConsensusBlockReceived,
-    ConsensusBlockSnarkVerifyError,
-    ConsensusBlockSnarkVerifyPending,
-    ConsensusBlockSnarkVerifySuccess,
-    ConsensusDetectForkRange,
-    ConsensusLongRangeForkResolve,
-    ConsensusP2pBestTipUpdate,
-    ConsensusPrune,
-    ConsensusShortRangeForkResolve,
-    ConsensusTransitionFrontierSyncTargetUpdate,
     EventSourceNewEvent,
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
@@ -631,6 +617,20 @@ pub enum ActionKind {
     TransitionFrontierGenesisProvenInject,
     TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
+    TransitionFrontierCandidateBestTipUpdate,
+    TransitionFrontierCandidateBlockChainProofUpdate,
+    TransitionFrontierCandidateBlockPrevalidateError,
+    TransitionFrontierCandidateBlockPrevalidateSuccess,
+    TransitionFrontierCandidateBlockReceived,
+    TransitionFrontierCandidateBlockSnarkVerifyError,
+    TransitionFrontierCandidateBlockSnarkVerifyPending,
+    TransitionFrontierCandidateBlockSnarkVerifySuccess,
+    TransitionFrontierCandidateDetectForkRange,
+    TransitionFrontierCandidateLongRangeForkResolve,
+    TransitionFrontierCandidateP2pBestTipUpdate,
+    TransitionFrontierCandidatePrune,
+    TransitionFrontierCandidateShortRangeForkResolve,
+    TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate,
     TransitionFrontierGenesisLedgerLoadInit,
     TransitionFrontierGenesisLedgerLoadPending,
     TransitionFrontierGenesisLedgerLoadSuccess,
@@ -738,7 +738,6 @@ impl ActionKindGet for Action {
             Self::Ledger(a) => a.kind(),
             Self::LedgerEffects(a) => a.kind(),
             Self::Snark(a) => a.kind(),
-            Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
             Self::SnarkPoolEffect(a) => a.kind(),
@@ -858,34 +857,12 @@ impl ActionKindGet for SnarkAction {
     }
 }
 
-impl ActionKindGet for ConsensusAction {
-    fn kind(&self) -> ActionKind {
-        match self {
-            Self::BlockReceived { .. } => ActionKind::ConsensusBlockReceived,
-            Self::BlockPrevalidateSuccess { .. } => ActionKind::ConsensusBlockPrevalidateSuccess,
-            Self::BlockPrevalidateError { .. } => ActionKind::ConsensusBlockPrevalidateError,
-            Self::BlockChainProofUpdate { .. } => ActionKind::ConsensusBlockChainProofUpdate,
-            Self::BlockSnarkVerifyPending { .. } => ActionKind::ConsensusBlockSnarkVerifyPending,
-            Self::BlockSnarkVerifySuccess { .. } => ActionKind::ConsensusBlockSnarkVerifySuccess,
-            Self::BlockSnarkVerifyError { .. } => ActionKind::ConsensusBlockSnarkVerifyError,
-            Self::DetectForkRange { .. } => ActionKind::ConsensusDetectForkRange,
-            Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
-            Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
-            Self::BestTipUpdate { .. } => ActionKind::ConsensusBestTipUpdate,
-            Self::TransitionFrontierSyncTargetUpdate => {
-                ActionKind::ConsensusTransitionFrontierSyncTargetUpdate
-            }
-            Self::P2pBestTipUpdate { .. } => ActionKind::ConsensusP2pBestTipUpdate,
-            Self::Prune => ActionKind::ConsensusPrune,
-        }
-    }
-}
-
 impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Genesis(a) => a.kind(),
             Self::GenesisEffect(a) => a.kind(),
+            Self::Candidate(a) => a.kind(),
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::GenesisProvenInject => ActionKind::TransitionFrontierGenesisProvenInject,
@@ -1448,6 +1425,47 @@ impl ActionKindGet for TransitionFrontierGenesisEffectfulAction {
                 ActionKind::TransitionFrontierGenesisEffectfulLedgerLoadInit
             }
             Self::ProveInit { .. } => ActionKind::TransitionFrontierGenesisEffectfulProveInit,
+        }
+    }
+}
+
+impl ActionKindGet for TransitionFrontierCandidateAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::BlockReceived { .. } => ActionKind::TransitionFrontierCandidateBlockReceived,
+            Self::BlockPrevalidateSuccess { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockPrevalidateSuccess
+            }
+            Self::BlockPrevalidateError { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockPrevalidateError
+            }
+            Self::BlockChainProofUpdate { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockChainProofUpdate
+            }
+            Self::BlockSnarkVerifyPending { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockSnarkVerifyPending
+            }
+            Self::BlockSnarkVerifySuccess { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockSnarkVerifySuccess
+            }
+            Self::BlockSnarkVerifyError { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockSnarkVerifyError
+            }
+            Self::DetectForkRange { .. } => ActionKind::TransitionFrontierCandidateDetectForkRange,
+            Self::ShortRangeForkResolve { .. } => {
+                ActionKind::TransitionFrontierCandidateShortRangeForkResolve
+            }
+            Self::LongRangeForkResolve { .. } => {
+                ActionKind::TransitionFrontierCandidateLongRangeForkResolve
+            }
+            Self::BestTipUpdate { .. } => ActionKind::TransitionFrontierCandidateBestTipUpdate,
+            Self::TransitionFrontierSyncTargetUpdate => {
+                ActionKind::TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate
+            }
+            Self::P2pBestTipUpdate { .. } => {
+                ActionKind::TransitionFrontierCandidateP2pBestTipUpdate
+            }
+            Self::Prune => ActionKind::TransitionFrontierCandidatePrune,
         }
     }
 }

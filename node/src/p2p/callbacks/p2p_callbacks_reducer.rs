@@ -16,11 +16,11 @@ use p2p::{
 use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 
 use crate::{
-    consensus::allow_block_too_late,
     p2p_ready,
     snark_pool::candidate::SnarkPoolCandidateAction,
     state::BlockPrevalidationError,
     transaction_pool::candidate::TransactionPoolCandidateAction,
+    transition_frontier::candidate::{allow_block_too_late, TransitionFrontierCandidateAction},
     transition_frontier::sync::{
         ledger::{
             snarked::{
@@ -34,7 +34,7 @@ use crate::{
     watched_accounts::{
         WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
     },
-    Action, ConsensusAction, State, WatchedAccountsAction,
+    Action, State, WatchedAccountsAction,
 };
 
 use super::P2pCallbacksAction;
@@ -571,7 +571,7 @@ impl crate::State {
                         return;
                     }
                 }
-                dispatcher.push(ConsensusAction::BlockChainProofUpdate {
+                dispatcher.push(TransitionFrontierCandidateAction::BlockChainProofUpdate {
                     hash: best_tip.hash,
                     chain_proof: (hashes, root_block),
                 });

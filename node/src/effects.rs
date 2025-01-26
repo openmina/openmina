@@ -100,7 +100,6 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         | Action::SnarkPool(_)
         | Action::ExternalSnarkWorker(_)
         | Action::TransactionPool(_)
-        | Action::Consensus(_)
         | Action::Ledger(_)
         | Action::Rpc(_)
         | Action::WatchedAccounts(_)
@@ -114,14 +113,18 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
     // TODO(binier): refactor
     let state = store.state();
-    let consensus_best_tip_hash = state.consensus.best_tip.as_ref();
+    let consensus_best_tip_hash = state.transition_frontier.candidates.best_tip.as_ref();
     let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
     let syncing_best_tip_hash = state.transition_frontier.sync.best_tip().map(|v| &v.hash);
 
     if consensus_best_tip_hash.is_some()
         && consensus_best_tip_hash != best_tip_hash
         && consensus_best_tip_hash != syncing_best_tip_hash
-        && state.consensus.best_tip_chain_proof.is_none()
+        && state
+            .transition_frontier
+            .candidates
+            .best_tip_chain_proof
+            .is_none()
     {
         request_best_tip(store, consensus_best_tip_hash.cloned());
     }

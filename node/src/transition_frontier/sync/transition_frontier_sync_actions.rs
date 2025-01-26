@@ -130,7 +130,8 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                         .best_tip()
                         .map_or(true, |tip| best_tip.hash != tip.hash)
                     && state
-                        .consensus
+                        .transition_frontier
+                        .candidates
                         .best_tip()
                         .is_some_and(|tip| &best_tip.hash == tip.hash)
             }

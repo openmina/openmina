@@ -168,7 +168,6 @@ fn optimize_filtered_state(
         config
             | p2p
             | snark
-            | consensus
             | transition_frontier
             | snark_pool
             | external_snark_worker

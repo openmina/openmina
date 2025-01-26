@@ -40,7 +40,7 @@ impl ConsensusLongRangeForkDecision {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusBlockStatus {
+pub enum TransitionFrontierCandidateStatus {
     Received {
         time: redux::Timestamp,
     },
@@ -69,7 +69,7 @@ pub enum ConsensusBlockStatus {
     },
 }
 
-impl ConsensusBlockStatus {
+impl TransitionFrontierCandidateStatus {
     pub fn is_received(&self) -> bool {
         matches!(self, Self::Received { .. })
     }
@@ -99,13 +99,13 @@ impl ConsensusBlockStatus {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ConsensusBlockState {
+pub struct TransitionFrontierCandidateState {
     pub block: Arc<MinaBlockBlockStableV2>,
-    pub status: ConsensusBlockStatus,
+    pub status: TransitionFrontierCandidateStatus,
     pub chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
 }
 
-impl ConsensusBlockState {
+impl TransitionFrontierCandidateState {
     pub fn height(&self) -> u32 {
         self.block
             .header
@@ -119,14 +119,14 @@ impl ConsensusBlockState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct ConsensusState {
-    pub blocks: BTreeMap<StateHash, ConsensusBlockState>,
+pub struct TransitionFrontierCandidatesState {
+    pub blocks: BTreeMap<StateHash, TransitionFrontierCandidateState>,
     // TODO(binier): rename to best candidate. Best tip will be in transition_frontier state.
     pub best_tip: Option<StateHash>,
     pub best_tip_chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
 }
 
-impl ConsensusState {
+impl TransitionFrontierCandidatesState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -171,17 +171,17 @@ impl ConsensusState {
             return false;
         };
         match &candidate.status {
-            ConsensusBlockStatus::Received { .. } => false,
-            ConsensusBlockStatus::Prevalidated => false,
-            ConsensusBlockStatus::SnarkVerifyPending { .. } => false,
-            ConsensusBlockStatus::SnarkVerifySuccess { .. } => false,
-            ConsensusBlockStatus::ForkRangeDetected { .. } => false,
-            ConsensusBlockStatus::ShortRangeForkResolve {
+            TransitionFrontierCandidateStatus::Received { .. } => false,
+            TransitionFrontierCandidateStatus::Prevalidated => false,
+            TransitionFrontierCandidateStatus::SnarkVerifyPending { .. } => false,
+            TransitionFrontierCandidateStatus::SnarkVerifySuccess { .. } => false,
+            TransitionFrontierCandidateStatus::ForkRangeDetected { .. } => false,
+            TransitionFrontierCandidateStatus::ShortRangeForkResolve {
                 compared_with,
                 decision,
                 ..
             } => decision.use_as_best_tip() && &self.best_tip == compared_with,
-            ConsensusBlockStatus::LongRangeForkResolve {
+            TransitionFrontierCandidateStatus::LongRangeForkResolve {
                 compared_with,
                 decision,
                 ..
@@ -221,7 +221,7 @@ pub struct BlockRef<'a> {
     pub hash: &'a StateHash,
     pub header: &'a MinaBlockHeaderStableV2,
     pub body: &'a StagedLedgerDiffDiffStableV2,
-    pub status: &'a ConsensusBlockStatus,
+    pub status: &'a TransitionFrontierCandidateStatus,
 }
 
 impl BlockRef<'_> {

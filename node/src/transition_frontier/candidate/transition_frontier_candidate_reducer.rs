@@ -17,14 +17,16 @@ use crate::{
 };
 
 use super::{
-    ConsensusAction, ConsensusActionWithMetaRef, ConsensusBlockState, ConsensusBlockStatus,
-    ConsensusLongRangeForkDecision, ConsensusShortRangeForkDecision, ConsensusState,
+    ConsensusLongRangeForkDecision, ConsensusShortRangeForkDecision,
+    TransitionFrontierCandidateAction, TransitionFrontierCandidateActionWithMetaRef,
+    TransitionFrontierCandidateState, TransitionFrontierCandidateStatus,
+    TransitionFrontierCandidatesState,
 };
 
-impl ConsensusState {
+impl TransitionFrontierCandidatesState {
     pub fn reducer(
         mut state_context: crate::Substate<Self>,
-        action: ConsensusActionWithMetaRef<'_>,
+        action: TransitionFrontierCandidateActionWithMetaRef<'_>,
     ) {
         let Ok(state) = state_context.get_substate_mut() else {
             // TODO: log or propagate
@@ -33,16 +35,16 @@ impl ConsensusState {
         let (action, meta) = action.split();
 
         match action {
-            ConsensusAction::BlockReceived {
+            TransitionFrontierCandidateAction::BlockReceived {
                 hash,
                 block,
                 chain_proof,
             } => {
                 state.blocks.insert(
                     hash.clone(),
-                    ConsensusBlockState {
+                    TransitionFrontierCandidateState {
                         block: block.clone(),
-                        status: ConsensusBlockStatus::Received { time: meta.time() },
+                        status: TransitionFrontierCandidateStatus::Received { time: meta.time() },
                         chain_proof: chain_proof.clone(),
                     },
                 );
@@ -59,18 +61,23 @@ impl ConsensusState {
 
                 match state.prevalidate_block(&block, allow_block_too_late) {
                     Ok(()) => {
-                        dispatcher.push(ConsensusAction::BlockPrevalidateSuccess { hash });
+                        dispatcher.push(
+                            TransitionFrontierCandidateAction::BlockPrevalidateSuccess { hash },
+                        );
                     }
                     Err(error) => {
-                        dispatcher.push(ConsensusAction::BlockPrevalidateError { hash, error });
+                        dispatcher.push(TransitionFrontierCandidateAction::BlockPrevalidateError {
+                            hash,
+                            error,
+                        });
                     }
                 }
             }
-            ConsensusAction::BlockPrevalidateSuccess { hash } => {
+            TransitionFrontierCandidateAction::BlockPrevalidateSuccess { hash } => {
                 let Some(block) = state.blocks.get_mut(hash) else {
                     return;
                 };
-                block.status = ConsensusBlockStatus::Prevalidated;
+                block.status = TransitionFrontierCandidateStatus::Prevalidated;
 
                 // Dispatch
                 let block = (hash.clone(), block.block.clone()).into();
@@ -79,22 +86,22 @@ impl ConsensusState {
                     block,
                     on_init: redux::callback!(
                         on_received_block_snark_verify_init((hash: BlockHash, req_id: SnarkBlockVerifyId)) -> crate::Action {
-                            ConsensusAction::BlockSnarkVerifyPending { hash, req_id }
+                            TransitionFrontierCandidateAction::BlockSnarkVerifyPending { hash, req_id }
                         }),
                     on_success: redux::callback!(
                         on_received_block_snark_verify_success(hash: BlockHash) -> crate::Action {
-                            ConsensusAction::BlockSnarkVerifySuccess { hash }
+                            TransitionFrontierCandidateAction::BlockSnarkVerifySuccess { hash }
                         }),
                     on_error: redux::callback!(
                         on_received_block_snark_verify_error((hash: BlockHash, error: SnarkBlockVerifyError)) -> crate::Action {
-                            ConsensusAction::BlockSnarkVerifyError { hash, error }
+                            TransitionFrontierCandidateAction::BlockSnarkVerifyError { hash, error }
                         }),
                 });
             }
-            ConsensusAction::BlockPrevalidateError { hash, .. } => {
+            TransitionFrontierCandidateAction::BlockPrevalidateError { hash, .. } => {
                 state.blocks.remove(hash);
             }
-            ConsensusAction::BlockChainProofUpdate { hash, chain_proof } => {
+            TransitionFrontierCandidateAction::BlockChainProofUpdate { hash, chain_proof } => {
                 if state.best_tip.as_ref() == Some(hash) {
                     state.best_tip_chain_proof = Some(chain_proof.clone());
                 } else if let Some(block) = state.blocks.get_mut(hash) {
@@ -102,34 +109,42 @@ impl ConsensusState {
                 }
 
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
-                if global_state.consensus.best_tip.as_ref() != Some(hash) {
+                if global_state
+                    .transition_frontier
+                    .candidates
+                    .best_tip
+                    .as_ref()
+                    != Some(hash)
+                {
                     return;
                 }
 
-                dispatcher.push(ConsensusAction::TransitionFrontierSyncTargetUpdate);
+                dispatcher
+                    .push(TransitionFrontierCandidateAction::TransitionFrontierSyncTargetUpdate);
             }
-            ConsensusAction::BlockSnarkVerifyPending { req_id, hash } => {
+            TransitionFrontierCandidateAction::BlockSnarkVerifyPending { req_id, hash } => {
                 if let Some(block) = state.blocks.get_mut(hash) {
-                    block.status = ConsensusBlockStatus::SnarkVerifyPending {
+                    block.status = TransitionFrontierCandidateStatus::SnarkVerifyPending {
                         time: meta.time(),
                         req_id: *req_id,
                     };
                 }
             }
-            ConsensusAction::BlockSnarkVerifySuccess { hash } => {
+            TransitionFrontierCandidateAction::BlockSnarkVerifySuccess { hash } => {
                 if let Some(block) = state.blocks.get_mut(hash) {
-                    block.status = ConsensusBlockStatus::SnarkVerifySuccess { time: meta.time() };
+                    block.status =
+                        TransitionFrontierCandidateStatus::SnarkVerifySuccess { time: meta.time() };
                 }
 
                 // Dispatch
                 let hash = hash.clone();
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(ConsensusAction::DetectForkRange { hash });
+                dispatcher.push(TransitionFrontierCandidateAction::DetectForkRange { hash });
             }
-            ConsensusAction::BlockSnarkVerifyError { .. } => {
+            TransitionFrontierCandidateAction::BlockSnarkVerifyError { .. } => {
                 // TODO: handle block verification error.
             }
-            ConsensusAction::DetectForkRange { hash } => {
+            TransitionFrontierCandidateAction::DetectForkRange { hash } => {
                 let candidate_hash = hash;
                 let Some(candidate_state) = state.blocks.get(candidate_hash) else {
                     return;
@@ -148,7 +163,7 @@ impl ConsensusState {
                     (None, true)
                 };
                 if let Some(candidate_state) = state.blocks.get_mut(candidate_hash) {
-                    candidate_state.status = ConsensusBlockStatus::ForkRangeDetected {
+                    candidate_state.status = TransitionFrontierCandidateStatus::ForkRangeDetected {
                         time: meta.time(),
                         compared_with: tip_hash,
                         short_fork,
@@ -160,10 +175,12 @@ impl ConsensusState {
                 // Dispatch
                 let hash = hash.clone();
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(ConsensusAction::ShortRangeForkResolve { hash: hash.clone() });
-                dispatcher.push(ConsensusAction::LongRangeForkResolve { hash });
+                dispatcher.push(TransitionFrontierCandidateAction::ShortRangeForkResolve {
+                    hash: hash.clone(),
+                });
+                dispatcher.push(TransitionFrontierCandidateAction::LongRangeForkResolve { hash });
             }
-            ConsensusAction::ShortRangeForkResolve { hash } => {
+            TransitionFrontierCandidateAction::ShortRangeForkResolve { hash } => {
                 let candidate_hash = hash;
                 if let Some(candidate) = state.blocks.get(candidate_hash) {
                     let (best_tip_hash, decision): (_, ConsensusShortRangeForkDecision) =
@@ -194,20 +211,21 @@ impl ConsensusState {
                             candidate.chain_proof = None;
                         }
 
-                        candidate.status = ConsensusBlockStatus::ShortRangeForkResolve {
-                            time: meta.time(),
-                            compared_with: best_tip_hash,
-                            decision,
-                        };
+                        candidate.status =
+                            TransitionFrontierCandidateStatus::ShortRangeForkResolve {
+                                time: meta.time(),
+                                compared_with: best_tip_hash,
+                                decision,
+                            };
                     }
                 }
 
                 // Dispatch
                 let hash = hash.clone();
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(ConsensusAction::BestTipUpdate { hash });
+                dispatcher.push(TransitionFrontierCandidateAction::BestTipUpdate { hash });
             }
-            ConsensusAction::LongRangeForkResolve { hash } => {
+            TransitionFrontierCandidateAction::LongRangeForkResolve { hash } => {
                 openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve");
                 let candidate_hash = hash;
                 let Some(tip_ref) = state.best_tip() else {
@@ -229,7 +247,7 @@ impl ConsensusState {
                 let Some(candidate_state) = state.blocks.get_mut(candidate_hash) else {
                     return;
                 };
-                candidate_state.status = ConsensusBlockStatus::LongRangeForkResolve {
+                candidate_state.status = TransitionFrontierCandidateStatus::LongRangeForkResolve {
                     time: meta.time(),
                     compared_with: tip_hash,
                     decision: if take {
@@ -244,9 +262,9 @@ impl ConsensusState {
                 // Dispatch
                 let hash = hash.clone();
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(ConsensusAction::BestTipUpdate { hash });
+                dispatcher.push(TransitionFrontierCandidateAction::BestTipUpdate { hash });
             }
-            ConsensusAction::BestTipUpdate { hash } => {
+            TransitionFrontierCandidateAction::BestTipUpdate { hash } => {
                 state.best_tip = Some(hash.clone());
 
                 if let Some(tip) = state.blocks.get_mut(hash) {
@@ -255,7 +273,11 @@ impl ConsensusState {
 
                 // Dispatch
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
-                let Some(block) = global_state.consensus.best_tip_block_with_hash() else {
+                let Some(block) = global_state
+                    .transition_frontier
+                    .candidates
+                    .best_tip_block_with_hash()
+                else {
                     return;
                 };
                 for pub_key in global_state.watched_accounts.accounts() {
@@ -268,11 +290,16 @@ impl ConsensusState {
                     });
                 }
 
-                dispatcher.push(ConsensusAction::TransitionFrontierSyncTargetUpdate);
+                dispatcher
+                    .push(TransitionFrontierCandidateAction::TransitionFrontierSyncTargetUpdate);
             }
-            ConsensusAction::TransitionFrontierSyncTargetUpdate => {
+            TransitionFrontierCandidateAction::TransitionFrontierSyncTargetUpdate => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let Some(best_tip) = state.consensus.best_tip_block_with_hash() else {
+                let Some(best_tip) = state
+                    .transition_frontier
+                    .candidates
+                    .best_tip_block_with_hash()
+                else {
                     bug_condition!(
                         "ConsensusAction::TransitionFrontierSyncTargetUpdate | no chosen best tip"
                     );
@@ -280,7 +307,8 @@ impl ConsensusState {
                 };
 
                 let Some((blocks_inbetween, root_block)) = state
-                    .consensus
+                    .transition_frontier
+                    .candidates
                     .best_tip_chain_proof(&state.transition_frontier)
                 else {
                     bug_condition!("ConsensusAction::TransitionFrontierSyncTargetUpdate | no best tip chain proof");
@@ -300,9 +328,9 @@ impl ConsensusState {
                     on_success: None,
                 });
             }
-            ConsensusAction::P2pBestTipUpdate { best_tip } => {
+            TransitionFrontierCandidateAction::P2pBestTipUpdate { best_tip } => {
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(ConsensusAction::BlockReceived {
+                dispatcher.push(TransitionFrontierCandidateAction::BlockReceived {
                     hash: best_tip.hash.clone(),
                     block: best_tip.block.clone(),
                     chain_proof: None,
@@ -312,7 +340,7 @@ impl ConsensusState {
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
                 dispatcher.push(TransitionFrontierSyncAction::BlocksPeersQuery);
             }
-            ConsensusAction::Prune => {
+            TransitionFrontierCandidateAction::Prune => {
                 let Some(best_tip_hash) = state.best_tip.clone() else {
                     return;
                 };

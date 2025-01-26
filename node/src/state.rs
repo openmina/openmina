@@ -31,7 +31,6 @@ use snark::work_verify::SnarkWorkVerifyState;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorState;
 pub use crate::block_producer::BlockProducerState;
-pub use crate::consensus::ConsensusState;
 use crate::external_snark_worker::{ExternalSnarkWorker, ExternalSnarkWorkers};
 use crate::ledger::read::LedgerReadState;
 use crate::ledger::write::LedgerWriteState;
@@ -47,6 +46,8 @@ use crate::transaction_pool::candidate::{
     TransactionPoolCandidateAction, TransactionPoolCandidatesState,
 };
 use crate::transaction_pool::TransactionPoolState;
+use crate::transition_frontier::candidate::TransitionFrontierCandidateAction;
+pub use crate::transition_frontier::candidate::TransitionFrontierCandidatesState;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisState;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedState;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedState;
@@ -56,7 +57,7 @@ pub use crate::transition_frontier::TransitionFrontierState;
 pub use crate::watched_accounts::WatchedAccountsState;
 pub use crate::Config;
 use crate::{config::GlobalConfig, SnarkPoolAction};
-use crate::{ActionWithMeta, ConsensusAction, RpcAction, TransactionPoolAction};
+use crate::{ActionWithMeta, RpcAction, TransactionPoolAction};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
@@ -65,7 +66,6 @@ pub struct State {
     pub p2p: P2p,
     pub ledger: LedgerState,
     pub snark: SnarkState,
-    pub consensus: ConsensusState,
     pub transition_frontier: TransitionFrontierState,
     pub snark_pool: SnarkPoolState,
     pub external_snark_worker: ExternalSnarkWorkers,
@@ -110,8 +110,12 @@ impl_substate_access!(
     SnarkUserCommandVerifyState,
     snark.user_command_verify
 );
-impl_substate_access!(State, ConsensusState, consensus);
 impl_substate_access!(State, TransitionFrontierState, transition_frontier);
+impl_substate_access!(
+    State,
+    TransitionFrontierCandidatesState,
+    transition_frontier.candidates
+);
 impl_substate_access!(State, TransactionPoolState, transaction_pool);
 impl_substate_access!(
     State,
@@ -283,7 +287,6 @@ impl State {
             ledger: LedgerState::new(config.ledger),
             snark_pool: SnarkPoolState::new(),
             snark: SnarkState::new(config.snark),
-            consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),
             external_snark_worker: ExternalSnarkWorkers::new(now),
             block_producer: BlockProducerState::new(now, config.block_producer),
@@ -597,7 +600,7 @@ impl P2p {
             )),
             on_p2p_peer_best_tip_update: Some(redux::callback!(
                 on_p2p_peer_best_tip_update(best_tip: BlockWithHash<Arc<v2::MinaBlockBlockStableV2>>) -> crate::Action {
-                    ConsensusAction::P2pBestTipUpdate { best_tip }
+                    TransitionFrontierCandidateAction::P2pBestTipUpdate { best_tip }
                 }
             )),
             on_p2p_channels_rpc_ready: Some(redux::callback!(
