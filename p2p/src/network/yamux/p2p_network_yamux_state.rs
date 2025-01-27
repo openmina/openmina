@@ -343,6 +343,15 @@ impl YamuxFrame {
         }
     }
 
+    // When we parse the frame we parse length as u32 and so `data.len()` should always be representable as u32
+    pub fn len_as_u32(&self) -> u32 {
+        if let YamuxFrameInner::Data(data) = &self.inner {
+            u32::try_from(data.len()).unwrap_or(u32::MAX)
+        } else {
+            0
+        }
+    }
+
     /// If this data is bigger then `pos`, keep only first `pos` bytes and return some remaining
     /// otherwise return none
     pub fn split_at(&mut self, pos: usize) -> Option<Self> {

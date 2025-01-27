@@ -136,12 +136,12 @@ impl P2pNetworkYamuxState {
                 }
 
                 match &frame.inner {
-                    YamuxFrameInner::Data(data) => {
+                    YamuxFrameInner::Data(_) => {
                         if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
                             // must not underflow
                             // TODO: check it and disconnect peer that violates flow rules
                             stream.window_ours =
-                                stream.window_ours.saturating_sub(data.len() as u32);
+                                stream.window_ours.saturating_sub(frame.len_as_u32());
                         }
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
@@ -157,7 +157,7 @@ impl P2pNetworkYamuxState {
                             // try send as many frames as can
                             let mut window = stream.window_theirs;
                             while let Some(frame) = stream.pending.pop_front() {
-                                let len = frame.len() as u32;
+                                let len = frame.len_as_u32();
                                 pending_outgoing.push_back(frame);
                                 if let Some(new_window) = window.checked_sub(len) {
                                     window = new_window;
@@ -285,9 +285,9 @@ impl P2pNetworkYamuxState {
                     return Ok(());
                 };
                 match &mut frame.inner {
-                    YamuxFrameInner::Data(data) => {
+                    YamuxFrameInner::Data(_) => {
                         if let Some(new_window) =
-                            stream.window_theirs.checked_sub(data.len() as u32)
+                            stream.window_theirs.checked_sub(frame.len_as_u32())
                         {
                             // their window is big enough, decrease the size
                             // and send the whole frame
