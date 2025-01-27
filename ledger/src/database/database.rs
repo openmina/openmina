@@ -49,8 +49,8 @@ impl Database<V2> {
 }
 
 impl Database<V2> {
-    pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>, is_archive: bool) -> Self {
-        let db = DatabaseImpl::<V2>::create_with_dir(depth, dir_name, is_archive);
+    pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>) -> Self {
+        let db = DatabaseImpl::<V2>::create_with_dir(depth, dir_name);
 
         Self {
             inner: Arc::new(Mutex::new(db)),
@@ -58,11 +58,7 @@ impl Database<V2> {
     }
 
     pub fn create(depth: u8) -> Self {
-        Self::create_with_dir(depth, None, false)
-    }
-
-    pub fn create_with_archive(depth: u8) -> Self {
-        Self::create_with_dir(depth, None, true)
+        Self::create_with_dir(depth, None)
     }
 
     pub fn root_hash(&mut self) -> Fp {

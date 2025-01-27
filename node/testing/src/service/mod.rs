@@ -341,8 +341,8 @@ impl node::event_source::EventSourceService for NodeTestingService {
 }
 
 impl TransitionFrontierGenesisService for NodeTestingService {
-    fn load_genesis(&mut self, config: Arc<GenesisConfig>, is_archive: bool) {
-        TransitionFrontierGenesisService::load_genesis(&mut self.real, config, is_archive);
+    fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
+        TransitionFrontierGenesisService::load_genesis(&mut self.real, config);
     }
 }
 

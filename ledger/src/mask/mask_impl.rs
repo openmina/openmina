@@ -393,7 +393,7 @@ impl MaskImpl {
 
                 let (accounts, hashes) = {
                     if let Some(to) = token_owners.as_mut() {
-                        to.clear()
+                        to.clear();
                     }
                     id_to_addr.clear();
                     (std::mem::take(owning_account), hashes.take())

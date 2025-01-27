@@ -34,13 +34,10 @@ impl TransitionFrontierGenesisState {
             TransitionFrontierGenesisAction::LedgerLoadInit => {
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let config = global_state.transition_frontier.config.genesis.clone();
-                let is_archive = global_state.config.is_archive;
 
                 dispatcher.push(TransitionFrontierGenesisAction::LedgerLoadPending);
-                dispatcher.push(TransitionFrontierGenesisEffectfulAction::LedgerLoadInit {
-                    config,
-                    is_archive,
-                });
+                dispatcher
+                    .push(TransitionFrontierGenesisEffectfulAction::LedgerLoadInit { config });
             }
             TransitionFrontierGenesisAction::LedgerLoadPending => {
                 *state = Self::LedgerLoadPending { time: meta.time() };

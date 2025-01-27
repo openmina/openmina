@@ -36,7 +36,6 @@ pub struct GlobalConfig {
     pub snarker: Option<SnarkerConfig>,
     pub consensus_constants: ConsensusConstants,
     pub testing_run: bool,
-    pub is_archive: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -148,7 +147,7 @@ mod tests {
 
     #[test]
     fn devnet_config() {
-        let (_mask, config) = DEVNET_CONFIG.load(false).expect("should be loadable");
+        let (_mask, config) = DEVNET_CONFIG.load().expect("should be loadable");
 
         assert_eq!(
             config.genesis_ledger_hash,

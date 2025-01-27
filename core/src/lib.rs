@@ -23,6 +23,8 @@ pub mod transaction;
 pub mod consensus;
 
 mod substate;
+use std::sync::OnceLock;
+
 pub use substate::{Substate, SubstateAccess, SubstateResult};
 
 pub mod network;
@@ -33,6 +35,8 @@ pub use chain_id::*;
 
 pub mod encrypted_key;
 pub use encrypted_key::*;
+
+pub static IS_ARCHIVE: OnceLock<bool> = OnceLock::new();
 
 mod work_dir {
     use once_cell::sync::OnceCell;

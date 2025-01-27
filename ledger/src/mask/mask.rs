@@ -7,6 +7,8 @@ use std::{
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
+use openmina_core::IS_ARCHIVE;
+
 use crate::{
     account::{Account, AccountId, TokenId},
     address::Address,
@@ -97,10 +99,16 @@ impl Mask {
     pub fn new_unattached(depth: usize) -> Self {
         let uuid = next_uuid();
 
+        let is_archive = IS_ARCHIVE.get().cloned().unwrap_or_default();
+
         let mask = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
-                token_owners: Default::default(),
+                token_owners: if is_archive {
+                    Some(Default::default())
+                } else {
+                    None
+                },
                 id_to_addr: Default::default(),
                 last_location: None,
                 depth: depth as u8,

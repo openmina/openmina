@@ -4,5 +4,5 @@ use crate::{service::BlockProducerService, transition_frontier::genesis::Genesis
 
 pub trait TransitionFrontierGenesisService: BlockProducerService {
     /// Load genesis config and genesis ledger.
-    fn load_genesis(&mut self, config: Arc<GenesisConfig>, is_archive: bool);
+    fn load_genesis(&mut self, config: Arc<GenesisConfig>);
 }

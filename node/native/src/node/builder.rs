@@ -345,7 +345,6 @@ impl NodeBuilder {
                 snarker: self.snarker,
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
-                is_archive: self.archive.is_some(),
             },
             p2p: self.p2p,
             ledger: LedgerConfig {},

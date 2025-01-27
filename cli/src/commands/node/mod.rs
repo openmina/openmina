@@ -273,6 +273,9 @@ impl Node {
         }
 
         if let Some(address) = self.archive_address {
+            openmina_core::IS_ARCHIVE
+                .set(true)
+                .expect("IS_ARCHIVE already set");
             node::core::info!(
                 summary = "Archive mode enabled",
                 address = address.to_string()
@@ -282,6 +285,10 @@ impl Node {
 
             let socket_addr = socket_addrs.first().expect("No socket address found");
             node_builder.archive(*socket_addr);
+        } else {
+            openmina_core::IS_ARCHIVE
+                .set(false)
+                .expect("IS_ARCHIVE already set");
         }
 
         if let Some(sec_key) = self.run_snarker {

@@ -228,7 +228,6 @@ impl NodeBuilder {
                 snarker: self.snarker,
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
-                is_archive: false,
             },
             p2p: P2pConfig {
                 libp2p_port: None,

@@ -61,8 +61,7 @@ services:
       - "127.0.0.1:3086:3086"
 
   node-openmina:
-    # TODO: Update once we have a new release
-    image: openmina/openmina:0.13.0
+    image: openmina/openmina:latest
     container_name: node-openmina
     command: >
       node

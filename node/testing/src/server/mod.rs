@@ -553,8 +553,7 @@ async fn cluster_genesis_config(
         return Ok(encoded.clone().into_owned());
     }
     tokio::task::spawn_blocking(move || {
-        // FIXME: If we want to include archive mode, we need to propagate it to the genesis config
-        let res = genesis.load(false).map_err(|err| {
+        let res = genesis.load().map_err(|err| {
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("failed to load genesis config. err: {err}"),

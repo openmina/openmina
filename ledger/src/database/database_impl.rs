@@ -6,6 +6,7 @@ use std::{
 
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use openmina_core::IS_ARCHIVE;
 
 use crate::{
     next_uuid, Account, AccountId, AccountIndex, AccountLegacy, Address, AddressIterator,
@@ -34,7 +35,7 @@ impl<T: TreeVersion> std::fmt::Debug for DatabaseImpl<T> {
             // .field("accounts", &self.accounts)
             .field("hashes_matrix", &self.hashes_matrix)
             // .field("id_to_addr", &self.id_to_addr)
-            // .field("token_to_account", &self.token_to_account)
+            // .field("token_owners", &self.token_owners)
             // .field("depth", &self.depth)
             // .field("last_location", &self.last_location)
             .field("naccounts", &self.naccounts)
@@ -106,8 +107,8 @@ impl DatabaseImpl<V2> {
         self.naccounts += 1;
 
         if !token_id.is_default() {
-            if let Some(token_to_account) = self.token_owners.as_mut() {
-                token_to_account.insert(account_id.derive_token_id(), account_id.clone());
+            if let Some(token_owners) = self.token_owners.as_mut() {
+                token_owners.insert(account_id.derive_token_id(), account_id.clone());
             }
         }
         self.id_to_addr.insert(account_id, location.clone());
@@ -310,7 +311,7 @@ impl DatabaseImpl<V1> {
 }
 
 impl DatabaseImpl<V2> {
-    pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>, is_archive: bool) -> Self {
+    pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>) -> Self {
         assert!((1..0xfe).contains(&depth));
 
         const NACCOUNTS: usize = 10_000;
@@ -338,7 +339,7 @@ impl DatabaseImpl<V2> {
 
         // std::fs::create_dir_all(&path).ok();
 
-        let token_to_account = if is_archive {
+        let token_owners = if IS_ARCHIVE.get().cloned().unwrap_or_default() {
             Some(HashMap::with_capacity(NACCOUNTS))
         } else {
             None
@@ -350,7 +351,7 @@ impl DatabaseImpl<V2> {
             last_location: None,
             naccounts: 0,
             id_to_addr: HashMap::with_capacity(NACCOUNTS),
-            token_owners: token_to_account,
+            token_owners,
             uuid,
             directory: path,
             hashes_matrix: HashesMatrix::new(depth as usize),
@@ -358,8 +359,8 @@ impl DatabaseImpl<V2> {
         }
     }
 
-    pub fn create(depth: u8, is_archive: bool) -> Self {
-        Self::create_with_dir(depth, None, is_archive)
+    pub fn create(depth: u8) -> Self {
+        Self::create_with_dir(depth, None)
     }
 
     pub fn root_hash(&mut self) -> Fp {
@@ -534,7 +535,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
         self.token_owners
             .as_ref()
-            .and_then(|token_to_account| token_to_account.get(&token_id).cloned())
+            .and_then(|token_owners| token_owners.get(&token_id).cloned())
     }
 
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
@@ -695,8 +696,8 @@ impl BaseLedger for DatabaseImpl<V2> {
             let id = account.id();
             self.id_to_addr.remove(&id);
             if !id.token_id.is_default() {
-                if let Some(token_to_account) = self.token_owners.as_mut() {
-                    token_to_account.remove(&id.derive_token_id());
+                if let Some(token_owners) = self.token_owners.as_mut() {
+                    token_owners.remove(&id.derive_token_id());
                 }
             }
         } else {
@@ -704,8 +705,8 @@ impl BaseLedger for DatabaseImpl<V2> {
         }
 
         if !account.token_id.is_default() {
-            if let Some(token_to_account) = self.token_owners.as_mut() {
-                token_to_account.insert(account.id().derive_token_id(), id.clone());
+            if let Some(token_owners) = self.token_owners.as_mut() {
+                token_owners.insert(account.id().derive_token_id(), id.clone());
             }
         }
         self.id_to_addr.insert(id, addr.clone());
@@ -838,8 +839,8 @@ impl BaseLedger for DatabaseImpl<V2> {
             let id = account.id();
             self.id_to_addr.remove(&id);
             if !id.token_id.is_default() {
-                if let Some(token_to_account) = self.token_owners.as_mut() {
-                    token_to_account.remove(&id.derive_token_id());
+                if let Some(token_owners) = self.token_owners.as_mut() {
+                    token_owners.remove(&id.derive_token_id());
                 }
             }
 
