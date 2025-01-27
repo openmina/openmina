@@ -1,0 +1,15 @@
+[package]
+name = "webrtc-sniffer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+env_logger = { version = "0.11.6" }
+log = { version = "0.4.25" }
+pcap = { version = "2.2" }
+ctrlc = { version = "3.4" }
+sudo = { version = "0.6.0" }
+hex = { version = "0.4.3" }
+etherparse = { version = "0.17.0" }
+thiserror = { version = "2.0" }

@@ -31,6 +31,8 @@ members = [
     "tools/fuzzing",
     "tools/archive-breadcrumb-compare",
     "tools/heartbeats-processor",
+    "tools/webrtc-sniffer",
+
     "producer-dashboard",
 
     "fuzzer",
@@ -54,8 +56,8 @@ mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "dec49a
 # UNCOMMENTED_IN_CI mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9", features = [ "32x9" ] }
 o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
 kimchi = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-mina-poseidon = {git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-poly-commitment = {git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
+mina-poseidon = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
+poly-commitment = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
 
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
@@ -90,9 +92,9 @@ incremental = false
 codegen-units = 1
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # branch: fix-openmina-webnode
-ark-ec = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # branch: fix-openmina-webnode
-ark-poly = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # branch: fix-openmina-webnode
+ark-ff = { git = "https://github.com/openmina/algebra", rev = "aea157a" }        # branch: fix-openmina-webnode
+ark-ec = { git = "https://github.com/openmina/algebra", rev = "aea157a" }        # branch: fix-openmina-webnode
+ark-poly = { git = "https://github.com/openmina/algebra", rev = "aea157a" }      # branch: fix-openmina-webnode
 ark-serialize = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # branch: fix-openmina-webnode
 
 num-bigint = { git = "https://github.com/openmina/num-bigint", rev = "8bb5ee4" }     # branch: on-stack
