@@ -12,13 +12,15 @@ serde_json = "1.0.94"
 tracing = "0.1.37"
 rayon = "1.5"
 jsonpath-rust = "0.5.0"
-tokio = { version = "1.26.0", features = ["time"] }
+tokio = { version = "1.26.0", features = ["time", "macros"] }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
 vrf = { workspace = true }
 ledger = { workspace = true }
 sha3 = "0.10.8"
 ark-ff = { workspace = true }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
 
 node = { path = "../../node", features = ["replay"] }
 openmina-core = { path = "../../core" }
@@ -37,6 +39,8 @@ redux = { workspace = true, features=["serializable_callbacks"] }
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
 tracing-appender = "0.2.3"
 libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }
+mio = { version = "1.0.2", features = ["os-poll", "net"] }
+reqwest = { version = "0.12.8", features = ["blocking", "json"] }
 
 [features]
 p2p-webrtc = ["node/p2p-webrtc"]

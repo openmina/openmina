@@ -323,6 +323,12 @@ impl TransitionFrontierSyncAction {
                     store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
                 }
             }
+            TransitionFrontierSyncAction::BlocksSendToArchive { data, .. } => {
+                // Should be safe to unwrap because archive mode contains the necessary data, and this action is only called in archive mode
+                if let Ok(data) = data.try_into() {
+                    store.service().send_to_archive(data);
+                }
+            }
             TransitionFrontierSyncAction::BlocksSuccess => {}
             // Bootstrap/Catchup is practically complete at this point.
             // This effect is where the finalization part needs to be

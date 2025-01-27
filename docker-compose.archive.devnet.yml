@@ -1,0 +1,73 @@
+services:
+  postgres-openmina:
+    image: postgres
+    container_name: postgres-openmina
+    env_file:
+      - .env
+    healthcheck:
+      # test: ["CMD-SHELL", "psql -U postgres -d archive -tAc \"SELECT COUNT(*) FROM pg_database WHERE datname='archive';\" | grep -q '^1$'"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - /tmp/archive-data-openmina:/var/lib/postgresql/data
+    # ports:
+    #   - "127.0.0.1:${PG_PORT}:${PG_PORT}"
+
+  create-db:
+    image: postgres
+    container_name: create-dbs
+    env_file:
+      - .env
+    command: >
+      bash -c '
+      sleep 10;
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT} -c "CREATE DATABASE ${PG_DB};";
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB} -c "
+      ALTER SYSTEM SET max_connections = 500;
+      ALTER SYSTEM SET max_locks_per_transaction = 100;
+      ALTER SYSTEM SET max_pred_locks_per_relation = 100;
+      ALTER SYSTEM SET max_pred_locks_per_transaction = 5000;
+      ";
+      psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB} -f /sql/archive_schema.sql;
+      '
+    volumes:
+      - ./producer-dashboard/src/archive/sql:/sql
+    depends_on:
+      postgres-openmina:
+        condition: service_healthy
+
+  archive-openmina:
+    # Note: Modified with patch ./docker/producer-dashboard/output_binprot_breadcrumbs.patch to output binprot breadcrumbs
+    image: adrnagy/mina-archive
+    container_name: archive-openmina
+    env_file:
+      - .env
+    volumes:
+      - /tmp/archive-outputs/openmina:/data
+    entrypoint: ["mina-archive"]
+    command: >
+      run
+      --postgres-uri postgres://postgres:${POSTGRES_PASSWORD}@postgres-openmina:${PG_PORT}/${PG_DB}
+      --server-port 3086
+      --log-level debug
+      --output-dir /data
+    depends_on:
+      postgres-openmina:
+        condition: service_healthy
+
+    ports:
+      - "127.0.0.1:3086:3086"
+
+  node-openmina:
+    image: openmina/openmina:latest
+    container_name: node-openmina
+    command: >
+      node
+      --archive-address http://archive-openmina:3086
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      archive-openmina:
+        condition: service_started

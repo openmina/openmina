@@ -1286,7 +1286,18 @@ pub struct BlockTimeTimeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsSt
 /// Gid: `664`
 /// Location: [src/lib/mina_base/account_id.ml:64:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/account_id.ml#L64)
 #[derive(
-    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, MallocSizeOf,
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    Deref,
+    PartialOrd,
+    Ord,
+    Eq,
+    MallocSizeOf,
 )]
 pub struct MinaBaseAccountIdDigestStableV1(pub crate::bigint::BigInt);
 
@@ -1347,7 +1358,19 @@ pub enum MinaBaseControlStableV2 {
 ///
 /// Gid: `687`
 /// Location: [src/lib/mina_base/token_id.ml:8:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/token_id.ml#L8)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    Deref,
+    PartialOrd,
+    Ord,
+    Eq,
+)]
 pub struct MinaBaseTokenIdStableV2(pub MinaBaseAccountIdDigestStableV1);
 
 /// **OCaml name**: `Mina_base__Payment_payload.Stable.V2`

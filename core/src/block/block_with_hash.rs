@@ -138,8 +138,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         self.body().commands_iter()
     }
 
-    pub fn coinbases_iter(&self) -> impl Iterator<Item = &v2::StagedLedgerDiffDiffFtStableV1> {
-        self.body().coinbases_iter()
+    pub fn coinbase_fee_transfers_iter(
+        &self,
+    ) -> impl Iterator<Item = &v2::StagedLedgerDiffDiffFtStableV1> {
+        self.body().coinbase_fee_transfers_iter()
     }
 
     pub fn completed_works_iter<'a>(

@@ -87,6 +87,14 @@ pub mod webrtc {
             encrypted: &T::Encrypted,
         ) -> Result<T, Box<dyn std::error::Error>>;
 
+        fn auth_send(
+            &mut self,
+            peer_id: PeerId,
+            other_pub_key: &PublicKey,
+            auth: Option<webrtc::ConnectionAuthEncrypted>,
+        ) {
+        }
+
         fn auth_encrypt_and_send(
             &mut self,
             peer_id: PeerId,

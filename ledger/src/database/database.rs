@@ -152,6 +152,10 @@ impl BaseLedger for Database<V2> {
         self.with(|this| this.accounts())
     }
 
+    fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
+        self.with(|this| this.token_owner(token_id))
+    }
+
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         self.with(|this| this.tokens(public_key))
     }
@@ -472,7 +476,7 @@ export function performance_now() {
 
         console::time_with_label("generate random accounts");
 
-        let mut db = Database::<V2>::create(20);
+        let mut db = Database::<V2>::create(20, false);
 
         console::log_1(&format!("{:?} accounts in nodejs", NACCOUNTS).into());
 

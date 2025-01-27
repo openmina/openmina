@@ -49,7 +49,9 @@ use super::common::*;
 pub const TXN_VERSION_CURRENT: TxnVersion =
     TxnVersion::from_u32(PROTOCOL_VERSION.transaction.as_u64() as u32);
 
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[serde(into = "v2::MinaBaseTokenIdStableV2")]
+#[serde(try_from = "v2::MinaBaseTokenIdStableV2")]
 pub struct TokenId(pub Fp);
 
 impl std::fmt::Debug for TokenId {

@@ -394,7 +394,11 @@ impl From<(&BlockHash, &BlockWithoutProof)> for ProducedBlock {
                 .as_u32(),
             transactions: block.into(),
             completed_works_count: block.body.completed_works_count(),
-            coinbase: block.body.coinbase_sum(),
+            coinbase: if block.body.has_coinbase() {
+                openmina_core::constants::constraint_constants().coinbase_amount
+            } else {
+                0
+            },
             fees: block.body.fees_sum(),
             snark_fees: block.body.snark_fees_sum(),
         }

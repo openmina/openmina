@@ -293,6 +293,7 @@ impl Cluster {
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,
+            archive: None,
             tx_pool: ledger::transaction_pool::Config {
                 trust_system: (),
                 pool_max_size: 3000,

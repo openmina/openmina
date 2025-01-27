@@ -32,6 +32,14 @@ macro_rules! mina_rpc {
 }
 
 mina_rpc!(
+    SendArchiveDiffUnversioned,
+    "Send_archive_diff",
+    0,
+    v2::ArchiveRpc,
+    ()
+);
+
+mina_rpc!(
     VersionedRpcMenuV1,
     "__Versioned_rpc.Menu",
     1,

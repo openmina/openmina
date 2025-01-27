@@ -258,6 +258,7 @@ impl NodeBuilder {
                 pool_max_size: node::daemon_json::Daemon::DEFAULT.tx_pool_max_size(),
                 slot_tx_end: node::daemon_json::Daemon::DEFAULT.slot_tx_end(),
             },
+            archive: None,
         };
 
         // build service
