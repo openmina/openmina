@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Archive mode**: Added support for archive mode, which allows the node to connect to an archiver process and store node data in a database.
+
 ## [0.13.0] - 2025-01-06
 
 ### Fixed
