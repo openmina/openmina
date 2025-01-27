@@ -36,6 +36,7 @@ pub use chain_id::*;
 pub mod encrypted_key;
 pub use encrypted_key::*;
 
+// FIXME(#1043): refactor
 pub static IS_ARCHIVE: OnceLock<bool> = OnceLock::new();
 
 mod work_dir {
