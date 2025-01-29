@@ -13,6 +13,7 @@ export interface MinaEnv {
   globalConfig?: {
     features?: FeaturesConfig;
     graphQL?: string;
+    firebase?: any;
   };
 }
 

@@ -4,7 +4,7 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  showWebNodeLandingPage: false,
+  showWebNodeLandingPage: true,
   globalConfig: {
     features: {
       dashboard: [],
@@ -17,6 +17,15 @@ export const environment: Readonly<MinaEnv> = {
       mempool: [],
       benchmarks: ['wallets'],
       fuzzing: [],
+    },
+    firebase: {
+      apiKey: 'AIzaSyBZzFsHjIbQVbBP0N-KkUsEvHRVU_wwd7g',
+      authDomain: 'webnode-gtm-test.firebaseapp.com',
+      projectId: 'webnode-gtm-test',
+      storageBucket: 'webnode-gtm-test.firebasestorage.app',
+      messagingSenderId: '1016673359357',
+      appId: '1:1016673359357:web:bbd2cbf3f031756aec7594',
+      measurementId: 'G-ENDBL923XT',
     },
     graphQL: 'https://adonagy.com/graphql',
     // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
@@ -39,26 +48,26 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'Producer-2',
     //   url: 'https://staging-devnet-openmina-bp-2-dashboard.minaprotocol.network',
     // },
-    {
-      name: 'staging-devnet-bp-0',
-      url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-1',
-      url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-2',
-      url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
-    },
-    {
-      name: 'staging-devnet-bp-3',
-      url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
-    },
     // {
-    //   name: 'Web Node 1',
-    //   isWebNode: true,
+    //   name: 'staging-devnet-bp-0',
+    //   url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
     // },
+    // {
+    //   name: 'staging-devnet-bp-1',
+    //   url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
+    // },
+    // {
+    //   name: 'staging-devnet-bp-2',
+    //   url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
+    // },
+    // {
+    //   name: 'staging-devnet-bp-3',
+    //   url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
+    // },
+    {
+      name: 'Web Node 1',
+      isWebNode: true,
+    },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',

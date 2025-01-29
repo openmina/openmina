@@ -1,0 +1,14 @@
+<div class="menu fx-row-vert-cent flex-between">
+  <img src="assets/images/logo/logo-text.svg" alt="">
+  <!-- Hamburger Menu Trigger -->
+  <span class="hamburger-trigger mina-icon icon-200 f-40" (click)="toggleMenu(); $event.stopPropagation()">{{ isMenuOpen ? 'close' : 'menu' }}</span>
+
+  <div class="dropdown-menu fx-row-vert-cent"
+       [@dropdownAnimation]="isMenuOpen ? 'open' : 'closed'"
+       [class.open]="isMenuOpen"
+       (clickOutside)="closeMenu()">
+    <a [class.active]="route === '/'" routerLink="">Mina Web Node</a>
+    <a [class.active]="route === '/leaderboard'" routerLink="/leaderboard">Leaderboard</a>
+    <a href="" target="_blank">Round 1 Details</a>
+  </div>
+</div>

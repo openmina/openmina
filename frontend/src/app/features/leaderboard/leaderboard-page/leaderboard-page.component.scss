@@ -1,0 +1,57 @@
+@import 'leaderboard-variables';
+
+:host {
+  padding-top: 52px;
+  background-color: $mina-cta-primary;
+}
+
+.gradient {
+  height: 52px;
+  background: $mina-brand-gradient;
+  top: 0;
+  font-family: "IBM Plex Mono", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: $mina-base-primary;
+
+  @media (max-width: 767px) {
+    font-size: 3.1vw;
+  }
+}
+
+main,
+mina-leaderboard-header,
+mina-leaderboard-footer {
+  max-width: 1200px;
+  width: 100%;
+  padding: 0 48px;
+  margin: 0 auto;
+
+  @media (max-width: 1023px) {
+    padding: 0;
+  }
+}
+
+main {
+  border-bottom: 1px solid $mina-base-divider;
+
+  @media (max-width: 1023px) {
+    padding: 0 10px;
+  }
+}
+
+.overflow-auto {
+  background-color: $mina-cta-primary;
+
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: $white4;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: $mina-base-secondary;
+  }
+}

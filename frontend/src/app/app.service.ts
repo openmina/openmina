@@ -62,7 +62,7 @@ export class AppService {
               details[key] = null;
             }
           });
-          this.firestoreService.addHeartbeat(details);
+          // this.firestoreService.addHeartbeat(details);
         }),
       );
   }

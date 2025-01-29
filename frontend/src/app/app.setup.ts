@@ -38,6 +38,8 @@ import { benchmarksReducer } from '@benchmarks/benchmarks.reducer';
 import { fuzzingReducer } from '@fuzzing/fuzzing.reducer';
 import { FuzzingState } from '@fuzzing/fuzzing.state';
 import { FuzzingAction } from '@fuzzing/fuzzing.actions';
+import { LeaderboardState } from '@leaderboard/leaderboard.state';
+import { leaderboardReducer } from '@leaderboard/leaderboard.reducer';
 
 export interface MinaState {
   [APP_KEY]: AppState;
@@ -53,6 +55,7 @@ export interface MinaState {
   snarks: SnarksState;
   benchmarks: BenchmarksState;
   fuzzing: FuzzingState;
+  leaderboard: LeaderboardState;
 }
 
 type MinaAction =
@@ -80,6 +83,7 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   snarks: snarksReducer,
   benchmarks: benchmarksReducer,
   fuzzing: fuzzingReducer,
+  leaderboard: leaderboardReducer,
 };
 
 export const metaReducers: MetaReducer<MinaState, MinaAction>[] = [];
