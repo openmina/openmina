@@ -3,4 +3,6 @@ export interface HeartbeatSummary {
   isActive: boolean;
   uptimePercentage: number;
   blocksProduced: number;
+  uptimePrize: boolean;
+  blocksPrize: boolean;
 }

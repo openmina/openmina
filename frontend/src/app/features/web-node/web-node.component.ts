@@ -31,6 +31,7 @@ export class WebNodeComponent extends StoreDispatcher implements OnInit {
               private webNodeService: WebNodeService) { super(); }
 
   ngOnInit(): void {
+    document.body.style.backgroundColor = 'var(--base-background)';
     this.listenToFileUploadingEvents();
     this.checkIfDeviceIsSupported();
     this.listenToRoute();
