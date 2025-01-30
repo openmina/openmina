@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT id, start_time, end_time\n        FROM time_windows\n        WHERE start_time <= ?2 AND end_time >= ?1 AND disabled = FALSE\n        ORDER BY start_time ASC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "start_time",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "end_time",
+        "ordinal": 2,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "6a6910daae1887a4e1a8570c8fb06d1d585460f13b56a45d49fe2fc7447829a9"
+}
