@@ -7,8 +7,6 @@ use std::{
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
-use openmina_core::IS_ARCHIVE;
-
 use crate::{
     account::{Account, AccountId, TokenId},
     address::Address,
@@ -99,16 +97,10 @@ impl Mask {
     pub fn new_unattached(depth: usize) -> Self {
         let uuid = next_uuid();
 
-        let is_archive = IS_ARCHIVE.get().cloned().unwrap_or_default();
-
         let mask = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
-                token_owners: if is_archive {
-                    Some(Default::default())
-                } else {
-                    None
-                },
+                token_owners: Default::default(),
                 id_to_addr: Default::default(),
                 last_location: None,
                 depth: depth as u8,
@@ -127,8 +119,26 @@ impl Mask {
         Self::new_root(Database::create(depth as u8))
     }
 
+    pub fn create_with_token_owners(depth: usize) -> Self {
+        Self::new_root(Database::create_with_token_owners(depth as u8))
+    }
+
+    pub fn set_token_owners(&mut self) {
+        self.with(|this| this.set_token_owners());
+    }
+
+    // Note: This should be only called on startup
+    pub fn unset_token_owners(&mut self) {
+        self.with(|this| this.unset_token_owners());
+    }
+
     pub fn make_child(&self) -> Mask {
-        let new_mask = Mask::new_unattached(self.depth() as usize);
+        let mut new_mask = Mask::new_unattached(self.depth() as usize);
+
+        if self.has_token_owners() {
+            new_mask.set_token_owners();
+        }
+
         self.register_mask(new_mask)
     }
 
@@ -285,6 +295,9 @@ impl Mask {
     /// Sets the contents of this mask's hash matrix using raw data.
     pub fn set_raw_inner_hashes(&self, hashes: Vec<(u64, Fp)>) {
         self.with(|this| this.set_raw_inner_hashes(hashes))
+    }
+    pub fn has_token_owners(&self) -> bool {
+        self.with(|this| this.has_token_owners())
     }
 
     /// For tests only, check if the address is in the mask, without checking parent
