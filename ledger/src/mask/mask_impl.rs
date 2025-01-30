@@ -215,6 +215,36 @@ impl MaskImpl {
         !childs.is_empty()
     }
 
+    pub fn set_token_owners(&mut self) {
+        match self {
+            Root { database, .. } => database.set_token_owners(),
+            Attached { token_owners, .. } | Unattached { token_owners, .. } => {
+                if token_owners.is_none() {
+                    *token_owners = Some(Default::default());
+                }
+            }
+        }
+    }
+
+    pub fn unset_token_owners(&mut self) {
+        match self {
+            Root { database, .. } => {
+                database.unset_token_owners();
+            }
+            Attached { token_owners, .. } | Unattached { token_owners, .. } => {
+                *token_owners = None;
+            }
+        }
+    }
+
+    pub fn has_token_owners(&self) -> bool {
+        match self {
+            Root { database, .. } => database.has_token_owners(),
+            Attached { token_owners, .. } => token_owners.is_some(),
+            Unattached { token_owners, .. } => token_owners.is_some(),
+        }
+    }
+
     /// Make `mask` a child of `self`
     pub fn register_mask(&mut self, self_mask: Mask, mask: Mask) -> Mask {
         let childs = self.childs();
