@@ -5,35 +5,42 @@ mod mask_impl;
 
 pub use mask::*;
 
-/// Used for tests, to make sure we don't leak masks
-#[cfg(test)]
-mod tests {
-    use once_cell::sync::Lazy;
-    use std::{collections::HashSet, sync::Mutex};
+use once_cell::sync::Lazy;
+use std::{collections::HashSet, sync::Mutex};
 
-    use crate::Uuid;
+use crate::Uuid;
 
-    static MASK_ALIVE: Lazy<Mutex<HashSet<Uuid>>> =
-        Lazy::new(|| Mutex::new(HashSet::with_capacity(256)));
+// block masks(k = 290) + staking/next epoch masks (2) + 2 root masks = 294.
+static MASKS_ALIVE: Lazy<Mutex<HashSet<Uuid>>> =
+    Lazy::new(|| Mutex::new(HashSet::with_capacity(294)));
 
-    pub fn add_mask(uuid: &Uuid) {
-        MASK_ALIVE.lock().unwrap().insert(uuid.to_string());
-    }
-
-    pub fn remove_mask(uuid: &Uuid) {
-        MASK_ALIVE.lock().unwrap().remove(uuid);
-    }
-
-    pub fn is_mask_alive(uuid: &Uuid) -> bool {
-        MASK_ALIVE.lock().unwrap().contains(uuid)
-    }
+fn exec<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut HashSet<Uuid>) -> R,
+{
+    f(&mut MASKS_ALIVE.lock().unwrap())
 }
 
-#[cfg(not(test))]
-mod tests {
-    use crate::Uuid;
+pub(super) fn alive_add(uuid: &Uuid) {
+    exec(|list| {
+        list.insert(uuid.to_owned());
+    });
+}
 
-    pub fn add_mask(_: &Uuid) {}
+pub(super) fn alive_remove(uuid: &Uuid) {
+    exec(|list| {
+        list.remove(uuid);
+    });
+}
 
-    pub fn remove_mask(_: &Uuid) {}
+pub fn is_alive(uuid: &Uuid) -> bool {
+    exec(|list| list.contains(uuid))
+}
+
+pub fn alive_len() -> usize {
+    exec(|list| list.len())
+}
+
+pub fn alive_collect() -> Vec<Uuid> {
+    exec(|list| list.iter().cloned().collect())
 }

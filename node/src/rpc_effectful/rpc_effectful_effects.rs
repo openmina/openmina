@@ -14,13 +14,14 @@ use crate::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
         MessagesStats, NodeHeartbeat, RootLedgerSyncProgress, RootStagedLedgerSyncProgress,
         RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
-        RpcNodeStatusResources, RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
-        RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
-        RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
-        RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
-        RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
-        RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-        RpcTransactionInjectResponse, TransactionStatus,
+        RpcNodeStatusLedger, RpcNodeStatusResources, RpcNodeStatusTransactionPool,
+        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
+        RpcNodeStatusTransitionFrontierSync, RpcRequestExtraData, RpcScanStateSummary,
+        RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
+        RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryScanStateJob,
+        RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
+        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcTransactionInjectResponse,
+        TransactionStatus,
     },
     snark_pool::SnarkPoolAction,
     transition_frontier::sync::{
@@ -793,6 +794,21 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
                 phase: state.transition_frontier.sync.sync_phase().to_string(),
                 target: state.transition_frontier.sync.best_tip().map(block_summary),
             },
+        },
+        ledger: RpcNodeStatusLedger {
+            alive_masks_after_last_commit: state.ledger.alive_masks,
+            pending_writes: state
+                .ledger
+                .write
+                .pending_requests()
+                .map(|(req, time)| (req.kind(), time))
+                .collect(),
+            pending_reads: state
+                .ledger
+                .read
+                .pending_requests()
+                .map(|(id, req, time)| (id, req.kind(), time))
+                .collect(),
         },
         peers: rpc::collect_rpc_peers_info(state),
         snark_pool: state

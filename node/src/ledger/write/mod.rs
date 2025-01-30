@@ -164,6 +164,7 @@ impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct CommitResult {
+    pub alive_masks: usize,
     pub available_jobs: Arc<Vec<OneOrTwo<AvailableJobMessage>>>,
     pub needed_protocol_states: BTreeSet<v2::StateHash>,
 }

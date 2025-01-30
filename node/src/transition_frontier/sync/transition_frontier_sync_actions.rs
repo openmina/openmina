@@ -116,10 +116,11 @@ pub enum TransitionFrontierSyncAction {
     },
     /// Done applying all pending blocks
     BlocksSuccess,
-    /// Commit snarked ledger to transition frontier root
+    /// Commit all the accumulated changes after the
+    /// synchronization is done to the ledger service.
     CommitInit,
     CommitPending,
-    /// Root snarked ledger commited succesfully
+    /// Committing changes after sync finished.
     CommitSuccess {
         result: CommitResult,
     },
