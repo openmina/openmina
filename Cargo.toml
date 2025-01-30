@@ -30,6 +30,7 @@ members = [
     "tools/salsa-simple",
     "tools/fuzzing",
     "tools/archive-breadcrumb-compare",
+    "tools/heartbeats-processor",
     "producer-dashboard",
 
     "fuzzer",
