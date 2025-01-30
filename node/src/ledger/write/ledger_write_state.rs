@@ -29,6 +29,16 @@ impl LedgerWriteState {
             | Self::Success { request, .. } => Some(request),
         }
     }
+
+    pub fn pending_requests(
+        &self,
+    ) -> impl Iterator<Item = (&LedgerWriteRequest, redux::Timestamp)> {
+        std::iter::once(match self {
+            Self::Pending { time, request } => Some((request, *time)),
+            _ => None,
+        })
+        .flatten()
+    }
 }
 
 impl Default for LedgerWriteState {

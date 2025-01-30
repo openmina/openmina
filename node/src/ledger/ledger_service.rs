@@ -974,6 +974,7 @@ impl LedgerCtx {
         );
 
         CommitResult {
+            alive_masks: ::ledger::mask::alive_len(),
             available_jobs,
             needed_protocol_states,
         }

@@ -47,20 +47,18 @@ pub enum MaskImpl {
     },
 }
 
-/// Drop implementation used on tests only !
-#[cfg(test)]
 impl Drop for MaskImpl {
     fn drop(&mut self) {
         if self.uuid().starts_with("temporary") {
             return;
         }
-        super::tests::remove_mask(&self.get_uuid());
+        super::alive_remove(&self.get_uuid());
     }
 }
 
 impl Clone for MaskImpl {
     fn clone(&self) -> Self {
-        match self {
+        let copy = match self {
             Self::Root { database, childs } => Self::Root {
                 database: database.clone_db(database.get_directory().unwrap()),
                 childs: childs.clone(),
@@ -105,7 +103,9 @@ impl Clone for MaskImpl {
                 hashes: hashes.clone(),
                 uuid: next_uuid(),
             },
-        }
+        };
+        super::alive_add(&copy.uuid());
+        copy
     }
 }
 

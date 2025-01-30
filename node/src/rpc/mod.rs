@@ -43,6 +43,8 @@ use serde::{Deserialize, Serialize};
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,
 };
+use crate::ledger::read::{LedgerReadId, LedgerReadKind};
+use crate::ledger::write::LedgerWriteKind;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
@@ -457,11 +459,19 @@ impl From<Account> for AccountSlim {
 pub struct RpcNodeStatus {
     pub chain_id: Option<String>,
     pub transition_frontier: RpcNodeStatusTransitionFrontier,
-    pub peers: Vec<RpcPeerInfo>,
+    pub ledger: RpcNodeStatusLedger,
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
+    pub peers: Vec<RpcPeerInfo>,
     pub resources_status: RpcNodeStatusResources,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusLedger {
+    pub alive_masks_after_last_commit: usize,
+    pub pending_writes: Vec<(LedgerWriteKind, redux::Timestamp)>,
+    pub pending_reads: Vec<(LedgerReadId, LedgerReadKind, redux::Timestamp)>,
 }
 
 #[derive(Serialize, Debug, Clone)]
