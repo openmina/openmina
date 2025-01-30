@@ -61,6 +61,20 @@ impl Database<V2> {
         Self::create_with_dir(depth, None)
     }
 
+    pub fn create_with_token_owners(depth: u8) -> Self {
+        let mut db = Self::create_with_dir(depth, None);
+        db.set_token_owners();
+        db
+    }
+
+    pub fn set_token_owners(&mut self) {
+        self.with(|this| this.set_token_owners());
+    }
+
+    pub fn unset_token_owners(&mut self) {
+        self.with(|this| this.unset_token_owners());
+    }
+
     pub fn root_hash(&mut self) -> Fp {
         self.with(|this| this.root_hash())
     }
@@ -103,6 +117,10 @@ impl Database<V2> {
 
     pub fn transfert_hashes(&mut self, hashes: HashesMatrix) {
         self.with(|this| this.transfert_hashes(hashes))
+    }
+
+    pub fn has_token_owners(&self) -> bool {
+        self.with(|this| this.has_token_owners())
     }
 
     #[cfg(test)]

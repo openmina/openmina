@@ -495,7 +495,8 @@ impl GenesisConfig {
     fn build_ledger_from_accounts(
         accounts: impl IntoIterator<Item = Result<ledger::Account, InvalidBigInt>>,
     ) -> Result<(ledger::Mask, v2::CurrencyAmountStableV1), InvalidBigInt> {
-        let db = ledger::Database::create(constraint_constants().ledger_depth as u8);
+        let db =
+            ledger::Database::create_with_token_owners(constraint_constants().ledger_depth as u8);
         let mask = ledger::Mask::new_root(db);
         let (mask, total_currency) = accounts.into_iter().try_fold(
             (mask, 0),
