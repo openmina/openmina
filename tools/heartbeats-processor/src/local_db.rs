@@ -29,16 +29,24 @@ pub struct ProducedBlock {
     pub block_data: String,
 }
 
-pub async fn get_last_processed_time(pool: &SqlitePool) -> Result<DateTime<Utc>> {
+pub async fn get_last_processed_time(
+    pool: &SqlitePool,
+    config: Option<&Config>,
+) -> Result<DateTime<Utc>> {
     let record = sqlx::query!("SELECT last_processed_time FROM processing_state WHERE id = 1")
         .fetch_one(pool)
         .await?;
 
-    Ok(from_unix_timestamp(record.last_processed_time))
+    let db_time = from_unix_timestamp(record.last_processed_time);
+
+    Ok(match config {
+        Some(cfg) => db_time.max(cfg.window_range_start),
+        None => db_time,
+    })
 }
 
 pub async fn update_last_processed_time(pool: &SqlitePool, time: DateTime<Utc>) -> Result<()> {
-    let current = get_last_processed_time(pool).await?;
+    let current = get_last_processed_time(pool, None).await?;
     let ts = to_unix_timestamp(time);
 
     println!("Updating last processed time: {} -> {}", current, time);
@@ -232,8 +240,12 @@ async fn batch_insert_produced_blocks(pool: &SqlitePool, blocks: &[ProducedBlock
     Ok(())
 }
 
-pub async fn process_heartbeats(db: &FirestoreDb, pool: &SqlitePool) -> Result<()> {
-    let last_processed_time = get_last_processed_time(pool).await?;
+pub async fn process_heartbeats(
+    db: &FirestoreDb,
+    pool: &SqlitePool,
+    config: &Config,
+) -> Result<()> {
+    let last_processed_time = get_last_processed_time(pool, Some(config)).await?;
     let now = Utc::now();
 
     let heartbeats =
