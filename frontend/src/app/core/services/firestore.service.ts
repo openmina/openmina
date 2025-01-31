@@ -39,8 +39,4 @@ export class FirestoreService {
     const docRef = doc(this.heartbeatCollection, id);
     return deleteDoc(docRef);
   }
-
-  getHeartbeatCollection() {
-    return this.heartbeatCollection;
-  }
 }

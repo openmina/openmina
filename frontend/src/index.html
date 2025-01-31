@@ -49,13 +49,18 @@
 <body class="f-base">
 <script>
   const deployment = {
-    dateUTC: '2025-01-29T10:26:50.069Z',
+    dateUTC: '2025-01-31T07:56:06.086Z',
     deviceIp: '5.13.60.20',
     deviceOS: 'macOS',
     deviceOSVersion: '23.5.0',
-    version: '1.0.95',
-  };
-  window.deployment = deployment;
+    version: '1.0.103',
+};
+window.deployment = deployment;
+
+  if (location.href.includes('webnode.minaprotocol')) {
+    document.body.style.backgroundColor = '#fff';
+  }
+
 </script>
 <script type="module" defer>
   if (typeof window !== 'undefined') {

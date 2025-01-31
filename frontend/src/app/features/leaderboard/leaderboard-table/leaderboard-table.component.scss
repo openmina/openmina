@@ -11,7 +11,6 @@
 }
 
 .row-wrap {
-
   &.head {
     max-width: unset;
     height: 56px;
@@ -22,7 +21,7 @@
     }
   }
 
-  &:nth-child(odd):not(.head) {
+  &.odd:not(.head) {
     background-color: $mina-base-container;
   }
 }
@@ -55,7 +54,10 @@
   }
 
   .perc {
-    width: 50px;
+    width: 37px;
+    @media (max-width: 480px) {
+      width: 26px;
+    }
   }
 
   .circle.active {
@@ -76,4 +78,18 @@
   .mina-icon {
     padding-left: 2px;
   }
+}
+
+:host ::ng-deep mina-loading-spinner .loading {
+  border: 1px solid $mina-base-primary !important;
+  border-top-color: transparent !important;
+}
+
+.p-absolute {
+  background-color: $mina-cta-primary;
+}
+
+mina-loading-spinner + div {
+  font-family: "IBM Plex Sans", sans-serif;
+  color: $mina-base-primary;
 }

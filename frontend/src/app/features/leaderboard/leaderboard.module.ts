@@ -13,6 +13,11 @@ import { EffectsModule } from '@ngrx/effects';
 import { LeaderboardEffects } from '@leaderboard/leaderboard.effects';
 import { LeaderboardFooterComponent } from '@leaderboard/leaderboard-footer/leaderboard-footer.component';
 import { LeaderboardLandingPageComponent } from '@leaderboard/leaderboard-landing-page/leaderboard-landing-page.component';
+import { LeaderboardDetailsComponent } from '@leaderboard/leaderboard-details/leaderboard-details.component';
+import { LeaderboardTermsAndConditionsComponent } from '@leaderboard/leaderboard-terms-and-conditions/leaderboard-terms-and-conditions.component';
+import { LeaderboardImpressumComponent } from '@leaderboard/leaderboard-impressum/leaderboard-impressum.component';
+import { LeaderboardPrivacyPolicyComponent } from '@leaderboard/leaderboard-privacy-policy/leaderboard-privacy-policy.component';
+import { LeaderboardApplyComponent } from '@leaderboard/leaderboard-apply/leaderboard-apply.component';
 
 
 @NgModule({
@@ -24,6 +29,11 @@ import { LeaderboardLandingPageComponent } from '@leaderboard/leaderboard-landin
     LeaderboardTitleComponent,
     LeaderboardFooterComponent,
     LeaderboardLandingPageComponent,
+    LeaderboardDetailsComponent,
+    LeaderboardTermsAndConditionsComponent,
+    LeaderboardImpressumComponent,
+    LeaderboardPrivacyPolicyComponent,
+    LeaderboardApplyComponent,
   ],
   imports: [
     CommonModule,
