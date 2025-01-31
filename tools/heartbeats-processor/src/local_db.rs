@@ -251,7 +251,6 @@ pub async fn process_heartbeats(
     let heartbeats =
         crate::remote_db::fetch_heartbeats_in_chunks(db, last_processed_time, now).await?;
     println!("Fetched {} heartbeats", heartbeats.len());
-    println!("heartbeat {:?}", heartbeats.first().map(|x| x.create_time));
 
     if heartbeats.is_empty() {
         return Ok(());
@@ -294,7 +293,7 @@ pub async fn process_heartbeats(
     let mut blocks_duplicate = 0;
     let mut processed_heartbeats = HashSet::new();
     let mut produced_blocks_batch = Vec::new();
-    let mut seen_blocks = HashSet::new();
+    let mut seen_blocks: HashMap<(i64, String), DateTime<Utc>> = HashMap::new();
 
     for window in existing_windows {
         let window_start = from_unix_timestamp(window.start_time);
@@ -318,30 +317,54 @@ pub async fn process_heartbeats(
                         presence_count += 1;
 
                         // Add produced block if it exists
-                        if let Some(block) = entry.last_produced_block_decoded() {
-                            let block_data = entry.last_produced_block_raw().unwrap(); // Cannot fail, we have the block
-                            let key = (public_key_id, block.hash().to_string());
+                        match entry.last_produced_block_decoded() {
+                            Ok(Some(block)) => {
+                                let block_data = entry.last_produced_block_raw().unwrap(); // Cannot fail, we have the block
+                                let key = (public_key_id, block.hash().to_string());
 
-                            if !seen_blocks.insert(key.clone()) {
-                                blocks_duplicate += 1;
-                                println!(
-                                    "Duplicate block detected: {} (producer: {})",
-                                    key.1, entry.submitter
-                                );
-                                continue;
+                                if let Some(first_seen) = seen_blocks.get(&key) {
+                                    blocks_duplicate += 1;
+                                    println!(
+                                        "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
+                                        key.1,
+                                        block.height(),
+                                        entry.submitter,
+                                        entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
+                                        first_seen,
+                                        entry.create_time
+                                    );
+                                    continue;
+                                }
+
+                                seen_blocks.insert(key.clone(), entry.create_time);
+                                produced_blocks_batch.push(ProducedBlock {
+                                    window_id: window.id.unwrap(),
+                                    public_key_id,
+                                    block_hash: block.hash().to_string(),
+                                    block_height: block.height(),
+                                    block_global_slot: block.global_slot(),
+                                    block_data,
+                                });
                             }
-
-                            produced_blocks_batch.push(ProducedBlock {
-                                window_id: window.id.unwrap(),
-                                public_key_id,
-                                block_hash: block.hash().to_string(),
-                                block_height: block.height(),
-                                block_global_slot: block.global_slot(),
-                                block_data,
-                            });
+                            Ok(None) => (), // No block to process
+                            Err(e) => {
+                                println!(
+                                    "WARNING: Failed to decode block from {}: {}",
+                                    entry.submitter, e
+                                )
+                            }
                         }
                     }
                 } else {
+                    if let Ok(Some(block)) = entry.last_produced_block_decoded() {
+                        println!(
+                            "Skipping unsynced block: {} (height: {}, producer: {}, peer_id: {})",
+                            block.hash().to_string(),
+                            block.height(),
+                            entry.submitter,
+                            entry.peer_id().unwrap_or_else(|| "unknown".to_string())
+                        );
+                    }
                     skipped_count += 1;
                 }
             }

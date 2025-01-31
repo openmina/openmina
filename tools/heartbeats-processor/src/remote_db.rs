@@ -62,6 +62,14 @@ impl HeartbeatEntry {
         Ok(())
     }
 
+    pub fn peer_id(&self) -> Option<String> {
+        self.decoded_payload
+            .as_ref()
+            .and_then(|decoded| decoded.get("peer_id"))
+            .and_then(|peer_id| peer_id.as_str())
+            .map(|s| s.to_string())
+    }
+
     pub fn last_produced_block_raw(&self) -> Option<String> {
         self.decoded_payload
             .as_ref()
@@ -70,16 +78,16 @@ impl HeartbeatEntry {
             .map(|s| s.to_string())
     }
 
-    pub fn last_produced_block_decoded(&self) -> Option<ArcBlockWithHash> {
-        let block = self
-            .last_produced_block_raw()
-            .map(|encoded| base64_decode_block(&encoded))
-            .transpose()
-            .ok()
-            .flatten()?;
-        let block = BlockWithHash::try_new(Arc::new(block)).ok()?;
-
-        Some(block)
+    pub fn last_produced_block_decoded(&self) -> Result<Option<ArcBlockWithHash>, String> {
+        match self.last_produced_block_raw() {
+            None => Ok(None),
+            Some(encoded) => {
+                let block = base64_decode_block(&encoded)?;
+                let block = BlockWithHash::try_new(Arc::new(block))
+                    .map_err(|e| format!("Invalid block: {}", e))?;
+                Ok(Some(block))
+            }
+        }
     }
 
     fn transition_frontier(&self) -> Option<&Value> {
