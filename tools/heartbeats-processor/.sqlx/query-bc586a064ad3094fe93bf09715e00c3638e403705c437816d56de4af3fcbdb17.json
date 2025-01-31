@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        INSERT INTO submitter_scores (public_key_id, score, blocks_produced)\n        SELECT\n            pk.id,\n            COUNT(DISTINCT hp.window_id) as score,\n            COUNT(DISTINCT pb.id) as blocks_produced\n        FROM public_keys pk\n        LEFT JOIN heartbeat_presence hp ON pk.id = hp.public_key_id\n        LEFT JOIN time_windows tw ON hp.window_id = tw.id\n        LEFT JOIN produced_blocks pb ON pk.id = pb.public_key_id\n        WHERE tw.disabled = FALSE\n        GROUP BY pk.id\n        ON CONFLICT(public_key_id) DO UPDATE SET\n            score = excluded.score,\n            blocks_produced = excluded.blocks_produced,\n            last_updated = strftime('%s', 'now')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "bc586a064ad3094fe93bf09715e00c3638e403705c437816d56de4af3fcbdb17"
+}

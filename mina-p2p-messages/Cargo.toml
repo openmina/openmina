@@ -37,6 +37,9 @@ ark-ff = { workspace = true }
 rsexp = "0.2.3"
 rsexp-derive = "0.2.3"
 
+graphannis-malloc_size_of = { workspace = true }
+graphannis-malloc_size_of_derive = { workspace = true }
+
 [target.'cfg(fuzzing)'.dev-dependencies]
 fuzzcheck = "0.12.1"
 

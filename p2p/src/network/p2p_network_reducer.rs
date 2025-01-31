@@ -83,7 +83,7 @@ impl P2pNetworkState {
                         if state
                             .pending
                             .as_ref()
-                            .map_or(false, |query_header| query_header.id == id)
+                            .is_some_and(|query_header| query_header.id == id)
                         {
                             Some(state)
                         } else {

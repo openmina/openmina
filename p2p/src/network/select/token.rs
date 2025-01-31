@@ -1,3 +1,4 @@
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 use crate::Data;
@@ -5,7 +6,7 @@ use crate::Data;
 const MAX_TOKEN_LENGTH: usize = 256;
 
 /// Possible valid token of multistream-select protocol
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, MallocSizeOf)]
 pub enum Token {
     Handshake,
     Na,
@@ -78,6 +79,12 @@ pub enum Protocol {
     Stream(StreamKind),
 }
 
+impl malloc_size_of::MallocSizeOf for Protocol {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 impl Protocol {
     pub const fn name(&self) -> &'static [u8] {
         match self {
@@ -144,6 +151,12 @@ pub enum StreamKind {
     Rpc(RpcAlgorithm),
 }
 
+impl malloc_size_of::MallocSizeOf for StreamKind {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 impl StreamKind {
     pub const fn name(&self) -> &'static [u8] {
         match self {
@@ -195,6 +208,12 @@ pub enum BitswapAlgorithm {
     MinaBitswap1_0_0,
     MinaBitswap1_1_0,
     MinaBitswap1_2_0,
+}
+
+impl malloc_size_of::MallocSizeOf for BitswapAlgorithm {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
 }
 
 impl BitswapAlgorithm {
@@ -284,6 +303,12 @@ pub enum BroadcastAlgorithm {
     Meshsub1_1_0,
 }
 
+impl malloc_size_of::MallocSizeOf for BroadcastAlgorithm {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
+    }
+}
+
 impl BroadcastAlgorithm {
     pub const fn name(&self) -> &'static [u8] {
         match self {
@@ -321,7 +346,7 @@ impl RpcAlgorithm {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Default, Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct State {
     pub buffer: Vec<u8>,
 }

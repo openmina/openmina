@@ -105,10 +105,10 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
             BlockProducerAction::WonSlotProduceInit { .. } => {
                 state.block_producer.with(false, |this| {
                     let has_genesis_proven_if_needed = || {
-                        state.transition_frontier.best_tip().map_or(false, |tip| {
+                        state.transition_frontier.best_tip().is_some_and(|tip| {
                             let proven_block = state.transition_frontier.genesis.proven_block();
                             !tip.is_genesis()
-                                || proven_block.map_or(false, |b| Arc::ptr_eq(&b.block, &tip.block))
+                                || proven_block.is_some_and(|b| Arc::ptr_eq(&b.block, &tip.block))
                         })
                     };
                     this.current.won_slot_should_produce(time) && has_genesis_proven_if_needed()
@@ -220,5 +220,5 @@ fn is_syncing_to_produced_block(state: &crate::State) -> bool {
         .transition_frontier
         .sync
         .best_tip()
-        .map_or(false, |tip| state.block_producer.is_me(tip.producer()))
+        .is_some_and(|tip| state.block_producer.is_me(tip.producer()))
 }

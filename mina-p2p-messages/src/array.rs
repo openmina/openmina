@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
+use malloc_size_of_derive::MallocSizeOf;
 use rsexp::OfSexp;
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +18,7 @@ use serde::{Deserialize, Serialize};
     Deserialize,
     derive_more::From,
     derive_more::Into,
+    MallocSizeOf,
 )]
 pub struct ArrayN<T, const N: u64>(Vec<T>);
 

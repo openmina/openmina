@@ -2,6 +2,9 @@
 //!
 //! This crate contains gossip network messages and RPCs.
 
+extern crate graphannis_malloc_size_of as malloc_size_of;
+extern crate graphannis_malloc_size_of_derive as malloc_size_of_derive;
+
 pub mod array;
 pub mod bigint;
 pub mod char;

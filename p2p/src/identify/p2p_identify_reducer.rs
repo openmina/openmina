@@ -111,7 +111,7 @@ impl P2pState {
 
                 let kad_state: Option<&P2pNetworkKadState> = state.substate().ok();
                 let protocol = StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0);
-                if kad_state.map_or(false, |state| state.request(&peer_id).is_some())
+                if kad_state.is_some_and(|state| state.request(&peer_id).is_some())
                     && info.protocols.contains(&protocol)
                 {
                     dispatcher.push(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });

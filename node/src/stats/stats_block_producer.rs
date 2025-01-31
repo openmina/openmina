@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, VecDeque};
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2;
-use openmina_core::block::AppliedBlock;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -16,6 +16,7 @@ const MAX_HISTORY: usize = 2048;
 pub struct BlockProducerStats {
     pub(super) attempts: VecDeque<BlockProductionAttempt>,
     pub vrf_evaluator: BTreeMap<u32, VrfEvaluatorStats>,
+    pub last_produced_block: Option<ArcBlockWithHash>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -111,7 +112,7 @@ impl BlockProducerStats {
         self.attempts
             .back()
             .and_then(|v| v.block.as_ref())
-            .map_or(false, |b| &b.hash == hash)
+            .is_some_and(|b| &b.hash == hash)
     }
 
     pub fn collect_attempts(&self) -> Vec<BlockProductionAttempt> {
@@ -393,7 +394,11 @@ impl From<(&BlockHash, &BlockWithoutProof)> for ProducedBlock {
                 .as_u32(),
             transactions: block.into(),
             completed_works_count: block.body.completed_works_count(),
-            coinbase: block.body.coinbase_sum(),
+            coinbase: if block.body.has_coinbase() {
+                openmina_core::constants::constraint_constants().coinbase_amount
+            } else {
+                0
+            },
             fees: block.body.fees_sum(),
             snark_fees: block.body.snark_fees_sum(),
         }

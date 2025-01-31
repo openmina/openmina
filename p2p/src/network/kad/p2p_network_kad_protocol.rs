@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use libp2p_identity::DecodingError;
+use malloc_size_of_derive::MallocSizeOf;
 use multiaddr::Multiaddr;
 use serde::{Deserialize, Serialize};
 
@@ -37,7 +38,7 @@ impl From<ConnectionType> for super::mod_Message::ConnectionType {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, MallocSizeOf)]
 pub struct CID(pub Vec<u8>);
 
 #[cfg(test)]
@@ -69,12 +70,12 @@ impl std::fmt::Debug for CID {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2pNetworkKademliaRpcRequest {
     FindNode { key: CID },
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2pNetworkKademliaRpcReply {
     FindNode {
         closer_peers: Vec<P2pNetworkKadEntry>,
@@ -91,7 +92,7 @@ impl P2pNetworkKademliaRpcRequest {
     }
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error, MallocSizeOf)]
 pub enum P2pNetworkKademliaPeerIdError {
     #[error("error decoding PeerId from bytes: lenght {0} while expected 32")]
     Parse(String),
@@ -135,7 +136,7 @@ pub enum P2pNetworkKademliaRpcPeerTryFromError {
     Multiaddr(#[from] P2pNetworkKademliaMultiaddrError),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error, MallocSizeOf)]
 #[error("error decoding Multiaddr from bytes: {0}")]
 pub struct P2pNetworkKademliaMultiaddrError(String);
 
@@ -151,7 +152,7 @@ impl From<multiaddr::Error> for P2pNetworkKademliaMultiaddrError {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error, MallocSizeOf)]
 pub enum P2pNetworkKademliaRpcFromMessageError {
     #[error(transparent)]
     PeerId(#[from] P2pNetworkKademliaPeerIdError),

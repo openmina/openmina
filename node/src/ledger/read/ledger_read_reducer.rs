@@ -78,7 +78,7 @@ impl LedgerReadState {
                 LedgerReadResponse::DelegatorTable(table),
             ) => {
                 let expected = state.block_producer.vrf_delegator_table_inputs();
-                if !expected.map_or(false, |(expected_hash, producer)| {
+                if !expected.is_some_and(|(expected_hash, producer)| {
                     ledger_hash == expected_hash && pub_key == producer
                 }) {
                     bug_condition!("delegator table unexpected");
@@ -361,9 +361,7 @@ fn find_peers_with_ledger_rpc(
                     ) => state
                         .transition_frontier
                         .get_state_body(block_hash)
-                        .map_or(false, |b| {
-                            b.blockchain_state.staged_ledger_hash == data.ledger_hash
-                        }),
+                        .is_some_and(|b| b.blockchain_state.staged_ledger_hash == data.ledger_hash),
                     _ => false,
                 })
                 .map(|(peer_id, rpc_id, _)| (*peer_id, rpc_id, false));
@@ -379,9 +377,7 @@ fn find_peers_with_ledger_rpc(
                     ) => state
                         .transition_frontier
                         .get_state_body(block_hash)
-                        .map_or(false, |b| {
-                            b.blockchain_state.staged_ledger_hash == data.ledger_hash
-                        }),
+                        .is_some_and(|b| b.blockchain_state.staged_ledger_hash == data.ledger_hash),
                     _ => false,
                 })
                 .map(|(rpc_id, _)| (*peer_id, rpc_id, true));

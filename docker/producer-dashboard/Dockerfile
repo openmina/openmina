@@ -1,4 +1,4 @@
-FROM rust:1.83 AS app-builder
+FROM rust:1.84 AS app-builder
 
 WORKDIR /usr/src/openmina-producer-dashboard
 
@@ -6,7 +6,7 @@ COPY ../ .
 
 RUN cd producer-dashboard && SQLX_OFFLINE=true cargo install --path .
 
-FROM ubuntu:latest AS mina-builder
+FROM ubuntu:noble AS mina-builder
 
 RUN apt-get update && apt-get install -y openssl ca-certificates
 
@@ -25,7 +25,6 @@ RUN apt-get update && \
     liblmdb-dev \
     liblmdb0 \
     libpq-dev \
-    libprocps-dev \
     libsodium-dev \
     libssl-dev \
     build-essential \
@@ -47,9 +46,12 @@ RUN git clone https://github.com/MinaProtocol/mina.git
 ENV DUNE_PROFILE=devnet
 
 WORKDIR /go/mina
-RUN git checkout 3.0.0devnet && \
+COPY ../docker/producer-dashboard/output_binprot_breadcrumbs.patch .
+RUN git checkout 3.0.1 && \
     git submodule update --init --recursive && \
     git config --local --add submodule.recurse true
+
+RUN git apply ./output_binprot_breadcrumbs.patch
 
 # RUN make libp2p_helper
 
@@ -57,11 +59,11 @@ RUN curl -s -L https://github.com/ocaml/opam/releases/download/2.1.2/opam-2.1.2-
 
 RUN apt-get -y --no-install-recommends install m4 pkg-config
 
-RUN opam init --disable-sandboxing \
-  && opam switch create . \
-  && eval $(opam config env) \
-  && opam switch import -y opam.export \
-  && ./scripts/pin-external-packages.sh
+RUN opam init --disable-sandboxing
+RUN opam switch create .
+RUN eval $(opam config env)
+RUN opam switch import -y opam.export
+RUN ./scripts/pin-external-packages.sh
 
 RUN curl -L https://go.dev/dl/go1.19.linux-amd64.tar.gz -o go1.19.tar.gz \
     && tar -C /usr/local -xzf go1.19.tar.gz \
@@ -74,7 +76,7 @@ RUN apt-get -y --no-install-recommends install zlib1g-dev
 RUN eval $(opam config env) && make build_all_sigs
 # RUN /bin/bash -c "source ~/.cargo/env && eval $(opam config env) && make build_all_sigs"
 
-FROM ubuntu:latest
+FROM ubuntu:noble
 
 RUN apt-get update && apt-get install -y libpq5 libjemalloc2
 

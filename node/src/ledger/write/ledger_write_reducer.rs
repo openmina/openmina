@@ -141,6 +141,10 @@ impl LedgerWriteState {
                         .push(TransitionFrontierSyncAction::BlocksNextApplyError { hash, error });
                 }
                 Ok(result) => {
+                    dispatcher.push(TransitionFrontierSyncAction::BlocksSendToArchive {
+                        hash: hash.clone(),
+                        data: result.clone(),
+                    });
                     dispatcher.push(TransitionFrontierSyncAction::BlocksNextApplySuccess {
                         hash,
                         just_emitted_a_proof: result.just_emitted_a_proof,
@@ -155,7 +159,7 @@ impl LedgerWriteState {
                 },
             ) => {
                 let best_tip = state.transition_frontier.sync.best_tip();
-                if best_tip.map_or(false, |tip| tip.hash() == &best_tip_hash) {
+                if best_tip.is_some_and(|tip| tip.hash() == &best_tip_hash) {
                     dispatcher.push(TransitionFrontierSyncAction::CommitSuccess { result });
                 }
             }

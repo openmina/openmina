@@ -1,22 +1,31 @@
-use std::collections::btree_map::Entry;
+use std::{collections::btree_map::Entry, time::Duration};
 
 use binprot::BinProtRead;
-use mina_p2p_messages::{gossip, v2};
+use mina_p2p_messages::{
+    gossip::{self, GossipNetMessageV2},
+    v2::NetworkPoolSnarkPoolDiffVersionedStableV2,
+};
 use openmina_core::{block::BlockWithHash, bug_condition, fuzz_maybe, fuzzed_maybe, Substate};
 use redux::{Dispatcher, Timestamp};
 
 use crate::{
     channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
+    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     peer::P2pPeerAction,
-    Data, P2pConfig, P2pNetworkYamuxAction, PeerId,
+    Data, P2pConfig, P2pNetworkYamuxAction, P2pState, PeerId,
 };
 
 use super::{
-    p2p_network_pubsub_state::P2pNetworkPubsubClientMeshAddingState,
+    p2p_network_pubsub_state::{
+        source_from_message, P2pNetworkPubsubClientMeshAddingState,
+        P2pNetworkPubsubMessageCacheMessage,
+    },
     pb::{self, Message},
     P2pNetworkPubsubAction, P2pNetworkPubsubClientState, P2pNetworkPubsubEffectfulAction,
-    P2pNetworkPubsubState, TOPIC,
+    P2pNetworkPubsubMessageCacheId, P2pNetworkPubsubState, TOPIC,
 };
+
+const MAX_MESSAGE_KEEP_DURATION: Duration = Duration::from_secs(300);
 
 impl P2pNetworkPubsubState {
     pub fn reducer<Action, State>(
@@ -29,6 +38,7 @@ impl P2pNetworkPubsubState {
     {
         let pubsub_state = state_context.get_substate_mut()?;
         let (action, meta) = action.split();
+        let time = meta.time();
 
         match action {
             P2pNetworkPubsubAction::NewStream {
@@ -173,22 +183,32 @@ impl P2pNetworkPubsubState {
                 message,
                 seen_limit,
             } => {
+                // Check that if we can extract source from message, this is pre check
+                if source_from_message(&message).is_err() {
+                    let dispatcher = state_context.into_dispatcher();
+                    dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                        message_id: None,
+                        peer_id: Some(peer_id),
+                        reason: "Invalid originator in message".to_owned(),
+                    });
+                    return Ok(());
+                }
+
                 // Check result later to ensure we always dispatch the cleanup action
                 let reduce_incoming_result =
-                    pubsub_state.reduce_incoming_message(peer_id, message, seen_limit);
+                    pubsub_state.reduce_incoming_message(&message, seen_limit);
 
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = global_state.substate()?;
+                let state: &Self = global_state.substate()?;
 
                 dispatcher.push(P2pNetworkPubsubAction::IncomingMessageCleanup { peer_id });
 
-                reduce_incoming_result?;
-
-                let state: &Self = global_state.substate()?;
-                let config: &P2pConfig = global_state.substate()?;
+                let message_content = reduce_incoming_result?;
 
                 for (topic_id, map) in &state.topics {
                     let mesh_size = map.values().filter(|s| s.on_mesh()).count();
-                    let could_accept = mesh_size < config.meshsub.outbound_degree_high;
+                    let could_accept = mesh_size < p2p_state.config.meshsub.outbound_degree_high;
 
                     if !could_accept {
                         if let Some(topic_state) = map.get(&peer_id) {
@@ -200,29 +220,43 @@ impl P2pNetworkPubsubState {
                     }
                 }
 
-                if let Err(error) = Self::broadcast(dispatcher, global_state) {
-                    bug_condition!(
-                        "Failure when trying to broadcast incoming pubsub message: {error}"
-                    );
+                // This happens if message was already seen
+                if let Some(message_content) = message_content {
+                    dispatcher.push(P2pNetworkPubsubAction::HandleIncomingMessage {
+                        message,
+                        message_content,
+                        peer_id,
+                    });
+                } else {
+                    dispatcher.push(P2pNetworkPubsubAction::IgnoreMessage {
+                        message_id: None,
+                        reason: "Message already seen".to_owned(),
+                    });
                 };
 
-                if let Some((_, block)) = state.incoming_block.as_ref() {
-                    let best_tip = BlockWithHash::try_new(block.clone())?;
-                    dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
-                }
-                for (transaction, nonce) in &state.incoming_transactions {
-                    dispatcher.push(P2pChannelsTransactionAction::Libp2pReceived {
-                        peer_id,
-                        transaction: Box::new(transaction.clone()),
-                        nonce: *nonce,
-                    });
-                }
-                for (snark, nonce) in &state.incoming_snarks {
-                    dispatcher.push(P2pChannelsSnarkAction::Libp2pReceived {
-                        peer_id,
-                        snark: Box::new(snark.clone()),
-                        nonce: *nonce,
-                    });
+                Ok(())
+            }
+            P2pNetworkPubsubAction::HandleIncomingMessage {
+                message,
+                message_content,
+                peer_id,
+            } => {
+                let Ok(message_id) =
+                    pubsub_state
+                        .mcache
+                        .put(message, message_content, peer_id, time)
+                else {
+                    bug_condition!("Unable to add message to `mcache`");
+                    return Ok(());
+                };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+
+                if let Some(callback) = p2p_state.callbacks.on_p2p_pubsub_message_received.clone() {
+                    dispatcher.push_callback(callback, message_id);
+                } else {
+                    dispatcher.push(P2pNetworkPubsubAction::ValidateIncomingMessage { message_id });
                 }
                 Ok(())
             }
@@ -355,18 +389,74 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::OutgoingMessageError { .. } => Ok(()),
+            P2pNetworkPubsubAction::WebRtcRebroadcast { message } => {
+                let data = match super::encode_message(&message) {
+                    Err(err) => {
+                        bug_condition!("binprot serialization error: {err}");
+                        return Ok(());
+                    }
+                    Ok(data) => data,
+                };
+
+                let mut source_sk = super::webrtc_source_sk_from_bytes(&data[8..]);
+                let source_peer_id = source_sk.public_key().peer_id();
+                let message_id = P2pNetworkPubsubMessageCacheId {
+                    source: libp2p_identity::PeerId::try_from(source_peer_id).unwrap(),
+                    seqno: 0,
+                };
+                let mut msg = pb::Message {
+                    from: Some(message_id.source.to_bytes().to_vec()),
+                    data: Some(data),
+                    seqno: Some(message_id.seqno.to_be_bytes().to_vec()),
+                    topic: super::TOPIC.to_owned(),
+                    signature: None,
+                    key: None,
+                };
+
+                msg.signature = match source_sk.libp2p_pubsub_pb_message_sign(&msg) {
+                    Err(err) => {
+                        bug_condition!("pubsub prost encode error: {err}");
+                        return Ok(());
+                    }
+                    Ok(sig) => Some(sig.to_bytes().to_vec()),
+                };
+
+                let message_state = match &message {
+                    GossipNetMessageV2::NewState(block) => {
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage {
+                            block_hash: block.try_hash()?,
+                            message: msg,
+                            peer_id: source_peer_id,
+                            time,
+                        }
+                    }
+                    _ => P2pNetworkPubsubMessageCacheMessage::PreValidated {
+                        message: msg,
+                        peer_id: source_peer_id,
+                        time,
+                    },
+                };
+
+                pubsub_state.mcache.map.insert(message_id, message_state);
+
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                    message_id: super::BroadcastMessageId::MessageId { message_id },
+                });
+
+                Ok(())
+            }
             P2pNetworkPubsubAction::Broadcast { message } => {
-                let mut buffer = vec![0; 8];
+                let data = match super::encode_message(&message) {
+                    Err(err) => {
+                        bug_condition!("binprot serialization error: {err}");
+                        return Ok(());
+                    }
+                    Ok(data) => data,
+                };
 
-                if binprot::BinProtWrite::binprot_write(&message, &mut buffer).is_err() {
-                    bug_condition!("binprot serialization error");
-                    return Ok(());
-                }
-
-                let len = buffer.len() - 8;
-                buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
-
-                Self::prepare_to_sign(state_context, buffer)
+                Self::prepare_to_sign(state_context, data)
             }
             P2pNetworkPubsubAction::Sign {
                 seqno,
@@ -394,11 +484,7 @@ impl P2pNetworkPubsubState {
                 };
 
                 let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkPubsubEffectfulAction::Sign {
-                    author,
-                    topic,
-                    message,
-                });
+                dispatcher.push(P2pNetworkPubsubEffectfulAction::Sign { author, message });
                 Ok(())
             }
             P2pNetworkPubsubAction::SignError { .. } => {
@@ -440,6 +526,167 @@ impl P2pNetworkPubsubState {
                 }
                 Ok(())
             }
+            P2pNetworkPubsubAction::ValidateIncomingMessage { message_id } => {
+                let Some(message) = pubsub_state.mcache.map.remove(&message_id) else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
+                    return Ok(());
+                };
+
+                let P2pNetworkPubsubMessageCacheMessage::Init {
+                    message,
+                    content,
+                    time,
+                    peer_id,
+                } = message
+                else {
+                    bug_condition!(
+                        "`P2pNetworkPubsubAction::ValidateIncomingMessage` called on invalid state"
+                    );
+                    return Ok(());
+                };
+
+                let new_message_state = match &content {
+                    GossipNetMessageV2::NewState(block) => {
+                        let block_hash = block.try_hash()?;
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage {
+                            block_hash,
+                            message,
+                            peer_id,
+                            time,
+                        }
+                    }
+                    _ => P2pNetworkPubsubMessageCacheMessage::PreValidated {
+                        message,
+                        peer_id,
+                        time,
+                    },
+                };
+                pubsub_state
+                    .mcache
+                    .map
+                    .insert(message_id, new_message_state);
+
+                let dispatcher = state_context.into_dispatcher();
+
+                match content {
+                    GossipNetMessageV2::NewState(block) => {
+                        let best_tip = BlockWithHash::try_new(block.clone())?;
+                        dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
+                        return Ok(());
+                    }
+                    GossipNetMessageV2::TransactionPoolDiff { message, nonce } => {
+                        let nonce = nonce.as_u32();
+                        for transaction in message.0 {
+                            dispatcher.push(P2pChannelsTransactionAction::Libp2pReceived {
+                                peer_id,
+                                transaction: Box::new(transaction),
+                                nonce,
+                            });
+                        }
+                    }
+                    GossipNetMessageV2::SnarkPoolDiff {
+                        message: NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work),
+                        nonce,
+                    } => {
+                        dispatcher.push(P2pChannelsSnarkAction::Libp2pReceived {
+                            peer_id,
+                            snark: Box::new(work.1.into()),
+                            nonce: nonce.as_u32(),
+                        });
+                    }
+                    _ => {}
+                }
+
+                dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                    message_id: super::BroadcastMessageId::MessageId { message_id },
+                });
+                Ok(())
+            }
+            P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id } => {
+                let Some((mcache_message_id, message)) =
+                    pubsub_state.mcache.get_message_id_and_message(&message_id)
+                else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
+                    return Ok(());
+                };
+                let raw_message = message.message().clone();
+                let peer_id = message.peer_id();
+
+                pubsub_state.reduce_incoming_validated_message(
+                    mcache_message_id,
+                    peer_id,
+                    &raw_message,
+                );
+
+                let Some((_message_id, message)) =
+                    pubsub_state.mcache.get_message_id_and_message(&message_id)
+                else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
+                    return Ok(());
+                };
+
+                *message = P2pNetworkPubsubMessageCacheMessage::Validated {
+                    message: raw_message,
+                    peer_id,
+                    time: message.time(),
+                };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+
+                Self::broadcast(dispatcher, state)
+            }
+            P2pNetworkPubsubAction::PruneMessages {} => {
+                let messages = pubsub_state
+                    .mcache
+                    .map
+                    .iter()
+                    .filter_map(|(message_id, message)| {
+                        if message.time() + MAX_MESSAGE_KEEP_DURATION > time {
+                            Some(message_id.to_owned())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                for message_id in messages {
+                    pubsub_state.mcache.remove_message(message_id);
+                }
+                Ok(())
+            }
+            P2pNetworkPubsubAction::RejectMessage {
+                message_id,
+                peer_id,
+                ..
+            } => {
+                let mut peer_id = peer_id;
+                if let Some(message_id) = message_id {
+                    let Some((_message_id, message)) =
+                        pubsub_state.mcache.get_message_id_and_message(&message_id)
+                    else {
+                        bug_condition!("Message not found for id: {:?}", message_id);
+                        return Ok(());
+                    };
+
+                    if peer_id.is_none() {
+                        peer_id = Some(message.peer_id());
+                    }
+
+                    pubsub_state.mcache.remove_message(_message_id);
+                }
+
+                let dispatcher = state_context.into_dispatcher();
+
+                if let Some(peer_id) = peer_id {
+                    dispatcher.push(P2pDisconnectionAction::Init {
+                        peer_id,
+                        reason: P2pDisconnectionReason::InvalidMessage,
+                    });
+                }
+
+                Ok(())
+            }
+            P2pNetworkPubsubAction::IgnoreMessage { .. } => Ok(()),
         }
     }
 
@@ -468,58 +715,14 @@ impl P2pNetworkPubsubState {
         Ok(())
     }
 
-    #[inline(never)]
-    fn reduce_incoming_message(
+    fn reduce_incoming_validated_message(
         &mut self,
+        message_id: P2pNetworkPubsubMessageCacheId,
         peer_id: PeerId,
-        message: Message,
-        seen_limit: usize,
-    ) -> Result<(), String> {
+        message: &Message,
+    ) {
         let topic = self.topics.entry(message.topic.clone()).or_default();
 
-        if let Some(signature) = &message.signature {
-            // skip recently seen message
-            if !self.seen.contains(signature) {
-                self.seen.push_back(signature.clone());
-                // keep only last `n` to avoid memory leak
-                if self.seen.len() > seen_limit {
-                    self.seen.pop_front();
-                }
-            } else {
-                return Ok(());
-            }
-        }
-
-        if let Some(data) = &message.data {
-            if data.len() > 8 {
-                let mut slice = &data[8..];
-                match gossip::GossipNetMessageV2::binprot_read(&mut slice) {
-                    Ok(gossip::GossipNetMessageV2::NewState(block)) => {
-                        self.incoming_block = Some((peer_id, block));
-                    }
-                    Ok(gossip::GossipNetMessageV2::TransactionPoolDiff { message, nonce }) => {
-                        let nonce = nonce.as_u32();
-                        let txs = message.0.into_iter().map(|tx| (tx, nonce));
-                        self.incoming_transactions.extend(txs);
-                    }
-                    Ok(gossip::GossipNetMessageV2::SnarkPoolDiff { message, nonce }) => {
-                        if let v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work) =
-                            message
-                        {
-                            self.incoming_snarks.push((work.1.into(), nonce.as_u32()));
-                        }
-                    }
-                    Err(err) => {
-                        return Err(err.to_string());
-                    }
-                }
-            }
-        }
-
-        let message_id = self.mcache.put(message.clone());
-
-        // TODO: this should only happen after the contents have been validated.
-        // The only validation that has happened so far is that the message can be parsed.
         self.clients
             .iter_mut()
             .filter(|(c, _)| {
@@ -531,17 +734,66 @@ impl P2pNetworkPubsubState {
                     return;
                 };
                 if topic_state.on_mesh() {
-                    state.publish(&message)
+                    state.publish(message)
                 } else {
                     let ctr = state.message.control.get_or_insert_with(Default::default);
                     ctr.ihave.push(pb::ControlIHave {
                         topic_id: Some(message.topic.clone()),
-                        message_ids: message_id.clone().into_iter().collect(),
+                        message_ids: vec![message_id.to_raw_bytes()],
                     })
                 }
             });
+    }
 
-        Ok(())
+    /// Processes an incoming message by checking for duplicates and deserializing its contents.
+    ///
+    /// This function performs two main operations:
+    /// 1. Deduplication: Tracks recently seen messages using their signatures to avoid processing duplicates
+    /// 2. Deserialization: Converts valid message data into a `GossipNetMessageV2` structure
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The incoming message to process
+    /// * `seen_limit` - Maximum number of message signatures to keep in the deduplication cache
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(GossipNetMessageV2))` - Successfully processed and deserialized message
+    /// * `Ok(None)` - Message was a duplicate (already seen)
+    /// * `Err(String)` - Error during processing (invalid message format or deserialization failure)
+    ///
+    #[inline(never)]
+    fn reduce_incoming_message(
+        &mut self,
+        message: &Message,
+        seen_limit: usize,
+    ) -> Result<Option<GossipNetMessageV2>, String> {
+        let Some(signature) = &message.signature else {
+            bug_condition!("Validation failed: missing signature");
+            return Ok(None);
+        };
+
+        // skip recently seen message
+        if !self.seen.contains(signature) {
+            self.seen.push_back(signature.clone());
+            // keep only last `n` to avoid memory leak
+            if self.seen.len() > seen_limit {
+                self.seen.pop_front();
+            }
+        } else {
+            return Ok(None);
+        }
+
+        match &message.data {
+            Some(data) if data.len() > 8 => {
+                let mut slice = &data[8..];
+                Ok(Some(
+                    gossip::GossipNetMessageV2::binprot_read(&mut slice)
+                        .map_err(|e| format!("Invalid `GossipNetMessageV2` message, error: {e}"))?,
+                ))
+            }
+            _ => Err("Invalid message".to_owned()),
+        }
     }
 
     fn combined_with_pending_buffer<'a>(buffer: &'a mut Vec<u8>, data: &'a [u8]) -> &'a [u8] {
@@ -644,9 +896,9 @@ impl P2pNetworkPubsubState {
         // Respond to iwant requests by publishing available messages from the cache.
         for iwant in iwant_requests {
             for msg_id in &iwant.message_ids {
-                if let Some(msg) = self.mcache.map.get(msg_id) {
+                if let Some(msg) = self.mcache.get_message_from_raw_message_id(msg_id) {
                     if let Some(client) = self.clients.get_mut(peer_id) {
-                        client.publish(msg);
+                        client.publish(msg.message());
                     }
                 }
             }

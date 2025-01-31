@@ -28,6 +28,9 @@ pub enum RpcAction {
     StatusGet {
         rpc_id: RpcId,
     },
+    HeartbeatGet {
+        rpc_id: RpcId,
+    },
 
     // Stats
     ActionStatsGet {
@@ -220,6 +223,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
         match self {
             RpcAction::GlobalStateGet { .. } => true,
             RpcAction::StatusGet { .. } => true,
+            RpcAction::HeartbeatGet { .. } => true,
             RpcAction::ActionStatsGet { .. } => true,
             RpcAction::SyncStatsGet { .. } => true,
             RpcAction::BlockProducerStatsGet { .. } => true,
@@ -232,17 +236,17 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init()),
+                .is_some_and(|v| v.status.is_init()),
             RpcAction::P2pConnectionOutgoingError { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::P2pConnectionOutgoingSuccess { rpc_id } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::P2pConnectionIncomingInit { rpc_id, .. } => {
                 !state.rpc.requests.contains_key(rpc_id)
             }
@@ -250,39 +254,39 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init()),
+                .is_some_and(|v| v.status.is_init()),
             RpcAction::P2pConnectionIncomingRespond { rpc_id, .. }
             | RpcAction::P2pConnectionIncomingAnswerReady { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init() || v.status.is_pending()),
+                .is_some_and(|v| v.status.is_init() || v.status.is_pending()),
             RpcAction::P2pConnectionIncomingError { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init() || v.status.is_pending()),
+                .is_some_and(|v| v.status.is_init() || v.status.is_pending()),
             RpcAction::P2pConnectionIncomingSuccess { rpc_id } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::ScanStateSummaryGetInit { .. } => true,
             RpcAction::ScanStateSummaryLedgerGetInit { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init()),
+                .is_some_and(|v| v.status.is_init()),
             RpcAction::ScanStateSummaryGetPending { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init()),
+                .is_some_and(|v| v.status.is_init()),
             RpcAction::ScanStateSummaryGetSuccess { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::SnarkPoolAvailableJobsGet { .. } => true,
             RpcAction::SnarkPoolJobGet { .. } => true,
             RpcAction::SnarkerConfigGet { .. } => true,
@@ -304,40 +308,40 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init()),
+                .is_some_and(|v| v.status.is_init()),
             RpcAction::LedgerAccountsGetSuccess { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
 
             RpcAction::TransactionInjectInit { .. } => true,
             RpcAction::TransactionInjectPending { rpc_id } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_init()),
+                .is_some_and(|v| v.status.is_init()),
             RpcAction::TransactionInjectSuccess { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::TransactionInjectRejected { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::TransactionInjectFailure { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_pending()),
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::TransitionFrontierUserCommandsGet { .. } => true,
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests
                 .get(rpc_id)
-                .map_or(false, |v| v.status.is_finished()),
+                .is_some_and(|v| v.status.is_finished()),
         }
     }
 }

@@ -1,0 +1,242 @@
+@import 'leaderboard-variables';
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@100;200;300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200..1000&display=swap');
+
+
+:host {
+  padding-top: 52px;
+  background-color: $mina-cta-primary;
+  color: $mina-base-primary;
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+main,
+mina-leaderboard-header,
+mina-leaderboard-footer {
+  max-width: 1200px;
+  width: 100%;
+  padding: 0 48px;
+  margin: 0 auto;
+
+  @media (max-width: 1023px) {
+    padding: 0;
+  }
+}
+
+.button-description {
+  a {
+    color: $mina-cta-primary;
+    padding: 0 36px;
+    height: 62px;
+    background-color: $mina-base-primary;
+    border-radius: 44px;
+    font-size: 20px;
+    line-height: 20px;
+    font-weight: 300;
+    transition: .15s ease;
+
+    &:hover {
+      background-color: $black;
+    }
+  }
+
+  p {
+    color: $black;
+    font-size: 16px;
+    font-weight: 300;
+    margin-bottom: 80px;
+  }
+}
+
+.overflow-y-scroll {
+  background-color: $mina-cta-primary;
+
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: $white4;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: $mina-base-secondary;
+  }
+}
+
+section {
+  width: 100%;
+  max-width: 1120px;
+}
+
+.welcome-section {
+  margin: 64px 0 0;
+
+  h1 {
+    font-size: 80px;
+    line-height: 110%;
+    font-weight: 300;
+    margin-bottom: 32px;
+    margin-top: 0;
+    letter-spacing: -3px;
+    @media (max-width: 1023px) {
+      text-align: center;
+      font-size: 54px;
+    }
+  }
+
+  img {
+    @media (min-width: 1024px) {
+      max-width: 729px;
+    }
+  }
+}
+
+.cards-section {
+  color: $mina-base-primary;
+  padding: 40px 0;
+  gap: 32px;
+  background-position: -48px -48px;
+  background-size: calc(100% + 48px) calc(100% + 48px);
+  @media (max-width: 1023px) {
+    max-width: calc(100% - 5vw);
+    margin: 0 auto;
+  }
+
+  .card {
+    background: $mina-base-container;
+    border-radius: 20px;
+    border: 1px solid #b7cdd8;
+    box-shadow: 0 11.614px 24.121px -4.467px rgba(183, 205, 216, 0.20);
+    backdrop-filter: blur(20.777027130126953px);
+    padding: 40px;
+
+    img {
+      width: 72px;
+      height: 72px;
+    }
+
+    h3 {
+      margin-top: 24px;
+      font-size: 20px;
+      font-weight: 500;
+      line-height: 28px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 24px;
+      margin: 0;
+    }
+  }
+}
+
+.run-web-node {
+  height: 574px;
+  color: $mina-base-primary;
+  background-position: -48px -48px;
+  background-size: calc(100% + 48px) calc(100% + 48px);
+
+  h1 {
+    line-height: 118%;
+    font-size: 54px;
+    text-align: center;
+    margin-bottom: 64px;
+    font-weight: 300;
+    max-width: 760px;
+
+    @media (max-width: 1023px) {
+      font-size: 10vw;
+    }
+
+    span {
+      color: $black5;
+    }
+  }
+}
+
+.mina {
+  padding: 80px 0;
+  background: $mina-brand-gradient2;
+  gap: 48px;
+  margin-top: 24px;
+
+  > img {
+    width: 100%;
+  }
+
+  .explanation {
+    padding: 48px;
+    min-height: 336px;
+    gap: 40px;
+    background: rgba(239, 244, 246, 0.30);
+    border-radius: 20px;
+    border: 1px solid #b7cdd8;
+    box-shadow: 0 11.614px 24.121px -4.467px rgba(183, 205, 216, 0.20);
+    backdrop-filter: blur(20.777027130126953px);
+    max-width: 90%;
+    margin: 48px auto 0;
+
+    img {
+      max-height: 240.5px;
+    }
+
+    @media (max-width: 1023px) {
+      width: 552.5px !important;
+      img {
+        max-height: unset;
+        max-width: 100%;
+      }
+    }
+
+    .text {
+      font-family: "IBM Plex Sans", sans-serif;
+
+      h4 {
+        margin-bottom: 14px;
+        font-size: 20px;
+        line-height: 28px;
+        margin-top: 0;
+        font-weight: 400;
+      }
+
+      p {
+        font-size: 16px;
+        line-height: 24px;
+        font-weight: 300;
+      }
+
+      .line {
+        margin-top: 8px;
+        margin-bottom: 14px;
+      }
+
+      a {
+        font-weight: 300;
+        font-size: 20px;
+        gap: 4px;
+        color: $mina-base-primary;
+        position: relative;
+        text-decoration: none;
+      }
+
+      a::after {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 2px;
+        bottom: -2px;
+        left: 0;
+        background-color: $mina-base-primary;
+        transition: width 0.3s ease-in-out;
+      }
+
+      a:hover::after {
+        width: 80%;
+      }
+    }
+  }
+}

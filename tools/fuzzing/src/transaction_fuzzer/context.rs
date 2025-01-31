@@ -5,10 +5,6 @@ use crate::transaction_fuzzer::{
 };
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ark_ff::Zero;
-use ledger::scan_state::currency::{Amount, Fee, Length, Magnitude, Nonce, Signed, Slot};
-use ledger::scan_state::transaction_logic::protocol_state::{
-    protocol_state_view, EpochData, EpochLedger, ProtocolStateView,
-};
 use ledger::scan_state::transaction_logic::transaction_applied::{
     signed_command_applied, CommandApplied, TransactionApplied, Varying,
 };
@@ -18,6 +14,16 @@ use ledger::scan_state::transaction_logic::{
 use ledger::sparse_ledger::LedgerIntf;
 use ledger::staged_ledger::staged_ledger::StagedLedger;
 use ledger::{dummy, Account, AccountId, Database, Mask, Timing, TokenId};
+use ledger::{
+    scan_state::currency::{Amount, Fee, Length, Magnitude, Nonce, Signed, Slot},
+    transaction_pool::TransactionPool,
+};
+use ledger::{
+    scan_state::transaction_logic::protocol_state::{
+        protocol_state_view, EpochData, EpochLedger, ProtocolStateView,
+    },
+    transaction_pool,
+};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::binprot::SmallString1k;
@@ -29,26 +35,13 @@ use mina_p2p_messages::{
     },
 };
 use mina_signer::{CompressedPubKey, Keypair};
-use openmina_core::constants::ConstraintConstants;
+use node::DEVNET_CONFIG;
+use openmina_core::{consensus::ConsensusConstants, constants::ConstraintConstants, NetworkConfig};
 use rand::{rngs::SmallRng, seq::SliceRandom, Rng, SeedableRng};
 use ring_buffer::RingBuffer;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::{fs, str::FromStr};
-
-/// Same values when we run `dune runtest src/lib/staged_ledger -f`
-pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
-    sub_windows_per_window: 11,
-    ledger_depth: 35,
-    work_delay: 2,
-    block_window_duration_ms: 180000,
-    transaction_capacity_log_2: 7,
-    pending_coinbase_depth: 5,
-    coinbase_amount: 720000000000,
-    supercharged_coinbase_factor: 2,
-    account_creation_fee: 1000000000,
-    fork: None,
-};
 
 // Taken from ocaml_tests
 /// Same values when we run `dune runtest src/lib/staged_ledger -f`
@@ -267,6 +260,7 @@ pub struct GeneratorCtx {
 pub struct FuzzerCtx {
     pub constraint_constants: ConstraintConstants,
     pub txn_state_view: ProtocolStateView,
+    pub pool: TransactionPool,
     pub fuzzcases_path: String,
     pub gen: GeneratorCtx,
     pub state: FuzzerState,
@@ -349,11 +343,13 @@ impl FuzzerCtx {
     }
 
     #[coverage(off)]
-    pub fn get_account(&mut self, pkey: &CompressedPubKey) -> Option<Account> {
-        let account_location = LedgerIntf::location_of_account(
-            self.get_ledger_inner(),
-            &AccountId::new(pkey.clone(), TokenId::default()),
-        );
+    pub fn get_account(&self, pkey: &CompressedPubKey) -> Option<Account> {
+        self.get_account_by_id(&AccountId::new(pkey.clone(), TokenId::default()))
+    }
+
+    #[coverage(off)]
+    pub fn get_account_by_id(&self, account_id: &AccountId) -> Option<Account> {
+        let account_location = LedgerIntf::location_of_account(self.get_ledger_inner(), account_id);
 
         account_location.map(
             #[coverage(off)]
@@ -362,7 +358,7 @@ impl FuzzerCtx {
     }
 
     #[coverage(off)]
-    pub fn find_sender(&mut self, pkey: &CompressedPubKey) -> Option<&(Keypair, PermissionModel)> {
+    pub fn find_sender(&self, pkey: &CompressedPubKey) -> Option<&(Keypair, PermissionModel)> {
         self.state.potential_senders.iter().find(
             #[coverage(off)]
             |(kp, _)| kp.public.into_compressed() == *pkey,
@@ -370,7 +366,7 @@ impl FuzzerCtx {
     }
 
     #[coverage(off)]
-    pub fn find_permissions(&mut self, pkey: &CompressedPubKey) -> Option<&PermissionModel> {
+    pub fn find_permissions(&self, pkey: &CompressedPubKey) -> Option<&PermissionModel> {
         self.find_sender(pkey).map(
             #[coverage(off)]
             |(_, pm)| pm,
@@ -378,7 +374,7 @@ impl FuzzerCtx {
     }
 
     #[coverage(off)]
-    pub fn find_keypair(&mut self, pkey: &CompressedPubKey) -> Option<&Keypair> {
+    pub fn find_keypair(&self, pkey: &CompressedPubKey) -> Option<&Keypair> {
         self.find_sender(pkey).map(
             #[coverage(off)]
             |(kp, _)| kp,
@@ -542,6 +538,78 @@ impl FuzzerCtx {
     }
 
     #[coverage(off)]
+    pub fn pool_verify(
+        &self,
+        user_command: &UserCommand,
+        ocaml_pool_verify_result: &Result<Vec<UserCommand>, SmallString1k>,
+    ) -> bool {
+        let diff = transaction_pool::diff::Diff {
+            list: vec![user_command.clone()],
+        };
+        let account_ids = user_command.accounts_referenced();
+        let accounts = account_ids
+            .iter()
+            .filter_map(
+                #[coverage(off)]
+                |account_id| {
+                    self.get_account_by_id(account_id).and_then(
+                        #[coverage(off)]
+                        |account| Some((account_id.clone(), account)),
+                    )
+                },
+            )
+            .collect::<BTreeMap<_, _>>();
+
+        let rust_pool_result = self.pool.prevalidate(diff);
+        let mismatch;
+
+        if let Ok(diff) = rust_pool_result {
+            let convert_diff_result = self.pool.convert_diff_to_verifiable(diff, &accounts);
+
+            if let Ok(commands) = convert_diff_result {
+                let verify_result = &ledger::verifier::Verifier.verify_commands(commands, None)[0];
+                let ocaml_pool_verify_result = ocaml_pool_verify_result.clone().map(
+                    #[coverage(off)]
+                    |commands| commands[0].clone(),
+                );
+
+                *ledger::GLOBAL_SKIP_PARTIAL_EQ.write().unwrap() = true;
+                mismatch = ocaml_pool_verify_result.is_ok()
+                    && (verify_result.is_err()
+                        || verify_result.as_ref().unwrap().forget_check()
+                            != ocaml_pool_verify_result.clone().unwrap());
+
+                if mismatch {
+                    println!(
+                        "verify_commands: Mismatch between Rust and OCaml pool_verify_result\n{}",
+                        self.diagnostic(&verify_result, &ocaml_pool_verify_result)
+                    );
+                }
+            } else {
+                mismatch = ocaml_pool_verify_result.is_ok();
+
+                if mismatch {
+                    println!(
+                            "convert_diff_to_verifiable: Mismatch between Rust and OCaml pool_verify_result\n{}",
+                            self.diagnostic(&convert_diff_result, &ocaml_pool_verify_result)
+                            );
+                }
+            }
+        } else {
+            mismatch = ocaml_pool_verify_result.is_ok();
+
+            if mismatch {
+                println!(
+                    "prevalidate: Mismatch between Rust and OCaml pool_verify_result\n{}",
+                    self.diagnostic(&rust_pool_result, &ocaml_pool_verify_result)
+                );
+            }
+        }
+
+        return mismatch;
+    }
+
+    #[coverage(off)]
     pub fn apply_transaction(
         &mut self,
         ledger: &mut Mask,
@@ -694,6 +762,7 @@ impl FuzzerCtx {
 pub struct FuzzerCtxBuilder {
     constraint_constants: Option<ConstraintConstants>,
     txn_state_view: Option<ProtocolStateView>,
+    pool: Option<TransactionPool>,
     fuzzcases_path: Option<String>,
     seed: u64,
     minimum_fee: u64,
@@ -710,6 +779,7 @@ impl Default for FuzzerCtxBuilder {
         Self {
             constraint_constants: None,
             txn_state_view: None,
+            pool: None,
             fuzzcases_path: None,
             seed: 0,
             minimum_fee: 1_000_000,
@@ -737,6 +807,11 @@ impl FuzzerCtxBuilder {
     #[coverage(off)]
     pub fn state_view(&mut self, txn_state_view: ProtocolStateView) -> &mut Self {
         self.txn_state_view = Some(txn_state_view);
+        self
+    }
+
+    pub fn transaction_pool(&mut self, pool: TransactionPool) -> &mut Self {
+        self.pool = Some(pool);
         self
     }
 
@@ -786,16 +861,35 @@ impl FuzzerCtxBuilder {
 
     #[coverage(off)]
     pub fn build(&mut self) -> FuzzerCtx {
-        let constraint_constants = self
+        let mut constraint_constants = self
             .constraint_constants
             .clone()
-            .unwrap_or(CONSTRAINT_CONSTANTS);
+            .unwrap_or(NetworkConfig::global().constraint_constants.clone());
+
+        // HACK (binprot breaks in the OCaml side)
+        constraint_constants.fork = None;
+
         let depth = constraint_constants.ledger_depth as usize;
         let root = Mask::new_root(Database::create(depth.try_into().unwrap()));
         let txn_state_view = self
             .txn_state_view
             .clone()
             .unwrap_or(dummy_state_view(None));
+
+        let protocol_constants = DEVNET_CONFIG
+            .protocol_constants()
+            .expect("wrong protocol constants");
+
+        let default_pool = TransactionPool::new(
+            ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: 3000,
+                slot_tx_end: None,
+            },
+            &ConsensusConstants::create(&constraint_constants, &protocol_constants),
+        );
+
+        let pool = self.pool.clone().unwrap_or(default_pool);
         let fuzzcases_path = self.fuzzcases_path.clone().unwrap_or("./".to_string());
 
         let ledger = match self.is_staged_ledger {
@@ -813,6 +907,7 @@ impl FuzzerCtxBuilder {
         let mut ctx = FuzzerCtx {
             constraint_constants,
             txn_state_view,
+            pool,
             fuzzcases_path,
             gen: GeneratorCtx {
                 rng: SmallRng::seed_from_u64(self.seed),

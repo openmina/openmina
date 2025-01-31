@@ -55,11 +55,9 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             SnarkPoolAction::Candidate(action) => action.is_enabled(state, time),
-            SnarkPoolAction::AutoCreateCommitment => state
-                .config
-                .snarker
-                .as_ref()
-                .map_or(false, |v| v.auto_commit),
+            SnarkPoolAction::AutoCreateCommitment => {
+                state.config.snarker.as_ref().is_some_and(|v| v.auto_commit)
+            }
             SnarkPoolAction::CommitmentCreateMany { .. } => state.config.snarker.is_some(),
             SnarkPoolAction::CommitmentCreate { job_id } => {
                 state.config.snarker.is_some() && state.snark_pool.should_create_commitment(job_id)
@@ -67,19 +65,17 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
             SnarkPoolAction::CommitmentAdd { commitment, .. } => state
                 .snark_pool
                 .get(&commitment.job_id)
-                .map_or(false, |s| match s.commitment.as_ref() {
+                .is_some_and(|s| match s.commitment.as_ref() {
                     Some(cur) => commitment > &cur.commitment,
                     None => true,
                 }),
-            SnarkPoolAction::WorkAdd { snark, .. } => {
-                state
-                    .snark_pool
-                    .get(&snark.job_id())
-                    .map_or(false, |s| match s.snark.as_ref() {
-                        Some(cur) => snark > &cur.work,
-                        None => true,
-                    })
-            }
+            SnarkPoolAction::WorkAdd { snark, .. } => state
+                .snark_pool
+                .get(&snark.job_id())
+                .is_some_and(|s| match s.snark.as_ref() {
+                    Some(cur) => snark > &cur.work,
+                    None => true,
+                }),
             SnarkPoolAction::P2pSend { peer_id } => state
                 .p2p
                 .get_ready_peer(peer_id)
@@ -101,7 +97,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
                             || peer_best_tip.pred_hash() == our_best_tip
                     })
                 })
-                .map_or(false, |p| {
+                .is_some_and(|p| {
                     let check =
                         |(next_index, limit), last_index| limit > 0 && next_index <= last_index;
                     let last_index = state.snark_pool.last_index();
@@ -113,7 +109,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
                 }),
             SnarkPoolAction::CheckTimeouts => time
                 .checked_sub(state.snark_pool.last_check_timeouts)
-                .map_or(false, |dur| dur.as_secs() >= 5),
+                .is_some_and(|dur| dur.as_secs() >= 5),
             SnarkPoolAction::JobCommitmentTimeout { job_id } => {
                 state.snark_pool.is_commitment_timed_out(job_id, time)
             }

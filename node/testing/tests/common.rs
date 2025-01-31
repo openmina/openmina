@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! scenario_doc {
     ($doc:expr) => {
-        if std::env::var("SCENARIO_INFO").map_or(false, |s| !s.is_empty()) {
+        if std::env::var("SCENARIO_INFO").is_some_and(|s| !s.is_empty()) {
             println!("{}", $doc);
             return;
         }

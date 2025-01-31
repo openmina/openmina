@@ -331,7 +331,7 @@ impl BlockProducerCurrentState {
         }
 
         if won_slot < best_tip
-            || self.produced_block().map_or(false, |block| {
+            || self.produced_block().is_some_and(|block| {
                 !consensus_take(
                     best_tip.consensus_state(),
                     block.consensus_state(),

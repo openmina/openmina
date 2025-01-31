@@ -82,7 +82,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             P2pChannelsSignalingExchangeAction::Init { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.signaling.exchange,
                         P2pChannelsSignalingExchangeState::Enabled
@@ -90,7 +90,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 })
             }
             P2pChannelsSignalingExchangeAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.signaling.exchange,
                         P2pChannelsSignalingExchangeState::Init { .. }
@@ -98,7 +98,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 })
             }
             P2pChannelsSignalingExchangeAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.signaling.exchange,
                         P2pChannelsSignalingExchangeState::Pending { .. }
@@ -107,7 +107,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
             }
             P2pChannelsSignalingExchangeAction::RequestSend { peer_id } => {
                 !state.already_has_max_peers()
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                    && state.get_ready_peer(peer_id).is_some_and(|p| {
                         match &p.channels.signaling.exchange {
                             P2pChannelsSignalingExchangeState::Ready { local, .. } => matches!(
                                 local,
@@ -120,7 +120,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
             }
             P2pChannelsSignalingExchangeAction::OfferReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.exchange {
+                .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { local, .. } => {
                         matches!(local, SignalingExchangeState::Requested { .. })
                     }
@@ -128,7 +128,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 }),
             P2pChannelsSignalingExchangeAction::OfferDecryptError { peer_id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.exchange {
+                .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { local, .. } => {
                         matches!(local, SignalingExchangeState::Offered { .. })
                     }
@@ -136,7 +136,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 }),
             P2pChannelsSignalingExchangeAction::OfferDecryptSuccess { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.exchange {
+                .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { local, .. } => {
                         matches!(local, SignalingExchangeState::Offered { .. })
                     }
@@ -144,7 +144,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 }),
             P2pChannelsSignalingExchangeAction::AnswerSend { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.exchange {
+                .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { local, .. } => {
                         matches!(local, SignalingExchangeState::Offered { .. })
                     }
@@ -152,7 +152,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 }),
             P2pChannelsSignalingExchangeAction::RequestReceived { peer_id } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.exchange {
+                .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { remote, .. } => matches!(
                         remote,
                         SignalingExchangeState::WaitingForRequest { .. }
@@ -162,7 +162,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 }),
             P2pChannelsSignalingExchangeAction::OfferSend { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.exchange {
+                .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { remote, .. } => {
                         matches!(remote, SignalingExchangeState::Requested { .. })
                     }
@@ -170,7 +170,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSignalingExchangeAction {
                 }),
             P2pChannelsSignalingExchangeAction::AnswerReceived { peer_id, .. } => state
                 .get_ready_peer(peer_id)
-                .map_or(false, |p| match &p.channels.signaling.exchange {
+                .is_some_and(|p| match &p.channels.signaling.exchange {
                     P2pChannelsSignalingExchangeState::Ready { remote, .. } => {
                         matches!(remote, SignalingExchangeState::Offered { .. })
                     }

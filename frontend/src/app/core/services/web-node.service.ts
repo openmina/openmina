@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, catchError, EMPTY, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, EMPTY, filter, from, fromEvent, map, merge, Observable, of, switchMap, tap, throwError, timer } from 'rxjs';
 import base from 'base-x';
 import { any, isBrowser, safelyExecuteInBrowser } from '@openmina/shared';
 import { HttpClient } from '@angular/common/http';
@@ -7,6 +7,9 @@ import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { FileProgressHelper } from '@core/helpers/file-progress.helper';
 import { CONFIG } from '@shared/constants/config';
+import firebase from 'firebase/compat';
+import FirebaseStorageError = firebase.storage.FirebaseStorageError;
+import { FirestoreService } from '@core/services/firestore.service';
 
 export interface PrivateStake {
   publicKey: string;
@@ -33,7 +36,8 @@ export class WebNodeService {
   privateStake: PrivateStake;
   noBlockProduction: boolean = false;
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient,
+              private firestore: FirestoreService) {
     FileProgressHelper.initDownloadProgress();
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
     safelyExecuteInBrowser(() => {
@@ -120,6 +124,7 @@ export class WebNodeService {
               }
             })();
             console.log('webnode config:', !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
+            console.log(this.privateStake);
             let privateKey = this.privateStake ? [this.privateStake.stake, this.privateStake.password] : this.webNodeKeyPair.privateKey;
             if (this.noBlockProduction) {
               privateKey = null;
@@ -131,13 +136,15 @@ export class WebNodeService {
             any(window).webnode = webnode;
             this.webnode$.next(webnode);
             this.webnodeProgress$.next('Started');
-
           }),
           catchError((error) => {
             sendSentryEvent('WebNode failed to start: ' + error.message);
             return throwError(() => new Error(error.message));
           }),
           switchMap(() => this.webnode$.asObservable()),
+          switchMap(() => timer(0, 60000)),
+          switchMap(() => this.heartBeat$),
+          switchMap(heartBeat => this.firestore.addHeartbeat(heartBeat)),
         );
     }
     return EMPTY;
@@ -228,10 +235,21 @@ export class WebNodeService {
     );
   }
 
-  actions$(param: any): Observable<any> {
+  get heartBeat$(): Observable<any> {
     return this.webnode$.asObservable().pipe(
       filter(Boolean),
-      switchMap(webnode => webnode.actions()),
+      switchMap(webnode => from(webnode.make_heartbeat())),
+    );
+  }
+
+  actions$(path: string): Observable<any> {
+    let slot: string | number = path.split('?id=')[1];
+    if (!isNaN(Number(slot))) {
+      slot = Number(slot);
+    }
+    return this.webnode$.asObservable().pipe(
+      filter(Boolean),
+      switchMap(webnode => webnode.stats().actions(slot)),
     );
   }
 }

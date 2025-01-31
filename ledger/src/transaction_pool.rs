@@ -241,6 +241,7 @@ pub mod diff {
         }
     }
 
+    #[derive(Debug)]
     pub struct Diff {
         pub list: Vec<UserCommand>,
     }
@@ -1257,6 +1258,7 @@ impl IndexedPool {
         };
 
         // TODO: Should `self.all_by_fee` be a `BTreeSet` instead ?
+        #[allow(clippy::mutable_key_type)]
         let bset: BTreeSet<_> = set.iter().collect();
         // TODO: Not sure if OCaml compare the same way than we do
         let min = bset.first().map(|min| (*min).clone()).unwrap();
@@ -1315,13 +1317,13 @@ impl IndexedPool {
             let current_balance = account
                 .liquid_balance_at_slot(global_slot_since_genesis)
                 .to_amount();
-            let first_cmd = queue.front().unwrap();
+            let first_cmd = queue.front().cloned().unwrap();
             let first_nonce = first_cmd.data.forget_check().applicable_at_nonce();
 
             if !(account.has_permission_to_send() && account.has_permission_to_increment_nonce())
                 || account.nonce < first_nonce
             {
-                let this_dropped = self.remove_with_dependents_exn(first_cmd)?;
+                let this_dropped = self.remove_with_dependents_exn(&first_cmd)?;
                 dropped.extend(this_dropped);
             } else {
                 // current_nonce >= first_nonce
@@ -1330,13 +1332,13 @@ impl IndexedPool {
                     nonce == account.nonce
                 });
 
-                let keep_queue = match first_applicable_nonce_index {
+                let retained_for_nonce = match first_applicable_nonce_index {
                     Some(index) => queue.split_off(index),
                     None => Default::default(),
                 };
-                let drop_queue = queue;
+                let dropped_for_nonce = queue;
 
-                for cmd in &drop_queue {
+                for cmd in &dropped_for_nonce {
                     currency_reserved = currency_reserved
                         .checked_sub(&currency_consumed(&cmd.data.forget_check())?)
                         .unwrap();
@@ -1344,28 +1346,41 @@ impl IndexedPool {
 
                 let (keep_queue, currency_reserved, dropped_for_balance) =
                     Self::drop_until_sufficient_balance(
-                        keep_queue,
+                        retained_for_nonce,
                         currency_reserved,
                         current_balance,
                     )?;
 
-                let to_drop: Vec<_> = drop_queue.into_iter().chain(dropped_for_balance).collect();
-
-                let Some(head) = to_drop.first() else {
-                    continue;
-                };
-
-                self.remove_applicable_exn(head);
-                self.update_remove_all_by_fee_and_hash_and_expiration(to_drop.clone());
+                let keeping_prefix = dropped_for_nonce.is_empty();
+                let keeping_suffix = dropped_for_balance.is_empty();
+                let to_drop: Vec<_> = dropped_for_nonce
+                    .into_iter()
+                    .chain(dropped_for_balance)
+                    .collect();
 
                 match keep_queue.front().cloned() {
+                    _ if keeping_prefix && keeping_suffix => {
+                        // Nothing dropped, nothing needs to be updated
+                    }
                     None => {
+                        // We drop the entire queue, first element needs to be removed from
+                        // applicable_by_fee
+                        self.remove_applicable_exn(&first_cmd);
                         self.all_by_sender.remove(&sender);
                     }
+                    Some(_) if keeping_prefix => {
+                        // We drop only transactions from the end of queue, keeping
+                        // the head untouched, no need to update applicable_by_fee
+                        self.all_by_sender
+                            .insert(sender, (keep_queue, currency_reserved));
+                    }
                     Some(first_kept) => {
+                        // We need to replace old queue head with the new queue head
+                        // in applicable_by_fee
                         let first_kept_unchecked = first_kept.data.forget_check();
                         self.all_by_sender
                             .insert(sender, (keep_queue, currency_reserved));
+                        self.remove_applicable_exn(&first_cmd);
                         Self::map_set_insert(
                             &mut self.applicable_by_fee,
                             first_kept_unchecked.fee_per_wu(),
@@ -1373,7 +1388,7 @@ impl IndexedPool {
                         );
                     }
                 }
-
+                self.update_remove_all_by_fee_and_hash_and_expiration(to_drop.clone());
                 dropped.extend(to_drop);
             }
         }
@@ -1742,9 +1757,12 @@ impl TransactionPool {
             let mut new_commands = collect_hashed(new_commands);
             let mut removed_commands = collect_hashed(removed_commands);
 
+            #[allow(clippy::mutable_key_type)]
             let new_commands_set = new_commands.iter().collect::<HashSet<_>>();
+            #[allow(clippy::mutable_key_type)]
             let removed_commands_set = removed_commands.iter().collect::<HashSet<_>>();
 
+            #[allow(clippy::mutable_key_type)]
             let duplicates = new_commands_set
                 .intersection(&removed_commands_set)
                 .map(|cmd| (*cmd).clone())

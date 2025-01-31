@@ -36,7 +36,7 @@ impl P2pConnectionIncomingEffectfulAction {
                 if store
                     .service()
                     .auth_decrypt(&other_pub_key, auth)
-                    .map_or(false, |remote_auth| remote_auth == expected_auth)
+                    .is_some_and(|remote_auth| remote_auth == expected_auth)
                 {
                     store.dispatch(P2pConnectionIncomingAction::Success { peer_id });
                 } else {

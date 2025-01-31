@@ -82,7 +82,7 @@ impl EnablingCondition<P2pState> for P2pNetworkKadRequestAction {
             .network
             .scheduler
             .discovery_state()
-            .map_or(false, |discovery_state| {
+            .is_some_and(|discovery_state| {
                 // no request for New, some request for anything else.
                 discovery_state.request(self.peer_id()).is_none()
                     == matches!(self, P2pNetworkKadRequestAction::New { .. })

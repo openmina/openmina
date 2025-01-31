@@ -1,4 +1,5 @@
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256};
+use malloc_size_of::MallocSizeOf;
 use rsexp::{OfSexp, SexpOf};
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +11,12 @@ impl std::fmt::Debug for BigInt {
         let Self(bigint) = self;
         // Avoid vertical alignment
         f.write_fmt(format_args!("BigInt({:?})", bigint.to_native()))
+    }
+}
+
+impl MallocSizeOf for BigInt {
+    fn size_of(&self, _ops: &mut malloc_size_of::MallocSizeOfOps) -> usize {
+        0
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-native"
-version = "0.13.0"
+version = "0.14.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -37,6 +37,9 @@ strum_macros = "0.26.4"
 openmina-core = { path = "../../core" }
 openmina-node-common = { path = "../common" }
 node = { path = "../../node", features = ["replay"] }
+
+[dev-dependencies]
+openmina-producer-dashboard = { workspace = true }
 
 [features]
 default = ["p2p-libp2p"]

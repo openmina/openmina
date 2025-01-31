@@ -1,7 +1,8 @@
 use crate::{network::identify::stream::P2pNetworkIdentifyStreamState, PeerId, StreamId};
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, MallocSizeOf)]
 pub struct P2pNetworkIdentifyState {
     pub streams: crate::network::scheduler::StreamState<P2pNetworkIdentifyStreamState>,
 }
@@ -37,7 +38,7 @@ impl P2pNetworkIdentifyState {
     pub fn remove_identify_stream_state(&mut self, peer_id: &PeerId, stream_id: &StreamId) -> bool {
         self.streams
             .get_mut(peer_id)
-            .map_or(false, |m| m.remove(stream_id).is_some())
+            .is_some_and(|m| m.remove(stream_id).is_some())
     }
 
     pub fn prune_peer_state(&mut self, peer_id: &PeerId) {

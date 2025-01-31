@@ -1,3 +1,6 @@
+extern crate graphannis_malloc_size_of as malloc_size_of;
+extern crate graphannis_malloc_size_of_derive as malloc_size_of_derive;
+
 pub mod distributed_pool;
 pub mod invariants;
 pub mod log;
@@ -20,6 +23,8 @@ pub mod transaction;
 pub mod consensus;
 
 mod substate;
+use std::sync::OnceLock;
+
 pub use substate::{Substate, SubstateAccess, SubstateResult};
 
 pub mod network;
@@ -30,6 +35,9 @@ pub use chain_id::*;
 
 pub mod encrypted_key;
 pub use encrypted_key::*;
+
+// FIXME(#1043): refactor
+pub static IS_ARCHIVE: OnceLock<bool> = OnceLock::new();
 
 mod work_dir {
     use once_cell::sync::OnceCell;

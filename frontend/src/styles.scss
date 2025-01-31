@@ -1,6 +1,7 @@
 @use '@angular/material' as mat;
 
 @import 'openmina';
+@import 'leaderboard-variables';
 
 $custom-typography: mat.define-legacy-typography-config($font-family: '"Inter", sans-serif');
 // TODO(v15): As of v15 mat.legacy-core no longer includes default typography styles.
@@ -24,6 +25,8 @@ body {
   font-weight: 400;
   color: $base-primary;
   background-color: var(--base-background, #000000);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 }
 
 .theme-transition {

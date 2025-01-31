@@ -41,27 +41,27 @@ impl redux::EnablingCondition<P2pState> for P2pDisconnectionAction {
         match self {
             P2pDisconnectionAction::RandomTry => time
                 .checked_sub(state.last_random_disconnection_try)
-                .map_or(false, |dur| dur >= RANDOM_DISCONNECTION_TRY_FREQUENCY),
+                .is_some_and(|dur| dur >= RANDOM_DISCONNECTION_TRY_FREQUENCY),
             P2pDisconnectionAction::Init { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     !peer.status.is_disconnected_or_disconnecting() && !peer.status.is_error()
                 })
             }
             P2pDisconnectionAction::Finish { peer_id } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     !matches!(peer.status, P2pPeerStatus::Disconnected { .. })
                         && !peer.status.is_error()
                 })
             }
             P2pDisconnectionAction::PeerClosed { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
+                state.peers.get(peer_id).is_some_and(|peer| {
                     !peer.status.is_disconnected_or_disconnecting() && !peer.status.is_error()
                 })
             }
             P2pDisconnectionAction::FailedCleanup { peer_id } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| !peer.is_libp2p() && peer.status.is_error()),
+                .is_some_and(|peer| !peer.is_libp2p() && peer.status.is_error()),
         }
     }
 }

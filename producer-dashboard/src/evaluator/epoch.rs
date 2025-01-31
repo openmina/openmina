@@ -3,7 +3,7 @@ use std::ops::AddAssign;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    archive::{Block, ChainStatus},
+    archive::{postgres_types::ChainStatus, Block},
     node::epoch_ledgers::{Balances, NanoMina},
 };
 

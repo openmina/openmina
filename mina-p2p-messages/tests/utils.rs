@@ -34,7 +34,7 @@ where
     let dir = std::fs::read_dir(path)?;
     for file in dir {
         let path = file?.path();
-        if path.extension().map_or(false, |ext| ext == "bin") {
+        if path.extension().is_some_and(|ext| ext == "bin") {
             println!("reading {path:?}...");
             let contents = read_file(&path)?;
             f(path, &contents);
@@ -52,7 +52,7 @@ where
     let dir = std::fs::read_dir(path)?;
     for file in dir {
         let path = file?.path();
-        if path.extension().map_or(false, |ext| ext == "bin") {
+        if path.extension().is_some_and(|ext| ext == "bin") {
             println!("reading {path:?}...");
             f(&read_file(&path)?, &path);
         }

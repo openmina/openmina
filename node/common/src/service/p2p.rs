@@ -75,11 +75,7 @@ impl webrtc::P2pServiceWebrtc for NodeService {
         auth: ConnectionAuth,
     ) {
         let encrypted = auth.encrypt(&self.p2p.sec_key, other_pub_key, &mut self.rng);
-        if let Some(peer) = self.peers().get(&peer_id) {
-            let _ = peer
-                .cmd_sender
-                .send(webrtc::PeerCmd::ConnectionAuthorizationSend(encrypted));
-        }
+        Self::auth_send(self, peer_id, other_pub_key, encrypted);
     }
 
     fn auth_decrypt(
@@ -123,28 +119,23 @@ impl P2pCryptoService for NodeService {
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         // TODO: make deterministic
         let msg = [b"noise-libp2p-static-key:", key.as_slice()].concat();
-        let sig = self
-            .p2p
-            .mio
-            .keypair()
-            .sign(&msg)
-            .expect("unable to create signature");
+        let sig = self.p2p.sec_key.sign(&msg);
+        let libp2p_sec_key = libp2p_identity::Keypair::try_from(self.p2p.sec_key.clone()).unwrap();
 
         let mut payload = vec![];
         payload.extend_from_slice(b"\x0a\x24");
-        payload.extend_from_slice(&self.p2p.mio.keypair().public().encode_protobuf());
+        payload.extend_from_slice(&libp2p_sec_key.public().encode_protobuf());
         payload.extend_from_slice(b"\x12\x40");
-        payload.extend_from_slice(&sig);
+        payload.extend_from_slice(&sig.to_bytes());
         payload
     }
 
     fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
-        let msg = [b"libp2p-pubsub:", publication].concat();
         self.p2p
-            .mio
-            .keypair()
-            .sign(&msg)
-            .expect("unable to create signature")
+            .sec_key
+            .libp2p_pubsub_sign(publication)
+            .to_bytes()
+            .to_vec()
     }
 
     fn verify_publication(

@@ -31,6 +31,7 @@ export class WebNodeComponent extends StoreDispatcher implements OnInit {
               private webNodeService: WebNodeService) { super(); }
 
   ngOnInit(): void {
+    document.body.style.backgroundColor = 'var(--base-background)';
     this.listenToFileUploadingEvents();
     this.checkIfDeviceIsSupported();
     this.listenToRoute();
@@ -42,7 +43,7 @@ export class WebNodeComponent extends StoreDispatcher implements OnInit {
 
   private listenToRoute(): void {
     this.select(getMergedRoute, (route: MergedRoute) => {
-      let initial = 174;
+      let initial = 176;
       if (route.queryParams['initial']) {
         initial = Number(route.queryParams['initial']);
       }

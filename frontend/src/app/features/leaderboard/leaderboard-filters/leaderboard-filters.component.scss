@@ -1,0 +1,115 @@
+@import 'leaderboard-variables';
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@100;200;300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200..1000&display=swap');
+
+:host {
+  font-family: "IBM Plex Sans", sans-serif;
+
+  section {
+    width: 100%;
+
+    div.filters {
+      padding: 16px 0;
+      border-bottom: 1px solid $black6;
+
+      .sort {
+        box-shadow: 0 0 0 0 transparent;
+        padding: 0 24px;
+        border-radius: 44px;
+        font-size: 16px;
+        transition: all 0.15s ease;
+        background-color: $mina-base-divider;
+        color: $black;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+
+        &:hover {
+          box-shadow: 0 2px 4px 0 $black3;
+        }
+
+        .sort-content {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+        }
+
+        .mina-icon {
+          opacity: 0;
+          transform: translateY(-100%);
+          transition: all 0.3s ease;
+          font-size: 20px;
+          width: 0;
+
+          &.show {
+            width: 20px;
+            opacity: 1;
+            transform: translateY(0);
+          }
+
+          &.flip {
+            transform: rotate(180deg);
+          }
+        }
+
+        .text {
+          transition: all 0.3s ease;
+        }
+
+        &.active {
+          background-color: $mina-base-primary;
+          color: $mina-cta-primary;
+          padding-left: 16px;
+
+          .sort-content {
+            transform: translateX(0);
+          }
+
+          .text {
+            margin-left: 8px;
+          }
+        }
+      }
+
+      .search {
+        width: 150px;
+        height: 32px;
+
+        .mina-icon {
+          color: $black;
+          width: 24px;
+          height: 24px;
+        }
+
+        input {
+          padding-left: 32px;
+          border: none;
+          outline: none;
+          font-size: 16px;
+
+          &::placeholder {
+            color: $mina-base-secondary;
+            font-size: 16px;
+            font-weight: 400;
+          }
+        }
+      }
+
+      @media (max-width: 480px) {
+        .sort {
+          padding: 0 12px;
+          font-size: 3.2vw;
+        }
+
+        .search input,
+        .search input::placeholder {
+          font-size: 3.3vw;
+
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,95 @@
+@import 'leaderboard-variables';
+
+.mina-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400 !important;
+}
+
+.row.head span {
+  color: $black;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.row-wrap {
+  &.head {
+    max-width: unset;
+    height: 56px;
+
+    .row {
+      margin: 0 auto;
+      font-family: "IBM Plex Sans", sans-serif;
+    }
+  }
+
+  &.odd:not(.head) {
+    background-color: $mina-base-container;
+  }
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 40% 20% 1fr;
+  width: 100%;
+  height: 40px;
+  line-height: 40px;
+  font-family: "IBM Plex Mono", sans-serif;
+  font-size: 16px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 48% 24% 1fr;
+  }
+
+  span {
+    color: $black;
+
+    &:not(.mina-icon) {
+      @media (max-width: 480px) {
+        font-size: 3vw;
+      }
+    }
+  }
+
+  .circle {
+    color: $black4;
+  }
+
+  .perc {
+    width: 37px;
+    @media (max-width: 480px) {
+      width: 26px;
+    }
+  }
+
+  .circle.active {
+    color: $mina-brand-cyan;
+  }
+}
+
+.fx-row-vert-cent {
+  .mina-icon {
+    width: 26px;
+  }
+
+  mina-loading-spinner {
+    margin-left: -5px;
+    margin-right: 5px;
+  }
+
+  .mina-icon {
+    padding-left: 2px;
+  }
+}
+
+:host ::ng-deep mina-loading-spinner .loading {
+  border: 1px solid $mina-base-primary !important;
+  border-top-color: transparent !important;
+}
+
+.p-absolute {
+  background-color: $mina-cta-primary;
+}
+
+mina-loading-spinner + div {
+  font-family: "IBM Plex Sans", sans-serif;
+  color: $mina-base-primary;
+}

@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        SELECT\n            pk.public_key,\n            ss.score,\n            ss.blocks_produced,\n            datetime(ss.last_updated, 'unixepoch') as last_updated\n        FROM submitter_scores ss\n        JOIN public_keys pk ON pk.id = ss.public_key_id\n        ORDER BY ss.score DESC, ss.blocks_produced DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "name": "public_key",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "score",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "blocks_produced",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "last_updated",
+        "ordinal": 3,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "25c9e074156b792e92cbfbaf5954647bfdda59b680b5a393c5324dd6d8a19683"
+}

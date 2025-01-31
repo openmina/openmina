@@ -76,6 +76,10 @@ function generateRoutes(): Routes {
       loadChildren: () => import('@web-node/web-node.module').then(m => m.WebNodeModule),
       title: WEBNODE_TITLE,
     },
+    {
+      path: '',
+      loadChildren: () => import('@leaderboard/leaderboard.module').then(m => m.LeaderboardModule),
+    },
   ];
   if (CONFIG.showWebNodeLandingPage) {
     routes.push({

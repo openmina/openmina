@@ -254,7 +254,7 @@ mod tests {
         let take_during = cluster.stream().take_during(d);
 
         let all_under_timeout = take_during
-            .all(|event| ready(event.timestamp().map_or(false, |t| t < timeout)))
+            .all(|event| ready(event.timestamp().is_some_and(|t| t < timeout)))
             .await;
         assert!(all_under_timeout);
     }

@@ -49,13 +49,18 @@
 <body class="f-base">
 <script>
   const deployment = {
-    dateUTC: '2024-12-13T14:10:04.753Z',
+    dateUTC: '2025-01-31T07:56:06.086Z',
     deviceIp: '5.13.60.20',
     deviceOS: 'macOS',
     deviceOSVersion: '23.5.0',
-    version: '1.0.70',
+    version: '1.0.103',
 };
 window.deployment = deployment;
+
+  if (location.href.includes('webnode.minaprotocol')) {
+    document.body.style.backgroundColor = '#fff';
+  }
+
 </script>
 <script type="module" defer>
   if (typeof window !== 'undefined') {
@@ -72,8 +77,9 @@ window.deployment = deployment;
         });
     });
   }
-
 </script>
+<script id="superflowToolbarScript" data-sf-platform="other-manual" async
+        src="https://cdn.velt.dev/lib/superflow.js?apiKey=RkPkYl6dWyE95NpuMjCx&projectId=7304447868419301"></script>
 <app-root class="h-100"></app-root>
 </body>
 </html>

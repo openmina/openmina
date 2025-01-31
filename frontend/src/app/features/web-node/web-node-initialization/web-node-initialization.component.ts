@@ -2,10 +2,10 @@ import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnInit, 
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { WebNodeService } from '@core/services/web-node.service';
-import { any, GlobalErrorHandlerService, safelyExecuteInBrowser } from '@openmina/shared';
-import { NgClass, NgForOf, NgIf, NgOptimizedImage } from '@angular/common';
+import { GlobalErrorHandlerService, safelyExecuteInBrowser } from '@openmina/shared';
+import { NgClass, NgOptimizedImage } from '@angular/common';
 import { Router } from '@angular/router';
-import { CONFIG, getFirstFeature } from '@shared/constants/config';
+import { getFirstFeature } from '@shared/constants/config';
 import { animate, style, transition, trigger } from '@angular/animations';
 import { filter, switchMap, timer } from 'rxjs';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
@@ -33,8 +33,6 @@ export interface WebNodeLoadingStep {
   standalone: true,
   imports: [
     NgClass,
-    NgIf,
-    NgForOf,
     NgOptimizedImage,
     LoadingSpinnerComponent,
   ],

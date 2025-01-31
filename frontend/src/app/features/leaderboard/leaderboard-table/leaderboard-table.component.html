@@ -1,0 +1,50 @@
+<div class="row-wrap head fx-row-full-cent w-100">
+  <div class="row head h-xl f-600">
+    <span class="pl-12">Web Node Public Key</span>
+    <span>Uptime</span>
+    <span>Produced Blocks</span>
+  </div>
+</div>
+<div class="flex-column h-minus-xl w-100 p-relative">
+  @if (!isLoading) {
+    @for (row of rows; track $index) {
+      <div class="row-wrap fx-row-full-cent w-100" [class.odd]="$index % 2 === 0">
+        <div class="row">
+          <span class="fx-row-vert-cent text-capitalize pl-12">
+            <span class="mina-icon icon-200 f-big circle" [class.active]="row.isActive">circle</span>
+            {{ row.publicKey | truncateMid: (desktop ? 15 : 6): 6 }}
+          </span>
+          <span class="fx-row-vert-cent">
+            <span class="perc">{{ row.uptimePercentage }}%</span>
+            @if (row.uptimePercentage > 33.33) {
+              <span class="mina-icon icon-200 bookmark">bookmark_check</span>
+            }
+            @if (row.uptimePrize) {
+              <ng-container *ngTemplateOutlet="prize"></ng-container>
+            }
+          </span>
+          <span class="fx-row-vert-cent">
+            <span class="mr-8">{{ row.blocksProduced ?? 0 }}</span>
+            @if (row.blocksPrize) {
+              <ng-container *ngTemplateOutlet="prize"></ng-container>
+            }
+          </span>
+        </div>
+      </div>
+    }
+  } @else {
+    <div class="w-100 h-100 p-absolute fx-col-full-cent"
+         @fadeInOut>
+      <mina-loading-spinner [size]="50" [borderWidth]="3"></mina-loading-spinner>
+      <div class="f-400 mt-16 mb-10">Loading</div>
+    </div>
+  }
+</div>
+
+<ng-template #prize>
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="20" viewBox="0 0 16 20" fill="none" class="ml-5">
+    <path
+      d="M5.8 11.1086L6.627 8.39312L4.452 6.71637H7.15775L8 4.01237L8.84225 6.71637H11.548L9.35775 8.39312L10.1845 11.1086L8 9.42012L5.8 11.1086ZM2.5 19.8509V12.6931C1.86667 12.0316 1.375 11.2669 1.025 10.3989C0.675 9.53103 0.5 8.60478 0.5 7.62012C0.5 5.52778 1.22692 3.7547 2.68075 2.30087C4.13458 0.847034 5.90767 0.120117 8 0.120117C10.0923 0.120117 11.8654 0.847034 13.3193 2.30087C14.7731 3.7547 15.5 5.52778 15.5 7.62012C15.5 8.60478 15.325 9.53103 14.975 10.3989C14.625 11.2669 14.1333 12.0316 13.5 12.6931V19.8509L8 18.1009L2.5 19.8509ZM8 13.6201C9.66667 13.6201 11.0833 13.0368 12.25 11.8701C13.4167 10.7035 14 9.28678 14 7.62012C14 5.95345 13.4167 4.53678 12.25 3.37012C11.0833 2.20345 9.66667 1.62012 8 1.62012C6.33333 1.62012 4.91667 2.20345 3.75 3.37012C2.58333 4.53678 2 5.95345 2 7.62012C2 9.28678 2.58333 10.7035 3.75 11.8701C4.91667 13.0368 6.33333 13.6201 8 13.6201Z"
+      fill="#2D2D2D"/>
+  </svg>
+</ng-template>

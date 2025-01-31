@@ -69,6 +69,7 @@ pub enum TransactionPoolAction {
     Rebroadcast {
         accepted: Vec<ValidCommandWithHash>,
         rejected: Vec<(ValidCommandWithHash, diff::Error)>,
+        is_local: bool,
     },
     CollectTransactionsByFee,
     #[action_event(level = trace)]
@@ -105,7 +106,7 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
                             || peer_best_tip.pred_hash() == our_best_tip
                     })
                 })
-                .map_or(false, |p| {
+                .is_some_and(|p| {
                     let check =
                         |(next_index, limit), last_index| limit > 0 && next_index <= last_index;
                     let last_index = state.transaction_pool.dpool.last_index();
@@ -115,9 +116,9 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
                         last_index,
                     )
                 }),
-            TransactionPoolAction::Rebroadcast { accepted, rejected } => {
-                !(accepted.is_empty() && rejected.is_empty())
-            }
+            TransactionPoolAction::Rebroadcast {
+                accepted, rejected, ..
+            } => !(accepted.is_empty() && rejected.is_empty()),
             _ => true,
         }
     }

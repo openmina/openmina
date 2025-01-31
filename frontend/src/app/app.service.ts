@@ -1,20 +1,22 @@
 import { Injectable } from '@angular/core';
-import { map, Observable, of } from 'rxjs';
+import { map, Observable, of, tap } from 'rxjs';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { CONFIG } from '@shared/constants/config';
 import { RustService } from '@core/services/rust.service';
 import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-details.type';
 import { getNetwork } from '@shared/helpers/mina.helper';
-import { getLocalStorage, ONE_MILLION } from '@openmina/shared';
+import { getLocalStorage, nanOrElse, ONE_MILLION } from '@openmina/shared';
 import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
+import { FirestoreService } from '@core/services/firestore.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AppService {
 
-  constructor(private rust: RustService) { }
+  constructor(private rust: RustService,
+              private firestoreService: FirestoreService) { }
 
   getActiveNode(nodes: MinaNode[]): Observable<MinaNode> {
     const nodeName = new URL(location.href).searchParams.get('node');
@@ -48,10 +50,20 @@ export class AppService {
           transactions: data.transaction_pool.transactions,
           chainId: data.chain_id,
           network: getNetwork(data.chain_id),
-          producingBlockAt: data.current_block_production_attempt?.won_slot.slot_time / ONE_MILLION,
+          producingBlockAt: nanOrElse(data.current_block_production_attempt?.won_slot.slot_time / ONE_MILLION, null),
           producingBlockGlobalSlot: data.current_block_production_attempt?.won_slot.global_slot,
           producingBlockStatus: data.current_block_production_attempt?.status,
         } as AppNodeDetails)),
+        tap((details: any) => {
+          // undefined not allowed. Firestore does not accept undefined values
+          // foreach undefined value, we set it to null
+          Object.keys(details).forEach((key: string) => {
+            if (details[key] === undefined) {
+              details[key] = null;
+            }
+          });
+          // this.firestoreService.addHeartbeat(details);
+        }),
       );
   }
 

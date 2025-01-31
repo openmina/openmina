@@ -28,6 +28,9 @@ pub use rpc_reducer::collect_rpc_peers_info;
 
 mod rpc_impls;
 
+mod heartbeat;
+pub use heartbeat::{NodeHeartbeat, SignedNodeHeartbeat};
+
 pub use openmina_core::requests::{RpcId, RpcIdType};
 
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
@@ -40,6 +43,8 @@ use serde::{Deserialize, Serialize};
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,
 };
+use crate::ledger::read::{LedgerReadId, LedgerReadKind};
+use crate::ledger::write::LedgerWriteKind;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
@@ -54,6 +59,7 @@ use crate::stats::sync::SyncStatsSnapshot;
 pub enum RpcRequest {
     StateGet(Option<String>),
     StatusGet,
+    HeartbeatGet,
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
     BlockProducerStatsGet,
@@ -153,6 +159,7 @@ pub enum ActionStatsResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PeerConnectionStatus {
+    Disconnecting,
     Disconnected,
     Connecting,
     Connected,
@@ -166,8 +173,10 @@ pub struct RpcPeerInfo {
     pub best_tip_global_slot: Option<u32>,
     pub best_tip_timestamp: Option<u64>,
     pub connection_status: PeerConnectionStatus,
+    pub connecting_details: Option<String>,
     pub address: Option<String>,
     pub incoming: bool,
+    pub is_libp2p: bool,
     pub time: u64,
 }
 
@@ -339,6 +348,7 @@ pub enum RpcStateGetError {
 
 pub type RpcStateGetResponse = Result<serde_json::Value, RpcStateGetError>;
 pub type RpcStatusGetResponse = Option<RpcNodeStatus>;
+pub type RpcHeartbeatGetResponse = Option<SignedNodeHeartbeat>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcBlockProducerStatsGetResponse = Option<RpcBlockProducerStats>;
@@ -452,19 +462,35 @@ impl From<Account> for AccountSlim {
 pub struct RpcNodeStatus {
     pub chain_id: Option<String>,
     pub transition_frontier: RpcNodeStatusTransitionFrontier,
-    pub peers: Vec<RpcPeerInfo>,
+    pub ledger: RpcNodeStatusLedger,
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
+    pub peers: Vec<RpcPeerInfo>,
+    pub resources_status: RpcNodeStatusResources,
 }
 
 #[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusLedger {
+    pub alive_masks_after_last_commit: usize,
+    pub pending_writes: Vec<(LedgerWriteKind, redux::Timestamp)>,
+    pub pending_reads: Vec<(LedgerReadId, LedgerReadKind, redux::Timestamp)>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusResources {
+    pub p2p_malloc_size: usize,
+    pub transition_frontier: serde_json::Value,
+    pub snark_pool: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontier {
     pub best_tip: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
     pub sync: RpcNodeStatusTransitionFrontierSync,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontierSync {
     pub time: Option<redux::Timestamp>,
     pub status: String,
@@ -472,21 +498,21 @@ pub struct RpcNodeStatusTransitionFrontierSync {
     pub target: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontierBlockSummary {
     pub hash: StateHash,
     pub height: u32,
     pub global_slot: u32,
 }
 
-#[derive(Serialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusTransactionPool {
     pub transactions: usize,
     pub transactions_for_propagation: usize,
     pub transaction_candidates: usize,
 }
 
-#[derive(Serialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusSnarkPool {
     pub total_jobs: usize,
     pub snarks: usize,

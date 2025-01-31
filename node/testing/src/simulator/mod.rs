@@ -50,6 +50,7 @@ impl Simulator {
             timeouts: Default::default(),
             libp2p_port: None,
             recorder: self.config.recorder.clone(),
+            peer_discovery: true,
         }
     }
 
@@ -220,9 +221,9 @@ impl Simulator {
         self.wait_for_all_nodes_synced(runner).await;
     }
 
-    pub async fn setup_and_run_with_listener<'a, AL, ALF>(
+    pub async fn setup_and_run_with_listener<AL, ALF>(
         &mut self,
-        runner: &mut ClusterRunner<'a>,
+        runner: &mut ClusterRunner<'_>,
         listener: ALF,
     ) where
         ALF: FnMut() -> AL,
@@ -234,25 +235,25 @@ impl Simulator {
         self.run_with_listener(runner, listener).await;
     }
 
-    pub async fn setup_and_run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+    pub async fn setup_and_run(&mut self, runner: &mut ClusterRunner<'_>) {
         self.setup(runner).await;
         self.run_with_listener(runner, || |_, _, _, _| false).await;
     }
 
-    pub async fn setup<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+    pub async fn setup(&mut self, runner: &mut ClusterRunner<'_>) {
         self.set_up_seed_nodes(runner).await;
         self.set_up_normal_nodes(runner).await;
         self.set_up_snark_worker_nodes(runner).await;
         self.set_up_block_producer_nodes(runner).await;
     }
 
-    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+    pub async fn run(&mut self, runner: &mut ClusterRunner<'_>) {
         self.run_with_listener(runner, || |_, _, _, _| false).await;
     }
 
-    pub async fn run_with_listener<'a, AL, ALF>(
+    pub async fn run_with_listener<AL, ALF>(
         &mut self,
-        runner: &mut ClusterRunner<'a>,
+        runner: &mut ClusterRunner<'_>,
         mut listener: ALF,
     ) where
         ALF: FnMut() -> AL,

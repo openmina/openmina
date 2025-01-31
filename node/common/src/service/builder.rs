@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
@@ -23,7 +25,7 @@ use crate::{
     EventReceiver, EventSender, NodeService,
 };
 
-use super::block_producer::BlockProducerService;
+use super::{archive::ArchiveService, block_producer::BlockProducerService};
 
 pub struct NodeServiceCommonBuilder {
     rng_seed: [u8; 32],
@@ -34,6 +36,7 @@ pub struct NodeServiceCommonBuilder {
     event_receiver: EventReceiver,
     ledger_manager: Option<LedgerManager>,
     block_producer: Option<BlockProducerService>,
+    archive: Option<ArchiveService>,
     p2p: Option<P2pServiceCtx>,
     gather_stats: bool,
     rpc: RpcService,
@@ -57,6 +60,7 @@ impl NodeServiceCommonBuilder {
             event_receiver: event_receiver.into(),
             ledger_manager: None,
             block_producer: None,
+            archive: None,
             p2p: None,
             rpc: RpcService::new(),
             gather_stats: false,
@@ -74,6 +78,9 @@ impl NodeServiceCommonBuilder {
     pub fn ledger_init(&mut self) -> &mut Self {
         let mut ctx = LedgerCtx::default();
         ctx.set_event_sender(self.event_sender.clone());
+        if self.archive.is_some() {
+            ctx.set_archive_mode();
+        };
         self.ledger_manager = Some(LedgerManager::spawn(ctx));
         self
     }
@@ -88,6 +95,11 @@ impl NodeServiceCommonBuilder {
             keypair,
             provers,
         ));
+        self
+    }
+
+    pub fn archive_init(&mut self, address: SocketAddr) -> &mut Self {
+        self.archive = Some(ArchiveService::start(address));
         self
     }
 
@@ -132,6 +144,7 @@ impl NodeServiceCommonBuilder {
             ),
             ledger_manager,
             block_producer: self.block_producer,
+            archive: self.archive,
             p2p,
             stats: self.gather_stats.then(Stats::new),
             rpc: self.rpc,

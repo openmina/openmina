@@ -1,3 +1,5 @@
+pub mod archive;
+pub mod candidate;
 pub mod genesis;
 pub mod genesis_effectful;
 pub mod sync;

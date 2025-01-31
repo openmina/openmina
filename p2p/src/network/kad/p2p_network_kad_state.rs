@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
+use malloc_size_of_derive::MallocSizeOf;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -9,11 +10,11 @@ use super::{
 };
 use crate::{
     bootstrap::{P2pNetworkKadBootstrapRequestStat, P2pNetworkKadBootstrapStats},
-    is_time_passed, P2pTimeouts, PeerId, StreamId,
+    is_time_passed, P2pTimeouts, PeerId, StreamId, StreamState,
 };
 
 /// Kademlia status.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, MallocSizeOf)]
 #[serde(tag = "type")]
 pub enum P2pNetworkKadStatus {
     /// Initial state.
@@ -24,6 +25,7 @@ pub enum P2pNetworkKadStatus {
     /// Kademlia is bootstrapped.
     Bootstrapped {
         /// Timestamp of the bootstrap.
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         /// Stats for the latest bootstrap process.
         stats: P2pNetworkKadBootstrapStats,
@@ -49,12 +51,13 @@ impl P2pNetworkKadStatus {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, MallocSizeOf)]
 pub struct P2pNetworkKadState {
     pub routing_table: P2pNetworkKadRoutingTable,
     pub latest_request_peers: P2pNetworkKadLatestRequestPeers,
+    #[with_malloc_size_of_func = "measurement::requests_map"]
     pub requests: BTreeMap<PeerId, P2pNetworkKadRequestState>,
-    pub streams: crate::network::scheduler::StreamState<P2pNetworkKadStreamState>,
+    pub streams: StreamState<P2pNetworkKadStreamState>,
     pub status: P2pNetworkKadStatus,
     pub filter_addrs: bool,
 }
@@ -160,11 +163,20 @@ impl P2pNetworkKadState {
     pub fn remove_kad_stream_state(&mut self, peer_id: &PeerId, stream_id: &StreamId) -> bool {
         self.streams
             .get_mut(peer_id)
-            .map_or(false, |m| m.remove(stream_id).is_some())
+            .is_some_and(|m| m.remove(stream_id).is_some())
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, derive_more::Deref, derive_more::From)]
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    derive_more::Deref,
+    derive_more::From,
+    MallocSizeOf,
+)]
 pub struct P2pNetworkKadLatestRequestPeers(Vec<(PeerId, P2pNetworkKadLatestRequestPeerKind)>);
 
 impl P2pNetworkKadLatestRequestPeers {
@@ -189,9 +201,26 @@ impl P2pNetworkKadLatestRequestPeers {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, MallocSizeOf)]
 pub enum P2pNetworkKadLatestRequestPeerKind {
     New,
     Existing,
     Discarded,
+}
+mod measurement {
+    use std::{collections::BTreeMap, mem};
+
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::P2pNetworkKadRequestState;
+    use crate::PeerId;
+
+    pub fn requests_map(
+        val: &BTreeMap<PeerId, P2pNetworkKadRequestState>,
+        ops: &mut MallocSizeOfOps,
+    ) -> usize {
+        val.iter()
+            .map(|(k, v)| mem::size_of_val(k) + mem::size_of_val(v) + v.size_of(ops))
+            .sum()
+    }
 }

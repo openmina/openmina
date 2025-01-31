@@ -2,11 +2,12 @@ use std::{fmt, str::FromStr};
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
 use libp2p_identity::DecodingError;
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 use super::PublicKey;
 
-#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
+#[derive(Ord, PartialOrd, Eq, PartialEq, Clone, Copy, MallocSizeOf)]
 pub struct PeerId([u64; 4]);
 
 impl PeerId {
@@ -73,7 +74,7 @@ impl fmt::Debug for PeerId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, thiserror::Error, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, thiserror::Error, Serialize, Deserialize, MallocSizeOf)]
 pub enum PeerIdFromLibp2pPeerId {
     #[error("error decoding public key from protobuf: {0}")]
     Protobuf(String),

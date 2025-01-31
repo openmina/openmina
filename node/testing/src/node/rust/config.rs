@@ -40,6 +40,7 @@ pub struct RustNodeTestingConfig {
     pub libp2p_port: Option<u16>,
     #[serde(default)]
     pub recorder: Recorder,
+    pub peer_discovery: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -68,6 +69,7 @@ impl RustNodeTestingConfig {
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
             recorder: Default::default(),
+            peer_discovery: true,
         }
     }
 
@@ -83,6 +85,7 @@ impl RustNodeTestingConfig {
             timeouts: P2pTimeouts::without_rpc(),
             libp2p_port: None,
             recorder: Default::default(),
+            peer_discovery: true,
         }
     }
 
@@ -116,6 +119,11 @@ impl RustNodeTestingConfig {
             serde_json::from_reader(&mut File::open(daemon_json).expect("daemon json file"))
                 .expect("daemon json"),
         ));
+        self
+    }
+
+    pub fn with_no_peer_discovery(mut self) -> Self {
+        self.peer_discovery = false;
         self
     }
 }

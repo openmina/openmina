@@ -651,6 +651,7 @@ impl PrebuiltGenesisConfig {
         Ok((masks, load_result))
     }
 
+    #[allow(clippy::result_unit_err)]
     pub fn from_loaded(
         (masks, data): (Vec<ledger::Mask>, GenesisConfigLoaded),
     ) -> Result<Self, ()> {

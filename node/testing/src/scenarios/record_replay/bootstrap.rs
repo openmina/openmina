@@ -37,7 +37,7 @@ impl RecordReplayBootstrap {
                             && state
                                 .transition_frontier
                                 .best_tip()
-                                .map_or(false, |tip| !tip.is_genesis())
+                                .is_some_and(|tip| !tip.is_genesis())
                     }),
             )
             .await

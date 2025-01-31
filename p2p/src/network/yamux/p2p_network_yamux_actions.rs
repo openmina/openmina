@@ -20,7 +20,6 @@ pub enum P2pNetworkYamuxAction {
     #[action_event(level = trace)]
     IncomingFrame {
         addr: ConnectionAddr,
-        frame: YamuxFrame,
     },
     #[action_event(level = trace)]
     OutgoingFrame {

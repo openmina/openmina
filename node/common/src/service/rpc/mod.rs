@@ -10,10 +10,11 @@ pub mod transition_frontier;
 use node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
     RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
-    RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
-    RpcStatusGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
-    RpcTransactionStatusGetResponse, RpcTransitionFrontierUserCommandsResponse,
+    RpcHeartbeatGetResponse, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
+    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest,
+    RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
+    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+    RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -167,7 +168,6 @@ fn optimize_filtered_state(
         config
             | p2p
             | snark
-            | consensus
             | transition_frontier
             | snark_pool
             | external_snark_worker
@@ -215,6 +215,8 @@ impl node::rpc_effectful::RpcService for NodeService {
         Ok(())
     }
     rpc_service_impl!(respond_status_get, RpcStatusGetResponse);
+
+    rpc_service_impl!(respond_heartbeat_get, RpcHeartbeatGetResponse);
 
     rpc_service_impl!(respond_sync_stats_get, RpcSyncStatsGetResponse);
     rpc_service_impl!(respond_action_stats_get, RpcActionStatsGetResponse);
