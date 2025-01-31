@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n        SELECT id, start_time, end_time\n        FROM time_windows\n        WHERE start_time <= ?2 AND end_time >= ?1 AND disabled = FALSE\n        ORDER BY start_time ASC\n        ",
+  "query": "\n            SELECT id, start_time, end_time\n            FROM time_windows\n            WHERE start_time <= ?2 AND end_time >= ?1 AND disabled = FALSE\n            ORDER BY start_time ASC\n            ",
   "describe": {
     "columns": [
       {
@@ -28,5 +28,5 @@
       false
     ]
   },
-  "hash": "6a6910daae1887a4e1a8570c8fb06d1d585460f13b56a45d49fe2fc7447829a9"
+  "hash": "45341663b6eb18a14a7106b3bf53a63c585f507ac1a957ee60a89b0de50fc9fc"
 }
