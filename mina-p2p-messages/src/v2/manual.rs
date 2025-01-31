@@ -745,6 +745,62 @@ pub enum ArchiveRpc {
     SendDiff(ArchiveTransitionFronntierDiff),
 }
 
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+pub struct PrecomputedBlockProof(pub MinaBaseProofStableV2);
+
+impl Serialize for PrecomputedBlockProof {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+        use binprot::BinProtWrite;
+        let mut buf = Vec::new();
+        self.0
+            .binprot_write(&mut buf)
+            .map_err(serde::ser::Error::custom)?;
+        let base64_data = URL_SAFE.encode(&buf);
+        serializer.serialize_str(&base64_data)
+    }
+}
+
+impl<'de> Deserialize<'de> for PrecomputedBlockProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+        let base64_data = String::deserialize(deserializer)?;
+        let binprot_data = URL_SAFE
+            .decode(&base64_data)
+            .map_err(serde::de::Error::custom)?;
+        let mut read = binprot_data.as_slice();
+        let proof: MinaBaseProofStableV2 =
+            binprot::BinProtRead::binprot_read(&mut read).map_err(serde::de::Error::custom)?;
+        Ok(PrecomputedBlockProof(proof))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct PrecomputedBlock {
+    pub scheduled_time: BlockTimeTimeStableV1,
+    pub protocol_state: MinaStateProtocolStateValueStableV2,
+    pub protocol_state_proof: PrecomputedBlockProof,
+    pub staged_ledger_diff: StagedLedgerDiffDiffStableV2,
+    // FIXME: for some reason in OCaml the base58check conversion for the JSON value
+    // uses version byte = 0x05 (ledger hash) instead of 0x10 (StateHash) and 0x11 (StateBodyHash)
+    pub delta_transition_chain_proof: (
+        LedgerHash,       // StateHash
+        List<LedgerHash>, // StateBodyHash
+    ),
+    pub protocol_version: ProtocolVersionStableV2,
+    #[serde(default)]
+    pub proposed_protocol_version: Option<ProtocolVersionStableV2>,
+    //accounts_accessed: (), // (int * Account.t) list
+    //accounts_created: (), // (Account_id.t * Currency.Fee.t) list
+    //tokens_used: (), // (Token_id.t * Account_id.t option) list
+}
+
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
