@@ -126,7 +126,7 @@ pub enum ActionKind {
     BlockProducerWonSlotTransactionsGet,
     BlockProducerWonSlotTransactionsSuccess,
     BlockProducerWonSlotWait,
-    BlockProducerEffectfulBlockInjected,
+    BlockProducerEffectfulBlockProduced,
     BlockProducerEffectfulBlockProveInit,
     BlockProducerEffectfulBlockProveSuccess,
     BlockProducerEffectfulBlockUnprovenBuild,
@@ -1019,7 +1019,7 @@ impl ActionKindGet for BlockProducerEffectfulAction {
             Self::BlockUnprovenBuild => ActionKind::BlockProducerEffectfulBlockUnprovenBuild,
             Self::BlockProveInit => ActionKind::BlockProducerEffectfulBlockProveInit,
             Self::BlockProveSuccess => ActionKind::BlockProducerEffectfulBlockProveSuccess,
-            Self::BlockInjected { .. } => ActionKind::BlockProducerEffectfulBlockInjected,
+            Self::BlockProduced { .. } => ActionKind::BlockProducerEffectfulBlockProduced,
         }
     }
 }
