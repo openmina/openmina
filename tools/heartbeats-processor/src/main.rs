@@ -99,13 +99,14 @@ async fn post_scores_to_firestore(pool: &SqlitePool, db: &FirestoreDb) -> Result
 async fn run_process_loop(
     pool: &SqlitePool,
     db: &FirestoreDb,
+    config: &Config,
     interval_seconds: u64,
 ) -> Result<()> {
     let interval = std::time::Duration::from_secs(interval_seconds);
 
     loop {
         println!("Processing heartbeats...");
-        local_db::process_heartbeats(db, pool).await?;
+        local_db::process_heartbeats(db, pool, config).await?;
 
         println!("Posting scores...");
         post_scores_to_firestore(pool, db).await?;
@@ -137,7 +138,7 @@ async fn main() -> Result<()> {
             local_db::create_tables_from_file(&pool).await?;
             local_db::ensure_initial_windows(&pool, &config).await?;
             local_db::mark_disabled_windows(&pool, &config).await?;
-            local_db::process_heartbeats(&db, &pool).await?;
+            local_db::process_heartbeats(&db, &pool, &config).await?;
             println!("Processing completed successfully!");
         }
         Commands::ToggleWindows {
@@ -167,7 +168,7 @@ async fn main() -> Result<()> {
             local_db::create_tables_from_file(&pool).await?;
             local_db::ensure_initial_windows(&pool, &config).await?;
             local_db::mark_disabled_windows(&pool, &config).await?;
-            run_process_loop(&pool, &db, interval_seconds).await?;
+            run_process_loop(&pool, &db, &config, interval_seconds).await?;
         }
     }
 
