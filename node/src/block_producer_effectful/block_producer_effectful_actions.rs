@@ -17,7 +17,7 @@ pub enum BlockProducerEffectfulAction {
     BlockUnprovenBuild,
     BlockProveInit,
     BlockProveSuccess,
-    BlockInjected {
+    BlockProduced {
         block: ArcBlockWithHash,
     },
 }
