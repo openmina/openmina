@@ -155,72 +155,70 @@ pub async fn get_db(config: &Config) -> Result<FirestoreDb> {
     }
 }
 
-pub async fn fetch_heartbeats_in_chunks(
+pub struct HeartbeatChunkState {
+    pub chunk_start: DateTime<Utc>,
+    pub last_timestamp: Option<DateTime<Utc>>,
+}
+
+pub async fn fetch_heartbeat_chunk(
     db: &FirestoreDb,
-    start_time: DateTime<Utc>,
+    state: &mut HeartbeatChunkState,
     end_time: DateTime<Utc>,
 ) -> Result<Vec<HeartbeatEntry>> {
-    let mut all_heartbeats = Vec::new();
     let chunk_duration = Duration::try_hours(MAX_TIME_CHUNK_HOURS).unwrap();
-    let mut chunk_start = start_time;
+    let chunk_end = (state.chunk_start + chunk_duration).min(end_time);
 
-    while chunk_start < end_time {
-        println!("Fetching heartbeat chunk... {chunk_start}");
-        let chunk_end = (chunk_start + chunk_duration).min(end_time);
-        let mut last_timestamp = None;
-
-        loop {
-            let query = db
-                .fluent()
-                .select()
-                .from("heartbeats")
-                .filter(|q| {
-                    let mut conditions = vec![
-                        q.field("createTime").greater_than_or_equal(
-                            firestore::FirestoreTimestamp::from(chunk_start),
-                        ),
-                        q.field("createTime")
-                            .less_than(firestore::FirestoreTimestamp::from(chunk_end)),
-                    ];
-
-                    if let Some(ts) = &last_timestamp {
-                        conditions.push(
-                            q.field("createTime")
-                                .greater_than(firestore::FirestoreTimestamp::from(*ts)),
-                        );
-                    }
-
-                    q.for_all(conditions)
-                })
-                .order_by([("createTime", FirestoreQueryDirection::Ascending)])
-                .limit(FIRESTORE_BATCH_SIZE);
-
-            let batch: Vec<HeartbeatEntry> = query.obj().query().await?;
-            let completed = batch.len() < FIRESTORE_BATCH_SIZE as usize;
-
-            if batch.is_empty() {
-                break;
-            }
-
-            last_timestamp = batch.last().map(|doc| doc.create_time);
-            all_heartbeats.extend(batch);
-
-            if completed {
-                break;
-            }
-        }
-
-        chunk_start = chunk_end;
+    if state.chunk_start >= end_time {
+        return Ok(Vec::new());
     }
 
-    // Decode payloads after fetching
-    for heartbeat in &mut all_heartbeats {
+    println!("Fetching heartbeat chunk... {}", state.chunk_start);
+
+    let query = db
+        .fluent()
+        .select()
+        .from("heartbeats")
+        .filter(|q| {
+            let mut conditions = vec![
+                q.field("createTime")
+                    .greater_than_or_equal(firestore::FirestoreTimestamp::from(state.chunk_start)),
+                q.field("createTime")
+                    .less_than(firestore::FirestoreTimestamp::from(chunk_end)),
+            ];
+
+            if let Some(ts) = &state.last_timestamp {
+                conditions.push(
+                    q.field("createTime")
+                        .greater_than(firestore::FirestoreTimestamp::from(*ts)),
+                );
+            }
+
+            q.for_all(conditions)
+        })
+        .order_by([("createTime", FirestoreQueryDirection::Ascending)])
+        .limit(FIRESTORE_BATCH_SIZE);
+
+    let mut batch: Vec<HeartbeatEntry> = query.obj().query().await?;
+
+    if batch.is_empty() {
+        state.chunk_start = chunk_end;
+        state.last_timestamp = None;
+    } else {
+        state.last_timestamp = batch.last().map(|doc| doc.create_time);
+        if batch.len() < FIRESTORE_BATCH_SIZE as usize {
+            state.chunk_start = chunk_end;
+            state.last_timestamp = None;
+        }
+    }
+
+    // Decode payloads
+    for heartbeat in &mut batch {
         if let Err(e) = heartbeat.decode_payload() {
             eprintln!("Failed to decode payload: {:?}", e);
         }
     }
 
-    Ok(all_heartbeats)
+    Ok(batch)
 }
 
 pub async fn post_scores(

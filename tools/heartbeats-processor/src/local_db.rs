@@ -9,6 +9,7 @@ use std::fs;
 
 use crate::config::Config;
 use crate::remote_db::BlockInfo;
+use crate::remote_db::HeartbeatChunkState;
 use crate::time::*;
 
 #[derive(Debug)]
@@ -248,151 +249,183 @@ pub async fn process_heartbeats(
     let last_processed_time = get_last_processed_time(pool, Some(config)).await?;
     let now = Utc::now();
 
-    let heartbeats =
-        crate::remote_db::fetch_heartbeats_in_chunks(db, last_processed_time, now).await?;
-    println!("Fetched {} heartbeats", heartbeats.len());
-
-    if heartbeats.is_empty() {
-        return Ok(());
-    }
-
+    let mut total_heartbeats = 0;
     let mut latest_time = last_processed_time;
-    latest_time = heartbeats
-        .iter()
-        .map(|h| h.create_time)
-        .max()
-        .unwrap_or(latest_time);
-
-    let start_ts = to_unix_timestamp(last_processed_time);
-    let end_ts = to_unix_timestamp(latest_time);
-
-    let existing_windows = sqlx::query!(
-        r#"
-        SELECT id, start_time, end_time
-        FROM time_windows
-        WHERE start_time <= ?2 AND end_time >= ?1 AND disabled = FALSE
-        ORDER BY start_time ASC
-        "#,
-        start_ts,
-        end_ts
-    )
-    .fetch_all(pool)
-    .await?;
-
-    let unique_submitters: HashSet<&str> = heartbeats
-        .iter()
-        .map(|entry| entry.submitter.as_str())
-        .collect();
-
-    let public_key_map =
-        ensure_public_keys(pool, &unique_submitters.into_iter().collect::<Vec<_>>()).await?;
-
-    let mut presence_count = 0;
-    let mut skipped_count = 0;
-    let mut blocks_recorded = 0;
-    let mut blocks_duplicate = 0;
-    let mut processed_heartbeats = HashSet::new();
-    let mut produced_blocks_batch = Vec::new();
     let mut seen_blocks: HashMap<(i64, String), DateTime<Utc>> = HashMap::new();
 
-    for window in existing_windows {
-        let window_start = from_unix_timestamp(window.start_time);
-        let window_end = from_unix_timestamp(window.end_time);
-        let mut presence_batch = Vec::new();
+    // Statistics
+    let mut total_presence_count = 0;
+    let mut total_skipped_count = 0;
+    let mut total_blocks_recorded = 0;
+    let mut total_blocks_duplicate = 0;
+    let mut total_outside_windows = 0;
 
-        for (idx, entry) in heartbeats.iter().enumerate() {
-            if entry.create_time >= window_start && entry.create_time < window_end {
-                processed_heartbeats.insert(idx);
+    let mut chunk_state = HeartbeatChunkState {
+        chunk_start: last_processed_time,
+        last_timestamp: None,
+    };
 
-                let best_tip = entry.best_tip_block();
+    loop {
+        let heartbeats = crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, now).await?;
+        if heartbeats.is_empty() {
+            break;
+        }
 
-                if entry.is_synced() && best_tip.is_some() {
-                    if let Some(&public_key_id) = public_key_map.get(&entry.submitter) {
-                        presence_batch.push(HeartbeatPresence {
-                            window_id: window.id.unwrap(),
-                            public_key_id,
-                            best_tip: best_tip.unwrap(), // Cannot fail due to the above check
-                            heartbeat_time: to_unix_timestamp(entry.create_time),
-                        });
-                        presence_count += 1;
+        total_heartbeats += heartbeats.len();
+        println!("Processing batch of {} heartbeats...", heartbeats.len());
 
-                        // Add produced block if it exists
-                        match entry.last_produced_block_decoded() {
-                            Ok(Some(block)) => {
-                                let block_data = entry.last_produced_block_raw().unwrap(); // Cannot fail, we have the block
-                                let key = (public_key_id, block.hash().to_string());
+        latest_time = latest_time.max(
+            heartbeats
+                .iter()
+                .map(|h| h.create_time)
+                .max()
+                .unwrap_or(latest_time),
+        );
 
-                                if let Some(first_seen) = seen_blocks.get(&key) {
-                                    blocks_duplicate += 1;
-                                    println!(
-                                        "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
-                                        key.1,
-                                        block.height(),
-                                        entry.submitter,
-                                        entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
-                                        first_seen,
-                                        entry.create_time
-                                    );
-                                    continue;
+        let start_ts = to_unix_timestamp(last_processed_time);
+        let end_ts = to_unix_timestamp(latest_time);
+
+        let existing_windows = sqlx::query!(
+            r#"
+            SELECT id, start_time, end_time
+            FROM time_windows
+            WHERE start_time <= ?2 AND end_time >= ?1 AND disabled = FALSE
+            ORDER BY start_time ASC
+            "#,
+            start_ts,
+            end_ts
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let unique_submitters: HashSet<&str> = heartbeats
+            .iter()
+            .map(|entry| entry.submitter.as_str())
+            .collect();
+
+        let public_key_map =
+            ensure_public_keys(pool, &unique_submitters.into_iter().collect::<Vec<_>>()).await?;
+
+        let mut presence_count = 0;
+        let mut skipped_count = 0;
+        let mut blocks_recorded = 0;
+        let mut blocks_duplicate = 0;
+        let mut processed_heartbeats = HashSet::new();
+        let mut produced_blocks_batch = Vec::new();
+
+        for window in existing_windows {
+            let window_start = from_unix_timestamp(window.start_time);
+            let window_end = from_unix_timestamp(window.end_time);
+            let mut presence_batch = Vec::new();
+
+            for (idx, entry) in heartbeats.iter().enumerate() {
+                if entry.create_time >= window_start && entry.create_time < window_end {
+                    processed_heartbeats.insert(idx);
+
+                    let best_tip = entry.best_tip_block();
+
+                    if entry.is_synced() && best_tip.is_some() {
+                        if let Some(&public_key_id) = public_key_map.get(&entry.submitter) {
+                            presence_batch.push(HeartbeatPresence {
+                                window_id: window.id.unwrap(),
+                                public_key_id,
+                                best_tip: best_tip.unwrap(), // Cannot fail due to the above check
+                                heartbeat_time: to_unix_timestamp(entry.create_time),
+                            });
+                            presence_count += 1;
+
+                            // Add produced block if it exists
+                            match entry.last_produced_block_decoded() {
+                                Ok(Some(block)) => {
+                                    let block_data = entry.last_produced_block_raw().unwrap(); // Cannot fail, we have the block
+                                    let key = (public_key_id, block.hash().to_string());
+
+                                    if let Some(first_seen) = seen_blocks.get(&key) {
+                                        blocks_duplicate += 1;
+                                        println!(
+                                            "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
+                                            key.1,
+                                            block.height(),
+                                            entry.submitter,
+                                            entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
+                                            first_seen,
+                                            entry.create_time
+                                        );
+                                        continue;
+                                    }
+
+                                    seen_blocks.insert(key.clone(), entry.create_time);
+                                    produced_blocks_batch.push(ProducedBlock {
+                                        window_id: window.id.unwrap(),
+                                        public_key_id,
+                                        block_hash: block.hash().to_string(),
+                                        block_height: block.height(),
+                                        block_global_slot: block.global_slot(),
+                                        block_data,
+                                    });
                                 }
-
-                                seen_blocks.insert(key.clone(), entry.create_time);
-                                produced_blocks_batch.push(ProducedBlock {
-                                    window_id: window.id.unwrap(),
-                                    public_key_id,
-                                    block_hash: block.hash().to_string(),
-                                    block_height: block.height(),
-                                    block_global_slot: block.global_slot(),
-                                    block_data,
-                                });
-                            }
-                            Ok(None) => (), // No block to process
-                            Err(e) => {
-                                println!(
-                                    "WARNING: Failed to decode block from {}: {}",
-                                    entry.submitter, e
-                                )
+                                Ok(None) => (), // No block to process
+                                Err(e) => {
+                                    println!(
+                                        "WARNING: Failed to decode block from {}: {}",
+                                        entry.submitter, e
+                                    )
+                                }
                             }
                         }
+                    } else {
+                        if let Ok(Some(block)) = entry.last_produced_block_decoded() {
+                            println!(
+                                "Skipping unsynced block: {} (height: {}, producer: {}, peer_id: {})",
+                                block.hash(),
+                                block.height(),
+                                entry.submitter,
+                                entry.peer_id().unwrap_or_else(|| "unknown".to_string())
+                            );
+                        }
+                        skipped_count += 1;
                     }
-                } else {
-                    if let Ok(Some(block)) = entry.last_produced_block_decoded() {
-                        println!(
-                            "Skipping unsynced block: {} (height: {}, producer: {}, peer_id: {})",
-                            block.hash().to_string(),
-                            block.height(),
-                            entry.submitter,
-                            entry.peer_id().unwrap_or_else(|| "unknown".to_string())
-                        );
-                    }
-                    skipped_count += 1;
                 }
+            }
+
+            if !presence_batch.is_empty() {
+                batch_insert_presence(pool, &presence_batch).await?;
             }
         }
 
-        if !presence_batch.is_empty() {
-            batch_insert_presence(pool, &presence_batch).await?;
+        if !produced_blocks_batch.is_empty() {
+            blocks_recorded = produced_blocks_batch.len();
+            batch_insert_produced_blocks(pool, &produced_blocks_batch).await?;
         }
-    }
 
-    if !produced_blocks_batch.is_empty() {
-        blocks_recorded = produced_blocks_batch.len();
-        batch_insert_produced_blocks(pool, &produced_blocks_batch).await?;
-    }
+        let outside_windows = heartbeats.len() - processed_heartbeats.len();
 
-    let outside_windows = heartbeats.len() - processed_heartbeats.len();
+        println!(
+            "Batch complete: {} presences, {} blocks ({} duplicates), {} skipped, {} outside windows",
+            presence_count,
+            blocks_recorded,
+            blocks_duplicate,
+            skipped_count,
+            outside_windows
+        );
+
+        total_presence_count += presence_count;
+        total_skipped_count += skipped_count;
+        total_blocks_recorded += blocks_recorded;
+        total_blocks_duplicate += blocks_duplicate;
+        total_outside_windows += outside_windows;
+    }
 
     println!(
-        "Processed {} heartbeats ({} synced presences recorded, {} unique blocks recorded ({} duplicates skipped), {} unsynced skipped), {} outside of defined windows",
-        processed_heartbeats.len(),
-        presence_count,
-        blocks_recorded,
-        blocks_duplicate,
-        skipped_count,
-        outside_windows
+        "Processed {} total heartbeats ({} synced presences recorded, {} unique blocks recorded ({} duplicates skipped), {} unsynced skipped), {} outside of defined windows",
+        total_heartbeats,
+        total_presence_count,
+        total_blocks_recorded,
+        total_blocks_duplicate,
+        total_skipped_count,
+        total_outside_windows,
     );
 
-    // Update the last processed time
     if latest_time > last_processed_time {
         update_last_processed_time(pool, latest_time).await?;
     }
