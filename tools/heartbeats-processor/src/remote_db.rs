@@ -184,7 +184,7 @@ pub async fn fetch_heartbeats_in_chunks(
 
                     q.for_all(conditions)
                 })
-                .order_by([("createTime", FirestoreQueryDirection::Descending)])
+                .order_by([("createTime", FirestoreQueryDirection::Ascending)])
                 .limit(FIRESTORE_BATCH_SIZE);
 
             let batch: Vec<HeartbeatEntry> = query.obj().query().await?;
