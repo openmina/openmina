@@ -116,7 +116,6 @@ pub struct StagedLedger {
 }
 
 impl StagedLedger {
-    #[cfg(feature = "fuzzing")]
     pub fn ledger_ref(&self) -> &Mask {
         &self.ledger
     }

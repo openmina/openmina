@@ -17,6 +17,7 @@ impl LedgerState {
                 } = action
                 {
                     if let Ok(state) = state_context.get_substate_mut() {
+                        assert!(result.alive_masks <= 294);
                         state.alive_masks = result.alive_masks;
                     }
                 }

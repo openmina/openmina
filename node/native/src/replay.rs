@@ -1,8 +1,10 @@
 use std::cell::RefCell;
 
 use node::{
-    core::thread, recorder::StateWithInputActionsReader, snark::BlockVerifier, ActionWithMeta,
-    BuildEnv, Store,
+    core::thread,
+    recorder::StateWithInputActionsReader,
+    snark::{BlockVerifier, TransactionVerifier},
+    ActionWithMeta, BuildEnv, Store,
 };
 
 use crate::NodeService;
@@ -31,6 +33,8 @@ pub fn replay_state_with_input_actions(
         // index/srs doesn't match deserialized one.
         state.snark.block_verify.verifier_index = BlockVerifier::make();
         state.snark.block_verify.verifier_srs = node::snark::get_srs();
+        state.snark.user_command_verify.verifier_index = TransactionVerifier::make();
+        state.snark.user_command_verify.verifier_srs = node::snark::get_srs();
         state
     };
 
