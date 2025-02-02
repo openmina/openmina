@@ -1,3 +1,5 @@
+use openmina_core::bug_condition;
+
 use crate::Substate;
 
 use super::{
@@ -17,6 +19,12 @@ impl LedgerState {
                 } = action
                 {
                     if let Ok(state) = state_context.get_substate_mut() {
+                        if result.alive_masks > 294 {
+                            bug_condition!(
+                                "ledger mask leak: more than 294 ledger masks ({}) detected!",
+                                result.alive_masks
+                            );
+                        }
                         state.alive_masks = result.alive_masks;
                     }
                 }
