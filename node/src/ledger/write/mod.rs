@@ -195,12 +195,21 @@ impl LedgersToKeep {
 impl<'a> FromIterator<&'a ArcBlockWithHash> for LedgersToKeep {
     fn from_iter<T: IntoIterator<Item = &'a ArcBlockWithHash>>(iter: T) -> Self {
         let mut res = Self::new();
-        for block in iter {
+        let best_tip = iter.into_iter().fold(None, |best_tip, block| {
             res.add_snarked(block.snarked_ledger_hash().clone());
-            res.add_snarked(block.staking_epoch_ledger_hash().clone());
-            res.add_snarked(block.next_epoch_ledger_hash().clone());
             res.add_staged(Arc::new(block.staged_ledger_hashes().clone()));
+            match best_tip {
+                None => Some(block),
+                Some(tip) if tip.height() < block.height() => Some(block),
+                old => old,
+            }
+        });
+
+        if let Some(best_tip) = best_tip {
+            res.add_snarked(best_tip.staking_epoch_ledger_hash().clone());
+            res.add_snarked(best_tip.next_epoch_ledger_hash().clone());
         }
+
         res
     }
 }
