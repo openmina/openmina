@@ -12,7 +12,8 @@ use crate::NodeService;
 pub fn replay_state_with_input_actions(
     dir: &str,
     dynamic_effects_lib: Option<String>,
-    mut check_build_env: impl FnMut(&BuildEnv, &BuildEnv) -> anyhow::Result<()>,
+    ignore_mismatch: bool,
+    mut check_build_env: impl FnMut(&BuildEnv, &BuildEnv, bool) -> anyhow::Result<()>,
 ) -> anyhow::Result<crate::Node> {
     eprintln!("replaying node based on initial state and actions from the dir: {dir}");
     let reader = StateWithInputActionsReader::new(dir);
@@ -50,7 +51,7 @@ pub fn replay_state_with_input_actions(
     let store = node.store_mut();
 
     let replay_env = BuildEnv::get();
-    check_build_env(&store.state().config.build, &replay_env)?;
+    check_build_env(&store.state().config.build, &replay_env, ignore_mismatch)?;
 
     eprintln!("reading actions from dir: {dir}");
 

@@ -51,7 +51,8 @@ impl RecordReplayBootstrap {
         let replayed_node = replay_state_with_input_actions(
             recording_dir.as_os_str().to_str().unwrap(),
             None,
-            |_, _| Ok(()),
+            false,
+            |_, _, _| Ok(()),
         )
         .expect("replay failed");
 
