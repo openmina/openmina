@@ -115,7 +115,7 @@ impl Serialize for TransactionHash {
         if serializer.is_human_readable() {
             serializer.serialize_str(&self.to_string())
         } else {
-            self.0.serialize(serializer)
+            serde_bytes::serialize(&*self.0, serializer)
         }
     }
 }
@@ -129,9 +129,7 @@ impl<'de> serde::Deserialize<'de> for TransactionHash {
             let b58: String = Deserialize::deserialize(deserializer)?;
             Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
         } else {
-            let v = Vec::deserialize(deserializer)?;
-            v.try_into()
-                .map_err(|_| serde::de::Error::custom("transaction hash wrong size"))
+            serde_bytes::deserialize(deserializer)
                 .map(Arc::new)
                 .map(Self)
         }
