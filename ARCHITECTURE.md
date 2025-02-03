@@ -164,7 +164,7 @@ which is very useful for debugging.
 ## Event
 
 An [Event](node/src/event_source/event.rs), represents all types of data/input
-comming from outside the state machine (mostly from services).
+coming from outside the state machine (mostly from services).
 
 It is wrapped by [EventSourceNewEventAction](node/src/event_source/event_source_actions.rs),
 and dispatched when new event arrives.
