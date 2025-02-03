@@ -1948,8 +1948,10 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
     let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
     let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
     let step_domain: u8 = proof_state.deferred_values.branch_data.domain_log2.as_u8();
-    let domain: Radix2EvaluationDomain<Fp> =
-        Radix2EvaluationDomain::new(1 << step_domain as u64).unwrap();
+    let Some(domain) = Radix2EvaluationDomain::<Fp>::new(1 << step_domain as u64) else {
+        return Err(InvalidBigInt);
+    };
+
     let zetaw = zeta * domain.group_gen;
 
     let plonk_minimal = PlonkMinimal::<Fp, 4> {
