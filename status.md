@@ -106,7 +106,7 @@
     - [ ] Enable proofs verification (for performance reasons, that is skipped right now)
   - [x] OCaml node counterpart to replay failed block applications (for debugging an testing)
   - [ ] CI pipeline to regularly test application of mainnet blocks
-  - [ ] Support for applying all blocks, not just the cannonical chain
+  - [ ] Support for applying all blocks, not just the canonical chain
   - [ ] Produce tracing receipts from both the OCaml and Rust implementations that can be compared (for debugging and verification purposes)
 - Webnode
   - [x] WASM compilation
