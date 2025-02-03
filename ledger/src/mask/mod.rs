@@ -41,6 +41,9 @@ pub fn alive_len() -> usize {
     exec(|list| list.len())
 }
 
-pub fn alive_collect() -> Vec<Uuid> {
+pub fn alive_collect<B>() -> B
+where
+    B: FromIterator<Uuid>,
+{
     exec(|list| list.iter().cloned().collect())
 }

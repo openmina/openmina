@@ -54,7 +54,7 @@ pub enum LedgerWriteRequest {
         skip_verification: bool,
     },
     Commit {
-        ledgers_to_keep: BTreeSet<v2::LedgerHash>,
+        ledgers_to_keep: LedgersToKeep,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<v2::StateHash, v2::MinaStateProtocolStateValueStableV2>,
         new_root: AppliedBlock,
@@ -160,6 +160,64 @@ impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
             Err("Archive data not available, not running in archive mode".to_string())
         }
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Default, Clone)]
+pub struct LedgersToKeep {
+    snarked: BTreeSet<v2::LedgerHash>,
+    staged: BTreeSet<Arc<v2::MinaBaseStagedLedgerHashStableV1>>,
+}
+
+impl LedgersToKeep {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn contains<'a, T>(&self, key: T) -> bool
+    where
+        T: 'a + Into<LedgerToKeep<'a>>,
+    {
+        match key.into() {
+            LedgerToKeep::Snarked(hash) => self.snarked.contains(hash),
+            LedgerToKeep::Staged(hash) => self.staged.contains(hash),
+        }
+    }
+
+    pub fn add_snarked(&mut self, hash: v2::LedgerHash) -> bool {
+        self.snarked.insert(hash)
+    }
+
+    pub fn add_staged(&mut self, hash: Arc<v2::MinaBaseStagedLedgerHashStableV1>) -> bool {
+        self.staged.insert(hash)
+    }
+}
+
+impl<'a> FromIterator<&'a ArcBlockWithHash> for LedgersToKeep {
+    fn from_iter<T: IntoIterator<Item = &'a ArcBlockWithHash>>(iter: T) -> Self {
+        let mut res = Self::new();
+        let best_tip = iter.into_iter().fold(None, |best_tip, block| {
+            res.add_snarked(block.snarked_ledger_hash().clone());
+            res.add_staged(Arc::new(block.staged_ledger_hashes().clone()));
+            match best_tip {
+                None => Some(block),
+                Some(tip) if tip.height() < block.height() => Some(block),
+                old => old,
+            }
+        });
+
+        if let Some(best_tip) = best_tip {
+            res.add_snarked(best_tip.staking_epoch_ledger_hash().clone());
+            res.add_snarked(best_tip.next_epoch_ledger_hash().clone());
+        }
+
+        res
+    }
+}
+
+#[derive(derive_more::From)]
+pub enum LedgerToKeep<'a> {
+    Snarked(&'a v2::LedgerHash),
+    Staged(&'a v2::MinaBaseStagedLedgerHashStableV1),
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
