@@ -740,6 +740,29 @@ pub enum ArchiveTransitionFronntierDiff {
     BoostrapOf(()),
 }
 
+impl ArchiveTransitionFronntierDiff {
+    pub fn accounts_accessed(&self) -> List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)> {
+        match self {
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded { accounts_accessed, .. } => accounts_accessed.clone(),
+            _ => List::new(),
+        }
+    }
+
+    pub fn accounts_created(&self) -> List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)> {
+        match self {
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded { accounts_created, .. } => accounts_created.clone(),
+            _ => List::new(),
+        }
+    }
+
+    pub fn tokens_used(&self) -> List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)> {
+        match self {
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded { tokens_used, .. } => tokens_used.clone(),
+            _ => List::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum ArchiveRpc {
     SendDiff(ArchiveTransitionFronntierDiff),
@@ -781,6 +804,12 @@ impl<'de> Deserialize<'de> for PrecomputedBlockProof {
     }
 }
 
+impl From<MinaBaseProofStableV2> for PrecomputedBlockProof {
+    fn from(value: MinaBaseProofStableV2) -> Self {
+        Self(value)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PrecomputedBlock {
     pub scheduled_time: BlockTimeTimeStableV1,
@@ -796,9 +825,15 @@ pub struct PrecomputedBlock {
     pub protocol_version: ProtocolVersionStableV2,
     #[serde(default)]
     pub proposed_protocol_version: Option<ProtocolVersionStableV2>,
-    //accounts_accessed: (), // (int * Account.t) list
-    //accounts_created: (), // (Account_id.t * Currency.Fee.t) list
-    //tokens_used: (), // (Token_id.t * Account_id.t option) list
+    pub accounts_accessed: List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)>,
+    pub accounts_created: List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)>,
+    pub tokens_used: List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct PrecomputedBlockData {
+    pub version: u32,
+    pub data: PrecomputedBlock,
 }
 
 #[cfg(test)]
