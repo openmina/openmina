@@ -498,6 +498,7 @@ pub async fn update_scores(pool: &SqlitePool) -> Result<()> {
         LEFT JOIN time_windows tw ON hp.window_id = tw.id
         LEFT JOIN produced_blocks pb ON pk.id = pb.public_key_id
         WHERE tw.disabled = FALSE
+        AND tw.end_time <= strftime('%s', 'now')
         GROUP BY pk.id
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
