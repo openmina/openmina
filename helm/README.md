@@ -13,7 +13,7 @@ To use e.g. different account and fee, run
 helm install openmina ./openmina --set=openmina.snarkerPublicKey=<pubkey> --set=openmina.fee=<fee>
 ```
 
-## Runnig Openmina Nodes with Bootstrap Replayer
+## Running Openmina Nodes with Bootstrap Replayer
 
 The command [bootstrap.sh] prints Helm commands that should be executed to install all needed pieces:
 
