@@ -1,6 +1,6 @@
 # Helm Charts for Openmina
 
-## Runing Openmina Snarker for Berkeley Testnet
+## Running, Ruining Openmina Snarker for Berkeley Testnet
 
 This will start openmina snarker using account, chain ID and fee as specified in [openmina/values.yaml].
 ``` sh
