@@ -162,6 +162,33 @@ impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
     }
 }
 
+impl TryFrom<&BlockApplyResult> for v2::PrecomputedBlock {
+    type Error = String;
+
+    fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
+        let archive_transition_frontier_diff: v2::ArchiveTransitionFronntierDiff = value.try_into()?;
+
+        let res = Self {
+            scheduled_time: value.block.header().protocol_state.body.blockchain_state.timestamp,
+            protocol_state: value.block.header().protocol_state.clone(),
+            protocol_state_proof: value.block.header().protocol_state_proof.as_ref().clone().into(),
+            staged_ledger_diff: value.block.body().staged_ledger_diff.clone(),
+            // TODO(adonagy): add the actual delta transition chain proof
+            delta_transition_chain_proof: (
+                mina_p2p_messages::v2::LedgerHash::zero(),
+                mina_p2p_messages::list::List::new(),
+            ),
+            protocol_version: value.block.header().current_protocol_version.clone(),
+            proposed_protocol_version: None,
+            accounts_accessed: archive_transition_frontier_diff.accounts_accessed(),
+            accounts_created: archive_transition_frontier_diff.accounts_created(),
+            tokens_used: archive_transition_frontier_diff.tokens_used(),
+        };
+
+        Ok(res)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Default, Clone)]
 pub struct LedgersToKeep {
     snarked: BTreeSet<v2::LedgerHash>,
