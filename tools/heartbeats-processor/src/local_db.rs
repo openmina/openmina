@@ -483,27 +483,60 @@ pub async fn toggle_windows(
     Ok(())
 }
 
-// TODO: multiple blocks for the same slot should be counted as one
 // TODO: take into account the validated flag to count blocks
-pub async fn update_scores(pool: &SqlitePool) -> Result<()> {
+pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
+    let window_start = to_unix_timestamp(config.window_range_start);
+    let current_time = chrono::Utc::now().timestamp();
+
     sqlx::query!(
         r#"
+        WITH ValidWindows AS (
+            SELECT id, start_time, end_time
+            FROM time_windows
+            WHERE disabled = FALSE
+            AND end_time <= ?2
+            AND start_time >= ?1
+        ),
+        BlockCounts AS (
+            -- Count one block per global slot per producer
+            SELECT
+                public_key_id,
+                COUNT(DISTINCT block_global_slot) as blocks
+            FROM (
+                -- Deduplicate blocks per global slot
+                SELECT
+                    pb.public_key_id,
+                    pb.block_global_slot
+                FROM produced_blocks pb
+                JOIN ValidWindows vw ON vw.id = pb.window_id
+                -- TODO: enable once block proof validation has been implemented
+                -- WHERE pb.validated = TRUE
+                GROUP BY pb.public_key_id, pb.block_global_slot
+            ) unique_blocks
+            GROUP BY public_key_id
+        ),
+        HeartbeatCounts AS (
+            SELECT hp.public_key_id, COUNT(DISTINCT hp.window_id) as heartbeats
+            FROM heartbeat_presence hp
+            JOIN ValidWindows vw ON vw.id = hp.window_id
+            GROUP BY hp.public_key_id
+        )
         INSERT INTO submitter_scores (public_key_id, score, blocks_produced)
         SELECT
             pk.id,
-            COUNT(DISTINCT hp.window_id) as score,
-            COUNT(DISTINCT pb.id) as blocks_produced
+            COALESCE(hc.heartbeats, 0) as score,
+            COALESCE(bc.blocks, 0) as blocks_produced
         FROM public_keys pk
-        LEFT JOIN heartbeat_presence hp ON pk.id = hp.public_key_id
-        LEFT JOIN time_windows tw ON hp.window_id = tw.id
-        LEFT JOIN produced_blocks pb ON pk.id = pb.public_key_id
-        WHERE tw.disabled = FALSE
-        GROUP BY pk.id
+        LEFT JOIN HeartbeatCounts hc ON hc.public_key_id = pk.id
+        LEFT JOIN BlockCounts bc ON bc.public_key_id = pk.id
+        WHERE hc.heartbeats > 0 OR bc.blocks > 0
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
             blocks_produced = excluded.blocks_produced,
             last_updated = strftime('%s', 'now')
-        "#
+        "#,
+        window_start,
+        current_time
     )
     .execute(pool)
     .await?;
@@ -537,9 +570,9 @@ pub async fn get_max_scores(pool: &SqlitePool) -> Result<MaxScores> {
     Ok(MaxScores { total, current })
 }
 
-pub async fn view_scores(pool: &SqlitePool) -> Result<()> {
+pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
     // Make sure scores are up to date
-    update_scores(pool).await?;
+    update_scores(pool, config).await?;
 
     let scores = sqlx::query!(
         r#"
@@ -559,11 +592,11 @@ pub async fn view_scores(pool: &SqlitePool) -> Result<()> {
     let max_scores = get_max_scores(pool).await?;
 
     println!("\nSubmitter Scores:");
-    println!("----------------------------------------");
+    println!("--------------------------------------------------------");
     println!(
-        "Public Key                              | Score | Blocks | Current Max | Total Max | Last Updated"
+        "Public Key                                              | Score | Blocks | Current Max | Total Max | Last Updated"
     );
-    println!("----------------------------------------");
+    println!("--------------------------------------------------------");
 
     for row in scores {
         println!(
