@@ -1,3 +1,4 @@
+use openmina_core::bug_condition;
 use redux::Dispatcher;
 
 use crate::{
@@ -120,7 +121,9 @@ impl LedgerWriteState {
                     && global_slot_since_genesis == expected_global_slot
                 {
                     match result {
-                        Err(err) => todo!("handle staged ledger diff creation err: {err}"),
+                        Err(err) => {
+                            bug_condition!("StagedLedgerDiffCreate error: {err}");
+                        }
                         Ok(output) => {
                             dispatcher.push(BlockProducerAction::StagedLedgerDiffCreateSuccess {
                                 output,
