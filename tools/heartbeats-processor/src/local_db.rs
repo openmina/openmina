@@ -485,26 +485,35 @@ pub async fn toggle_windows(
 
 // TODO: multiple blocks for the same slot should be counted as one
 // TODO: take into account the validated flag to count blocks
-pub async fn update_scores(pool: &SqlitePool) -> Result<()> {
+pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
+    let window_start = to_unix_timestamp(config.window_range_start);
+    let current_time = chrono::Utc::now().timestamp();
+
     sqlx::query!(
         r#"
         INSERT INTO submitter_scores (public_key_id, score, blocks_produced)
         SELECT
             pk.id,
-            COUNT(DISTINCT hp.window_id) as score,
+            COUNT(DISTINCT CASE
+                WHEN tw.disabled = FALSE
+                AND tw.end_time <= ?2
+                AND tw.start_time >= ?1
+                THEN hp.window_id
+                ELSE NULL
+            END) as score,
             COUNT(DISTINCT pb.id) as blocks_produced
         FROM public_keys pk
         LEFT JOIN heartbeat_presence hp ON pk.id = hp.public_key_id
         LEFT JOIN time_windows tw ON hp.window_id = tw.id
-        LEFT JOIN produced_blocks pb ON pk.id = pb.public_key_id
-        WHERE tw.disabled = FALSE
-        AND tw.end_time <= strftime('%s', 'now')
+        LEFT JOIN produced_blocks pb ON pk.id = pb.public_key_id AND pb.window_id = tw.id
         GROUP BY pk.id
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
             blocks_produced = excluded.blocks_produced,
             last_updated = strftime('%s', 'now')
-        "#
+        "#,
+        window_start,
+        current_time
     )
     .execute(pool)
     .await?;
@@ -538,9 +547,9 @@ pub async fn get_max_scores(pool: &SqlitePool) -> Result<MaxScores> {
     Ok(MaxScores { total, current })
 }
 
-pub async fn view_scores(pool: &SqlitePool) -> Result<()> {
+pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
     // Make sure scores are up to date
-    update_scores(pool).await?;
+    update_scores(pool, config).await?;
 
     let scores = sqlx::query!(
         r#"
