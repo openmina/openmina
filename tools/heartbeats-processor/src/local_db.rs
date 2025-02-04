@@ -529,6 +529,7 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
         FROM public_keys pk
         LEFT JOIN HeartbeatCounts hc ON hc.public_key_id = pk.id
         LEFT JOIN BlockCounts bc ON bc.public_key_id = pk.id
+        WHERE hc.heartbeats > 0 OR bc.blocks > 0
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
             blocks_produced = excluded.blocks_produced,
