@@ -976,7 +976,7 @@ mod on_fail {
 
     #[allow(unreachable_code)]
     fn dump_to_file<D: BinProtWrite>(data: &D, filename: &str) {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "fuzzing"))]
         {
             let (_, _) = (data, filename); // avoid unused vars
             return;
