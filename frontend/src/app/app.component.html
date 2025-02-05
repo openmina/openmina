@@ -28,7 +28,8 @@
            class="overflow-hidden"
            [class.no-toolbar]="hideToolbar"
            [class.no-submenus]="subMenusLength < 2"
-           [class.mobile]="menu.isMobile">
+           [class.mobile]="menu.isMobile"
+           [class.uptime]="showUptime">
         <router-outlet></router-outlet>
       </div>
       @if (!isDesktop) {

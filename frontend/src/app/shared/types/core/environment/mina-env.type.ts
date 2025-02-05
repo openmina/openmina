@@ -6,6 +6,9 @@ export interface MinaEnv {
   hideNodeStats?: boolean;
   canAddNodes?: boolean;
   showWebNodeLandingPage?: boolean;
+  showLeaderboard?: boolean;
+  hidePeersPill?: boolean;
+  hideTxPill?: boolean;
   sentry?: {
     dsn: string;
     tracingOrigins: string[];
@@ -14,6 +17,7 @@ export interface MinaEnv {
     features?: FeaturesConfig;
     graphQL?: string;
     firebase?: any;
+    heartbeats?: boolean;
   };
 }
 

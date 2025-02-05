@@ -60,6 +60,7 @@ export class WebNodeService {
   }
 
   loadWasm$(): Observable<void> {
+    console.log('Loading wasm');
     this.webNodeStartTime = Date.now();
 
     if (isBrowser()) {
@@ -142,9 +143,14 @@ export class WebNodeService {
             return throwError(() => new Error(error.message));
           }),
           switchMap(() => this.webnode$.asObservable()),
+          // filter(() => CONFIG.globalConfig.heartbeats),
           switchMap(() => timer(0, 60000)),
           switchMap(() => this.heartBeat$),
           switchMap(heartBeat => this.firestore.addHeartbeat(heartBeat)),
+          catchError(error => {
+            console.log('Error from heartbeat api:', error);
+            return of(null);
+          }),
         );
     }
     return EMPTY;

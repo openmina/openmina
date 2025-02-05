@@ -1,0 +1,44 @@
+@import 'openmina';
+
+
+.chip {
+  gap: 4px;
+  background-color: $base-surface;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    background-color: $success-container;
+  }
+
+  div {
+    color: $success-primary;
+  }
+
+  span {
+    color: $success-secondary;
+
+    &.mina-icon {
+      color: $success-primary;
+    }
+  }
+
+  @media (max-width: 767px) {
+    width: 100%;
+    margin-bottom: 5px;
+    font-size: 12px;
+
+    .mina-icon {
+      display: none;
+    }
+
+    &.h-sm {
+      height: 32px !important;
+    }
+  }
+}

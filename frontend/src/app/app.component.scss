@@ -76,8 +76,10 @@ mat-sidenav-content {
     margin-bottom: 4px;
     border-top-right-radius: 6px;
 
-    &.no-toolbar {
-      height: calc(100% - #{$subMenus} - #{$tabs});
+
+    &.uptime {
+      $toolbar: 130px;
+      height: calc(100% - #{$toolbar} - #{$subMenus} - #{$tabs});
     }
 
     &.no-submenus {
@@ -86,6 +88,14 @@ mat-sidenav-content {
       &.no-toolbar {
         height: 100%;
       }
+
+      &.uptime {
+        height: calc(100% - #{$toolbar} - #{$subMenus});
+      }
+    }
+
+    &.no-toolbar {
+      height: calc(100% - #{$subMenus} - #{$tabs});
     }
   }
 }

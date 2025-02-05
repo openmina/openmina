@@ -128,7 +128,6 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
     blocks = blocks.slice(1);
 
     this.lengthWithoutRoot = blocks.length ?? null; // 290 or 291
-    console.log(this.lengthWithoutRoot);
 
     this.fetched = blocks.filter(b => ![NodesOverviewNodeBlockStatus.MISSING, NodesOverviewNodeBlockStatus.FETCHING].includes(b.status)).length;
     this.applied = blocks.filter(b => b.status === NodesOverviewNodeBlockStatus.APPLIED).length;

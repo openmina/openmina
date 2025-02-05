@@ -14,7 +14,7 @@
             <span class="mina-icon icon-200 f-big circle" [class.active]="row.isActive">circle</span>
             {{ row.publicKey | truncateMid: (desktop ? 15 : 6): 6 }}
           </span>
-          <span class="fx-row-vert-cent">
+          <span class="fx-row-vert-cent" [tooltip]="'Score ' + row.score + ', max score ' + row.maxScore" [position]="TooltipPosition.TOP">
             <span class="perc">{{ row.uptimePercentage }}%</span>
             @if (row.uptimePercentage > 33.33) {
               <span class="mina-icon icon-200 bookmark">bookmark_check</span>

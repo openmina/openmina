@@ -1,7 +1,7 @@
 import { BehaviorSubject } from 'rxjs';
 import { safelyExecuteInBrowser } from '@openmina/shared';
 
-const WASM_FILE_SIZE = 31705944;
+const WASM_FILE_SIZE = 31556926;
 
 class AssetMonitor {
   readonly downloads: Map<string, any> = new Map();

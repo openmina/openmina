@@ -1,5 +1,9 @@
-<mina-leaderboard-apply></mina-leaderboard-apply>
-<div class="flex-column h-100 w-100 overflow-y-scroll">
+<div class="floating-banner overflow-hidden" [class.show]="showBanner">
+  <mina-leaderboard-apply></mina-leaderboard-apply>
+</div>
+
+<div #scrollContainer class="flex-column h-100 w-100 overflow-y-scroll">
+  <mina-leaderboard-apply></mina-leaderboard-apply>
   <mina-leaderboard-header></mina-leaderboard-header>
   <main class="flex-1 flex-column">
     <ng-container *ngTemplateOutlet="content"></ng-container>
@@ -10,10 +14,10 @@
 <ng-template #content>
   <section class="welcome-section flex-column-md flex-row flex-between">
     <div class="flex-column align-center-md" data-aos="fade-right">
-      <h1>We(b) Node<br>Do You?</h1>
+      <h1>We Node<br>Do You?</h1>
       <div class="flex-column flex-center align-start align-center-md">
         <div class="button-description flex-column align-center">
-          <a class="mb-10 fx-row-full-cent pointer" href="https://mdvpmchvuew.typeform.com/to/EtWUgcSz">Apply to be a node runner</a>
+          <a class="mb-10 fx-row-full-cent pointer" href="https://mdvpmchvuew.typeform.com/to/EtWUgcSz">Apply Now</a>
           <p>Round 1 is limited to 100 seats</p>
         </div>
       </div>
@@ -44,7 +48,7 @@
            [style.background-image]="'url(assets/images/landing-page/cta-section-bg.png)'">
     <h1>Run a web node <span>on Testnet and enter a</span> 1000 MINA lottery</h1>
     <div class="button-description flex-column align-center">
-      <a class="mb-10 fx-row-full-cent pointer" href="https://mdvpmchvuew.typeform.com/to/EtWUgcSz">Start Testing & Earn $500 USD</a>
+      <a class="mb-10 fx-row-full-cent pointer" href="https://mdvpmchvuew.typeform.com/to/EtWUgcSz">Apply Now</a>
       <p class="text-center">Apply by DATE. Not Selected? You're first in line next time.</p>
     </div>
   </section>
@@ -56,13 +60,14 @@
     <div class="explanation w-100 flex-row flex-column-md align-center flex-center">
       <img src="assets/images/landing-page/blog-featured-image.jpg" alt="" class="h-100">
       <div class="text flex-column h-100">
-        <h4>The Mina Web Node, part 1</h4>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore .
-        </p>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore .</p>
+        <h4>Join the Mina Web Node Testing Program</h4>
+        <p>Discover all the details about Mina's Web Node Testing Program. Learn how to apply, participate, and earn rewards in Mina Web Node Testing Round
+          1.</p>
         <div class="line w-100"></div>
         <div class="flex-row flex-start">
-          <a href="/leaderboard/details" class="fx-row-vert-cent">Learn more <span class="mina-icon icon-300">arrow_right_alt</span></a>
+          <a href="https://docs.google.com/document/d/1QXRlAAheFibuRoTVncUhZ1ePOR0wOs6mQdXSUEo4rGE/edit?usp=sharing"
+             target="_blank"
+             class="fx-row-vert-cent">Learn more <span class="mina-icon icon-300">arrow_right_alt</span></a>
         </div>
       </div>
     </div>

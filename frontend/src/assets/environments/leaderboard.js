@@ -6,12 +6,14 @@ export default {
   production: true,
   canAddNodes: false,
   showWebNodeLandingPage: true,
+  showLeaderboard: true,
+  hidePeersPill: true,
+  hideTxPill: true,
   globalConfig: {
     features: {
       'dashboard': [],
       'block-production': ['won-slots'],
       'mempool': [],
-      'benchmarks': ['wallets'],
       'state': ['actions'],
     },
     firebase: {
@@ -23,6 +25,7 @@ export default {
       appId: '1:1016673359357:web:bbd2cbf3f031756aec7594',
       measurementId: 'G-ENDBL923XT',
     },
+    heartbeats: true,
   },
   // sentry: {
   //   dsn: 'https://69aba72a6290383494290cf285ab13b3@o4508216158584832.ingest.de.sentry.io/4508216160616528',
