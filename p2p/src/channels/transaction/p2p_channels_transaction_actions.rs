@@ -46,7 +46,7 @@ pub enum P2pChannelsTransactionAction {
     },
     Libp2pReceived {
         peer_id: PeerId,
-        transaction: Box<Transaction>,
+        transactions: Vec<Transaction>,
         nonce: u32,
     },
     Libp2pBroadcast {

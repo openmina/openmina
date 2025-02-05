@@ -37,8 +37,8 @@ pub enum BroadcastMessageId {
     Snark {
         job_id: SnarkJobId,
     },
-    Transaction {
-        tx: TransactionHash,
+    TransactionDiff {
+        txs: Vec<TransactionHash>,
     },
     MessageId {
         message_id: P2pNetworkPubsubMessageCacheId,

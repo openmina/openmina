@@ -238,7 +238,7 @@ pub enum P2pNetworkPubsubMessageCacheMessage {
         time: Timestamp,
     },
     PreValidatedTransactions {
-        tx_hashes: BTreeMap<TransactionHash, bool>,
+        tx_hashes: Vec<TransactionHash>,
         message: pb::Message,
         peer_id: PeerId,
         time: Timestamp,
@@ -360,8 +360,11 @@ impl P2pNetworkPubsubMessageCache {
                     .values()
                     .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark { job_id,.. } if job_id == snark_job_id))
             },
-            BroadcastMessageId::Transaction { tx } => {
-                self.map.values().any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions { tx_hashes, .. } if tx_hashes.get(tx).is_some()))
+            BroadcastMessageId::TransactionDiff { txs } => {
+                self
+                    .map
+                    .values()
+                    .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions { tx_hashes, .. } if compare_transaction_diff(tx_hashes, txs)))
             }
         }
     }
@@ -401,25 +404,31 @@ impl P2pNetworkPubsubMessageCache {
                         _ => None,
                     })
             }
-            BroadcastMessageId::Transaction { tx } => {
+            BroadcastMessageId::TransactionDiff { txs } => {
                 self.map
                     .iter_mut()
                     .find_map(|(message_id, message)| match message {
                         P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions {
                             tx_hashes,
                             ..
-                        } if tx_hashes.get(tx).is_some() => Some((*message_id, message)),
+                        } if compare_transaction_diff(tx_hashes.as_slice(), txs) => {
+                            Some((*message_id, message))
+                        }
                         _ => None,
                     })
             }
         }
     }
 
-    pub fn remove_message(&mut self, message_id: P2pNetworkPubsubMessageCacheId) {
-        let _ = self.map.remove(&message_id);
+    pub fn remove_message(
+        &mut self,
+        message_id: P2pNetworkPubsubMessageCacheId,
+    ) -> Option<P2pNetworkPubsubMessageCacheMessage> {
+        let message = self.map.remove(&message_id);
         if let Some(position) = self.queue.iter().position(|id| id == &message_id) {
             self.queue.remove(position);
         }
+        message
     }
 
     pub fn get_message_from_raw_message_id(
@@ -471,6 +480,14 @@ impl P2pNetworkPubsubClientState {
 impl P2pNetworkPubsubClientTopicState {
     pub fn on_mesh(&self) -> bool {
         matches!(&self.mesh, P2pNetworkPubsubClientMeshAddingState::Added)
+    }
+}
+
+fn compare_transaction_diff(diffa: &[TransactionHash], diffb: &[TransactionHash]) -> bool {
+    if diffa.len() != diffb.len() {
+        false
+    } else {
+        diffa.iter().all(|a| diffb.contains(a)) && diffb.iter().all(|b| diffa.contains(b))
     }
 }
 

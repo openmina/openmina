@@ -539,9 +539,9 @@ impl P2p {
                 }
             )),
             on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
-                on_p2p_channels_transaction_libp2p_received(transaction: Box<TransactionWithHash>) -> crate::Action {
+                on_p2p_channels_transaction_libp2p_received(transactions: Vec<TransactionWithHash>) -> crate::Action {
                     TransactionPoolAction::StartVerify {
-                        commands: std::iter::once(*transaction).collect(),
+                        commands: transactions.into_iter().collect(),
                         from_rpc: None
                     }
                 }

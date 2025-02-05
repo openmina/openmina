@@ -49,7 +49,7 @@ pub enum SnarkPoolCandidateAction {
     WorkVerifyError {
         peer_id: PeerId,
         verify_id: SnarkWorkVerifyId,
-        batch: Vec<Snark>,
+        batch: Vec<SnarkJobId>,
     },
     WorkVerifySuccess {
         peer_id: PeerId,

@@ -1,4 +1,4 @@
-use openmina_core::SubstateAccess;
+use openmina_core::{snark::SnarkJobId, SubstateAccess};
 use serde::{Deserialize, Serialize};
 
 use openmina_core::{snark::Snark, ActionEvent};
@@ -17,7 +17,7 @@ pub enum SnarkWorkVerifyAction {
         batch: Vec<Snark>,
         sender: String,
         on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
-        on_error: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String, Vec<SnarkJobId>)>,
     },
     Pending {
         req_id: SnarkWorkVerifyId,

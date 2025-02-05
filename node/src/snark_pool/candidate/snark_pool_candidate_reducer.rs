@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{p2p_ready, SnarkPoolAction};
-use openmina_core::snark::Snark;
+use openmina_core::snark::{Snark, SnarkJobId};
 use p2p::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
@@ -124,7 +124,7 @@ impl SnarkPoolCandidatesState {
                             }
                         }),
                     on_error: redux::callback!(
-                        on_snark_pool_candidate_work_verify_error((req_id: SnarkWorkVerifyId, sender: String, batch: Vec<Snark>)) -> crate::Action {
+                        on_snark_pool_candidate_work_verify_error((req_id: SnarkWorkVerifyId, sender: String, batch: Vec<SnarkJobId>)) -> crate::Action {
                             SnarkPoolCandidateAction::WorkVerifyError {
                                 peer_id: sender.parse().unwrap(),
                                 verify_id: req_id,
@@ -160,10 +160,10 @@ impl SnarkPoolCandidatesState {
                     reason: P2pDisconnectionReason::SnarkPoolVerifyError,
                 });
 
-                for snark in batch {
+                for snark_job_id in batch {
                     dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
                         message_id: Some(BroadcastMessageId::Snark {
-                            job_id: snark.job_id(),
+                            job_id: snark_job_id.clone(),
                         }),
                         peer_id: None,
                         reason: "Snark work verification failed".to_string(),

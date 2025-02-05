@@ -198,15 +198,14 @@ impl TransactionPoolState {
                 });
             }
             TransactionPoolAction::VerifyError { tx_hashes, .. } => {
-                // just logging the errors
                 let dispatcher = state.into_dispatcher();
-                for tx in tx_hashes {
-                    dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
-                        message_id: Some(BroadcastMessageId::Transaction { tx: tx.clone() }),
-                        peer_id: None,
-                        reason: "Transaction rejected".to_owned(),
-                    });
-                }
+                dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                    message_id: Some(BroadcastMessageId::TransactionDiff {
+                        txs: tx_hashes.clone(),
+                    }),
+                    peer_id: None,
+                    reason: "Transaction rejected".to_owned(),
+                });
             }
             TransactionPoolAction::BestTipChanged { best_tip_hash } => {
                 let account_ids = substate.pool.get_accounts_to_revalidate_on_new_best_tip();
@@ -321,20 +320,17 @@ impl TransactionPoolState {
                 }
 
                 if was_accepted {
-                    for tx in &accepted {
-                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
-                            message_id: BroadcastMessageId::Transaction {
-                                tx: tx.hash.clone(),
-                            },
-                        });
-                    }
-                    for (tx, _) in &rejected {
-                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
-                            message_id: BroadcastMessageId::Transaction {
-                                tx: tx.hash.clone(),
-                            },
-                        });
-                    }
+                    let rejected_map = rejected.iter().map(|(cmd, _)| cmd.hash.clone());
+                    dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                        message_id: BroadcastMessageId::TransactionDiff {
+                            txs: accepted
+                                .iter()
+                                .map(|cmd| cmd.hash.clone())
+                                .chain(rejected_map)
+                                .collect(),
+                        },
+                    });
+
                     dispatcher.push(TransactionPoolAction::Rebroadcast {
                         accepted,
                         rejected,
