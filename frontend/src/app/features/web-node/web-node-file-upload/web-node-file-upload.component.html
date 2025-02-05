@@ -68,14 +68,16 @@
     }
     <div class="buttons-container fx-row-vert-cent flex-between">
       <div class="develop-buttons fx-row-vert-cent">
-        <!--        <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"-->
-        <!--                [tooltip]="'Start a develop Block Producer Web Node'"-->
-        <!--                (click)="onStartDevelopWebnode()">Start BP-->
-        <!--        </button>-->
-        <!--        <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"-->
-        <!--                [tooltip]="'Start a develop Web Node without Block Producer feature'"-->
-        <!--                (click)="onStartDevelopWebnodeNonBP()">Start Non BP-->
-        <!--        </button>-->
+        @if (!isLeaderboard) {
+          <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
+                  [tooltip]="'Start a develop Block Producer Web Node'"
+                  (click)="onStartDevelopWebnode()">Start BP
+          </button>
+          <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
+                  [tooltip]="'Start a develop Web Node without Block Producer feature'"
+                  (click)="onStartDevelopWebnodeNonBP()">Start Non BP
+          </button>
+        }
       </div>
       <button class="whitey h-lg border-rad-8 f-500 pl-12 pr-12"
               (click)="startCustomWebNode()"
