@@ -741,23 +741,41 @@ pub enum ArchiveTransitionFronntierDiff {
 }
 
 impl ArchiveTransitionFronntierDiff {
-    pub fn accounts_accessed(&self) -> List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)> {
+    pub fn block(&self) -> Option<MinaBlockBlockStableV2> {
         match self {
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded { accounts_accessed, .. } => accounts_accessed.clone(),
+            // TODO(adonagy): maybe we should use Arc here instead of cloning
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded { block, .. } => Some(block.0.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn accounts_accessed(
+        &self,
+    ) -> List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)> {
+        match self {
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+                accounts_accessed, ..
+            } => accounts_accessed.clone(),
             _ => List::new(),
         }
     }
 
     pub fn accounts_created(&self) -> List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)> {
         match self {
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded { accounts_created, .. } => accounts_created.clone(),
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+                accounts_created, ..
+            } => accounts_created.clone(),
             _ => List::new(),
         }
     }
 
-    pub fn tokens_used(&self) -> List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)> {
+    pub fn tokens_used(
+        &self,
+    ) -> List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)> {
         match self {
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded { tokens_used, .. } => tokens_used.clone(),
+            ArchiveTransitionFronntierDiff::BreadcrumbAdded { tokens_used, .. } => {
+                tokens_used.clone()
+            }
             _ => List::new(),
         }
     }
@@ -834,6 +852,39 @@ pub struct PrecomputedBlock {
 pub struct PrecomputedBlockData {
     pub version: u32,
     pub data: PrecomputedBlock,
+}
+
+impl PrecomputedBlock {
+    pub fn with_version(&self, version: u32) -> PrecomputedBlockData {
+        PrecomputedBlockData {
+            version,
+            data: self.clone(),
+        }
+    }
+}
+
+impl TryFrom<ArchiveTransitionFronntierDiff> for PrecomputedBlock {
+    type Error = String;
+
+    fn try_from(value: ArchiveTransitionFronntierDiff) -> Result<Self, Self::Error> {
+        let block = value
+            .block()
+            .ok_or("Block not found in archive transition frontier diff")?;
+        let res = Self {
+            scheduled_time: block.header.protocol_state.body.blockchain_state.timestamp,
+            protocol_state: block.header.protocol_state.clone(),
+            protocol_state_proof: block.header.protocol_state_proof.as_ref().clone().into(),
+            staged_ledger_diff: block.body.staged_ledger_diff,
+            // TODO(adonagy): add the actual delta transition chain proof
+            delta_transition_chain_proof: (LedgerHash::zero(), List::new()),
+            protocol_version: block.header.current_protocol_version.clone(),
+            proposed_protocol_version: None,
+            accounts_accessed: value.accounts_accessed(),
+            accounts_created: value.accounts_created(),
+            tokens_used: value.tokens_used(),
+        };
+        Ok(res)
+    }
 }
 
 #[cfg(test)]

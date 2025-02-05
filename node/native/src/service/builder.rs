@@ -7,7 +7,8 @@ use node::{
 };
 pub use openmina_node_common::NodeServiceCommonBuildError;
 use openmina_node_common::{
-    p2p::TaskSpawner, rpc::RpcSender, EventSender, NodeServiceCommonBuilder,
+    archive::ArchiveStorageOptions, p2p::TaskSpawner, rpc::RpcSender, EventSender,
+    NodeServiceCommonBuilder,
 };
 
 use crate::{http_server, NodeService, P2pTaskSpawner};
@@ -55,8 +56,12 @@ impl NodeServiceBuilder {
         self
     }
 
-    pub fn archive_init(&mut self, address: SocketAddr) -> &mut Self {
-        self.common.archive_init(address);
+    pub fn archive_init(
+        &mut self,
+        address: SocketAddr,
+        options: ArchiveStorageOptions,
+    ) -> &mut Self {
+        self.common.archive_init(address, options);
         self
     }
 

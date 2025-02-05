@@ -17,7 +17,7 @@ use node::p2p::identity::SecretKey;
 use node::service::Recorder;
 use node::SnarkerStrategy;
 
-use openmina_node_native::{tracing, NodeBuilder};
+use openmina_node_native::{archive::ArchiveStorageOptions, tracing, NodeBuilder};
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -141,6 +141,24 @@ pub struct Node {
     /// Enable archive mode (seding blocks to the archive process).
     #[arg(long, env)]
     pub archive_address: Option<Url>,
+
+    /// Enable local precomputed storage.
+    #[arg(long, env)]
+    pub archive_local_storage: bool,
+
+    // TODO(adonagy): Sort out this... Do we want to support the ocaml options 1:1?
+    // we could move the addrss to an env var, just like gcp and aws
+    /// Enable archiver process.
+    #[arg(long, env)]
+    pub archive_archiver_process: bool,
+
+    /// Enable GCP precomputed storage.
+    #[arg(long, env)]
+    pub archive_gcp_storage: bool,
+
+    /// Enable AWS precomputed storage.
+    #[arg(long, env)]
+    pub archive_aws_storage: bool,
 }
 
 impl Node {
@@ -272,6 +290,30 @@ impl Node {
             }
         }
 
+        let archive_storage_options = ArchiveStorageOptions::from_iter(
+            [
+                (
+                    self.archive_local_storage,
+                    ArchiveStorageOptions::LOCAL_PRECOMPUTED_STORAGE,
+                ),
+                (
+                    self.archive_archiver_process,
+                    ArchiveStorageOptions::ARCHIVER_PROCESS,
+                ),
+                (
+                    self.archive_gcp_storage,
+                    ArchiveStorageOptions::GCP_PRECOMPUTED_STORAGE,
+                ),
+                (
+                    self.archive_aws_storage,
+                    ArchiveStorageOptions::AWS_PRECOMPUTED_STORAGE,
+                ),
+            ]
+            .iter()
+            .filter(|(enabled, _)| *enabled)
+            .map(|(_, option)| option.clone()),
+        );
+
         if let Some(address) = self.archive_address {
             node::core::info!(
                 summary = "Archive mode enabled",
@@ -281,7 +323,8 @@ impl Node {
             let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
 
             let socket_addr = socket_addrs.first().expect("No socket address found");
-            node_builder.archive(*socket_addr);
+            // TODO(adonagy): add options
+            node_builder.archive(*socket_addr, archive_storage_options);
         }
 
         if let Some(sec_key) = self.run_snarker {
