@@ -98,6 +98,14 @@ pub struct BlockApplyResultArchive {
     pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
 }
 
+impl TryFrom<BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+    type Error = String;
+
+    fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
+        value.try_into()
+    }
+}
+
 impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
     type Error = String;
 
@@ -202,13 +210,13 @@ impl TryFrom<&BlockApplyResult> for v2::PrecomputedBlock {
     }
 }
 
-// impl TryFrom<BlockApplyResult> for v2::PrecomputedBlock {
-//     type Error = String;
+impl TryFrom<BlockApplyResult> for v2::PrecomputedBlock {
+    type Error = String;
 
-//     fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
-//         value.try_into()
-//     }
-// }
+    fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
+        value.try_into()
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct CommitResult {
