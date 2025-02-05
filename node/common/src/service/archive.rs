@@ -1,16 +1,119 @@
+use bitflags::bitflags;
 use mina_p2p_messages::v2::{self, ArchiveTransitionFronntierDiff};
 use node::core::{channels::mpsc, thread};
+use std::env;
 use std::net::SocketAddr;
 
 use super::NodeService;
+
+const ARCHIVE_SEND_RETRIES: u8 = 5;
+const MAX_EVENT_COUNT: u64 = 100;
+const RETRY_INTERVAL_MS: u64 = 1000;
+
+bitflags! {
+    #[derive(Debug, Clone, Default)]
+    pub struct ArchiveStorageOptions: u8 {
+        const ARCHIVER_PROCESS = 0b0001;
+        const LOCAL_PRECOMPUTED_STORAGE = 0b0010;
+        const GCP_PRECOMPUTED_STORAGE = 0b0100;
+        const AWS_PRECOMPUTED_STORAGE = 0b1000;
+    }
+}
+
+impl ArchiveStorageOptions {
+    pub fn is_enabled(&self) -> bool {
+        self.is_empty()
+    }
+
+    pub fn requires_precomputed_block(&self) -> bool {
+        self.uses_aws_precomputed_storage()
+            || self.uses_gcp_precomputed_storage()
+            || self.uses_local_precomputed_storage()
+    }
+
+    pub fn validate_env_vars(&self) -> Result<(), String> {
+        if self.contains(ArchiveStorageOptions::ARCHIVER_PROCESS)
+            && env::var("OPENMINA_ARCHIVE_ADDRESS").is_err()
+        {
+            return Err(
+                "OPENMINA_ARCHIVE_ADDRESS is required when ARCHIVER_PROCESS is enabled".to_string(),
+            );
+        }
+
+        if self.uses_aws_precomputed_storage() {
+            if env::var("AWS_ACCESS_KEY_ID").is_err() {
+                return Err(
+                    "AWS_ACCESS_KEY_ID is required when AWS_PRECOMPUTED_STORAGE is enabled"
+                        .to_string(),
+                );
+            }
+            if env::var("AWS_SECRET_ACCESS_KEY").is_err() {
+                return Err(
+                    "AWS_SECRET_ACCESS_KEY is required when AWS_PRECOMPUTED_STORAGE is enabled"
+                        .to_string(),
+                );
+            }
+            if env::var("AWS_SESSION_TOKEN").is_err() {
+                return Err(
+                    "AWS_SESSION_TOKEN is required when AWS_PRECOMPUTED_STORAGE is enabled"
+                        .to_string(),
+                );
+            }
+        }
+
+        // TODO(adonagy): Add GCP precomputed storage validation
+
+        Ok(())
+    }
+
+    pub fn uses_local_precomputed_storage(&self) -> bool {
+        self.contains(ArchiveStorageOptions::LOCAL_PRECOMPUTED_STORAGE)
+    }
+
+    pub fn uses_archiver_process(&self) -> bool {
+        self.contains(ArchiveStorageOptions::ARCHIVER_PROCESS)
+    }
+
+    pub fn uses_gcp_precomputed_storage(&self) -> bool {
+        self.contains(ArchiveStorageOptions::GCP_PRECOMPUTED_STORAGE)
+    }
+
+    pub fn uses_aws_precomputed_storage(&self) -> bool {
+        self.contains(ArchiveStorageOptions::AWS_PRECOMPUTED_STORAGE)
+    }
+}
 
 pub struct ArchiveService {
     archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>,
 }
 
-const ARCHIVE_SEND_RETRIES: u8 = 5;
-const MAX_EVENT_COUNT: u64 = 100;
-const RETRY_INTERVAL_MS: u64 = 1000;
+struct ArchiveServiceClients {
+    aws_client: Option<aws_sdk_s3::Client>,
+    gcp_client: Option<()>,
+}
+
+impl ArchiveServiceClients {
+    async fn new(options: &ArchiveStorageOptions) -> Self {
+        let aws_client = if options.uses_aws_precomputed_storage() {
+            let config = aws_config::load_from_env().await;
+            Some(aws_sdk_s3::Client::new(&config))
+        } else {
+            None
+        };
+        Self {
+            aws_client,
+            gcp_client: None,
+        }
+    }
+
+    pub fn aws_client(&self) -> Option<&aws_sdk_s3::Client> {
+        self.aws_client.as_ref()
+    }
+
+    pub fn gcp_client(&self) -> Option<&()> {
+        self.gcp_client.as_ref()
+    }
+}
 
 impl ArchiveService {
     fn new(archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>) -> Self {
@@ -18,35 +121,71 @@ impl ArchiveService {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn run(
+    async fn run(
         mut archive_receiver: mpsc::UnboundedReceiver<ArchiveTransitionFronntierDiff>,
         address: SocketAddr,
+        options: ArchiveStorageOptions,
     ) {
+        use mina_p2p_messages::v2::PrecomputedBlock;
+
+        let clients = ArchiveServiceClients::new(&options).await;
+
         while let Some(breadcrumb) = archive_receiver.blocking_recv() {
-            let mut retries = ARCHIVE_SEND_RETRIES;
-            while retries > 0 {
-                match rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
-                    Ok(result) => {
-                        if result.should_retry() {
+            if options.uses_archiver_process() {
+                let mut retries = ARCHIVE_SEND_RETRIES;
+                while retries > 0 {
+                    match rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
+                        Ok(result) => {
+                            if result.should_retry() {
+                                node::core::warn!(
+                                    summary = "Archive suddenly closed connection, retrying..."
+                                );
+                                retries -= 1;
+                                std::thread::sleep(std::time::Duration::from_millis(
+                                    RETRY_INTERVAL_MS,
+                                ));
+                            } else {
+                                node::core::warn!(summary = "Successfully sent diff to archive");
+                                break;
+                            }
+                        }
+                        Err(e) => {
                             node::core::warn!(
-                                summary = "Archive suddenly closed connection, retrying..."
+                                summary = "Failed sending diff to archive",
+                                error = e.to_string(),
+                                retries = retries
                             );
                             retries -= 1;
                             std::thread::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS));
-                        } else {
-                            node::core::warn!(summary = "Successfully sent diff to archive");
-                            break;
                         }
                     }
-                    Err(e) => {
+                }
+            }
+
+            if options.requires_precomputed_block() {
+                // let key =
+                // TODO(adonagy)
+                let precomputed_block: PrecomputedBlock =
+                    if let Ok(precomputed_block) = breadcrumb.try_into() {
+                        precomputed_block
+                    } else {
                         node::core::warn!(
-                            summary = "Failed sending diff to archive",
-                            error = e.to_string(),
-                            retries = retries
+                            summary = "Failed to convert breadcrumb to precomputed block"
                         );
-                        retries -= 1;
-                        std::thread::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS));
-                    }
+                        continue;
+                    };
+
+                if options.uses_local_precomputed_storage() {
+                    // TODO(adonagy): Implement local precomputed storage
+                }
+
+                if options.uses_gcp_precomputed_storage() {
+                    // TODO(adonagy): Implement GCP precomputed storage
+                }
+
+                if options.uses_aws_precomputed_storage() {
+                    let client = clients.aws_client().unwrap();
+                    // put
                 }
             }
         }
@@ -57,18 +196,24 @@ impl ArchiveService {
     fn run(
         mut archive_receiver: mpsc::UnboundedReceiver<ArchiveTransitionFronntierDiff>,
         address: SocketAddr,
+        options: ArchiveStorageOptions,
     ) {
         unimplemented!()
     }
 
-    pub fn start(address: SocketAddr) -> Self {
+    pub fn start(address: SocketAddr, options: ArchiveStorageOptions) -> Self {
         let (archive_sender, archive_receiver) =
             mpsc::unbounded_channel::<ArchiveTransitionFronntierDiff>();
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
 
         thread::Builder::new()
             .name("openmina_archive".to_owned())
             .spawn(move || {
-                Self::run(archive_receiver, address);
+                runtime.block_on(Self::run(archive_receiver, address, options));
             })
             .unwrap();
 

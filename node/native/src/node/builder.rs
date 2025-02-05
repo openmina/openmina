@@ -24,7 +24,7 @@ use node::{
     SnarkerStrategy, TransitionFrontierConfig,
 };
 use openmina_core::{consensus::ConsensusConstants, constants::constraint_constants};
-use openmina_node_common::p2p::TaskSpawner;
+use openmina_node_common::{archive::ArchiveStorageOptions, p2p::TaskSpawner};
 use rand::Rng;
 
 use crate::NodeServiceBuilder;
@@ -218,9 +218,9 @@ impl NodeBuilder {
         Ok(self.block_producer(key, provers))
     }
 
-    pub fn archive(&mut self, address: SocketAddr) -> &mut Self {
+    pub fn archive(&mut self, address: SocketAddr, options: ArchiveStorageOptions) -> &mut Self {
         self.archive = Some(ArchiveConfig::new(&address.to_string()));
-        self.service.archive_init(address);
+        self.service.archive_init(address, options);
         self
     }
 

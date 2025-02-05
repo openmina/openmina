@@ -25,7 +25,10 @@ use crate::{
     EventReceiver, EventSender, NodeService,
 };
 
-use super::{archive::ArchiveService, block_producer::BlockProducerService};
+use super::{
+    archive::{ArchiveService, ArchiveStorageOptions},
+    block_producer::BlockProducerService,
+};
 
 pub struct NodeServiceCommonBuilder {
     rng_seed: [u8; 32],
@@ -98,8 +101,12 @@ impl NodeServiceCommonBuilder {
         self
     }
 
-    pub fn archive_init(&mut self, address: SocketAddr) -> &mut Self {
-        self.archive = Some(ArchiveService::start(address));
+    pub fn archive_init(
+        &mut self,
+        address: SocketAddr,
+        options: ArchiveStorageOptions,
+    ) -> &mut Self {
+        self.archive = Some(ArchiveService::start(address, options));
         self
     }
 
