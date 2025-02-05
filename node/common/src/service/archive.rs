@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 use mina_p2p_messages::v2::{self, ArchiveTransitionFronntierDiff};
 use node::core::{channels::mpsc, thread};
+use node::ledger::write::BlockApplyResult;
 use std::env;
 use std::net::SocketAddr;
 
@@ -84,7 +85,7 @@ impl ArchiveStorageOptions {
 }
 
 pub struct ArchiveService {
-    archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>,
+    archive_sender: mpsc::UnboundedSender<BlockApplyResult>,
 }
 
 struct ArchiveServiceClients {
@@ -116,13 +117,13 @@ impl ArchiveServiceClients {
 }
 
 impl ArchiveService {
-    fn new(archive_sender: mpsc::UnboundedSender<ArchiveTransitionFronntierDiff>) -> Self {
+    fn new(archive_sender: mpsc::UnboundedSender<BlockApplyResult>) -> Self {
         Self { archive_sender }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     async fn run(
-        mut archive_receiver: mpsc::UnboundedReceiver<ArchiveTransitionFronntierDiff>,
+        mut archive_receiver: mpsc::UnboundedReceiver<BlockApplyResult>,
         address: SocketAddr,
         options: ArchiveStorageOptions,
     ) {
@@ -133,8 +134,15 @@ impl ArchiveService {
         while let Some(breadcrumb) = archive_receiver.blocking_recv() {
             if options.uses_archiver_process() {
                 let mut retries = ARCHIVE_SEND_RETRIES;
+
+                let archive_transition_frontier_diff: v2::ArchiveTransitionFronntierDiff =
+                    breadcrumb.clone().try_into().unwrap();
+
                 while retries > 0 {
-                    match rpc::send_diff(address, v2::ArchiveRpc::SendDiff(breadcrumb.clone())) {
+                    match rpc::send_diff(
+                        address,
+                        v2::ArchiveRpc::SendDiff(archive_transition_frontier_diff.clone()),
+                    ) {
                         Ok(result) => {
                             if result.should_retry() {
                                 node::core::warn!(
@@ -202,8 +210,7 @@ impl ArchiveService {
     }
 
     pub fn start(address: SocketAddr, options: ArchiveStorageOptions) -> Self {
-        let (archive_sender, archive_receiver) =
-            mpsc::unbounded_channel::<ArchiveTransitionFronntierDiff>();
+        let (archive_sender, archive_receiver) = mpsc::unbounded_channel::<BlockApplyResult>();
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -222,9 +229,9 @@ impl ArchiveService {
 }
 
 impl node::transition_frontier::archive::archive_service::ArchiveService for NodeService {
-    fn send_to_archive(&mut self, data: ArchiveTransitionFronntierDiff) {
+    fn send_to_archive(&mut self, data: BlockApplyResult) {
         if let Some(archive) = self.archive.as_mut() {
-            if let Err(e) = archive.archive_sender.send(data.clone()) {
+            if let Err(e) = archive.archive_sender.send(data) {
                 node::core::warn!(
                     summary = "Failed sending diff to archive service",
                     error = e.to_string()

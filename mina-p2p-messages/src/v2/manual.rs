@@ -863,30 +863,6 @@ impl PrecomputedBlock {
     }
 }
 
-impl TryFrom<ArchiveTransitionFronntierDiff> for PrecomputedBlock {
-    type Error = String;
-
-    fn try_from(value: ArchiveTransitionFronntierDiff) -> Result<Self, Self::Error> {
-        let block = value
-            .block()
-            .ok_or("Block not found in archive transition frontier diff")?;
-        let res = Self {
-            scheduled_time: block.header.protocol_state.body.blockchain_state.timestamp,
-            protocol_state: block.header.protocol_state.clone(),
-            protocol_state_proof: block.header.protocol_state_proof.as_ref().clone().into(),
-            staged_ledger_diff: block.body.staged_ledger_diff,
-            // TODO(adonagy): add the actual delta transition chain proof
-            delta_transition_chain_proof: (LedgerHash::zero(), List::new()),
-            protocol_version: block.header.current_protocol_version.clone(),
-            proposed_protocol_version: None,
-            accounts_accessed: value.accounts_accessed(),
-            accounts_created: value.accounts_created(),
-            tokens_used: value.tokens_used(),
-        };
-        Ok(res)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::fmt::Debug;
