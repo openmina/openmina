@@ -8,7 +8,10 @@ use ledger::{
     },
     Account, AccountId,
 };
-use mina_p2p_messages::{list::List, v2};
+use mina_p2p_messages::{
+    list::List,
+    v2::{self, TransactionHash},
+};
 use openmina_core::{requests::RpcId, transaction::TransactionWithHash, ActionEvent};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
@@ -38,6 +41,7 @@ pub enum TransactionPoolAction {
     #[action_event(level = warn, fields(debug(errors)))]
     VerifyError {
         errors: Vec<String>,
+        tx_hashes: Vec<TransactionHash>,
     },
     BestTipChanged {
         best_tip_hash: v2::LedgerHash,

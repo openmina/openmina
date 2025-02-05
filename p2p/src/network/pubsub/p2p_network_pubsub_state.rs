@@ -2,8 +2,11 @@ use super::{pb, BroadcastMessageId};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
 use libp2p_identity::ParseError;
-use mina_p2p_messages::gossip::GossipNetMessageV2;
-use openmina_core::{snark::Snark, transaction::Transaction};
+use mina_p2p_messages::{gossip::GossipNetMessageV2, v2::TransactionHash};
+use openmina_core::{
+    snark::{Snark, SnarkJobId},
+    transaction::Transaction,
+};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -228,7 +231,18 @@ pub enum P2pNetworkPubsubMessageCacheMessage {
         peer_id: PeerId,
         time: Timestamp,
     },
-    // This is temporary handling for transactions and snark pool
+    PreValidatedSnark {
+        job_id: SnarkJobId,
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
+    PreValidatedTransactions {
+        tx_hashes: BTreeMap<TransactionHash, bool>,
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
     PreValidated {
         message: pb::Message,
         peer_id: PeerId,
@@ -272,31 +286,25 @@ impl P2pNetworkPubsubMessageCacheId {
     }
 }
 
+macro_rules! enum_field {
+    ($field:ident: $field_type:ty) => {
+        pub fn $field(&self) -> &$field_type {
+            match self {
+                Self::Init { $field, .. }
+                | Self::PreValidated { $field, .. }
+                | Self::PreValidatedBlockMessage { $field, .. }
+                | Self::PreValidatedSnark { $field, .. }
+                | Self::PreValidatedTransactions { $field, .. }
+                | Self::Validated { $field, .. } => $field,
+            }
+        }
+    };
+}
+
 impl P2pNetworkPubsubMessageCacheMessage {
-    pub fn message(&self) -> &pb::Message {
-        match self {
-            Self::Init { message, .. } => message,
-            Self::PreValidated { message, .. } => message,
-            Self::PreValidatedBlockMessage { message, .. } => message,
-            Self::Validated { message, .. } => message,
-        }
-    }
-    pub fn time(&self) -> Timestamp {
-        *match self {
-            Self::Init { time, .. } => time,
-            Self::PreValidated { time, .. } => time,
-            Self::PreValidatedBlockMessage { time, .. } => time,
-            Self::Validated { time, .. } => time,
-        }
-    }
-    pub fn peer_id(&self) -> PeerId {
-        *match self {
-            Self::Init { peer_id, .. } => peer_id,
-            Self::PreValidated { peer_id, .. } => peer_id,
-            Self::PreValidatedBlockMessage { peer_id, .. } => peer_id,
-            Self::Validated { peer_id, .. } => peer_id,
-        }
-    }
+    enum_field!(message: pb::Message);
+    enum_field!(time: Timestamp);
+    enum_field!(peer_id: PeerId);
 }
 
 impl P2pNetworkPubsubMessageCache {
@@ -339,12 +347,21 @@ impl P2pNetworkPubsubMessageCache {
 
     pub fn contains_broadcast_id(&self, message_id: &BroadcastMessageId) -> bool {
         match message_id {
-            super::BroadcastMessageId::BlockHash { hash } => self
+            BroadcastMessageId::BlockHash { hash } => self
                 .map
                 .values()
                 .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage { block_hash, .. } if block_hash == hash)),
-            super::BroadcastMessageId::MessageId { message_id } => {
+            BroadcastMessageId::MessageId { message_id } => {
                 self.map.contains_key(message_id)
+            },
+            BroadcastMessageId::Snark { job_id: snark_job_id } => {
+                self
+                    .map
+                    .values()
+                    .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark { job_id,.. } if job_id == snark_job_id))
+            },
+            BroadcastMessageId::Transaction { tx } => {
+                self.map.values().any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions { tx_hashes, .. } if tx_hashes.get(tx).is_some()))
             }
         }
     }
@@ -357,7 +374,7 @@ impl P2pNetworkPubsubMessageCache {
         &mut P2pNetworkPubsubMessageCacheMessage,
     )> {
         match message_id {
-            super::BroadcastMessageId::BlockHash { hash } => {
+            BroadcastMessageId::BlockHash { hash } => {
                 self.map
                     .iter_mut()
                     .find_map(|(message_id, message)| match message {
@@ -368,10 +385,33 @@ impl P2pNetworkPubsubMessageCache {
                         _ => None,
                     })
             }
-            super::BroadcastMessageId::MessageId { message_id } => self
+            BroadcastMessageId::MessageId { message_id } => self
                 .map
                 .get_mut(message_id)
                 .map(|content| (*message_id, content)),
+            BroadcastMessageId::Snark {
+                job_id: snark_job_id,
+            } => {
+                self.map
+                    .iter_mut()
+                    .find_map(|(message_id, message)| match message {
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark {
+                            job_id, ..
+                        } if job_id == snark_job_id => Some((*message_id, message)),
+                        _ => None,
+                    })
+            }
+            BroadcastMessageId::Transaction { tx } => {
+                self.map
+                    .iter_mut()
+                    .find_map(|(message_id, message)| match message {
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions {
+                            tx_hashes,
+                            ..
+                        } if tx_hashes.get(tx).is_some() => Some((*message_id, message)),
+                        _ => None,
+                    })
+            }
         }
     }
 

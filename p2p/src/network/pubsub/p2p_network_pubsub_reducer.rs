@@ -1,11 +1,16 @@
-use std::{collections::btree_map::Entry, time::Duration};
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    time::Duration,
+};
 
 use binprot::BinProtRead;
 use mina_p2p_messages::{
     gossip::{self, GossipNetMessageV2},
     v2::NetworkPoolSnarkPoolDiffVersionedStableV2,
 };
-use openmina_core::{block::BlockWithHash, bug_condition, fuzz_maybe, fuzzed_maybe, Substate};
+use openmina_core::{
+    block::BlockWithHash, bug_condition, fuzz_maybe, fuzzed_maybe, snark::Snark, Substate,
+};
 use redux::{Dispatcher, Timestamp};
 
 use crate::{
@@ -21,8 +26,8 @@ use super::{
         P2pNetworkPubsubMessageCacheMessage,
     },
     pb::{self, Message},
-    P2pNetworkPubsubAction, P2pNetworkPubsubClientState, P2pNetworkPubsubEffectfulAction,
-    P2pNetworkPubsubMessageCacheId, P2pNetworkPubsubState, TOPIC,
+    BroadcastMessageId, P2pNetworkPubsubAction, P2pNetworkPubsubClientState,
+    P2pNetworkPubsubEffectfulAction, P2pNetworkPubsubMessageCacheId, P2pNetworkPubsubState, TOPIC,
 };
 
 const MAX_MESSAGE_KEEP_DURATION: Duration = Duration::from_secs(300);
@@ -555,6 +560,39 @@ impl P2pNetworkPubsubState {
                             time,
                         }
                     }
+                    GossipNetMessageV2::SnarkPoolDiff {
+                        message: NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(snark),
+                        ..
+                    } => {
+                        let snark: Snark = snark.1.clone().into();
+                        let job_id = snark.job_id();
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark {
+                            job_id,
+                            message,
+                            peer_id,
+                            time,
+                        }
+                    }
+                    GossipNetMessageV2::TransactionPoolDiff {
+                        message: tx_message,
+                        ..
+                    } => {
+                        let mut tx_hashes = BTreeMap::new();
+
+                        for tx in &tx_message.0 {
+                            let Ok(hash) = tx.hash() else {
+                                continue;
+                            };
+                            tx_hashes.insert(hash, false);
+                        }
+
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions {
+                            tx_hashes,
+                            message,
+                            peer_id,
+                            time,
+                        }
+                    }
                     _ => P2pNetworkPubsubMessageCacheMessage::PreValidated {
                         message,
                         peer_id,
@@ -572,7 +610,6 @@ impl P2pNetworkPubsubState {
                     GossipNetMessageV2::NewState(block) => {
                         let best_tip = BlockWithHash::try_new(block.clone())?;
                         dispatcher.push(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
-                        return Ok(());
                     }
                     GossipNetMessageV2::TransactionPoolDiff { message, nonce } => {
                         let nonce = nonce.as_u32();
@@ -588,18 +625,15 @@ impl P2pNetworkPubsubState {
                         message: NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work),
                         nonce,
                     } => {
+                        let snark: Snark = work.1.into();
                         dispatcher.push(P2pChannelsSnarkAction::Libp2pReceived {
                             peer_id,
-                            snark: Box::new(work.1.into()),
+                            snark: Box::new(snark),
                             nonce: nonce.as_u32(),
                         });
                     }
                     _ => {}
                 }
-
-                dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
-                    message_id: super::BroadcastMessageId::MessageId { message_id },
-                });
                 Ok(())
             }
             P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id } => {
@@ -609,8 +643,32 @@ impl P2pNetworkPubsubState {
                     bug_condition!("Message with id: {:?} not found", message_id);
                     return Ok(());
                 };
+
+                if let BroadcastMessageId::Transaction { tx } = &message_id {
+                    if let P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions {
+                        tx_hashes,
+                        ..
+                    } = message
+                    {
+                        if let Some(value) = tx_hashes.get_mut(tx) {
+                            *value = true;
+                        } else {
+                            bug_condition!("Transaction with hash: {} not found", tx);
+                            return Ok(());
+                        }
+
+                        let all_vertified = tx_hashes.values().all(|v| *v);
+                        if !all_vertified {
+                            return Ok(());
+                        }
+                    } else {
+                        bug_condition!("Invalid state for message id with type transaction");
+                        return Ok(());
+                    }
+                }
+
                 let raw_message = message.message().clone();
-                let peer_id = message.peer_id();
+                let peer_id = *message.peer_id();
 
                 pubsub_state.reduce_incoming_validated_message(
                     mcache_message_id,
@@ -628,7 +686,7 @@ impl P2pNetworkPubsubState {
                 *message = P2pNetworkPubsubMessageCacheMessage::Validated {
                     message: raw_message,
                     peer_id,
-                    time: message.time(),
+                    time: *message.time(),
                 };
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -641,7 +699,7 @@ impl P2pNetworkPubsubState {
                     .map
                     .iter()
                     .filter_map(|(message_id, message)| {
-                        if message.time() + MAX_MESSAGE_KEEP_DURATION > time {
+                        if (*message.time() + MAX_MESSAGE_KEEP_DURATION) <= time {
                             Some(message_id.to_owned())
                         } else {
                             None
@@ -669,7 +727,7 @@ impl P2pNetworkPubsubState {
                     };
 
                     if peer_id.is_none() {
-                        peer_id = Some(message.peer_id());
+                        peer_id = Some(*message.peer_id());
                     }
 
                     pubsub_state.mcache.remove_message(_message_id);

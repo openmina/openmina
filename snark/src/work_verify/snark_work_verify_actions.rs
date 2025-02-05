@@ -17,7 +17,7 @@ pub enum SnarkWorkVerifyAction {
         batch: Vec<Snark>,
         sender: String,
         on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
-        on_error: redux::Callback<(SnarkWorkVerifyId, String)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
     },
     Pending {
         req_id: SnarkWorkVerifyId,

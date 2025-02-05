@@ -94,16 +94,16 @@ pub fn reducer<State, Action>(
             };
             let callback = on_error.clone();
             let sender = std::mem::take(sender);
-
+            let batch = std::mem::take(batch);
             *req = SnarkWorkVerifyStatus::Error {
                 time: meta.time(),
-                batch: std::mem::take(batch),
+                batch: batch.clone(),
                 sender: sender.clone(),
                 error: error.clone(),
             };
             // Dispatch
             let dispatcher = state_context.into_dispatcher();
-            dispatcher.push_callback(callback, (*req_id, sender));
+            dispatcher.push_callback(callback, (*req_id, sender, batch));
             dispatcher.push(SnarkWorkVerifyAction::Finish { req_id: *req_id });
         }
         SnarkWorkVerifyAction::Success { req_id } => {

@@ -50,14 +50,14 @@ pub enum SnarkWorkVerifyStatus {
         // `PeerId` here.
         sender: String,
         on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
-        on_error: redux::Callback<(SnarkWorkVerifyId, String)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
     },
     Pending {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
         on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
-        on_error: redux::Callback<(SnarkWorkVerifyId, String)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
     },
     Error {
         time: redux::Timestamp,

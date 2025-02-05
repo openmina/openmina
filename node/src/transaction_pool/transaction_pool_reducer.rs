@@ -6,13 +6,16 @@ use ledger::{
     },
     Account, AccountId,
 };
+use mina_p2p_messages::v2::TransactionHash;
 use openmina_core::{
     bug_condition,
     constants::constraint_constants,
     requests::RpcId,
     transaction::{Transaction, TransactionWithHash},
 };
-use p2p::channels::transaction::P2pChannelsTransactionAction;
+use p2p::{
+    channels::transaction::P2pChannelsTransactionAction, BroadcastMessageId, P2pNetworkPubsubAction,
+};
 use redux::callback;
 use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyId};
 use std::collections::{BTreeMap, BTreeSet};
@@ -97,6 +100,12 @@ impl TransactionPoolState {
                     panic!()
                 };
 
+                let tx_hashes = commands
+                    .iter()
+                    .map(TransactionWithHash::hash)
+                    .cloned()
+                    .collect::<Vec<_>>();
+
                 // TODO: Convert those commands only once
                 let Ok(commands) = commands
                     .iter()
@@ -133,10 +142,11 @@ impl TransactionPoolState {
                             ),
                             on_error: callback!(
                                 on_snark_user_command_verify_error(
-                                    (req_id: SnarkUserCommandVerifyId, errors: Vec<String>)
+                                    (req_id: SnarkUserCommandVerifyId, errors: Vec<String>, tx_hashes: Vec<TransactionHash>)
                                 ) -> crate::Action {
                                     TransactionPoolAction::VerifyError {
-                                        errors
+                                        errors,
+                                        tx_hashes
                                     }
                                 }
                             )
@@ -147,6 +157,7 @@ impl TransactionPoolState {
                             let dispatcher = state.into_dispatcher();
                             dispatcher.push(TransactionPoolAction::VerifyError {
                                 errors: errors.clone(),
+                                tx_hashes,
                             });
                             if let Some(rpc_id) = from_rpc {
                                 dispatcher.push(RpcAction::TransactionInjectFailure {
@@ -186,8 +197,16 @@ impl TransactionPoolState {
                     from_rpc: *from_rpc,
                 });
             }
-            TransactionPoolAction::VerifyError { .. } => {
+            TransactionPoolAction::VerifyError { tx_hashes, .. } => {
                 // just logging the errors
+                let dispatcher = state.into_dispatcher();
+                for tx in tx_hashes {
+                    dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                        message_id: Some(BroadcastMessageId::Transaction { tx: tx.clone() }),
+                        peer_id: None,
+                        reason: "Transaction rejected".to_owned(),
+                    });
+                }
             }
             TransactionPoolAction::BestTipChanged { best_tip_hash } => {
                 let account_ids = substate.pool.get_accounts_to_revalidate_on_new_best_tip();
@@ -300,9 +319,22 @@ impl TransactionPoolState {
                 if let Some(rpc_action) = rpc_action {
                     dispatcher.push(rpc_action);
                 }
-                // TODO: libp2p logic already broadcasts everything right now and doesn't
-                // wait for validation, thad needs to be fixed. See #952
+
                 if was_accepted {
+                    for tx in &accepted {
+                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                            message_id: BroadcastMessageId::Transaction {
+                                tx: tx.hash.clone(),
+                            },
+                        });
+                    }
+                    for (tx, _) in &rejected {
+                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                            message_id: BroadcastMessageId::Transaction {
+                                tx: tx.hash.clone(),
+                            },
+                        });
+                    }
                     dispatcher.push(TransactionPoolAction::Rebroadcast {
                         accepted,
                         rejected,

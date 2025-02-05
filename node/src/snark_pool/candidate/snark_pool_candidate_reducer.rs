@@ -5,7 +5,7 @@ use openmina_core::snark::Snark;
 use p2p::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
-    PeerId,
+    BroadcastMessageId, P2pNetworkPubsubAction, PeerId,
 };
 use snark::{work_verify::SnarkWorkVerifyAction, work_verify_effectful::SnarkWorkVerifyId};
 
@@ -124,10 +124,11 @@ impl SnarkPoolCandidatesState {
                             }
                         }),
                     on_error: redux::callback!(
-                        on_snark_pool_candidate_work_verify_error((req_id: SnarkWorkVerifyId, sender: String)) -> crate::Action {
+                        on_snark_pool_candidate_work_verify_error((req_id: SnarkWorkVerifyId, sender: String, batch: Vec<Snark>)) -> crate::Action {
                             SnarkPoolCandidateAction::WorkVerifyError {
                                 peer_id: sender.parse().unwrap(),
                                 verify_id: req_id,
+                                batch
                             }
                         }),
                 });
@@ -144,7 +145,11 @@ impl SnarkPoolCandidatesState {
             } => {
                 state.verify_pending(meta.time(), peer_id, *verify_id, job_ids);
             }
-            SnarkPoolCandidateAction::WorkVerifyError { peer_id, verify_id } => {
+            SnarkPoolCandidateAction::WorkVerifyError {
+                peer_id,
+                verify_id,
+                batch,
+            } => {
                 state.verify_result(meta.time(), peer_id, *verify_id, Err(()));
 
                 // TODO(binier): blacklist peer
@@ -154,6 +159,16 @@ impl SnarkPoolCandidatesState {
                     peer_id,
                     reason: P2pDisconnectionReason::SnarkPoolVerifyError,
                 });
+
+                for snark in batch {
+                    dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                        message_id: Some(BroadcastMessageId::Snark {
+                            job_id: snark.job_id(),
+                        }),
+                        peer_id: None,
+                        reason: "Snark work verification failed".to_string(),
+                    });
+                }
             }
             SnarkPoolCandidateAction::WorkVerifySuccess {
                 peer_id,

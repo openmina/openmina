@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ledger::scan_state::transaction_logic::{valid, verifiable, WithStatus};
+use mina_p2p_messages::v2::TransactionHash;
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -49,14 +50,14 @@ pub enum SnarkUserCommandVerifyStatus {
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         from_rpc: Option<RpcId>,
         on_success: super::OnSuccess,
-        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>)>,
+        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>, Vec<TransactionHash>)>,
     },
     Pending {
         time: redux::Timestamp,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         from_rpc: Option<RpcId>,
         on_success: super::OnSuccess,
-        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>)>,
+        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>, Vec<TransactionHash>)>,
     },
     Error {
         time: redux::Timestamp,
