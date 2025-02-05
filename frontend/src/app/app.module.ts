@@ -43,6 +43,7 @@ import { BlockProductionPillComponent } from '@app/layout/block-production-pill/
 import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { LeaderboardModule } from '@leaderboard/leaderboard.module';
+import { UptimePillComponent } from '@app/layout/uptime-pill/uptime-pill.component';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -166,6 +167,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     BlockProductionPillComponent,
     MenuTabsComponent,
     LeaderboardModule,
+    UptimePillComponent,
   ],
   providers: [
     THEME_PROVIDER,

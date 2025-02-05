@@ -36,13 +36,20 @@
   font-size: 16px;
 
   @media (max-width: 480px) {
-    grid-template-columns: 48% 24% 1fr;
+    grid-template-columns: 43% 28% 1fr;
+  }
+
+  @media (max-width: 676px) {
+    grid-template-columns: 43% 28% 1fr;
   }
 
   span {
     color: $black;
 
     &:not(.mina-icon) {
+      @media (max-width: 676px) {
+        font-size: 2.5vw;
+      }
       @media (max-width: 480px) {
         font-size: 3vw;
       }
@@ -50,13 +57,16 @@
   }
 
   .circle {
-    color: $black4;
+    color: $mina-brand-gray;
   }
 
   .perc {
-    width: 37px;
+    width: 58px;
+    @media (max-width: 676px) {
+      width: 55px;
+    }
     @media (max-width: 480px) {
-      width: 26px;
+      width: 48px;
     }
   }
 

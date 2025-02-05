@@ -11,9 +11,19 @@ h1 {
   font-weight: 300;
   font-size: 80px;
   color: $black6;
-  margin: 80px 0;
+  margin-bottom: 80px;
+  margin-top: 0;
 
   @media (max-width: 1023px) {
     font-size: 10vw;
   }
+}
+
+h2 {
+  margin-top: 72px;
+  margin-bottom: 16px;
+  color: $mina-base-secondary;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
 }

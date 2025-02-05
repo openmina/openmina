@@ -5,4 +5,6 @@ export interface HeartbeatSummary {
   blocksProduced: number;
   uptimePrize: boolean;
   blocksPrize: boolean;
+  score: number;
+  maxScore: number;
 }

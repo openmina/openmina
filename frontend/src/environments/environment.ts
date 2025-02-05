@@ -5,6 +5,9 @@ export const environment: Readonly<MinaEnv> = {
   identifier: 'Dev FE',
   canAddNodes: true,
   showWebNodeLandingPage: true,
+  showLeaderboard: true,
+  hidePeersPill: true,
+  hideTxPill: true,
   globalConfig: {
     features: {
       dashboard: [],
@@ -27,6 +30,7 @@ export const environment: Readonly<MinaEnv> = {
       appId: '1:1016673359357:web:bbd2cbf3f031756aec7594',
       measurementId: 'G-ENDBL923XT',
     },
+    heartbeats: true,
     graphQL: 'https://adonagy.com/graphql',
     // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
     // graphQL: 'http://65.109.105.40:5000/graphql',
@@ -87,18 +91,18 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
-    {
-      name: 'Docker 11010',
-      url: 'http://localhost:11010',
-    },
-    {
-      name: 'Docker 11012',
-      url: 'http://localhost:11012',
-    },
-    {
-      name: 'Docker 11014',
-      url: 'http://localhost:11014',
-    },
+    // {
+    //   name: 'Docker 11010',
+    //   url: 'http://localhost:11010',
+    // },
+    // {
+    //   name: 'Docker 11012',
+    //   url: 'http://localhost:11012',
+    // },
+    // {
+    //   name: 'Docker 11014',
+    //   url: 'http://localhost:11014',
+    // },
     // {
     //   name: 'Producer',
     //   url: 'http://65.109.105.40:3000',

@@ -1,25 +1,7 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ComponentRef,
-  ElementRef,
-  Input,
-  OnInit,
-  TemplateRef,
-  ViewChild,
-  ViewContainerRef,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, ComponentRef, ElementRef, OnInit, TemplateRef, ViewChild, ViewContainerRef } from '@angular/core';
 import { AppSelectors } from '@app/app.state';
-import { filter, map, take } from 'rxjs';
-import {
-  getMergedRoute,
-  isDesktop,
-  isMobile,
-  MAX_WIDTH_700,
-  MergedRoute,
-  ONE_MILLION,
-  removeParamsFromURL,
-} from '@openmina/shared';
+import { filter, take } from 'rxjs';
+import { isDesktop, isMobile, ONE_MILLION } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { ComponentPortal, TemplatePortal } from '@angular/cdk/portal';
@@ -31,7 +13,6 @@ import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-detail
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { CONFIG } from '@shared/constants/config';
 import { animate, state, style, transition, trigger } from '@angular/animations';
-import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { Routes } from '@shared/enums/routes.enum';
 import { NavigationEnd, Router } from '@angular/router';
 import { untilDestroyed } from '@ngneat/until-destroy';
@@ -69,6 +50,8 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
   isOnline: boolean;
   blockTimeAgo: string;
   hideNodeStats: boolean = CONFIG.hideNodeStats;
+  hidePeers: boolean = CONFIG.hidePeersPill;
+  hideTx: boolean = CONFIG.hideTxPill;
 
   @ViewChild('overlayOpener') private overlayOpener: ElementRef<HTMLDivElement>;
 

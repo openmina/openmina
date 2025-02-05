@@ -26,10 +26,13 @@
                class="mr-10"></mina-card>
     <div class="custom-card flex-column flex-between tertiary h-100 pb-8 pt-8 pl-12">
       <div class="label">Public Key</div>
-      <div class="pub-key">{{ card5.publicKey | truncateMid: 6: 6 }}</div>
-      <div class="fx-row-vert-cent primary-hover pointer" [copyToClipboard]="card5.publicKey">
-        <span class="mina-icon">content_copy</span>
-        <span>Copy</span>
+      <div class="pub-key fx-row-vert-cent">
+        {{ card5.publicKey | truncateMid: 4: 4 }}
+        <span class="mina-icon pointer icon-300 ml-5 primary-hover" [copyToClipboard]="card5.publicKey">content_copy</span>
+      </div>
+      <div class="fx-row-vert-cent primary-hover pointer" (click)="openInExplorer()">
+        <span class="mina-icon icon-300 mr-5">open_in_new</span>
+        <span>Open in Explorer</span>
       </div>
     </div>
   </div>

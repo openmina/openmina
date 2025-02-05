@@ -15,6 +15,7 @@ export class RustService {
               private webNodeService: WebNodeService) {}
 
   changeRustNode(node: MinaNode): void {
+    console.log('Changing Rust node to:', node);
     this.node = node;
   }
 

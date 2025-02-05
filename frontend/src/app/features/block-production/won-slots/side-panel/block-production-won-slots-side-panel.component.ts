@@ -136,7 +136,6 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
         this.stopTimer = true;
         this.stateWhenReachedZero = { globalSlot: this.slot.globalSlot, status: this.slot.status };
         this.remainingTime = '-';
-        this.queryServerOftenToGetTheNewSlotState();
       }
       this.detect();
     } else {
@@ -174,16 +173,6 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
       }
       (any(this)[locationName] as ViewContainerRef)?.createEmbeddedView(this.discardedTemplate);
     }
-  }
-
-  private queryServerOftenToGetTheNewSlotState(): void {
-    const timer = setInterval(() => {
-      if (!this.stateWhenReachedZero) {
-        clearInterval(timer);
-        return;
-      }
-      this.dispatch2(BlockProductionWonSlotsActions.getSlots());
-    }, 1000);
   }
 
   closeSidePanel(): void {
