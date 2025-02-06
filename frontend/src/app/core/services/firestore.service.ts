@@ -11,7 +11,7 @@ import {
   DocumentData,
 } from '@angular/fire/firestore';
 import { HttpClient } from '@angular/common/http';
-import { catchError, EMPTY, Observable } from 'rxjs';
+import { catchError, EMPTY, Observable, of } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -30,7 +30,7 @@ export class FirestoreService {
     return this.http.post(this.cloudFunctionUrl, { data }).pipe(
       catchError(error => {
         console.error('Error while posting to cloud function:', error);
-        return error;
+        return of(null);
       }),
     );
   }

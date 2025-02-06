@@ -28,6 +28,25 @@
     }
   }
 
+  &.aware {
+    &::before {
+      background-color: $aware-container;
+    }
+
+    div {
+      color: $aware-primary;
+    }
+
+    span {
+      color: $aware-secondary;
+
+      &.mina-icon {
+        display: none;
+        color: $aware-primary;
+      }
+    }
+  }
+
   @media (max-width: 767px) {
     width: 100%;
     margin-bottom: 5px;

@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.121",
+  "version": "1.0.124",
   "scripts": {
     "install:deps": "npm install",
     "start": "npm install && ng serve --configuration local --open",

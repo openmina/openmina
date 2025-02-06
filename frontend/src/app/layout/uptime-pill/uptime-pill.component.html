@@ -1,4 +1,5 @@
 <div class="chip mr-8 p-relative h-sm pl-5 pr-5 fx-row-full-cent border-rad-6 text-nowrap"
+     [class.aware]="uptime.uptimePercentage <= 33.33"
      [tooltip]="'Uptime tracks node availability in 5-min intervals. Each interval requires 1+ heartbeat while synced. Score reflects total synced intervals.'">
   <span class="mina-icon icon-300 f-20">beenhere</span>
   <div>Uptime {{ uptime.uptimePercentage }}% <span>{{ uptime.uptimeTime }}</span></div>
