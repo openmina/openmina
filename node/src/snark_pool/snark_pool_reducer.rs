@@ -1,14 +1,10 @@
 use std::collections::BTreeMap;
 
-use openmina_core::snark::{SnarkJobCommitment, SnarkJobId};
-use p2p::{
-    channels::{
-        snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
-    },
-    BroadcastMessageId, P2pNetworkPubsubAction,
-};
-
 use crate::{snark_pool::JobCommitment, ExternalSnarkWorkerAction, SnarkerStrategy};
+use openmina_core::snark::{SnarkJobCommitment, SnarkJobId};
+use p2p::channels::{
+    snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+};
 
 use super::{
     JobState, SnarkPoolAction, SnarkPoolActionWithMetaRef, SnarkPoolEffectfulAction,
@@ -209,12 +205,6 @@ impl SnarkPoolState {
                     snark: snark.clone(),
                     nonce: 0,
                     is_local: *is_sender_local,
-                });
-
-                dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
-                    message_id: BroadcastMessageId::Snark {
-                        job_id: snark.job_id(),
-                    },
                 });
             }
             SnarkPoolAction::P2pSendAll { .. } => {

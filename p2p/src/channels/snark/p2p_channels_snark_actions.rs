@@ -51,6 +51,9 @@ pub enum P2pChannelsSnarkAction {
         snark: Box<Snark>,
         nonce: u32,
     },
+    /// Checks if a snark has already been received from pubsub network, ff it has, it broadcasts a validated message.
+    /// If not, it constructs a new message with the snark and broadcasts it to the network,
+    /// either directly or by rebroadcasting it if it was received from a WebRTC connection.
     Libp2pBroadcast {
         snark: Snark,
         nonce: u32,

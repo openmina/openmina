@@ -36,6 +36,10 @@ mina-p2p-messages = { workspace = true }
 poseidon = { workspace = true }
 hex = "0.4.3"
 ark-ff = { workspace = true }
+libp2p-identity = { version = "=0.2.7", features = [
+    "serde",
+    "peerid"
+] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features = ["serializable_callbacks"] }

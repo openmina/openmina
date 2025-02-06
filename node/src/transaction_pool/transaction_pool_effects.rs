@@ -17,7 +17,7 @@ impl TransactionPoolEffectfulAction {
                 ledger_hash,
                 on_result,
                 pending_id,
-                from_rpc,
+                from_source,
             } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
@@ -49,7 +49,7 @@ impl TransactionPoolEffectfulAction {
                     .map(|account| (account.id(), account))
                     .collect::<BTreeMap<_, _>>();
 
-                store.dispatch_callback(on_result, (accounts, pending_id, from_rpc));
+                store.dispatch_callback(on_result, (accounts, pending_id, from_source));
             }
         }
     }

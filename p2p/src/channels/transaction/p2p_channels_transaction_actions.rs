@@ -1,5 +1,5 @@
-use openmina_core::transaction::Transaction;
 use openmina_core::ActionEvent;
+use openmina_core::{p2p::P2pNetworkPubsubMessageCacheId, transaction::Transaction};
 use serde::{Deserialize, Serialize};
 
 use crate::{channels::P2pChannelsAction, P2pState, PeerId};
@@ -48,6 +48,7 @@ pub enum P2pChannelsTransactionAction {
         peer_id: PeerId,
         transactions: Vec<Transaction>,
         nonce: u32,
+        message_id: P2pNetworkPubsubMessageCacheId,
     },
     Libp2pBroadcast {
         transaction: Box<Transaction>,

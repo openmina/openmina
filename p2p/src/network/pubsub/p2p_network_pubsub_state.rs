@@ -2,8 +2,9 @@ use super::{pb, BroadcastMessageId};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
 use libp2p_identity::ParseError;
-use mina_p2p_messages::{gossip::GossipNetMessageV2, v2::TransactionHash};
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::{
+    p2p::P2pNetworkPubsubMessageCacheId,
     snark::{Snark, SnarkJobId},
     transaction::Transaction,
 };
@@ -178,7 +179,7 @@ pub struct P2pNetworkPubsubClientState {
 
 impl P2pNetworkPubsubClientState {
     pub fn publish(&mut self, message: &pb::Message) {
-        let Ok(id) = P2pNetworkPubsubMessageCacheId::compute_message_id(message) else {
+        let Ok(id) = compute_message_id(message) else {
             self.message.publish.push(message.clone());
             return;
         };
@@ -237,12 +238,6 @@ pub enum P2pNetworkPubsubMessageCacheMessage {
         peer_id: PeerId,
         time: Timestamp,
     },
-    PreValidatedTransactions {
-        tx_hashes: Vec<TransactionHash>,
-        message: pb::Message,
-        peer_id: PeerId,
-        time: Timestamp,
-    },
     PreValidated {
         message: pb::Message,
         peer_id: PeerId,
@@ -255,35 +250,21 @@ pub enum P2pNetworkPubsubMessageCacheMessage {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
-pub struct P2pNetworkPubsubMessageCacheId {
-    pub source: libp2p_identity::PeerId,
-    pub seqno: u64,
-}
+// TODO: what if wasm32?
+// How to test it?
+pub fn compute_message_id(
+    message: &pb::Message,
+) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
+    let source = source_from_message(message)?;
 
-impl P2pNetworkPubsubMessageCacheId {
-    // TODO: what if wasm32?
-    // How to test it?
-    pub fn compute_message_id(
-        message: &pb::Message,
-    ) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
-        let source = source_from_message(message)?;
+    let seqno = message
+        .seqno
+        .as_ref()
+        .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
+        .map(u64::from_be_bytes)
+        .unwrap_or_default();
 
-        let seqno = message
-            .seqno
-            .as_ref()
-            .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
-            .map(u64::from_be_bytes)
-            .unwrap_or_default();
-
-        Ok(P2pNetworkPubsubMessageCacheId { source, seqno })
-    }
-
-    pub fn to_raw_bytes(&self) -> Vec<u8> {
-        let mut message_id = self.source.to_base58();
-        message_id.push_str(&self.seqno.to_string());
-        message_id.into_bytes()
-    }
+    Ok(P2pNetworkPubsubMessageCacheId { source, seqno })
 }
 
 macro_rules! enum_field {
@@ -294,7 +275,6 @@ macro_rules! enum_field {
                 | Self::PreValidated { $field, .. }
                 | Self::PreValidatedBlockMessage { $field, .. }
                 | Self::PreValidatedSnark { $field, .. }
-                | Self::PreValidatedTransactions { $field, .. }
                 | Self::Validated { $field, .. } => $field,
             }
         }
@@ -317,7 +297,7 @@ impl P2pNetworkPubsubMessageCache {
         peer_id: PeerId,
         time: Timestamp,
     ) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
-        let id = P2pNetworkPubsubMessageCacheId::compute_message_id(&message)?;
+        let id = compute_message_id(&message)?;
         self.map.insert(
             id,
             P2pNetworkPubsubMessageCacheMessage::Init {
@@ -360,12 +340,6 @@ impl P2pNetworkPubsubMessageCache {
                     .values()
                     .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark { job_id,.. } if job_id == snark_job_id))
             },
-            BroadcastMessageId::TransactionDiff { txs } => {
-                self
-                    .map
-                    .values()
-                    .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions { tx_hashes, .. } if compare_transaction_diff(tx_hashes, txs)))
-            }
         }
     }
 
@@ -401,19 +375,6 @@ impl P2pNetworkPubsubMessageCache {
                         P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark {
                             job_id, ..
                         } if job_id == snark_job_id => Some((*message_id, message)),
-                        _ => None,
-                    })
-            }
-            BroadcastMessageId::TransactionDiff { txs } => {
-                self.map
-                    .iter_mut()
-                    .find_map(|(message_id, message)| match message {
-                        P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions {
-                            tx_hashes,
-                            ..
-                        } if compare_transaction_diff(tx_hashes.as_slice(), txs) => {
-                            Some((*message_id, message))
-                        }
                         _ => None,
                     })
             }
@@ -480,14 +441,6 @@ impl P2pNetworkPubsubClientState {
 impl P2pNetworkPubsubClientTopicState {
     pub fn on_mesh(&self) -> bool {
         matches!(&self.mesh, P2pNetworkPubsubClientMeshAddingState::Added)
-    }
-}
-
-fn compare_transaction_diff(diffa: &[TransactionHash], diffb: &[TransactionHash]) -> bool {
-    if diffa.len() != diffb.len() {
-        false
-    } else {
-        diffa.iter().all(|a| diffb.contains(a)) && diffb.iter().all(|b| diffa.contains(b))
     }
 }
 

@@ -5143,6 +5143,7 @@ dependencies = [
  "hex",
  "js-sys",
  "lazy_static",
+ "libp2p-identity",
  "md5",
  "mina-hasher",
  "mina-p2p-messages",

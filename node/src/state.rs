@@ -4,7 +4,9 @@ use std::time::Duration;
 use malloc_size_of_derive::MallocSizeOf;
 use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
-use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
+use openmina_core::transaction::{
+    TransactionInfo, TransactionPoolMessageSource, TransactionWithHash,
+};
 use p2p::P2pNetworkPubsubMessageCacheId;
 use rand::prelude::*;
 
@@ -539,10 +541,10 @@ impl P2p {
                 }
             )),
             on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
-                on_p2p_channels_transaction_libp2p_received(transactions: Vec<TransactionWithHash>) -> crate::Action {
+                on_p2p_channels_transaction_libp2p_received((transactions: Vec<TransactionWithHash>, id: P2pNetworkPubsubMessageCacheId)) -> crate::Action {
                     TransactionPoolAction::StartVerify {
                         commands: transactions.into_iter().collect(),
-                        from_rpc: None
+                        from_source: TransactionPoolMessageSource::pubsub(id),
                     }
                 }
             )),

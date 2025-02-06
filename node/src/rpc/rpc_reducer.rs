@@ -2,7 +2,7 @@ use openmina_core::{
     block::AppliedBlock,
     bug_condition,
     requests::{RequestId, RpcId, RpcIdType},
-    transaction::TransactionWithHash,
+    transaction::{TransactionPoolMessageSource, TransactionWithHash},
 };
 use p2p::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
@@ -515,7 +515,7 @@ impl RpcState {
                 dispatcher.push(RpcAction::TransactionInjectPending { rpc_id: *rpc_id });
                 dispatcher.push(TransactionPoolAction::StartVerify {
                     commands: commands_with_hash,
-                    from_rpc: Some(*rpc_id),
+                    from_source: TransactionPoolMessageSource::rpc(*rpc_id),
                 });
             }
             RpcAction::TransactionInjectPending { rpc_id } => {

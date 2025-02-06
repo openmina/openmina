@@ -1,9 +1,8 @@
 use ledger::scan_state::transaction_logic::{valid, verifiable, WithStatus};
-use mina_p2p_messages::v2::TransactionHash;
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
-use openmina_core::{requests::RpcId, ActionEvent};
+use openmina_core::{transaction::TransactionPoolMessageSource, ActionEvent};
 
 use super::{SnarkUserCommandVerifyError, SnarkUserCommandVerifyId};
 
@@ -15,7 +14,7 @@ pub type SnarkUserCommandVerifyActionWithMetaRef<'a> =
 pub(super) type OnSuccess = Callback<(
     SnarkUserCommandVerifyId,
     Vec<valid::UserCommand>,
-    Option<RpcId>,
+    TransactionPoolMessageSource,
 )>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -25,9 +24,9 @@ pub enum SnarkUserCommandVerifyAction {
     Init {
         req_id: SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
-        from_rpc: Option<RpcId>,
+        from_source: TransactionPoolMessageSource,
         on_success: OnSuccess,
-        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>, Vec<TransactionHash>)>,
+        on_error: Callback<(SnarkUserCommandVerifyId, Vec<String>)>,
     },
     Pending {
         req_id: SnarkUserCommandVerifyId,

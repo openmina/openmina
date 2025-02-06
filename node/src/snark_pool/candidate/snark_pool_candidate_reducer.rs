@@ -160,6 +160,7 @@ impl SnarkPoolCandidatesState {
                     reason: P2pDisconnectionReason::SnarkPoolVerifyError,
                 });
 
+                // TODO: this is incorrect, only one snark in batch could be invalid but we would reject that whole batch
                 for snark_job_id in batch {
                     dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
                         message_id: Some(BroadcastMessageId::Snark {

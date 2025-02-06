@@ -6,8 +6,7 @@ use mina_p2p_messages::{
     v2::NetworkPoolSnarkPoolDiffVersionedStableV2,
 };
 use openmina_core::{
-    block::BlockWithHash, bug_condition, fuzz_maybe, fuzzed_maybe, snark::Snark,
-    transaction::Transaction, Substate,
+    block::BlockWithHash, bug_condition, fuzz_maybe, fuzzed_maybe, snark::Snark, Substate,
 };
 use redux::{Dispatcher, Timestamp};
 
@@ -424,20 +423,10 @@ impl P2pNetworkPubsubState {
                     Ok(sig) => Some(sig.to_bytes().to_vec()),
                 };
 
-                let message_state = match &message {
-                    GossipNetMessageV2::NewState(block) => {
-                        P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage {
-                            block_hash: block.try_hash()?,
-                            message: msg,
-                            peer_id: source_peer_id,
-                            time,
-                        }
-                    }
-                    _ => P2pNetworkPubsubMessageCacheMessage::PreValidated {
-                        message: msg,
-                        peer_id: source_peer_id,
-                        time,
-                    },
+                let message_state = P2pNetworkPubsubMessageCacheMessage::Validated {
+                    message: msg,
+                    peer_id: source_peer_id,
+                    time,
                 };
 
                 pubsub_state.mcache.map.insert(message_id, message_state);
@@ -571,24 +560,6 @@ impl P2pNetworkPubsubState {
                             time,
                         }
                     }
-                    GossipNetMessageV2::TransactionPoolDiff {
-                        message: tx_message,
-                        ..
-                    } => {
-                        let tx_hashes = tx_message
-                            .0
-                            .iter()
-                            .map(Transaction::hash)
-                            .filter_map(Result::ok)
-                            .collect();
-
-                        P2pNetworkPubsubMessageCacheMessage::PreValidatedTransactions {
-                            tx_hashes,
-                            message,
-                            peer_id,
-                            time,
-                        }
-                    }
                     _ => P2pNetworkPubsubMessageCacheMessage::PreValidated {
                         message,
                         peer_id,
@@ -602,6 +573,7 @@ impl P2pNetworkPubsubState {
 
                 let dispatcher = state_context.into_dispatcher();
 
+                // TODO: for transaction proof we track source, we should do that for `BestTipUpdate` and for `SnarkPoolDiff`
                 match content {
                     GossipNetMessageV2::NewState(block) => {
                         let best_tip = BlockWithHash::try_new(block.clone())?;
@@ -613,6 +585,7 @@ impl P2pNetworkPubsubState {
                             peer_id,
                             transactions: message.0.into_iter().collect(),
                             nonce,
+                            message_id,
                         });
                     }
                     GossipNetMessageV2::SnarkPoolDiff {

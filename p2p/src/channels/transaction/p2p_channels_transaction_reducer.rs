@@ -212,7 +212,11 @@ impl P2pChannelsTransactionState {
                 }
                 Ok(())
             }
-            P2pChannelsTransactionAction::Libp2pReceived { transactions, .. } => {
+            P2pChannelsTransactionAction::Libp2pReceived {
+                transactions,
+                message_id,
+                ..
+            } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
 
@@ -226,7 +230,7 @@ impl P2pChannelsTransactionState {
                         .filter_map(Result::ok)
                         .collect();
 
-                    dispatcher.push_callback(callback.clone(), transactions);
+                    dispatcher.push_callback(callback.clone(), (transactions, message_id));
                 }
 
                 Ok(())
