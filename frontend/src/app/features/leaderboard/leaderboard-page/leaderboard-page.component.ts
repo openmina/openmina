@@ -6,6 +6,7 @@ import { untilDestroyed } from '@ngneat/until-destroy';
 import { trigger, state, style, animate, transition } from '@angular/animations';
 import { ManualDetection } from '@openmina/shared';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { LeaderboardService } from '@leaderboard/leaderboard.service';
 
 @Component({
   selector: 'mina-leaderboard-page',
@@ -44,7 +45,8 @@ export class LeaderboardPageComponent extends StoreDispatcher implements OnInit,
   private readonly SCROLL_THRESHOLD = 100;
   @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
 
-  constructor(private destroyRef: DestroyRef) {
+  constructor(private destroyRef: DestroyRef,
+              private leaderboardService: LeaderboardService) {
     super();
   }
 
@@ -75,5 +77,17 @@ export class LeaderboardPageComponent extends StoreDispatcher implements OnInit,
           this.detect();
         }
       });
+  }
+
+  downloadUptimeLottery(): void {
+    this.leaderboardService.downloadUptimeLottery();
+  }
+
+  downloadHighestUptime(): void {
+    this.leaderboardService.downloadHighestUptime();
+  }
+
+  downloadMostProducedBlocks(): void {
+    this.leaderboardService.downloadMostProducedBlocks();
   }
 }

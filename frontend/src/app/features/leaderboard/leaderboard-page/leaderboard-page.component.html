@@ -7,7 +7,8 @@
   <mina-leaderboard-header></mina-leaderboard-header>
   <main class="flex-1 flex-column">
     <mina-leaderboard-title></mina-leaderboard-title>
-    <ng-container *ngTemplateOutlet="liveResultsInfo"></ng-container>
+    <!--    <ng-container *ngTemplateOutlet="liveResultsInfo"></ng-container>-->
+    <ng-container *ngTemplateOutlet="download"></ng-container>
     <mina-leaderboard-filters></mina-leaderboard-filters>
     <mina-leaderboard-table></mina-leaderboard-table>
   </main>
@@ -31,6 +32,26 @@
         <li>Final results will be published after the program ends and complete chain verification</li>
       </ul>
       <p>To learn more about how uptime is tracked, please refer to the How Uptime Tracking Works section in the program details.</p>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #download>
+  <div class="flex-column">
+    <p class="mt-16 mb-8">Download Public Keys that qualify for the following Prizes:</p>
+    <div class="download-btns fx-row-vert-cent">
+      <button class="fx-row-vert-cent h-lg mr-8" (click)="downloadUptimeLottery()">
+        <span class="mina-icon icon-200">download</span>
+        <span>Uptime Lottery</span>
+      </button>
+      <button class="fx-row-vert-cent h-lg mr-8" (click)="downloadHighestUptime()">
+        <span class="mina-icon icon-200">download</span>
+        <span>Highest Uptime</span>
+      </button>
+      <button class="fx-row-vert-cent h-lg" (click)="downloadMostProducedBlocks()">
+        <span class="mina-icon icon-200">download</span>
+        <span>Most Produced Blocks</span>
+      </button>
     </div>
   </div>
 </ng-template>
