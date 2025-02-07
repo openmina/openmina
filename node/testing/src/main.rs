@@ -40,6 +40,8 @@ pub struct CommandScenariosGenerate {
     pub name: Option<String>,
     #[arg(long, short)]
     pub use_debugger: bool,
+    #[arg(long, short)]
+    pub webrtc: bool,
 }
 
 /// Run scenario located at `res/scenarios`.
@@ -82,6 +84,9 @@ impl Command {
                         let mut config = scenario.default_cluster_config()?;
                         if cmd.use_debugger {
                             config.use_debugger();
+                        }
+                        if cmd.webrtc {
+                            config.set_all_rust_to_rust_use_webrtc();
                         }
                         Ok(scenario.run_only_from_scratch(config))
                     };
