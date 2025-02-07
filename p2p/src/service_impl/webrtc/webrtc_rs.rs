@@ -28,6 +28,13 @@ pub type RTCConnectionState = RTCPeerConnectionState;
 
 pub type Api = Arc<webrtc::api::API>;
 
+pub type RTCCertificate = webrtc::peer_connection::certificate::RTCCertificate;
+
+pub fn certificate_from_pem_key(pem_str: &str) -> RTCCertificate {
+    let keypair = rcgen::KeyPair::from_pem(pem_str).expect("valid pem");
+    RTCCertificate::from_key_pair(keypair).expect("keypair is compatible")
+}
+
 pub fn build_api() -> Api {
     APIBuilder::new().build().into()
 }
@@ -192,6 +199,7 @@ impl From<RTCConfig> for RTCConfiguration {
         RTCConfiguration {
             ice_servers: value.ice_servers.0.into_iter().map(Into::into).collect(),
             ice_transport_policy: RTCIceTransportPolicy::All,
+            certificates: vec![value.certificate],
             ..Default::default()
         }
     }

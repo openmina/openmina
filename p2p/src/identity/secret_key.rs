@@ -1,10 +1,13 @@
 use std::{fmt, path::Path, str::FromStr};
 
 use base64::Engine;
-use ed25519_dalek::{ed25519::signature::SignerMut, SigningKey as Ed25519SecretKey};
+use ed25519_dalek::{
+    ed25519::signature::SignerMut, pkcs8::EncodePrivateKey as _, SigningKey as Ed25519SecretKey,
+};
 use openmina_core::{EncryptedSecretKey, EncryptedSecretKeyFile, EncryptionError};
 use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroizing;
 
 use super::{PublicKey, Signature};
 
@@ -51,6 +54,12 @@ impl SecretKey {
 
     pub fn to_x25519(&self) -> x25519_dalek::StaticSecret {
         self.0.to_scalar_bytes().into()
+    }
+
+    pub fn to_pem(&self) -> Zeroizing<String> {
+        self.0
+            .to_pkcs8_pem(Default::default())
+            .expect("must be valid key")
     }
 
     pub fn from_encrypted_file(

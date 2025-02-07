@@ -33,22 +33,22 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-rs"))]
 mod imports {
     pub use super::webrtc_rs::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp"))]
 mod imports {
     pub use super::webrtc_cpp::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 #[cfg(target_arch = "wasm32")]
 mod imports {
     pub use super::web::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 
@@ -143,7 +143,7 @@ pub type OnConnectionStateChangeHdlrFn = Box<
 
 pub struct RTCConfig {
     pub ice_servers: RTCConfigIceServers,
-    // TODO(binier): certificate
+    pub certificate: RTCCertificate,
 }
 
 #[derive(Serialize)]
@@ -231,6 +231,7 @@ async fn peer_start(
     args: PeerAddArgs,
     abort: broadcast::Receiver<()>,
     closed: broadcast::Sender<()>,
+    certificate: RTCCertificate,
 ) {
     let PeerAddArgs {
         peer_id,
@@ -242,6 +243,7 @@ async fn peer_start(
 
     let config = RTCConfig {
         ice_servers: Default::default(),
+        certificate,
     };
     let fut = async {
         let mut pc = RTCConnection::create(&api, config).await?;
@@ -735,7 +737,7 @@ pub trait P2pServiceWebrtc: redux::Service {
         const MAX_PEERS: usize = 500;
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
-        let _ = secret_key;
+        let certificate = certificate_from_pem_key(secret_key.to_pem().as_str());
 
         spawner.spawn_main("webrtc", async move {
             #[allow(clippy::all)]
@@ -749,6 +751,7 @@ pub trait P2pServiceWebrtc: redux::Service {
                         let conn_permits = conn_permits.clone();
                         let peer_id = args.peer_id;
                         let event_sender = args.event_sender.clone();
+                        let certificate = certificate.clone();
                         spawn_local(async move {
                             let Ok(_permit) = conn_permits.try_acquire() else {
                                 // state machine shouldn't allow this to happen.
@@ -763,7 +766,7 @@ pub trait P2pServiceWebrtc: redux::Service {
                                 event_sender_clone(P2pConnectionEvent::Closed(peer_id).into());
                             });
                             tokio::select! {
-                                _ = peer_start(api, args, abort.resubscribe(), closed_tx.clone()) => {}
+                                _ = peer_start(api, args, abort.resubscribe(), closed_tx.clone(), certificate) => {}
                                 _ = abort.recv() => {
                                 }
                             }

@@ -32,6 +32,12 @@ pub type RTCConnectionState = RtcPeerConnectionState;
 
 pub type Api = ();
 
+pub type RTCCertificate = ();
+
+pub fn certificate_from_pem_key(_: &str) -> RTCCertificate {
+    ()
+}
+
 pub fn build_api() -> Api {}
 
 pub struct RTCConnection(Rc<RtcPeerConnection>, bool);

@@ -22,6 +22,12 @@ pub type RTCConnectionState = ConnectionState;
 
 pub type Api = ();
 
+pub type RTCCertificate = ();
+
+pub fn certificate_from_pem_key(_: &str) -> RTCCertificate {
+    ()
+}
+
 type MessageHandler = Box<dyn FnMut(&[u8]) + 'static + Send>;
 
 pub fn build_api() -> Api {}
