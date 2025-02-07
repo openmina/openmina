@@ -1,5 +1,6 @@
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
+use malloc_size_of_derive::MallocSizeOf;
 use openmina_core::ChainId;
 use serde::{Deserialize, Serialize};
 
@@ -7,25 +8,29 @@ use crate::identity::{EncryptableType, PeerId, PublicKey};
 
 use super::{ConnectionAuth, Host};
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, MallocSizeOf)]
 pub struct Offer {
     pub sdp: String,
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub chain_id: ChainId,
     /// Offerer's identity public key.
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub identity_pub_key: PublicKey,
     /// Peer id that the offerer wants to connect to.
     pub target_peer_id: PeerId,
     // TODO(binier): remove host and get ip from ice candidates instead
     /// Host name or IP of the signaling server of the offerer.
+    #[ignore_malloc_size_of = "neglectible"]
     pub host: Host,
     /// Port of the signaling server of the offerer.
     pub listen_port: Option<u16>,
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, MallocSizeOf)]
 pub struct Answer {
     pub sdp: String,
     /// Offerer's identity public key.
+    #[ignore_malloc_size_of = "doesn't allocate"]
     pub identity_pub_key: PublicKey,
     /// Peer id that the offerer wants to connect to.
     pub target_peer_id: PeerId,
@@ -37,7 +42,9 @@ pub enum Signal {
     Answer(Answer),
 }
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy, thiserror::Error)]
+#[derive(
+    Serialize, Deserialize, Eq, PartialEq, Debug, Clone, Copy, thiserror::Error, MallocSizeOf,
+)]
 pub enum RejectionReason {
     #[error("peer is on a different chain")]
     ChainIdMismatch,

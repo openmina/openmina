@@ -5,7 +5,8 @@ use crate::{
     external_snark_worker::ExternalSnarkWorkers,
     rpc::RpcState,
     state::{BlockProducerState, LedgerState},
-    Action, ActionWithMeta, ConsensusAction, EventSourceAction, P2p, State,
+    transition_frontier::candidate::TransitionFrontierCandidateAction,
+    Action, ActionWithMeta, EventSourceAction, P2p, State,
 };
 
 pub fn reducer(
@@ -23,7 +24,7 @@ pub fn reducer(
                     bug_condition!("{}", error);
                 };
             }
-            dispatcher.push(ConsensusAction::TransitionFrontierSyncTargetUpdate);
+            dispatcher.push(TransitionFrontierCandidateAction::TransitionFrontierSyncTargetUpdate);
         }
         Action::EventSource(EventSourceAction::NewEvent { .. }) => {}
         Action::EventSource(_) => {}
@@ -62,12 +63,6 @@ pub fn reducer(
         Action::LedgerEffects(_) => {}
         Action::Snark(a) => {
             snark::SnarkState::reducer(Substate::new(state, dispatcher), meta.with_action(a));
-        }
-        Action::Consensus(a) => {
-            crate::consensus::ConsensusState::reducer(
-                Substate::new(state, dispatcher),
-                meta.with_action(a),
-            );
         }
         Action::TransitionFrontier(a) => {
             crate::transition_frontier::TransitionFrontierState::reducer(

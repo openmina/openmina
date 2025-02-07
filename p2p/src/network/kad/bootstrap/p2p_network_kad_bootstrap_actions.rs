@@ -39,21 +39,18 @@ impl EnablingCondition<P2pState> for P2pNetworkKadBootstrapAction {
             .and_then(|discovery_state| discovery_state.bootstrap_state());
         match self {
             P2pNetworkKadBootstrapAction::CreateRequests => {
-                state.map_or(false, |bootstrap_state| bootstrap_state.requests.len() < 3)
+                state.is_some_and(|bootstrap_state| bootstrap_state.requests.len() < 3)
             }
-            P2pNetworkKadBootstrapAction::AppendRequest { .. } => state
-                .map_or(false, |bootstrap_state| {
-                    bootstrap_state.peer_id_req_vec.len() < 3
-                }),
-            P2pNetworkKadBootstrapAction::FinalizeRequests => state
-                .map_or(false, |bootstrap_state| {
-                    bootstrap_state.peer_id_req_vec.len() <= 3
-                }),
+            P2pNetworkKadBootstrapAction::AppendRequest { .. } => {
+                state.is_some_and(|bootstrap_state| bootstrap_state.peer_id_req_vec.len() < 3)
+            }
+            P2pNetworkKadBootstrapAction::FinalizeRequests => {
+                state.is_some_and(|bootstrap_state| bootstrap_state.peer_id_req_vec.len() <= 3)
+            }
             P2pNetworkKadBootstrapAction::RequestDone { peer_id, .. }
-            | P2pNetworkKadBootstrapAction::RequestError { peer_id, .. } => state
-                .map_or(false, |bootstrap_state| {
-                    bootstrap_state.request(peer_id).is_some()
-                }),
+            | P2pNetworkKadBootstrapAction::RequestError { peer_id, .. } => {
+                state.is_some_and(|bootstrap_state| bootstrap_state.request(peer_id).is_some())
+            }
         }
     }
 }

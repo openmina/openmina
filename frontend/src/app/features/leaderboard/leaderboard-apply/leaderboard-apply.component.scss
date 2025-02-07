@@ -1,0 +1,29 @@
+@import 'leaderboard-variables';
+
+@keyframes bounceLeftToRight {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(10px);
+  }
+}
+
+.gradient {
+  height: 52px;
+  background: $mina-brand-gradient;
+  top: 0;
+  left: 0;
+  font-family: "IBM Plex Mono", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: $mina-base-primary;
+
+  @media (max-width: 767px) {
+    font-size: 3.1vw;
+  }
+
+  &:hover .mina-icon {
+    animation: bounceLeftToRight .85s infinite ease-out;
+  }
+}

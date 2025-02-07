@@ -58,6 +58,7 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
             recorder: Default::default(),
+            peer_discovery: true,
         };
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {

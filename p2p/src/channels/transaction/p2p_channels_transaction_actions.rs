@@ -1,5 +1,5 @@
-use openmina_core::transaction::Transaction;
 use openmina_core::ActionEvent;
+use openmina_core::{p2p::P2pNetworkPubsubMessageCacheId, transaction::Transaction};
 use serde::{Deserialize, Serialize};
 
 use crate::{channels::P2pChannelsAction, P2pState, PeerId};
@@ -46,12 +46,14 @@ pub enum P2pChannelsTransactionAction {
     },
     Libp2pReceived {
         peer_id: PeerId,
-        transaction: Box<Transaction>,
+        transactions: Vec<Transaction>,
         nonce: u32,
+        message_id: P2pNetworkPubsubMessageCacheId,
     },
     Libp2pBroadcast {
         transaction: Box<Transaction>,
         nonce: u32,
+        is_local: bool,
     },
 }
 
@@ -76,7 +78,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             P2pChannelsTransactionAction::Init { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.transaction,
                         P2pChannelsTransactionState::Enabled
@@ -84,7 +86,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
                 })
             }
             P2pChannelsTransactionAction::Pending { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.transaction,
                         P2pChannelsTransactionState::Init { .. }
@@ -92,7 +94,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
                 })
             }
             P2pChannelsTransactionAction::Ready { peer_id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.transaction,
                         P2pChannelsTransactionState::Pending { .. }
@@ -100,7 +102,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
                 })
             }
             P2pChannelsTransactionAction::RequestSend { peer_id, .. } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.transaction,
                         P2pChannelsTransactionState::Ready {
@@ -114,7 +116,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
             P2pChannelsTransactionAction::PromiseReceived {
                 peer_id,
                 promised_count,
-            } => state.get_ready_peer(peer_id).map_or(false, |p| {
+            } => state.get_ready_peer(peer_id).is_some_and(|p| {
                 matches!(
                     &p.channels.transaction,
                     P2pChannelsTransactionState::Ready {
@@ -125,7 +127,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
                 )
             }),
             P2pChannelsTransactionAction::Received { peer_id, .. } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| {
+                state.get_ready_peer(peer_id).is_some_and(|p| {
                     matches!(
                         &p.channels.transaction,
                         P2pChannelsTransactionState::Ready {
@@ -137,7 +139,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
             }
             P2pChannelsTransactionAction::RequestReceived { peer_id, limit } => {
                 *limit > 0
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                    && state.get_ready_peer(peer_id).is_some_and(|p| {
                         matches!(
                             &p.channels.transaction,
                             P2pChannelsTransactionState::Ready {
@@ -156,7 +158,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
             } => {
                 !transactions.is_empty()
                     && first_index <= last_index
-                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                    && state.get_ready_peer(peer_id).is_some_and(|p| {
                         match &p.channels.transaction {
                             P2pChannelsTransactionState::Ready {
                                 remote,
@@ -185,7 +187,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsTransactionAction {
                         .get(peer_id)
                         .filter(|p| p.is_libp2p())
                         .and_then(|p| p.status.as_ready())
-                        .map_or(false, |p| p.channels.transaction.is_ready())
+                        .is_some_and(|p| p.channels.transaction.is_ready())
             }
             P2pChannelsTransactionAction::Libp2pBroadcast { .. } => {
                 cfg!(feature = "p2p-libp2p")

@@ -2,7 +2,7 @@ use openmina_core::{
     block::AppliedBlock,
     bug_condition,
     requests::{RequestId, RpcId, RpcIdType},
-    transaction::TransactionWithHash,
+    transaction::{TransactionPoolMessageSource, TransactionWithHash},
 };
 use p2p::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
@@ -41,6 +41,10 @@ impl RpcState {
             RpcAction::StatusGet { rpc_id } => {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(RpcEffectfulAction::StatusGet { rpc_id: *rpc_id });
+            }
+            RpcAction::HeartbeatGet { rpc_id } => {
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(RpcEffectfulAction::HeartbeatGet { rpc_id: *rpc_id });
             }
             RpcAction::ActionStatsGet { rpc_id, query } => {
                 let dispatcher = state_context.into_dispatcher();
@@ -511,7 +515,7 @@ impl RpcState {
                 dispatcher.push(RpcAction::TransactionInjectPending { rpc_id: *rpc_id });
                 dispatcher.push(TransactionPoolAction::StartVerify {
                     commands: commands_with_hash,
-                    from_rpc: Some(*rpc_id),
+                    from_source: TransactionPoolMessageSource::rpc(*rpc_id),
                 });
             }
             RpcAction::TransactionInjectPending { rpc_id } => {
@@ -637,31 +641,46 @@ pub fn collect_rpc_peers_info(state: &crate::State) -> Vec<RpcPeerInfo> {
             .iter()
             .map(|(peer_id, state)| {
                 let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
-                let (connection_status, time, incoming) = match &state.status {
+                let (connection_status, time, incoming, connecting_details) = match &state.status {
                     p2p::P2pPeerStatus::Connecting(c) => match c {
-                        p2p::connection::P2pConnectionState::Outgoing(o) => {
-                            (PeerConnectionStatus::Connecting, o.time().into(), false)
-                        }
-                        p2p::connection::P2pConnectionState::Incoming(i) => {
-                            (PeerConnectionStatus::Connecting, i.time().into(), true)
-                        }
+                        p2p::connection::P2pConnectionState::Outgoing(o) => (
+                            PeerConnectionStatus::Connecting,
+                            o.time().into(),
+                            false,
+                            Some(format!("{o:?}")),
+                        ),
+                        p2p::connection::P2pConnectionState::Incoming(i) => (
+                            PeerConnectionStatus::Connecting,
+                            i.time().into(),
+                            true,
+                            Some(format!("{i:?}")),
+                        ),
                     },
-                    p2p::P2pPeerStatus::Disconnecting { time } => {
-                        (PeerConnectionStatus::Disconnected, (*time).into(), false)
-                    }
-                    p2p::P2pPeerStatus::Disconnected { time } => {
-                        (PeerConnectionStatus::Disconnected, (*time).into(), false)
-                    }
+                    p2p::P2pPeerStatus::Disconnecting { time } => (
+                        PeerConnectionStatus::Disconnecting,
+                        (*time).into(),
+                        false,
+                        None,
+                    ),
+                    p2p::P2pPeerStatus::Disconnected { time } => (
+                        PeerConnectionStatus::Disconnected,
+                        (*time).into(),
+                        false,
+                        None,
+                    ),
                     p2p::P2pPeerStatus::Ready(r) => (
                         PeerConnectionStatus::Connected,
                         r.connected_since.into(),
                         r.is_incoming,
+                        None,
                     ),
                 };
                 RpcPeerInfo {
                     peer_id: *peer_id,
                     connection_status,
+                    connecting_details,
                     address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
+                    is_libp2p: state.is_libp2p,
                     incoming,
                     best_tip: best_tip.map(|bt| bt.hash.clone()),
                     best_tip_height: best_tip.map(|bt| bt.height()),

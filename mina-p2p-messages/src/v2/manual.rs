@@ -4,6 +4,7 @@ use ark_ff::BigInteger256;
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
+use malloc_size_of_derive::MallocSizeOf;
 use poseidon::hash::params::NO_INPUT_COINBASE_STACK;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
 use time::OffsetDateTime;
@@ -12,6 +13,7 @@ use crate::{
     b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes},
     b58version::USER_COMMAND_MEMO,
     bigint::BigInt,
+    list::List,
     number::Number,
     string::ByteString,
     versioned::Versioned,
@@ -41,7 +43,7 @@ pub type TransactionSnarkScanStateStableV2TreesAMerge = (
 ///
 /// Gid: `83`
 /// Location: [src/string.ml:44:6](https://github.com/MinaProtocol/mina/blob//bfd1009/src/string.ml#L44)
-#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite, Deref, MallocSizeOf)]
 pub struct MinaBaseSignedCommandMemoStableV1(pub crate::string::CharString);
 
 impl MinaBaseSignedCommandMemoStableV1 {
@@ -680,7 +682,17 @@ impl Default for TokenIdKeyHash {
 }
 
 #[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, BinProtRead, BinProtWrite,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    BinProtRead,
+    BinProtWrite,
+    MallocSizeOf,
 )]
 pub struct NonZeroCurvePointWithVersions {
     x: Versioned<crate::bigint::BigInt, 1>,
@@ -712,6 +724,26 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
     Versioned<NonZeroCurvePointWithVersions, 1>,
     { crate::b58version::NON_ZERO_CURVE_POINT_COMPRESSED },
 >;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum ArchiveTransitionFronntierDiff {
+    BreadcrumbAdded {
+        block: (MinaBlockBlockStableV2, (Option<StateBodyHash>, StateHash)),
+        accounts_accessed: List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)>,
+        accounts_created: List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)>,
+        tokens_used: List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)>,
+        sender_receipt_chains_from_parent_ledger:
+            List<(MinaBaseAccountIdStableV2, MinaBaseReceiptChainHashStableV1)>,
+    },
+    // TODO(adonagy): I think this is legacy stuff, doublecheck
+    RootTransitioned(()),
+    BoostrapOf(()),
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum ArchiveRpc {
+    SendDiff(ArchiveTransitionFronntierDiff),
+}
 
 #[cfg(test)]
 mod tests {
@@ -1396,7 +1428,9 @@ mod tests_sgn {
 /// Gid: `602`
 /// Location: [src/lib/currency/signed_poly.ml:6:4](https://github.com/Minaprotocol/mina/blob/b1facec/src/lib/currency/signed_poly.ml#L6)
 /// Args: CurrencyFeeStableV1 , SgnStableV1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+#[derive(
+    Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, MallocSizeOf,
+)]
 pub struct SignedAmount {
     pub magnitude: CurrencyFeeStableV1,
     pub sgn: SgnStableV1,
@@ -1565,9 +1599,21 @@ impl StagedLedgerDiffBodyStableV1 {
         self.commands_iter().map(|command| &command.data)
     }
 
-    // FIXME(tizoc): this is not correct, the coinbases are in the commands
-    // what this is returning is the coinbase fee transfers, which is not the same.
-    pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
+    pub fn tranasctions_with_status(
+        &self,
+    ) -> impl Iterator<
+        Item = (
+            &MinaBaseUserCommandStableV2,
+            &MinaBaseTransactionStatusStableV2,
+        ),
+    > {
+        self.commands_iter()
+            .map(|command| (&command.data, &command.status))
+    }
+
+    pub fn coinbase_fee_transfers_iter(
+        &self,
+    ) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
         let diff = self.diff();
         let mut coinbases = Vec::with_capacity(4);
         match &diff.0.coinbase {
@@ -1616,10 +1662,22 @@ impl StagedLedgerDiffBodyStableV1 {
                 .map_or(0, |d| d.completed_works.len())
     }
 
-    pub fn coinbase_sum(&self) -> u64 {
-        // FIXME(#581): hardcoding 720 here, but this logic is not correct.
-        // This should be obtained from the `amount` in the coinbase transaction
-        720000000000 // 720 mina in nanomina
+    pub fn has_coinbase(&self) -> bool {
+        let (first_pre_diff, second_pre_diff) = (
+            self.diff().0.coinbase.clone(),
+            self.diff().1.as_ref().map_or(
+                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero,
+                |v| v.coinbase.clone(),
+            ),
+        );
+
+        match (first_pre_diff, second_pre_diff) {
+            (
+                StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Zero,
+                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero,
+            ) => false,
+            _ => true,
+        }
     }
 
     pub fn fees_sum(&self) -> u64 {
@@ -1683,16 +1741,15 @@ impl std::str::FromStr for SgnStableV1 {
 mod test {
     use binprot::BinProtRead;
 
-    use crate::v2::{
-        MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
-    };
+    use crate::v2;
 
     #[test]
     fn test_zkapp_with_sig_auth_hash() {
         let expexcted = "AbliNXLg4Keq0ZJyxK/QNAx8SxrJeffYytk5lbcTF9s9Af0A4fUFAP2+oQMA48vntxcABLty3SXWjvuadrLtBjcsxT1oJ3C2hwS/LDh364LKUxrLe3uF/9lr8VlW/J+ctbiI+m9I61sb9BC/AAG5YjVy4OCnqtGScsSv0DQMfEsayXn32MrZOZW3ExfbPQEBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAAEBAQEBAQH9AJQ1dwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAAEBAQEBAAAAAePL57cXAAS7ct0l1o77mnay7QY3LMU9aCdwtocEvyw4d+uCylMay3t7hf/Za/FZVvyfnLW4iPpvSOtbG/QQvwAAAcwXZjv4NJwWwlJhFZPh2AK+o0dKOpIy1a6CXlskW7gmAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEAAQEBAQEBAf0AlDV3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEAAQEBAQAAAAICAAAAACIBFlRlc3QgWktBcHAgdG8gUmVjZWl2ZXIAAAAAAAAAAAAA".to_string();
         let bytes = include_bytes!("../../../tests/files/zkapps/with_sig_auth.bin");
         let zkapp =
-            MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice()).unwrap();
+            v2::MinaBaseZkappCommandTStableV1WireStableV1::binprot_read(&mut bytes.as_slice())
+                .unwrap();
 
         let zkapp_id = zkapp.to_base64().unwrap();
         assert_eq!(expexcted, zkapp_id);
@@ -1706,7 +1763,16 @@ mod test {
 
         let decoded = STANDARD.decode(verification_key_encoded).unwrap();
         let verification_key =
-            MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded.as_slice());
+            v2::MinaBaseVerificationKeyWireStableV1::binprot_read(&mut decoded.as_slice());
         assert!(verification_key.is_ok());
+    }
+
+    #[test]
+    fn test_archive_breadcrumb_deserialization() {
+        let breadcrumb_bytes = include_bytes!("../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
+        let result =
+            v2::ArchiveTransitionFronntierDiff::binprot_read(&mut breadcrumb_bytes.as_slice());
+
+        assert!(result.is_ok());
     }
 }

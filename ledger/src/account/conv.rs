@@ -467,11 +467,27 @@ impl From<&TokenId> for mina_p2p_messages::v2::MinaBaseTokenIdStableV2 {
     }
 }
 
+impl From<TokenId> for mina_p2p_messages::v2::MinaBaseTokenIdStableV2 {
+    fn from(token_id: TokenId) -> Self {
+        Self(MinaBaseAccountIdDigestStableV1(token_id.0.into()))
+    }
+}
+
 impl TryFrom<&mina_p2p_messages::v2::MinaBaseTokenIdStableV2> for TokenId {
     type Error = InvalidBigInt;
 
     fn try_from(
         token_id: &mina_p2p_messages::v2::MinaBaseTokenIdStableV2,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self(token_id.to_field()?))
+    }
+}
+
+impl TryFrom<mina_p2p_messages::v2::MinaBaseTokenIdStableV2> for TokenId {
+    type Error = InvalidBigInt;
+
+    fn try_from(
+        token_id: mina_p2p_messages::v2::MinaBaseTokenIdStableV2,
     ) -> Result<Self, Self::Error> {
         Ok(Self(token_id.to_field()?))
     }

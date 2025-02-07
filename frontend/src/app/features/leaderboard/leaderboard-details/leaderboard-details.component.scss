@@ -1,0 +1,41 @@
+@import 'leaderboard-variables';
+
+:host {
+  display: block;
+  height: 100%;
+  padding-top: 52px;
+  background-color: $mina-cta-primary;
+  color: $mina-base-primary;
+  font-family: "IBM Plex Sans", sans-serif;
+}
+
+main,
+mina-leaderboard-header,
+mina-leaderboard-footer {
+  max-width: 1200px;
+  width: 100%;
+  padding: 0 48px;
+  margin: 0 auto;
+
+  @media (max-width: 1023px) {
+    padding: 0;
+  }
+}
+
+h2 {
+  margin-top: 72px;
+  margin-bottom: 16px;
+  color: $mina-base-secondary;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+}
+
+h1 {
+  margin-top: 0;
+  margin-bottom: 80px;
+  color: $mina-base-primary;
+  font-size: 80px;
+  font-weight: 300;
+  line-height: 80px;
+}

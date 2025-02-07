@@ -9,6 +9,7 @@ use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use openmina_core::bug_condition;
 use serde::{Deserialize, Serialize};
 
+use super::candidate::TransitionFrontierCandidatesState;
 use super::genesis::TransitionFrontierGenesisState;
 use super::sync::TransitionFrontierSyncState;
 use super::TransitionFrontierConfig;
@@ -23,6 +24,7 @@ pub struct TransitionFrontierState {
     /// Needed protocol states for applying transactions in the root
     /// scan state that we don't have in the `best_chain` list.
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    pub candidates: TransitionFrontierCandidatesState,
     /// Transition frontier synchronization state
     pub sync: TransitionFrontierSyncState,
 
@@ -31,18 +33,22 @@ pub struct TransitionFrontierState {
     pub blacklist: BTreeMap<StateHash, u32>,
     /// The diff of `Self::best_chain` with the previous one
     pub chain_diff: Option<BestTipDiff>,
+    /// Archive mode enabled
+    pub archive_enabled: bool,
 }
 
 impl TransitionFrontierState {
-    pub fn new(config: TransitionFrontierConfig) -> Self {
+    pub fn new(config: TransitionFrontierConfig, archive_enabled: bool) -> Self {
         Self {
             config,
             genesis: TransitionFrontierGenesisState::Idle,
+            candidates: TransitionFrontierCandidatesState::new(),
             best_chain: Vec::with_capacity(290),
             needed_protocol_states: Default::default(),
             sync: TransitionFrontierSyncState::Idle,
             blacklist: Default::default(),
             chain_diff: None,
+            archive_enabled,
         }
     }
 
@@ -194,6 +200,23 @@ impl TransitionFrontierState {
             new_commands,
             removed_commands,
             reorg_best_tip: false, // TODO: Unused for now
+        })
+    }
+
+    pub fn resources_usage(&self) -> serde_json::Value {
+        serde_json::json!({
+            "best_chain_size": self.best_chain.len(),
+            "needed_protocol_states_size": self
+                .needed_protocol_states
+                .len(),
+            "blacklist_size": self.blacklist.len(),
+            "diff_tx_size": self
+                .chain_diff
+                .as_ref()
+                // `saturating_add` is not needed here as collection size cannot overflow usize
+                // but it makes clippy satisfied
+                .map(|d| d.new_commands.len().saturating_add(d.removed_commands.len()))
+                .unwrap_or_default()
         })
     }
 }

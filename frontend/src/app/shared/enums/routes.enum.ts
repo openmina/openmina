@@ -41,4 +41,5 @@ export enum Routes {
   OCAML = 'ocaml',
   RUST = 'rust',
   FUZZING = 'fuzzing',
+  LEADERBOARD = 'leaderboard',
 }

@@ -29,14 +29,13 @@ impl P2pNetworkPubsubEffectfulAction {
         Store::Service: P2pCryptoService,
     {
         match self {
-            P2pNetworkPubsubEffectfulAction::Sign {
-                author,
-                topic,
-                message,
-            } => {
+            P2pNetworkPubsubEffectfulAction::Sign { author, message } => {
                 let mut publication = vec![];
                 if prost::Message::encode(&message, &mut publication).is_err() {
-                    store.dispatch(P2pNetworkPubsubAction::SignError { author, topic });
+                    store.dispatch(P2pNetworkPubsubAction::SignError {
+                        author,
+                        topic: message.topic,
+                    });
                 } else {
                     let signature = store.service().sign_publication(&publication).into();
                     store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });

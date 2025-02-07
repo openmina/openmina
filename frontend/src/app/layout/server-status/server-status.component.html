@@ -2,21 +2,25 @@
   <div class="wrapper fx-row-vert-cent"
        [ngClass]="switchForbidden ? AppNodeStatus.PENDING : details.status">
     @if (!switchForbidden && !hideNodeStats && !isMobile) {
-      <div class="chip mr-8 p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
-           #mempoolAnchor
-           (mouseenter)="openTooltipDropdown(mempoolAnchor, mempool)"
-           (mouseleave)="detachTooltipOverlay()">
-        <span class="mina-icon icon-300 f-20">blur_circular</span>
-        <div>{{ details.transactions }} <span>Tx{{ details.transactions | plural }}</span></div>
-        <div>{{ details.snarks }} <span>SNARK{{ details.snarks | plural }}</span></div>
-      </div>
-      <div class="chip mr-8 p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
-           #peersAnchor
-           (mouseenter)="openTooltipDropdown(peersAnchor, peers)"
-           (mouseleave)="detachTooltipOverlay()">
-        <span class="mina-icon icon-300 f-20">language</span>
-        <div>{{ details.peersConnected }} <span>Peer{{ details.peersConnected | plural }}</span></div>
-      </div>
+      @if (!hideTx) {
+        <div class="chip mr-8 p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
+             #mempoolAnchor
+             (mouseenter)="openTooltipDropdown(mempoolAnchor, mempool)"
+             (mouseleave)="detachTooltipOverlay()">
+          <span class="mina-icon icon-300 f-20">blur_circular</span>
+          <div>{{ details.transactions }} <span>Tx{{ details.transactions | plural }}</span></div>
+          <div>{{ details.snarks }} <span>SNARK{{ details.snarks | plural }}</span></div>
+        </div>
+      }
+      @if (!hidePeers) {
+        <div class="chip mr-8 p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
+             #peersAnchor
+             (mouseenter)="openTooltipDropdown(peersAnchor, peers)"
+             (mouseleave)="detachTooltipOverlay()">
+          <span class="mina-icon icon-300 f-20">language</span>
+          <div>{{ details.peersConnected }} <span>Peer{{ details.peersConnected | plural }}</span></div>
+        </div>
+      }
     }
     <div class="node-status fx-row-vert-cent h-sm p-relative z-1 mr-8"
          (click)="isMobile ? openNodePicker($event) : null"

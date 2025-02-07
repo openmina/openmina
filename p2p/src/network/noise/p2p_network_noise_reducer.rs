@@ -242,7 +242,7 @@ impl P2pNetworkNoiseState {
                         .get(&peer_id)
                         .and_then(|peer_state| peer_state.status.as_connecting())
                         .and_then(|connecting| connecting.as_incoming())
-                        .map_or(false, |incoming| matches!(incoming, P2pConnectionIncomingState::FinalizePendingLibp2p { addr: a, .. } if a == &addr.sock_addr));
+                        .is_some_and( |incoming| matches!(incoming, P2pConnectionIncomingState::FinalizePendingLibp2p { addr: a, .. } if a == &addr.sock_addr));
 
                         if !this_connection_is_kept {
                             return Ok(());

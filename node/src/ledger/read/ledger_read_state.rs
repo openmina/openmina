@@ -90,6 +90,15 @@ impl LedgerReadState {
             .iter()
             .any(|(_, pending)| pending.request() == req)
     }
+
+    pub fn pending_requests(
+        &self,
+    ) -> impl Iterator<Item = (LedgerReadId, &LedgerReadRequest, redux::Timestamp)> {
+        self.pending.iter().filter_map(|(id, s)| match s {
+            LedgerReadRequestState::Pending { time, request } => Some((id, request, *time)),
+            _ => None,
+        })
+    }
 }
 
 impl LedgerReadRequestState {

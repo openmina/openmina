@@ -48,7 +48,7 @@ impl redux::EnablingCondition<P2pState> for P2pPeerAction {
             P2pPeerAction::Ready { peer_id, .. } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |p| p.status.is_connecting_success()),
+                .is_some_and(|p| p.status.is_connecting_success()),
             P2pPeerAction::BestTipUpdate { peer_id, .. } => {
                 // TODO: don't enable if block inferior than existing peer's
                 // best tip.

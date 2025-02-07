@@ -1,10 +1,10 @@
 use mina_p2p_messages::v2::LedgerHash;
 use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
-use p2p::PeerId;
+use p2p::{P2pNetworkPubsubAction, PeerId};
 use redux::ActionMeta;
 
-use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
+use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest, LedgersToKeep};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
 use crate::{p2p_ready, Service, Store, TransitionFrontierAction};
@@ -304,6 +304,12 @@ impl TransitionFrontierSyncAction {
                 };
                 let error = SyncError::BlockApplyFailed(failed_block.clone(), error.clone());
                 store.dispatch(TransitionFrontierAction::SyncFailed { best_tip, error });
+                // TODO this should be handled by a callback
+                store.dispatch(P2pNetworkPubsubAction::RejectMessage {
+                    message_id: Some(p2p::BroadcastMessageId::BlockHash { hash: hash.clone() }),
+                    peer_id: None,
+                    reason: "Failed to apply block".to_owned(),
+                });
             }
             TransitionFrontierSyncAction::BlocksNextApplySuccess {
                 hash,
@@ -315,6 +321,12 @@ impl TransitionFrontierSyncAction {
 
                 if !store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
                     store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
+                }
+            }
+            TransitionFrontierSyncAction::BlocksSendToArchive { data, .. } => {
+                // Should be safe to unwrap because archive mode contains the necessary data, and this action is only called in archive mode
+                if let Ok(data) = data.try_into() {
+                    store.service().send_to_archive(data);
                 }
             }
             TransitionFrontierSyncAction::BlocksSuccess => {}
@@ -342,16 +354,8 @@ impl TransitionFrontierSyncAction {
                 };
                 let ledgers_to_keep = chain
                     .iter()
-                    .flat_map(|b| {
-                        [
-                            b.snarked_ledger_hash(),
-                            b.merkle_root_hash(),
-                            b.staking_epoch_ledger_hash(),
-                            b.next_epoch_ledger_hash(),
-                        ]
-                    })
-                    .cloned()
-                    .collect();
+                    .map(|block| &block.block)
+                    .collect::<LedgersToKeep>();
                 let mut root_snarked_ledger_updates = root_snarked_ledger_updates.clone();
                 if transition_frontier
                     .best_chain

@@ -1,0 +1,37 @@
+{
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "scripts": {
+    "serve": "npm run build && firebase emulators:start --only functions,firestore",
+    "shell": "firebase functions:shell",
+    "start": "npm run build && node lib/index.js",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "build": "node build.js && tsc -p tsconfig.json",
+    "build:watch": "tsc --watch"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "type": "commonjs",
+  "main": "lib/index.js",
+  "dependencies": {
+    "blake2": "^5.0.0",
+    "bs58check": "^3.0.1",
+    "firebase-admin": "^12.1.0",
+    "firebase-functions": "^6.2.0",
+    "mina-signer": "^3.0.7"
+  },
+  "devDependencies": {
+    "@types/blake2": "^4.0.1",
+    "@types/bs58check": "^2.1.0",
+    "@types/jest": "^29.5.14",
+    "firebase-functions-test": "^3.1.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^4.9.5"
+  },
+  "private": true
+}

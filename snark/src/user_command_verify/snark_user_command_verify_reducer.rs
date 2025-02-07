@@ -23,7 +23,7 @@ pub fn reducer<State, Action>(
         SnarkUserCommandVerifyAction::Init {
             commands,
             req_id,
-            from_rpc,
+            from_source,
             on_success,
             on_error,
         } => {
@@ -32,7 +32,7 @@ pub fn reducer<State, Action>(
             substate.jobs.add(SnarkUserCommandVerifyStatus::Init {
                 time: meta.time(),
                 commands: commands.clone(),
-                from_rpc: *from_rpc,
+                from_source: *from_source,
                 on_success: on_success.clone(),
                 on_error: on_error.clone(),
             });
@@ -54,7 +54,7 @@ pub fn reducer<State, Action>(
             };
             let SnarkUserCommandVerifyStatus::Init {
                 commands,
-                from_rpc,
+                from_source,
                 on_success,
                 on_error,
                 ..
@@ -67,7 +67,7 @@ pub fn reducer<State, Action>(
             *req = SnarkUserCommandVerifyStatus::Pending {
                 time: meta.time(),
                 commands: std::mem::take(commands),
-                from_rpc: std::mem::take(from_rpc),
+                from_source: std::mem::take(from_source),
                 on_success: on_success.clone(),
                 on_error: on_error.clone(),
             };
@@ -102,7 +102,7 @@ pub fn reducer<State, Action>(
                 return;
             };
             let SnarkUserCommandVerifyStatus::Pending {
-                from_rpc,
+                from_source,
                 on_success,
                 ..
             } = req
@@ -111,7 +111,7 @@ pub fn reducer<State, Action>(
                 return;
             };
 
-            let from_rpc = std::mem::take(from_rpc);
+            let from_source = std::mem::take(from_source);
             let commands: Vec<ledger::scan_state::transaction_logic::valid::UserCommand> =
                 commands.clone();
             let on_success = on_success.clone();
@@ -123,7 +123,7 @@ pub fn reducer<State, Action>(
 
             // Dispatch
             let dispatcher = state.into_dispatcher();
-            dispatcher.push_callback(on_success, (*req_id, commands, from_rpc));
+            dispatcher.push_callback(on_success, (*req_id, commands, from_source));
             dispatcher.push(SnarkUserCommandVerifyAction::Finish { req_id: *req_id });
         }
         SnarkUserCommandVerifyAction::Finish { req_id } => {

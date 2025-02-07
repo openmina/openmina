@@ -2,6 +2,7 @@ use crate::{
     network::identify::{P2pNetworkIdentify, P2pNetworkIdentifyFromMessageError},
     P2pNetworkStreamProtobufError,
 };
+use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -20,7 +21,7 @@ impl From<bool> for P2pNetworkIdentifyStreamKind {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, MallocSizeOf)]
 pub enum P2pNetworkIdentifyStreamState {
     #[default]
     Default,
@@ -38,7 +39,10 @@ pub enum P2pNetworkIdentifyStreamState {
         data: Box<P2pNetworkIdentify>,
     },
     /// Error handling the stream.
-    Error(P2pNetworkStreamProtobufError<P2pNetworkIdentifyFromMessageError>),
+    Error(
+        #[ignore_malloc_size_of = "error message"]
+        P2pNetworkStreamProtobufError<P2pNetworkIdentifyFromMessageError>,
+    ),
 }
 
 impl P2pNetworkIdentifyStreamState {

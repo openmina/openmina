@@ -72,13 +72,13 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
                 let is_peer_available = state
                     .p2p
                     .get_ready_peer(peer_id)
-                    .map_or(false, |peer| peer.channels.rpc.can_send_request());
+                    .is_some_and(|peer| peer.channels.rpc.can_send_request());
                 is_peer_available
                     && state
                         .transaction_pool
                         .candidates
                         .get(*peer_id, hash)
-                        .map_or(false, |s| {
+                        .is_some_and(|s| {
                             matches!(s, TransactionPoolCandidateState::InfoReceived { .. })
                         })
             }
@@ -86,9 +86,7 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
                 .transaction_pool
                 .candidates
                 .get(*peer_id, hash)
-                .map_or(false, |s| {
-                    matches!(s, TransactionPoolCandidateState::InfoReceived { .. })
-                }),
+                .is_some_and(|s| matches!(s, TransactionPoolCandidateState::InfoReceived { .. })),
             TransactionPoolCandidateAction::FetchError { peer_id, hash } => state
                 .transaction_pool
                 .candidates

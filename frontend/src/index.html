@@ -4,7 +4,7 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-FY2FWHFD8F"></script>
   <script defer>
     if (typeof window !== 'undefined') {
-      if (window.env?.production && location.href.includes('openmina')) {
+      if (window.env?.production && location.href.includes('openmina.com')) {
         window.dataLayer = window.dataLayer || [];
 
         function gtag() {
@@ -49,13 +49,18 @@
 <body class="f-base">
 <script>
   const deployment = {
-    dateUTC: '2024-12-13T14:10:04.753Z',
+    dateUTC: '2025-02-06T07:59:47.969Z',
     deviceIp: '5.13.60.20',
     deviceOS: 'macOS',
     deviceOSVersion: '23.5.0',
-    version: '1.0.70',
+    version: '1.0.124',
 };
 window.deployment = deployment;
+
+  if (location.href.includes('webnode.minaprotocol')) {
+    document.body.style.backgroundColor = '#fff';
+  }
+
 </script>
 <script type="module" defer>
   if (typeof window !== 'undefined') {
@@ -72,7 +77,6 @@ window.deployment = deployment;
         });
     });
   }
-
 </script>
 <app-root class="h-100"></app-root>
 </body>

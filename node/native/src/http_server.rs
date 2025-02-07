@@ -167,6 +167,21 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
     });
 
     let rpc_sender_clone = rpc_sender.clone();
+    let make_heartbeat = warp::path!("make_heartbeat")
+        .and(warp::post())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                let result: RpcHeartbeatGetResponse = rpc_sender_clone
+                    .oneshot_request(RpcRequest::HeartbeatGet)
+                    .await
+                    .flatten();
+
+                with_json_reply(&result, StatusCode::OK)
+            }
+        });
+
+    let rpc_sender_clone = rpc_sender.clone();
     let peers_get = warp::path!("state" / "peers")
         .and(warp::get())
         .then(move || {
@@ -571,6 +586,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
         build_env_get,
         routes,
         status,
+        make_heartbeat,
         peers_get,
         message_progress_get,
         stats,

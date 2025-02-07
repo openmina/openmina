@@ -13,11 +13,10 @@ pub enum P2pDisconnectionEffectfulAction {
 impl redux::EnablingCondition<P2pState> for P2pDisconnectionEffectfulAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
-            P2pDisconnectionEffectfulAction::Init { peer_id } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
-                    !matches!(peer.status, P2pPeerStatus::Disconnected { .. })
-                })
-            }
+            P2pDisconnectionEffectfulAction::Init { peer_id } => state
+                .peers
+                .get(peer_id)
+                .is_some_and(|peer| !matches!(peer.status, P2pPeerStatus::Disconnected { .. })),
         }
     }
 }

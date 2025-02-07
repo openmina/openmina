@@ -7,6 +7,8 @@ use std::{
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
+use openmina_core::IS_ARCHIVE;
+
 use crate::{
     account::{Account, AccountId, TokenId},
     address::Address,
@@ -90,16 +92,23 @@ impl Mask {
                 childs: HashMap::with_capacity(2),
             })),
         };
-        super::tests::add_mask(&uuid);
+        super::alive_add(&uuid);
         mask
     }
 
     pub fn new_unattached(depth: usize) -> Self {
         let uuid = next_uuid();
 
+        let is_archive = IS_ARCHIVE.get().cloned().unwrap_or_default();
+
         let mask = Self {
             inner: Arc::new(Mutex::new(MaskImpl::Unattached {
                 owning_account: Default::default(),
+                token_owners: if is_archive {
+                    Some(Default::default())
+                } else {
+                    None
+                },
                 id_to_addr: Default::default(),
                 last_location: None,
                 depth: depth as u8,
@@ -109,7 +118,7 @@ impl Mask {
             })),
         };
 
-        super::tests::add_mask(&uuid);
+        super::alive_add(&uuid);
 
         mask
     }
@@ -343,6 +352,10 @@ impl BaseLedger for Mask {
         self.with(|this| this.accounts())
     }
 
+    fn token_owner(&self, token_id: TokenId) -> Option<AccountId> {
+        self.with(|this| this.token_owner(token_id))
+    }
+
     fn tokens(&self, public_key: CompressedPubKey) -> HashSet<TokenId> {
         self.with(|this| this.tokens(public_key))
     }
@@ -532,16 +545,16 @@ mod tests {
         }
 
         // The 3 masks should still be alive
-        assert!(crate::mask::tests::is_mask_alive(&root_uuid));
-        assert!(crate::mask::tests::is_mask_alive(&child1_uuid));
-        assert!(crate::mask::tests::is_mask_alive(&child2_uuid));
+        assert!(crate::mask::is_alive(&root_uuid));
+        assert!(crate::mask::is_alive(&child1_uuid));
+        assert!(crate::mask::is_alive(&child2_uuid));
 
         std::mem::drop(child);
 
         // Now they are all drop/deallocated
-        assert!(!crate::mask::tests::is_mask_alive(&root_uuid));
-        assert!(!crate::mask::tests::is_mask_alive(&child1_uuid));
-        assert!(!crate::mask::tests::is_mask_alive(&child2_uuid));
+        assert!(!crate::mask::is_alive(&root_uuid));
+        assert!(!crate::mask::is_alive(&child1_uuid));
+        assert!(!crate::mask::is_alive(&child2_uuid));
     }
 
     #[test]

@@ -3,13 +3,14 @@ use crate::{
     rpc::{
         RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
         RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
-        RpcHealthCheckResponse, RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
-        RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
-        RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
-        RpcSnarkPoolJobGetResponse, RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse,
-        RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcStatusGetResponse,
-        RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
-        RpcTransactionStatusGetResponse, RpcTransitionFrontierUserCommandsResponse,
+        RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse,
+        RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
+        RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
+        RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+        RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+        RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
+        RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+        RpcTransitionFrontierUserCommandsResponse,
     },
     State,
 };
@@ -51,6 +52,11 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcStatusGetResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_heartbeat_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcHeartbeatGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_action_stats_get(
         &mut self,

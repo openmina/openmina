@@ -212,7 +212,11 @@ impl P2pChannelsTransactionState {
                 }
                 Ok(())
             }
-            P2pChannelsTransactionAction::Libp2pReceived { transaction, .. } => {
+            P2pChannelsTransactionAction::Libp2pReceived {
+                transactions,
+                message_id,
+                ..
+            } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
 
@@ -220,9 +224,13 @@ impl P2pChannelsTransactionState {
                     .callbacks
                     .on_p2p_channels_transaction_libp2p_received
                 {
-                    if let Ok(transaction) = TransactionWithHash::try_new(*transaction) {
-                        dispatcher.push_callback(callback.clone(), Box::new(transaction));
-                    }
+                    let transactions = transactions
+                        .into_iter()
+                        .map(TransactionWithHash::try_new)
+                        .filter_map(Result::ok)
+                        .collect();
+
+                    dispatcher.push_callback(callback.clone(), (transactions, message_id));
                 }
 
                 Ok(())
@@ -230,14 +238,23 @@ impl P2pChannelsTransactionState {
             #[cfg(not(feature = "p2p-libp2p"))]
             P2pChannelsTransactionAction::Libp2pBroadcast { .. } => Ok(()),
             #[cfg(feature = "p2p-libp2p")]
-            P2pChannelsTransactionAction::Libp2pBroadcast { transaction, nonce } => {
+            P2pChannelsTransactionAction::Libp2pBroadcast {
+                transaction,
+                nonce,
+                is_local,
+            } => {
                 let dispatcher = state_context.into_dispatcher();
                 let message = v2::NetworkPoolTransactionPoolDiffVersionedStableV2(
                     std::iter::once(*transaction).collect(),
                 );
                 let nonce = nonce.into();
                 let message = GossipNetMessageV2::TransactionPoolDiff { message, nonce };
-                dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
+                if is_local {
+                    dispatcher.push(P2pNetworkPubsubAction::Broadcast { message });
+                } else {
+                    // rebroadcast block if received from webrtc network, otherwise noop.
+                    dispatcher.push(P2pNetworkPubsubAction::WebRtcRebroadcast { message });
+                }
                 Ok(())
             }
         }

@@ -1,3 +1,9 @@
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+    time::Duration,
+};
+
 use openmina_core::{
     block::{ArcBlockWithHash, BlockWithHash},
     impl_substate_access,
@@ -6,13 +12,10 @@ use openmina_core::{
     transaction::{TransactionInfo, TransactionWithHash},
     ChainId, SubstateAccess,
 };
+
+use malloc_size_of_derive::MallocSizeOf;
 use redux::{Callback, Timestamp};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-    time::Duration,
-};
 
 use crate::{
     bootstrap::P2pNetworkKadBootstrapState,
@@ -33,8 +36,8 @@ use crate::{
         identify::{P2pNetworkIdentify, P2pNetworkIdentifyState},
         P2pNetworkState,
     },
-    Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubState,
-    P2pNetworkSchedulerState, P2pTimeouts, PeerId,
+    Limit, P2pConfig, P2pLimits, P2pNetworkKadState, P2pNetworkPubsubMessageCacheId,
+    P2pNetworkPubsubState, P2pNetworkSchedulerState, P2pTimeouts, PeerId,
 };
 use mina_p2p_messages::v2;
 
@@ -184,17 +187,17 @@ impl P2pState {
         self.peers
             .get(peer_id)
             .and_then(|p| p.status.as_connecting())
-            .map_or(false, |p| !p.is_error())
+            .is_some_and(|p| !p.is_error())
     }
 
     pub fn is_peer_connected_or_connecting(&self, peer_id: &PeerId) -> bool {
         self.peers
             .get(peer_id)
-            .map_or(false, |p| p.status.is_connected_or_connecting())
+            .is_some_and(|p| p.status.is_connected_or_connecting())
     }
 
     pub fn is_libp2p_peer(&self, peer_id: &PeerId) -> bool {
-        self.peers.get(peer_id).map_or(false, |p| p.is_libp2p())
+        self.peers.get(peer_id).is_some_and(|p| p.is_libp2p())
     }
 
     pub fn is_peer_rpc_timed_out(
@@ -203,7 +206,7 @@ impl P2pState {
         rpc_id: P2pRpcId,
         now: redux::Timestamp,
     ) -> bool {
-        self.get_ready_peer(peer_id).map_or(false, |p| {
+        self.get_ready_peer(peer_id).is_some_and(|p| {
             p.channels
                 .rpc
                 .is_timed_out(rpc_id, now, &self.config.timeouts)
@@ -216,7 +219,7 @@ impl P2pState {
         rpc_id: P2pStreamingRpcId,
         now: redux::Timestamp,
     ) -> bool {
-        self.get_ready_peer(peer_id).map_or(false, |p| {
+        self.get_ready_peer(peer_id).is_some_and(|p| {
             p.channels
                 .streaming_rpc
                 .is_timed_out(rpc_id, now, &self.config.timeouts)
@@ -343,7 +346,7 @@ impl P2pState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub struct P2pPeerState {
     pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
@@ -399,12 +402,18 @@ impl P2pPeerState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 #[serde(tag = "state")]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
-    Disconnecting { time: redux::Timestamp },
-    Disconnected { time: redux::Timestamp },
+    Disconnecting {
+        #[ignore_malloc_size_of = "doesn't allocate"]
+        time: redux::Timestamp,
+    },
+    Disconnected {
+        #[ignore_malloc_size_of = "doesn't allocate"]
+        time: redux::Timestamp,
+    },
 
     Ready(P2pPeerStatusReady),
 }
@@ -509,7 +518,8 @@ pub struct P2pCallbacks {
     /// Callback for [`P2pChannelsTransactionAction::Received`]
     pub on_p2p_channels_transaction_received: OptionalCallback<(PeerId, Box<TransactionInfo>)>,
     /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
-    pub on_p2p_channels_transaction_libp2p_received: OptionalCallback<Box<TransactionWithHash>>,
+    pub on_p2p_channels_transaction_libp2p_received:
+        OptionalCallback<(Vec<TransactionWithHash>, P2pNetworkPubsubMessageCacheId)>,
     /// Callback for [`P2pChannelsSnarkJobCommitmentAction::Received`]
     pub on_p2p_channels_snark_job_commitment_received:
         OptionalCallback<(PeerId, Box<SnarkJobCommitment>)>,
@@ -562,6 +572,9 @@ pub struct P2pCallbacks {
     /// Callback for [`P2pChannelsStreamingRpcAction::ResponseReceived`]
     pub on_p2p_channels_streaming_rpc_response_received:
         OptionalCallback<(PeerId, P2pRpcId, Option<P2pStreamingRpcResponseFull>)>,
+
+    /// Callback for received pubsub message
+    pub on_p2p_pubsub_message_received: OptionalCallback<P2pNetworkPubsubMessageCacheId>,
 }
 
 impl_substate_access!(P2pState, P2pNetworkState, network);
@@ -612,3 +625,29 @@ impl_substate_access!(
     network.scheduler.broadcast_state
 );
 impl_substate_access!(P2pState, P2pConfig, config);
+
+mod measurement {
+    use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+
+    use super::*;
+
+    impl MallocSizeOf for P2pState {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.peers.values().map(|v| v.size_of(ops)).sum::<usize>()
+                + self.network.scheduler.size_of(ops)
+        }
+    }
+
+    impl MallocSizeOf for P2pPeerStatusReady {
+        fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+            self.best_tip
+                .as_ref()
+                .map(|v| {
+                    usize::from(!ops.have_seen_ptr(Arc::as_ptr(&v.block)))
+                        * (size_of::<v2::MinaBlockBlockStableV2>() + v.block.size_of(ops))
+                })
+                .unwrap_or_default()
+            // TODO(vlad): `channels`
+        }
+    }
+}

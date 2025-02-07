@@ -1,4 +1,8 @@
-///#![feature(trivial_bounds)]
+//#![feature(trivial_bounds)]
+
+extern crate graphannis_malloc_size_of as malloc_size_of;
+extern crate graphannis_malloc_size_of_derive as malloc_size_of_derive;
+
 pub mod channels;
 pub mod connection;
 pub mod disconnection;
@@ -89,7 +93,7 @@ fn is_time_passed(
     then: redux::Timestamp,
     duration: Option<std::time::Duration>,
 ) -> bool {
-    duration.map_or(false, |d| now.checked_sub(then) >= Some(d))
+    duration.is_some_and(|d| now.checked_sub(then) >= Some(d))
 }
 
 pub trait P2pStateTrait:

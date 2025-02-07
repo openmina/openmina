@@ -109,6 +109,8 @@ impl Recorder {
                 let mut writer = BufWriter::new(file);
 
                 let encoded = data.encode().unwrap();
+                // RecordedActionWithMeta::decode(&encoded)
+                //     .expect(&format!("failed to decode encoded message: {:?}", data));
                 writer
                     .write_all(&(encoded.len() as u64).to_be_bytes())
                     .unwrap();

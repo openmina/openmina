@@ -28,6 +28,9 @@ pub enum RpcEffectfulAction {
     StatusGet {
         rpc_id: RpcId,
     },
+    HeartbeatGet {
+        rpc_id: RpcId,
+    },
     ActionStatsGet {
         rpc_id: RpcId,
         query: ActionStatsQuery,

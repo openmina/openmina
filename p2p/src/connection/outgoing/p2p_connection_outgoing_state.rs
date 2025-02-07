@@ -1,3 +1,4 @@
+use malloc_size_of_derive::MallocSizeOf;
 use redux::{Callback, Timestamp};
 use serde::{Deserialize, Serialize};
 
@@ -7,78 +8,98 @@ use crate::{connection::RejectionReason, webrtc, P2pTimeouts, PeerId};
 
 use super::P2pConnectionOutgoingInitOpts;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
 pub enum P2pConnectionOutgoingState {
     Init {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferSdpCreatePending {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferSdpCreateSuccess {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         sdp: String,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferReady {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     OfferSendSuccess {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     AnswerRecvPending {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Box<webrtc::Offer>,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     AnswerRecvSuccess {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Box<webrtc::Offer>,
         answer: Box<webrtc::Answer>,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     FinalizePending {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Option<Box<webrtc::Offer>>,
         answer: Option<Box<webrtc::Answer>>,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     FinalizeSuccess {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         opts: P2pConnectionOutgoingInitOpts,
         offer: Option<Box<webrtc::Offer>>,
         answer: Option<Box<webrtc::Answer>>,
         rpc_id: Option<RpcId>,
+        #[ignore_malloc_size_of = "negligible"]
         on_success: Option<Callback<(PeerId, Option<RpcId>)>>,
     },
     Error {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         error: P2pConnectionOutgoingError,
         rpc_id: Option<RpcId>,
     },
     Success {
+        #[ignore_malloc_size_of = "doesn't allocate"]
         time: Timestamp,
         offer: Option<Box<webrtc::Offer>>,
         answer: Option<Box<webrtc::Answer>>,
@@ -128,7 +149,7 @@ impl P2pConnectionOutgoingState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error, MallocSizeOf)]
 pub enum P2pConnectionOutgoingError {
     #[error("error creating SDP: {0}")]
     SdpCreateError(String),

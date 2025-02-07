@@ -1,10 +1,7 @@
 use super::{
     ledger_empty_hash_at_depth,
-    read::LedgerReadResponse,
-    read::{LedgerReadId, LedgerReadRequest},
-    write::CommitResult,
-    write::LedgerWriteRequest,
-    write::LedgerWriteResponse,
+    read::{LedgerReadId, LedgerReadRequest, LedgerReadResponse},
+    write::{CommitResult, LedgerWriteRequest, LedgerWriteResponse, LedgersToKeep},
     LedgerAddress, LedgerEvent, LEDGER_DEPTH,
 };
 use crate::{
@@ -12,17 +9,19 @@ use crate::{
     block_producer_effectful::StagedLedgerDiffCreateOutput,
     ledger::{
         ledger_manager::{LedgerManager, LedgerRequest},
-        write::BlockApplyResult,
+        write::{BlockApplyResult, BlockApplyResultArchive},
     },
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases,
     rpc::{
         RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
         RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
     },
-    transition_frontier::genesis::empty_pending_coinbase_hash,
-    transition_frontier::sync::{
-        ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
-        TransitionFrontierRootSnarkedLedgerUpdates,
+    transition_frontier::{
+        genesis::empty_pending_coinbase_hash,
+        sync::{
+            ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
+            TransitionFrontierRootSnarkedLedgerUpdates,
+        },
     },
 };
 use ark_ff::fields::arithmetic::InvalidBigInt;
@@ -34,7 +33,9 @@ use ledger::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
             transaction_partially_applied::TransactionPartiallyApplied,
-            valid, Transaction,
+            valid,
+            zkapp_command::AccessedOrNot,
+            Transaction, TransactionStatus, UserCommand,
         },
     },
     sparse_ledger::SparseLedger,
@@ -44,7 +45,7 @@ use ledger::{
         validate_block::block_body_hash,
     },
     verifier::Verifier,
-    Account, AccountId, BaseLedger, Database, Mask, UnregisterBehavior,
+    Account, AccountId, AccountIndex, BaseLedger, Database, Mask, TokenId, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -61,8 +62,8 @@ use mina_p2p_messages::{
 };
 use mina_signer::CompressedPubKey;
 use openmina_core::{
-    block::AppliedBlock,
-    block::ArcBlockWithHash,
+    block::{AppliedBlock, ArcBlockWithHash},
+    bug_condition,
     constants::constraint_constants,
     snark::{Snark, SnarkJobId},
     thread,
@@ -133,18 +134,18 @@ impl StagedLedgersStorage {
 
     fn retain<F>(&mut self, fun: F)
     where
-        F: Fn(&LedgerHash, &[Arc<MinaBaseStagedLedgerHashStableV1>]) -> bool,
+        F: Fn(&MinaBaseStagedLedgerHashStableV1) -> bool,
     {
-        self.by_merkle_root_hash
-            .retain(|merkle_root_hash, staged_ledger_hashes| {
-                let retain = fun(merkle_root_hash, staged_ledger_hashes.as_slice());
-                if !retain {
-                    for staged_ledger_hash in staged_ledger_hashes {
-                        self.staged_ledgers.remove(staged_ledger_hash);
-                    }
+        self.by_merkle_root_hash.retain(|_, staged_ledger_hashes| {
+            staged_ledger_hashes.retain(|hash| {
+                if fun(hash) {
+                    return true;
                 }
-                retain
+                self.staged_ledgers.remove(hash);
+                false
             });
+            !staged_ledger_hashes.is_empty()
+        });
     }
 
     fn extend<I>(&mut self, iterator: I)
@@ -174,6 +175,8 @@ pub struct LedgerCtx {
     additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: StagedLedgersStorage,
     sync: LedgerSyncState,
+    /// Returns more data on block application necessary for archive node
+    archive_mode: bool,
     event_sender:
         Option<openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>>,
 }
@@ -217,6 +220,10 @@ impl LedgerCtx {
             additional_snarked_ledgers,
             ..Default::default()
         }
+    }
+
+    pub fn set_archive_mode(&mut self) {
+        self.archive_mode = true;
     }
 
     // TODO(tizoc): Only used for the current workaround to make staged ledger
@@ -684,7 +691,7 @@ impl LedgerCtx {
                 &Verifier,
                 &prev_state_view,
                 prev_protocol_state.hashes(),
-                coinbase_receiver,
+                coinbase_receiver.clone(),
                 supercharge_coinbase,
             )
             .map_err(|err| format!("{err:?}"))?;
@@ -714,18 +721,140 @@ impl LedgerCtx {
             panic!("staged ledger hash mismatch. found: {ledger_hashes:#?}, expected: {expected_ledger_hashes:#?}");
         }
 
+        let archive_data = if self.archive_mode {
+            let senders = block
+                .body()
+                .transactions()
+                .filter_map(|tx| UserCommand::try_from(tx).ok().map(|cmd| cmd.fee_payer()))
+                .collect::<BTreeSet<_>>()
+                .into_iter();
+
+            let coinbase_receiver_id = AccountId::new(coinbase_receiver, TokenId::default());
+
+            // https://github.com/MinaProtocol/mina/blob/85149735ca3a76d026e8cf36b8ff22941a048e31/src/app/archive/lib/diff.ml#L78
+            let (accessed, not_accessed): (BTreeSet<_>, BTreeSet<_>) = block
+                .body()
+                .tranasctions_with_status()
+                .flat_map(|(tx, status)| {
+                    let status: TransactionStatus = status.into();
+                    UserCommand::try_from(tx)
+                        .ok()
+                        .map(|cmd| cmd.account_access_statuses(&status))
+                        .into_iter()
+                        .flatten()
+                })
+                .partition(|(_, status)| *status == AccessedOrNot::Accessed);
+
+            let mut account_ids_accessed: BTreeSet<_> =
+                accessed.into_iter().map(|(id, _)| id).collect();
+            let mut account_ids_not_accessed: BTreeSet<_> =
+                not_accessed.into_iter().map(|(id, _)| id).collect();
+
+            // Coinbase receiver is included only when the block has a coinbase transaction
+            // Note: If for whatever reason the network has set the coinbase amount to zero,
+            // to mimic the behavior of the ocaml node, we still include the coinbase receiver
+            // in the accessed accounts as a coinbase transaction is created regardless of the coinbase amount.
+            // https://github.com/MinaProtocol/mina/blob/b595a2bf00ae138d745737da628bd94bb2bd91e2/src/lib/staged_ledger/pre_diff_info.ml#L139
+            let has_coinbase = block.body().has_coinbase();
+
+            if has_coinbase {
+                account_ids_accessed.insert(coinbase_receiver_id);
+            } else {
+                account_ids_not_accessed.insert(coinbase_receiver_id);
+            }
+
+            // Include the coinbase fee transfer accounts
+            let fee_transfer_accounts =
+                block.body().coinbase_fee_transfers_iter().filter_map(|cb| {
+                    let receiver: CompressedPubKey = cb.receiver_pk.inner().try_into().ok()?;
+                    let account_id = AccountId::new(receiver, TokenId::default());
+                    Some(account_id)
+                });
+            account_ids_accessed.extend(fee_transfer_accounts);
+
+            // TODO(adonagy): Create a struct instead of tuple
+            let accounts_accessed: Vec<(AccountIndex, Account)> = account_ids_accessed
+                .iter()
+                .filter_map(|id| {
+                    staged_ledger
+                        .ledger()
+                        .index_of_account(id.clone())
+                        .and_then(|index| {
+                            staged_ledger
+                                .ledger()
+                                .get_at_index(index)
+                                .map(|account| (index, *account))
+                        })
+                })
+                .collect();
+
+            let account_creation_fee = constraint_constants().account_creation_fee;
+
+            // TODO(adonagy): Create a struct instead of tuple
+            let accounts_created: Vec<(AccountId, u64)> = staged_ledger
+                .latest_block_accounts_created(pred_block.hash().to_field()?)
+                .iter()
+                .map(|id| (id.clone(), account_creation_fee))
+                .collect();
+
+            // A token is used regardless of txn status
+            // https://github.com/MinaProtocol/mina/blob/85149735ca3a76d026e8cf36b8ff22941a048e31/src/app/archive/lib/diff.ml#L114
+            let all_account_ids: BTreeSet<_> = account_ids_accessed
+                .union(&account_ids_not_accessed)
+                .collect();
+            let tokens_used: BTreeSet<(TokenId, Option<AccountId>)> = if has_coinbase {
+                all_account_ids
+                    .iter()
+                    .map(|id| {
+                        let token_id = id.token_id.clone();
+                        let token_owner = staged_ledger.ledger().token_owner(token_id.clone());
+                        (token_id, token_owner)
+                    })
+                    .collect()
+            } else {
+                BTreeSet::new()
+            };
+
+            let sender_receipt_chains_from_parent_ledger = senders
+                .filter_map(|sender| {
+                    if let Some(location) = staged_ledger.ledger().location_of_account(&sender) {
+                        staged_ledger.ledger().get(location).map(|account| {
+                            (
+                                sender,
+                                v2::ReceiptChainHash::from(account.receipt_chain_hash),
+                            )
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            Some(BlockApplyResultArchive {
+                accounts_accessed,
+                accounts_created,
+                tokens_used,
+                sender_receipt_chains_from_parent_ledger,
+            })
+        } else {
+            None
+        };
+
         self.sync
             .staged_ledgers
             .insert(Arc::new(ledger_hashes), staged_ledger);
 
+        // staged_ledger.ledger().get_at_index(index)
+
         Ok(BlockApplyResult {
+            block,
             just_emitted_a_proof,
+            archive_data,
         })
     }
 
     pub fn commit(
         &mut self,
-        ledgers_to_keep: BTreeSet<LedgerHash>,
+        ledgers_to_keep: LedgersToKeep,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
         new_root: &ArcBlockWithHash,
@@ -770,13 +899,13 @@ impl LedgerCtx {
         );
 
         self.staged_ledgers
-            .retain(|hash, _| ledgers_to_keep.contains(hash));
+            .retain(|hash| ledgers_to_keep.contains(hash));
         self.staged_ledgers.extend(
             self.sync
                 .staged_ledgers
                 .take()
                 .into_iter()
-                .filter(|(hash, _)| ledgers_to_keep.contains(&hash.non_snark.ledger_hash)),
+                .filter(|(hash, _)| ledgers_to_keep.contains(&**hash)),
         );
 
         for ledger_hash in [
@@ -841,9 +970,42 @@ impl LedgerCtx {
                 .unwrap_or_default(),
         );
 
+        // self.check_alive_masks();
+
         CommitResult {
+            alive_masks: ::ledger::mask::alive_len(),
             available_jobs,
             needed_protocol_states,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn check_alive_masks(&mut self) {
+        let mut alive: BTreeSet<_> = ::ledger::mask::alive_collect();
+        let staged_ledgers = self
+            .staged_ledgers
+            .staged_ledgers
+            .iter()
+            .map(|(hash, ledger)| (&hash.non_snark.ledger_hash, ledger.ledger_ref()));
+
+        let alive_ledgers = self
+            .snarked_ledgers
+            .iter()
+            .chain(staged_ledgers)
+            .map(|(hash, mask)| {
+                let uuid = mask.get_uuid();
+                if !alive.remove(&uuid) {
+                    bug_condition!("mask not found among alive masks! uuid: {uuid}, hash: {hash}");
+                }
+                (uuid, hash)
+            })
+            .collect::<Vec<_>>();
+        openmina_core::debug!(redux::Timestamp::global_now(); "alive_ledgers_after_commit: {alive_ledgers:#?}");
+
+        if !alive.is_empty() {
+            bug_condition!(
+                "masks alive which are no longer part of the ledger service: {alive:#?}"
+            );
         }
     }
 

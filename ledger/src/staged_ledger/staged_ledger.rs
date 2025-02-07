@@ -116,7 +116,6 @@ pub struct StagedLedger {
 }
 
 impl StagedLedger {
-    #[cfg(feature = "fuzzing")]
     pub fn ledger_ref(&self) -> &Mask {
         &self.ledger
     }
@@ -1961,7 +1960,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L2024
-    fn latest_block_accounts_created(&self, previous_block_state_hash: Fp) -> Vec<AccountId> {
+    pub fn latest_block_accounts_created(&self, previous_block_state_hash: Fp) -> Vec<AccountId> {
         use scan_state::transaction_logic::transaction_applied::signed_command_applied::Body;
         use scan_state::transaction_logic::transaction_applied::CommandApplied;
         use scan_state::transaction_logic::transaction_applied::Varying;

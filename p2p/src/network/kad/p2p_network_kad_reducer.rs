@@ -115,9 +115,10 @@ impl super::P2pNetworkKadState {
                     P2pNetworkKadBootstrapState::new(key).map_err(|k| k.to_string())?,
                 );
 
-                if state.bootstrap_state().map_or(false, |bootstrap_state| {
-                    bootstrap_state.requests.len() < super::ALPHA
-                }) {
+                if state
+                    .bootstrap_state()
+                    .is_some_and(|bootstrap_state| bootstrap_state.requests.len() < super::ALPHA)
+                {
                     let dispatcher = state_context.into_dispatcher();
                     dispatcher.push(P2pNetworkKadBootstrapAction::CreateRequests);
                 }

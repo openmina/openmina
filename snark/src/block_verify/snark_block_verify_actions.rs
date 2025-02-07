@@ -38,22 +38,22 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyAction {
                 .block_verify
                 .jobs
                 .get(*req_id)
-                .map_or(false, |v| v.is_init()),
+                .is_some_and(|v| v.is_init()),
             SnarkBlockVerifyAction::Error { req_id, .. } => state
                 .block_verify
                 .jobs
                 .get(*req_id)
-                .map_or(false, |v| v.is_pending()),
+                .is_some_and(|v| v.is_pending()),
             SnarkBlockVerifyAction::Success { req_id } => state
                 .block_verify
                 .jobs
                 .get(*req_id)
-                .map_or(false, |v| v.is_pending()),
+                .is_some_and(|v| v.is_pending()),
             SnarkBlockVerifyAction::Finish { req_id } => state
                 .block_verify
                 .jobs
                 .get(*req_id)
-                .map_or(false, |v| v.is_finished()),
+                .is_some_and(|v| v.is_finished()),
         }
     }
 }
@@ -65,6 +65,6 @@ where
     fn is_enabled(&self, state: &T, time: redux::Timestamp) -> bool {
         state
             .substate()
-            .map_or(false, |state| self.is_enabled(state, time))
+            .is_ok_and(|state| self.is_enabled(state, time))
     }
 }

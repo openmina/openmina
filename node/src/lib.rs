@@ -1,5 +1,8 @@
 #![allow(clippy::if_same_then_else)]
 
+extern crate graphannis_malloc_size_of as malloc_size_of;
+extern crate graphannis_malloc_size_of_derive as malloc_size_of_derive;
+
 pub use openmina_core as core;
 
 #[macro_use]
@@ -31,7 +34,6 @@ pub mod stats;
 
 pub mod block_producer;
 pub mod block_producer_effectful;
-pub mod consensus;
 pub mod daemon_json;
 pub mod event_source;
 pub mod external_snark_worker;

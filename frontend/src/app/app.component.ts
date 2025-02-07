@@ -11,6 +11,8 @@ import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { WebNodeService } from '@core/services/web-node.service';
 
+declare var AOS: any;
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -23,8 +25,10 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   readonly menu$: Observable<AppMenu> = this.select$(AppSelectors.menu);
   readonly showLandingPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url === '/' || route.url.startsWith('/?')));
   readonly showLoadingWebNodePage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LOADING_WEB_NODE}`)));
+  readonly showLeaderboardPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LEADERBOARD}`)));
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
+  showUptime: boolean = CONFIG.showLeaderboard;
   loaded: boolean;
   isDesktop: boolean = isDesktop();
 
@@ -33,6 +37,8 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   constructor(private breakpointObserver: BreakpointObserver,
               private router: Router,
               private webNodeService: WebNodeService) {
+    AOS.init();
+
     super();
     safelyExecuteInBrowser(() => {
       if (any(window).Cypress) {
@@ -49,31 +55,30 @@ export class AppComponent extends StoreDispatcher implements OnInit {
         localStorage.setItem('webnodeArgs', args);
       }
     }
+    this.select(getMergedRoute, () => {
+      this.loaded = true;
+      this.detect();
+    }, filter(Boolean), take(1));
 
-    this.select(
-      getMergedRoute,
-      () => this.initAppFunctionalities(),
-      filter(Boolean),
-      take(1),
-      filter((route: MergedRoute) => route.url !== '/' && !route.url.startsWith('/?')),
-    );
-    this.select(
-      getMergedRoute,
-      () => {
-        this.loaded = true;
-        this.detect();
-      },
-      filter(Boolean),
-      take(1),
-    );
+    if (CONFIG.showLeaderboard && CONFIG.showWebNodeLandingPage) {
+      /* frontend with some landing page */
+      this.select(getMergedRoute, () => {
+        this.initAppFunctionalities();
+      }, filter((route: MergedRoute) => route?.url.startsWith('/loading-web-node')), take(1));
+
+    } else if (!CONFIG.showLeaderboard && !CONFIG.showWebNodeLandingPage) {
+      /* normal frontend (no landing pages) */
+      this.initAppFunctionalities();
+    }
   }
 
   goToWebNode(): void {
-    this.router.navigate([Routes.LOADING_WEB_NODE], { queryParamsHandling: 'merge' });
+    // this.router.navigate([Routes.LOADING_WEB_NODE], { queryParamsHandling: 'merge' });
     this.initAppFunctionalities();
   }
 
   private initAppFunctionalities(): void {
+    console.log('initAppFunctionalities');
     if (this.webNodeService.hasWebNodeConfig() && !this.webNodeService.isWebNodeLoaded()) {
       if (!getWindow()?.location.href.includes(`/${Routes.LOADING_WEB_NODE}`)) {
         this.router.navigate([Routes.LOADING_WEB_NODE], { queryParamsHandling: 'preserve' });

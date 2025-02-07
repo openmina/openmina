@@ -122,7 +122,7 @@ pub fn prove(
         || constraint_constants()
             .fork
             .as_ref()
-            .map_or(false, |fork| fork.blockchain_length + 1 == height);
+            .is_some_and(|fork| fork.blockchain_length + 1 == height);
     if !is_genesis {
         input.prover_state.producer_private_key = keypair.into();
     }
@@ -161,6 +161,10 @@ impl node::service::BlockProducerService for crate::NodeService {
             .expect("prove shouldn't be requested if block producer isn't initialized")
             .prove_sender
             .send((provers, block_hash, input));
+    }
+
+    fn with_producer_keypair<T>(&self, f: impl FnOnce(&AccountSecretKey) -> T) -> Option<T> {
+        Some(f(&self.block_producer.as_ref()?.keypair))
     }
 }
 

@@ -12,8 +12,8 @@ use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
-    MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
+    ArchiveTransitionFronntierDiff, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2,
+    MinaBaseProofStableV2, MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
@@ -39,6 +39,7 @@ use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{BlockVerifier, SnarkEvent, TransactionVerifier, VerifierSRS};
 use node::snark_pool::SnarkPoolService;
 use node::stats::Stats;
+use node::transition_frontier::archive::archive_service::ArchiveService;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
@@ -499,6 +500,12 @@ impl BlockProducerVrfEvaluatorService for NodeTestingService {
     }
 }
 
+impl ArchiveService for NodeTestingService {
+    fn send_to_archive(&mut self, data: ArchiveTransitionFronntierDiff) {
+        self.real.send_to_archive(data);
+    }
+}
+
 use std::cell::RefCell;
 thread_local! {
     static GENESIS_PROOF: RefCell<Option<(StateHash, Arc<MinaBaseProofStableV2>)>> = const { RefCell::new(None)};
@@ -573,6 +580,13 @@ impl BlockProducerService for NodeTestingService {
                     .send(BlockProducerEvent::BlockProve(block_hash, res).into());
             }
         }
+    }
+
+    fn with_producer_keypair<T>(
+        &self,
+        _f: impl FnOnce(&node::account::AccountSecretKey) -> T,
+    ) -> Option<T> {
+        None
     }
 }
 

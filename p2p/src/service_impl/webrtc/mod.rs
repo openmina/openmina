@@ -846,13 +846,14 @@ pub trait P2pServiceWebrtc: redux::Service {
     }
 
     fn disconnect(&mut self, peer_id: PeerId) -> bool {
+        // TODO(binier): improve
         // By removing the peer, `abort` gets dropped which will
         // cause `peer_loop` to end.
-        if let Some(peer) = self.peers().remove(&peer_id) {
-            if peer.abort.receiver_count() > 0 {
-                // peer disconnection not yet finished
-                return false;
-            }
+        if let Some(_peer) = self.peers().remove(&peer_id) {
+            // if peer.abort.receiver_count() > 0 {
+            //     // peer disconnection not yet finished
+            //     return false;
+            // }
         } else {
             openmina_core::error!(openmina_core::log::system_time(); "`disconnect` shouldn't be used for libp2p peers");
         }
@@ -882,6 +883,19 @@ pub trait P2pServiceWebrtc: redux::Service {
         other_pub_key: &PublicKey,
         encrypted: &T::Encrypted,
     ) -> Result<T, Box<dyn std::error::Error>>;
+
+    fn auth_send(
+        &mut self,
+        peer_id: PeerId,
+        _other_pub_key: &PublicKey,
+        auth: Option<ConnectionAuthEncrypted>,
+    ) {
+        if let Some(peer) = self.peers().get(&peer_id) {
+            let _ = peer
+                .cmd_sender
+                .send(PeerCmd::ConnectionAuthorizationSend(auth));
+        }
+    }
 
     fn auth_encrypt_and_send(
         &mut self,

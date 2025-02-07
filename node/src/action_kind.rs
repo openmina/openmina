@@ -19,7 +19,6 @@ use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::BlockProducerAction;
 use crate::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorEffectfulAction;
 use crate::block_producer_effectful::BlockProducerEffectfulAction;
-use crate::consensus::ConsensusAction;
 use crate::event_source::EventSourceAction;
 use crate::external_snark_worker::ExternalSnarkWorkerAction;
 use crate::external_snark_worker_effectful::ExternalSnarkWorkerEffectfulAction;
@@ -81,6 +80,7 @@ use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
 use crate::transaction_pool::candidate::TransactionPoolCandidateAction;
 use crate::transaction_pool::{TransactionPoolAction, TransactionPoolEffectfulAction};
+use crate::transition_frontier::candidate::TransitionFrontierCandidateAction;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
@@ -126,6 +126,7 @@ pub enum ActionKind {
     BlockProducerWonSlotTransactionsGet,
     BlockProducerWonSlotTransactionsSuccess,
     BlockProducerWonSlotWait,
+    BlockProducerEffectfulBlockProduced,
     BlockProducerEffectfulBlockProveInit,
     BlockProducerEffectfulBlockProveSuccess,
     BlockProducerEffectfulBlockUnprovenBuild,
@@ -153,20 +154,6 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorEffectfulInitializeStats,
     BlockProducerVrfEvaluatorEffectfulSlotEvaluated,
     CheckTimeouts,
-    ConsensusBestTipUpdate,
-    ConsensusBlockChainProofUpdate,
-    ConsensusBlockPrevalidateError,
-    ConsensusBlockPrevalidateSuccess,
-    ConsensusBlockReceived,
-    ConsensusBlockSnarkVerifyError,
-    ConsensusBlockSnarkVerifyPending,
-    ConsensusBlockSnarkVerifySuccess,
-    ConsensusDetectForkRange,
-    ConsensusLongRangeForkResolve,
-    ConsensusP2pBestTipUpdate,
-    ConsensusPrune,
-    ConsensusShortRangeForkResolve,
-    ConsensusTransitionFrontierSyncTargetUpdate,
     EventSourceNewEvent,
     EventSourceProcessEvents,
     EventSourceWaitForEvents,
@@ -206,6 +193,7 @@ pub enum ActionKind {
     P2pCallbacksP2pChannelsStreamingRpcResponseReceived,
     P2pCallbacksP2pChannelsStreamingRpcTimeout,
     P2pCallbacksP2pDisconnection,
+    P2pCallbacksP2pPubsubValidateMessage,
     P2pCallbacksRpcRespondBestTip,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
@@ -404,7 +392,10 @@ pub enum ActionKind {
     P2pNetworkPnetEffectfulSetupNonce,
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
+    P2pNetworkPubsubBroadcastValidatedMessage,
     P2pNetworkPubsubGraft,
+    P2pNetworkPubsubHandleIncomingMessage,
+    P2pNetworkPubsubIgnoreMessage,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubIncomingMessage,
     P2pNetworkPubsubIncomingMessageCleanup,
@@ -414,9 +405,13 @@ pub enum ActionKind {
     P2pNetworkPubsubOutgoingMessageClear,
     P2pNetworkPubsubOutgoingMessageError,
     P2pNetworkPubsubPrune,
+    P2pNetworkPubsubPruneMessages,
+    P2pNetworkPubsubRejectMessage,
     P2pNetworkPubsubSign,
     P2pNetworkPubsubSignError,
+    P2pNetworkPubsubValidateIncomingMessage,
     P2pNetworkPubsubValidateIncomingMessages,
+    P2pNetworkPubsubWebRtcRebroadcast,
     P2pNetworkPubsubEffectfulSign,
     P2pNetworkPubsubEffectfulValidateIncomingMessages,
     P2pNetworkRpcHeartbeatSend,
@@ -482,6 +477,7 @@ pub enum ActionKind {
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
+    RpcHeartbeatGet,
     RpcLedgerAccountsGetInit,
     RpcLedgerAccountsGetPending,
     RpcLedgerAccountsGetSuccess,
@@ -526,6 +522,7 @@ pub enum ActionKind {
     RpcEffectfulDiscoveryRoutingTable,
     RpcEffectfulGlobalStateGet,
     RpcEffectfulHealthCheck,
+    RpcEffectfulHeartbeatGet,
     RpcEffectfulLedgerAccountsGetSuccess,
     RpcEffectfulMessageProgressGet,
     RpcEffectfulP2pConnectionIncomingError,
@@ -620,6 +617,20 @@ pub enum ActionKind {
     TransitionFrontierGenesisProvenInject,
     TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
+    TransitionFrontierCandidateBestTipUpdate,
+    TransitionFrontierCandidateBlockChainProofUpdate,
+    TransitionFrontierCandidateBlockPrevalidateError,
+    TransitionFrontierCandidateBlockPrevalidateSuccess,
+    TransitionFrontierCandidateBlockReceived,
+    TransitionFrontierCandidateBlockSnarkVerifyError,
+    TransitionFrontierCandidateBlockSnarkVerifyPending,
+    TransitionFrontierCandidateBlockSnarkVerifySuccess,
+    TransitionFrontierCandidateDetectForkRange,
+    TransitionFrontierCandidateLongRangeForkResolve,
+    TransitionFrontierCandidateP2pBestTipUpdate,
+    TransitionFrontierCandidatePrune,
+    TransitionFrontierCandidateShortRangeForkResolve,
+    TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate,
     TransitionFrontierGenesisLedgerLoadInit,
     TransitionFrontierGenesisLedgerLoadPending,
     TransitionFrontierGenesisLedgerLoadSuccess,
@@ -642,6 +653,7 @@ pub enum ActionKind {
     TransitionFrontierSyncBlocksPeerQuerySuccess,
     TransitionFrontierSyncBlocksPeersQuery,
     TransitionFrontierSyncBlocksPending,
+    TransitionFrontierSyncBlocksSendToArchive,
     TransitionFrontierSyncBlocksSuccess,
     TransitionFrontierSyncCommitInit,
     TransitionFrontierSyncCommitPending,
@@ -707,7 +719,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 597;
+    pub const COUNT: u16 = 609;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -727,7 +739,6 @@ impl ActionKindGet for Action {
             Self::Ledger(a) => a.kind(),
             Self::LedgerEffects(a) => a.kind(),
             Self::Snark(a) => a.kind(),
-            Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
             Self::SnarkPoolEffect(a) => a.kind(),
@@ -809,6 +820,9 @@ impl ActionKindGet for P2pCallbacksAction {
             }
             Self::P2pDisconnection { .. } => ActionKind::P2pCallbacksP2pDisconnection,
             Self::RpcRespondBestTip { .. } => ActionKind::P2pCallbacksRpcRespondBestTip,
+            Self::P2pPubsubValidateMessage { .. } => {
+                ActionKind::P2pCallbacksP2pPubsubValidateMessage
+            }
         }
     }
 }
@@ -844,34 +858,12 @@ impl ActionKindGet for SnarkAction {
     }
 }
 
-impl ActionKindGet for ConsensusAction {
-    fn kind(&self) -> ActionKind {
-        match self {
-            Self::BlockReceived { .. } => ActionKind::ConsensusBlockReceived,
-            Self::BlockPrevalidateSuccess { .. } => ActionKind::ConsensusBlockPrevalidateSuccess,
-            Self::BlockPrevalidateError { .. } => ActionKind::ConsensusBlockPrevalidateError,
-            Self::BlockChainProofUpdate { .. } => ActionKind::ConsensusBlockChainProofUpdate,
-            Self::BlockSnarkVerifyPending { .. } => ActionKind::ConsensusBlockSnarkVerifyPending,
-            Self::BlockSnarkVerifySuccess { .. } => ActionKind::ConsensusBlockSnarkVerifySuccess,
-            Self::BlockSnarkVerifyError { .. } => ActionKind::ConsensusBlockSnarkVerifyError,
-            Self::DetectForkRange { .. } => ActionKind::ConsensusDetectForkRange,
-            Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
-            Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
-            Self::BestTipUpdate { .. } => ActionKind::ConsensusBestTipUpdate,
-            Self::TransitionFrontierSyncTargetUpdate => {
-                ActionKind::ConsensusTransitionFrontierSyncTargetUpdate
-            }
-            Self::P2pBestTipUpdate { .. } => ActionKind::ConsensusP2pBestTipUpdate,
-            Self::Prune => ActionKind::ConsensusPrune,
-        }
-    }
-}
-
 impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Genesis(a) => a.kind(),
             Self::GenesisEffect(a) => a.kind(),
+            Self::Candidate(a) => a.kind(),
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::GenesisProvenInject => ActionKind::TransitionFrontierGenesisProvenInject,
@@ -1027,6 +1019,7 @@ impl ActionKindGet for BlockProducerEffectfulAction {
             Self::BlockUnprovenBuild => ActionKind::BlockProducerEffectfulBlockUnprovenBuild,
             Self::BlockProveInit => ActionKind::BlockProducerEffectfulBlockProveInit,
             Self::BlockProveSuccess => ActionKind::BlockProducerEffectfulBlockProveSuccess,
+            Self::BlockProduced { .. } => ActionKind::BlockProducerEffectfulBlockProduced,
         }
     }
 }
@@ -1036,6 +1029,7 @@ impl ActionKindGet for RpcAction {
         match self {
             Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
             Self::StatusGet { .. } => ActionKind::RpcStatusGet,
+            Self::HeartbeatGet { .. } => ActionKind::RpcHeartbeatGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
             Self::BlockProducerStatsGet { .. } => ActionKind::RpcBlockProducerStatsGet,
@@ -1104,6 +1098,7 @@ impl ActionKindGet for RpcEffectfulAction {
         match self {
             Self::GlobalStateGet { .. } => ActionKind::RpcEffectfulGlobalStateGet,
             Self::StatusGet { .. } => ActionKind::RpcEffectfulStatusGet,
+            Self::HeartbeatGet { .. } => ActionKind::RpcEffectfulHeartbeatGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcEffectfulActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcEffectfulSyncStatsGet,
             Self::BlockProducerStatsGet { .. } => ActionKind::RpcEffectfulBlockProducerStatsGet,
@@ -1435,6 +1430,47 @@ impl ActionKindGet for TransitionFrontierGenesisEffectfulAction {
     }
 }
 
+impl ActionKindGet for TransitionFrontierCandidateAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::BlockReceived { .. } => ActionKind::TransitionFrontierCandidateBlockReceived,
+            Self::BlockPrevalidateSuccess { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockPrevalidateSuccess
+            }
+            Self::BlockPrevalidateError { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockPrevalidateError
+            }
+            Self::BlockChainProofUpdate { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockChainProofUpdate
+            }
+            Self::BlockSnarkVerifyPending { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockSnarkVerifyPending
+            }
+            Self::BlockSnarkVerifySuccess { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockSnarkVerifySuccess
+            }
+            Self::BlockSnarkVerifyError { .. } => {
+                ActionKind::TransitionFrontierCandidateBlockSnarkVerifyError
+            }
+            Self::DetectForkRange { .. } => ActionKind::TransitionFrontierCandidateDetectForkRange,
+            Self::ShortRangeForkResolve { .. } => {
+                ActionKind::TransitionFrontierCandidateShortRangeForkResolve
+            }
+            Self::LongRangeForkResolve { .. } => {
+                ActionKind::TransitionFrontierCandidateLongRangeForkResolve
+            }
+            Self::BestTipUpdate { .. } => ActionKind::TransitionFrontierCandidateBestTipUpdate,
+            Self::TransitionFrontierSyncTargetUpdate => {
+                ActionKind::TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate
+            }
+            Self::P2pBestTipUpdate { .. } => {
+                ActionKind::TransitionFrontierCandidateP2pBestTipUpdate
+            }
+            Self::Prune => ActionKind::TransitionFrontierCandidatePrune,
+        }
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1478,6 +1514,9 @@ impl ActionKindGet for TransitionFrontierSyncAction {
             }
             Self::BlocksNextApplySuccess { .. } => {
                 ActionKind::TransitionFrontierSyncBlocksNextApplySuccess
+            }
+            Self::BlocksSendToArchive { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksSendToArchive
             }
             Self::BlocksSuccess => ActionKind::TransitionFrontierSyncBlocksSuccess,
             Self::CommitInit => ActionKind::TransitionFrontierSyncCommitInit,
@@ -1945,6 +1984,7 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             }
             Self::Graft { .. } => ActionKind::P2pNetworkPubsubGraft,
             Self::Prune { .. } => ActionKind::P2pNetworkPubsubPrune,
+            Self::WebRtcRebroadcast { .. } => ActionKind::P2pNetworkPubsubWebRtcRebroadcast,
             Self::Broadcast { .. } => ActionKind::P2pNetworkPubsubBroadcast,
             Self::Sign { .. } => ActionKind::P2pNetworkPubsubSign,
             Self::SignError { .. } => ActionKind::P2pNetworkPubsubSignError,
@@ -1953,6 +1993,16 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::OutgoingMessageClear { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageClear,
             Self::OutgoingMessageError { .. } => ActionKind::P2pNetworkPubsubOutgoingMessageError,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
+            Self::HandleIncomingMessage { .. } => ActionKind::P2pNetworkPubsubHandleIncomingMessage,
+            Self::ValidateIncomingMessage { .. } => {
+                ActionKind::P2pNetworkPubsubValidateIncomingMessage
+            }
+            Self::PruneMessages { .. } => ActionKind::P2pNetworkPubsubPruneMessages,
+            Self::RejectMessage { .. } => ActionKind::P2pNetworkPubsubRejectMessage,
+            Self::IgnoreMessage { .. } => ActionKind::P2pNetworkPubsubIgnoreMessage,
+            Self::BroadcastValidatedMessage { .. } => {
+                ActionKind::P2pNetworkPubsubBroadcastValidatedMessage
+            }
         }
     }
 }

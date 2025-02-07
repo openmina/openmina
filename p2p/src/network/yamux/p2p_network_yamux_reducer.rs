@@ -2,26 +2,43 @@ use std::collections::VecDeque;
 
 use openmina_core::{bug_condition, fuzz_maybe, fuzzed_maybe, Substate, SubstateAccess};
 
-use crate::P2pLimits;
-
-use self::p2p_network_yamux_state::{
-    YamuxFlags, YamuxFrame, YamuxFrameInner, YamuxFrameParseError, YamuxSessionError,
-    YamuxStreamState,
+use crate::{
+    yamux::p2p_network_yamux_state::{YamuxFrame, YamuxFrameInner},
+    Data, Limit, P2pLimits, P2pNetworkAuthState, P2pNetworkConnectionError,
+    P2pNetworkConnectionMuxState, P2pNetworkNoiseAction, P2pNetworkSchedulerAction,
+    P2pNetworkSchedulerState, P2pNetworkSelectAction, P2pNetworkStreamState, SelectKind,
 };
 
-use super::{super::*, *};
+use super::{
+    p2p_network_yamux_state::{YamuxStreamState, MAX_WINDOW_SIZE},
+    P2pNetworkYamuxAction, P2pNetworkYamuxState, YamuxFlags, YamuxPing,
+};
 
 impl P2pNetworkYamuxState {
-    pub fn set_err(&mut self, err: YamuxFrameParseError) {
-        self.terminated = Some(Err(err));
-    }
-
-    pub fn set_res(&mut self, res: Result<(), YamuxSessionError>) {
-        self.terminated = Some(Ok(res));
-    }
-
-    /// Substate is accessed
+    /// Handles the main reducer logic for Yamux protocol actions. It processes incoming and outgoing
+    /// data, selects appropriate behavior based on frame types, and manages the state of streams
+    /// within a Yamux session.
+    ///
+    /// # High-Level Overview
+    ///
+    /// - When data arrives, it is appended to an internal buffer. The buffer is then parsed for
+    ///   valid Yamux frames (using protocol-specific header fields and logic). Incomplete data
+    ///   remains in the buffer for future parsing.
+    /// - On successful parsing, frames are enqueued for further handling (e.g., dispatching
+    ///   actions to notify higher-level protocols or responding to pings).
+    /// - If protocol inconsistencies or invalid headers are encountered, it marks an error or
+    ///   terminates gracefully, preventing further processing of unexpected data.
+    /// - Outgoing data is prepared as frames that respect the window constraints and established
+    ///   flags (e.g., SYN, ACK, FIN), and they are dispatched for transmission.
+    /// - Once frames are processed, the function checks if the buffer has grown beyond a certain
+    ///   threshold relative to its initial capacity. If so, and if the remaining data is small,
+    ///   it resets the buffer capacity to a default size to avoid excessive memory usage.
+    /// - The function also manages streams and their states, ensuring that proper handshake
+    ///   flags are set (SYN, ACK) when a new stream is opened or accepted, enforcing limits on
+    ///   the number of streams, and notifying higher-level components about events like
+    ///   incoming data or connection errors.
     pub fn reducer<State, Action>(
+        // Substate is accessed
         mut state_context: Substate<Action, State, P2pNetworkSchedulerState>,
         action: redux::ActionWithMeta<P2pNetworkYamuxAction>,
     ) -> Result<(), String>
@@ -47,107 +64,15 @@ impl P2pNetworkYamuxState {
 
         match action {
             P2pNetworkYamuxAction::IncomingData { data, addr } => {
-                yamux_state.buffer.extend_from_slice(&data);
-                let mut offset = 0;
-                loop {
-                    let buf = &yamux_state.buffer[offset..];
-                    if buf.len() >= 12 {
-                        let _version = match buf[0] {
-                            0 => 0,
-                            unknown => {
-                                yamux_state.set_err(YamuxFrameParseError::Version(unknown));
-                                break;
-                            }
-                        };
-                        let flags = u16::from_be_bytes(buf[2..4].try_into().expect("cannot fail"));
-                        let Some(flags) = YamuxFlags::from_bits(flags) else {
-                            yamux_state.set_err(YamuxFrameParseError::Flags(flags));
-                            break;
-                        };
-                        let stream_id =
-                            u32::from_be_bytes(buf[4..8].try_into().expect("cannot fail"));
-                        let b = buf[8..12].try_into().expect("cannot fail");
+                yamux_state.extend_buffer(&data);
+                yamux_state.parse_frames();
 
-                        match buf[1] {
-                            0 => {
-                                let len = u32::from_be_bytes(b) as usize;
-                                if len > yamux_state.message_size_limit {
-                                    yamux_state.set_res(Err(YamuxSessionError::Internal));
-                                    break;
-                                }
-                                if buf.len() >= 12 + len {
-                                    let frame = YamuxFrame {
-                                        flags,
-                                        stream_id,
-                                        inner: YamuxFrameInner::Data(
-                                            buf[12..(12 + len)].to_vec().into(),
-                                        ),
-                                    };
-                                    yamux_state.incoming.push_back(frame);
-                                    offset += 12 + len;
-                                    continue;
-                                }
-                            }
-                            1 => {
-                                let difference = i32::from_be_bytes(b);
-                                let frame = YamuxFrame {
-                                    flags,
-                                    stream_id,
-                                    inner: YamuxFrameInner::WindowUpdate { difference },
-                                };
-                                yamux_state.incoming.push_back(frame);
-                                offset += 12;
-                                continue;
-                            }
-                            2 => {
-                                let opaque = i32::from_be_bytes(b);
-                                let frame = YamuxFrame {
-                                    flags,
-                                    stream_id,
-                                    inner: YamuxFrameInner::Ping { opaque },
-                                };
-                                yamux_state.incoming.push_back(frame);
-                                offset += 12;
-                                continue;
-                            }
-                            3 => {
-                                let code = u32::from_be_bytes(b);
-                                let result = match code {
-                                    0 => Ok(()),
-                                    1 => Err(YamuxSessionError::Protocol),
-                                    2 => Err(YamuxSessionError::Internal),
-                                    unknown => {
-                                        yamux_state
-                                            .set_err(YamuxFrameParseError::ErrorCode(unknown));
-                                        break;
-                                    }
-                                };
-                                let frame = YamuxFrame {
-                                    flags,
-                                    stream_id,
-                                    inner: YamuxFrameInner::GoAway(result),
-                                };
-                                yamux_state.incoming.push_back(frame);
-                                offset += 12;
-                                continue;
-                            }
-                            unknown => {
-                                yamux_state.set_err(YamuxFrameParseError::Type(unknown));
-                                break;
-                            }
-                        }
-                    }
-
-                    break;
-                }
-
-                yamux_state.buffer = yamux_state.buffer[offset..].to_vec();
-
-                let incoming_data = yamux_state.incoming.clone();
+                let frame_count = yamux_state.incoming_frame_count();
                 let dispatcher = state_context.into_dispatcher();
-                incoming_data.into_iter().for_each(|frame| {
-                    dispatcher.push(P2pNetworkYamuxAction::IncomingFrame { addr, frame })
-                });
+
+                for _ in 0..frame_count {
+                    dispatcher.push(P2pNetworkYamuxAction::IncomingFrame { addr })
+                }
 
                 Ok(())
             }
@@ -181,69 +106,69 @@ impl P2pNetworkYamuxState {
 
                 Ok(())
             }
-            P2pNetworkYamuxAction::IncomingFrame { addr, frame } => {
+            P2pNetworkYamuxAction::IncomingFrame { addr } => {
                 let mut pending_outgoing = VecDeque::default();
-                if let Some(frame) = yamux_state.incoming.pop_front() {
-                    if frame.flags.contains(YamuxFlags::SYN) {
-                        yamux_state
-                            .streams
-                            .insert(frame.stream_id, YamuxStreamState::incoming());
+                let Some(frame) = yamux_state.incoming.pop_front() else {
+                    bug_condition!(
+                        "Frame not found for action `P2pNetworkYamuxAction::IncomingFrame`"
+                    );
+                    return Ok(());
+                };
 
-                        if frame.stream_id != 0 {
-                            connection_state.streams.insert(
-                                frame.stream_id,
-                                P2pNetworkStreamState::new_incoming(meta.time()),
-                            );
+                if frame.flags.contains(YamuxFlags::SYN) {
+                    yamux_state
+                        .streams
+                        .insert(frame.stream_id, YamuxStreamState::incoming());
+
+                    if frame.stream_id != 0 {
+                        connection_state.streams.insert(
+                            frame.stream_id,
+                            P2pNetworkStreamState::new_incoming(meta.time()),
+                        );
+                    }
+                }
+                if frame.flags.contains(YamuxFlags::ACK) {
+                    yamux_state
+                        .streams
+                        .entry(frame.stream_id)
+                        .or_default()
+                        .established = true;
+                }
+
+                match &frame.inner {
+                    YamuxFrameInner::Data(_) => {
+                        if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
+                            // must not underflow
+                            // TODO: check it and disconnect peer that violates flow rules
+                            stream.window_ours =
+                                stream.window_ours.saturating_sub(frame.len_as_u32());
                         }
                     }
-                    if frame.flags.contains(YamuxFlags::ACK) {
-                        yamux_state
+                    YamuxFrameInner::WindowUpdate { difference } => {
+                        let stream = yamux_state
                             .streams
                             .entry(frame.stream_id)
-                            .or_default()
-                            .established = true;
-                    }
+                            .or_insert_with(YamuxStreamState::incoming);
 
-                    match frame.inner {
-                        YamuxFrameInner::Data(data) => {
-                            if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
-                                // must not underflow
-                                // TODO: check it and disconnect peer that violates flow rules
-                                stream.window_ours =
-                                    stream.window_ours.wrapping_sub(data.len() as u32);
-                            }
-                        }
-                        YamuxFrameInner::WindowUpdate { difference } => {
-                            let stream = yamux_state
-                                .streams
-                                .entry(frame.stream_id)
-                                .or_insert_with(YamuxStreamState::incoming);
-                            stream.update_window(false, difference);
-                            if difference > 0 {
-                                // have some fresh space in the window
-                                // try send as many frames as can
-                                let mut window = stream.window_theirs;
-                                while let Some(mut frame) = stream.pending.pop_front() {
-                                    let len = frame.len() as u32;
-                                    if let Some(new_window) = window.checked_sub(len) {
-                                        pending_outgoing.push_back(frame);
-                                        window = new_window;
-                                    } else {
-                                        if let Some(remaining) =
-                                            frame.split_at((len - window) as usize)
-                                        {
-                                            stream.pending.push_front(remaining);
-                                        }
-                                        pending_outgoing.push_back(frame);
+                        stream.window_theirs = stream.window_theirs.saturating_add(*difference);
 
-                                        break;
-                                    }
+                        if *difference > 0 {
+                            // have some fresh space in the window
+                            // try send as many frames as can
+                            let mut window = stream.window_theirs;
+                            while let Some(frame) = stream.pending.pop_front() {
+                                let len = frame.len_as_u32();
+                                pending_outgoing.push_back(frame);
+                                if let Some(new_window) = window.checked_sub(len) {
+                                    window = new_window;
+                                } else {
+                                    break;
                                 }
                             }
                         }
-                        YamuxFrameInner::Ping { .. } => {}
-                        YamuxFrameInner::GoAway(res) => yamux_state.set_res(res),
                     }
+                    YamuxFrameInner::Ping { .. } => {}
+                    YamuxFrameInner::GoAway(res) => yamux_state.set_res(*res),
                 }
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -306,11 +231,11 @@ impl P2pNetworkYamuxState {
                 }
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {
-                        // here we are very permissive
-                        // always when our window is smaller 64 kb, just increase it by 256 kb
-                        // if we need fine grained back pressure, it should be implemented here
-                        if stream.window_ours < 64 * 1024 {
-                            let difference = 256 * 1024;
+                        // when our window size is less than half of the max window size send window update
+                        if stream.window_ours < stream.max_window_size / 2 {
+                            let difference =
+                                stream.max_window_size.saturating_mul(2).min(1024 * 1024);
+
                             dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame {
                                 addr,
                                 frame: YamuxFrame {
@@ -344,16 +269,9 @@ impl P2pNetworkYamuxState {
                             });
                         }
                     }
-                    YamuxFrameInner::WindowUpdate { difference } => {
-                        if *difference < 0 {
-                            let error =
-                                P2pNetworkConnectionError::YamuxBadWindowUpdate(frame.stream_id);
-                            dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
-                        } else {
-                            while let Some(frame) = pending_outgoing.pop_front() {
-                                dispatcher
-                                    .push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
-                            }
+                    YamuxFrameInner::WindowUpdate { .. } => {
+                        while let Some(frame) = pending_outgoing.pop_front() {
+                            dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
                         }
                     }
                     _ => {}
@@ -367,41 +285,39 @@ impl P2pNetworkYamuxState {
                     return Ok(());
                 };
                 match &mut frame.inner {
-                    YamuxFrameInner::Data(data) => {
+                    YamuxFrameInner::Data(_) => {
                         if let Some(new_window) =
-                            stream.window_theirs.checked_sub(data.len() as u32)
+                            stream.window_theirs.checked_sub(frame.len_as_u32())
                         {
                             // their window is big enough, decrease the size
                             // and send the whole frame
                             stream.window_theirs = new_window;
-                        } else if stream.window_theirs != 0 && stream.pending.is_empty() {
-                            // their window is not big enough, but has some space,
-                            // and the queue is empty,
-                            // do not send the whole frame,
-                            // split it and put remaining in the queue,
+                        } else {
+                            // their window is not big enough
+                            // split the frame to send as much as you can and put the rest in the queue
                             if let Some(remaining) = frame.split_at(stream.window_theirs as usize) {
-                                stream.pending.push_back(remaining);
+                                stream.pending.push_front(remaining);
                             }
+
                             // the window will be zero after sending
                             stream.window_theirs = 0;
-                        } else {
-                            // either the window cannot accept any byte,
-                            // or the queue is already not empty
-                            // in both cases the whole frame goes in the queue and nothing to send
-                            stream.pending.push_back(frame);
+
+                            // if size of pending that is above the limit, ignore the peer
                             if stream.pending.iter().map(YamuxFrame::len).sum::<usize>()
                                 > yamux_state.pending_outgoing_limit
                             {
                                 let dispatcher = state_context.into_dispatcher();
                                 let error = P2pNetworkConnectionError::YamuxOverflow(stream_id);
                                 dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
+                                return Ok(());
                             }
-
-                            return Ok(());
                         }
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
-                        stream.update_window(true, *difference);
+                        stream.window_ours = stream.window_ours.saturating_add(*difference);
+                        if stream.window_ours > stream.max_window_size {
+                            stream.max_window_size = stream.window_ours.min(MAX_WINDOW_SIZE);
+                        }
                     }
                     _ => {}
                 }
@@ -465,27 +381,6 @@ impl P2pNetworkYamuxState {
                 });
                 Ok(())
             }
-        }
-    }
-}
-
-impl YamuxStreamState {
-    pub fn update_window(&mut self, ours: bool, difference: i32) {
-        let window = if ours {
-            &mut self.window_ours
-        } else {
-            &mut self.window_theirs
-        };
-        if difference < 0 {
-            let decreasing = (-difference) as u32;
-            if *window < decreasing {
-                *window = 0;
-            } else {
-                *window = (*window).wrapping_sub(decreasing);
-            }
-        } else {
-            let increasing = difference as u32;
-            *window = (*window).wrapping_add(increasing);
         }
     }
 }

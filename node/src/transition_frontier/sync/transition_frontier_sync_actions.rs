@@ -5,7 +5,7 @@ use openmina_core::ActionEvent;
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
-use crate::ledger::write::CommitResult;
+use crate::ledger::write::{BlockApplyResult, CommitResult};
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 use crate::transition_frontier::sync::TransitionFrontierSyncLedgerPending;
@@ -106,12 +106,21 @@ pub enum TransitionFrontierSyncAction {
         hash: StateHash,
         just_emitted_a_proof: bool,
     },
+    /// Sending block to archive
+    #[action_event(level = info, fields(
+        block_hash = display(&hash),
+    ))]
+    BlocksSendToArchive {
+        hash: StateHash,
+        data: BlockApplyResult,
+    },
     /// Done applying all pending blocks
     BlocksSuccess,
-    /// Commit snarked ledger to transition frontier root
+    /// Commit all the accumulated changes after the
+    /// synchronization is done to the ledger service.
     CommitInit,
     CommitPending,
-    /// Root snarked ledger commited succesfully
+    /// Committing changes after sync finished.
     CommitSuccess {
         result: CommitResult,
     },
@@ -130,9 +139,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                         .best_tip()
                         .map_or(true, |tip| best_tip.hash != tip.hash)
                     && state
-                        .consensus
+                        .transition_frontier
+                        .candidates
                         .best_tip()
-                        .map_or(false, |tip| &best_tip.hash == tip.hash)
+                        .is_some_and(|tip| &best_tip.hash == tip.hash)
             }
             TransitionFrontierSyncAction::BestTipUpdate {
                 best_tip,
@@ -146,7 +156,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 && state
                     .transition_frontier
                     .best_tip()
-                    .map_or(false, |tip| best_tip.hash != tip.hash)
+                    .is_some_and( |tip| best_tip.hash != tip.hash)
                 && state
                     .transition_frontier
                     .sync
@@ -158,7 +168,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     .sync
                     .best_tip()
                     .or(state.transition_frontier.best_tip())
-                    .map_or(false, |tip| {
+                    .is_some_and( |tip| {
                         if tip.is_genesis() && best_tip.height() > tip.height() {
                             // TODO(binier): once genesis blocks are same, uncomment below.
                             // tip.hash() == &best_tip.header().protocol_state.body.genesis_state_hash
@@ -269,7 +279,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     .transition_frontier
                     .sync
                     .blocks_fetch_next()
-                    .map_or(false, |expected| &expected == hash);
+                    .is_some_and(|expected| &expected == hash);
 
                 let check_peer_available = state
                     .p2p
@@ -279,7 +289,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                         let peer_best_tip = p.best_tip.as_ref()?;
                         Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
                     })
-                    .map_or(false, |p| p.channels.rpc.can_send_request());
+                    .is_some_and(|p| p.channels.rpc.can_send_request());
 
                 check_next_hash && check_peer_available
             }
@@ -289,7 +299,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     .sync
                     .blocks_fetch_retry_iter()
                     .next()
-                    .map_or(false, |expected| &expected == hash);
+                    .is_some_and(|expected| &expected == hash);
 
                 let check_peer_available = state
                     .p2p
@@ -299,7 +309,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                         let peer_best_tip = p.best_tip.as_ref()?;
                         Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
                     })
-                    .map_or(false, |p| p.channels.rpc.can_send_request());
+                    .is_some_and(|p| p.channels.rpc.can_send_request());
 
                 check_next_hash && check_peer_available
             }
@@ -307,7 +317,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .transition_frontier
                 .sync
                 .block_state(hash)
-                .map_or(false, |b| b.is_fetch_init_from_peer(peer_id)),
+                .is_some_and(|b| b.is_fetch_init_from_peer(peer_id)),
             TransitionFrontierSyncAction::BlocksPeerQueryError {
                 peer_id, rpc_id, ..
             } => state
@@ -324,12 +334,12 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .sync
                 .block_state(&response.hash)
                 .filter(|s| s.is_fetch_pending_from_peer(peer_id, *rpc_id))
-                .map_or(false, |s| s.block_hash() == &response.hash),
+                .is_some_and(|s| s.block_hash() == &response.hash),
             TransitionFrontierSyncAction::BlocksFetchSuccess { hash } => state
                 .transition_frontier
                 .sync
                 .block_state(hash)
-                .map_or(false, |s| s.fetch_pending_fetched_block().is_some()),
+                .is_some_and(|s| s.fetch_pending_fetched_block().is_some()),
             TransitionFrontierSyncAction::BlocksNextApplyInit => {
                 state.transition_frontier.sync.blocks_apply_next().is_some()
             }
@@ -337,12 +347,12 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .transition_frontier
                 .sync
                 .blocks_apply_next()
-                .map_or(false, |(b, _)| &b.hash == hash),
+                .is_some_and(|(b, _)| &b.hash == hash),
             TransitionFrontierSyncAction::BlocksNextApplyError { hash, .. } => state
                 .transition_frontier
                 .sync
                 .blocks_apply_pending()
-                .map_or(false, |b| &b.hash == hash),
+                .is_some_and(|b| &b.hash == hash),
             TransitionFrontierSyncAction::BlocksNextApplySuccess {
                 hash,
                 just_emitted_a_proof: _,
@@ -350,13 +360,16 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 .transition_frontier
                 .sync
                 .blocks_apply_pending()
-                .map_or(false, |b| &b.hash == hash),
+                .is_some_and(|b| &b.hash == hash),
             TransitionFrontierSyncAction::BlocksSuccess => match &state.transition_frontier.sync {
                 TransitionFrontierSyncState::BlocksPending { chain, .. } => {
                     chain.iter().all(|v| v.is_apply_success())
                 }
                 _ => false,
             },
+            TransitionFrontierSyncAction::BlocksSendToArchive { .. } => {
+                state.transition_frontier.archive_enabled
+            }
             TransitionFrontierSyncAction::CommitInit => matches!(
                 state.transition_frontier.sync,
                 TransitionFrontierSyncState::BlocksSuccess { .. },

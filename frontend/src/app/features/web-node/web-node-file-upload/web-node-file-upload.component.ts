@@ -30,6 +30,7 @@ export class WebNodeFileUploadComponent extends ManualDetection {
   validFiles: boolean = false;
   error: boolean = false;
   uploadedFileName: string;
+  isLeaderboard: boolean = CONFIG.showLeaderboard;
 
   constructor(private webnodeService: WebNodeService) { super(); }
 
@@ -54,7 +55,7 @@ export class WebNodeFileUploadComponent extends ManualDetection {
       const publicKey = files.find(f => f.name.includes('.pub'))?.content;
       const password = files.find(f => f.name.includes('password'))?.content.replace(/\r?\n|\r/g, '');
       const stake = files.find(f => f.name.includes('stake') && !f.name.includes('.pub'))?.content;
-      if (this.error || !publicKey || !password || !stake) {
+      if (this.error || !publicKey || !stake) {
         this.error = true;
       } else {
         this.webnodeService.privateStake = { publicKey, password, stake: JSON.parse(stake) };

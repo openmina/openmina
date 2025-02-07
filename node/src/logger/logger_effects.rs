@@ -118,7 +118,6 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         Action::SnarkPool(action) => action.action_event(&context),
         Action::Snark(SnarkAction::WorkVerify(a)) => a.action_event(&context),
         Action::Snark(SnarkAction::UserCommandVerify(a)) => a.action_event(&context),
-        Action::Consensus(a) => a.action_event(&context),
         Action::TransitionFrontier(a) => match a {
             TransitionFrontierAction::Synced { .. } => {
                 let tip = store.state().transition_frontier.best_tip().unwrap();

@@ -41,6 +41,9 @@ import { getAnalytics, provideAnalytics, ScreenTrackingService } from '@angular/
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
 import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
+import { getFirestore, provideFirestore } from '@angular/fire/firestore';
+import { LeaderboardModule } from '@leaderboard/leaderboard.module';
+import { UptimePillComponent } from '@app/layout/uptime-pill/uptime-pill.component';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -163,6 +166,8 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     WebNodeLandingPageComponent,
     BlockProductionPillComponent,
     MenuTabsComponent,
+    LeaderboardModule,
+    UptimePillComponent,
   ],
   providers: [
     THEME_PROVIDER,
@@ -178,15 +183,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     },
     provideClientHydration(),
     provideHttpClient(withFetch()),
-    provideFirebaseApp(() => initializeApp({
-      'projectId': 'openminawebnode',
-      'appId': '1:120031499786:web:9af56c50ebce25c619f1f3',
-      'storageBucket': 'openminawebnode.firebasestorage.app',
-      'apiKey': 'AIzaSyBreMkb5-8ANb5zL6yWKgRAk9owbDS1g9s',
-      'authDomain': 'openminawebnode.firebaseapp.com',
-      'messagingSenderId': '120031499786',
-      'measurementId': 'G-V0ZC81T9RQ',
-    })),
+    provideFirebaseApp(() => initializeApp(CONFIG.globalConfig.firebase)),
     provideAnalytics(() => getAnalytics()),
     ScreenTrackingService,
     // provideAppCheck(() => {
@@ -195,6 +192,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     //   return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
     // }),
     providePerformance(() => getPerformance()),
+    provideFirestore(() => getFirestore()),
   ],
   bootstrap: [AppComponent],
   exports: [

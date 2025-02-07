@@ -70,6 +70,7 @@ impl SoloNodeSyncToGenesisCustom {
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
             recorder: Default::default(),
+            peer_discovery: true,
         });
 
         runner

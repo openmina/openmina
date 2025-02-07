@@ -1,4 +1,4 @@
-use openmina_core::SubstateAccess;
+use openmina_core::{snark::SnarkJobId, SubstateAccess};
 use serde::{Deserialize, Serialize};
 
 use openmina_core::{snark::Snark, ActionEvent};
@@ -17,7 +17,7 @@ pub enum SnarkWorkVerifyAction {
         batch: Vec<Snark>,
         sender: String,
         on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
-        on_error: redux::Callback<(SnarkWorkVerifyId, String)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String, Vec<SnarkJobId>)>,
     },
     Pending {
         req_id: SnarkWorkVerifyId,
@@ -45,18 +45,18 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkWorkVerifyAction {
                 .work_verify
                 .jobs
                 .get(*req_id)
-                .map_or(false, |v| v.is_init()),
+                .is_some_and(|v| v.is_init()),
             SnarkWorkVerifyAction::Error { req_id, .. }
             | SnarkWorkVerifyAction::Success { req_id } => state
                 .work_verify
                 .jobs
                 .get(*req_id)
-                .map_or(false, |v| v.is_pending()),
+                .is_some_and(|v| v.is_pending()),
             SnarkWorkVerifyAction::Finish { req_id } => state
                 .work_verify
                 .jobs
                 .get(*req_id)
-                .map_or(false, |v| v.is_finished()),
+                .is_some_and(|v| v.is_finished()),
         }
     }
 }
@@ -68,6 +68,6 @@ where
     fn is_enabled(&self, state: &T, time: redux::Timestamp) -> bool {
         state
             .substate()
-            .map_or(false, |state| self.is_enabled(state, time))
+            .is_ok_and(|state| self.is_enabled(state, time))
     }
 }

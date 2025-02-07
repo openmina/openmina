@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "1.0.70",
+  "version": "1.0.124",
   "scripts": {
     "install:deps": "npm install",
     "start": "npm install && ng serve --configuration local --open",
@@ -20,7 +20,8 @@
     "prerender": "ng run frontend:prerender",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org openmina-uv --project openmina ./dist/frontend/browser && sentry-cli sourcemaps upload --org openmina-uv --project openmina ./dist/frontend/browser",
     "copy-env": "cp dist/frontend/browser/assets/environments/webnode.js dist/frontend/browser/assets/environments/env.js",
-    "deploy": "npm run prebuild && npm run build:prod && npm run copy-env && firebase deploy"
+    "deploy": "npm run prebuild && npm run build:prod && npm run copy-env && firebase deploy",
+    "deploy:leaderboard": "npm run prebuild && npm run build:prod && cp dist/frontend/browser/assets/environments/leaderboard.js dist/frontend/browser/assets/environments/env.js && firebase deploy"
   },
   "private": true,
   "dependencies": {
@@ -47,6 +48,7 @@
     "@sentry/angular": "^8.35.0",
     "@sentry/cli": "^2.38.2",
     "@sentry/tracing": "^7.114.0",
+    "aos": "^2.3.4",
     "base-x": "^5.0.0",
     "bs58check": "^4.0.0",
     "buffer": "^6.0.3",

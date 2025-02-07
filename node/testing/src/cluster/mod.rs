@@ -280,7 +280,7 @@ impl Cluster {
                 initial_peers,
                 external_addrs: vec![],
                 enabled_channels: ChannelId::iter_all().collect(),
-                peer_discovery: true,
+                peer_discovery: testing_config.peer_discovery,
                 timeouts: testing_config.timeouts,
                 limits: P2pLimits::default().with_max_peers(Some(testing_config.max_peers)),
                 meshsub: P2pMeshsubConfig {
@@ -293,6 +293,7 @@ impl Cluster {
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,
+            archive: None,
             tx_pool: ledger::transaction_pool::Config {
                 trust_system: (),
                 pool_max_size: 3000,
@@ -647,7 +648,7 @@ impl Cluster {
         while self
             .scenario
             .peek()
-            .map_or(false, |(scenario, _)| scenario.info.id != target_scenario)
+            .is_some_and(|(scenario, _)| scenario.info.id != target_scenario)
         {
             if !self.exec_next().await? {
                 break;
@@ -657,7 +658,7 @@ impl Cluster {
         while self
             .scenario
             .peek()
-            .map_or(false, |(scenario, _)| scenario.info.id == target_scenario)
+            .is_some_and(|(scenario, _)| scenario.info.id == target_scenario)
         {
             if let Some(step_i) = step_i {
                 if self.scenario.peek_i().unwrap().1 >= step_i {

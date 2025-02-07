@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2025-01-31
+
+### Changed
+
+- **Rust Toolchain**: Updated the minimum required Rust toolchain to version 1.84.
+- **Proofs**: Optimizations (MSM, field inversion) that speed up proof production.
+
+### Fixed
+
+- **P2P**: Correct handling of yamux windows limits
+- **P2P**: Wait until full validation is complete before broadcasting blocks.
+- **WebRTC/P2P**: Handle propagation of messages received from the WebRTC network to libp2p's gossip network (blocks, snarks and transactions).
+- **Transaction pool**: Fixed checks for deep account updates when pre-validating transactions.
+
+### Added
+
+- **Archive mode**: Added support for archive mode, which allows the node to connect to an archiver process and store node data in a database.
+
 ## [0.13.0] - 2025-01-06
 
 ### Fixed
@@ -348,7 +366,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.13.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.14.0...develop
+[0.14.0]: https://github.com/openmina/openmina/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/openmina/openmina/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openmina/openmina/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/openmina/openmina/compare/v0.10.3...v0.11.0

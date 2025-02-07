@@ -125,7 +125,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                 .p2p
                 .ready()
                 .and_then(|p2p| p2p.network.scheduler.discovery_state())
-                .map_or(false, |discovery_state| discovery_state.is_bootstrapped())
+                .is_some_and(|discovery_state| discovery_state.is_bootstrapped())
             {
                 // the node must find all already running OCaml nodes
                 // assert_eq!(this.state().p2p.peers.len(), TOTAL_OCAML_NODES as usize);

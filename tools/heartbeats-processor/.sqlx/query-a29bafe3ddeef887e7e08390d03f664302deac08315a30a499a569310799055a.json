@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        UPDATE time_windows \n        SET disabled = TRUE \n        WHERE (start_time < ?1 OR end_time > ?2) \n        AND disabled = FALSE\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "a29bafe3ddeef887e7e08390d03f664302deac08315a30a499a569310799055a"
+}

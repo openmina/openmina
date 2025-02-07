@@ -27,6 +27,7 @@ _Currently in **public beta**, join our [Discord community](https://discord.com/
 - [Non-Block Producing Node](/docs/alpha-testing-guide.md) Connect to peers and sync a node on the devnet; no devnet stake needed.
 - [Block Producing Node](/docs/block-producer-guide.md) Produce blocks on the devnet; sufficient devnet stake needed.
 - [Local Block Production Demo](/docs/local-demo-guide.md) Produce blocks on a custom local chain without devnet stake.
+- [Devnet Archive Node](/docs/archive-node-guide.md) Run an archive node on devnet.
 
 <img src="docs/assets/NodeUI.png" alt="Block production Node UI">
 

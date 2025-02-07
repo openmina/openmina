@@ -10,8 +10,15 @@ export default {
     features: {
       'dashboard': [],
       'block-production': ['won-slots'],
-      'mempool': [],
-      'benchmarks': ['wallets'],
+    },
+    firebase: {
+      'projectId': 'openminawebnode',
+      'appId': '1:120031499786:web:9af56c50ebce25c619f1f3',
+      'storageBucket': 'openminawebnode.firebasestorage.app',
+      'apiKey': 'AIzaSyBreMkb5-8ANb5zL6yWKgRAk9owbDS1g9s',
+      'authDomain': 'openminawebnode.firebaseapp.com',
+      'messagingSenderId': '120031499786',
+      'measurementId': 'G-V0ZC81T9RQ',
     },
   },
   sentry: {
