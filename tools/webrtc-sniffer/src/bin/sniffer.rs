@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use clap::Parser;
 use pcap::{Capture, ConnectionStatus, Device, IfFlags};
 
-// cargo run --release --bin sniffer -- --interface auto --port 443 --path target/test.pcap
+use p2p::identity::SecretKey;
+
+// cargo run --release --bin sniffer -- --interface auto --path target/test.pcap
 
 #[derive(Parser)]
 struct Cli {
@@ -12,14 +14,26 @@ struct Cli {
         help = "name of the interface, use `auto` to determine automatically"
     )]
     interface: Option<String>,
-    #[arg(long, help = "filter by the port")]
-    port: u16,
     #[arg(
         long,
         help = "if `interface` is set, the packets will be written to the `pcap` file, \
                 otherwise the file will be a source of packets"
     )]
     path: PathBuf,
+
+    /// Peer secret key
+    #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
+    pub p2p_secret_key: Option<SecretKey>,
+
+    // warning, this overrides `OPENMINA_P2P_SEC_KEY`
+    /// Compatibility with OCaml Mina node
+    #[arg(long)]
+    pub libp2p_keypair: Option<String>,
+
+    // warning, this overrides `OPENMINA_P2P_SEC_KEY`
+    /// Compatibility with OCaml Mina node
+    #[arg(env = "MINA_LIBP2P_PASS")]
+    pub libp2p_password: Option<String>,
 }
 
 fn init_logger_std() -> Box<dyn log::Log> {
@@ -36,9 +50,30 @@ fn main() {
 
     let Cli {
         interface,
-        port,
         path,
+        p2p_secret_key,
+        libp2p_keypair,
+        libp2p_password,
     } = Cli::parse();
+
+    let secret_key = if let Some(v) = p2p_secret_key {
+        v
+    } else {
+        let (Some(libp2p_keypair), Some(libp2p_password)) = (libp2p_keypair, libp2p_password)
+        else {
+            log::error!("no secret key specified");
+            return;
+        };
+
+        match SecretKey::from_encrypted_file(libp2p_keypair, &libp2p_password) {
+            Ok(v) => v,
+            Err(err) => {
+                log::error!("cannot read secret key {err}");
+                return;
+            }
+        }
+    };
+
     if let Some(name) = interface {
         sudo::escalate_if_needed().unwrap();
 
@@ -70,13 +105,12 @@ fn main() {
             log::info!("will use: {device:?}");
             let res = Ok(()).and_then(|()| {
                 let mut capture = Capture::from_device(device)?.open()?;
-                let filter = format!("udp port {port}");
                 capture
-                    .filter(&filter, true)
+                    .filter("udp and not port 443", true)
                     .expect("Failed to apply filter");
                 let savefile = capture.savefile(&path)?;
 
-                webrtc_sniffer::run(capture, Some(savefile))
+                webrtc_sniffer::run(capture, Some(savefile), secret_key)
             });
             if let Err(err) = res {
                 log::error!("{err}");
@@ -88,7 +122,7 @@ fn main() {
         log::info!("use file");
         let res = Ok(()).and_then(|()| {
             let capture = Capture::from_file(&path)?;
-            webrtc_sniffer::run(capture, None)
+            webrtc_sniffer::run(capture, None, secret_key)
         });
         if let Err(err) = res {
             log::error!("{err}");
