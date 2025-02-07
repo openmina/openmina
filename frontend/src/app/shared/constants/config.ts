@@ -2,6 +2,8 @@ import { FeaturesConfig, FeatureType, MinaEnv, MinaNode } from '@shared/types/co
 import { environment } from '@environment/environment';
 import { getOrigin, hasValue, isBrowser, safelyExecuteInBrowser } from '@openmina/shared';
 
+console.log(environment)
+
 export const CONFIG: Readonly<MinaEnv> = {
   ...environment,
   globalConfig: {

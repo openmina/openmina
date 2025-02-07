@@ -2,3 +2,4 @@
 /node/testing/res/
 .DS_Store
 *.profraw
+.idea
