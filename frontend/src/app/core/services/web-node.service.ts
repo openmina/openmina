@@ -60,7 +60,6 @@ export class WebNodeService {
   }
 
   loadWasm$(): Observable<void> {
-    console.log('Loading wasm');
     this.webNodeStartTime = Date.now();
 
     if (isBrowser()) {

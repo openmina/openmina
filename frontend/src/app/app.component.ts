@@ -78,7 +78,6 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   }
 
   private initAppFunctionalities(): void {
-    console.log('initAppFunctionalities');
     if (this.webNodeService.hasWebNodeConfig() && !this.webNodeService.isWebNodeLoaded()) {
       if (!getWindow()?.location.href.includes(`/${Routes.LOADING_WEB_NODE}`)) {
         this.router.navigate([Routes.LOADING_WEB_NODE], { queryParamsHandling: 'preserve' });

@@ -1,17 +1,7 @@
-import { Injectable } from '@angular/core';
-import {
-  Firestore,
-  CollectionReference,
-  collection,
-  addDoc,
-  doc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  DocumentData,
-} from '@angular/fire/firestore';
+import { Injectable, Optional } from '@angular/core';
+import { collection, CollectionReference, deleteDoc, doc, DocumentData, Firestore, updateDoc } from '@angular/fire/firestore';
 import { HttpClient } from '@angular/common/http';
-import { catchError, EMPTY, Observable, of } from 'rxjs';
+import { catchError, Observable, of } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
@@ -20,9 +10,11 @@ export class FirestoreService {
   private heartbeatCollection: CollectionReference<DocumentData>;
   private cloudFunctionUrl = 'https://us-central1-webnode-gtm-test.cloudfunctions.net/handleValidationAndStore';
 
-  constructor(private firestore: Firestore,
+  constructor(@Optional() private firestore: Firestore,
               private http: HttpClient) {
-    this.heartbeatCollection = collection(this.firestore, 'heartbeat');
+    if (this.firestore) {
+      this.heartbeatCollection = collection(this.firestore, 'heartbeat');
+    }
   }
 
   addHeartbeat(data: any): Observable<any> {

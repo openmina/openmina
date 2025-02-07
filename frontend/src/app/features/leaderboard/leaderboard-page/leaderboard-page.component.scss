@@ -86,3 +86,39 @@ main {
   font-weight: 400;
   line-height: 24px;
 }
+
+p {
+  font-size: 16px;
+  line-height: 24px;
+  color: $mina-base-primary;
+}
+
+.download-btns {
+  color: $mina-base-primary;
+  margin-bottom: 80px;
+
+  button {
+    border-radius: 999px;
+    font-size: 20px;
+    gap: 8px;
+    padding: 0 16px;
+    font-weight: 300;
+    transition: all 0.15s ease;
+
+    &:hover {
+      box-shadow: 0 2px 4px 0 $black3;
+    }
+
+    &:nth-child(1) {
+      background-color: $mina-brand-aqua;
+    }
+
+    &:nth-child(2) {
+      background-color: $mina-brand-lilac;
+    }
+
+    &:nth-child(3) {
+      background-color: $mina-brand-peony;
+    }
+  }
+}

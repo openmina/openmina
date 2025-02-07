@@ -128,6 +128,21 @@ export class AppGlobalErrorhandler implements ErrorHandler {
   }
 }
 
+const firebaseProviders = [
+  provideClientHydration(),
+  provideHttpClient(withFetch()),
+  provideFirebaseApp(() => initializeApp(CONFIG.globalConfig.firebase)),
+  provideAnalytics(() => getAnalytics()),
+  ScreenTrackingService,
+  // provideAppCheck(() => {
+  //   // TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
+  //   const provider = new ReCaptchaEnterpriseProvider(/* reCAPTCHA Enterprise site key */);
+  //   return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
+  // }),
+  providePerformance(() => getPerformance()),
+  provideFirestore(() => getFirestore()),
+];
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -181,18 +196,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
       deps: [Sentry.TraceService],
       multi: true,
     },
-    provideClientHydration(),
-    provideHttpClient(withFetch()),
-    provideFirebaseApp(() => initializeApp(CONFIG.globalConfig.firebase)),
-    provideAnalytics(() => getAnalytics()),
-    ScreenTrackingService,
-    // provideAppCheck(() => {
-    //   // TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
-    //   const provider = new ReCaptchaEnterpriseProvider(/* reCAPTCHA Enterprise site key */);
-    //   return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
-    // }),
-    providePerformance(() => getPerformance()),
-    provideFirestore(() => getFirestore()),
+    ...[CONFIG.globalConfig.firebase ? firebaseProviders : []],
   ],
   bootstrap: [AppComponent],
   exports: [
