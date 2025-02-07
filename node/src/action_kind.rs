@@ -391,7 +391,6 @@ pub enum ActionKind {
     P2pNetworkPnetEffectfulOutgoingData,
     P2pNetworkPnetEffectfulSetupNonce,
     P2pNetworkPubsubBroadcast,
-    P2pNetworkPubsubBroadcastMessage,
     P2pNetworkPubsubBroadcastSigned,
     P2pNetworkPubsubBroadcastValidatedMessage,
     P2pNetworkPubsubGraft,
@@ -720,7 +719,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 610;
+    pub const COUNT: u16 = 609;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -2004,7 +2003,6 @@ impl ActionKindGet for P2pNetworkPubsubAction {
             Self::BroadcastValidatedMessage { .. } => {
                 ActionKind::P2pNetworkPubsubBroadcastValidatedMessage
             }
-            Self::BroadcastMessage { .. } => ActionKind::P2pNetworkPubsubBroadcastMessage,
         }
     }
 }

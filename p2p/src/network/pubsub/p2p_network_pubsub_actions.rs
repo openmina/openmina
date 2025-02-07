@@ -182,10 +182,6 @@ pub enum P2pNetworkPubsubAction {
     BroadcastValidatedMessage {
         message_id: BroadcastMessageId,
     },
-
-    BroadcastMessage {
-        message_id: P2pNetworkPubsubMessageCacheId,
-    },
 }
 
 impl From<P2pNetworkPubsubAction> for crate::P2pAction {

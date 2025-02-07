@@ -604,18 +604,36 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id } => {
-                let Some((mcache_message_id, _)) =
+                let Some((message_id, _)) =
                     pubsub_state.mcache.get_message_id_and_message(&message_id)
                 else {
                     bug_condition!("Message with id: {:?} not found", message_id);
                     return Ok(());
                 };
 
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(P2pNetworkPubsubAction::BroadcastMessage {
-                    message_id: mcache_message_id,
-                });
-                Ok(())
+                let Some(message) = pubsub_state.mcache.map.get(&message_id) else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
+                    return Ok(());
+                };
+
+                let raw_message = message.message().clone();
+                let peer_id = *message.peer_id();
+
+                pubsub_state.reduce_incoming_validated_message(message_id, peer_id, &raw_message);
+
+                let Some(message) = pubsub_state.mcache.map.get_mut(&message_id) else {
+                    bug_condition!("Message with id: {:?} not found", message_id);
+                    return Ok(());
+                };
+
+                *message = P2pNetworkPubsubMessageCacheMessage::Validated {
+                    message: raw_message,
+                    peer_id,
+                    time: *message.time(),
+                };
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                Self::broadcast(dispatcher, state)
             }
             P2pNetworkPubsubAction::PruneMessages {} => {
                 let messages = pubsub_state
@@ -672,31 +690,6 @@ impl P2pNetworkPubsubState {
                 Ok(())
             }
             P2pNetworkPubsubAction::IgnoreMessage { .. } => Ok(()),
-            P2pNetworkPubsubAction::BroadcastMessage { message_id } => {
-                let Some(message) = pubsub_state.mcache.map.get(&message_id) else {
-                    bug_condition!("Message with id: {:?} not found", message_id);
-                    return Ok(());
-                };
-
-                let raw_message = message.message().clone();
-                let peer_id = *message.peer_id();
-
-                pubsub_state.reduce_incoming_validated_message(message_id, peer_id, &raw_message);
-
-                let Some(message) = pubsub_state.mcache.map.get_mut(&message_id) else {
-                    bug_condition!("Message with id: {:?} not found", message_id);
-                    return Ok(());
-                };
-
-                *message = P2pNetworkPubsubMessageCacheMessage::Validated {
-                    message: raw_message,
-                    peer_id,
-                    time: *message.time(),
-                };
-
-                let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                Self::broadcast(dispatcher, state)
-            }
         }
     }
 
@@ -725,6 +718,10 @@ impl P2pNetworkPubsubState {
         Ok(())
     }
 
+    /// Queues a validated message for propagation to other peers in the pubsub network.
+    /// For peers that are "on mesh" for the message's topic, queues the full message.
+    /// For other peers, queues an IHAVE control message to notify about message availability.
+    /// The original sender is excluded from propagation.
     fn reduce_incoming_validated_message(
         &mut self,
         message_id: P2pNetworkPubsubMessageCacheId,
