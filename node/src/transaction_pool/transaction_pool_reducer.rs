@@ -9,10 +9,11 @@ use ledger::{
 use openmina_core::{
     bug_condition,
     constants::constraint_constants,
-    requests::RpcId,
-    transaction::{Transaction, TransactionWithHash},
+    transaction::{Transaction, TransactionPoolMessageSource, TransactionWithHash},
 };
-use p2p::channels::transaction::P2pChannelsTransactionAction;
+use p2p::{
+    channels::transaction::P2pChannelsTransactionAction, BroadcastMessageId, P2pNetworkPubsubAction,
+};
 use redux::callback;
 use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyId};
 use std::collections::{BTreeMap, BTreeSet};
@@ -57,7 +58,10 @@ impl TransactionPoolState {
                     meta.with_action(a),
                 );
             }
-            TransactionPoolAction::StartVerify { commands, from_rpc } => {
+            TransactionPoolAction::StartVerify {
+                commands,
+                from_source,
+            } => {
                 let Ok(commands) = commands
                     .iter()
                     .map(TransactionWithHash::body)
@@ -79,17 +83,17 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(fetch_to_verify((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_rpc: Option<RpcId>)) -> crate::Action {
-                        TransactionPoolAction::StartVerifyWithAccounts { accounts, pending_id: id.unwrap(), from_rpc }
+                    on_result: callback!(fetch_to_verify((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_source: TransactionPoolMessageSource)) -> crate::Action {
+                        TransactionPoolAction::StartVerifyWithAccounts { accounts, pending_id: id.unwrap(), from_source }
                     }),
                     pending_id: Some(pending_id),
-                    from_rpc: *from_rpc,
+                    from_source: *from_source,
                 });
             }
             TransactionPoolAction::StartVerifyWithAccounts {
                 accounts,
                 pending_id,
-                from_rpc,
+                from_source,
             } => {
                 let TransactionPoolAction::StartVerify { commands, .. } =
                     substate.pending_actions.remove(pending_id).unwrap()
@@ -120,14 +124,14 @@ impl TransactionPoolState {
                         dispatcher.push(SnarkUserCommandVerifyAction::Init {
                             req_id,
                             commands: verifiable,
-                            from_rpc: *from_rpc,
+                            from_source: *from_source,
                             on_success: callback!(
                                 on_snark_user_command_verify_success(
-                                    (req_id: SnarkUserCommandVerifyId, valids: Vec<valid::UserCommand>, from_rpc: Option<RpcId>)
+                                    (req_id: SnarkUserCommandVerifyId, valids: Vec<valid::UserCommand>, from_source: TransactionPoolMessageSource)
                                 ) -> crate::Action {
                                     TransactionPoolAction::VerifySuccess {
                                         valids,
-                                        from_rpc,
+                                        from_source,
                                     }
                                 }
                             ),
@@ -135,9 +139,7 @@ impl TransactionPoolState {
                                 on_snark_user_command_verify_error(
                                     (req_id: SnarkUserCommandVerifyId, errors: Vec<String>)
                                 ) -> crate::Action {
-                                    TransactionPoolAction::VerifyError {
-                                        errors
-                                    }
+                                    TransactionPoolAction::VerifyError { errors }
                                 }
                             )
                         });
@@ -148,11 +150,24 @@ impl TransactionPoolState {
                             dispatcher.push(TransactionPoolAction::VerifyError {
                                 errors: errors.clone(),
                             });
-                            if let Some(rpc_id) = from_rpc {
-                                dispatcher.push(RpcAction::TransactionInjectFailure {
-                                    rpc_id: *rpc_id,
-                                    errors,
-                                })
+
+                            match from_source {
+                                TransactionPoolMessageSource::Rpc { id } => {
+                                    dispatcher.push(RpcAction::TransactionInjectFailure {
+                                        rpc_id: *id,
+                                        errors,
+                                    });
+                                }
+                                TransactionPoolMessageSource::Pubsub { id } => {
+                                    dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                                        message_id: Some(BroadcastMessageId::MessageId {
+                                            message_id: *id,
+                                        }),
+                                        peer_id: None,
+                                        reason: "Transaction diff rejected".to_owned(),
+                                    })
+                                }
+                                TransactionPoolMessageSource::None => {}
                             }
                         };
                         match e {
@@ -169,7 +184,10 @@ impl TransactionPoolState {
                     }
                 }
             }
-            TransactionPoolAction::VerifySuccess { valids, from_rpc } => {
+            TransactionPoolAction::VerifySuccess {
+                valids,
+                from_source,
+            } => {
                 let valids = valids
                     .iter()
                     .cloned()
@@ -182,8 +200,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
                     best_tip_hash,
                     diff,
-                    is_sender_local: from_rpc.is_some(),
-                    from_rpc: *from_rpc,
+                    from_source: *from_source,
                 });
             }
             TransactionPoolAction::VerifyError { .. } => {
@@ -197,11 +214,11 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(fetch_for_best_tip((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_rpc: Option<RpcId>)) -> crate::Action {
+                    on_result: callback!(fetch_for_best_tip((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_source: TransactionPoolMessageSource)) -> crate::Action {
                         TransactionPoolAction::BestTipChangedWithAccounts { accounts }
                     }),
                     pending_id: None,
-                    from_rpc: None,
+                    from_source: TransactionPoolMessageSource::None,
                 });
             }
             TransactionPoolAction::BestTipChangedWithAccounts { accounts } => {
@@ -220,8 +237,7 @@ impl TransactionPoolState {
             TransactionPoolAction::ApplyVerifiedDiff {
                 best_tip_hash,
                 diff,
-                is_sender_local: _,
-                from_rpc,
+                from_source,
             } => {
                 let account_ids = substate.pool.get_accounts_to_apply_diff(diff);
                 let pending_id = substate.make_action_pending(action);
@@ -230,14 +246,14 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(fetch_for_apply((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_rpc: Option<RpcId>)) -> crate::Action {
+                    on_result: callback!(fetch_for_apply((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_rpc: TransactionPoolMessageSource)) -> crate::Action {
                         TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
                             accounts,
                             pending_id: id.unwrap(),
                         }
                     }),
                     pending_id: Some(pending_id),
-                    from_rpc: *from_rpc,
+                    from_source: *from_source,
                 });
             }
             TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
@@ -247,24 +263,22 @@ impl TransactionPoolState {
                 let TransactionPoolAction::ApplyVerifiedDiff {
                     best_tip_hash: _,
                     diff,
-                    is_sender_local,
-                    from_rpc,
+                    from_source,
                 } = substate.pending_actions.remove(pending_id).unwrap()
                 else {
                     panic!()
                 };
+                let is_sender_local = from_source.is_sender_local();
 
                 // Note(adonagy): Action for rebroadcast, in his action we can use forget_check
-                let (rpc_action, was_accepted, accepted, rejected) = match substate
-                    .pool
-                    .unsafe_apply(
-                        meta.time(),
-                        global_slot_from_genesis,
-                        global_slot,
-                        &diff,
-                        accounts,
-                        is_sender_local,
-                    ) {
+                let (was_accepted, accepted, rejected) = match substate.pool.unsafe_apply(
+                    meta.time(),
+                    global_slot_from_genesis,
+                    global_slot,
+                    &diff,
+                    accounts,
+                    is_sender_local,
+                ) {
                     Ok((ApplyDecision::Accept, accepted, rejected, dropped)) => {
                         for hash in dropped {
                             substate.dpool.remove(&hash);
@@ -275,20 +289,11 @@ impl TransactionPoolState {
                                 hash: tx.hash.clone(),
                             });
                         }
-                        let rpc_action =
-                            from_rpc.map(|rpc_id| RpcAction::TransactionInjectSuccess {
-                                rpc_id,
-                                response: accepted.clone(),
-                            });
-                        (rpc_action, true, accepted, rejected)
+
+                        (true, accepted, rejected)
                     }
                     Ok((ApplyDecision::Reject, accepted, rejected, _)) => {
-                        let rpc_action =
-                            from_rpc.map(|rpc_id| RpcAction::TransactionInjectRejected {
-                                rpc_id,
-                                response: rejected.clone(),
-                            });
-                        (rpc_action, false, accepted, rejected)
+                        (false, accepted, rejected)
                     }
                     Err(e) => {
                         crate::core::warn!(meta.time(); kind = "TransactionPoolUnsafeApplyError", summary = e);
@@ -297,12 +302,37 @@ impl TransactionPoolState {
                 };
 
                 let dispatcher = state.into_dispatcher();
-                if let Some(rpc_action) = rpc_action {
-                    dispatcher.push(rpc_action);
+
+                // TODO: use callbacks
+                match (was_accepted, from_source) {
+                    (true, TransactionPoolMessageSource::Rpc { id }) => {
+                        dispatcher.push(RpcAction::TransactionInjectSuccess {
+                            rpc_id: id,
+                            response: accepted.clone(),
+                        });
+                    }
+                    (true, TransactionPoolMessageSource::Pubsub { id }) => {
+                        dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
+                            message_id: BroadcastMessageId::MessageId { message_id: id },
+                        });
+                    }
+                    (false, TransactionPoolMessageSource::Rpc { id }) => {
+                        dispatcher.push(RpcAction::TransactionInjectRejected {
+                            rpc_id: id,
+                            response: rejected.clone(),
+                        });
+                    }
+                    (false, TransactionPoolMessageSource::Pubsub { id }) => {
+                        dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                            message_id: Some(BroadcastMessageId::MessageId { message_id: id }),
+                            peer_id: None,
+                            reason: "Rejected transaction diff".to_owned(),
+                        });
+                    }
+                    (_, TransactionPoolMessageSource::None) => {}
                 }
-                // TODO: libp2p logic already broadcasts everything right now and doesn't
-                // wait for validation, thad needs to be fixed. See #952
-                if was_accepted {
+
+                if was_accepted && !from_source.is_libp2p() {
                     dispatcher.push(TransactionPoolAction::Rebroadcast {
                         accepted,
                         rejected,
@@ -324,14 +354,14 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids: account_ids.union(&uncommitted).cloned().collect(),
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(fetch_for_diff((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_rpc: Option<RpcId>)) -> crate::Action {
+                    on_result: callback!(fetch_for_diff((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>, from_source: TransactionPoolMessageSource)) -> crate::Action {
                         TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {
                             accounts,
                             pending_id: id.unwrap(),
                         }
                     }),
                     pending_id: Some(pending_id),
-                    from_rpc: None,
+                    from_source: TransactionPoolMessageSource::None,
                 });
             }
             TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {

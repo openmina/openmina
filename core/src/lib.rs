@@ -17,6 +17,7 @@ pub mod constants;
 pub mod dummy;
 
 pub mod block;
+pub mod p2p;
 pub mod snark;
 pub mod transaction;
 

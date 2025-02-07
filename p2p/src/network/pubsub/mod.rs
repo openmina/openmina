@@ -1,14 +1,13 @@
 pub mod pb {
     include!(concat!(env!("OUT_DIR"), "/gossipsub.rs"));
 }
-
+pub use openmina_core::p2p::P2pNetworkPubsubMessageCacheId;
 mod p2p_network_pubsub_actions;
 pub use self::p2p_network_pubsub_actions::P2pNetworkPubsubAction;
 
 mod p2p_network_pubsub_state;
 pub use self::p2p_network_pubsub_state::{
-    P2pNetworkPubsubClientState, P2pNetworkPubsubClientTopicState, P2pNetworkPubsubMessageCacheId,
-    P2pNetworkPubsubState,
+    P2pNetworkPubsubClientState, P2pNetworkPubsubClientTopicState, P2pNetworkPubsubState,
 };
 
 #[cfg(feature = "p2p-libp2p")]
@@ -18,6 +17,7 @@ mod p2p_network_pubsub_reducer;
 const TOPIC: &str = "coda/consensus-messages/0.0.1";
 
 pub mod pubsub_effectful;
+use openmina_core::snark::SnarkJobId;
 pub use pubsub_effectful::P2pNetworkPubsubEffectfulAction;
 
 use binprot::BinProtWrite;
@@ -31,6 +31,9 @@ use crate::identity::SecretKey;
 pub enum BroadcastMessageId {
     BlockHash {
         hash: mina_p2p_messages::v2::StateHash,
+    },
+    Snark {
+        job_id: SnarkJobId,
     },
     MessageId {
         message_id: P2pNetworkPubsubMessageCacheId,

@@ -1,11 +1,10 @@
 use std::collections::BTreeMap;
 
+use crate::{snark_pool::JobCommitment, ExternalSnarkWorkerAction, SnarkerStrategy};
 use openmina_core::snark::{SnarkJobCommitment, SnarkJobId};
 use p2p::channels::{
     snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
 };
-
-use crate::{snark_pool::JobCommitment, ExternalSnarkWorkerAction, SnarkerStrategy};
 
 use super::{
     JobState, SnarkPoolAction, SnarkPoolActionWithMetaRef, SnarkPoolEffectfulAction,
@@ -202,8 +201,6 @@ impl SnarkPoolState {
                     }
                 }
 
-                // TODO: libp2p logic already broadcasts everything right now and doesn't
-                // wait for validation, thad needs to be fixed. See #952
                 dispatcher.push(P2pChannelsSnarkAction::Libp2pBroadcast {
                     snark: snark.clone(),
                     nonce: 0,
