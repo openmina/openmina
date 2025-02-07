@@ -28,11 +28,18 @@ impl<S: Activated + ?Sized> Iterator for UdpIter<S> {
     type Item = Result<(SocketAddr, SocketAddr, Box<[u8]>), DissectError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner
-            .next()?
-            .map_err(DissectError::Cap)
-            .and_then(|x| x)
-            .transpose()
+        loop {
+            match self
+                .inner
+                .next()?
+                .map_err(DissectError::Cap)
+                .and_then(|x| x)
+                .transpose()
+            {
+                Some(v) => break Some(v),
+                None => continue,
+            }
+        }
     }
 }
 
