@@ -14,6 +14,7 @@ struct Cli {
         help = "name of the interface, use `auto` to determine automatically"
     )]
     interface: Option<String>,
+
     #[arg(
         long,
         help = "if `interface` is set, the packets will be written to the `pcap` file, \
@@ -21,19 +22,22 @@ struct Cli {
     )]
     path: PathBuf,
 
+    #[arg(long, help = "bpf filter, example: \"udp and not port 443\"")]
+    filter: Option<String>,
+
     /// Peer secret key
     #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
-    pub p2p_secret_key: Option<SecretKey>,
+    p2p_secret_key: Option<SecretKey>,
 
     // warning, this overrides `OPENMINA_P2P_SEC_KEY`
     /// Compatibility with OCaml Mina node
     #[arg(long)]
-    pub libp2p_keypair: Option<String>,
+    libp2p_keypair: Option<String>,
 
     // warning, this overrides `OPENMINA_P2P_SEC_KEY`
     /// Compatibility with OCaml Mina node
     #[arg(env = "MINA_LIBP2P_PASS")]
-    pub libp2p_password: Option<String>,
+    libp2p_password: Option<String>,
 }
 
 fn init_logger_std() -> Box<dyn log::Log> {
@@ -51,6 +55,7 @@ fn main() {
     let Cli {
         interface,
         path,
+        filter,
         p2p_secret_key,
         libp2p_keypair,
         libp2p_password,
@@ -106,7 +111,7 @@ fn main() {
             let res = Ok(()).and_then(|()| {
                 let mut capture = Capture::from_device(device)?.open()?;
                 capture
-                    .filter("udp and not port 443", true)
+                    .filter(&filter.unwrap_or_default(), true)
                     .expect("Failed to apply filter");
                 let savefile = capture.savefile(&path)?;
 
