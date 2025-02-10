@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS submitter_scores (
     score INTEGER NOT NULL DEFAULT 0,
     last_updated INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     blocks_produced INTEGER NOT NULL DEFAULT 0,
+    last_heartbeat INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (public_key_id) REFERENCES public_keys(id)
 );
 
@@ -82,6 +83,10 @@ ON heartbeat_presence(public_key_id);
 -- Index for presence queries by global slot
 CREATE INDEX IF NOT EXISTS idx_heartbeat_presence_global_slot
 ON heartbeat_presence(best_tip_global_slot);
+
+-- Index for heartbeat time queries
+CREATE INDEX IF NOT EXISTS idx_heartbeat_presence_time
+ON heartbeat_presence(heartbeat_time);
 
 -- Index for submitter counts lookup
 CREATE INDEX IF NOT EXISTS idx_submitter_counts_last_seen 
