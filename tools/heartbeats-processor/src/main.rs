@@ -75,7 +75,8 @@ async fn post_scores_to_firestore(
             pk.public_key,
             ss.score,
             ss.blocks_produced,
-            ss.last_updated
+            ss.last_updated,
+            ss.last_heartbeat
         FROM submitter_scores ss
         JOIN public_keys pk ON pk.id = ss.public_key_id
         ORDER BY ss.score DESC
@@ -91,6 +92,7 @@ async fn post_scores_to_firestore(
             score: row.score,
             blocks_produced: row.blocks_produced,
             last_updated: row.last_updated,
+            last_heartbeat: row.last_heartbeat,
         })
         .collect();
 

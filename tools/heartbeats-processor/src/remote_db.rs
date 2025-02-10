@@ -135,6 +135,8 @@ pub struct ScoreDocument {
     pub blocks_produced: i64,
     #[serde(rename = "lastUpdated")]
     pub last_updated: i64,
+    #[serde(rename = "lastHeartbeat")]
+    pub last_heartbeat: i64,
 }
 
 pub async fn get_db(config: &Config) -> Result<FirestoreDb> {

@@ -516,16 +516,25 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             GROUP BY public_key_id
         ),
         HeartbeatCounts AS (
-            SELECT hp.public_key_id, COUNT(DISTINCT hp.window_id) as heartbeats
+            SELECT
+                hp.public_key_id,
+                COUNT(DISTINCT hp.window_id) as heartbeats,
+                MAX(hp.heartbeat_time) as last_heartbeat
             FROM heartbeat_presence hp
             JOIN ValidWindows vw ON vw.id = hp.window_id
             GROUP BY hp.public_key_id
         )
-        INSERT INTO submitter_scores (public_key_id, score, blocks_produced)
+        INSERT INTO submitter_scores (
+            public_key_id,
+            score,
+            blocks_produced,
+            last_heartbeat
+        )
         SELECT
             pk.id,
             COALESCE(hc.heartbeats, 0) as score,
-            COALESCE(bc.blocks, 0) as blocks_produced
+            COALESCE(bc.blocks, 0) as blocks_produced,
+            COALESCE(hc.last_heartbeat, 0) as last_heartbeat
         FROM public_keys pk
         LEFT JOIN HeartbeatCounts hc ON hc.public_key_id = pk.id
         LEFT JOIN BlockCounts bc ON bc.public_key_id = pk.id
@@ -533,6 +542,7 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
             blocks_produced = excluded.blocks_produced,
+            last_heartbeat = excluded.last_heartbeat,
             last_updated = strftime('%s', 'now')
         "#,
         window_start,
@@ -580,7 +590,8 @@ pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             pk.public_key,
             ss.score,
             ss.blocks_produced,
-            datetime(ss.last_updated, 'unixepoch') as last_updated
+            datetime(ss.last_updated, 'unixepoch') as last_updated,
+            datetime(ss.last_heartbeat, 'unixepoch') as last_heartbeat
         FROM submitter_scores ss
         JOIN public_keys pk ON pk.id = ss.public_key_id
         ORDER BY ss.score DESC, ss.blocks_produced DESC
@@ -594,19 +605,20 @@ pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
     println!("\nSubmitter Scores:");
     println!("--------------------------------------------------------");
     println!(
-        "Public Key                                              | Score | Blocks | Current Max | Total Max | Last Updated"
+        "Public Key                                              | Score | Blocks | Current Max | Total Max | Last Updated | Last Heartbeat"
     );
     println!("--------------------------------------------------------");
 
     for row in scores {
         println!(
-            "{:<40} | {:>5} | {:>6} | {:>11} | {:>9} | {}",
+            "{:<40} | {:>5} | {:>6} | {:>11} | {:>9} | {} | {}",
             row.public_key,
             row.score,
             row.blocks_produced,
             max_scores.current,
             max_scores.total,
-            row.last_updated.unwrap_or_default()
+            row.last_updated.unwrap_or_default(),
+            row.last_heartbeat.unwrap_or_default()
         );
     }
 
