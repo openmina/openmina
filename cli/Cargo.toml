@@ -39,9 +39,13 @@ shellexpand = "3.1.0"
 dialoguer = "0.10.4"
 serde_json = "1.0.107"
 
+allocator = { workspace = true }
+
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }
 tikv-jemallocator = "0.6"
+
+
 
 [dev-dependencies]
 tempfile = "3.8.0"
