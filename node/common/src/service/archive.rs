@@ -1,9 +1,10 @@
 use bitflags::bitflags;
-use mina_p2p_messages::v2::{self, ArchiveTransitionFronntierDiff};
+use mina_p2p_messages::v2::{self};
 use node::core::{channels::mpsc, thread};
 use node::ledger::write::BlockApplyResult;
 use std::env;
-use std::net::SocketAddr;
+use std::io::Write;
+use std::path::PathBuf;
 
 use super::NodeService;
 
@@ -23,7 +24,7 @@ bitflags! {
 
 impl ArchiveStorageOptions {
     pub fn is_enabled(&self) -> bool {
-        self.is_empty()
+        !self.is_empty()
     }
 
     pub fn requires_precomputed_block(&self) -> bool {
@@ -60,6 +61,27 @@ impl ArchiveStorageOptions {
                         .to_string(),
                 );
             }
+
+            if env::var("AWS_DEFAULT_REGION").is_err() {
+                return Err(
+                    "AWS_DEFAULT_REGION is required when AWS_PRECOMPUTED_STORAGE is enabled"
+                        .to_string(),
+                );
+            }
+
+            if env::var("OPENMINA_AWS_BUCKET_NAME").is_err() {
+                return Err(
+                    "OPENMINA_AWS_BUCKET_NAME is required when AWS_PRECOMPUTED_STORAGE is enabled"
+                        .to_string(),
+                );
+            }
+
+            // if env::var("OPENMINA_AWS_BUCKET_PATH").is_err() {
+            //     return Err(
+            //         "OPENMINA_AWS_BUCKET_PATH is required when AWS_PRECOMPUTED_STORAGE is enabled"
+            //             .to_string(),
+            //     );
+            // }
         }
 
         // TODO(adonagy): Add GCP precomputed storage validation
@@ -89,30 +111,57 @@ pub struct ArchiveService {
 }
 
 struct ArchiveServiceClients {
-    aws_client: Option<aws_sdk_s3::Client>,
+    aws_client: Option<ArchiveAWSClient>,
     gcp_client: Option<()>,
+    local_path: Option<String>,
+}
+
+struct ArchiveAWSClient {
+    client: aws_sdk_s3::Client,
+    bucket_name: String,
+    bucket_path: String,
 }
 
 impl ArchiveServiceClients {
-    async fn new(options: &ArchiveStorageOptions) -> Self {
+    async fn new(options: &ArchiveStorageOptions, work_dir: String) -> Self {
         let aws_client = if options.uses_aws_precomputed_storage() {
             let config = aws_config::load_from_env().await;
-            Some(aws_sdk_s3::Client::new(&config))
+            let bucket_name = env::var("OPENMINA_AWS_BUCKET_NAME").unwrap_or_default();
+            let bucket_path = env::var("OPENMINA_AWS_BUCKET_PATH").unwrap_or_default();
+            Some(ArchiveAWSClient {
+                client: aws_sdk_s3::Client::new(&config),
+                bucket_name,
+                bucket_path,
+            })
         } else {
             None
         };
+
+        let local_path = if options.uses_local_precomputed_storage() {
+            let env_path = env::var("OPENMINA_LOCAL_PRECOMPUTED_STORAGE_PATH");
+            let default = format!("{}/archive-precomputed", work_dir);
+            Some(env_path.unwrap_or(default))
+        } else {
+            None
+        };
+
         Self {
             aws_client,
             gcp_client: None,
+            local_path,
         }
     }
 
-    pub fn aws_client(&self) -> Option<&aws_sdk_s3::Client> {
+    pub fn aws_client(&self) -> Option<&ArchiveAWSClient> {
         self.aws_client.as_ref()
     }
 
     pub fn gcp_client(&self) -> Option<&()> {
         self.gcp_client.as_ref()
+    }
+
+    pub fn local_path(&self) -> Option<&str> {
+        self.local_path.as_deref()
     }
 }
 
@@ -124,15 +173,27 @@ impl ArchiveService {
     #[cfg(not(target_arch = "wasm32"))]
     async fn run(
         mut archive_receiver: mpsc::UnboundedReceiver<BlockApplyResult>,
-        address: SocketAddr,
         options: ArchiveStorageOptions,
+        work_dir: String,
     ) {
+        use std::{fs::File, path::Path};
+
         use mina_p2p_messages::v2::PrecomputedBlock;
+        use openmina_core::NetworkConfig;
+        use reqwest::Url;
 
-        let clients = ArchiveServiceClients::new(&options).await;
+        let clients = ArchiveServiceClients::new(&options, work_dir).await;
 
-        while let Some(breadcrumb) = archive_receiver.blocking_recv() {
+        while let Some(breadcrumb) = archive_receiver.recv().await {
             if options.uses_archiver_process() {
+                let address = std::env::var("OPENMINA_ARCHIVE_ADDRESS")
+                    .expect("OPENMINA_ARCHIVE_ADDRESS is not set");
+                let address = Url::parse(&address).expect("Invalid URL");
+
+                // Convert URL to SocketAddr
+                let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
+
+                let socket_addr = socket_addrs.first().expect("No socket address found");
                 let mut retries = ARCHIVE_SEND_RETRIES;
 
                 let archive_transition_frontier_diff: v2::ArchiveTransitionFronntierDiff =
@@ -140,7 +201,7 @@ impl ArchiveService {
 
                 while retries > 0 {
                     match rpc::send_diff(
-                        address,
+                        *socket_addr,
                         v2::ArchiveRpc::SendDiff(archive_transition_frontier_diff.clone()),
                     ) {
                         Ok(result) => {
@@ -149,9 +210,10 @@ impl ArchiveService {
                                     summary = "Archive suddenly closed connection, retrying..."
                                 );
                                 retries -= 1;
-                                std::thread::sleep(std::time::Duration::from_millis(
+                                tokio::time::sleep(std::time::Duration::from_millis(
                                     RETRY_INTERVAL_MS,
-                                ));
+                                ))
+                                .await;
                             } else {
                                 node::core::warn!(summary = "Successfully sent diff to archive");
                                 break;
@@ -164,15 +226,25 @@ impl ArchiveService {
                                 retries = retries
                             );
                             retries -= 1;
-                            std::thread::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS));
+                            tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS))
+                                .await;
                         }
                     }
                 }
             }
 
             if options.requires_precomputed_block() {
-                // let key =
-                // TODO(adonagy)
+                let network_name = NetworkConfig::global().name;
+                let height = breadcrumb.block.height();
+                let state_hash = breadcrumb.block.hash();
+
+                let key = format!("{network_name}-{height}-{state_hash}.json");
+
+                node::core::info!(
+                    summary = "Uploading precomputed block to archive",
+                    key = key.clone()
+                );
+
                 let precomputed_block: PrecomputedBlock =
                     if let Ok(precomputed_block) = breadcrumb.try_into() {
                         precomputed_block
@@ -184,7 +256,15 @@ impl ArchiveService {
                     };
 
                 if options.uses_local_precomputed_storage() {
-                    // TODO(adonagy): Implement local precomputed storage
+                    // TODO(adonagy): Cleanup the unwraps (fn that returns a Result + log the error)
+                    if let Some(path) = clients.local_path() {
+                        let file_path = Path::new(path).join(key.clone());
+                        let mut file = File::create(file_path).unwrap();
+                        let json = serde_json::to_vec(&precomputed_block).unwrap();
+                        file.write_all(&json).unwrap();
+                    } else {
+                        node::core::warn!(summary = "Local precomputed storage path not set");
+                    }
                 }
 
                 if options.uses_gcp_precomputed_storage() {
@@ -192,8 +272,30 @@ impl ArchiveService {
                 }
 
                 if options.uses_aws_precomputed_storage() {
-                    let client = clients.aws_client().unwrap();
-                    // put
+                    if let Some(client) = clients.aws_client() {
+                        let json = serde_json::to_string(&precomputed_block).unwrap();
+                        let res = client
+                            .client
+                            .put_object()
+                            .bucket(client.bucket_name.clone())
+                            .key(format!("{}/{}", client.bucket_path, key))
+                            .body(json.as_bytes().to_vec().into())
+                            .send()
+                            .await;
+
+                        if let Err(e) = res {
+                            node::core::warn!(
+                                summary = "Failed to upload precomputed block to AWS",
+                                error = e.to_string()
+                            );
+                        } else {
+                            node::core::warn!(
+                                summary = "Successfully uploaded precomputed block to AWS"
+                            );
+                        }
+                    } else {
+                        node::core::warn!(summary = "AWS client not initialized");
+                    }
                 }
             }
         }
@@ -209,7 +311,7 @@ impl ArchiveService {
         unimplemented!()
     }
 
-    pub fn start(address: SocketAddr, options: ArchiveStorageOptions) -> Self {
+    pub fn start(options: ArchiveStorageOptions, work_dir: String) -> Self {
         let (archive_sender, archive_receiver) = mpsc::unbounded_channel::<BlockApplyResult>();
 
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -220,7 +322,7 @@ impl ArchiveService {
         thread::Builder::new()
             .name("openmina_archive".to_owned())
             .spawn(move || {
-                runtime.block_on(Self::run(archive_receiver, address, options));
+                runtime.block_on(Self::run(archive_receiver, options, work_dir));
             })
             .unwrap();
 

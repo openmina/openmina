@@ -102,7 +102,7 @@ impl TryFrom<BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
     type Error = String;
 
     fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
-        value.try_into()
+        (&value).try_into()
     }
 }
 
@@ -272,7 +272,7 @@ impl TryFrom<BlockApplyResult> for v2::PrecomputedBlock {
     type Error = String;
 
     fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
-        value.try_into()
+        (&value).try_into()
     }
 }
 
