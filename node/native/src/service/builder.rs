@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::PathBuf};
 
 use ledger::proofs::provers::BlockProver;
 use node::{
@@ -56,12 +56,8 @@ impl NodeServiceBuilder {
         self
     }
 
-    pub fn archive_init(
-        &mut self,
-        address: SocketAddr,
-        options: ArchiveStorageOptions,
-    ) -> &mut Self {
-        self.common.archive_init(address, options);
+    pub fn archive_init(&mut self, options: ArchiveStorageOptions, work_dir: String) -> &mut Self {
+        self.common.archive_init(options, work_dir);
         self
     }
 

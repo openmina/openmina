@@ -138,10 +138,9 @@ pub struct Node {
     #[arg(short = 'c', long, env)]
     pub config: Option<PathBuf>,
 
-    /// Enable archive mode (seding blocks to the archive process).
-    #[arg(long, env)]
-    pub archive_address: Option<Url>,
-
+    // /// Enable archive mode (seding blocks to the archive process).
+    // #[arg(long, env)]
+    // pub archive_address: Option<Url>,
     /// Enable local precomputed storage.
     #[arg(long, env)]
     pub archive_local_storage: bool,
@@ -157,6 +156,13 @@ pub struct Node {
     pub archive_gcp_storage: bool,
 
     /// Enable AWS precomputed storage.
+    /// 
+    /// This requires the following environment variables to be set:
+    /// - AWS_ACCESS_KEY_ID
+    /// - AWS_SECRET_ACCESS_KEY
+    /// - AWS_SESSION_TOKEN
+    /// - AWS_DEFAULT_REGION
+    /// - OPENMINA_AWS_BUCKET_NAME
     #[arg(long, env)]
     pub archive_aws_storage: bool,
 }
@@ -314,17 +320,21 @@ impl Node {
             .map(|(_, option)| option.clone()),
         );
 
-        if let Some(address) = self.archive_address {
+        if archive_storage_options.is_enabled() {
             node::core::info!(
                 summary = "Archive mode enabled",
-                address = address.to_string()
+                local_storage = archive_storage_options.uses_local_precomputed_storage(),
+                archiver_process = archive_storage_options.uses_archiver_process(),
+                gcp_storage = archive_storage_options.uses_gcp_precomputed_storage(),
+                aws_storage = archive_storage_options.uses_aws_precomputed_storage(),
             );
-            // Convert URL to SocketAddr
-            let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
 
-            let socket_addr = socket_addrs.first().expect("No socket address found");
+            archive_storage_options
+                .validate_env_vars()
+                .map_err(|e| anyhow::anyhow!(e))?;
+
             // TODO(adonagy): add options
-            node_builder.archive(*socket_addr, archive_storage_options);
+            node_builder.archive(archive_storage_options, work_dir.clone());
         }
 
         if let Some(sec_key) = self.run_snarker {
