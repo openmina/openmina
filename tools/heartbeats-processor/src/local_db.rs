@@ -516,13 +516,21 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             GROUP BY public_key_id
         ),
         HeartbeatCounts AS (
+            -- Count heartbeats only within valid windows
             SELECT
                 hp.public_key_id,
-                COUNT(DISTINCT hp.window_id) as heartbeats,
-                MAX(hp.heartbeat_time) as last_heartbeat
+                COUNT(DISTINCT hp.window_id) as heartbeats
             FROM heartbeat_presence hp
             JOIN ValidWindows vw ON vw.id = hp.window_id
             GROUP BY hp.public_key_id
+        ),
+        LastHeartbeats AS (
+            -- Get last heartbeat time across all windows
+            SELECT
+                public_key_id,
+                MAX(heartbeat_time) as last_heartbeat
+            FROM heartbeat_presence
+            GROUP BY public_key_id
         )
         INSERT INTO submitter_scores (
             public_key_id,
@@ -534,10 +542,11 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             pk.id,
             COALESCE(hc.heartbeats, 0) as score,
             COALESCE(bc.blocks, 0) as blocks_produced,
-            COALESCE(hc.last_heartbeat, 0) as last_heartbeat
+            COALESCE(lh.last_heartbeat, 0) as last_heartbeat
         FROM public_keys pk
         LEFT JOIN HeartbeatCounts hc ON hc.public_key_id = pk.id
         LEFT JOIN BlockCounts bc ON bc.public_key_id = pk.id
+        LEFT JOIN LastHeartbeats lh ON lh.public_key_id = pk.id
         WHERE hc.heartbeats > 0 OR bc.blocks > 0
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
