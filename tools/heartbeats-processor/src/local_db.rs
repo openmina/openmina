@@ -245,9 +245,11 @@ pub async fn process_heartbeats(
     db: &FirestoreDb,
     pool: &SqlitePool,
     config: &Config,
-) -> Result<()> {
+) -> Result<usize> {
     let last_processed_time = get_last_processed_time(pool, Some(config)).await?;
     let now = Utc::now();
+    // Don't fetch heartbeats beyond window range end
+    let end_time = config.window_range_end.min(now);
 
     let mut total_heartbeats = 0;
     let mut latest_time = last_processed_time;
@@ -266,7 +268,8 @@ pub async fn process_heartbeats(
     };
 
     loop {
-        let heartbeats = crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, now).await?;
+        let heartbeats =
+            crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, end_time).await?;
         if heartbeats.is_empty() {
             break;
         }
@@ -430,7 +433,7 @@ pub async fn process_heartbeats(
         update_last_processed_time(pool, latest_time).await?;
     }
 
-    Ok(())
+    Ok(total_heartbeats)
 }
 
 pub async fn create_tables_from_file(pool: &SqlitePool) -> Result<()> {
