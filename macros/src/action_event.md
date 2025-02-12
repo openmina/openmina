@@ -47,7 +47,7 @@ impl ActionEvent for Action1 {
 ### Tracing level
 
 By default, tracing event of level `debug` is generated for an action. It can be
-overriden by using `#[action_event(level = ...)]` attribute. Also, actions that
+overridden by using `#[action_event(level = ...)]` attribute. Also, actions that
 names ends with `Error` or `Warn` will be traced with `warn` level.
 
 ```rust
