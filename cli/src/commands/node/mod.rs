@@ -156,7 +156,7 @@ pub struct Node {
     pub archive_gcp_storage: bool,
 
     /// Enable AWS precomputed storage.
-    /// 
+    ///
     /// This requires the following environment variables to be set:
     /// - AWS_ACCESS_KEY_ID
     /// - AWS_SECRET_ACCESS_KEY
