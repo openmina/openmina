@@ -44,6 +44,9 @@ mio = { version = "1.0.2", features = ["os-poll", "net"] }
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
 aws-config = { version = "1.1.7", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1.73.0"
+google-cloud-storage = "0.24.0"
+google-cloud-auth = "0.17.2"
+
 
 [features]
 p2p-webrtc = ["node/p2p-webrtc"]

@@ -1,4 +1,7 @@
 use bitflags::bitflags;
+use gcs::http::objects::upload as gcs_upload;
+use google_cloud_auth::credentials::CredentialsFile as GcpCredentialsFile;
+use google_cloud_storage as gcs;
 use mina_p2p_messages::v2::{self};
 use node::core::{channels::mpsc, thread};
 use node::ledger::write::BlockApplyResult;
@@ -84,7 +87,21 @@ impl ArchiveStorageOptions {
             // }
         }
 
-        // TODO(adonagy): Add GCP precomputed storage validation
+        if self.uses_gcp_precomputed_storage() {
+            if env::var("GCP_CREDENTIALS_JSON").is_err() {
+                return Err(
+                    "GCP_CREDENTIALS_JSON is required when GCP_PRECOMPUTED_STORAGE is enabled"
+                        .to_string(),
+                );
+            }
+
+            if env::var("GCP_BUCKET_NAME").is_err() {
+                return Err(
+                    "GCP_BUCKET_NAME is required when GCP_PRECOMPUTED_STORAGE is enabled"
+                        .to_string(),
+                );
+            }
+        }
 
         Ok(())
     }
@@ -112,7 +129,7 @@ pub struct ArchiveService {
 
 struct ArchiveServiceClients {
     aws_client: Option<ArchiveAWSClient>,
-    gcp_client: Option<()>,
+    gcp_client: Option<ArchiveGCPClient>,
     local_path: Option<String>,
 }
 
@@ -120,6 +137,11 @@ struct ArchiveAWSClient {
     client: aws_sdk_s3::Client,
     bucket_name: String,
     bucket_path: String,
+}
+
+struct ArchiveGCPClient {
+    client: gcs::client::Client,
+    bucket_name: String,
 }
 
 impl ArchiveServiceClients {
@@ -137,6 +159,23 @@ impl ArchiveServiceClients {
             None
         };
 
+        let gcp_client = if options.uses_gcp_precomputed_storage() {
+            let cred_file = env::var("GCP_CREDENTIALS_JSON").unwrap_or_default();
+            let bucket_name = env::var("GCP_BUCKET_NAME").unwrap_or_default();
+            let credentials = GcpCredentialsFile::new_from_file(cred_file).await.unwrap();
+            let config = gcs::client::ClientConfig::default()
+                .with_credentials(credentials)
+                .await
+                .unwrap();
+            let client = gcs::client::Client::new(config);
+            Some(ArchiveGCPClient {
+                client,
+                bucket_name,
+            })
+        } else {
+            None
+        };
+
         let local_path = if options.uses_local_precomputed_storage() {
             let env_path = env::var("OPENMINA_LOCAL_PRECOMPUTED_STORAGE_PATH");
             let default = format!("{}/archive-precomputed", work_dir);
@@ -147,7 +186,7 @@ impl ArchiveServiceClients {
 
         Self {
             aws_client,
-            gcp_client: None,
+            gcp_client,
             local_path,
         }
     }
@@ -156,7 +195,7 @@ impl ArchiveServiceClients {
         self.aws_client.as_ref()
     }
 
-    pub fn gcp_client(&self) -> Option<&()> {
+    pub fn gcp_client(&self) -> Option<&ArchiveGCPClient> {
         self.gcp_client.as_ref()
     }
 
@@ -268,7 +307,34 @@ impl ArchiveService {
                 }
 
                 if options.uses_gcp_precomputed_storage() {
-                    // TODO(adonagy): Implement GCP precomputed storage
+                    if let Some(client) = clients.gcp_client() {
+                        // TODO(adonagy): Serialize just once?
+                        let json = serde_json::to_string(&precomputed_block).unwrap();
+                        let upload_type =
+                            gcs_upload::UploadType::Simple(gcs_upload::Media::new(key.clone()));
+                        let uploaded = client
+                            .client
+                            .upload_object(
+                                &gcs_upload::UploadObjectRequest {
+                                    bucket: client.bucket_name.clone(),
+                                    ..Default::default()
+                                },
+                                json.as_bytes().to_vec(),
+                                &upload_type,
+                            )
+                            .await;
+
+                        if let Err(e) = uploaded {
+                            node::core::warn!(
+                                summary = "Failed to upload precomputed block to GCP",
+                                error = e.to_string()
+                            );
+                        } else {
+                            node::core::warn!(
+                                summary = "Successfully uploaded precomputed block to GCP"
+                            );
+                        }
+                    }
                 }
 
                 if options.uses_aws_precomputed_storage() {
