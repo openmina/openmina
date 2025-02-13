@@ -138,20 +138,26 @@ pub struct Node {
     #[arg(short = 'c', long, env)]
     pub config: Option<PathBuf>,
 
-    // /// Enable archive mode (seding blocks to the archive process).
-    // #[arg(long, env)]
-    // pub archive_address: Option<Url>,
     /// Enable local precomputed storage.
+    ///
+    /// This option requires the following environment variables to be set:
+    /// - OPENMINA_ARCHIVE_LOCAL_STORAGE_PATH (otherwise the path to the working directory will be used)
     #[arg(long, env)]
     pub archive_local_storage: bool,
 
-    // TODO(adonagy): Sort out this... Do we want to support the ocaml options 1:1?
-    // we could move the addrss to an env var, just like gcp and aws
     /// Enable archiver process.
+    ///
+    /// This requires the following environment variables to be set:
+    /// - OPENMINA_ARCHIVE_ADDRESS
     #[arg(long, env)]
     pub archive_archiver_process: bool,
 
     /// Enable GCP precomputed storage.
+    ///
+    /// This requires the following environment variables to be set:
+    /// - GCP_CREDENTIALS_JSON
+    /// - GCP_BUCKET_NAME
+    ///
     #[arg(long, env)]
     pub archive_gcp_storage: bool,
 
@@ -333,7 +339,6 @@ impl Node {
                 .validate_env_vars()
                 .map_err(|e| anyhow::anyhow!(e))?;
 
-            // TODO(adonagy): add options
             node_builder.archive(archive_storage_options, work_dir.clone());
         }
 
