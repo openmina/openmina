@@ -4,6 +4,12 @@ use node::ledger::write::BlockApplyResult;
 use std::env;
 use std::io::Write;
 
+use mina_p2p_messages::v2::PrecomputedBlock;
+use openmina_core::NetworkConfig;
+use reqwest::Url;
+use std::net::SocketAddr;
+use std::{fs::File, path::Path};
+
 use super::NodeService;
 
 pub mod aws;
@@ -31,6 +37,7 @@ pub struct ArchiveService {
 }
 
 struct ArchiveServiceClients {
+    archiver_address: Option<SocketAddr>,
     aws_client: Option<aws::ArchiveAWSClient>,
     gcp_client: Option<gcp::ArchiveGCPClient>,
     local_path: Option<String>,
@@ -60,23 +67,134 @@ impl ArchiveServiceClients {
             None
         };
 
+        let archiver_address = if options.uses_archiver_process() {
+            let address = std::env::var("OPENMINA_ARCHIVE_ADDRESS")
+                .expect("OPENMINA_ARCHIVE_ADDRESS is not set");
+            let address = Url::parse(&address).expect("Invalid URL");
+
+            // Convert URL to SocketAddr
+            let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
+
+            let socket_addr = socket_addrs.first().expect("No socket address found");
+
+            Some(*socket_addr)
+        } else {
+            None
+        };
+
         Ok(Self {
+            archiver_address,
             aws_client,
             gcp_client,
             local_path,
         })
     }
 
-    pub fn aws_client(&self) -> Option<&aws::ArchiveAWSClient> {
-        self.aws_client.as_ref()
+    pub async fn send_block(&self, breadcrumb: BlockApplyResult, options: &ArchiveStorageOptions) {
+        if options.uses_archiver_process() {
+            if let Some(socket_addr) = self.archiver_address {
+                Self::handle_archiver_process(&breadcrumb, &socket_addr).await;
+            } else {
+                node::core::warn!(summary = "Archiver address not set");
+            }
+        }
+
+        if options.requires_precomputed_block() {
+            let network_name = NetworkConfig::global().name;
+            let height = breadcrumb.block.height();
+            let state_hash = breadcrumb.block.hash();
+
+            let key = format!("{network_name}-{height}-{state_hash}.json");
+
+            node::core::info!(
+                summary = "Uploading precomputed block to archive",
+                key = key.clone()
+            );
+
+            let precomputed_block: PrecomputedBlock = if let Ok(precomputed_block) =
+                breadcrumb.try_into()
+            {
+                precomputed_block
+            } else {
+                node::core::warn!(summary = "Failed to convert breadcrumb to precomputed block");
+                return;
+            };
+
+            let data = serde_json::to_vec(&precomputed_block).unwrap();
+
+            if options.uses_local_precomputed_storage() {
+                // TODO(adonagy): Cleanup the unwraps (fn that returns a Result + log the error)
+                if let Some(path) = &self.local_path {
+                    let file_path = Path::new(path).join(key.clone());
+                    let mut file = File::create(file_path).unwrap();
+                    file.write_all(&data).unwrap();
+                } else {
+                    node::core::warn!(summary = "Local precomputed storage path not set");
+                }
+            }
+
+            if options.uses_gcp_precomputed_storage() {
+                if let Some(client) = &self.gcp_client {
+                    if let Err(e) = client.upload_block(&key, &data).await {
+                        node::core::warn!(
+                            summary = "Failed to upload precomputed block to GCP",
+                            error = e.to_string()
+                        );
+                    }
+                } else {
+                    node::core::warn!(summary = "GCP client not initialized");
+                }
+            }
+            if options.uses_aws_precomputed_storage() {
+                if let Some(client) = &self.aws_client {
+                    if let Err(e) = client.upload_block(&key, &data).await {
+                        node::core::warn!(
+                            summary = "Failed to upload precomputed block to AWS",
+                            error = e.to_string()
+                        );
+                    }
+                } else {
+                    node::core::warn!(summary = "AWS client not initialized");
+                }
+            }
+        }
     }
 
-    pub fn gcp_client(&self) -> Option<&gcp::ArchiveGCPClient> {
-        self.gcp_client.as_ref()
-    }
+    async fn handle_archiver_process(breadcrumb: &BlockApplyResult, socket_addr: &SocketAddr) {
+        let mut retries = ARCHIVE_SEND_RETRIES;
 
-    pub fn local_path(&self) -> Option<&str> {
-        self.local_path.as_deref()
+        let archive_transition_frontier_diff: v2::ArchiveTransitionFronntierDiff =
+            breadcrumb.clone().try_into().unwrap();
+
+        while retries > 0 {
+            match rpc::send_diff(
+                *socket_addr,
+                v2::ArchiveRpc::SendDiff(archive_transition_frontier_diff.clone()),
+            ) {
+                Ok(result) => {
+                    if result.should_retry() {
+                        node::core::warn!(
+                            summary = "Archive suddenly closed connection, retrying..."
+                        );
+                        retries -= 1;
+                        tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS))
+                            .await;
+                    } else {
+                        node::core::warn!(summary = "Successfully sent diff to archive");
+                        break;
+                    }
+                }
+                Err(e) => {
+                    node::core::warn!(
+                        summary = "Failed sending diff to archive",
+                        error = e.to_string(),
+                        retries = retries
+                    );
+                    retries -= 1;
+                    tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS)).await;
+                }
+            }
+        }
     }
 }
 
@@ -91,12 +209,6 @@ impl ArchiveService {
         options: ArchiveStorageOptions,
         work_dir: String,
     ) {
-        use std::{fs::File, path::Path};
-
-        use mina_p2p_messages::v2::PrecomputedBlock;
-        use openmina_core::NetworkConfig;
-        use reqwest::Url;
-
         let clients = if let Ok(clients) = ArchiveServiceClients::new(&options, work_dir).await {
             clients
         } else {
@@ -105,114 +217,7 @@ impl ArchiveService {
         };
 
         while let Some(breadcrumb) = archive_receiver.recv().await {
-            if options.uses_archiver_process() {
-                let address = std::env::var("OPENMINA_ARCHIVE_ADDRESS")
-                    .expect("OPENMINA_ARCHIVE_ADDRESS is not set");
-                let address = Url::parse(&address).expect("Invalid URL");
-
-                // Convert URL to SocketAddr
-                let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
-
-                let socket_addr = socket_addrs.first().expect("No socket address found");
-                let mut retries = ARCHIVE_SEND_RETRIES;
-
-                let archive_transition_frontier_diff: v2::ArchiveTransitionFronntierDiff =
-                    breadcrumb.clone().try_into().unwrap();
-
-                while retries > 0 {
-                    match rpc::send_diff(
-                        *socket_addr,
-                        v2::ArchiveRpc::SendDiff(archive_transition_frontier_diff.clone()),
-                    ) {
-                        Ok(result) => {
-                            if result.should_retry() {
-                                node::core::warn!(
-                                    summary = "Archive suddenly closed connection, retrying..."
-                                );
-                                retries -= 1;
-                                tokio::time::sleep(std::time::Duration::from_millis(
-                                    RETRY_INTERVAL_MS,
-                                ))
-                                .await;
-                            } else {
-                                node::core::warn!(summary = "Successfully sent diff to archive");
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            node::core::warn!(
-                                summary = "Failed sending diff to archive",
-                                error = e.to_string(),
-                                retries = retries
-                            );
-                            retries -= 1;
-                            tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS))
-                                .await;
-                        }
-                    }
-                }
-            }
-
-            if options.requires_precomputed_block() {
-                let network_name = NetworkConfig::global().name;
-                let height = breadcrumb.block.height();
-                let state_hash = breadcrumb.block.hash();
-
-                let key = format!("{network_name}-{height}-{state_hash}.json");
-
-                node::core::info!(
-                    summary = "Uploading precomputed block to archive",
-                    key = key.clone()
-                );
-
-                let precomputed_block: PrecomputedBlock =
-                    if let Ok(precomputed_block) = breadcrumb.try_into() {
-                        precomputed_block
-                    } else {
-                        node::core::warn!(
-                            summary = "Failed to convert breadcrumb to precomputed block"
-                        );
-                        continue;
-                    };
-
-                let data = serde_json::to_vec(&precomputed_block).unwrap();
-
-                if options.uses_local_precomputed_storage() {
-                    // TODO(adonagy): Cleanup the unwraps (fn that returns a Result + log the error)
-                    if let Some(path) = clients.local_path() {
-                        let file_path = Path::new(path).join(key.clone());
-                        let mut file = File::create(file_path).unwrap();
-                        file.write_all(&data).unwrap();
-                    } else {
-                        node::core::warn!(summary = "Local precomputed storage path not set");
-                    }
-                }
-
-                if options.uses_gcp_precomputed_storage() {
-                    if let Some(client) = clients.gcp_client() {
-                        if let Err(e) = client.upload_block(&key, &data).await {
-                            node::core::warn!(
-                                summary = "Failed to upload precomputed block to GCP",
-                                error = e.to_string()
-                            );
-                        }
-                    } else {
-                        node::core::warn!(summary = "GCP client not initialized");
-                    }
-                }
-                if options.uses_aws_precomputed_storage() {
-                    if let Some(client) = clients.aws_client() {
-                        if let Err(e) = client.upload_block(&key, &data).await {
-                            node::core::warn!(
-                                summary = "Failed to upload precomputed block to AWS",
-                                error = e.to_string()
-                            );
-                        }
-                    } else {
-                        node::core::warn!(summary = "AWS client not initialized");
-                    }
-                }
-            }
+            clients.send_block(breadcrumb, &options).await;
         }
     }
 
