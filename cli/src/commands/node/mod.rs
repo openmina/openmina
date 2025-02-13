@@ -17,7 +17,7 @@ use node::p2p::identity::SecretKey;
 use node::service::Recorder;
 use node::SnarkerStrategy;
 
-use openmina_node_native::{archive::ArchiveStorageOptions, tracing, NodeBuilder};
+use openmina_node_native::{archive::config::ArchiveStorageOptions, tracing, NodeBuilder};
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
