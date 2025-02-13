@@ -171,10 +171,14 @@ pub async fn fetch_heartbeat_chunk(
     let chunk_end = (state.chunk_start + chunk_duration).min(end_time);
 
     if state.chunk_start >= end_time {
+        println!("Reached end of testing window: {}", end_time);
         return Ok(Vec::new());
     }
 
-    println!("Fetching heartbeat chunk... {}", state.chunk_start);
+    println!(
+        "Fetching heartbeat chunk... {} to {}",
+        state.chunk_start, chunk_end
+    );
 
     let query = db
         .fluent()
