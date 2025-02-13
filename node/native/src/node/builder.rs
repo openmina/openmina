@@ -24,7 +24,7 @@ use node::{
     SnarkerStrategy, TransitionFrontierConfig,
 };
 use openmina_core::{consensus::ConsensusConstants, constants::constraint_constants};
-use openmina_node_common::{archive::ArchiveStorageOptions, p2p::TaskSpawner};
+use openmina_node_common::{archive::config::ArchiveStorageOptions, p2p::TaskSpawner};
 use rand::Rng;
 
 use crate::NodeServiceBuilder;

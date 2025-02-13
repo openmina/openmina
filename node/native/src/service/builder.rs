@@ -1,5 +1,3 @@
-use std::{net::SocketAddr, path::PathBuf};
-
 use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey, core::thread, p2p::identity::SecretKey as P2pSecretKey,
@@ -7,7 +5,7 @@ use node::{
 };
 pub use openmina_node_common::NodeServiceCommonBuildError;
 use openmina_node_common::{
-    archive::ArchiveStorageOptions, p2p::TaskSpawner, rpc::RpcSender, EventSender,
+    archive::config::ArchiveStorageOptions, p2p::TaskSpawner, rpc::RpcSender, EventSender,
     NodeServiceCommonBuilder,
 };
 

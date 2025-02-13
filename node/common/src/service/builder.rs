@@ -1,5 +1,3 @@
-use std::{net::SocketAddr, path::PathBuf};
-
 use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
@@ -26,7 +24,7 @@ use crate::{
 };
 
 use super::{
-    archive::{ArchiveService, ArchiveStorageOptions},
+    archive::{config::ArchiveStorageOptions, ArchiveService},
     block_producer::BlockProducerService,
 };
 
