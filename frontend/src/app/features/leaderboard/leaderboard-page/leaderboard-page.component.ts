@@ -41,6 +41,7 @@ import { LeaderboardService } from '@leaderboard/leaderboard.service';
 export class LeaderboardPageComponent extends StoreDispatcher implements OnInit, AfterViewInit {
   isExpanded = false;
   showBanner: boolean = false;
+  canDownloadCSV = localStorage.getItem('download_leaderboard') === 'true';
 
   private readonly SCROLL_THRESHOLD = 100;
   @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
@@ -89,5 +90,9 @@ export class LeaderboardPageComponent extends StoreDispatcher implements OnInit,
 
   downloadMostProducedBlocks(): void {
     this.leaderboardService.downloadMostProducedBlocks();
+  }
+
+  downloadAll(): void {
+    this.leaderboardService.downloadAll();
   }
 }

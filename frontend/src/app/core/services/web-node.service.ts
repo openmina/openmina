@@ -142,7 +142,7 @@ export class WebNodeService {
             return throwError(() => new Error(error.message));
           }),
           switchMap(() => this.webnode$.asObservable()),
-          // filter(() => CONFIG.globalConfig.heartbeats),
+          filter(() => CONFIG.globalConfig.heartbeats),
           switchMap(() => timer(0, 60000)),
           switchMap(() => this.heartBeat$),
           switchMap(heartBeat => this.firestore.addHeartbeat(heartBeat)),
