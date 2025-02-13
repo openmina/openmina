@@ -52,9 +52,9 @@ export class WebNodeFileUploadComponent extends ManualDetection {
 
   onFileSelected(event: any): void {
     this.processZipFile(event.target.files[0]).then(files => {
-      const publicKey = files.find(f => f.name.includes('.pub'))?.content;
+      const publicKey = files.find(f => f.name.endsWith('.pub'))?.content;
       const password = files.find(f => f.name.includes('password'))?.content.replace(/\r?\n|\r/g, '');
-      const stake = files.find(f => f.name.includes('stake') && !f.name.includes('.pub'))?.content;
+      const stake = files.find(f => !f.name.includes('password') && !f.name.endsWith('.pub'))?.content;
       if (this.error || !publicKey || !stake) {
         this.error = true;
       } else {

@@ -21,12 +21,12 @@
                labelColor="var(--base-tertiary)"
                [color]="fetchedPercentage === '100%' ? 'var(--success-primary)' : 'var(--base-primary)'"
                [value]="fetchedPercentage"
-               [hint]="(fetched || 0) + '/290 blocks'"></mina-card>
+               [hint]="(fetched || 0) + '/' + (lengthWithoutRoot || 0) + ' blocks'"></mina-card>
     <mina-card label="Applied blocks"
                labelColor="var(--base-tertiary)"
                [color]="appliedPercentage === 100 ? 'var(--success-primary)' : 'var(--base-primary)'"
                [value]="appliedPercentage !== undefined ? appliedPercentage + '%' : '-'"
-               [hint]="(applied || 0) + '/290 blocks'"></mina-card>
+               [hint]="(applied || 0) + '/' + (lengthWithoutRoot || 0) + ' blocks'"></mina-card>
     @if (isDesktop) {
       <mina-card label="Root"
                  labelColor="var(--base-tertiary)"

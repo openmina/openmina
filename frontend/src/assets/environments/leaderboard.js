@@ -27,10 +27,10 @@ export default {
     },
     heartbeats: true,
   },
-  // sentry: {
-  //   dsn: 'https://69aba72a6290383494290cf285ab13b3@o4508216158584832.ingest.de.sentry.io/4508216160616528',
-  //   tracingOrigins: ['https://www.openmina.com', 'webnode-gtm-test.firebaseapp.com', 'webnode-gtm-test.firebasestorage.app'],
-  // },
+  sentry: {
+    dsn: 'https://4f225bda3dec1b73074b07923ecc1d1a@o4508216158584832.ingest.de.sentry.io/4508817332109392',
+    tracingOrigins: ['https://www.openmina.com', 'webnode-gtm-test.firebaseapp.com', 'webnode-gtm-test.firebasestorage.app', 'webnode.minaprotocol.com'],
+  },
   configs: [
     {
       name: 'Web Node',

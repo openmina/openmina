@@ -47,7 +47,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   private timer: any;
   private stopTimer: boolean;
   private stateWhenReachedZero: { globalSlot: number; status: BlockProductionWonSlotsStatus };
-  private minaExplorer: string;
+  private network: string;
 
   @ViewChild('beforeLedger', { read: ViewContainerRef }) private beforeLedger: ViewContainerRef;
   @ViewChild('ledger', { read: ViewContainerRef }) private ledger: ViewContainerRef;
@@ -67,7 +67,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
 
   private listenToActiveNode(): void {
     this.select(AppSelectors.activeNodeDetails, (node: AppNodeDetails) => {
-      this.minaExplorer = node.network?.toLowerCase();
+      this.network = node.network?.toLowerCase();
     }, filter(Boolean));
   }
 
@@ -105,9 +105,8 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
     }, filter(Boolean));
   }
 
-  viewInMinaExplorer(): void {
-    const network = this.minaExplorer !== 'mainnet' ? (this.minaExplorer + '.') : '';
-    const url = `https://${network}minaexplorer.com/block/${this.slot.hash}`;
+  viewInMinascan(): void {
+    const url = `https://minascan.io/${this.network}/block/${this.slot.hash}`;
     safelyExecuteInBrowser(() => window.open(url, '_blank'));
   }
 
