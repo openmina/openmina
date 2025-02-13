@@ -836,9 +836,10 @@ pub struct PrecomputedBlock {
     pub staged_ledger_diff: StagedLedgerDiffDiffStableV2,
     // FIXME: for some reason in OCaml the base58check conversion for the JSON value
     // uses version byte = 0x05 (ledger hash) instead of 0x10 (StateHash) and 0x11 (StateBodyHash)
+    // Note: keeping the proper types here, we should raise an issue in the ocaml repo
     pub delta_transition_chain_proof: (
-        LedgerHash,       // StateHash
-        List<LedgerHash>, // StateBodyHash
+        StateHash,           // LedgerHash,       // StateHash
+        List<StateBodyHash>, // List<LedgerHash>, // StateBodyHash
     ),
     pub protocol_version: ProtocolVersionStableV2,
     #[serde(default)]

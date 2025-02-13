@@ -114,7 +114,9 @@ impl ArchiveServiceClients {
             let precomputed_block: PrecomputedBlock = match breadcrumb.try_into() {
                 Ok(block) => block,
                 Err(_) => {
-                    node::core::warn!(summary = "Failed to convert breadcrumb to precomputed block");
+                    node::core::warn!(
+                        summary = "Failed to convert breadcrumb to precomputed block"
+                    );
                     return;
                 }
             };
@@ -131,11 +133,19 @@ impl ArchiveServiceClients {
             };
 
             if options.uses_local_precomputed_storage() {
-                // TODO(adonagy): Cleanup the unwraps (fn that returns a Result + log the error)
                 if let Some(path) = &self.local_path {
-                    let file_path = Path::new(path).join(key.clone());
-                    let mut file = File::create(file_path).unwrap();
-                    file.write_all(&data).unwrap();
+                    let key_clone = key.clone();
+                    match write_to_local_storage(path, &key, &data) {
+                        Ok(_) => node::core::info!(
+                            summary = "Successfully wrote precomputed block to local storage",
+                            key = key_clone
+                        ),
+                        Err(e) => node::core::warn!(
+                            summary = "Failed to write precomputed block to local storage",
+                            key = key_clone,
+                            error = e.to_string()
+                        ),
+                    }
                 } else {
                     node::core::warn!(summary = "Local precomputed storage path not set");
                 }
@@ -273,3 +283,22 @@ impl node::transition_frontier::archive::archive_service::ArchiveService for Nod
 // Note: Placeholder for the wasm implementation, if we decide to include an archive mode in the future
 #[cfg(target_arch = "wasm32")]
 mod rpc {}
+
+fn write_to_local_storage(base_path: &str, key: &str, data: &[u8]) -> Result<(), Error> {
+    use std::fs::{create_dir_all, File};
+    use std::path::Path;
+
+    let path = Path::new(base_path).join(key);
+    if let Some(parent) = path.parent() {
+        create_dir_all(parent)
+            .map_err(|e| Error::UploadError(format!("Directory creation failed: {}", e)))?;
+    }
+
+    let mut file = File::create(&path)
+        .map_err(|e| Error::UploadError(format!("File creation failed: {}", e)))?;
+
+    file.write_all(data)
+        .map_err(|e| Error::UploadError(format!("File write failed: {}", e)))?;
+
+    Ok(())
+}

@@ -194,11 +194,7 @@ impl TryFrom<&BlockApplyResult> for v2::PrecomputedBlock {
                 .clone()
                 .into(),
             staged_ledger_diff: value.block.body().staged_ledger_diff.clone(),
-            // TODO(adonagy): add the actual delta transition chain proof
-            delta_transition_chain_proof: (
-                mina_p2p_messages::v2::LedgerHash::zero(),
-                mina_p2p_messages::list::List::new(),
-            ),
+            delta_transition_chain_proof: value.block.header().delta_block_chain_proof.clone(),
             protocol_version: value.block.header().current_protocol_version.clone(),
             proposed_protocol_version: None,
             accounts_accessed: archive_transition_frontier_diff.accounts_accessed(),
