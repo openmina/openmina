@@ -28,7 +28,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   readonly showLeaderboardPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LEADERBOARD}`)));
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
-  showUptime: boolean = CONFIG.showLeaderboard;
+  showLeaderboard: boolean = CONFIG.showLeaderboard;
   loaded: boolean;
   isDesktop: boolean = isDesktop();
 

@@ -85,18 +85,13 @@ function generateRoutes(): Routes {
       title: WEBNODE_TITLE,
       canActivate: [landingPageGuard],
     },
-    // {
-    //   path: '',
-    //   loadChildren: () => import('@leaderboard/leaderboard.module').then(m => m.LeaderboardModule),
-    // },
   ];
   if (CONFIG.showLeaderboard) {
     routes.push({
       path: '',
       loadChildren: () => import('@leaderboard/leaderboard.module').then(m => m.LeaderboardModule),
     });
-  }
-  if (CONFIG.showWebNodeLandingPage) {
+  } else if (CONFIG.showWebNodeLandingPage) {
     routes.push({
       path: '',
       component: WebNodeLandingPageComponent,
