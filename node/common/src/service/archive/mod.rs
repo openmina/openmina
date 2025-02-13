@@ -111,16 +111,24 @@ impl ArchiveServiceClients {
                 key = key.clone()
             );
 
-            let precomputed_block: PrecomputedBlock = if let Ok(precomputed_block) =
-                breadcrumb.try_into()
-            {
-                precomputed_block
-            } else {
-                node::core::warn!(summary = "Failed to convert breadcrumb to precomputed block");
-                return;
+            let precomputed_block: PrecomputedBlock = match breadcrumb.try_into() {
+                Ok(block) => block,
+                Err(_) => {
+                    node::core::warn!(summary = "Failed to convert breadcrumb to precomputed block");
+                    return;
+                }
             };
 
-            let data = serde_json::to_vec(&precomputed_block).unwrap();
+            let data = match serde_json::to_vec(&precomputed_block) {
+                Ok(data) => data,
+                Err(e) => {
+                    node::core::warn!(
+                        summary = "Failed to serialize precomputed block",
+                        error = e.to_string()
+                    );
+                    return;
+                }
+            };
 
             if options.uses_local_precomputed_storage() {
                 // TODO(adonagy): Cleanup the unwraps (fn that returns a Result + log the error)
@@ -163,26 +171,21 @@ impl ArchiveServiceClients {
     async fn handle_archiver_process(breadcrumb: &BlockApplyResult, socket_addr: &SocketAddr) {
         let mut retries = ARCHIVE_SEND_RETRIES;
 
-        let archive_transition_frontier_diff: v2::ArchiveTransitionFronntierDiff =
+        let archive_transition_frontier_diff: v2::ArchiveTransitionFrontierDiff =
             breadcrumb.clone().try_into().unwrap();
 
-        while retries > 0 {
+        for _ in 0..ARCHIVE_SEND_RETRIES {
             match rpc::send_diff(
                 *socket_addr,
                 v2::ArchiveRpc::SendDiff(archive_transition_frontier_diff.clone()),
             ) {
-                Ok(result) => {
-                    if result.should_retry() {
-                        node::core::warn!(
-                            summary = "Archive suddenly closed connection, retrying..."
-                        );
-                        retries -= 1;
-                        tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS))
-                            .await;
-                    } else {
-                        node::core::warn!(summary = "Successfully sent diff to archive");
-                        break;
-                    }
+                Ok(result) if result.should_retry() => {
+                    node::core::warn!(summary = "Archive closed connection, retrying...");
+                    tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_INTERVAL_MS)).await;
+                }
+                Ok(_) => {
+                    node::core::info!(summary = "Successfully sent diff to archive");
+                    return;
                 }
                 Err(e) => {
                     node::core::warn!(
@@ -190,10 +193,10 @@ impl ArchiveServiceClients {
                         error = e.to_string(),
                         retries = retries
                     );
-                    retries -= 1;
-                    tokio::time::sleep(std::time::Duration::from_millis(RETRY_INTERVAL_MS)).await;
+                    tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_INTERVAL_MS)).await;
                 }
             }
+            retries -= 1;
         }
     }
 }
@@ -209,11 +212,15 @@ impl ArchiveService {
         options: ArchiveStorageOptions,
         work_dir: String,
     ) {
-        let clients = if let Ok(clients) = ArchiveServiceClients::new(&options, work_dir).await {
-            clients
-        } else {
-            node::core::error!(summary = "Failed to initialize archive service clients");
-            return;
+        let clients = match ArchiveServiceClients::new(&options, work_dir).await {
+            Ok(clients) => clients,
+            Err(e) => {
+                node::core::error!(
+                    summary = "Failed to initialize archive service clients",
+                    error = e.to_string()
+                );
+                return;
+            }
         };
 
         while let Some(breadcrumb) = archive_receiver.recv().await {
