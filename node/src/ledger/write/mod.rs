@@ -98,7 +98,7 @@ pub struct BlockApplyResultArchive {
     pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
 }
 
-impl TryFrom<BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+impl TryFrom<BlockApplyResult> for v2::ArchiveTransitionFrontierDiff {
     type Error = String;
 
     fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
@@ -106,7 +106,7 @@ impl TryFrom<BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
     }
 }
 
-impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFrontierDiff {
     type Error = String;
 
     fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
@@ -174,7 +174,7 @@ impl TryFrom<&BlockApplyResult> for v2::PrecomputedBlock {
     type Error = String;
 
     fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
-        let archive_transition_frontier_diff: v2::ArchiveTransitionFronntierDiff =
+        let archive_transition_frontier_diff: v2::ArchiveTransitionFrontierDiff =
             value.try_into()?;
 
         let res = Self {

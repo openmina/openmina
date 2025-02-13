@@ -726,7 +726,7 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
 >;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub enum ArchiveTransitionFronntierDiff {
+pub enum ArchiveTransitionFrontierDiff {
     BreadcrumbAdded {
         block: (MinaBlockBlockStableV2, (Option<StateBodyHash>, StateHash)),
         accounts_accessed: List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)>,
@@ -740,11 +740,11 @@ pub enum ArchiveTransitionFronntierDiff {
     BoostrapOf(()),
 }
 
-impl ArchiveTransitionFronntierDiff {
+impl ArchiveTransitionFrontierDiff {
     pub fn block(&self) -> Option<MinaBlockBlockStableV2> {
         match self {
             // TODO(adonagy): maybe we should use Arc here instead of cloning
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded { block, .. } => Some(block.0.clone()),
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded { block, .. } => Some(block.0.clone()),
             _ => None,
         }
     }
@@ -753,7 +753,7 @@ impl ArchiveTransitionFronntierDiff {
         &self,
     ) -> List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)> {
         match self {
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded {
                 accounts_accessed, ..
             } => accounts_accessed.clone(),
             _ => List::new(),
@@ -762,7 +762,7 @@ impl ArchiveTransitionFronntierDiff {
 
     pub fn accounts_created(&self) -> List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)> {
         match self {
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded {
                 accounts_created, ..
             } => accounts_created.clone(),
             _ => List::new(),
@@ -773,7 +773,7 @@ impl ArchiveTransitionFronntierDiff {
         &self,
     ) -> List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)> {
         match self {
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded { tokens_used, .. } => {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded { tokens_used, .. } => {
                 tokens_used.clone()
             }
             _ => List::new(),
@@ -783,7 +783,7 @@ impl ArchiveTransitionFronntierDiff {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum ArchiveRpc {
-    SendDiff(ArchiveTransitionFronntierDiff),
+    SendDiff(ArchiveTransitionFrontierDiff),
 }
 
 #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
@@ -1889,7 +1889,7 @@ mod test {
     fn test_archive_breadcrumb_deserialization() {
         let breadcrumb_bytes = include_bytes!("../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
         let result =
-            v2::ArchiveTransitionFronntierDiff::binprot_read(&mut breadcrumb_bytes.as_slice());
+            v2::ArchiveTransitionFrontierDiff::binprot_read(&mut breadcrumb_bytes.as_slice());
 
         assert!(result.is_ok());
     }

@@ -1,4 +1,4 @@
-use mina_p2p_messages::v2::ArchiveTransitionFronntierDiff;
+use mina_p2p_messages::v2::ArchiveTransitionFrontierDiff;
 use std::{collections::HashSet, path::PathBuf};
 
 use anyhow::Result;
@@ -289,26 +289,26 @@ async fn compare_binary_diffs(
     }
 }
 
-fn load_and_deserialize(path: &PathBuf) -> Result<ArchiveTransitionFronntierDiff> {
+fn load_and_deserialize(path: &PathBuf) -> Result<ArchiveTransitionFrontierDiff> {
     let data = std::fs::read(path)?;
     let diff = binprot::BinProtRead::binprot_read(&mut data.as_slice())?;
     Ok(diff)
 }
 
 fn compare_diffs(
-    ocaml: &ArchiveTransitionFronntierDiff,
-    openmina: &ArchiveTransitionFronntierDiff,
+    ocaml: &ArchiveTransitionFrontierDiff,
+    openmina: &ArchiveTransitionFrontierDiff,
 ) -> Option<String> {
     match (ocaml, openmina) {
         (
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded {
                 block: (b1, (body_hash1, state_hash1)),
                 accounts_accessed: a1,
                 accounts_created: c1,
                 tokens_used: t1,
                 sender_receipt_chains_from_parent_ledger: s1,
             },
-            ArchiveTransitionFronntierDiff::BreadcrumbAdded {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded {
                 block: (b2, (body_hash2, state_hash2)),
                 accounts_accessed: a2,
                 accounts_created: c2,
