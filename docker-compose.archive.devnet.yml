@@ -63,9 +63,11 @@ services:
   node-openmina:
     image: openmina/openmina:latest
     container_name: node-openmina
+    environment:
+      - OPENMINA_ARCHIVE_ADDRESS=http://archive-openmina:3086
     command: >
       node
-      --archive-address http://archive-openmina:3086
+      --archive-archiver-process
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
