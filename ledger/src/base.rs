@@ -300,7 +300,12 @@ impl LedgerIntf for Mask {
     /// public API of this module.
     /// This should *NOT* be used to create a ledger for other purposes.
     fn create_masked(&self) -> Self {
-        let mask = Mask::new_unattached(self.depth() as usize);
+        let mut mask = Mask::new_unattached(self.depth() as usize);
+
+        if self.has_token_owners() {
+            mask.set_token_owners();
+        }
+
         // We don't register the mask here. This is only used in transaction logic,
         // where we don't want to unregister. Transaction logic is also
         // synchronous, so we don't need to worry that our mask will be reparented.

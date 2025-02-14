@@ -12,8 +12,8 @@ use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    ArchiveTransitionFronntierDiff, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2,
-    MinaBaseProofStableV2, MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
+    MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
@@ -24,6 +24,7 @@ use node::core::channels::mpsc;
 use node::core::invariants::InvariantsState;
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
+use node::ledger::write::BlockApplyResult;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
@@ -501,7 +502,7 @@ impl BlockProducerVrfEvaluatorService for NodeTestingService {
 }
 
 impl ArchiveService for NodeTestingService {
-    fn send_to_archive(&mut self, data: ArchiveTransitionFronntierDiff) {
+    fn send_to_archive(&mut self, data: BlockApplyResult) {
         self.real.send_to_archive(data);
     }
 }

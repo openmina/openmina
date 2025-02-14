@@ -98,7 +98,15 @@ pub struct BlockApplyResultArchive {
     pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
 }
 
-impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+impl TryFrom<BlockApplyResult> for v2::ArchiveTransitionFrontierDiff {
+    type Error = String;
+
+    fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
+        (&value).try_into()
+    }
+}
+
+impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFrontierDiff {
     type Error = String;
 
     fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
@@ -162,6 +170,42 @@ impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
     }
 }
 
+impl TryFrom<&BlockApplyResult> for v2::PrecomputedBlock {
+    type Error = String;
+
+    fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
+        let archive_transition_frontier_diff: v2::ArchiveTransitionFrontierDiff =
+            value.try_into()?;
+
+        let res = Self {
+            scheduled_time: value
+                .block
+                .header()
+                .protocol_state
+                .body
+                .blockchain_state
+                .timestamp,
+            protocol_state: value.block.header().protocol_state.clone(),
+            protocol_state_proof: value
+                .block
+                .header()
+                .protocol_state_proof
+                .as_ref()
+                .clone()
+                .into(),
+            staged_ledger_diff: value.block.body().staged_ledger_diff.clone(),
+            delta_transition_chain_proof: value.block.header().delta_block_chain_proof.clone(),
+            protocol_version: value.block.header().current_protocol_version.clone(),
+            proposed_protocol_version: None,
+            accounts_accessed: archive_transition_frontier_diff.accounts_accessed(),
+            accounts_created: archive_transition_frontier_diff.accounts_created(),
+            tokens_used: archive_transition_frontier_diff.tokens_used(),
+        };
+
+        Ok(res)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Default, Clone)]
 pub struct LedgersToKeep {
     snarked: BTreeSet<v2::LedgerHash>,
@@ -218,6 +262,14 @@ impl<'a> FromIterator<&'a ArcBlockWithHash> for LedgersToKeep {
 pub enum LedgerToKeep<'a> {
     Snarked(&'a v2::LedgerHash),
     Staged(&'a v2::MinaBaseStagedLedgerHashStableV1),
+}
+
+impl TryFrom<BlockApplyResult> for v2::PrecomputedBlock {
+    type Error = String;
+
+    fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
+        (&value).try_into()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

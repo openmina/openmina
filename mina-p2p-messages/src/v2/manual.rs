@@ -726,7 +726,7 @@ pub type NonZeroCurvePoint = Base58CheckOfBinProt<
 >;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
-pub enum ArchiveTransitionFronntierDiff {
+pub enum ArchiveTransitionFrontierDiff {
     BreadcrumbAdded {
         block: (MinaBlockBlockStableV2, (Option<StateBodyHash>, StateHash)),
         accounts_accessed: List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)>,
@@ -740,9 +740,128 @@ pub enum ArchiveTransitionFronntierDiff {
     BoostrapOf(()),
 }
 
+impl ArchiveTransitionFrontierDiff {
+    pub fn block(&self) -> Option<MinaBlockBlockStableV2> {
+        match self {
+            // TODO(adonagy): maybe we should use Arc here instead of cloning
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded { block, .. } => Some(block.0.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn accounts_accessed(
+        &self,
+    ) -> List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)> {
+        match self {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded {
+                accounts_accessed, ..
+            } => accounts_accessed.clone(),
+            _ => List::new(),
+        }
+    }
+
+    pub fn accounts_created(&self) -> List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)> {
+        match self {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded {
+                accounts_created, ..
+            } => accounts_created.clone(),
+            _ => List::new(),
+        }
+    }
+
+    pub fn tokens_used(
+        &self,
+    ) -> List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)> {
+        match self {
+            ArchiveTransitionFrontierDiff::BreadcrumbAdded { tokens_used, .. } => {
+                tokens_used.clone()
+            }
+            _ => List::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum ArchiveRpc {
-    SendDiff(ArchiveTransitionFronntierDiff),
+    SendDiff(ArchiveTransitionFrontierDiff),
+}
+
+#[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+pub struct PrecomputedBlockProof(pub MinaBaseProofStableV2);
+
+impl Serialize for PrecomputedBlockProof {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+        use binprot::BinProtWrite;
+        let mut buf = Vec::new();
+        self.0
+            .binprot_write(&mut buf)
+            .map_err(serde::ser::Error::custom)?;
+        let base64_data = URL_SAFE.encode(&buf);
+        serializer.serialize_str(&base64_data)
+    }
+}
+
+impl<'de> Deserialize<'de> for PrecomputedBlockProof {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+        let base64_data = String::deserialize(deserializer)?;
+        let binprot_data = URL_SAFE
+            .decode(&base64_data)
+            .map_err(serde::de::Error::custom)?;
+        let mut read = binprot_data.as_slice();
+        let proof: MinaBaseProofStableV2 =
+            binprot::BinProtRead::binprot_read(&mut read).map_err(serde::de::Error::custom)?;
+        Ok(PrecomputedBlockProof(proof))
+    }
+}
+
+impl From<MinaBaseProofStableV2> for PrecomputedBlockProof {
+    fn from(value: MinaBaseProofStableV2) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct PrecomputedBlock {
+    pub scheduled_time: BlockTimeTimeStableV1,
+    pub protocol_state: MinaStateProtocolStateValueStableV2,
+    pub protocol_state_proof: PrecomputedBlockProof,
+    pub staged_ledger_diff: StagedLedgerDiffDiffStableV2,
+    // FIXME: for some reason in OCaml the base58check conversion for the JSON value
+    // uses version byte = 0x05 (ledger hash) instead of 0x10 (StateHash) and 0x11 (StateBodyHash)
+    // Note: keeping the proper types here, we should raise an issue in the ocaml repo
+    pub delta_transition_chain_proof: (
+        StateHash,           // LedgerHash,       // StateHash
+        List<StateBodyHash>, // List<LedgerHash>, // StateBodyHash
+    ),
+    pub protocol_version: ProtocolVersionStableV2,
+    #[serde(default)]
+    pub proposed_protocol_version: Option<ProtocolVersionStableV2>,
+    pub accounts_accessed: List<(crate::number::UInt64, MinaBaseAccountBinableArgStableV2)>,
+    pub accounts_created: List<(MinaBaseAccountIdStableV2, CurrencyFeeStableV1)>,
+    pub tokens_used: List<(MinaBaseTokenIdStableV2, Option<MinaBaseAccountIdStableV2>)>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct PrecomputedBlockData {
+    pub version: u32,
+    pub data: PrecomputedBlock,
+}
+
+impl PrecomputedBlock {
+    pub fn with_version(&self, version: u32) -> PrecomputedBlockData {
+        PrecomputedBlockData {
+            version,
+            data: self.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1771,7 +1890,7 @@ mod test {
     fn test_archive_breadcrumb_deserialization() {
         let breadcrumb_bytes = include_bytes!("../../../tests/files/archive-breadcrumb/3NK56ZbCS31qb8SvCtCCYza4beRDtKgXA2JL6s3evKouG2KkKtiy.bin");
         let result =
-            v2::ArchiveTransitionFronntierDiff::binprot_read(&mut breadcrumb_bytes.as_slice());
+            v2::ArchiveTransitionFrontierDiff::binprot_read(&mut breadcrumb_bytes.as_slice());
 
         assert!(result.is_ok());
     }
