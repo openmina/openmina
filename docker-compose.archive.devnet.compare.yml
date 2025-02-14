@@ -137,9 +137,11 @@ services:
   node-openmina:
     image: adrnagy/openmina:archive-test
     container_name: node-openmina
+    environment:
+      OPENMINA_ARCHIVE_ADDRESS: http://archive-openmina:3087
     command: >
       node
-      --archive-address http://archive-openmina:3087
+      --archive-archiver-process
     ports:
       - "3000:3000"
     depends_on:
