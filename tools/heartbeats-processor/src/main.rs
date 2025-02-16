@@ -112,10 +112,12 @@ async fn run_process_loop(
 
     loop {
         println!("Processing heartbeats...");
-        local_db::process_heartbeats(db, pool, config).await?;
+        let count = local_db::process_heartbeats(db, pool, config).await?;
 
-        println!("Posting scores...");
-        post_scores_to_firestore(pool, db, config).await?;
+        if count > 0 {
+            println!("Posting scores...");
+            post_scores_to_firestore(pool, db, config).await?;
+        }
 
         println!("Sleeping for {} seconds...", interval_seconds);
         tokio::time::sleep(interval).await;
