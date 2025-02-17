@@ -4,9 +4,7 @@ use std::time::Duration;
 use malloc_size_of_derive::MallocSizeOf;
 use mina_p2p_messages::v2;
 use openmina_core::constants::PROTOCOL_VERSION;
-use openmina_core::transaction::{
-    TransactionInfo, TransactionPoolMessageSource, TransactionWithHash,
-};
+use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
 use p2p::P2pNetworkPubsubMessageCacheId;
 use rand::prelude::*;
 
@@ -59,7 +57,7 @@ pub use crate::transition_frontier::TransitionFrontierState;
 pub use crate::watched_accounts::WatchedAccountsState;
 pub use crate::Config;
 use crate::{config::GlobalConfig, SnarkPoolAction};
-use crate::{ActionWithMeta, RpcAction, TransactionPoolAction};
+use crate::{ActionWithMeta, RpcAction};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct State {
@@ -540,11 +538,12 @@ impl P2p {
                     }
                 }
             )),
-            on_p2p_channels_transaction_libp2p_received: Some(redux::callback!(
-                on_p2p_channels_transaction_libp2p_received((transactions: Vec<TransactionWithHash>, id: P2pNetworkPubsubMessageCacheId)) -> crate::Action {
-                    TransactionPoolAction::StartVerify {
-                        commands: transactions.into_iter().collect(),
-                        from_source: TransactionPoolMessageSource::pubsub(id),
+            on_p2p_channels_transactions_libp2p_received: Some(redux::callback!(
+                on_p2p_channels_transactions_libp2p_received((peer_id: PeerId, transactions: Vec<TransactionWithHash>, message_id: P2pNetworkPubsubMessageCacheId)) -> crate::Action {
+                    TransactionPoolCandidateAction::Libp2pTransactionsReceived {
+                        message_id,
+                        transactions,
+                        peer_id
                     }
                 }
             )),

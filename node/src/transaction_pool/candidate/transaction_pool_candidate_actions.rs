@@ -1,5 +1,6 @@
 use openmina_core::transaction::{TransactionHash, TransactionInfo, TransactionWithHash};
 use openmina_core::ActionEvent;
+use p2p::P2pNetworkPubsubMessageCacheId;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
@@ -37,12 +38,19 @@ pub enum TransactionPoolCandidateAction {
         peer_id: PeerId,
         transaction: TransactionWithHash,
     },
+    /// Callback for transactions received over pubsub
+    Libp2pTransactionsReceived {
+        peer_id: PeerId,
+        transactions: Vec<TransactionWithHash>,
+        message_id: P2pNetworkPubsubMessageCacheId,
+    },
     #[action_event(level = trace)]
     VerifyNext,
     VerifyPending {
         peer_id: PeerId,
         transaction_hashes: Vec<TransactionHash>,
         verify_id: (),
+        from_source: Option<P2pNetworkPubsubMessageCacheId>,
     },
     VerifyError {
         peer_id: PeerId,
@@ -51,6 +59,7 @@ pub enum TransactionPoolCandidateAction {
     VerifySuccess {
         peer_id: PeerId,
         verify_id: (),
+        from_source: Option<P2pNetworkPubsubMessageCacheId>,
     },
     PeerPrune {
         peer_id: PeerId,
@@ -100,7 +109,10 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
                 .candidates
                 .get(*peer_id, transaction.hash())
                 .is_some(),
-            TransactionPoolCandidateAction::VerifyNext => true,
+            TransactionPoolCandidateAction::Libp2pTransactionsReceived { .. } => true,
+            TransactionPoolCandidateAction::VerifyNext => {
+                state.transition_frontier.sync.is_synced()
+            }
             TransactionPoolCandidateAction::VerifyPending {
                 peer_id,
                 transaction_hashes,

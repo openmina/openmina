@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use mina_p2p_messages::v2;
+use p2p::P2pNetworkPubsubMessageCacheId;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -15,10 +16,17 @@ use crate::p2p::PeerId;
 static EMPTY_PEER_TX_CANDIDATES: BTreeMap<TransactionHash, TransactionPoolCandidateState> =
     BTreeMap::new();
 
+type NextBatch = Option<(
+    PeerId,
+    Vec<TransactionWithHash>,
+    Option<P2pNetworkPubsubMessageCacheId>,
+)>;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TransactionPoolCandidatesState {
     by_peer: BTreeMap<PeerId, BTreeMap<TransactionHash, TransactionPoolCandidateState>>,
     by_hash: BTreeMap<TransactionHash, BTreeSet<PeerId>>,
+    by_message_id: BTreeMap<P2pNetworkPubsubMessageCacheId, (PeerId, Vec<TransactionHash>)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -66,6 +74,10 @@ impl TransactionPoolCandidatesState {
 
     pub fn contains(&self, hash: &TransactionHash) -> bool {
         self.by_hash.contains_key(hash)
+    }
+
+    pub fn message_id_contains(&self, message_id: &P2pNetworkPubsubMessageCacheId) -> bool {
+        self.by_message_id.contains_key(message_id)
     }
 
     pub fn peer_contains(&self, peer_id: PeerId, hash: &TransactionHash) -> bool {
@@ -203,10 +215,42 @@ impl TransactionPoolCandidatesState {
         self.by_peer.entry(peer_id).or_default().insert(hash, state);
     }
 
-    pub fn get_batch_to_verify(&self) -> Option<(PeerId, Vec<TransactionWithHash>)> {
-        for hash in self.by_hash.keys() {
+    pub fn transactions_received(
+        &mut self,
+        time: Timestamp,
+        peer_id: PeerId,
+        transactions: Vec<TransactionWithHash>,
+        message_id: P2pNetworkPubsubMessageCacheId,
+    ) {
+        let transaction_hashes = transactions
+            .iter()
+            .map(TransactionWithHash::hash)
+            .cloned()
+            .collect::<Vec<_>>();
+
+        self.by_message_id
+            .insert(message_id, (peer_id, transaction_hashes));
+
+        transactions.into_iter().for_each(|transaction| {
+            self.transaction_received(time, peer_id, transaction);
+        })
+    }
+
+    /// Get next batch of transactions to verify, 
+    /// first checks if there are any transactions to verify from pubsub
+    /// after that checks for transactions from peers
+    pub fn get_batch_to_verify(&self) -> NextBatch {
+        if let Some(batch) = self.next_batch_from_pubsub() {
+            return Some(batch);
+        }
+
+        self.next_batch_from_peers()
+    }
+
+    fn next_batch_from_peers(&self) -> NextBatch {
+        for (hash, peers) in self.by_hash.iter() {
             if let Some(res) = None.or_else(|| {
-                for peer_id in self.by_hash.get(hash)? {
+                for peer_id in peers {
                     let peer_transactions = self.by_peer.get(peer_id)?;
                     if peer_transactions.get(hash)?.transaction().is_some() {
                         let transactions = peer_transactions
@@ -219,7 +263,7 @@ impl TransactionPoolCandidatesState {
                             })
                             .cloned()
                             .collect();
-                        return Some((*peer_id, transactions));
+                        return Some((*peer_id, transactions, None));
                     }
                 }
                 None
@@ -227,9 +271,31 @@ impl TransactionPoolCandidatesState {
                 return Some(res);
             }
         }
+
         None
     }
 
+    fn next_batch_from_pubsub(&self) -> NextBatch {
+        let (message_id, (peer_id, transaction_hashes)) = self.by_message_id.iter().next()?;
+        let transactions = self
+            .by_peer
+            .get(peer_id)?
+            .iter()
+            .filter_map(|(hash, state)| {
+                let TransactionPoolCandidateState::Received { transaction, .. } = state else {
+                    return None;
+                };
+                if transaction_hashes.contains(hash) {
+                    Some(transaction)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect();
+
+        return Some((*peer_id, transactions, Some(*message_id)));
+    }
     pub fn verify_pending(
         &mut self,
         time: Timestamp,
@@ -259,8 +325,21 @@ impl TransactionPoolCandidatesState {
         _time: Timestamp,
         peer_id: &PeerId,
         verify_id: (),
+        from_source: &Option<P2pNetworkPubsubMessageCacheId>,
         _result: Result<(), ()>,
     ) {
+        if let Some(from_source) = from_source {
+            let Some((_, transactions)) = self.by_message_id.remove(from_source) else {
+                return;
+            };
+
+            for hash in transactions {
+                self.transaction_remove(&hash);
+            }
+
+            return;
+        }
+
         if let Some(peer_transactions) = self.by_peer.get_mut(peer_id) {
             let txs_to_remove = peer_transactions
                 .iter()
@@ -343,6 +422,20 @@ impl TransactionPoolCandidatesState {
             });
             !peers.is_empty()
         })
+    }
+
+    pub fn remove_pubsub_transactions(&mut self, message_id: &P2pNetworkPubsubMessageCacheId) {
+        let Some((peer_id, transactions)) = self.by_message_id.remove(message_id) else {
+            return;
+        };
+
+        let Some(peer_transactions) = self.by_peer.get_mut(&peer_id) else {
+            return;
+        };
+
+        transactions.into_iter().for_each(|tx| {
+            peer_transactions.remove(&tx);
+        });
     }
 }
 
