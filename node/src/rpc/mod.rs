@@ -29,7 +29,7 @@ pub use rpc_reducer::collect_rpc_peers_info;
 mod rpc_impls;
 
 mod heartbeat;
-pub use heartbeat::{NodeHeartbeat, SignedNodeHeartbeat};
+pub use heartbeat::{NodeHeartbeat, ProducedBlockInfo, SignedNodeHeartbeat};
 
 pub use openmina_core::requests::{RpcId, RpcIdType};
 

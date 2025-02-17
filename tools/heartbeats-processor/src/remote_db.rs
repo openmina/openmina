@@ -1,11 +1,8 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use base64::{engine::general_purpose, Engine as _};
 use chrono::{DateTime, Duration, Utc};
 use firestore::*;
 use mina_p2p_messages::v2;
-use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -32,6 +29,14 @@ pub struct HeartbeatEntry {
     pub decoded_payload: Option<Value>,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct ProducedBlockInfo {
+    pub height: u32,
+    pub global_slot: u32,
+    pub hash: String,
+    pub base64_encoded_header: String,
+}
+
 #[derive(Debug)]
 pub struct BlockInfo {
     pub hash: String,
@@ -39,19 +44,19 @@ pub struct BlockInfo {
     pub global_slot: u64,
 }
 
-fn base64_decode_block(
-    encoded: &str,
-) -> Result<mina_p2p_messages::v2::MinaBlockBlockStableV2, String> {
-    use base64::{engine::general_purpose::URL_SAFE, Engine as _};
-    use mina_p2p_messages::binprot::BinProtRead;
+impl ProducedBlockInfo {
+    pub fn block_header_decoded(&self) -> Result<v2::MinaBlockHeaderStableV2, String> {
+        use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+        use mina_p2p_messages::binprot::BinProtRead;
 
-    let decoded = URL_SAFE
-        .decode(encoded)
-        .map_err(|_| "Could not decode base64".to_string())?;
-    let block = v2::MinaBlockBlockStableV2::binprot_read(&mut &decoded[..])
-        .map_err(|e| format!("Could not decode block: {:?}", e))?;
+        let decoded = URL_SAFE
+            .decode(&self.base64_encoded_header)
+            .map_err(|_| "Could not decode base64".to_string())?;
+        let block_header = v2::MinaBlockHeaderStableV2::binprot_read(&mut &decoded[..])
+            .map_err(|e| format!("Could not decode block header: {:?}", e))?;
 
-    Ok(block)
+        Ok(block_header)
+    }
 }
 
 impl HeartbeatEntry {
@@ -70,22 +75,18 @@ impl HeartbeatEntry {
             .map(|s| s.to_string())
     }
 
-    pub fn last_produced_block_raw(&self) -> Option<String> {
-        self.decoded_payload
+    pub fn last_produced_block_info(&self) -> Option<ProducedBlockInfo> {
+        let result = self
+            .decoded_payload
             .as_ref()
-            .and_then(|status| status.get("last_produced_block"))
-            .and_then(|block| block.as_str())
-            .map(|s| s.to_string())
-    }
+            .and_then(|status| status.get("last_produced_block_info"))
+            .map(|block_info| serde_json::from_value(block_info.clone()))?;
 
-    pub fn last_produced_block_decoded(&self) -> Result<Option<ArcBlockWithHash>, String> {
-        match self.last_produced_block_raw() {
-            None => Ok(None),
-            Some(encoded) => {
-                let block = base64_decode_block(&encoded)?;
-                let block = BlockWithHash::try_new(Arc::new(block))
-                    .map_err(|e| format!("Invalid block: {}", e))?;
-                Ok(Some(block))
+        match result {
+            Ok(info) => Some(info),
+            Err(e) => {
+                eprintln!("Invalid block header: {:?}", e);
+                None
             }
         }
     }

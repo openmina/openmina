@@ -338,17 +338,20 @@ pub async fn process_heartbeats(
                             presence_count += 1;
 
                             // Add produced block if it exists
-                            match entry.last_produced_block_decoded() {
-                                Ok(Some(block)) => {
-                                    let block_data = entry.last_produced_block_raw().unwrap(); // Cannot fail, we have the block
-                                    let key = (public_key_id, block.hash().to_string());
+                            match entry
+                                .last_produced_block_info()
+                                .map(|bi| (bi.clone(), bi.block_header_decoded()))
+                            {
+                                None => (), // No block to process
+                                Some((block_info, Ok(_block_header))) => {
+                                    let key = (public_key_id, block_info.hash.clone());
 
                                     if let Some(first_seen) = seen_blocks.get(&key) {
                                         blocks_duplicate += 1;
                                         println!(
                                             "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
                                             key.1,
-                                            block.height(),
+                                            block_info.height,
                                             entry.submitter,
                                             entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
                                             first_seen,
@@ -361,14 +364,13 @@ pub async fn process_heartbeats(
                                     produced_blocks_batch.push(ProducedBlock {
                                         window_id: window.id.unwrap(),
                                         public_key_id,
-                                        block_hash: block.hash().to_string(),
-                                        block_height: block.height(),
-                                        block_global_slot: block.global_slot(),
-                                        block_data,
+                                        block_hash: block_info.hash,
+                                        block_height: block_info.height,
+                                        block_global_slot: block_info.global_slot,
+                                        block_data: block_info.base64_encoded_header,
                                     });
                                 }
-                                Ok(None) => (), // No block to process
-                                Err(e) => {
+                                Some((_block_info, Err(e))) => {
                                     println!(
                                         "WARNING: Failed to decode block from {}: {}",
                                         entry.submitter, e
@@ -377,11 +379,11 @@ pub async fn process_heartbeats(
                             }
                         }
                     } else {
-                        if let Ok(Some(block)) = entry.last_produced_block_decoded() {
+                        if let Some(block_info) = entry.last_produced_block_info() {
                             println!(
                                 "Skipping unsynced block: {} (height: {}, producer: {}, peer_id: {})",
-                                block.hash(),
-                                block.height(),
+                                block_info.hash,
+                                block_info.height,
                                 entry.submitter,
                                 entry.peer_id().unwrap_or_else(|| "unknown".to_string())
                             );
