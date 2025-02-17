@@ -6,7 +6,6 @@ use std::io::Write;
 
 use mina_p2p_messages::v2::PrecomputedBlock;
 use openmina_core::NetworkConfig;
-use reqwest::Url;
 use std::net::SocketAddr;
 
 use super::NodeService;
@@ -38,6 +37,7 @@ pub struct ArchiveService {
     archive_sender: mpsc::UnboundedSender<BlockApplyResult>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 struct ArchiveServiceClients {
     archiver_address: Option<SocketAddr>,
     aws_client: Option<aws::ArchiveAWSClient>,
@@ -45,6 +45,7 @@ struct ArchiveServiceClients {
     local_path: Option<String>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl ArchiveServiceClients {
     async fn new(options: &ArchiveStorageOptions, work_dir: String) -> Result<Self, Error> {
         let aws_client = if options.uses_aws_precomputed_storage() {
@@ -72,7 +73,7 @@ impl ArchiveServiceClients {
         let archiver_address = if options.uses_archiver_process() {
             let address = std::env::var("OPENMINA_ARCHIVE_ADDRESS")
                 .expect("OPENMINA_ARCHIVE_ADDRESS is not set");
-            let address = Url::parse(&address).expect("Invalid URL");
+            let address = reqwest::Url::parse(&address).expect("Invalid URL");
 
             // Convert URL to SocketAddr
             let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
@@ -243,9 +244,9 @@ impl ArchiveService {
     // Note: Placeholder for the wasm implementation, if we decide to include an archive mode in the future
     #[cfg(target_arch = "wasm32")]
     fn run(
-        mut archive_receiver: mpsc::UnboundedReceiver<ArchiveTransitionFronntierDiff>,
-        address: SocketAddr,
+        mut archive_receiver: mpsc::UnboundedReceiver<BlockApplyResult>,
         options: ArchiveStorageOptions,
+        work_dir: String,
     ) {
         unimplemented!()
     }
@@ -253,6 +254,21 @@ impl ArchiveService {
     pub fn start(options: ArchiveStorageOptions, work_dir: String) -> Self {
         let (archive_sender, archive_receiver) = mpsc::unbounded_channel::<BlockApplyResult>();
 
+        #[cfg(not(target_arch = "wasm32"))]
+        Self::start_native(archive_receiver, options, work_dir);
+
+        #[cfg(target_arch = "wasm32")]
+        Self::start_wasm(archive_receiver, options, work_dir);
+
+        Self::new(archive_sender)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn start_native(
+        archive_receiver: mpsc::UnboundedReceiver<BlockApplyResult>,
+        options: ArchiveStorageOptions,
+        work_dir: String,
+    ) {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -264,8 +280,20 @@ impl ArchiveService {
                 runtime.block_on(Self::run(archive_receiver, options, work_dir));
             })
             .unwrap();
+    }
 
-        Self::new(archive_sender)
+    #[cfg(target_arch = "wasm32")]
+    fn start_wasm(
+        archive_receiver: mpsc::UnboundedReceiver<BlockApplyResult>,
+        options: ArchiveStorageOptions,
+        work_dir: String,
+    ) {
+        thread::Builder::new()
+            .name("openmina_archive".to_owned())
+            .spawn(move || {
+                Self::run(archive_receiver, options, work_dir);
+            })
+            .unwrap();
     }
 }
 
