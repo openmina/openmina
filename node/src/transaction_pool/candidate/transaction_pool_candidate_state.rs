@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use mina_p2p_messages::v2;
+use openmina_core::transaction::TransactionPoolMessageSource;
 use p2p::P2pNetworkPubsubMessageCacheId;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -16,11 +17,11 @@ use crate::p2p::PeerId;
 static EMPTY_PEER_TX_CANDIDATES: BTreeMap<TransactionHash, TransactionPoolCandidateState> =
     BTreeMap::new();
 
-type NextBatch = Option<(
+type NextBatch = (
     PeerId,
     Vec<TransactionWithHash>,
-    Option<P2pNetworkPubsubMessageCacheId>,
-)>;
+    TransactionPoolMessageSource,
+);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TransactionPoolCandidatesState {
@@ -236,18 +237,15 @@ impl TransactionPoolCandidatesState {
         })
     }
 
-    /// Get next batch of transactions to verify, 
+    /// Get next batch of transactions to verify,
     /// first checks if there are any transactions to verify from pubsub
     /// after that checks for transactions from peers
-    pub fn get_batch_to_verify(&self) -> NextBatch {
-        if let Some(batch) = self.next_batch_from_pubsub() {
-            return Some(batch);
-        }
-
-        self.next_batch_from_peers()
+    pub fn get_batch_to_verify(&self) -> Option<NextBatch> {
+        self.next_batch_from_pubsub()
+            .or_else(|| self.next_batch_from_peers())
     }
 
-    fn next_batch_from_peers(&self) -> NextBatch {
+    fn next_batch_from_peers(&self) -> Option<NextBatch> {
         for (hash, peers) in self.by_hash.iter() {
             if let Some(res) = None.or_else(|| {
                 for peer_id in peers {
@@ -263,7 +261,7 @@ impl TransactionPoolCandidatesState {
                             })
                             .cloned()
                             .collect();
-                        return Some((*peer_id, transactions, None));
+                        return Some((*peer_id, transactions, TransactionPoolMessageSource::None));
                     }
                 }
                 None
@@ -275,7 +273,7 @@ impl TransactionPoolCandidatesState {
         None
     }
 
-    fn next_batch_from_pubsub(&self) -> NextBatch {
+    fn next_batch_from_pubsub(&self) -> Option<NextBatch> {
         let (message_id, (peer_id, transaction_hashes)) = self.by_message_id.iter().next()?;
         let transactions = self
             .by_peer
@@ -294,8 +292,13 @@ impl TransactionPoolCandidatesState {
             .cloned()
             .collect();
 
-        return Some((*peer_id, transactions, Some(*message_id)));
+        Some((
+            *peer_id,
+            transactions,
+            TransactionPoolMessageSource::pubsub(*message_id),
+        ))
     }
+
     pub fn verify_pending(
         &mut self,
         time: Timestamp,
@@ -325,30 +328,31 @@ impl TransactionPoolCandidatesState {
         _time: Timestamp,
         peer_id: &PeerId,
         verify_id: (),
-        from_source: &Option<P2pNetworkPubsubMessageCacheId>,
+        from_source: &TransactionPoolMessageSource,
         _result: Result<(), ()>,
     ) {
-        if let Some(from_source) = from_source {
-            let Some((_, transactions)) = self.by_message_id.remove(from_source) else {
-                return;
-            };
+        match from_source {
+            TransactionPoolMessageSource::Pubsub { id } => {
+                let Some((_, transactions)) = self.by_message_id.remove(id) else {
+                    return;
+                };
 
-            for hash in transactions {
-                self.transaction_remove(&hash);
+                for hash in transactions {
+                    self.transaction_remove(&hash);
+                }
             }
+            _ => {
+                if let Some(peer_transactions) = self.by_peer.get_mut(peer_id) {
+                    let txs_to_remove = peer_transactions
+                        .iter()
+                        .filter(|(_, job_state)| job_state.pending_verify_id() == Some(verify_id))
+                        .map(|(hash, _)| hash.clone())
+                        .collect::<Vec<_>>();
 
-            return;
-        }
-
-        if let Some(peer_transactions) = self.by_peer.get_mut(peer_id) {
-            let txs_to_remove = peer_transactions
-                .iter()
-                .filter(|(_, job_state)| job_state.pending_verify_id() == Some(verify_id))
-                .map(|(hash, _)| hash.clone())
-                .collect::<Vec<_>>();
-
-            for hash in txs_to_remove {
-                self.transaction_remove(&hash);
+                    for hash in txs_to_remove {
+                        self.transaction_remove(&hash);
+                    }
+                }
             }
         }
     }
@@ -422,20 +426,6 @@ impl TransactionPoolCandidatesState {
             });
             !peers.is_empty()
         })
-    }
-
-    pub fn remove_pubsub_transactions(&mut self, message_id: &P2pNetworkPubsubMessageCacheId) {
-        let Some((peer_id, transactions)) = self.by_message_id.remove(message_id) else {
-            return;
-        };
-
-        let Some(peer_transactions) = self.by_peer.get_mut(&peer_id) else {
-            return;
-        };
-
-        transactions.into_iter().for_each(|tx| {
-            peer_transactions.remove(&tx);
-        });
     }
 }
 

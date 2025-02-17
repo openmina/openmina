@@ -1,4 +1,6 @@
-use openmina_core::transaction::{TransactionHash, TransactionInfo, TransactionWithHash};
+use openmina_core::transaction::{
+    TransactionHash, TransactionInfo, TransactionPoolMessageSource, TransactionWithHash,
+};
 use openmina_core::ActionEvent;
 use p2p::P2pNetworkPubsubMessageCacheId;
 use serde::{Deserialize, Serialize};
@@ -50,7 +52,7 @@ pub enum TransactionPoolCandidateAction {
         peer_id: PeerId,
         transaction_hashes: Vec<TransactionHash>,
         verify_id: (),
-        from_source: Option<P2pNetworkPubsubMessageCacheId>,
+        from_source: TransactionPoolMessageSource,
     },
     VerifyError {
         peer_id: PeerId,
@@ -59,7 +61,7 @@ pub enum TransactionPoolCandidateAction {
     VerifySuccess {
         peer_id: PeerId,
         verify_id: (),
-        from_source: Option<P2pNetworkPubsubMessageCacheId>,
+        from_source: TransactionPoolMessageSource,
     },
     PeerPrune {
         peer_id: PeerId,

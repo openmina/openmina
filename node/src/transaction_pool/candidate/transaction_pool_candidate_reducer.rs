@@ -1,7 +1,6 @@
 #![allow(clippy::unit_arg)]
 
 use crate::{p2p_ready, TransactionPoolAction};
-use openmina_core::transaction::TransactionPoolMessageSource;
 use p2p::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
     PeerId,
@@ -116,9 +115,7 @@ impl TransactionPoolCandidatesState {
                 let transaction_hashes = batch.iter().map(|tx| tx.hash().clone()).collect();
                 dispatcher.push(TransactionPoolAction::StartVerify {
                     commands: batch.into_iter().collect(),
-                    from_source: from_source
-                        .map(TransactionPoolMessageSource::pubsub)
-                        .unwrap_or_default(),
+                    from_source,
                 });
                 dispatcher.push(TransactionPoolCandidateAction::VerifyPending {
                     peer_id,
