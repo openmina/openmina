@@ -111,6 +111,7 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
                 .is_some(),
             TransactionPoolCandidateAction::Libp2pTransactionsReceived { .. } => true,
             TransactionPoolCandidateAction::VerifyNext => {
+                // TODO: if a block is being applied or produced, skip this action too
                 state.transition_frontier.sync.is_synced()
             }
             TransactionPoolCandidateAction::VerifyPending {
