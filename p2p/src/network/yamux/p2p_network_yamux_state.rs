@@ -7,7 +7,7 @@ use super::super::*;
 
 pub const INITIAL_RECV_BUFFER_CAPACITY: usize = 0x40000; // 256kb
 pub const INITIAL_WINDOW_SIZE: u32 = INITIAL_RECV_BUFFER_CAPACITY as u32;
-pub const MAX_WINDOW_SIZE: u32 = 16 * 1024 * 1024; // 16mb
+pub const MAX_WINDOW_SIZE: u32 = INITIAL_RECV_BUFFER_CAPACITY as u32;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pNetworkYamuxState {
