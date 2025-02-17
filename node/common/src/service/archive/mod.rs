@@ -8,15 +8,17 @@ use mina_p2p_messages::v2::PrecomputedBlock;
 use openmina_core::NetworkConfig;
 use reqwest::Url;
 use std::net::SocketAddr;
-use std::{fs::File, path::Path};
 
 use super::NodeService;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod aws;
-pub mod config;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod gcp;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod rpc;
+
+pub mod config;
 
 use config::ArchiveStorageOptions;
 
