@@ -72,6 +72,7 @@ impl PacketCodec for UdpCodec {
             };
             if let Some(file) = &mut self.file {
                 file.write(&packet);
+                file.flush()?;
             }
 
             Ok(Some((

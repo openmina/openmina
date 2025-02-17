@@ -109,7 +109,7 @@ fn main() {
         if let Some(device) = selected {
             log::info!("will use: {device:?}");
             let res = Ok(()).and_then(|()| {
-                let mut capture = Capture::from_device(device)?.open()?;
+                let mut capture = Capture::from_device(device)?.immediate_mode(true).open()?;
                 capture
                     .filter(&filter.unwrap_or_default(), true)
                     .expect("Failed to apply filter");
@@ -126,7 +126,10 @@ fn main() {
     } else {
         log::info!("use file");
         let res = Ok(()).and_then(|()| {
-            let capture = Capture::from_file(&path)?;
+            let mut capture = Capture::from_file(&path)?;
+            capture
+                .filter(&filter.unwrap_or_default(), true)
+                .expect("Failed to apply filter");
             webrtc_sniffer::run(capture, None, secret_key)
         });
         if let Err(err) = res {

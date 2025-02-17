@@ -3,7 +3,7 @@ use std::fmt;
 use nom::{
     bytes::complete::take,
     error::{Error, ErrorKind},
-    number::complete::{be_u16, be_u8},
+    number::complete::{be_u16, be_u64, be_u8},
     Err, IResult,
 };
 
@@ -46,7 +46,11 @@ impl fmt::Display for Chunk<'_> {
             length,
             ..
         } = self;
-        write!(f, "{ty:?}, epoch={epoch}, seq={seq:012x}, len={length}")
+        write!(
+            f,
+            "{ty:?}, epoch={epoch}, seq={seq:012x}, len={length}, data={}",
+            hex::encode(self.body)
+        )
     }
 }
 
@@ -61,13 +65,9 @@ impl<'a> Chunk<'a> {
             return Err(Err::Error(Error::new(input, ErrorKind::Alt)));
         }
 
-        let (input, epoch) = be_u16(input)?;
-        let (input, sequence_number_bytes) = take(6usize)(input)?;
-        let sequence_number = {
-            let mut buf = [0u8; 8];
-            buf[2..].copy_from_slice(sequence_number_bytes);
-            u64::from_be_bytes(buf)
-        };
+        let (input, t) = be_u64(input)?;
+        let epoch = (t >> 48) as u16;
+        let sequence_number = t & ((1 << 48) - 1);
         let (input, length) = be_u16(input)?;
         let (input, body) = take(length as usize)(input)?;
 
@@ -89,21 +89,22 @@ mod tests {
 
     #[test]
     fn test_parse_header() {
-        let bytes: &[u8] = &[
+        let bytes = &[
             22, // ContentType::Handshake
             0xFE, 0xFD, // legacy_record_version (0xFEFD for DTLS 1.0)
             0x00, 0x01, // epoch
             0x00, 0x00, 0x00, 0x00, 0x00, 0x01, // sequence_number
-            0x00, 0x13, // length
+            0x00, 0x03, // length
+            0x00, 0x00, 0x00,
         ];
 
         let result = Chunk::parse(bytes);
-        assert!(result.is_ok());
-        let (_, header) = result.unwrap();
+        let (_, chunk) = result.unwrap();
 
-        assert_eq!(header.ty, ContentType::Handshake);
-        assert_eq!(header.epoch, 1);
-        assert_eq!(header.sequence_number, 1);
-        assert_eq!(header.length, 19);
+        assert_eq!(chunk.ty, ContentType::Handshake);
+        assert_eq!(chunk.epoch, 1);
+        assert_eq!(chunk.sequence_number, 1);
+        assert_eq!(chunk.length, 3);
+        assert_eq!(chunk.body, [0; 3]);
     }
 }

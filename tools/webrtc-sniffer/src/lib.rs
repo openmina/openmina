@@ -35,7 +35,11 @@ pub fn run<T: Activated + ?Sized>(
     for item in net::UdpIter::new(capture, file) {
         let (src, dst, data) = item?;
 
-        let hdr = MsgHeader {
+        // if src.to_string() != "10.63.45.16:57909" && dst.to_string() != "10.63.45.16:57909" {
+        //     continue;
+        // }
+
+        let _hdr = MsgHeader {
             src,
             dst,
             len: data.len() as _,
@@ -46,6 +50,8 @@ pub fn run<T: Activated + ?Sized>(
             continue;
         }
 
+        log::info!("{_hdr}");
+
         let data = if let Some(mut buffer) = buffer.take() {
             buffer.extend_from_slice(&data);
             Cow::Owned(buffer)
@@ -54,16 +60,19 @@ pub fn run<T: Activated + ?Sized>(
         };
 
         let res = if let Some(cn) = connections.get_mut(&(src, dst)) {
-            cn.handle(hdr, &data, true)
+            cn.handle(&data, true)
         } else {
             connections
                 .entry((dst, src))
                 .or_insert_with(|| State::new(secret_key.clone()))
-                .handle(hdr, &data, false)
+                .handle(&data, false)
         };
 
-        if let Err(nom::Err::Incomplete(_)) = res {
-            buffer = Some(data.into_owned());
+        if let Err(err) = res {
+            match err {
+                nom::Err::Incomplete(_) => buffer = Some(data.into_owned()),
+                err => log::error!("{err}"),
+            }
         }
     }
 
