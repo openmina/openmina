@@ -3416,9 +3416,11 @@ dependencies = [
  "firestore",
  "gcloud-sdk",
  "mina-p2p-messages",
+ "mina-tree",
  "openmina-core",
  "serde",
  "serde_json",
+ "snark",
  "sqlx",
  "tokio",
 ]

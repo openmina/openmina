@@ -11,6 +11,7 @@ use crate::config::Config;
 use crate::remote_db::BlockInfo;
 use crate::remote_db::HeartbeatChunkState;
 use crate::time::*;
+use mina_tree::proofs::verification::verify_block;
 
 #[derive(Debug)]
 pub struct HeartbeatPresence {
@@ -267,6 +268,10 @@ pub async fn process_heartbeats(
         last_timestamp: None,
     };
 
+    // Its ok to call these functions multiple times because the result is cached
+    let verifier_index = snark::BlockVerifier::make();
+    let verifier_srs = snark::get_srs();
+
     loop {
         let heartbeats =
             crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, end_time).await?;
@@ -343,7 +348,7 @@ pub async fn process_heartbeats(
                                 .map(|bi| (bi.clone(), bi.block_header_decoded()))
                             {
                                 None => (), // No block to process
-                                Some((block_info, Ok(_block_header))) => {
+                                Some((block_info, Ok(block_header))) => {
                                     let key = (public_key_id, block_info.hash.clone());
 
                                     if let Some(first_seen) = seen_blocks.get(&key) {
@@ -356,6 +361,16 @@ pub async fn process_heartbeats(
                                             entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
                                             first_seen,
                                             entry.create_time
+                                        );
+                                        continue;
+                                    }
+
+                                    // Verify block proof
+                                    if !verify_block(&block_header, &verifier_index, &verifier_srs)
+                                    {
+                                        println!(
+                                            "WARNING: Invalid block proof: {} (height: {}, producer: {})",
+                                            block_info.hash, block_info.height, entry.submitter
                                         );
                                         continue;
                                     }
