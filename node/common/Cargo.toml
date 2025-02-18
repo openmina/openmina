@@ -21,6 +21,7 @@ sha3 = "0.10.8"
 ark-ff = { workspace = true }
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
 binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
+bitflags = "2.8.0"
 
 node = { path = "../../node", features = ["replay"] }
 openmina-core = { path = "../../core" }
@@ -41,6 +42,11 @@ tracing-appender = "0.2.3"
 libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }
 mio = { version = "1.0.2", features = ["os-poll", "net"] }
 reqwest = { version = "0.12.8", features = ["blocking", "json"] }
+aws-config = { version = "1.1.7", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.73.0"
+google-cloud-storage = "0.24.0"
+google-cloud-auth = "0.17.2"
+
 
 [features]
 p2p-webrtc = ["node/p2p-webrtc"]
