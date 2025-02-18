@@ -1,6 +1,6 @@
 # Helm Charts for Openmina
 
-## Runing Openmina Snarker for Berkeley Testnet
+## Running Openmina Snarker for Berkeley Testnet
 
 This will start openmina snarker using account, chain ID and fee as specified in [openmina/values.yaml].
 ``` sh
@@ -13,7 +13,7 @@ To use e.g. different account and fee, run
 helm install openmina ./openmina --set=openmina.snarkerPublicKey=<pubkey> --set=openmina.fee=<fee>
 ```
 
-## Runnig Openmina Nodes with Bootstrap Replayer
+## Running Openmina Nodes with Bootstrap Replayer
 
 The command [bootstrap.sh] prints Helm commands that should be executed to install all needed pieces:
 
