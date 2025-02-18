@@ -4,9 +4,9 @@ use openmina_core::{bug_condition, fuzz_maybe, fuzzed_maybe, Substate, SubstateA
 
 use crate::{
     yamux::p2p_network_yamux_state::{YamuxFrame, YamuxFrameInner},
-    Data, Limit, P2pLimits, P2pNetworkAuthState, P2pNetworkConnectionError,
-    P2pNetworkConnectionMuxState, P2pNetworkNoiseAction, P2pNetworkSchedulerAction,
-    P2pNetworkSchedulerState, P2pNetworkSelectAction, P2pNetworkStreamState, SelectKind,
+    Data, P2pLimits, P2pNetworkAuthState, P2pNetworkConnectionError, P2pNetworkConnectionMuxState,
+    P2pNetworkNoiseAction, P2pNetworkSchedulerAction, P2pNetworkSchedulerState,
+    P2pNetworkSelectAction, P2pNetworkStreamState, SelectKind,
 };
 
 use super::{
@@ -173,26 +173,19 @@ impl P2pNetworkYamuxState {
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let limits: &P2pLimits = state.substate()?;
-                let max_streams = limits.max_streams();
                 let connection_state =
                     <State as SubstateAccess<P2pNetworkSchedulerState>>::substate(state)?
                         .connection_state(&addr)
                         .ok_or_else(|| format!("Connection not found {}", addr))?;
 
-                let stream = connection_state
-                    .yamux_state()
-                    .and_then(|yamux_state| yamux_state.streams.get(&frame.stream_id))
+                let stream = connection_state.get_yamux_stream(frame.stream_id)
                     .ok_or_else(|| format!("Stream with id {} not found for `P2pNetworkYamuxAction::IncomingFrame`", frame.stream_id))?;
 
-                let peer_id = match connection_state
-                    .auth
-                    .as_ref()
-                    .and_then(|P2pNetworkAuthState::Noise(noise)| noise.peer_id())
-                {
-                    Some(peer_id) => *peer_id,
-                    None => return Ok(()),
+                let Some(peer_id) = connection_state.peer_id().cloned() else {
+                    return Ok(());
                 };
 
+                // connection was reset by the peer
                 if frame.flags.contains(YamuxFlags::RST) {
                     dispatcher.push(P2pNetworkSchedulerAction::Error {
                         addr,
@@ -201,34 +194,26 @@ impl P2pNetworkYamuxState {
                     return Ok(());
                 }
 
+                // if the peer tries to open more streams than allowed, close the stream
                 if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
-                    // count incoming streams
-                    let incoming_streams_number = connection_state
-                        .streams
-                        .values()
-                        .filter(|s| s.select.is_incoming())
-                        .count();
-
-                    match (max_streams, incoming_streams_number) {
-                        (Limit::Some(limit), actual) if actual > limit => {
-                            dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame {
-                                addr,
-                                frame: YamuxFrame {
-                                    flags: YamuxFlags::FIN,
-                                    stream_id: frame.stream_id,
-                                    inner: YamuxFrameInner::Data(vec![].into()),
-                                },
-                            });
-                        }
-                        _ => {
-                            dispatcher.push(P2pNetworkSelectAction::Init {
-                                addr,
-                                kind: SelectKind::Stream(peer_id, frame.stream_id),
-                                incoming: true,
-                            });
-                        }
+                    if limits.max_streams() >= connection_state.incoming_streams_count() {
+                        dispatcher.push(P2pNetworkSelectAction::Init {
+                            addr,
+                            kind: SelectKind::Stream(peer_id, frame.stream_id),
+                            incoming: true,
+                        });
+                    } else {
+                        dispatcher.push(P2pNetworkYamuxAction::OutgoingFrame {
+                            addr,
+                            frame: YamuxFrame {
+                                flags: YamuxFlags::RST,
+                                stream_id: frame.stream_id,
+                                inner: YamuxFrameInner::Data(vec![].into()),
+                            },
+                        });
                     }
                 }
+
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {
                         // when our window size is less than half of the max window size send window update
