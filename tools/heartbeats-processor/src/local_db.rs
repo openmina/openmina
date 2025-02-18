@@ -331,79 +331,69 @@ pub async fn process_heartbeats(
                     processed_heartbeats.insert(idx);
 
                     let best_tip = entry.best_tip_block();
+                    let public_key_id = *public_key_map.get(&entry.submitter).unwrap();
 
+                    // Record presence only if node is synced and has a best tip
                     if entry.is_synced() && best_tip.is_some() {
-                        if let Some(&public_key_id) = public_key_map.get(&entry.submitter) {
-                            presence_batch.push(HeartbeatPresence {
+                        presence_batch.push(HeartbeatPresence {
+                            window_id: window.id.unwrap(),
+                            public_key_id,
+                            best_tip: best_tip.unwrap(), // Cannot fail due to the above check
+                            heartbeat_time: to_unix_timestamp(entry.create_time),
+                        });
+                        presence_count += 1;
+                    } else {
+                        skipped_count += 1;
+                    }
+
+                    // Process produced blocks regardless of sync status
+                    match entry
+                        .last_produced_block_info()
+                        .map(|bi| (bi.clone(), bi.block_header_decoded()))
+                    {
+                        None => (), // No block to process
+                        Some((block_info, Ok(block_header))) => {
+                            let key = (public_key_id, block_info.hash.clone());
+
+                            if let Some(first_seen) = seen_blocks.get(&key) {
+                                blocks_duplicate += 1;
+                                println!(
+                                    "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
+                                    key.1,
+                                    block_info.height,
+                                    entry.submitter,
+                                    entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
+                                    first_seen,
+                                    entry.create_time
+                                );
+                                continue;
+                            }
+
+                            // Verify block proof
+                            if !verify_block(&block_header, &verifier_index, &verifier_srs) {
+                                println!(
+                                    "WARNING: Invalid block proof: {} (height: {}, producer: {})",
+                                    block_info.hash, block_info.height, entry.submitter
+                                );
+                                continue;
+                            }
+
+                            seen_blocks.insert(key.clone(), entry.create_time);
+                            produced_blocks_batch.push(ProducedBlock {
                                 window_id: window.id.unwrap(),
                                 public_key_id,
-                                best_tip: best_tip.unwrap(), // Cannot fail due to the above check
-                                heartbeat_time: to_unix_timestamp(entry.create_time),
+                                block_hash: block_info.hash,
+                                block_height: block_info.height,
+                                block_global_slot: block_info.global_slot,
+                                block_data: block_info.base64_encoded_header,
                             });
-                            presence_count += 1;
-
-                            // Add produced block if it exists
-                            match entry
-                                .last_produced_block_info()
-                                .map(|bi| (bi.clone(), bi.block_header_decoded()))
-                            {
-                                None => (), // No block to process
-                                Some((block_info, Ok(block_header))) => {
-                                    let key = (public_key_id, block_info.hash.clone());
-
-                                    if let Some(first_seen) = seen_blocks.get(&key) {
-                                        blocks_duplicate += 1;
-                                        println!(
-                                            "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
-                                            key.1,
-                                            block_info.height,
-                                            entry.submitter,
-                                            entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
-                                            first_seen,
-                                            entry.create_time
-                                        );
-                                        continue;
-                                    }
-
-                                    // Verify block proof
-                                    if !verify_block(&block_header, &verifier_index, &verifier_srs)
-                                    {
-                                        println!(
-                                            "WARNING: Invalid block proof: {} (height: {}, producer: {})",
-                                            block_info.hash, block_info.height, entry.submitter
-                                        );
-                                        continue;
-                                    }
-
-                                    seen_blocks.insert(key.clone(), entry.create_time);
-                                    produced_blocks_batch.push(ProducedBlock {
-                                        window_id: window.id.unwrap(),
-                                        public_key_id,
-                                        block_hash: block_info.hash,
-                                        block_height: block_info.height,
-                                        block_global_slot: block_info.global_slot,
-                                        block_data: block_info.base64_encoded_header,
-                                    });
-                                }
-                                Some((_block_info, Err(e))) => {
-                                    println!(
-                                        "WARNING: Failed to decode block from {}: {}",
-                                        entry.submitter, e
-                                    )
-                                }
-                            }
                         }
-                    } else {
-                        if let Some(block_info) = entry.last_produced_block_info() {
+                        Some((_block_info, Err(e))) => {
                             println!(
-                                "Skipping unsynced block: {} (height: {}, producer: {}, peer_id: {})",
-                                block_info.hash,
-                                block_info.height,
-                                entry.submitter,
-                                entry.peer_id().unwrap_or_else(|| "unknown".to_string())
-                            );
+                                "WARNING: Failed to decode block from {}: {}",
+                                entry.submitter, e
+                            )
                         }
-                        skipped_count += 1;
                     }
                 }
             }
