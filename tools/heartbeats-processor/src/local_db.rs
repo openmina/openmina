@@ -245,9 +245,11 @@ pub async fn process_heartbeats(
     db: &FirestoreDb,
     pool: &SqlitePool,
     config: &Config,
-) -> Result<()> {
+) -> Result<usize> {
     let last_processed_time = get_last_processed_time(pool, Some(config)).await?;
     let now = Utc::now();
+    // Don't fetch heartbeats beyond window range end
+    let end_time = config.window_range_end.min(now);
 
     let mut total_heartbeats = 0;
     let mut latest_time = last_processed_time;
@@ -266,7 +268,8 @@ pub async fn process_heartbeats(
     };
 
     loop {
-        let heartbeats = crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, now).await?;
+        let heartbeats =
+            crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, end_time).await?;
         if heartbeats.is_empty() {
             break;
         }
@@ -335,17 +338,20 @@ pub async fn process_heartbeats(
                             presence_count += 1;
 
                             // Add produced block if it exists
-                            match entry.last_produced_block_decoded() {
-                                Ok(Some(block)) => {
-                                    let block_data = entry.last_produced_block_raw().unwrap(); // Cannot fail, we have the block
-                                    let key = (public_key_id, block.hash().to_string());
+                            match entry
+                                .last_produced_block_info()
+                                .map(|bi| (bi.clone(), bi.block_header_decoded()))
+                            {
+                                None => (), // No block to process
+                                Some((block_info, Ok(_block_header))) => {
+                                    let key = (public_key_id, block_info.hash.clone());
 
                                     if let Some(first_seen) = seen_blocks.get(&key) {
                                         blocks_duplicate += 1;
                                         println!(
                                             "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
                                             key.1,
-                                            block.height(),
+                                            block_info.height,
                                             entry.submitter,
                                             entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
                                             first_seen,
@@ -358,14 +364,13 @@ pub async fn process_heartbeats(
                                     produced_blocks_batch.push(ProducedBlock {
                                         window_id: window.id.unwrap(),
                                         public_key_id,
-                                        block_hash: block.hash().to_string(),
-                                        block_height: block.height(),
-                                        block_global_slot: block.global_slot(),
-                                        block_data,
+                                        block_hash: block_info.hash,
+                                        block_height: block_info.height,
+                                        block_global_slot: block_info.global_slot,
+                                        block_data: block_info.base64_encoded_header,
                                     });
                                 }
-                                Ok(None) => (), // No block to process
-                                Err(e) => {
+                                Some((_block_info, Err(e))) => {
                                     println!(
                                         "WARNING: Failed to decode block from {}: {}",
                                         entry.submitter, e
@@ -374,11 +379,11 @@ pub async fn process_heartbeats(
                             }
                         }
                     } else {
-                        if let Ok(Some(block)) = entry.last_produced_block_decoded() {
+                        if let Some(block_info) = entry.last_produced_block_info() {
                             println!(
                                 "Skipping unsynced block: {} (height: {}, producer: {}, peer_id: {})",
-                                block.hash(),
-                                block.height(),
+                                block_info.hash,
+                                block_info.height,
                                 entry.submitter,
                                 entry.peer_id().unwrap_or_else(|| "unknown".to_string())
                             );
@@ -430,7 +435,7 @@ pub async fn process_heartbeats(
         update_last_processed_time(pool, latest_time).await?;
     }
 
-    Ok(())
+    Ok(total_heartbeats)
 }
 
 pub async fn create_tables_from_file(pool: &SqlitePool) -> Result<()> {
@@ -516,13 +521,21 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             GROUP BY public_key_id
         ),
         HeartbeatCounts AS (
+            -- Count heartbeats only within valid windows
             SELECT
                 hp.public_key_id,
-                COUNT(DISTINCT hp.window_id) as heartbeats,
-                MAX(hp.heartbeat_time) as last_heartbeat
+                COUNT(DISTINCT hp.window_id) as heartbeats
             FROM heartbeat_presence hp
             JOIN ValidWindows vw ON vw.id = hp.window_id
             GROUP BY hp.public_key_id
+        ),
+        LastHeartbeats AS (
+            -- Get last heartbeat time across all windows
+            SELECT
+                public_key_id,
+                MAX(heartbeat_time) as last_heartbeat
+            FROM heartbeat_presence
+            GROUP BY public_key_id
         )
         INSERT INTO submitter_scores (
             public_key_id,
@@ -534,10 +547,11 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             pk.id,
             COALESCE(hc.heartbeats, 0) as score,
             COALESCE(bc.blocks, 0) as blocks_produced,
-            COALESCE(hc.last_heartbeat, 0) as last_heartbeat
+            COALESCE(lh.last_heartbeat, 0) as last_heartbeat
         FROM public_keys pk
         LEFT JOIN HeartbeatCounts hc ON hc.public_key_id = pk.id
         LEFT JOIN BlockCounts bc ON bc.public_key_id = pk.id
+        LEFT JOIN LastHeartbeats lh ON lh.public_key_id = pk.id
         WHERE hc.heartbeats > 0 OR bc.blocks > 0
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
