@@ -607,6 +607,7 @@ pub enum ActionKind {
     TransactionPoolCandidateFetchPending,
     TransactionPoolCandidateFetchSuccess,
     TransactionPoolCandidateInfoReceived,
+    TransactionPoolCandidateLibp2pTransactionsReceived,
     TransactionPoolCandidatePeerPrune,
     TransactionPoolCandidateVerifyError,
     TransactionPoolCandidateVerifyNext,
@@ -719,7 +720,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 609;
+    pub const COUNT: u16 = 610;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1553,6 +1554,9 @@ impl ActionKindGet for TransactionPoolCandidateAction {
             Self::FetchPending { .. } => ActionKind::TransactionPoolCandidateFetchPending,
             Self::FetchError { .. } => ActionKind::TransactionPoolCandidateFetchError,
             Self::FetchSuccess { .. } => ActionKind::TransactionPoolCandidateFetchSuccess,
+            Self::Libp2pTransactionsReceived { .. } => {
+                ActionKind::TransactionPoolCandidateLibp2pTransactionsReceived
+            }
             Self::VerifyNext => ActionKind::TransactionPoolCandidateVerifyNext,
             Self::VerifyPending { .. } => ActionKind::TransactionPoolCandidateVerifyPending,
             Self::VerifyError { .. } => ActionKind::TransactionPoolCandidateVerifyError,

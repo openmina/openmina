@@ -112,7 +112,10 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                             }
                         })
             }
-            SnarkPoolCandidateAction::WorkVerifyNext => state.snark.work_verify.jobs.is_empty(),
+            SnarkPoolCandidateAction::WorkVerifyNext => {
+                state.snark.work_verify.jobs.is_empty()
+                    && state.transition_frontier.sync.is_synced()
+            }
             SnarkPoolCandidateAction::WorkVerifyPending {
                 peer_id, job_ids, ..
             } => {
