@@ -37,18 +37,18 @@ pub struct SnarkBlockVerifyArgs {
 impl NodeService {
     pub fn snark_block_proof_verifier_spawn(
         event_sender: EventSender,
-    ) -> mpsc::UnboundedSender<SnarkBlockVerifyArgs> {
-        let (tx, mut rx) = mpsc::unbounded_channel();
+    ) -> mpsc::TrackedUnboundedSender<SnarkBlockVerifyArgs> {
+        let (tx, mut rx) = mpsc::tracked_unbounded_channel();
         thread::Builder::new()
             .name("block_proof_verifier".to_owned())
             .spawn(move || {
-                while let Some(SnarkBlockVerifyArgs {
-                    req_id,
-                    verifier_index,
-                    verifier_srs,
-                    block,
-                }) = rx.blocking_recv()
-                {
+                while let Some(msg) = rx.blocking_recv() {
+                    let SnarkBlockVerifyArgs {
+                        req_id,
+                        verifier_index,
+                        verifier_srs,
+                        block,
+                    } = msg.0;
                     eprintln!("verify({}) - start", block.hash_ref());
                     let header = block.header_ref();
                     let result = {
@@ -90,7 +90,7 @@ impl node::service::SnarkBlockVerifyService for NodeService {
             verifier_srs,
             block,
         };
-        let _ = self.snark_block_proof_verify.send(args);
+        let _ = self.snark_block_proof_verify.tracked_send(args);
     }
 }
 

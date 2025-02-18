@@ -48,6 +48,7 @@ use crate::ledger::write::LedgerWriteKind;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
+use crate::service::Queues;
 use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 use crate::stats::block_producer::{
@@ -468,6 +469,7 @@ pub struct RpcNodeStatus {
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
     pub peers: Vec<RpcPeerInfo>,
     pub resources_status: RpcNodeStatusResources,
+    pub service_queues: Queues,
 }
 
 #[derive(Serialize, Debug, Clone)]

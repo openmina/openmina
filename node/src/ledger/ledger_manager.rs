@@ -350,17 +350,17 @@ pub struct LedgerManager {
 }
 
 #[derive(Clone)]
-pub(super) struct LedgerCaller(mpsc::UnboundedSender<LedgerRequestWithChan>);
+pub(super) struct LedgerCaller(mpsc::TrackedUnboundedSender<LedgerRequestWithChan>);
 
 impl LedgerManager {
     pub fn spawn(mut ledger_ctx: LedgerCtx) -> LedgerManager {
-        let (sender, mut receiver) = mpsc::unbounded_channel();
+        let (sender, mut receiver) = mpsc::tracked_unbounded_channel();
         let caller = LedgerCaller(sender);
         let ledger_caller = caller.clone();
 
         let ledger_manager_loop = move || {
-            while let Some(LedgerRequestWithChan { request, responder }) = receiver.blocking_recv()
-            {
+            while let Some(msg) = receiver.blocking_recv() {
+                let LedgerRequestWithChan { request, responder } = msg.0;
                 let response = request.handle(&mut ledger_ctx, &ledger_caller, responder.is_some());
                 match (response, responder) {
                     (LedgerResponse::Write(resp), None) => {
@@ -393,6 +393,10 @@ impl LedgerManager {
             caller,
             join_handle,
         }
+    }
+
+    pub fn pending_calls(&self) -> usize {
+        self.caller.0.len()
     }
 
     pub(super) fn call(&self, request: LedgerRequest) {
@@ -458,7 +462,7 @@ impl LedgerManager {
 impl LedgerCaller {
     pub fn call(&self, request: LedgerRequest) {
         self.0
-            .send(LedgerRequestWithChan {
+            .tracked_send(LedgerRequestWithChan {
                 request,
                 responder: None,
             })
@@ -471,7 +475,7 @@ impl LedgerCaller {
     ) -> Result<LedgerResponse, std::sync::mpsc::RecvError> {
         let (responder, receiver) = std::sync::mpsc::sync_channel(0);
         self.0
-            .send(LedgerRequestWithChan {
+            .tracked_send(LedgerRequestWithChan {
                 request,
                 responder: Some(responder),
             })

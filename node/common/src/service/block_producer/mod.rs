@@ -22,8 +22,8 @@ use crate::EventSender;
 pub struct BlockProducerService {
     provers: Option<BlockProver>,
     keypair: AccountSecretKey,
-    vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
-    prove_sender: mpsc::UnboundedSender<(
+    vrf_evaluation_sender: mpsc::TrackedUnboundedSender<VrfEvaluatorInput>,
+    prove_sender: mpsc::TrackedUnboundedSender<(
         BlockProver,
         StateHash,
         Box<ProverExtendBlockchainInputStableV2>,
@@ -33,8 +33,8 @@ pub struct BlockProducerService {
 impl BlockProducerService {
     pub fn new(
         keypair: AccountSecretKey,
-        vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
-        prove_sender: mpsc::UnboundedSender<(
+        vrf_evaluation_sender: mpsc::TrackedUnboundedSender<VrfEvaluatorInput>,
+        prove_sender: mpsc::TrackedUnboundedSender<(
             BlockProver,
             StateHash,
             Box<ProverExtendBlockchainInputStableV2>,
@@ -82,18 +82,27 @@ impl BlockProducerService {
     pub fn keypair(&self) -> AccountSecretKey {
         self.keypair.clone()
     }
+
+    pub fn vrf_pending_requests(&self) -> usize {
+        self.vrf_evaluation_sender.len()
+    }
+
+    pub fn prove_pending_requests(&self) -> usize {
+        self.prove_sender.len()
+    }
 }
 
 fn prover_loop(
     keypair: AccountSecretKey,
     event_sender: EventSender,
-    mut rx: mpsc::UnboundedReceiver<(
+    mut rx: mpsc::TrackedUnboundedReceiver<(
         BlockProver,
         StateHash,
         Box<ProverExtendBlockchainInputStableV2>,
     )>,
 ) {
-    while let Some((provers, block_hash, mut input)) = rx.blocking_recv() {
+    while let Some(msg) = rx.blocking_recv() {
+        let (provers, block_hash, mut input) = msg.0;
         let res = prove(provers, &mut input, &keypair, false).map_err(|err| format!("{err:?}"));
         if res.is_err() {
             if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
@@ -160,7 +169,7 @@ impl node::service::BlockProducerService for crate::NodeService {
             .as_ref()
             .expect("prove shouldn't be requested if block producer isn't initialized")
             .prove_sender
-            .send((provers, block_hash, input));
+            .tracked_send((provers, block_hash, input));
     }
 
     fn with_producer_keypair<T>(&self, f: impl FnOnce(&AccountSecretKey) -> T) -> Option<T> {

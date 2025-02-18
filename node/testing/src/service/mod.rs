@@ -278,6 +278,10 @@ impl NodeTestingService {
 impl redux::Service for NodeTestingService {}
 
 impl node::Service for NodeTestingService {
+    fn queues(&mut self) -> node::service::Queues {
+        self.real.queues()
+    }
+
     fn stats(&mut self) -> Option<&mut Stats> {
         self.real.stats()
     }
@@ -360,7 +364,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         P2pServiceWebrtc::event_sender(&self.real)
     }
 
-    fn cmd_sender(&self) -> &mpsc::UnboundedSender<Cmd> {
+    fn cmd_sender(&self) -> &mpsc::TrackedUnboundedSender<Cmd> {
         P2pServiceWebrtc::cmd_sender(&self.real)
     }
 

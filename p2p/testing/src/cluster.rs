@@ -8,6 +8,7 @@ use std::{
 
 use futures::StreamExt;
 use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
+use openmina_core::channels::mpsc;
 use openmina_core::{ChainId, Substate, DEVNET_CHAIN_ID};
 use p2p::{
     connection::outgoing::{
@@ -18,7 +19,6 @@ use p2p::{
     P2pCallbacks, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
 };
 use redux::SystemTime;
-use tokio::sync::mpsc;
 
 use crate::{
     event::{event_mapper_effect, RustNodeEvent},

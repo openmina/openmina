@@ -6,13 +6,12 @@ use std::{
     io::{self, Read, Write},
     net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr},
     process,
-    sync::mpsc,
 };
 
 use libp2p_identity::Keypair;
 use mio::net::{TcpListener, TcpStream};
 
-use openmina_core::bug_condition;
+use openmina_core::{bug_condition, channels::mpsc};
 use thiserror::Error;
 
 use crate::{ConnectionAddr, MioCmd, MioEvent};
@@ -54,7 +53,7 @@ pub enum MioService {
 #[derive(Debug)]
 pub struct MioRunningService {
     keypair: Keypair,
-    cmd_sender: mpsc::Sender<MioCmd>,
+    cmd_sender: mpsc::UnboundedSender<MioCmd>,
     waker: Option<mio::Waker>,
 }
 
@@ -89,6 +88,13 @@ impl MioService {
         }
     }
 
+    pub fn pending_cmds(&self) -> usize {
+        match self {
+            Self::Pending(_) => 0,
+            Self::Ready(v) => v.cmd_sender.len(),
+        }
+    }
+
     pub fn send_cmd(&mut self, cmd: MioCmd) {
         let MioService::Ready(service) = self else {
             bug_condition!("mio service is not initialized");
@@ -109,7 +115,7 @@ impl MioRunningService {
     fn mocked(keypair: Keypair) -> Self {
         MioRunningService {
             keypair,
-            cmd_sender: mpsc::channel().0,
+            cmd_sender: mpsc::unbounded_channel().0,
             waker: None,
         }
     }
@@ -135,7 +141,7 @@ impl MioRunningService {
             }
         };
 
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = mpsc::unbounded_channel();
 
         let mut inner = MioServiceInner {
             poll,
@@ -174,7 +180,7 @@ impl MioRunningService {
 struct MioServiceInner<F> {
     poll: mio::Poll,
     event_sender: F,
-    cmd_receiver: mpsc::Receiver<MioCmd>,
+    cmd_receiver: mpsc::UnboundedReceiver<MioCmd>,
     tokens: TokenRegistry,
     listeners: BTreeMap<SocketAddr, Listener>,
     connections: BTreeMap<ConnectionAddr, Connection>,

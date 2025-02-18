@@ -9,6 +9,14 @@ pub struct EventReceiver {
 }
 
 impl EventReceiver {
+    pub fn is_empty(&self) -> bool {
+        !self.has_next()
+    }
+
+    pub fn len(&self) -> usize {
+        self.rx.len() + self.queue.len()
+    }
+
     /// If `Err(())`, `mpsc::Sender` for this channel was dropped.
     pub async fn wait_for_events(&mut self) -> Result<(), ()> {
         if !self.queue.is_empty() {
@@ -19,17 +27,8 @@ impl EventReceiver {
         Ok(())
     }
 
-    pub fn has_next(&mut self) -> bool {
-        if self.queue.is_empty() {
-            if let Some(event) = self.try_next() {
-                self.queue.push(event);
-                true
-            } else {
-                false
-            }
-        } else {
-            true
-        }
+    pub fn has_next(&self) -> bool {
+        !self.queue.is_empty() || !self.rx.is_empty()
     }
 
     pub fn try_next(&mut self) -> Option<Event> {
