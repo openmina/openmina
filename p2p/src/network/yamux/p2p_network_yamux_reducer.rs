@@ -107,7 +107,6 @@ impl P2pNetworkYamuxState {
                 Ok(())
             }
             P2pNetworkYamuxAction::IncomingFrame { addr } => {
-                let mut pending_outgoing = VecDeque::default();
                 let Some(frame) = yamux_state.incoming.pop_front() else {
                     bug_condition!(
                         "Frame not found for action `P2pNetworkYamuxAction::IncomingFrame`"
@@ -115,61 +114,14 @@ impl P2pNetworkYamuxState {
                     return Ok(());
                 };
 
-                if frame.flags.contains(YamuxFlags::SYN) {
-                    yamux_state
-                        .streams
-                        .insert(frame.stream_id, YamuxStreamState::incoming());
+                YamuxStreamState::handle_frame_syn_ack_flags(
+                    &mut yamux_state.streams,
+                    &mut connection_state.streams,
+                    &frame,
+                    meta.time(),
+                );
 
-                    if frame.stream_id != 0 {
-                        connection_state.streams.insert(
-                            frame.stream_id,
-                            P2pNetworkStreamState::new_incoming(meta.time()),
-                        );
-                    }
-                }
-                if frame.flags.contains(YamuxFlags::ACK) {
-                    yamux_state
-                        .streams
-                        .entry(frame.stream_id)
-                        .or_default()
-                        .established = true;
-                }
-
-                match &frame.inner {
-                    YamuxFrameInner::Data(_) => {
-                        if let Some(stream) = yamux_state.streams.get_mut(&frame.stream_id) {
-                            // must not underflow
-                            // TODO: check it and disconnect peer that violates flow rules
-                            stream.window_ours =
-                                stream.window_ours.saturating_sub(frame.len_as_u32());
-                        }
-                    }
-                    YamuxFrameInner::WindowUpdate { difference } => {
-                        let stream = yamux_state
-                            .streams
-                            .entry(frame.stream_id)
-                            .or_insert_with(YamuxStreamState::incoming);
-
-                        stream.window_theirs = stream.window_theirs.saturating_add(*difference);
-
-                        if *difference > 0 {
-                            // have some fresh space in the window
-                            // try send as many frames as can
-                            let mut window = stream.window_theirs;
-                            while let Some(frame) = stream.pending.pop_front() {
-                                let len = frame.len_as_u32();
-                                pending_outgoing.push_back(frame);
-                                if let Some(new_window) = window.checked_sub(len) {
-                                    window = new_window;
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    YamuxFrameInner::Ping { .. } => {}
-                    YamuxFrameInner::GoAway(res) => yamux_state.set_res(*res),
-                }
+                let mut pending_outgoing = yamux_state.handle_frame_message(&frame);
 
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let limits: &P2pLimits = state.substate()?;
@@ -367,5 +319,46 @@ impl P2pNetworkYamuxState {
                 Ok(())
             }
         }
+    }
+
+    fn handle_frame_message(&mut self, frame: &YamuxFrame) -> VecDeque<YamuxFrame> {
+        let mut pending_outgoing = VecDeque::default();
+
+        match &frame.inner {
+            YamuxFrameInner::Data(_) => {
+                if let Some(stream) = self.streams.get_mut(&frame.stream_id) {
+                    // must not underflow
+                    // TODO: check it and disconnect peer that violates flow rules
+                    stream.window_ours = stream.window_ours.saturating_sub(frame.len_as_u32());
+                }
+            }
+            YamuxFrameInner::WindowUpdate { difference } => {
+                let stream = self
+                    .streams
+                    .entry(frame.stream_id)
+                    .or_insert_with(YamuxStreamState::incoming);
+
+                stream.window_theirs = stream.window_theirs.saturating_add(*difference);
+
+                if *difference > 0 {
+                    // have some fresh space in the window
+                    // try send as many frames as can
+                    let mut window = stream.window_theirs;
+                    while let Some(frame) = stream.pending.pop_front() {
+                        let len = frame.len_as_u32();
+                        pending_outgoing.push_back(frame);
+                        if let Some(new_window) = window.checked_sub(len) {
+                            window = new_window;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+            YamuxFrameInner::Ping { .. } => {}
+            YamuxFrameInner::GoAway(res) => self.set_res(*res),
+        }
+
+        pending_outgoing
     }
 }

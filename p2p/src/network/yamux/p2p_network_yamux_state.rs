@@ -228,6 +228,30 @@ impl YamuxStreamState {
             ..Default::default()
         }
     }
+
+    /// Processes SYN and ACK flags from an incoming Yamux frame and updates stream states accordingly.
+    pub fn handle_frame_syn_ack_flags(
+        yamux_streams: &mut BTreeMap<StreamId, YamuxStreamState>,
+        connection_streams: &mut BTreeMap<u32, P2pNetworkStreamState>,
+        frame: &YamuxFrame,
+        time: redux::Timestamp,
+    ) {
+        if frame.flags.contains(YamuxFlags::SYN) {
+            yamux_streams.insert(frame.stream_id, YamuxStreamState::incoming());
+
+            // TODO: when is stream 0 used? why is it ignored?
+            if frame.stream_id != 0 {
+                connection_streams
+                    .insert(frame.stream_id, P2pNetworkStreamState::new_incoming(time));
+            }
+        }
+
+        if frame.flags.contains(YamuxFlags::ACK) {
+            if let Some(stream) = yamux_streams.get_mut(&frame.stream_id) {
+                stream.established = true;
+            }
+        }
+    }
 }
 
 bitflags::bitflags! {
