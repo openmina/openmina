@@ -369,6 +369,17 @@ pub async fn process_heartbeats(
                                 continue;
                             }
 
+                            // Verify that the block slot matches the expected one for the current time
+                            // TODO: maybe we can be a bit more lenient here?
+                            let expected_slot = global_slot_at_time(entry.create_time);
+                            if block_info.global_slot != expected_slot {
+                                println!(
+                                    "WARNING: Invalid block slot: {} (height: {}, producer: {}, expected slot: {}, actual slot: {})",
+                                    block_info.hash, block_info.height, entry.submitter, expected_slot, block_info.global_slot
+                                );
+                                continue;
+                            }
+
                             // Verify block proof
                             if !verify_block(&block_header, &verifier_index, &verifier_srs) {
                                 println!(
@@ -774,4 +785,18 @@ pub async fn mark_disabled_windows(pool: &SqlitePool, config: &Config) -> Result
         }
     }
     Ok(())
+}
+
+fn global_slot_at_time(time: DateTime<Utc>) -> u32 {
+    use chrono::FixedOffset;
+    let slot_duration = 180_000;
+    let genesis_state_timestamp =
+        DateTime::<FixedOffset>::parse_from_rfc3339("2024-04-09T21:00:00Z")
+            .unwrap()
+            .to_utc();
+    let slot_start_ms = genesis_state_timestamp.timestamp_millis() as u64;
+    let time_ms = time.timestamp_millis() as u64;
+
+    let slot_diff = (time_ms - slot_start_ms) / slot_duration;
+    slot_diff as u32
 }
