@@ -228,38 +228,18 @@ impl YamuxStreamState {
             ..Default::default()
         }
     }
-
-    /// Processes SYN and ACK flags from an incoming Yamux frame and updates stream states accordingly.
-    pub fn handle_frame_syn_ack_flags(
-        yamux_streams: &mut BTreeMap<StreamId, YamuxStreamState>,
-        connection_streams: &mut BTreeMap<u32, P2pNetworkStreamState>,
-        frame: &YamuxFrame,
-        time: redux::Timestamp,
-    ) {
-        if frame.flags.contains(YamuxFlags::SYN) {
-            yamux_streams.insert(frame.stream_id, YamuxStreamState::incoming());
-
-            // TODO: when is stream 0 used? why is it ignored?
-            if frame.stream_id != 0 {
-                connection_streams
-                    .insert(frame.stream_id, P2pNetworkStreamState::new_incoming(time));
-            }
-        }
-
-        if frame.flags.contains(YamuxFlags::ACK) {
-            if let Some(stream) = yamux_streams.get_mut(&frame.stream_id) {
-                stream.established = true;
-            }
-        }
-    }
 }
 
 bitflags::bitflags! {
     #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
     pub struct YamuxFlags: u16 {
+        /// Signals the start of a new stream. May be sent with a data or window update message. Also sent with a ping to indicate outbound.
         const SYN = 0b0001;
+        /// Acknowledges the start of a new stream. May be sent with a data or window update message. Also sent with a ping to indicate response.
         const ACK = 0b0010;
+        /// Performs a half-close of a stream. May be sent with a data message or window update.
         const FIN = 0b0100;
+        /// Reset a stream immediately. May be sent with a data or window update message.
         const RST = 0b1000;
     }
 }
@@ -404,6 +384,27 @@ impl YamuxFrame {
             None
         }
     }
+
+    pub fn is_session_stream(&self) -> bool {
+        self.stream_id == 0
+    }
+
+    pub fn kind(&self) -> YamuxFrameKind {
+        match self.inner {
+            YamuxFrameInner::Data(_) => YamuxFrameKind::Data,
+            YamuxFrameInner::WindowUpdate { .. } => YamuxFrameKind::WindowUpdate,
+            YamuxFrameInner::Ping { .. } => YamuxFrameKind::Ping,
+            YamuxFrameInner::GoAway(_) => YamuxFrameKind::GoAway,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum YamuxFrameKind {
+    Data,
+    WindowUpdate,
+    Ping,
+    GoAway,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]

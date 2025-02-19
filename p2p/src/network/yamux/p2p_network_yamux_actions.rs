@@ -22,6 +22,22 @@ pub enum P2pNetworkYamuxAction {
         addr: ConnectionAddr,
     },
     #[action_event(level = trace)]
+    IncomingFrameData {
+        addr: ConnectionAddr,
+    },
+    #[action_event(level = trace)]
+    IncomingFramePing {
+        addr: ConnectionAddr,
+    },
+    #[action_event(level = trace)]
+    IncomingFrameWindowUpdate {
+        addr: ConnectionAddr,
+    },
+    #[action_event(level = trace)]
+    IncomingFrameGoAway {
+        addr: ConnectionAddr,
+    },
+    #[action_event(level = trace)]
     OutgoingFrame {
         addr: ConnectionAddr,
         frame: YamuxFrame,
@@ -43,6 +59,10 @@ impl P2pNetworkYamuxAction {
             Self::IncomingData { addr, .. } => addr,
             Self::OutgoingData { addr, .. } => addr,
             Self::IncomingFrame { addr, .. } => addr,
+            Self::IncomingFrameData { addr, .. } => addr,
+            Self::IncomingFramePing { addr, .. } => addr,
+            Self::IncomingFrameWindowUpdate { addr, .. } => addr,
+            Self::IncomingFrameGoAway { addr, .. } => addr,
             Self::OutgoingFrame { addr, .. } => addr,
             Self::PingStream { addr, .. } => addr,
             Self::OpenStream { addr, .. } => addr,
@@ -72,7 +92,11 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxAction {
             P2pNetworkYamuxAction::OutgoingData { stream_id, .. } => {
                 yamux_state.streams.contains_key(stream_id)
             }
-            P2pNetworkYamuxAction::IncomingFrame { .. } => true,
+            P2pNetworkYamuxAction::IncomingFrame { .. }
+            | P2pNetworkYamuxAction::IncomingFrameData { .. }
+            | P2pNetworkYamuxAction::IncomingFramePing { .. }
+            | P2pNetworkYamuxAction::IncomingFrameWindowUpdate { .. }
+            | P2pNetworkYamuxAction::IncomingFrameGoAway { .. } => !yamux_state.incoming.is_empty(),
             P2pNetworkYamuxAction::OutgoingFrame { .. } => true,
             P2pNetworkYamuxAction::PingStream { .. } => true,
             P2pNetworkYamuxAction::OpenStream { .. } => true,
