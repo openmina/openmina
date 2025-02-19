@@ -1565,6 +1565,7 @@ name = "cli"
 version = "0.14.0"
 dependencies = [
  "anyhow",
+ "backtrace",
  "bytes",
  "clap 4.5.20",
  "console",
