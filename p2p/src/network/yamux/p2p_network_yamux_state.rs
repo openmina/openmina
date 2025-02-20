@@ -66,6 +66,8 @@ impl P2pNetworkYamuxState {
             return None;
         }
 
+        // Version 0 is the only supported version as per Yamux specification.
+        // Any other version should be rejected.
         let _version = match buf[0] {
             0 => 0,
             unknown => {
@@ -162,7 +164,7 @@ impl P2pNetworkYamuxState {
         self.shift_and_compact_buffer(offset);
     }
 
-    fn shift_and_compact_buffer(&mut self, offset: usize) {
+    pub(crate) fn shift_and_compact_buffer(&mut self, offset: usize) {
         let new_len = self.buffer.len() - offset;
         if self.buffer.capacity() > INITIAL_RECV_BUFFER_CAPACITY * 2
             && new_len < INITIAL_RECV_BUFFER_CAPACITY / 2
@@ -415,7 +417,7 @@ pub enum YamuxFrameInner {
     GoAway(#[ignore_malloc_size_of = "doesn't allocate"] Result<(), YamuxSessionError>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum YamuxSessionError {
     Protocol,
     Internal,
