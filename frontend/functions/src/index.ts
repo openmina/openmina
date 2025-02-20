@@ -23,8 +23,9 @@ const minaClient = new Client({ network: 'testnet' });
 
 admin.initializeApp();
 
-// Rate limit duration between heartbeats from the same submitter (15 seconds)
-const HEARTBEAT_RATE_LIMIT_MS = 15000;
+// Rate limit configuration: sliding window
+const WINDOW_SIZE_MS = 60000; // 1 minute window
+const MAX_REQUESTS_PER_WINDOW = 6;
 
 function validateSignature(
     data: string,
@@ -96,21 +97,36 @@ export const handleValidationAndStore = onCall(
             const newHeartbeatRef = db.collection('heartbeats').doc();
 
             await db.runTransaction(async (transaction) => {
-                const doc = await transaction.get(rateLimitRef);
+                const rateLimitDoc = await transaction.get(rateLimitRef);
                 const now = Date.now();
-                const cutoff = now - HEARTBEAT_RATE_LIMIT_MS;
+                const windowStart = now - WINDOW_SIZE_MS;
 
-                if (doc.exists) {
-                    const lastCall = doc.data()?.['lastCall'];
-                    if (lastCall > cutoff) {
+                if (rateLimitDoc.exists) {
+                    const data = rateLimitDoc.data();
+                    const previousTimestamps: number[] = data?.timestamps || [];
+                    const currentWindowTimestamps = previousTimestamps.filter(ts => ts > windowStart);
+
+                    currentWindowTimestamps.push(now);
+
+                    if (currentWindowTimestamps.length > MAX_REQUESTS_PER_WINDOW) {
                         throw new functions.https.HttpsError(
                             'resource-exhausted',
-                            'Rate limit exceeded for this public key',
+                            'Rate limit exceeded',
                         );
                     }
+
+                    transaction.set(rateLimitRef, {
+                        timestamps: currentWindowTimestamps,
+                        lastCall: FieldValue.serverTimestamp(),
+                    });
+                } else {
+                    // First request for this public key
+                    transaction.set(rateLimitRef, {
+                        timestamps: [now],
+                        lastCall: FieldValue.serverTimestamp(),
+                    });
                 }
 
-                transaction.set(rateLimitRef, { lastCall: FieldValue.serverTimestamp() }, { merge: true });
                 transaction.create(newHeartbeatRef, {
                     ...data,
                     createTime: FieldValue.serverTimestamp(),
