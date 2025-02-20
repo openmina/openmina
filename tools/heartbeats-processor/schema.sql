@@ -84,6 +84,18 @@ ON heartbeat_presence(public_key_id);
 CREATE INDEX IF NOT EXISTS idx_heartbeat_presence_global_slot
 ON heartbeat_presence(best_tip_global_slot);
 
+-- Index for presence queries by best tip height
+CREATE INDEX IF NOT EXISTS idx_heartbeat_presence_height
+ON heartbeat_presence(best_tip_height);
+
+-- Combined index for height queries with disabled flag
+CREATE INDEX IF NOT EXISTS idx_heartbeat_presence_window_disabled_height
+ON heartbeat_presence(window_id, disabled, best_tip_height);
+
+-- Combined index for disabled flag, window and global slot lookups
+CREATE INDEX IF NOT EXISTS idx_heartbeat_presence_window_disabled_global_slot
+ON heartbeat_presence(window_id, disabled, best_tip_global_slot);
+
 -- Index for heartbeat time queries
 CREATE INDEX IF NOT EXISTS idx_heartbeat_presence_time
 ON heartbeat_presence(heartbeat_time);

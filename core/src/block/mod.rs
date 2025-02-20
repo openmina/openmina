@@ -4,6 +4,8 @@ pub use block_with_hash::{BlockHeaderWithHash, BlockWithHash};
 mod applied_block;
 pub use applied_block::AppliedBlock;
 
+pub mod prevalidate;
+
 pub mod genesis;
 
 use std::sync::Arc;

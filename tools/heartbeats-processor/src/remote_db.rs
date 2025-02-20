@@ -80,6 +80,7 @@ impl HeartbeatEntry {
             .decoded_payload
             .as_ref()
             .and_then(|status| status.get("last_produced_block_info"))
+            .filter(|v| !v.is_null())
             .map(|block_info| serde_json::from_value(block_info.clone()))?;
 
         match result {
