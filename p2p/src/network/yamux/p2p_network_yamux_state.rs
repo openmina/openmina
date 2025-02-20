@@ -230,6 +230,59 @@ impl YamuxStreamState {
             ..Default::default()
         }
     }
+
+    /// Updates the remote window size and returns any frames that can now be sent
+    /// Returns frames that were pending and can now be sent due to increased window size
+    pub fn update_remote_window(&mut self, difference: u32) -> VecDeque<YamuxFrame> {
+        self.window_theirs = self.window_theirs.saturating_add(difference);
+        let mut sendable_frames = VecDeque::new();
+
+        if difference > 0 {
+            let mut available_window = self.window_theirs;
+            while let Some(frame) = self.pending.pop_front() {
+                let frame_len = frame.len_as_u32();
+                if frame_len > available_window {
+                    // Put frame back and stop
+                    self.pending.push_front(frame);
+                    break;
+                }
+                available_window -= frame_len;
+                sendable_frames.push_back(frame);
+            }
+        }
+
+        sendable_frames
+    }
+
+    /// Updates the local window size and possibly increases max window size
+    pub fn update_local_window(&mut self, difference: u32) {
+        self.window_ours = self.window_ours.saturating_add(difference);
+        if self.window_ours > self.max_window_size {
+            self.max_window_size = self.window_ours.min(MAX_WINDOW_SIZE);
+        }
+    }
+
+    /// Consumes window space for outgoing data
+    /// Returns true if the frame can be sent immediately,
+    /// false if it needs to be queued (window too small)
+    pub fn try_consume_window(&mut self, frame_len: u32) -> bool {
+        if let Some(new_window) = self.window_theirs.checked_sub(frame_len) {
+            self.window_theirs = new_window;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Checks if window should be updated based on current size
+    /// Returns the amount by which the window should be increased, if any
+    pub fn should_update_window(&self) -> Option<u32> {
+        if self.window_ours < self.max_window_size / 2 {
+            Some(self.max_window_size.saturating_mul(2).min(1024 * 1024))
+        } else {
+            None
+        }
+    }
 }
 
 bitflags::bitflags! {
