@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        WITH MaxSlots AS (\n            SELECT\n                window_id,\n                MAX(best_tip_global_slot) as max_slot\n            FROM heartbeat_presence\n            WHERE disabled = FALSE\n            GROUP BY window_id\n        ),\n        PrevMaxSlots AS (\n            -- Get the max slot from the immediate previous window\n            SELECT\n                tw.id as window_id,\n                prev.max_slot as prev_max_slot\n            FROM time_windows tw\n            LEFT JOIN time_windows prev_tw ON prev_tw.id = tw.id - 1\n            LEFT JOIN MaxSlots prev ON prev.window_id = prev_tw.id\n        )\n        UPDATE heartbeat_presence\n        SET disabled = TRUE\n        WHERE (window_id, best_tip_global_slot) IN (\n            SELECT\n                hp.window_id,\n                hp.best_tip_global_slot\n            FROM heartbeat_presence hp\n            JOIN PrevMaxSlots pms ON pms.window_id = hp.window_id\n            WHERE hp.disabled = FALSE\n            AND pms.prev_max_slot IS NOT NULL  -- Ensure there is a previous window\n            AND hp.best_tip_global_slot < pms.prev_max_slot  -- Less than previous window max\n        )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "489059c80fd17d3c1687d5e301fc85a4691c66707c673886ae08077a9e80c0e1"
+}
