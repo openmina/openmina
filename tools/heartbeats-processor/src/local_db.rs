@@ -242,6 +242,62 @@ async fn batch_insert_produced_blocks(pool: &SqlitePool, blocks: &[ProducedBlock
     Ok(())
 }
 
+/// Marks heartbeat presence entries as outdated (disabled) based on global slot comparisons.
+///
+/// This function performs the following steps:
+/// 1. Finds the maximum global slot for each window (considering only non-disabled entries).
+/// 2. Identifies the previous window's maximum global slot for each window.
+/// 3. Marks a presence entry as disabled if its global slot is less than:
+///    - The maximum global slot of the previous window (if it exists).
+///
+/// This approach allows for a full window of tolerance in synchronization:
+/// - Entries matching or exceeding the previous window's max slot are considered up-to-date.
+/// - This allows for slight delays in propagation between windows.
+///
+/// Note: The first window in the sequence will not have any entries marked as disabled,
+/// as there is no previous window to compare against.
+///
+/// Returns the number of presence entries marked as disabled.
+async fn mark_outdated_presence(pool: &SqlitePool) -> Result<usize> {
+    let affected = sqlx::query!(
+        r#"
+        WITH MaxSlots AS (
+            SELECT
+                window_id,
+                MAX(best_tip_global_slot) as max_slot
+            FROM heartbeat_presence
+            WHERE disabled = FALSE
+            GROUP BY window_id
+        ),
+        PrevMaxSlots AS (
+            -- Get the max slot from the immediate previous window
+            SELECT
+                tw.id as window_id,
+                prev.max_slot as prev_max_slot
+            FROM time_windows tw
+            LEFT JOIN time_windows prev_tw ON prev_tw.id = tw.id - 1
+            LEFT JOIN MaxSlots prev ON prev.window_id = prev_tw.id
+        )
+        UPDATE heartbeat_presence
+        SET disabled = TRUE
+        WHERE (window_id, best_tip_global_slot) IN (
+            SELECT
+                hp.window_id,
+                hp.best_tip_global_slot
+            FROM heartbeat_presence hp
+            JOIN PrevMaxSlots pms ON pms.window_id = hp.window_id
+            WHERE hp.disabled = FALSE
+            AND pms.prev_max_slot IS NOT NULL  -- Ensure there is a previous window
+            AND hp.best_tip_global_slot < pms.prev_max_slot  -- Less than previous window max
+        )
+        "#
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(affected.rows_affected() as usize)
+}
+
 pub async fn process_heartbeats(
     db: &FirestoreDb,
     pool: &SqlitePool,
@@ -449,6 +505,15 @@ pub async fn process_heartbeats(
 
     if latest_time > last_processed_time {
         update_last_processed_time(pool, latest_time).await?;
+
+        // Mark outdated presence entries as disabled
+        let disabled_count = mark_outdated_presence(pool).await?;
+        if disabled_count > 0 {
+            println!(
+                "Marked {} outdated presence entries as disabled",
+                disabled_count
+            );
+        }
     }
 
     Ok(total_heartbeats)
@@ -537,16 +602,17 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             GROUP BY public_key_id
         ),
         HeartbeatCounts AS (
-            -- Count heartbeats only within valid windows
+            -- Count heartbeats only within valid windows and not disabled
             SELECT
                 hp.public_key_id,
                 COUNT(DISTINCT hp.window_id) as heartbeats
             FROM heartbeat_presence hp
             JOIN ValidWindows vw ON vw.id = hp.window_id
+            WHERE hp.disabled = FALSE
             GROUP BY hp.public_key_id
         ),
         LastHeartbeats AS (
-            -- Get last heartbeat time across all windows
+            -- Get last heartbeat time across all windows, including disabled entries
             SELECT
                 public_key_id,
                 MAX(heartbeat_time) as last_heartbeat
