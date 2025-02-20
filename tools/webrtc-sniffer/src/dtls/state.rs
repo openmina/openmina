@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use nom::{multi::many1, IResult, Parser};
-use p2p::identity::SecretKey;
+use rand::{rngs::StdRng, SeedableRng};
 
 use crate::dtls::handshake::{HandshakeInner, ServerHello};
 
@@ -11,7 +11,7 @@ use super::{
 };
 
 pub struct State {
-    secret_key: SecretKey,
+    rng_seed: [u8; 32],
     inner: Option<Inner>,
 }
 
@@ -33,6 +33,7 @@ enum Inner {
     },
 }
 
+#[allow(dead_code)]
 struct HelloMsgs {
     client_random: [u8; 32],
     server_random: [u8; 32],
@@ -41,6 +42,7 @@ struct HelloMsgs {
     extensions: Vec<Extension>,
 }
 
+#[allow(dead_code)]
 struct BothKey {
     curve_name: u16,
     server_pk: Vec<u8>,
@@ -48,9 +50,9 @@ struct BothKey {
 }
 
 impl State {
-    pub fn new(secret_key: SecretKey) -> Self {
+    pub fn new(rng_seed: [u8; 32]) -> Self {
         State {
-            secret_key,
+            rng_seed,
             inner: Some(Inner::Initial),
         }
     }
@@ -59,6 +61,7 @@ impl State {
         let (data, chunks) = many1(Chunk::parse).parse(data)?;
         for chunk in chunks {
             log::info!("{chunk}");
+            #[allow(clippy::single_match)]
             match chunk.ty {
                 ContentType::Handshake => self.handle_handshake(chunk.body),
                 _ => {}
@@ -68,7 +71,7 @@ impl State {
         Ok((data, ()))
     }
 
-    fn handle_handshake<'d>(&mut self, msg_bytes: &'d [u8]) {
+    fn handle_handshake(&mut self, msg_bytes: &[u8]) {
         let Some(state) = self.inner.take() else {
             log::warn!("ignore datagram, invalid state");
             return;
@@ -107,6 +110,23 @@ impl State {
         let state = match (state, msg) {
             (Inner::Initial, HandshakeInner::ClientHello(msg)) => {
                 let client_random = msg.random;
+                if msg.cookie.is_empty() {
+                    self.inner = Some(Inner::Initial);
+                    return;
+                }
+
+                use sha2::{
+                    digest::{FixedOutput, Update},
+                    Sha256,
+                };
+                let seed = Sha256::default()
+                    .chain(self.rng_seed)
+                    .chain(&msg.cookie)
+                    .finalize_fixed()
+                    .into();
+                dbg!(format!("{seed:x?}"));
+                let _rng = StdRng::from_seed(seed);
+
                 let _ = (
                     msg.session_id,
                     msg.cookie,

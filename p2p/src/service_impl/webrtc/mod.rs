@@ -141,6 +141,7 @@ pub type OnConnectionStateChangeHdlrFn = Box<
 pub struct RTCConfig {
     pub ice_servers: RTCConfigIceServers,
     pub certificate: RTCCertificate,
+    pub seed: [u8; 32],
 }
 
 #[derive(Serialize)]
@@ -229,6 +230,7 @@ async fn peer_start(
     abort: Aborted,
     closed: mpsc::Sender<()>,
     certificate: RTCCertificate,
+    rng_seed: [u8; 32],
 ) {
     let PeerAddArgs {
         peer_id,
@@ -241,6 +243,7 @@ async fn peer_start(
     let config = RTCConfig {
         ice_servers: Default::default(),
         certificate,
+        seed: rng_seed,
     };
     let fut = async {
         let mut pc = RTCConnection::create(&api, config).await?;
@@ -730,7 +733,11 @@ pub trait P2pServiceWebrtc: redux::Service {
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
-    fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(
+        secret_key: SecretKey,
+        spawner: S,
+        rng_seed: [u8; 32],
+    ) -> P2pServiceCtx {
         const MAX_PEERS: usize = 500;
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
@@ -763,7 +770,7 @@ pub trait P2pServiceWebrtc: redux::Service {
                                 event_sender_clone(P2pConnectionEvent::Closed(peer_id).into());
                             });
                             tokio::select! {
-                                _ = peer_start(api, args, aborted.clone(), closed_tx.clone(), certificate) => {}
+                                _ = peer_start(api, args, aborted.clone(), closed_tx.clone(), certificate, rng_seed) => {}
                                 _ = aborted.wait() => {
                                 }
                             }

@@ -3,8 +3,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use pcap::{Capture, ConnectionStatus, Device, IfFlags};
 
-use p2p::identity::SecretKey;
-
 // cargo run --release --bin sniffer -- --interface auto --path target/test.pcap
 
 #[derive(Parser)]
@@ -25,19 +23,9 @@ struct Cli {
     #[arg(long, help = "bpf filter, example: \"udp and not port 443\"")]
     filter: Option<String>,
 
-    /// Peer secret key
-    #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
-    p2p_secret_key: Option<SecretKey>,
-
-    // warning, this overrides `OPENMINA_P2P_SEC_KEY`
-    /// Compatibility with OCaml Mina node
-    #[arg(long)]
-    libp2p_keypair: Option<String>,
-
-    // warning, this overrides `OPENMINA_P2P_SEC_KEY`
-    /// Compatibility with OCaml Mina node
-    #[arg(env = "MINA_LIBP2P_PASS")]
-    libp2p_password: Option<String>,
+    /// rng seed
+    #[arg(long, short)]
+    rng_seed: String,
 }
 
 fn init_logger_std() -> Box<dyn log::Log> {
@@ -56,28 +44,10 @@ fn main() {
         interface,
         path,
         filter,
-        p2p_secret_key,
-        libp2p_keypair,
-        libp2p_password,
+        rng_seed,
     } = Cli::parse();
 
-    let secret_key = if let Some(v) = p2p_secret_key {
-        v
-    } else {
-        let (Some(libp2p_keypair), Some(libp2p_password)) = (libp2p_keypair, libp2p_password)
-        else {
-            log::error!("no secret key specified");
-            return;
-        };
-
-        match SecretKey::from_encrypted_file(libp2p_keypair, &libp2p_password) {
-            Ok(v) => v,
-            Err(err) => {
-                log::error!("cannot read secret key {err}");
-                return;
-            }
-        }
-    };
+    let rng_seed = <[u8; 32]>::try_from(hex::decode(rng_seed).unwrap().as_slice()).unwrap();
 
     if let Some(name) = interface {
         sudo::escalate_if_needed().unwrap();
@@ -115,7 +85,7 @@ fn main() {
                     .expect("Failed to apply filter");
                 let savefile = capture.savefile(&path)?;
 
-                webrtc_sniffer::run(capture, Some(savefile), secret_key)
+                webrtc_sniffer::run(capture, Some(savefile), rng_seed)
             });
             if let Err(err) = res {
                 log::error!("{err}");
@@ -130,7 +100,7 @@ fn main() {
             capture
                 .filter(&filter.unwrap_or_default(), true)
                 .expect("Failed to apply filter");
-            webrtc_sniffer::run(capture, None, secret_key)
+            webrtc_sniffer::run(capture, None, rng_seed)
         });
         if let Err(err) = res {
             log::error!("{err}");

@@ -4,8 +4,6 @@ mod dtls;
 
 use std::{borrow::Cow, collections::BTreeMap, fmt, net::SocketAddr};
 
-use p2p::identity::SecretKey;
-
 use pcap::{Activated, Capture, Savefile};
 
 type State = dtls::State;
@@ -27,7 +25,7 @@ impl fmt::Display for MsgHeader {
 pub fn run<T: Activated + ?Sized>(
     capture: Capture<T>,
     file: Option<Savefile>,
-    secret_key: SecretKey,
+    rng_seed: [u8; 32],
 ) -> Result<(), net::DissectError> {
     let mut connections = BTreeMap::<(SocketAddr, SocketAddr), State>::new();
 
@@ -64,7 +62,7 @@ pub fn run<T: Activated + ?Sized>(
         } else {
             connections
                 .entry((dst, src))
-                .or_insert_with(|| State::new(secret_key.clone()))
+                .or_insert_with(|| State::new(rng_seed))
                 .handle(&data, false)
         };
 

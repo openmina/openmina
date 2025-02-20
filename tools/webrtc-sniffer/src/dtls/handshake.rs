@@ -98,7 +98,7 @@ impl fmt::Display for ClientHello {
         write!(
             f,
             "random={}, session_id=\"{}\", cookie=\"{}\", cipher_suites={:?}, compression_methods={:?}",
-            hex::encode(&self.random),
+            hex::encode(self.random),
             hex::encode(&self.session_id),
             hex::encode(&self.cookie),
             self.cipher_suites,
@@ -158,7 +158,7 @@ impl fmt::Display for ServerHello {
         write!(
             f,
             "random={}, session_id=\"{}\", cipher_suite={}, compression_method={}",
-            hex::encode(&self.random),
+            hex::encode(self.random),
             hex::encode(&self.session_id),
             self.cipher_suite,
             self.compression_method,

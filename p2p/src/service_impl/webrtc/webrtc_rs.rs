@@ -200,6 +200,7 @@ impl From<RTCConfig> for RTCConfiguration {
             ice_servers: value.ice_servers.0.into_iter().map(Into::into).collect(),
             ice_transport_policy: RTCIceTransportPolicy::All,
             certificates: vec![value.certificate],
+            seed: Some(value.seed.to_vec()),
             ..Default::default()
         }
     }
