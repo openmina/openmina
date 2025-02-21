@@ -33,22 +33,22 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-rs"))]
 mod imports {
     pub use super::webrtc_rs::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp"))]
 mod imports {
     pub use super::webrtc_cpp::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 #[cfg(target_arch = "wasm32")]
 mod imports {
     pub use super::web::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 
@@ -140,7 +140,8 @@ pub type OnConnectionStateChangeHdlrFn = Box<
 
 pub struct RTCConfig {
     pub ice_servers: RTCConfigIceServers,
-    // TODO(binier): certificate
+    pub certificate: RTCCertificate,
+    pub seed: [u8; 32],
 }
 
 #[derive(Serialize)]
@@ -223,7 +224,14 @@ async fn wait_for_ice_gathering_complete(pc: &mut RTCConnection) {
     }
 }
 
-async fn peer_start(api: Api, args: PeerAddArgs, abort: Aborted, closed: mpsc::Sender<()>) {
+async fn peer_start(
+    api: Api,
+    args: PeerAddArgs,
+    abort: Aborted,
+    closed: mpsc::Sender<()>,
+    certificate: RTCCertificate,
+    rng_seed: [u8; 32],
+) {
     let PeerAddArgs {
         peer_id,
         kind,
@@ -234,6 +242,8 @@ async fn peer_start(api: Api, args: PeerAddArgs, abort: Aborted, closed: mpsc::S
 
     let config = RTCConfig {
         ice_servers: Default::default(),
+        certificate,
+        seed: rng_seed,
     };
     let fut = async {
         let mut pc = RTCConnection::create(&api, config).await?;
@@ -723,11 +733,15 @@ pub trait P2pServiceWebrtc: redux::Service {
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
-    fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(
+        secret_key: SecretKey,
+        spawner: S,
+        rng_seed: [u8; 32],
+    ) -> P2pServiceCtx {
         const MAX_PEERS: usize = 500;
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
 
-        let _ = secret_key;
+        let certificate = certificate_from_pem_key(secret_key.to_pem().as_str());
 
         spawner.spawn_main("webrtc", async move {
             #[allow(clippy::all)]
@@ -741,6 +755,7 @@ pub trait P2pServiceWebrtc: redux::Service {
                         let conn_permits = conn_permits.clone();
                         let peer_id = args.peer_id;
                         let event_sender = args.event_sender.clone();
+                        let certificate = certificate.clone();
                         spawn_local(async move {
                             let Ok(_permit) = conn_permits.try_acquire() else {
                                 // state machine shouldn't allow this to happen.
@@ -755,8 +770,9 @@ pub trait P2pServiceWebrtc: redux::Service {
                                 event_sender_clone(P2pConnectionEvent::Closed(peer_id).into());
                             });
                             tokio::select! {
-                                _ = peer_start(api, args, aborted.clone(), closed_tx.clone()) => {}
-                                _ = aborted.wait() => {}
+                                _ = peer_start(api, args, aborted.clone(), closed_tx.clone(), certificate, rng_seed) => {}
+                                _ = aborted.wait() => {
+                                }
                             }
 
                             // delay dropping permit to give some time for cleanup.

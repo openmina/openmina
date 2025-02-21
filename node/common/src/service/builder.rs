@@ -112,6 +112,7 @@ impl NodeServiceCommonBuilder {
         self.p2p = Some(<NodeService as P2pServiceWebrtcWithLibp2p>::init(
             secret_key.clone(),
             task_spawner,
+            self.rng_seed,
         ));
         self
     }

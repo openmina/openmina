@@ -171,6 +171,9 @@ pub struct Node {
     /// - OPENMINA_AWS_BUCKET_NAME
     #[arg(long, env)]
     pub archive_aws_storage: bool,
+
+    #[arg(long, env)]
+    pub rng_seed: Option<String>,
 }
 
 impl Node {
@@ -216,7 +219,27 @@ impl Node {
                 node::config::DEVNET_CONFIG.clone(),
             ),
         };
-        let mut node_builder: NodeBuilder = NodeBuilder::new(None, daemon_conf, genesis_conf);
+
+        let custom_rng_seed = match self.rng_seed {
+            None => None,
+            Some(v) => match hex::decode(v)
+                .map_err(anyhow::Error::from)
+                .and_then(|bytes| {
+                    <[u8; 32]>::try_from(bytes.as_slice()).map_err(anyhow::Error::from)
+                }) {
+                Ok(v) => Some(v),
+                Err(err) => {
+                    node::core::error!(
+                        node::core::log::system_time();
+                        summary = "bad rng seed",
+                        err = err.to_string(),
+                    );
+                    return Err(err);
+                }
+            },
+        };
+        let mut node_builder: NodeBuilder =
+            NodeBuilder::new(custom_rng_seed, daemon_conf, genesis_conf);
 
         // let genesis_config = match self.config {
         //     Some(config_path) => GenesisConfig::DaemonJsonFile(config_path).into(),

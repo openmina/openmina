@@ -24,7 +24,7 @@ cfg-if = "1.0.0"
 url = "2.3.1"
 multihash = "0.18.1"
 sha2 = "0.10.6"
-ed25519-dalek = { version = "2.1.1", features = ["serde"] }
+ed25519-dalek = { version = "2.1.1", features = ["serde", "pem"] }
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 aes-gcm = "0.10.3"
 faster-stun = { version = "1.0.1", optional = true }
@@ -80,10 +80,11 @@ p2p-testing = { path = "testing" }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 redux = { workspace = true, features = ["serializable_callbacks"] }
 tokio = { version = "1.26", features = ["rt"] }
-webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "e8705db39af1b198b324a5db6ff57fb213ba75e9", optional = true }
+webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "aeaa62682b97f6984627bedd6e6811fe17af18eb", optional = true }
 datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1bfb064d0ff3e54a93ae0288409902aab8d102d3", optional = true, features = [
     "vendored",
 ] }
+rcgen = { version = "0.13", features = ["pem", "x509-parser"], optional = true }
 reqwest = { version = "0.11", features = ["json"] }
 mio = { version = "0.8.11", features = ["os-poll", "net"] }
 libc = { version = "0.2.151" }
@@ -119,7 +120,7 @@ getrandom = { version = "0.2", features = ["js"] }
 [features]
 serializable_callbacks = []
 p2p-webrtc = ["p2p-webrtc-rs"]
-p2p-webrtc-rs = ["webrtc"]
+p2p-webrtc-rs = ["webrtc", "rcgen"]
 p2p-webrtc-cpp = ["datachannel"]
 p2p-libp2p = ["fuzzing", "dep:reqwest", "dep:faster-stun"]
 fuzzing = ["openmina-fuzzer", "openmina-core/fuzzing"]

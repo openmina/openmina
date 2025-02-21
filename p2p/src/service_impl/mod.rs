@@ -51,7 +51,11 @@ pub mod webrtc {
 
         fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
-        fn init<S: TaskSpawner>(_secret_key: SecretKey, _spawner: S) -> P2pServiceCtx {
+        fn init<S: TaskSpawner>(
+            _secret_key: SecretKey,
+            _spawner: S,
+            _rng_seed: [u8; 32],
+        ) -> P2pServiceCtx {
             let (cmd_sender, _) = mpsc::unbounded_channel();
             P2pServiceCtx {
                 cmd_sender,
