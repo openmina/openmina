@@ -54,8 +54,10 @@ fn test_frame_serialization() {
 /// - Payload extraction
 #[test]
 fn test_frame_parsing() {
-    let mut state = P2pNetworkYamuxState::default();
-    state.message_size_limit = Limit::Some(1024);
+    let mut state = P2pNetworkYamuxState {
+        message_size_limit: Limit::Some(1024),
+        ..P2pNetworkYamuxState::default()
+    };
 
     // Valid data frame
     let data = vec![
@@ -167,8 +169,10 @@ fn test_stream_id_allocation() {
 /// not in spec but required for security)
 #[test]
 fn test_message_size_limit() {
-    let mut state = P2pNetworkYamuxState::default();
-    state.message_size_limit = Limit::Some(10);
+    let mut state = P2pNetworkYamuxState {
+        message_size_limit: Limit::Some(10),
+        ..P2pNetworkYamuxState::default()
+    };
 
     // Message exceeding size limit
     let data = vec![
@@ -226,8 +230,10 @@ fn test_ping_pong() {
 /// and waits for complete frame before processing
 #[test]
 fn test_partial_frame_parsing() {
-    let mut state = P2pNetworkYamuxState::default();
-    state.message_size_limit = Limit::Some(1024);
+    let mut state = P2pNetworkYamuxState {
+        message_size_limit: Limit::Some(1024),
+        ..P2pNetworkYamuxState::default()
+    };
 
     // Send header only first
     let header = vec![
@@ -252,8 +258,10 @@ fn test_partial_frame_parsing() {
 /// Ensures correct frame boundary detection and sequential processing
 #[test]
 fn test_multiple_frames_parsing() {
-    let mut state = P2pNetworkYamuxState::default();
-    state.message_size_limit = Limit::Some(1024);
+    let mut state = P2pNetworkYamuxState {
+        message_size_limit: Limit::Some(1024),
+        ..P2pNetworkYamuxState::default()
+    };
 
     // Two consecutive frames
     let frames = vec![
@@ -273,8 +281,10 @@ fn test_multiple_frames_parsing() {
 /// - Window update mechanism
 #[test]
 fn test_flow_control() {
-    let mut stream = YamuxStreamState::default();
-    stream.window_theirs = 10; // Small window for testing
+    let mut stream = YamuxStreamState {
+        window_theirs: 10, // Small window for testing
+        ..YamuxStreamState::default()
+    };
 
     // Create frame larger than window
     let large_frame = YamuxFrame {
@@ -466,8 +476,10 @@ fn test_window_overflow() {
     let mut state = P2pNetworkYamuxState::default();
     let stream_id = 1;
 
-    let mut stream = YamuxStreamState::default();
-    stream.window_theirs = MAX_WINDOW_SIZE;
+    let stream = YamuxStreamState {
+        window_theirs: MAX_WINDOW_SIZE,
+        ..YamuxStreamState::default()
+    };
     state.streams.insert(stream_id, stream);
 
     // Try to update beyond MAX_WINDOW_SIZE
@@ -489,8 +501,10 @@ fn test_window_overflow() {
 /// doesn't match actual data length
 #[test]
 fn test_malformed_frame() {
-    let mut state = P2pNetworkYamuxState::default();
-    state.message_size_limit = Limit::Some(1024);
+    let mut state = P2pNetworkYamuxState {
+        message_size_limit: Limit::Some(1024),
+        ..P2pNetworkYamuxState::default()
+    };
 
     // Frame with length field larger than actual data
     let data = vec![
