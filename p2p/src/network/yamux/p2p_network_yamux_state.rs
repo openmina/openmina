@@ -283,6 +283,52 @@ impl YamuxStreamState {
             None
         }
     }
+
+    /// Attempts to queue a frame, respecting window size and pending queue limits
+    /// Returns (accepted_frame, remaining_frame) where:
+    /// - accepted_frame is the portion that fits in the current window
+    /// - remaining_frame is the portion that needs to be queued (if any)
+    pub fn queue_frame(
+        &mut self,
+        frame: YamuxFrame,
+        pending_limit: Limit<usize>,
+    ) -> (Option<YamuxFrame>, Option<YamuxFrame>) {
+        let frame_len = frame.len_as_u32();
+
+        // Check if frame fits in current window
+        if self.try_consume_window(frame_len) {
+            return (Some(frame), None);
+        }
+
+        // Split frame if needed
+        let mut frame = frame;
+        let remaining = frame.split_at(self.window_theirs as usize);
+        self.window_theirs = 0;
+
+        // Check pending queue size limit
+        let pending_size = self.pending.iter().map(YamuxFrame::len).sum::<usize>();
+        if remaining.as_ref().map_or(0, |f| f.len()) + pending_size > pending_limit {
+            // Queue is full
+            return (None, Some(frame));
+        }
+
+        if let Some(remaining) = remaining {
+            self.pending.push_back(remaining);
+        }
+
+        (Some(frame), None)
+    }
+
+    /// Processes an incoming data frame and returns any necessary window updates
+    pub fn process_incoming_data(&mut self, frame: &YamuxFrame) -> Option<u32> {
+        // must not underflow
+        // TODO: check it and disconnect peer that violates flow rules
+        // Update our window
+        self.window_ours = self.window_ours.saturating_sub(frame.len_as_u32());
+
+        // Check if window update needed
+        self.should_update_window()
+    }
 }
 
 bitflags::bitflags! {

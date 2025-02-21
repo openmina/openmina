@@ -144,10 +144,12 @@ impl P2pNetworkYamuxState {
                         .ok_or_else(|| format!("Connection not found {}", addr))?;
 
                 let stream_exists = connection_state.get_yamux_stream(frame_stream_id).is_some();
-                // TODO: can this ever be None?
                 let peer_id = match connection_state.peer_id() {
                     Some(peer_id) => *peer_id,
-                    None => return Ok(()),
+                    None => {
+                        bug_condition!("Peer id must exist");
+                        return Ok(());
+                    }
                 };
 
                 // Peer reset this stream
@@ -193,9 +195,7 @@ impl P2pNetworkYamuxState {
             P2pNetworkYamuxAction::IncomingFrameData { addr } => {
                 let frame = yamux_state.incoming.pop_front().unwrap(); // Cannot fail
                 let YamuxFrameInner::Data(data) = &frame.inner else {
-                    bug_condition!(
-                        "Expected Data frame for action `P2pNetworkYamuxAction::IncomingFrameData`"
-                    );
+                    bug_condition!("Expected Data frame");
                     return Ok(());
                 };
 
@@ -203,23 +203,21 @@ impl P2pNetworkYamuxState {
                     return Ok(());
                 };
 
-                // must not underflow
-                // TODO: check it and disconnect peer that violates flow rules
-                stream.window_ours = stream.window_ours.saturating_sub(frame.len_as_u32());
+                // Process incoming data and check if we need to update window
+                let window_update_info =
+                    if let Some(window_increase) = stream.process_incoming_data(&frame) {
+                        Some((frame.stream_id, window_increase))
+                    } else {
+                        None
+                    };
 
-                let window_update_info = if stream.window_ours < stream.max_window_size / 2 {
-                    Some((
-                        frame.stream_id,
-                        stream.max_window_size.saturating_mul(2).min(1024 * 1024),
-                    ))
-                } else {
-                    None
+                let peer_id = match connection_state.peer_id() {
+                    Some(peer_id) => *peer_id,
+                    None => {
+                        bug_condition!("Peer id must exist");
+                        return Ok(());
+                    }
                 };
-
-                let peer_id = connection_state
-                    .peer_id()
-                    .expect("peer id must exist")
-                    .clone();
 
                 let dispatcher = state_context.into_dispatcher();
 
@@ -309,26 +307,21 @@ impl P2pNetworkYamuxState {
                 let Some(stream) = yamux_state.streams.get_mut(&stream_id) else {
                     return Ok(());
                 };
-                match &mut frame.inner {
-                    YamuxFrameInner::Data(_) => {
-                        let frame_len = frame.len_as_u32();
-                        if !stream.try_consume_window(frame_len) {
-                            // Window too small, split frame and queue remaining
-                            if let Some(remaining) = frame.split_at(stream.window_theirs as usize) {
-                                stream.pending.push_front(remaining);
-                            }
-                            stream.window_theirs = 0;
 
-                            // Check pending queue size limit
-                            if stream.pending.iter().map(YamuxFrame::len).sum::<usize>()
-                                > yamux_state.pending_outgoing_limit
-                            {
-                                let dispatcher = state_context.into_dispatcher();
-                                let error = P2pNetworkConnectionError::YamuxOverflow(stream_id);
-                                dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
-                                return Ok(());
-                            }
+                match &frame.inner {
+                    YamuxFrameInner::Data(_) => {
+                        let (accepted, remaining) =
+                            stream.queue_frame(frame, yamux_state.pending_outgoing_limit);
+
+                        if remaining.is_some() {
+                            let dispatcher = state_context.into_dispatcher();
+                            let error = P2pNetworkConnectionError::YamuxOverflow(stream_id);
+                            dispatcher.push(P2pNetworkSchedulerAction::Error { addr, error });
+                            return Ok(());
                         }
+
+                        frame =
+                            accepted.expect("frame should be accepted or error should be returned");
                     }
                     YamuxFrameInner::WindowUpdate { difference } => {
                         stream.update_local_window(*difference);
@@ -380,7 +373,10 @@ impl P2pNetworkYamuxState {
 
                 let peer_id = match connection_state.peer_id() {
                     Some(peer_id) => *peer_id,
-                    None => return Ok(()),
+                    None => {
+                        bug_condition!("Peer id must exist");
+                        return Ok(());
+                    }
                 };
 
                 let dispatcher = state_context.into_dispatcher();
