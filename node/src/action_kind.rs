@@ -460,6 +460,10 @@ pub enum ActionKind {
     P2pNetworkSelectTimeout,
     P2pNetworkYamuxIncomingData,
     P2pNetworkYamuxIncomingFrame,
+    P2pNetworkYamuxIncomingFrameData,
+    P2pNetworkYamuxIncomingFrameGoAway,
+    P2pNetworkYamuxIncomingFramePing,
+    P2pNetworkYamuxIncomingFrameWindowUpdate,
     P2pNetworkYamuxOpenStream,
     P2pNetworkYamuxOutgoingData,
     P2pNetworkYamuxOutgoingFrame,
@@ -720,7 +724,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 610;
+    pub const COUNT: u16 = 614;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1948,6 +1952,12 @@ impl ActionKindGet for P2pNetworkYamuxAction {
             Self::IncomingData { .. } => ActionKind::P2pNetworkYamuxIncomingData,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkYamuxOutgoingData,
             Self::IncomingFrame { .. } => ActionKind::P2pNetworkYamuxIncomingFrame,
+            Self::IncomingFrameData { .. } => ActionKind::P2pNetworkYamuxIncomingFrameData,
+            Self::IncomingFramePing { .. } => ActionKind::P2pNetworkYamuxIncomingFramePing,
+            Self::IncomingFrameWindowUpdate { .. } => {
+                ActionKind::P2pNetworkYamuxIncomingFrameWindowUpdate
+            }
+            Self::IncomingFrameGoAway { .. } => ActionKind::P2pNetworkYamuxIncomingFrameGoAway,
             Self::OutgoingFrame { .. } => ActionKind::P2pNetworkYamuxOutgoingFrame,
             Self::PingStream { .. } => ActionKind::P2pNetworkYamuxPingStream,
             Self::OpenStream { .. } => ActionKind::P2pNetworkYamuxOpenStream,

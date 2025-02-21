@@ -7,7 +7,7 @@ use super::super::*;
 
 pub const INITIAL_RECV_BUFFER_CAPACITY: usize = 0x40000; // 256kb
 pub const INITIAL_WINDOW_SIZE: u32 = INITIAL_RECV_BUFFER_CAPACITY as u32;
-pub const MAX_WINDOW_SIZE: u32 = 16 * 1024 * 1024; // 16mb
+pub const MAX_WINDOW_SIZE: u32 = INITIAL_RECV_BUFFER_CAPACITY as u32;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pNetworkYamuxState {
@@ -66,6 +66,8 @@ impl P2pNetworkYamuxState {
             return None;
         }
 
+        // Version 0 is the only supported version as per Yamux specification.
+        // Any other version should be rejected.
         let _version = match buf[0] {
             0 => 0,
             unknown => {
@@ -162,7 +164,7 @@ impl P2pNetworkYamuxState {
         self.shift_and_compact_buffer(offset);
     }
 
-    fn shift_and_compact_buffer(&mut self, offset: usize) {
+    pub(crate) fn shift_and_compact_buffer(&mut self, offset: usize) {
         let new_len = self.buffer.len() - offset;
         if self.buffer.capacity() > INITIAL_RECV_BUFFER_CAPACITY * 2
             && new_len < INITIAL_RECV_BUFFER_CAPACITY / 2
@@ -228,14 +230,117 @@ impl YamuxStreamState {
             ..Default::default()
         }
     }
+
+    /// Updates the remote window size and returns any frames that can now be sent
+    /// Returns frames that were pending and can now be sent due to increased window size
+    pub fn update_remote_window(&mut self, difference: u32) -> VecDeque<YamuxFrame> {
+        self.window_theirs = self.window_theirs.saturating_add(difference);
+        let mut sendable_frames = VecDeque::new();
+
+        if difference > 0 {
+            let mut available_window = self.window_theirs;
+            while let Some(frame) = self.pending.pop_front() {
+                let frame_len = frame.len_as_u32();
+                if frame_len > available_window {
+                    // Put frame back and stop
+                    self.pending.push_front(frame);
+                    break;
+                }
+                available_window -= frame_len;
+                sendable_frames.push_back(frame);
+            }
+        }
+
+        sendable_frames
+    }
+
+    /// Updates the local window size and possibly increases max window size
+    pub fn update_local_window(&mut self, difference: u32) {
+        self.window_ours = self.window_ours.saturating_add(difference);
+        if self.window_ours > self.max_window_size {
+            self.max_window_size = self.window_ours.min(MAX_WINDOW_SIZE);
+        }
+    }
+
+    /// Consumes window space for outgoing data
+    /// Returns true if the frame can be sent immediately,
+    /// false if it needs to be queued (window too small)
+    pub fn try_consume_window(&mut self, frame_len: u32) -> bool {
+        if let Some(new_window) = self.window_theirs.checked_sub(frame_len) {
+            self.window_theirs = new_window;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Checks if window should be updated based on current size
+    /// Returns the amount by which the window should be increased, if any
+    pub fn should_update_window(&self) -> Option<u32> {
+        if self.window_ours < self.max_window_size / 2 {
+            Some(self.max_window_size.saturating_mul(2).min(1024 * 1024))
+        } else {
+            None
+        }
+    }
+
+    /// Attempts to queue a frame, respecting window size and pending queue limits
+    /// Returns (accepted_frame, remaining_frame) where:
+    /// - accepted_frame is the portion that fits in the current window
+    /// - remaining_frame is the portion that needs to be queued (if any)
+    pub fn queue_frame(
+        &mut self,
+        frame: YamuxFrame,
+        pending_limit: Limit<usize>,
+    ) -> (Option<YamuxFrame>, Option<YamuxFrame>) {
+        let frame_len = frame.len_as_u32();
+
+        // Check if frame fits in current window
+        if self.try_consume_window(frame_len) {
+            return (Some(frame), None);
+        }
+
+        // Split frame if needed
+        let mut frame = frame;
+        let remaining = frame.split_at(self.window_theirs as usize);
+        self.window_theirs = 0;
+
+        // Check pending queue size limit
+        let pending_size = self.pending.iter().map(YamuxFrame::len).sum::<usize>();
+        if remaining.as_ref().map_or(0, |f| f.len()) + pending_size > pending_limit {
+            // Queue is full
+            return (None, Some(frame));
+        }
+
+        if let Some(remaining) = remaining {
+            self.pending.push_back(remaining);
+        }
+
+        (Some(frame), None)
+    }
+
+    /// Processes an incoming data frame and returns any necessary window updates
+    pub fn process_incoming_data(&mut self, frame: &YamuxFrame) -> Option<u32> {
+        // must not underflow
+        // TODO: check it and disconnect peer that violates flow rules
+        // Update our window
+        self.window_ours = self.window_ours.saturating_sub(frame.len_as_u32());
+
+        // Check if window update needed
+        self.should_update_window()
+    }
 }
 
 bitflags::bitflags! {
     #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
     pub struct YamuxFlags: u16 {
+        /// Signals the start of a new stream. May be sent with a data or window update message. Also sent with a ping to indicate outbound.
         const SYN = 0b0001;
+        /// Acknowledges the start of a new stream. May be sent with a data or window update message. Also sent with a ping to indicate response.
         const ACK = 0b0010;
+        /// Performs a half-close of a stream. May be sent with a data message or window update.
         const FIN = 0b0100;
+        /// Reset a stream immediately. May be sent with a data or window update message.
         const RST = 0b1000;
     }
 }
@@ -380,6 +485,27 @@ impl YamuxFrame {
             None
         }
     }
+
+    pub fn is_session_stream(&self) -> bool {
+        self.stream_id == 0
+    }
+
+    pub fn kind(&self) -> YamuxFrameKind {
+        match self.inner {
+            YamuxFrameInner::Data(_) => YamuxFrameKind::Data,
+            YamuxFrameInner::WindowUpdate { .. } => YamuxFrameKind::WindowUpdate,
+            YamuxFrameInner::Ping { .. } => YamuxFrameKind::Ping,
+            YamuxFrameInner::GoAway(_) => YamuxFrameKind::GoAway,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum YamuxFrameKind {
+    Data,
+    WindowUpdate,
+    Ping,
+    GoAway,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, MallocSizeOf)]
@@ -390,7 +516,7 @@ pub enum YamuxFrameInner {
     GoAway(#[ignore_malloc_size_of = "doesn't allocate"] Result<(), YamuxSessionError>),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum YamuxSessionError {
     Protocol,
     Internal,

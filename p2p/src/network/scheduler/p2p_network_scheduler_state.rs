@@ -8,7 +8,9 @@ use malloc_size_of_derive::MallocSizeOf;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
-use crate::{disconnection::P2pDisconnectionReason, identity::PublicKey, PeerId};
+use crate::{
+    disconnection::P2pDisconnectionReason, identity::PublicKey, yamux::YamuxStreamState, PeerId,
+};
 
 use super::super::*;
 
@@ -182,6 +184,17 @@ impl P2pNetworkConnectionState {
             }
             SelectKind::Stream(_, stream_id) => Some(&self.streams.get(stream_id)?.select),
         }
+    }
+
+    pub fn get_yamux_stream(&self, stream_id: StreamId) -> Option<&YamuxStreamState> {
+        self.yamux_state()?.streams.get(&stream_id)
+    }
+
+    pub fn incoming_streams_count(&self) -> usize {
+        self.streams
+            .iter()
+            .filter(|(_, state)| state.select.is_incoming())
+            .count()
     }
 }
 
