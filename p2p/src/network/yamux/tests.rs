@@ -273,32 +273,36 @@ fn test_multiple_frames_parsing() {
 /// - Window update mechanism
 #[test]
 fn test_flow_control() {
-    // TODO: This test is incomplete:
-    // - Doesn't verify pending queue behavior when window is full
-    // - Should test frame redelivery when window becomes available
-    // - Needs to verify window update triggers for pending frames
-    // - Should test behavior when pending queue reaches limit
-    let mut state = P2pNetworkYamuxState::default();
-    let stream_id = 1;
-
     let mut stream = YamuxStreamState::default();
     stream.window_theirs = 10; // Small window for testing
-    state.streams.insert(stream_id, stream);
 
     // Create frame larger than window
-    let large_data = vec![1; 20];
-    let mut frame = YamuxFrame {
+    let large_frame = YamuxFrame {
         flags: YamuxFlags::empty(),
-        stream_id,
-        inner: YamuxFrameInner::Data(Data::from(large_data)),
+        stream_id: 1,
+        inner: YamuxFrameInner::Data(Data::from(vec![1; 20])),
     };
 
-    // Check if frame gets split according to window size
-    let split_frame = frame.split_at(10);
-    assert!(split_frame.is_some());
+    // Test frame splitting and queueing
+    let (accepted, _) = stream.queue_frame(large_frame, Limit::Some(1000));
+    assert!(accepted.is_some());
+    assert_eq!(stream.pending.len(), 1);
+    assert_eq!(stream.window_theirs, 0);
 
-    let stream = state.streams.get(&stream_id).unwrap();
-    assert_eq!(stream.window_theirs, 10);
+    // Test window update triggering incoming data
+    let data_frame = YamuxFrame {
+        flags: YamuxFlags::empty(),
+        stream_id: 1,
+        inner: YamuxFrameInner::Data(Data::from(vec![1; (INITIAL_WINDOW_SIZE / 2 + 1) as usize])),
+    };
+
+    let update = stream.process_incoming_data(&data_frame);
+    assert!(update.is_some()); // Should trigger update since window_ours < max_window_size/2
+
+    // Test pending frames get sent when window is updated
+    let sendable = stream.update_remote_window(15);
+    assert_eq!(sendable.len(), 1);
+    assert!(stream.pending.is_empty());
 }
 
 /// Tests invalid flag combinations
