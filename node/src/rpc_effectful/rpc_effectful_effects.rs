@@ -12,9 +12,9 @@ use crate::{
     p2p_ready,
     rpc::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
-        MessagesStats, NodeHeartbeat, RootLedgerSyncProgress, RootStagedLedgerSyncProgress,
-        RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
-        RpcNodeStatusLedger, RpcNodeStatusResources, RpcNodeStatusTransactionPool,
+        MessagesStats, NodeHeartbeat, ProducedBlockInfo, RootLedgerSyncProgress,
+        RootStagedLedgerSyncProgress, RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse,
+        RpcNodeStatus, RpcNodeStatusLedger, RpcNodeStatusResources, RpcNodeStatusTransactionPool,
         RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
         RpcNodeStatusTransitionFrontierSync, RpcRequestExtraData, RpcScanStateSummary,
         RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
@@ -70,10 +70,12 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 .stats()
                 .and_then(|stats| stats.block_producer().last_produced_block.take());
 
-            let last_produced_block = match base64_encode_block(last_produced_block) {
-                Ok(block) => block,
+            let last_produced_block_info = match make_produced_block_info(last_produced_block) {
+                Ok(data) => data,
                 Err(error) => {
-                    bug_condition!("HeartbeatGet: Failed to encode block, returning None: {error}");
+                    bug_condition!(
+                        "HeartbeatGet: Failed to encode block header, returning None: {error}"
+                    );
                     None
                 }
             };
@@ -82,7 +84,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 status: status.into(),
                 node_timestamp: meta.time(),
                 peer_id: store.state().p2p.my_id(),
-                last_produced_block,
+                last_produced_block_info,
             };
             let response = store
                 .service()
@@ -841,16 +843,26 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
     status
 }
 
-fn base64_encode_block(block: Option<ArcBlockWithHash>) -> std::io::Result<Option<String>> {
+fn make_produced_block_info(
+    block: Option<ArcBlockWithHash>,
+) -> std::io::Result<Option<ProducedBlockInfo>> {
     use base64::{engine::general_purpose::URL_SAFE, Engine as _};
     use mina_p2p_messages::binprot::BinProtWrite;
 
     let Some(block) = block else { return Ok(None) };
 
-    let mut buf = Vec::with_capacity(10 * 1024 * 1024);
-    v2::MinaBlockBlockStableV2::binprot_write(&block.block, &mut buf)?;
+    let height = block.height();
+    let global_slot = block.global_slot();
+    let hash = block.hash().to_string();
+    let mut buf = Vec::with_capacity(5 * 1024 * 1024);
+    v2::MinaBlockHeaderStableV2::binprot_write(block.header(), &mut buf)?;
 
-    let base64_encoded = URL_SAFE.encode(&buf);
+    let base64_encoded_header = URL_SAFE.encode(&buf);
 
-    Ok(Some(base64_encoded))
+    Ok(Some(ProducedBlockInfo {
+        height,
+        global_slot,
+        hash,
+        base64_encoded_header,
+    }))
 }

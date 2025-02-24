@@ -11,6 +11,7 @@ use crate::config::Config;
 use crate::remote_db::BlockInfo;
 use crate::remote_db::HeartbeatChunkState;
 use crate::time::*;
+use mina_tree::proofs::verification::verify_block;
 
 #[derive(Debug)]
 pub struct HeartbeatPresence {
@@ -241,13 +242,71 @@ async fn batch_insert_produced_blocks(pool: &SqlitePool, blocks: &[ProducedBlock
     Ok(())
 }
 
+/// Marks heartbeat presence entries as outdated (disabled) based on global slot comparisons.
+///
+/// This function performs the following steps:
+/// 1. Finds the maximum global slot for each window (considering only non-disabled entries).
+/// 2. Identifies the previous window's maximum global slot for each window.
+/// 3. Marks a presence entry as disabled if its global slot is less than:
+///    - The maximum global slot of the previous window (if it exists).
+///
+/// This approach allows for a full window of tolerance in synchronization:
+/// - Entries matching or exceeding the previous window's max slot are considered up-to-date.
+/// - This allows for slight delays in propagation between windows.
+///
+/// Note: The first window in the sequence will not have any entries marked as disabled,
+/// as there is no previous window to compare against.
+///
+/// Returns the number of presence entries marked as disabled.
+async fn mark_outdated_presence(pool: &SqlitePool) -> Result<usize> {
+    let affected = sqlx::query!(
+        r#"
+        WITH MaxSlots AS (
+            SELECT
+                window_id,
+                MAX(best_tip_global_slot) as max_slot
+            FROM heartbeat_presence
+            WHERE disabled = FALSE
+            GROUP BY window_id
+        ),
+        PrevMaxSlots AS (
+            -- Get the max slot from the immediate previous window
+            SELECT
+                tw.id as window_id,
+                prev.max_slot as prev_max_slot
+            FROM time_windows tw
+            LEFT JOIN time_windows prev_tw ON prev_tw.id = tw.id - 1
+            LEFT JOIN MaxSlots prev ON prev.window_id = prev_tw.id
+        )
+        UPDATE heartbeat_presence
+        SET disabled = TRUE
+        WHERE (window_id, best_tip_global_slot) IN (
+            SELECT
+                hp.window_id,
+                hp.best_tip_global_slot
+            FROM heartbeat_presence hp
+            JOIN PrevMaxSlots pms ON pms.window_id = hp.window_id
+            WHERE hp.disabled = FALSE
+            AND pms.prev_max_slot IS NOT NULL  -- Ensure there is a previous window
+            AND hp.best_tip_global_slot < pms.prev_max_slot  -- Less than previous window max
+        )
+        "#
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(affected.rows_affected() as usize)
+}
+
 pub async fn process_heartbeats(
     db: &FirestoreDb,
     pool: &SqlitePool,
     config: &Config,
-) -> Result<()> {
+) -> Result<usize> {
     let last_processed_time = get_last_processed_time(pool, Some(config)).await?;
     let now = Utc::now();
+    // Don't fetch heartbeats beyond window range end
+    let end_time = config.window_range_end.min(now);
 
     let mut total_heartbeats = 0;
     let mut latest_time = last_processed_time;
@@ -265,8 +324,13 @@ pub async fn process_heartbeats(
         last_timestamp: None,
     };
 
+    // Its ok to call these functions multiple times because the result is cached
+    let verifier_index = snark::BlockVerifier::make();
+    let verifier_srs = snark::get_srs();
+
     loop {
-        let heartbeats = crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, now).await?;
+        let heartbeats =
+            crate::remote_db::fetch_heartbeat_chunk(db, &mut chunk_state, end_time).await?;
         if heartbeats.is_empty() {
             break;
         }
@@ -323,67 +387,80 @@ pub async fn process_heartbeats(
                     processed_heartbeats.insert(idx);
 
                     let best_tip = entry.best_tip_block();
+                    let public_key_id = *public_key_map.get(&entry.submitter).unwrap();
 
+                    // Record presence only if node is synced and has a best tip
                     if entry.is_synced() && best_tip.is_some() {
-                        if let Some(&public_key_id) = public_key_map.get(&entry.submitter) {
-                            presence_batch.push(HeartbeatPresence {
+                        presence_batch.push(HeartbeatPresence {
+                            window_id: window.id.unwrap(),
+                            public_key_id,
+                            best_tip: best_tip.unwrap(), // Cannot fail due to the above check
+                            heartbeat_time: to_unix_timestamp(entry.create_time),
+                        });
+                        presence_count += 1;
+                    } else {
+                        skipped_count += 1;
+                    }
+
+                    // Process produced blocks regardless of sync status
+                    match entry
+                        .last_produced_block_info()
+                        .map(|bi| (bi.clone(), bi.block_header_decoded()))
+                    {
+                        None => (), // No block to process
+                        Some((block_info, Ok(block_header))) => {
+                            let key = (public_key_id, block_info.hash.clone());
+
+                            if let Some(first_seen) = seen_blocks.get(&key) {
+                                blocks_duplicate += 1;
+                                println!(
+                                    "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
+                                    key.1,
+                                    block_info.height,
+                                    entry.submitter,
+                                    entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
+                                    first_seen,
+                                    entry.create_time
+                                );
+                                continue;
+                            }
+
+                            // Verify that the block slot matches the expected one for the current time
+                            // TODO: maybe we can be a bit more lenient here?
+                            let expected_slot = global_slot_at_time(entry.create_time);
+                            if block_info.global_slot != expected_slot {
+                                println!(
+                                    "WARNING: Invalid block slot: {} (height: {}, producer: {}, expected slot: {}, actual slot: {})",
+                                    block_info.hash, block_info.height, entry.submitter, expected_slot, block_info.global_slot
+                                );
+                                continue;
+                            }
+
+                            // Verify block proof
+                            if !verify_block(&block_header, &verifier_index, &verifier_srs) {
+                                println!(
+                                    "WARNING: Invalid block proof: {} (height: {}, producer: {})",
+                                    block_info.hash, block_info.height, entry.submitter
+                                );
+                                continue;
+                            }
+
+                            seen_blocks.insert(key.clone(), entry.create_time);
+                            produced_blocks_batch.push(ProducedBlock {
                                 window_id: window.id.unwrap(),
                                 public_key_id,
-                                best_tip: best_tip.unwrap(), // Cannot fail due to the above check
-                                heartbeat_time: to_unix_timestamp(entry.create_time),
+                                block_hash: block_info.hash,
+                                block_height: block_info.height,
+                                block_global_slot: block_info.global_slot,
+                                block_data: block_info.base64_encoded_header,
                             });
-                            presence_count += 1;
-
-                            // Add produced block if it exists
-                            match entry.last_produced_block_decoded() {
-                                Ok(Some(block)) => {
-                                    let block_data = entry.last_produced_block_raw().unwrap(); // Cannot fail, we have the block
-                                    let key = (public_key_id, block.hash().to_string());
-
-                                    if let Some(first_seen) = seen_blocks.get(&key) {
-                                        blocks_duplicate += 1;
-                                        println!(
-                                            "Duplicate block detected: {} (height: {}, producer: {}, peer_id: {}) [first seen at {}, now at {}]",
-                                            key.1,
-                                            block.height(),
-                                            entry.submitter,
-                                            entry.peer_id().unwrap_or_else(|| "unknown".to_string()),
-                                            first_seen,
-                                            entry.create_time
-                                        );
-                                        continue;
-                                    }
-
-                                    seen_blocks.insert(key.clone(), entry.create_time);
-                                    produced_blocks_batch.push(ProducedBlock {
-                                        window_id: window.id.unwrap(),
-                                        public_key_id,
-                                        block_hash: block.hash().to_string(),
-                                        block_height: block.height(),
-                                        block_global_slot: block.global_slot(),
-                                        block_data,
-                                    });
-                                }
-                                Ok(None) => (), // No block to process
-                                Err(e) => {
-                                    println!(
-                                        "WARNING: Failed to decode block from {}: {}",
-                                        entry.submitter, e
-                                    )
-                                }
-                            }
                         }
-                    } else {
-                        if let Ok(Some(block)) = entry.last_produced_block_decoded() {
+                        Some((_block_info, Err(e))) => {
                             println!(
-                                "Skipping unsynced block: {} (height: {}, producer: {}, peer_id: {})",
-                                block.hash(),
-                                block.height(),
-                                entry.submitter,
-                                entry.peer_id().unwrap_or_else(|| "unknown".to_string())
-                            );
+                                "WARNING: Failed to decode block from {}: {}",
+                                entry.submitter, e
+                            )
                         }
-                        skipped_count += 1;
                     }
                 }
             }
@@ -428,9 +505,18 @@ pub async fn process_heartbeats(
 
     if latest_time > last_processed_time {
         update_last_processed_time(pool, latest_time).await?;
+
+        // Mark outdated presence entries as disabled
+        let disabled_count = mark_outdated_presence(pool).await?;
+        if disabled_count > 0 {
+            println!(
+                "Marked {} outdated presence entries as disabled",
+                disabled_count
+            );
+        }
     }
 
-    Ok(())
+    Ok(total_heartbeats)
 }
 
 pub async fn create_tables_from_file(pool: &SqlitePool) -> Result<()> {
@@ -516,13 +602,22 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             GROUP BY public_key_id
         ),
         HeartbeatCounts AS (
+            -- Count heartbeats only within valid windows and not disabled
             SELECT
                 hp.public_key_id,
-                COUNT(DISTINCT hp.window_id) as heartbeats,
-                MAX(hp.heartbeat_time) as last_heartbeat
+                COUNT(DISTINCT hp.window_id) as heartbeats
             FROM heartbeat_presence hp
             JOIN ValidWindows vw ON vw.id = hp.window_id
+            WHERE hp.disabled = FALSE
             GROUP BY hp.public_key_id
+        ),
+        LastHeartbeats AS (
+            -- Get last heartbeat time across all windows, including disabled entries
+            SELECT
+                public_key_id,
+                MAX(heartbeat_time) as last_heartbeat
+            FROM heartbeat_presence
+            GROUP BY public_key_id
         )
         INSERT INTO submitter_scores (
             public_key_id,
@@ -534,10 +629,11 @@ pub async fn update_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
             pk.id,
             COALESCE(hc.heartbeats, 0) as score,
             COALESCE(bc.blocks, 0) as blocks_produced,
-            COALESCE(hc.last_heartbeat, 0) as last_heartbeat
+            COALESCE(lh.last_heartbeat, 0) as last_heartbeat
         FROM public_keys pk
         LEFT JOIN HeartbeatCounts hc ON hc.public_key_id = pk.id
         LEFT JOIN BlockCounts bc ON bc.public_key_id = pk.id
+        LEFT JOIN LastHeartbeats lh ON lh.public_key_id = pk.id
         WHERE hc.heartbeats > 0 OR bc.blocks > 0
         ON CONFLICT(public_key_id) DO UPDATE SET
             score = excluded.score,
@@ -755,4 +851,18 @@ pub async fn mark_disabled_windows(pool: &SqlitePool, config: &Config) -> Result
         }
     }
     Ok(())
+}
+
+fn global_slot_at_time(time: DateTime<Utc>) -> u32 {
+    use chrono::FixedOffset;
+    let slot_duration = 180_000;
+    let genesis_state_timestamp =
+        DateTime::<FixedOffset>::parse_from_rfc3339("2024-04-09T21:00:00Z")
+            .unwrap()
+            .to_utc();
+    let slot_start_ms = genesis_state_timestamp.timestamp_millis() as u64;
+    let time_ms = time.timestamp_millis() as u64;
+
+    let slot_diff = (time_ms - slot_start_ms) / slot_duration;
+    slot_diff as u32
 }

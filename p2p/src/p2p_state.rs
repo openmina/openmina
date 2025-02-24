@@ -518,8 +518,11 @@ pub struct P2pCallbacks {
     /// Callback for [`P2pChannelsTransactionAction::Received`]
     pub on_p2p_channels_transaction_received: OptionalCallback<(PeerId, Box<TransactionInfo>)>,
     /// Callback for [`P2pChannelsTransactionAction::Libp2pReceived`]
-    pub on_p2p_channels_transaction_libp2p_received:
-        OptionalCallback<(Vec<TransactionWithHash>, P2pNetworkPubsubMessageCacheId)>,
+    pub on_p2p_channels_transactions_libp2p_received: OptionalCallback<(
+        PeerId,
+        Vec<TransactionWithHash>,
+        P2pNetworkPubsubMessageCacheId,
+    )>,
     /// Callback for [`P2pChannelsSnarkJobCommitmentAction::Received`]
     pub on_p2p_channels_snark_job_commitment_received:
         OptionalCallback<(PeerId, Box<SnarkJobCommitment>)>,

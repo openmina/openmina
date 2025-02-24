@@ -165,7 +165,7 @@ impl TransactionPoolState {
                                         }),
                                         peer_id: None,
                                         reason: "Transaction diff rejected".to_owned(),
-                                    })
+                                    });
                                 }
                                 TransactionPoolMessageSource::None => {}
                             }

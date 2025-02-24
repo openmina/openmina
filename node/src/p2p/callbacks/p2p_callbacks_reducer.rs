@@ -3,7 +3,11 @@ use mina_p2p_messages::{
     gossip::GossipNetMessageV2,
     v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash},
 };
-use openmina_core::{block::BlockWithHash, bug_condition, log, transaction::TransactionWithHash};
+use openmina_core::{
+    block::{prevalidate::BlockPrevalidationError, BlockWithHash},
+    bug_condition, log,
+    transaction::TransactionWithHash,
+};
 use p2p::{
     channels::{
         best_tip::P2pChannelsBestTipAction,
@@ -18,7 +22,6 @@ use redux::{ActionMeta, ActionWithMeta, Dispatcher};
 use crate::{
     p2p_ready,
     snark_pool::candidate::SnarkPoolCandidateAction,
-    state::BlockPrevalidationError,
     transaction_pool::candidate::TransactionPoolCandidateAction,
     transition_frontier::candidate::{allow_block_too_late, TransitionFrontierCandidateAction},
     transition_frontier::sync::{

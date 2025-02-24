@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StateHash};
+use openmina_core::block::prevalidate::BlockPrevalidationError;
 use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
 use openmina_core::consensus::consensus_take;
 use openmina_core::{action_event, ActionEvent};
@@ -8,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyError;
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
-use crate::state::BlockPrevalidationError;
 
 use super::TransitionFrontierCandidateStatus;
 

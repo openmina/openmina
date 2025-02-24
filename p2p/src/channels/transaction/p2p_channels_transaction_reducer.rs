@@ -215,6 +215,7 @@ impl P2pChannelsTransactionState {
             P2pChannelsTransactionAction::Libp2pReceived {
                 transactions,
                 message_id,
+                peer_id,
                 ..
             } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
@@ -222,7 +223,7 @@ impl P2pChannelsTransactionState {
 
                 if let Some(callback) = &p2p_state
                     .callbacks
-                    .on_p2p_channels_transaction_libp2p_received
+                    .on_p2p_channels_transactions_libp2p_received
                 {
                     let transactions = transactions
                         .into_iter()
@@ -230,7 +231,7 @@ impl P2pChannelsTransactionState {
                         .filter_map(Result::ok)
                         .collect();
 
-                    dispatcher.push_callback(callback.clone(), (transactions, message_id));
+                    dispatcher.push_callback(callback.clone(), (peer_id, transactions, message_id));
                 }
 
                 Ok(())

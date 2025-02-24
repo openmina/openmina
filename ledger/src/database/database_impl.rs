@@ -6,7 +6,6 @@ use std::{
 
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
-use openmina_core::IS_ARCHIVE;
 
 use crate::{
     next_uuid, Account, AccountId, AccountIndex, AccountLegacy, Address, AddressIterator,
@@ -279,6 +278,10 @@ impl DatabaseImpl<V2> {
     pub fn transfert_hashes(&mut self, hashes: HashesMatrix) {
         self.hashes_matrix.transfert_hashes(hashes)
     }
+
+    pub fn has_token_owners(&self) -> bool {
+        self.token_owners.is_some()
+    }
 }
 
 impl DatabaseImpl<V1> {
@@ -311,10 +314,11 @@ impl DatabaseImpl<V1> {
 }
 
 impl DatabaseImpl<V2> {
+    const NACCOUNTS: usize = 10_000;
+    const NTOKENS: usize = 10;
+
     pub fn create_with_dir(depth: u8, dir_name: Option<PathBuf>) -> Self {
         assert!((1..0xfe).contains(&depth));
-
-        const NACCOUNTS: usize = 10_000;
 
         let uuid = next_uuid();
 
@@ -339,19 +343,13 @@ impl DatabaseImpl<V2> {
 
         // std::fs::create_dir_all(&path).ok();
 
-        let token_owners = if IS_ARCHIVE.get().cloned().unwrap_or_default() {
-            Some(HashMap::with_capacity(NACCOUNTS))
-        } else {
-            None
-        };
-
         Self {
             depth,
-            accounts: Vec::with_capacity(NACCOUNTS),
+            accounts: Vec::with_capacity(Self::NACCOUNTS),
             last_location: None,
             naccounts: 0,
-            id_to_addr: HashMap::with_capacity(NACCOUNTS),
-            token_owners,
+            id_to_addr: HashMap::with_capacity(Self::NACCOUNTS),
+            token_owners: None,
             uuid,
             directory: path,
             hashes_matrix: HashesMatrix::new(depth as usize),
@@ -361,6 +359,22 @@ impl DatabaseImpl<V2> {
 
     pub fn create(depth: u8) -> Self {
         Self::create_with_dir(depth, None)
+    }
+
+    pub fn create_with_token_owners(depth: u8) -> Self {
+        let mut db = Self::create_with_dir(depth, None);
+        db.set_token_owners();
+        db
+    }
+
+    pub fn set_token_owners(&mut self) {
+        if self.token_owners.is_none() {
+            self.token_owners = Some(HashMap::with_capacity(Self::NTOKENS));
+        }
+    }
+
+    pub fn unset_token_owners(&mut self) {
+        self.token_owners = None;
     }
 
     pub fn root_hash(&mut self) -> Fp {

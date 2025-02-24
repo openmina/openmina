@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey, core::thread, p2p::identity::SecretKey as P2pSecretKey,
@@ -7,7 +5,8 @@ use node::{
 };
 pub use openmina_node_common::NodeServiceCommonBuildError;
 use openmina_node_common::{
-    p2p::TaskSpawner, rpc::RpcSender, EventSender, NodeServiceCommonBuilder,
+    archive::config::ArchiveStorageOptions, p2p::TaskSpawner, rpc::RpcSender, EventSender,
+    NodeServiceCommonBuilder,
 };
 
 use crate::{http_server, NodeService, P2pTaskSpawner};
@@ -55,8 +54,8 @@ impl NodeServiceBuilder {
         self
     }
 
-    pub fn archive_init(&mut self, address: SocketAddr) -> &mut Self {
-        self.common.archive_init(address);
+    pub fn archive_init(&mut self, options: ArchiveStorageOptions, work_dir: String) -> &mut Self {
+        self.common.archive_init(options, work_dir);
         self
     }
 

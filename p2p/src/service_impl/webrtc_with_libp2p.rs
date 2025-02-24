@@ -29,12 +29,12 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
 
     fn connections(&self) -> BTreeSet<PeerId>;
 
-    fn init<S: TaskSpawner>(sec_key: SecretKey, spawner: S) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(sec_key: SecretKey, spawner: S, rng_seed: [u8; 32]) -> P2pServiceCtx {
         P2pServiceCtx {
             sec_key: sec_key.clone(),
             #[cfg(feature = "p2p-libp2p")]
             mio: MioService::pending(sec_key.clone().try_into().expect("valid keypair")),
-            webrtc: <Self as P2pServiceWebrtc>::init(sec_key, spawner),
+            webrtc: <Self as P2pServiceWebrtc>::init(sec_key, spawner, rng_seed),
         }
     }
 

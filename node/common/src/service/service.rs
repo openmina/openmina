@@ -185,9 +185,14 @@ impl node::service::TransitionFrontierGenesisService for NodeService {
         let res = match config.load() {
             Err(err) => Err(err.to_string()),
             Ok((masks, data)) => {
-                masks
-                    .into_iter()
-                    .for_each(|mask| self.ledger_manager.insert_genesis_ledger(mask));
+                let is_archive = self.archive().is_some();
+                masks.into_iter().for_each(|mut mask| {
+                    if !is_archive {
+                        // Optimization: We don't need token owners if the node is not an archive
+                        mask.unset_token_owners();
+                    }
+                    self.ledger_manager.insert_genesis_ledger(mask);
+                });
                 Ok(data)
             }
         };

@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use ledger::proofs::provers::BlockProver;
 use node::{
     account::AccountSecretKey,
@@ -25,7 +23,10 @@ use crate::{
     EventReceiver, EventSender, NodeService,
 };
 
-use super::{archive::ArchiveService, block_producer::BlockProducerService};
+use super::{
+    archive::{config::ArchiveStorageOptions, ArchiveService},
+    block_producer::BlockProducerService,
+};
 
 pub struct NodeServiceCommonBuilder {
     rng_seed: [u8; 32],
@@ -98,8 +99,8 @@ impl NodeServiceCommonBuilder {
         self
     }
 
-    pub fn archive_init(&mut self, address: SocketAddr) -> &mut Self {
-        self.archive = Some(ArchiveService::start(address));
+    pub fn archive_init(&mut self, options: ArchiveStorageOptions, work_dir: String) -> &mut Self {
+        self.archive = Some(ArchiveService::start(options, work_dir));
         self
     }
 
@@ -111,6 +112,7 @@ impl NodeServiceCommonBuilder {
         self.p2p = Some(<NodeService as P2pServiceWebrtcWithLibp2p>::init(
             secret_key.clone(),
             task_spawner,
+            self.rng_seed,
         ));
         self
     }

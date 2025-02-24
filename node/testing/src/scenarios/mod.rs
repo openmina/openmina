@@ -131,7 +131,7 @@ impl Scenarios {
             Self::SimulationSmall(_) => true,
             Self::SimulationSmallForeverRealTime(_) => true,
             Self::MultiNodePubsubPropagateBlock(_) => true, // in progress
-            Self::P2pSignaling(_) => cfg!(feature = "p2p-webrtc"),
+            Self::P2pSignaling(_) => !cfg!(feature = "p2p-webrtc"),
             _ => false,
         }
     }
