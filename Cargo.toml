@@ -50,14 +50,14 @@ mina-p2p-messages = { path = "mina-p2p-messages" }
 poseidon = { path = "poseidon" }
 ledger = { path = "ledger", package = "mina-tree" }
 
-mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-# UNCOMMENTED_IN_CI mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9", features = [ "32x9" ] }
-o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-kimchi = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-mina-poseidon = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
-poly-commitment = { git = "https://github.com/openmina/proof-systems", rev = "dec49a9" }
+mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
+# UNCOMMENTED_IN_CI mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2", features = [ "32x9" ] }
+o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
+kimchi = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
+mina-poseidon = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
+poly-commitment = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
 
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
