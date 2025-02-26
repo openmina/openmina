@@ -618,7 +618,6 @@ pub enum ActionKind {
     TransitionFrontierGenesisProvenInject,
     TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
-    TransitionFrontierCandidateBestTipUpdate,
     TransitionFrontierCandidateBlockChainProofUpdate,
     TransitionFrontierCandidateBlockPrevalidateError,
     TransitionFrontierCandidateBlockPrevalidateSuccess,
@@ -626,11 +625,8 @@ pub enum ActionKind {
     TransitionFrontierCandidateBlockSnarkVerifyError,
     TransitionFrontierCandidateBlockSnarkVerifyPending,
     TransitionFrontierCandidateBlockSnarkVerifySuccess,
-    TransitionFrontierCandidateDetectForkRange,
-    TransitionFrontierCandidateLongRangeForkResolve,
     TransitionFrontierCandidateP2pBestTipUpdate,
     TransitionFrontierCandidatePrune,
-    TransitionFrontierCandidateShortRangeForkResolve,
     TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate,
     TransitionFrontierGenesisLedgerLoadInit,
     TransitionFrontierGenesisLedgerLoadPending,
@@ -720,7 +716,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 610;
+    pub const COUNT: u16 = 606;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1434,6 +1430,9 @@ impl ActionKindGet for TransitionFrontierGenesisEffectfulAction {
 impl ActionKindGet for TransitionFrontierCandidateAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::P2pBestTipUpdate { .. } => {
+                ActionKind::TransitionFrontierCandidateP2pBestTipUpdate
+            }
             Self::BlockReceived { .. } => ActionKind::TransitionFrontierCandidateBlockReceived,
             Self::BlockPrevalidateSuccess { .. } => {
                 ActionKind::TransitionFrontierCandidateBlockPrevalidateSuccess
@@ -1453,19 +1452,8 @@ impl ActionKindGet for TransitionFrontierCandidateAction {
             Self::BlockSnarkVerifyError { .. } => {
                 ActionKind::TransitionFrontierCandidateBlockSnarkVerifyError
             }
-            Self::DetectForkRange { .. } => ActionKind::TransitionFrontierCandidateDetectForkRange,
-            Self::ShortRangeForkResolve { .. } => {
-                ActionKind::TransitionFrontierCandidateShortRangeForkResolve
-            }
-            Self::LongRangeForkResolve { .. } => {
-                ActionKind::TransitionFrontierCandidateLongRangeForkResolve
-            }
-            Self::BestTipUpdate { .. } => ActionKind::TransitionFrontierCandidateBestTipUpdate,
             Self::TransitionFrontierSyncTargetUpdate => {
                 ActionKind::TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate
-            }
-            Self::P2pBestTipUpdate { .. } => {
-                ActionKind::TransitionFrontierCandidateP2pBestTipUpdate
             }
             Self::Prune => ActionKind::TransitionFrontierCandidatePrune,
         }

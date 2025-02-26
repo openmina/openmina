@@ -64,15 +64,22 @@ fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCu
     state
         .watched_accounts
         .get(pub_key)
-        .filter(|_| state.transition_frontier.candidates.best_tip.is_some())
+        .filter(|_| {
+            state
+                .transition_frontier
+                .candidates
+                .best_verified()
+                .is_some()
+        })
         .is_some_and(|a| match &a.initial_state {
             WatchedAccountLedgerInitialState::Idle { .. } => true,
             WatchedAccountLedgerInitialState::Error { .. } => true,
             WatchedAccountLedgerInitialState::Pending { block, .. } => {
-                let Some(best_tip) = state.transition_frontier.candidates.best_tip() else {
+                let Some(best_tip) = state.transition_frontier.candidates.best_verified_block()
+                else {
                     return false;
                 };
-                &block.hash != best_tip.hash
+                &block.hash != best_tip.hash()
             }
             // TODO(binier)
             WatchedAccountLedgerInitialState::Success { .. } => false,

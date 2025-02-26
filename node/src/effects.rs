@@ -113,20 +113,17 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
     // TODO(binier): refactor
     let state = store.state();
-    let consensus_best_tip_hash = state.transition_frontier.candidates.best_tip.as_ref();
+    let best_candidate = state.transition_frontier.candidates.best_verified();
+    let best_candidate_hash = best_candidate.map(|s| s.block.hash());
     let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
     let syncing_best_tip_hash = state.transition_frontier.sync.best_tip().map(|v| &v.hash);
 
-    if consensus_best_tip_hash.is_some()
-        && consensus_best_tip_hash != best_tip_hash
-        && consensus_best_tip_hash != syncing_best_tip_hash
-        && state
-            .transition_frontier
-            .candidates
-            .best_tip_chain_proof
-            .is_none()
+    if best_candidate.is_some()
+        && best_candidate_hash != best_tip_hash
+        && best_candidate_hash != syncing_best_tip_hash
+        && best_candidate.is_some_and(|s| s.chain_proof.is_none())
     {
-        request_best_tip(store, consensus_best_tip_hash.cloned());
+        request_best_tip(store, best_candidate_hash.cloned());
     }
 }
 use mina_p2p_messages::v2::StateHash;
