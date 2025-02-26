@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
@@ -127,7 +127,7 @@ pub struct TransitionFrontierCandidatesState {
     /// or block proof verification. We move them here so that they
     /// consume less memory while still preventing us from triggering
     /// revalidation for an invalid block if we receive it on p2p again.
-    invalid: BTreeSet<StateHash>,
+    invalid: BTreeMap<StateHash, u32>,
 }
 
 impl TransitionFrontierCandidatesState {
@@ -136,7 +136,7 @@ impl TransitionFrontierCandidatesState {
     }
 
     pub fn contains(&self, hash: &StateHash) -> bool {
-        self.invalid.contains(hash) || self.get(hash).is_some()
+        self.invalid.contains_key(hash) || self.get(hash).is_some()
     }
 
     pub(super) fn get(&self, hash: &StateHash) -> Option<&TransitionFrontierCandidateState> {
@@ -181,8 +181,14 @@ impl TransitionFrontierCandidatesState {
     }
 
     pub(super) fn invalidate(&mut self, hash: &StateHash) {
-        self.ordered.retain(|s| s.block.hash() != hash);
-        self.invalid.insert(hash.clone());
+        self.ordered.retain(|s| {
+            if s.block.hash() == hash {
+                self.invalid.insert(hash.clone(), s.block.global_slot());
+                false
+            } else {
+                true
+            }
+        });
     }
 
     pub(super) fn set_chain_proof(
@@ -206,6 +212,11 @@ impl TransitionFrontierCandidatesState {
         // verified candidate.
         self.ordered.retain(|s| {
             if s.block.hash() == &best_candidate_hash {
+                // prune all invalid block hashes which are for older
+                // slots than the current best candidate.
+                let best_candidate_slot = s.block.global_slot();
+                self.invalid.retain(|_, slot| *slot >= best_candidate_slot);
+
                 has_reached_best_candidate = true;
             }
 
