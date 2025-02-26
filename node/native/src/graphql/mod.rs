@@ -1,5 +1,4 @@
-use std::str::FromStr;
-
+use block::GraphQLBlock;
 use juniper::{graphql_value, FieldError};
 use juniper::{EmptySubscription, GraphQLEnum, RootNode};
 use ledger::Account;
@@ -9,7 +8,7 @@ use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1;
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use node::rpc::RpcTransactionInjectResponse;
 use node::rpc::RpcTransactionInjectedCommand;
-use node::rpc::RpcTransactionStatusGetResponse;
+use node::rpc::{GetBlockQuery, RpcGetBlockResponse, RpcTransactionStatusGetResponse};
 use node::{
     account::AccountPublicKey,
     rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
@@ -19,6 +18,7 @@ use openmina_core::block::AppliedBlock;
 use openmina_core::consensus::ConsensusConstants;
 use openmina_core::constants::constraint_constants;
 use openmina_node_common::rpc::RpcSender;
+use std::str::FromStr;
 use warp::{Filter, Rejection, Reply};
 
 pub mod account;
@@ -186,10 +186,11 @@ impl Query {
             Ok(SyncStatus::LISTENING)
         }
     }
+
     async fn best_chain(
         max_length: i32,
         context: &Context,
-    ) -> juniper::FieldResult<Vec<block::GraphQLBestChainBlock>> {
+    ) -> juniper::FieldResult<Vec<GraphQLBlock>> {
         let best_chain: Vec<AppliedBlock> = context
             .0
             .oneshot_request(RpcRequest::BestChain(max_length as u32))
@@ -263,6 +264,46 @@ impl Query {
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
         Ok(res.to_string())
+    }
+
+    /// Retrieve a block with the given state hash or height, if contained in the transition frontier
+    async fn block(
+        height: Option<i32>,
+        state_hash: Option<String>,
+        context: &Context,
+    ) -> juniper::FieldResult<GraphQLBlock> {
+        let query = match (height, state_hash) {
+            (Some(height), None) => GetBlockQuery::Height(height.try_into().unwrap_or(u32::MAX)),
+            (None, Some(state_hash)) => GetBlockQuery::Hash(state_hash.parse()?),
+            _ => {
+                return Err(Error::Custom(
+                    "Must provide exactly one of state hash, height".to_owned(),
+                )
+                .into());
+            }
+        };
+
+        let res: Option<RpcGetBlockResponse> = context
+            .0
+            .oneshot_request(RpcRequest::GetBlock(query.clone()))
+            .await;
+
+        match res {
+            None => Err(Error::Custom("response channel dropped".to_owned()).into()),
+            Some(None) => match query {
+                GetBlockQuery::Hash(hash) => Err(Error::Custom(format!(
+                    "Could not find block with hash: `{}` in transition frontier",
+                    hash
+                ))
+                .into()),
+                GetBlockQuery::Height(height) => Err(Error::Custom(format!(
+                    "Could not find block with height: `{}` in transition frontier",
+                    height
+                ))
+                .into()),
+            },
+            Some(Some(block)) => Ok(GraphQLBlock::try_from(block)?),
+        }
     }
 }
 

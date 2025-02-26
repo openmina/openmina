@@ -470,6 +470,7 @@ pub enum ActionKind {
     P2pPeerRemove,
     RpcActionStatsGet,
     RpcBestChain,
+    RpcBlockGet,
     RpcBlockProducerStatsGet,
     RpcConsensusConstantsGet,
     RpcDiscoveryBoostrapStats,
@@ -516,6 +517,7 @@ pub enum ActionKind {
     RpcTransitionFrontierUserCommandsGet,
     RpcEffectfulActionStatsGet,
     RpcEffectfulBestChain,
+    RpcEffectfulBlockGet,
     RpcEffectfulBlockProducerStatsGet,
     RpcEffectfulConsensusConstantsGet,
     RpcEffectfulDiscoveryBoostrapStats,
@@ -716,7 +718,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 606;
+    pub const COUNT: u16 = 608;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1085,6 +1087,7 @@ impl ActionKindGet for RpcAction {
             Self::BestChain { .. } => ActionKind::RpcBestChain,
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
+            Self::BlockGet { .. } => ActionKind::RpcBlockGet,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -1150,6 +1153,7 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::BestChain { .. } => ActionKind::RpcEffectfulBestChain,
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcEffectfulConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcEffectfulTransactionStatusGet,
+            Self::BlockGet { .. } => ActionKind::RpcEffectfulBlockGet,
         }
     }
 }

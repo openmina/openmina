@@ -2,7 +2,7 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
-        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
+        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
         RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse,
         RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
         RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
@@ -192,5 +192,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcTransactionStatusGetResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_block_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcGetBlockResponse,
     ) -> Result<(), RespondError>;
 }

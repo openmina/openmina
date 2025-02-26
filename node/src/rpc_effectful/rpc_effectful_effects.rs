@@ -771,6 +771,12 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 )
             }
         }
+        RpcEffectfulAction::BlockGet { rpc_id, block } => {
+            respond_or_log!(
+                store.service().respond_block_get(rpc_id, block),
+                meta.time()
+            )
+        }
     }
 }
 

@@ -3,7 +3,7 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         discovery::RpcDiscoveryRoutingTable, AccountQuery, ActionStatsQuery, RpcBestChainResponse,
-        RpcPeerInfo, RpcScanStateSummaryScanStateJob, RpcSnarkerConfig,
+        RpcGetBlockResponse, RpcPeerInfo, RpcScanStateSummaryScanStateJob, RpcSnarkerConfig,
         RpcTransactionInjectFailure, RpcTransactionInjectRejected, RpcTransactionInjectSuccess,
         SyncStatsQuery,
     },
@@ -146,6 +146,10 @@ pub enum RpcEffectfulAction {
     TransactionStatusGet {
         rpc_id: RpcId,
         tx: MinaBaseUserCommandStableV2,
+    },
+    BlockGet {
+        rpc_id: RpcId,
+        block: RpcGetBlockResponse,
     },
 }
 

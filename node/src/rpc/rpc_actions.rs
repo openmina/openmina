@@ -15,8 +15,8 @@ use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnection
 use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
-    ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob,
-    SyncStatsQuery,
+    ActionStatsQuery, GetBlockQuery, RpcId, RpcScanStateSummaryGetQuery,
+    RpcScanStateSummaryScanStateJob, SyncStatsQuery,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -206,6 +206,11 @@ pub enum RpcAction {
         tx: MinaBaseUserCommandStableV2,
     },
 
+    BlockGet {
+        rpc_id: RpcId,
+        query: GetBlockQuery,
+    },
+
     Finish {
         rpc_id: RpcId,
     },
@@ -337,6 +342,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .get(rpc_id)
                 .is_some_and(|v| v.status.is_pending()),
             RpcAction::TransitionFrontierUserCommandsGet { .. } => true,
+            RpcAction::BlockGet { .. } => true,
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests
