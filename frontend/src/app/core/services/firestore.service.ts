@@ -1,5 +1,13 @@
 import { Injectable, Optional } from '@angular/core';
-import { collection, CollectionReference, deleteDoc, doc, DocumentData, Firestore, updateDoc } from '@angular/fire/firestore';
+import {
+  collection,
+  CollectionReference,
+  deleteDoc,
+  doc,
+  DocumentData,
+  Firestore,
+  updateDoc
+} from '@angular/fire/firestore';
 import { HttpClient } from '@angular/common/http';
 import { catchError, Observable, of } from 'rxjs';
 

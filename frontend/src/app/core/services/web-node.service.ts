@@ -10,6 +10,7 @@ import { CONFIG } from '@shared/constants/config';
 import firebase from 'firebase/compat';
 import FirebaseStorageError = firebase.storage.FirebaseStorageError;
 import { FirestoreService } from '@core/services/firestore.service';
+import {SentryService} from "@core/services/sentry.service";
 
 export interface PrivateStake {
   publicKey: string;
@@ -37,7 +38,8 @@ export class WebNodeService {
   noBlockProduction: boolean = false;
 
   constructor(private http: HttpClient,
-              private firestore: FirestoreService) {
+              private firestore: FirestoreService,
+              private sentryService: SentryService) {
     FileProgressHelper.initDownloadProgress();
     const basex = base('123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz');
     safelyExecuteInBrowser(() => {
@@ -46,6 +48,10 @@ export class WebNodeService {
         decode: (string: string) => basex.decode(string.substring(1)),
       };
     });
+  }
+
+  get publicKey(): string {
+    return this.privateStake.publicKey;
   }
 
   hasWebNodeConfig(): boolean {
@@ -183,7 +189,7 @@ export class WebNodeService {
         // }
         if (!this.sentryEvents.firstPeerConnected && peers.some((p: any) => p.connection_status === DashboardPeerStatus.CONNECTED)) {
           const seconds = (Date.now() - this.webNodeStartTime) / 1000;
-          sendSentryEvent(`WebNode connected in ${seconds.toFixed(1)}s`, 'info');
+          this.sentryService.updatePeersConnected(seconds, this.publicKey);
           this.sentryEvents.firstPeerConnected = true;
           this.webnodeProgress$.next('Connected');
         }

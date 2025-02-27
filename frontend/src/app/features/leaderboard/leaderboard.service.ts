@@ -1,10 +1,10 @@
-import { Injectable, Optional } from '@angular/core';
-import { combineLatest, map, Observable } from 'rxjs';
-import { HeartbeatSummary } from '@shared/types/leaderboard/heartbeat-summary.type';
-import { collection, collectionData, CollectionReference, Firestore, getDocs } from '@angular/fire/firestore';
-import { WebNodeService } from '@core/services/web-node.service';
-import { getElapsedTimeInMinsAndHours } from '@shared/helpers/date.helper';
-import { ONE_THOUSAND, toReadableDate } from '@openmina/shared';
+import {Injectable, Optional} from '@angular/core';
+import {combineLatest, map, Observable} from 'rxjs';
+import {HeartbeatSummary} from '@shared/types/leaderboard/heartbeat-summary.type';
+import {collection, collectionData, CollectionReference, Firestore, getDocs} from '@angular/fire/firestore';
+import {WebNodeService} from '@core/services/web-node.service';
+import {getElapsedTimeInMinsAndHours} from '@shared/helpers/date.helper';
+import {ONE_THOUSAND, toReadableDate} from '@openmina/shared';
 
 @Injectable({
   providedIn: 'root',
@@ -31,12 +31,44 @@ export class LeaderboardService {
     ]).pipe(
       map(([scores, maxScore]) => {
         this.maxScoreRightNow = maxScore.find(c => c.id === 'current')['value'];
-
+        // scores = [
+        //   {
+        //     publicKey: "key1",
+        //     blocksProduced: 15,
+        //     lastHeartbeat: Date.now() - 10000,
+        //     score: 100
+        //   },
+        //   {
+        //     publicKey: "key2",
+        //     blocksProduced: 20,
+        //     lastHeartbeat: Date.now() - 5000,
+        //     score: 95
+        //   },
+        //   {
+        //     publicKey: "key3",
+        //     blocksProduced: 25,
+        //     lastHeartbeat: Date.now() - 15000,
+        //     score: 110
+        //   },
+        //   {
+        //     publicKey: "key4",
+        //     blocksProduced: 30,
+        //     lastHeartbeat: Date.now() - 2000,
+        //     score: 120
+        //   },
+        //   {
+        //     publicKey: "key5",
+        //     blocksProduced: 18,
+        //     lastHeartbeat: Date.now() - 8000,
+        //     score: 98
+        //   },
+        // ];
         const items = scores.map(score => {
+          const isWhale = score['publicKey'].includes('key1') || score['publicKey'].includes('key2');
           return ({
             publicKey: score['publicKey'],
             blocksProduced: score['blocksProduced'],
-            isActive: score['lastHeartbeat'] * ONE_THOUSAND > (Date.now() - 12000),
+            isWhale,
             uptimePercentage: this.getUptimePercentage(score['score'], this.maxScoreRightNow),
             uptimePrize: false,
             blocksPrize: false,
@@ -54,8 +86,8 @@ export class LeaderboardService {
         );
         return items.map(item => ({
           ...item,
-          uptimePrize: item.uptimePercentage >= fifthPlacePercentageByUptime,
-          blocksPrize: item.blocksProduced === highestProducedBlocks,
+          uptimePrize: item.isWhale ? false : (item.uptimePercentage >= fifthPlacePercentageByUptime),
+          blocksPrize: item.isWhale ? false : (item.blocksProduced === highestProducedBlocks),
         }));
       }),
     );

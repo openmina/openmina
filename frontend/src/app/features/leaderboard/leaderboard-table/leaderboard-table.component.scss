@@ -11,6 +11,9 @@
 }
 
 .row-wrap {
+  &.whale {
+    opacity: 0.3;
+  }
   &.head {
     max-width: unset;
     height: 56px;
@@ -57,7 +60,17 @@
   }
 
   .circle {
-    color: $mina-brand-gray;
+    &.blue {
+      color: $mina-brand-cyan;
+    }
+
+    &.purple {
+      color: $mina-access-primary;
+    }
+
+    &.dark-red {
+      color: $mina-brand-orchid;
+    }
   }
 
   .perc {
@@ -68,10 +81,6 @@
     @media (max-width: 480px) {
       width: 48px;
     }
-  }
-
-  .circle.active {
-    color: $mina-brand-cyan;
   }
 }
 

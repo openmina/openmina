@@ -5,6 +5,8 @@ import { CONFIG } from '@shared/constants/config';
 import * as Sentry from '@sentry/angular';
 import type { ErrorEvent } from '@sentry/types/build/types/event';
 
+// (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = 'A4B7AFB5-1534-4D5A-A02E-BCF5847C07F0';
+
 if (CONFIG.production) {
   initSentry();
 }
