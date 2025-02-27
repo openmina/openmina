@@ -67,8 +67,8 @@ impl TransitionFrontierCandidatesState {
                     }
                 }
             }
-            TransitionFrontierCandidateAction::BlockPrevalidateError { hash, .. } => {
-                state.invalidate(hash);
+            TransitionFrontierCandidateAction::BlockPrevalidateError { hash, error } => {
+                state.invalidate(hash, error.is_forever_invalid());
             }
             TransitionFrontierCandidateAction::BlockPrevalidateSuccess { hash } => {
                 state.update_status(hash, |_| TransitionFrontierCandidateStatus::Prevalidated);
@@ -111,7 +111,7 @@ impl TransitionFrontierCandidatesState {
                 });
             }
             TransitionFrontierCandidateAction::BlockSnarkVerifyError { hash, .. } => {
-                state.invalidate(hash);
+                state.invalidate(hash, true);
             }
             TransitionFrontierCandidateAction::BlockSnarkVerifySuccess { hash } => {
                 state.update_status(hash, |_| {

@@ -180,10 +180,12 @@ impl TransitionFrontierCandidatesState {
         })
     }
 
-    pub(super) fn invalidate(&mut self, hash: &StateHash) {
+    pub(super) fn invalidate(&mut self, hash: &StateHash, is_forever_invalid: bool) {
         self.ordered.retain(|s| {
             if s.block.hash() == hash {
-                self.invalid.insert(hash.clone(), s.block.global_slot());
+                if is_forever_invalid {
+                    self.invalid.insert(hash.clone(), s.block.global_slot());
+                }
                 false
             } else {
                 true

@@ -22,6 +22,12 @@ pub enum BlockPrevalidationError {
     InvalidDeltaBlockChainProof,
 }
 
+impl BlockPrevalidationError {
+    pub fn is_forever_invalid(&self) -> bool {
+        !matches!(self, Self::ReceivedTooEarly { .. })
+    }
+}
+
 pub fn validate_block_timing(
     block: &ArcBlockWithHash,
     genesis: &ArcBlockWithHash,
