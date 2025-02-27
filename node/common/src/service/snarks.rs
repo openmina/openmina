@@ -155,31 +155,33 @@ impl node::service::SnarkUserCommandVerifyService for NodeService {
         }
 
         let tx = self.event_sender().clone();
-        let result = {
-            let (verified, invalid): (Vec<_>, Vec<_>) = ledger::verifier::Verifier
-                .verify_commands(commands, None)
-                .into_iter()
-                .partition(Result::is_ok);
-
-            let verified: Vec<_> = verified.into_iter().map(Result::unwrap).collect();
-            let invalid: Vec<_> = invalid.into_iter().map(Result::unwrap_err).collect();
-
-            if !invalid.is_empty() {
-                let transaction_pool_errors = invalid
+        rayon::spawn_fifo(move || {
+            let result = {
+                let (verified, invalid): (Vec<_>, Vec<_>) = ledger::verifier::Verifier
+                    .verify_commands(commands, None)
                     .into_iter()
-                    .map(TransactionError::Verifier)
-                    .collect();
-                Err(TransactionPoolErrors::BatchedErrors(
-                    transaction_pool_errors,
-                ))
-            } else {
-                Ok(verified)
-            }
-        };
+                    .partition(Result::is_ok);
 
-        let result = result.map_err(|err| err.to_string());
+                let verified: Vec<_> = verified.into_iter().map(Result::unwrap).collect();
+                let invalid: Vec<_> = invalid.into_iter().map(Result::unwrap_err).collect();
 
-        let _ = tx.send(SnarkEvent::UserCommandVerify(req_id, result).into());
+                if !invalid.is_empty() {
+                    let transaction_pool_errors = invalid
+                        .into_iter()
+                        .map(TransactionError::Verifier)
+                        .collect();
+                    Err(TransactionPoolErrors::BatchedErrors(
+                        transaction_pool_errors,
+                    ))
+                } else {
+                    Ok(verified)
+                }
+            };
+
+            let result = result.map_err(|err| err.to_string());
+
+            let _ = tx.send(SnarkEvent::UserCommandVerify(req_id, result).into());
+        });
     }
 }
 
