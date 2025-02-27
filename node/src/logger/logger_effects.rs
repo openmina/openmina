@@ -9,6 +9,7 @@ use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::P2pAction;
 use crate::snark::SnarkAction;
+use crate::transition_frontier::candidate::TransitionFrontierCandidateAction;
 use crate::{
     Action, ActionWithMetaRef, BlockProducerAction, Service, Store, TransitionFrontierAction,
 };
@@ -119,6 +120,18 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         Action::Snark(SnarkAction::WorkVerify(a)) => a.action_event(&context),
         Action::Snark(SnarkAction::UserCommandVerify(a)) => a.action_event(&context),
         Action::TransitionFrontier(a) => match a {
+            TransitionFrontierAction::Candidate(
+                TransitionFrontierCandidateAction::BlockReceived { block, chain_proof },
+            ) => {
+                openmina_core::action_info!(
+                    context,
+                    kind = action.kind().to_string(),
+                    summary = "candidate block received",
+                    block_hash = block.hash().to_string(),
+                    block_height = block.height(),
+                    has_chain_proof = chain_proof.is_some(),
+                );
+            }
             TransitionFrontierAction::Synced { .. } => {
                 let tip = store.state().transition_frontier.best_tip().unwrap();
 

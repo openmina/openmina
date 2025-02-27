@@ -141,8 +141,8 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     && state
                         .transition_frontier
                         .candidates
-                        .best_tip()
-                        .is_some_and(|tip| &best_tip.hash == tip.hash)
+                        .best_verified_block()
+                        .is_some_and(|block| best_tip.hash() == block.hash())
             }
             TransitionFrontierSyncAction::BestTipUpdate {
                 best_tip,

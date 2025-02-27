@@ -1,14 +1,11 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::collections::{BTreeMap, BTreeSet};
 
-use mina_p2p_messages::v2::{
-    MinaBlockBlockStableV2, MinaBlockHeaderStableV2, StagedLedgerDiffDiffStableV2, StateHash,
-};
+use mina_p2p_messages::v2::StateHash;
 use serde::{Deserialize, Serialize};
 
-use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
+use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::{
-    ConsensusLongRangeForkDecisionReason, ConsensusShortRangeForkDecisionReason,
+    consensus_take, ConsensusLongRangeForkDecisionReason, ConsensusShortRangeForkDecisionReason,
 };
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
@@ -52,21 +49,6 @@ pub enum TransitionFrontierCandidateStatus {
     SnarkVerifySuccess {
         time: redux::Timestamp,
     },
-    ForkRangeDetected {
-        time: redux::Timestamp,
-        compared_with: Option<StateHash>,
-        short_fork: bool,
-    },
-    ShortRangeForkResolve {
-        time: redux::Timestamp,
-        compared_with: Option<StateHash>,
-        decision: ConsensusShortRangeForkDecision,
-    },
-    LongRangeForkResolve {
-        time: redux::Timestamp,
-        compared_with: StateHash,
-        decision: ConsensusLongRangeForkDecision,
-    },
 }
 
 impl TransitionFrontierCandidateStatus {
@@ -89,41 +71,63 @@ impl TransitionFrontierCandidateStatus {
     pub fn is_pending(&self) -> bool {
         matches!(self, Self::SnarkVerifyPending { .. })
     }
-
-    pub fn compared_with(&self) -> Option<&StateHash> {
-        match self {
-            Self::ShortRangeForkResolve { compared_with, .. } => compared_with.as_ref(),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierCandidateState {
-    pub block: Arc<MinaBlockBlockStableV2>,
+    pub block: ArcBlockWithHash,
     pub status: TransitionFrontierCandidateStatus,
     pub chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
 }
 
+impl Ord for TransitionFrontierCandidateState {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.eq(other) {
+            return std::cmp::Ordering::Equal;
+        }
+        let is_candidate_better = consensus_take(
+            self.block.consensus_state(),
+            other.block.consensus_state(),
+            self.block.hash(),
+            other.block.hash(),
+        );
+        match is_candidate_better {
+            true => std::cmp::Ordering::Less,
+            false => std::cmp::Ordering::Greater,
+        }
+    }
+}
+
+impl PartialOrd for TransitionFrontierCandidateState {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for TransitionFrontierCandidateState {}
+
+impl PartialEq for TransitionFrontierCandidateState {
+    fn eq(&self, other: &Self) -> bool {
+        self.block.hash() == other.block.hash()
+    }
+}
+
 impl TransitionFrontierCandidateState {
     pub fn height(&self) -> u32 {
-        self.block
-            .header
-            .protocol_state
-            .body
-            .consensus_state
-            .blockchain_length
-            .0
-             .0
+        self.block.height()
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TransitionFrontierCandidatesState {
-    pub blocks: BTreeMap<StateHash, TransitionFrontierCandidateState>,
-    // TODO(binier): rename to best candidate. Best tip will be in transition_frontier state.
-    pub best_tip: Option<StateHash>,
-    pub best_tip_chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
+    /// Maintains an ordered list of transition frontier Candidates,
+    /// ordered using consensus rules worst to best.
+    ordered: BTreeSet<TransitionFrontierCandidateState>,
+    /// Candidate block hashes, which failed either the prevalidation
+    /// or block proof verification. We move them here so that they
+    /// consume less memory while still preventing us from triggering
+    /// revalidation for an invalid block if we receive it on p2p again.
+    invalid: BTreeMap<StateHash, u32>,
 }
 
 impl TransitionFrontierCandidatesState {
@@ -131,71 +135,128 @@ impl TransitionFrontierCandidatesState {
         Self::default()
     }
 
-    pub fn best_tip_block_with_hash(&self) -> Option<BlockWithHash<Arc<MinaBlockBlockStableV2>>> {
-        let hash = self.best_tip.as_ref()?;
-        let block = self.blocks.get(hash)?;
-        Some(BlockWithHash {
-            hash: hash.clone(),
-            block: block.block.clone(),
-        })
+    pub fn contains(&self, hash: &StateHash) -> bool {
+        self.invalid.contains_key(hash) || self.get(hash).is_some()
     }
 
-    pub fn best_tip(&self) -> Option<BlockRef<'_>> {
-        self.best_tip.as_ref().and_then(|hash| {
-            let block = self.blocks.get(hash)?;
-            Some(BlockRef {
-                hash,
-                header: &block.block.header,
-                body: &block.block.body.staged_ledger_diff,
-                status: &block.status,
-            })
-        })
+    pub(super) fn get(&self, hash: &StateHash) -> Option<&TransitionFrontierCandidateState> {
+        self.ordered.iter().rev().find(|s| s.block.hash() == hash)
     }
 
-    pub fn previous_best_tip(&self) -> Option<BlockRef<'_>> {
-        self.best_tip.as_ref().and_then(|hash| {
-            let block = self.blocks.get(hash)?;
-            let prev_hash = block.status.compared_with()?;
-            let prev = self.blocks.get(prev_hash)?;
-            Some(BlockRef {
-                hash: prev_hash,
-                header: &prev.block.header,
-                body: &prev.block.body.staged_ledger_diff,
-                status: &prev.status,
-            })
-        })
+    pub(super) fn add(
+        &mut self,
+        time: redux::Timestamp,
+        block: ArcBlockWithHash,
+        chain_proof: Option<(Vec<StateHash>, ArcBlockWithHash)>,
+    ) {
+        self.ordered.insert(TransitionFrontierCandidateState {
+            block,
+            status: TransitionFrontierCandidateStatus::Received { time },
+            chain_proof,
+        });
     }
 
-    pub fn is_candidate_decided_to_use_as_tip(&self, hash: &StateHash) -> bool {
-        let Some(candidate) = self.blocks.get(hash) else {
+    fn update(
+        &mut self,
+        hash: &StateHash,
+        update: impl FnOnce(TransitionFrontierCandidateState) -> TransitionFrontierCandidateState,
+    ) -> bool {
+        let Some(state) = self.get(hash).cloned() else {
             return false;
         };
-        match &candidate.status {
-            TransitionFrontierCandidateStatus::Received { .. } => false,
-            TransitionFrontierCandidateStatus::Prevalidated => false,
-            TransitionFrontierCandidateStatus::SnarkVerifyPending { .. } => false,
-            TransitionFrontierCandidateStatus::SnarkVerifySuccess { .. } => false,
-            TransitionFrontierCandidateStatus::ForkRangeDetected { .. } => false,
-            TransitionFrontierCandidateStatus::ShortRangeForkResolve {
-                compared_with,
-                decision,
-                ..
-            } => decision.use_as_best_tip() && &self.best_tip == compared_with,
-            TransitionFrontierCandidateStatus::LongRangeForkResolve {
-                compared_with,
-                decision,
-                ..
-            } => decision.use_as_best_tip() && self.best_tip.as_ref() == Some(compared_with),
-        }
+        self.ordered.remove(&state);
+        self.ordered.insert(update(state));
+        true
     }
 
-    pub fn best_tip_chain_proof(
+    pub(super) fn update_status(
+        &mut self,
+        hash: &StateHash,
+        update: impl FnOnce(TransitionFrontierCandidateStatus) -> TransitionFrontierCandidateStatus,
+    ) -> bool {
+        self.update(hash, move |mut state| {
+            state.status = update(state.status);
+            state
+        })
+    }
+
+    pub(super) fn invalidate(&mut self, hash: &StateHash) {
+        self.ordered.retain(|s| {
+            if s.block.hash() == hash {
+                self.invalid.insert(hash.clone(), s.block.global_slot());
+                false
+            } else {
+                true
+            }
+        });
+    }
+
+    pub(super) fn set_chain_proof(
+        &mut self,
+        hash: &StateHash,
+        chain_proof: (Vec<StateHash>, ArcBlockWithHash),
+    ) -> bool {
+        self.update(hash, move |mut s| {
+            s.chain_proof = Some(chain_proof);
+            s
+        })
+    }
+
+    pub(super) fn prune(&mut self) {
+        let mut has_reached_best_candidate = false;
+        let Some(best_candidate_hash) = self.best_verified().map(|s| s.block.hash().clone()) else {
+            return;
+        };
+
+        // prune all blocks that are worse(consensus-wise) than the best
+        // verified candidate.
+        self.ordered.retain(|s| {
+            if s.block.hash() == &best_candidate_hash {
+                // prune all invalid block hashes which are for older
+                // slots than the current best candidate.
+                let best_candidate_slot = s.block.global_slot();
+                self.invalid.retain(|_, slot| *slot >= best_candidate_slot);
+
+                has_reached_best_candidate = true;
+            }
+
+            has_reached_best_candidate
+        });
+    }
+
+    pub(super) fn best(&self) -> Option<&TransitionFrontierCandidateState> {
+        self.ordered.last()
+    }
+
+    pub fn best_verified(&self) -> Option<&TransitionFrontierCandidateState> {
+        self.ordered
+            .iter()
+            .rev()
+            .find(|s| s.status.is_snark_verify_success())
+    }
+
+    pub fn is_chain_proof_needed(&self, hash: &StateHash) -> bool {
+        self.get(hash).is_some_and(|s| s.chain_proof.is_none())
+    }
+
+    pub fn best_verified_block(&self) -> Option<&ArcBlockWithHash> {
+        self.best_verified().map(|s| &s.block)
+    }
+
+    pub fn best_verified_block_chain_proof(
         &self,
         transition_frontier: &TransitionFrontierState,
     ) -> Option<(Vec<StateHash>, ArcBlockWithHash)> {
-        let best_tip = self.best_tip_block_with_hash()?;
-        let pred_hash = best_tip.pred_hash();
-        self.best_tip_chain_proof.clone().or_else(|| {
+        self.block_chain_proof(self.best_verified()?, transition_frontier)
+    }
+
+    fn block_chain_proof(
+        &self,
+        block_state: &TransitionFrontierCandidateState,
+        transition_frontier: &TransitionFrontierState,
+    ) -> Option<(Vec<StateHash>, ArcBlockWithHash)> {
+        let pred_hash = block_state.block.pred_hash();
+        block_state.chain_proof.clone().or_else(|| {
             let old_best_tip = transition_frontier.best_tip()?;
             let mut iter = transition_frontier.best_chain.iter();
             if old_best_tip.hash() == pred_hash {
@@ -213,25 +274,5 @@ impl TransitionFrontierCandidatesState {
                 None
             }
         })
-    }
-}
-
-#[derive(Serialize, Debug, Clone, Copy)]
-pub struct BlockRef<'a> {
-    pub hash: &'a StateHash,
-    pub header: &'a MinaBlockHeaderStableV2,
-    pub body: &'a StagedLedgerDiffDiffStableV2,
-    pub status: &'a TransitionFrontierCandidateStatus,
-}
-
-impl BlockRef<'_> {
-    pub fn height(&self) -> u32 {
-        self.header
-            .protocol_state
-            .body
-            .consensus_state
-            .blockchain_length
-            .0
-             .0
     }
 }
