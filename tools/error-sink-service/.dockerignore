@@ -1,0 +1,5 @@
+target/
+dumps/
+Dockerfile
+docker-compose.yml
+.dockerignore
