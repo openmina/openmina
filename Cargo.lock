@@ -5892,6 +5892,7 @@ dependencies = [
 name = "openmina-node-common"
 version = "0.14.0"
 dependencies = [
+ "anyhow",
  "ark-ff",
  "aws-config",
  "aws-sdk-s3",

@@ -539,7 +539,12 @@ impl BlockProducerService for NodeTestingService {
                     &keypair,
                     true,
                 ) {
-                    Err(ProofError::ConstraintsOk) => {
+                    Err(e)
+                        if matches!(
+                            e.downcast_ref::<ProofError>(),
+                            Some(ProofError::ConstraintsOk)
+                        ) =>
+                    {
                         let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
                     }
                     Err(err) => panic!("unexpected block proof generation error: {err:?}"),

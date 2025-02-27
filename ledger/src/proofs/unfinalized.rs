@@ -177,7 +177,7 @@ impl<F: FieldWitness> TryFrom<&v2::PicklesProofProofsVerified2ReprStableV2PrevEv
 /// Equivalent of `to_kimchi` in OCaml
 pub fn evals_from_p2p<F: FieldWitness>(
     e: &v2::PicklesWrapWireProofEvaluationsStableV1,
-) -> Result<ProofEvaluations<PointEvaluations<Vec<F>>>, InvalidBigInt> {
+) -> anyhow::Result<ProofEvaluations<PointEvaluations<Vec<F>>>> {
     let v2::PicklesWrapWireProofEvaluationsStableV1 {
         w,
         coefficients,
@@ -193,12 +193,13 @@ pub fn evals_from_p2p<F: FieldWitness>(
 
     use mina_p2p_messages::bigint::BigInt;
 
-    let of = |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<PointEvaluations<Vec<F>>, _> {
-        Ok(PointEvaluations {
-            zeta: vec![zeta.to_field()?],
-            zeta_omega: vec![zeta_omega.to_field()?],
-        })
-    };
+    let of =
+        |(zeta, zeta_omega): &(BigInt, BigInt)| -> Result<PointEvaluations<Vec<F>>, InvalidBigInt> {
+            Ok(PointEvaluations {
+                zeta: vec![zeta.to_field()?],
+                zeta_omega: vec![zeta_omega.to_field()?],
+            })
+        };
 
     use std::array;
     Ok(ProofEvaluations {

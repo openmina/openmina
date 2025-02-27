@@ -1,5 +1,6 @@
 use std::{collections::HashMap, rc::Rc, str::FromStr, sync::Arc};
 
+use anyhow::Context;
 use ark_ec::{short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve};
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field, PrimeField};
 use kimchi::{
@@ -2786,14 +2787,11 @@ pub mod transaction_snark {
         tx: &TransactionUnion,
         sparse_ledger: &SparseLedger,
         w: &mut Witness<Fp>,
-    ) -> Result<
-        (
-            Fp,
-            CheckedSigned<Fp, CheckedAmount<Fp>>,
-            CheckedSigned<Fp, CheckedAmount<Fp>>,
-        ),
-        InvalidBigInt,
-    > {
+    ) -> anyhow::Result<(
+        Fp,
+        CheckedSigned<Fp, CheckedAmount<Fp>>,
+        CheckedSigned<Fp, CheckedAmount<Fp>>,
+    )> {
         let TransactionUnion {
             payload,
             signer,
@@ -3591,7 +3589,7 @@ pub mod transaction_snark {
         statement_with_sok: &Statement<SokDigest>,
         tx_witness: &v2::TransactionWitnessStableV2,
         w: &mut Witness<Fp>,
-    ) -> Result<(), InvalidBigInt> {
+    ) -> anyhow::Result<()> {
         let tx: crate::scan_state::transaction_logic::Transaction =
             (&tx_witness.transaction).try_into()?;
         let tx = transaction_union_payload::TransactionUnion::of_transaction(&tx);
@@ -3912,15 +3910,17 @@ fn get_rng() -> rand::rngs::OsRng {
     rand::rngs::OsRng
 }
 
-#[derive(Debug, derive_more::From)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProofError {
-    #[from]
-    ProvingError(kimchi::error::ProverError),
+    #[error("kimchi error: {0:?}")]
+    ProvingError(#[from] kimchi::error::ProverError),
+    #[error("constraint not satisfield: {0}")]
     ConstraintsNotSatisfied(String),
-    #[from]
-    InvalidBigint(InvalidBigInt),
+    #[error("invalid bigint")]
+    InvalidBigint(#[from] InvalidBigInt),
     /// We still return an error when `only_verify_constraints` is true and
     /// constraints are verified, to short-circuit easily
+    #[error("Constraints ok")]
     ConstraintsOk,
 }
 
@@ -3946,7 +3946,7 @@ impl<F: FieldWitness> ProofWithPublic<F> {
 pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     params: CreateProofParams<F>,
     w: &Witness<F>,
-) -> Result<ProofWithPublic<F>, ProofError> {
+) -> anyhow::Result<ProofWithPublic<F>> {
     type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
 
     let CreateProofParams {
@@ -3971,7 +3971,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
 
         // We still return an error when `only_verify_constraints` is true and
         // constraints are verified, to short-circuit easily
-        return Err(ProofError::ConstraintsOk);
+        return Err(ProofError::ConstraintsOk.into());
     }
 
     // NOTE: Not random in `cfg(test)`
@@ -3987,7 +3987,8 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         prev_challenges,
         None,
         &mut rng,
-    )?;
+    )
+    .context("create_recursive")?;
 
     eprintln!("proof_elapsed={:?}", now.elapsed());
 
@@ -4024,7 +4025,7 @@ pub struct TransactionParams<'a> {
 pub(super) fn generate_tx_proof(
     params: TransactionParams,
     w: &mut Witness<Fp>,
-) -> Result<WrapProof, ProofError> {
+) -> anyhow::Result<WrapProof> {
     let TransactionParams {
         statement,
         tx_witness,
@@ -4752,6 +4753,7 @@ pub(super) mod tests {
         struct DumpBlockProof {
             input: Box<v2::ProverExtendBlockchainInputStableV2>,
             key: Vec<u8>,
+            error: Vec<u8>,
         }
 
         let rsa_private_key = {
@@ -4767,13 +4769,18 @@ pub(super) mod tests {
             rsa::RsaPrivateKey::from_pkcs1_pem(&string).unwrap()
         };
 
-        let DumpBlockProof { mut input, key } = {
+        let DumpBlockProof {
+            mut input,
+            key,
+            error,
+        } = {
             let Ok(data) = std::fs::read("/tmp/block_proof.binprot") else {
                 eprintln!("Missing block proof");
                 return;
             };
             DumpBlockProof::binprot_read(&mut data.as_slice()).unwrap()
         };
+        eprintln!("error was: {}", String::from_utf8_lossy(&error));
 
         let producer_private_key = {
             let producer_private_key = rsa_private_key.decrypt(Pkcs1v15Encrypt, &key).unwrap();
@@ -4786,6 +4793,7 @@ pub(super) mod tests {
         let mut file = std::fs::File::create("/tmp/block_proof_with_key.binprot").unwrap();
         input.binprot_write(&mut file).unwrap();
         file.sync_all().unwrap();
+        eprintln!("saved to /tmp/block_proof_with_key.binprot");
     }
 
     #[test]

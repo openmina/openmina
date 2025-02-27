@@ -68,7 +68,7 @@ use super::{
     },
     provers::devnet_circuit_directory,
     to_field_elements::ToFieldElements,
-    transaction::{dummy_constraints, Check, ProofError, Prover},
+    transaction::{dummy_constraints, Check, Prover},
     witness::Witness,
     wrap::WrapProof,
 };
@@ -1310,7 +1310,7 @@ fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
     tx_wrap_prover: &Prover<Fq>,
     fps_path: Option<String>,
     fqs_path: Option<String>,
-) -> Result<LedgerProof, ProofError>
+) -> anyhow::Result<LedgerProof>
 where
     StepConstants: ProofConstants,
     WrapConstants: ProofConstants + ForWrapData,
@@ -1659,7 +1659,7 @@ fn of_zkapp_command_segment(
     tx_wrap_prover: &Prover<Fq>,
     opt_signed_path: Option<&str>,
     proved_path: Option<&str>,
-) -> Result<LedgerProof, ProofError> {
+) -> anyhow::Result<LedgerProof> {
     let (step_prover, step_path, wrap_path) = match spec {
         SegmentBasic::OptSignedOptSigned => (step_opt_signed_opt_signed_prover, None, None),
         SegmentBasic::OptSigned => {
@@ -1697,7 +1697,7 @@ fn of_zkapp_command_segment(
     )
 }
 
-pub fn generate_zkapp_proof(params: ZkappParams) -> Result<LedgerProof, ProofError> {
+pub fn generate_zkapp_proof(params: ZkappParams) -> anyhow::Result<LedgerProof> {
     let ZkappParams {
         statement,
         tx_witness,
@@ -1792,7 +1792,7 @@ fn merge_zkapp_proofs(
     message: &SokMessage,
     merge_step_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
-) -> Result<LedgerProof, ProofError> {
+) -> anyhow::Result<LedgerProof> {
     let merged_statement = prev
         .statement
         .clone()

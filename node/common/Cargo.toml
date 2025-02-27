@@ -22,6 +22,7 @@ ark-ff = { workspace = true }
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
 binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
 bitflags = "2.8.0"
+anyhow = "1"
 
 node = { path = "../../node", features = ["replay"] }
 openmina-core = { path = "../../core" }
