@@ -1,5 +1,6 @@
 use std::{rc::Rc, sync::Arc};
 
+use anyhow::Context;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use consensus::ConsensusState;
 use mina_curves::pasta::Fq;
@@ -51,7 +52,7 @@ use super::{
     },
     step::{step, InductiveRule, OptFlag, PreviousProofStatement, StepParams, StepProof},
     to_field_elements::ToFieldElements,
-    transaction::{transaction_snark::checked_hash, Check, ProofError, Prover},
+    transaction::{transaction_snark::checked_hash, Check, Prover},
     witness::Witness,
     wrap::WrapProof,
 };
@@ -195,7 +196,7 @@ impl Check<Fp> for ProtocolState {
 fn ledger_proof_opt(
     proof: Option<&v2::LedgerProofProdStableV2>,
     next_state: &v2::MinaStateProtocolStateValueStableV2,
-) -> Result<(Statement<SokDigest>, Arc<v2::TransactionSnarkProofStableV2>), InvalidBigInt> {
+) -> anyhow::Result<(Statement<SokDigest>, Arc<v2::TransactionSnarkProofStableV2>)> {
     match proof {
         Some(proof) => {
             let statement: Statement<SokDigest> = (&proof.0.statement).try_into()?;
@@ -216,7 +217,7 @@ fn ledger_proof_opt(
 fn checked_hash_protocol_state(
     state: &ProtocolState,
     w: &mut Witness<Fp>,
-) -> Result<(Fp, Fp), InvalidBigInt> {
+) -> anyhow::Result<(Fp, Fp)> {
     let ProtocolState {
         previous_state_hash,
         body,
@@ -499,7 +500,7 @@ mod floating_point {
             res
         }
 
-        pub fn constant(value: &BigInteger256, precision: usize) -> Result<Self, InvalidBigInt> {
+        pub fn constant(value: &BigInteger256, precision: usize) -> anyhow::Result<Self> {
             Ok(Self {
                 value: (*value).try_into()?,
                 precision,
@@ -714,7 +715,7 @@ mod vrf {
         message: Message,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) -> Result<(Fp, Box<crate::Account>), InvalidBigInt> {
+    ) -> anyhow::Result<(Fp, Box<crate::Account>)> {
         let private_key = prover_state.producer_private_key.to_field::<Fq>()?;
         let private_key = w.exists(field_to_bits::<Fq, 255>(private_key));
 
@@ -779,15 +780,12 @@ mod vrf {
         seed: Fp,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) -> Result<
-        (
-            Boolean,
-            Fp,
-            Box<[bool; VRF_OUTPUT_NBITS]>,
-            Box<crate::Account>,
-        ),
-        InvalidBigInt,
-    > {
+    ) -> anyhow::Result<(
+        Boolean,
+        Fp,
+        Box<[bool; VRF_OUTPUT_NBITS]>,
+        Box<crate::Account>,
+    )> {
         let (winner_addr, winner_addr_bits) = {
             const LEDGER_DEPTH: usize = 35;
             assert_eq!(constraint_constants().ledger_depth, LEDGER_DEPTH as u64);
@@ -1283,7 +1281,7 @@ pub mod consensus {
         supply_increase: CheckedSigned<Fp, CheckedAmount<Fp>>,
         prover_state: &v2::ConsensusStakeProofStableV2,
         w: &mut Witness<Fp>,
-    ) -> Result<(Boolean, CheckedConsensusState), InvalidBigInt> {
+    ) -> anyhow::Result<(Boolean, CheckedConsensusState)> {
         let previous_blockchain_state_ledger_hash = prev_state
             .body
             .blockchain_state
@@ -1535,7 +1533,7 @@ fn genesis_state_hash_checked(
     state_hash: Fp,
     state: &ProtocolState,
     w: &mut Witness<Fp>,
-) -> Result<Fp, InvalidBigInt> {
+) -> anyhow::Result<Fp> {
     let is_genesis = is_genesis_state_var(&state.body.consensus_state, w);
 
     Ok(w.exists_no_check(match is_genesis {
@@ -1608,7 +1606,7 @@ fn protocol_create_var(
 fn block_main<'a>(
     params: BlockMainParams<'a>,
     w: &mut Witness<Fp>,
-) -> Result<(Fp, [PreviousProofStatement<'a>; 2]), InvalidBigInt> {
+) -> anyhow::Result<(Fp, [PreviousProofStatement<'a>; 2])> {
     let BlockMainParams {
         transition,
         prev_state,
@@ -1835,7 +1833,7 @@ const BLOCK_N_PREVIOUS_PROOFS: usize = 2;
 pub(super) fn generate_block_proof(
     params: BlockParams,
     w: &mut Witness<Fp>,
-) -> Result<WrapProof, ProofError> {
+) -> anyhow::Result<WrapProof> {
     let BlockParams {
         input:
             v2::ProverExtendBlockchainInputStableV2 {
@@ -1855,7 +1853,7 @@ pub(super) fn generate_block_proof(
     } = params;
 
     let (txn_snark_statement, txn_snark_proof) =
-        ledger_proof_opt(ledger_proof.as_deref(), next_state)?;
+        ledger_proof_opt(ledger_proof.as_deref(), next_state).context("ledger_proof_opt")?;
     let prev_state_proof = &chain.proof;
 
     let (new_state_hash, previous_proof_statements) = block_main(
@@ -1870,10 +1868,12 @@ pub(super) fn generate_block_proof(
             pending_coinbase,
         },
         w,
-    )?;
+    )
+    .context("block_main")?;
 
     let prev_challenge_polynomial_commitments =
-        extract_recursion_challenges(&[prev_state_proof, &txn_snark_proof])?;
+        extract_recursion_challenges(&[prev_state_proof, &txn_snark_proof])
+            .context("extract_recursion_challenges")?;
 
     let rule = InductiveRule {
         previous_proof_statements,
@@ -1918,7 +1918,8 @@ pub(super) fn generate_block_proof(
             only_verify_constraints,
         },
         w,
-    )?;
+    )
+    .context("step")?;
 
     if let Some(expected) = expected_step_proof {
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
@@ -1943,4 +1944,5 @@ pub(super) fn generate_block_proof(
         },
         &mut w,
     )
+    .context("wrap")
 }

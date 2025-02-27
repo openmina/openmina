@@ -2,9 +2,7 @@ mod vrf_evaluator;
 
 use std::sync::Arc;
 
-use ledger::proofs::{
-    block::BlockParams, generate_block_proof, provers::BlockProver, transaction::ProofError,
-};
+use ledger::proofs::{block::BlockParams, generate_block_proof, provers::BlockProver};
 use mina_p2p_messages::{
     bigint::BigInt,
     binprot::{self, BinProtWrite},
@@ -95,11 +93,13 @@ fn prover_loop(
 ) {
     while let Some((provers, block_hash, mut input)) = rx.blocking_recv() {
         let res = prove(provers, &mut input, &keypair, false).map_err(|err| format!("{err:?}"));
-        if res.is_err() {
-            if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
+        if let Err(error) = &res {
+            openmina_core::error!(message = "Block proof failed", error = format!("{error}"));
+            if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input, error) {
                 openmina_core::error!(
-                        openmina_core::log::system_time();
-                        message = "Failure when dumping failed block proof inputs", error = format!("{error}"));
+                    message = "Failure when dumping failed block proof inputs",
+                    error = format!("{error}")
+                );
             }
         }
         let _ = event_sender.send(BlockProducerEvent::BlockProve(block_hash, res).into());
@@ -111,7 +111,7 @@ pub fn prove(
     input: &mut ProverExtendBlockchainInputStableV2,
     keypair: &AccountSecretKey,
     only_verify_constraints: bool,
-) -> Result<Arc<MinaBaseProofStableV2>, ProofError> {
+) -> anyhow::Result<Arc<MinaBaseProofStableV2>> {
     let height = input
         .next_state
         .body
@@ -171,6 +171,7 @@ impl node::service::BlockProducerService for crate::NodeService {
 fn dump_failed_block_proof_input(
     block_hash: StateHash,
     mut input: Box<ProverExtendBlockchainInputStableV2>,
+    error: &str,
 ) -> std::io::Result<()> {
     use rsa::Pkcs1v15Encrypt;
 
@@ -187,6 +188,7 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
     struct DumpBlockProof {
         input: Box<ProverExtendBlockchainInputStableV2>,
         key: Vec<u8>,
+        error: Vec<u8>,
     }
 
     let producer_private_key = {
@@ -213,6 +215,7 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
     let input = DumpBlockProof {
         input,
         key: encrypted_producer_private_key,
+        error: error.as_bytes().to_vec(),
     };
 
     let debug_dir = openmina_core::get_debug_dir();
