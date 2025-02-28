@@ -14,6 +14,7 @@ use redux::ActionWithMeta;
 use crate::{
     ledger::read::{LedgerReadAction, LedgerReadInitCallback, LedgerReadRequest},
     p2p_ready,
+    rpc::GetBlockQuery,
     rpc_effectful::RpcEffectfulAction,
     TransactionPoolAction,
 };
@@ -616,6 +617,26 @@ impl RpcState {
                 dispatcher.push(RpcEffectfulAction::TransactionStatusGet {
                     rpc_id: *rpc_id,
                     tx: tx.clone(),
+                });
+            }
+            RpcAction::BlockGet { rpc_id, query } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+
+                let find_fn = |block: &&AppliedBlock| match query {
+                    GetBlockQuery::Hash(hash) => block.hash() == hash,
+                    GetBlockQuery::Height(height) => block.height() == *height,
+                };
+
+                let block = state
+                    .transition_frontier
+                    .best_chain
+                    .iter()
+                    .find(find_fn)
+                    .cloned();
+
+                dispatcher.push(RpcEffectfulAction::BlockGet {
+                    rpc_id: *rpc_id,
+                    block,
                 });
             }
             RpcAction::P2pConnectionIncomingAnswerReady {

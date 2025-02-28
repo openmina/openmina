@@ -9,11 +9,11 @@ pub mod transition_frontier;
 
 use node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
-    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
-    RpcHeartbeatGetResponse, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
-    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest,
-    RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
-    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
+    RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcLedgerAccountsResponse,
+    RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
+    RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse,
+    RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
@@ -308,6 +308,7 @@ impl node::rpc_effectful::RpcService for NodeService {
         RpcConsensusConstantsGetResponse
     );
     rpc_service_impl!(respond_transaction_status, RpcTransactionStatusGetResponse);
+    rpc_service_impl!(respond_block_get, RpcGetBlockResponse);
 }
 
 #[cfg(test)]

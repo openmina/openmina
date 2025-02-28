@@ -118,6 +118,12 @@ pub struct GraphQLVerificationKey {
     pub hash: String,
 }
 
+#[derive(GraphQLObject, Debug)]
+/// Dummy type to represent [`GraphQLAccount`]
+pub struct GraphQLDummyAccount {
+    pub public_key: String,
+}
+
 impl From<ledger::SetVerificationKey<ledger::AuthRequired>> for GraphQLSetVerificationKey {
     fn from(value: ledger::SetVerificationKey<ledger::AuthRequired>) -> Self {
         Self {

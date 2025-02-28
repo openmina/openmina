@@ -149,6 +149,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     ) -> Box<dyn 'a + Iterator<Item = &'a v2::TransactionSnarkWorkTStableV2>> {
         self.body().completed_works_iter()
     }
+
+    pub fn block_stake_winner(&self) -> &v2::NonZeroCurvePoint {
+        block_stake_winner(self.header())
+    }
 }
 
 impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
@@ -226,6 +230,10 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
 
     pub fn staged_ledger_hashes(&self) -> &v2::MinaBaseStagedLedgerHashStableV1 {
         staged_ledger_hashes(self.header())
+    }
+
+    pub fn block_stake_winner(&self) -> &v2::NonZeroCurvePoint {
+        block_stake_winner(self.header())
     }
 }
 
@@ -317,4 +325,12 @@ fn staged_ledger_hashes(header: &BlockHeader) -> &v2::MinaBaseStagedLedgerHashSt
         .body
         .blockchain_state
         .staged_ledger_hash
+}
+
+fn block_stake_winner(header: &BlockHeader) -> &v2::NonZeroCurvePoint {
+    &header
+        .protocol_state
+        .body
+        .consensus_state
+        .block_stake_winner
 }

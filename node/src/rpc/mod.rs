@@ -85,6 +85,7 @@ pub enum RpcRequest {
     BestChain(MaxLength),
     ConsensusConstantsGet,
     TransactionStatusGet(MinaBaseUserCommandStableV2),
+    GetBlock(GetBlockQuery),
 }
 
 pub type MaxLength = u32;
@@ -606,6 +607,14 @@ pub type RpcReadinessCheckResponse = Result<(), String>;
 
 pub type RpcDiscoveryRoutingTableResponse = Option<discovery::RpcDiscoveryRoutingTable>;
 pub type RpcDiscoveryBoostrapStatsResponse = Option<P2pNetworkKadBootstrapStats>;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum GetBlockQuery {
+    Hash(StateHash),
+    Height(u32),
+}
+
+pub type RpcGetBlockResponse = Option<AppliedBlock>;
 
 pub mod discovery {
     use p2p::{
