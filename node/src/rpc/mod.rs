@@ -466,6 +466,7 @@ pub struct RpcNodeStatus {
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
+    pub previous_block_production_attempt: Option<BlockProductionAttempt>,
     pub peers: Vec<RpcPeerInfo>,
     pub resources_status: RpcNodeStatusResources,
 }
