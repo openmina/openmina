@@ -10,6 +10,9 @@ import {
 } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import { lastItem, ONE_BILLION } from '@openmina/shared';
 import { getElapsedTime } from '@shared/helpers/date.helper';
+import {
+  BlockProductionWonSlotsSlot
+} from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 
 @Injectable({
   providedIn: 'root',
@@ -52,9 +55,7 @@ export class SentryService {
       Sentry.captureMessage(`Ledger synced in ${getElapsedTime(syncedIn)}`, {
         level: 'info',
         tags: {
-          type: 'webnode', subType: 'sync.ledger', publicKey,
-          // duration is in seconds
-          duration: syncedIn
+          type: 'webnode', subType: 'sync.ledger', publicKey, duration: syncedIn
         },
         contexts: { ledger: syncDetails },
         fingerprint: this.fingerprint,
@@ -77,8 +78,7 @@ export class SentryService {
       Sentry.captureMessage(`Last 290 blocks synced in ${getElapsedTime(this.blockSyncedTime)}`, {
         level: 'info',
         tags: {
-          type: 'webnode', subType: 'sync.block', publicKey,
-          duration: this.blockSyncedTime
+          type: 'webnode', subType: 'sync.block', publicKey, duration: this.blockSyncedTime
         },
         contexts: { blocks: { bestTipBlock, root } },
         fingerprint: this.fingerprint,
@@ -89,8 +89,7 @@ export class SentryService {
         Sentry.captureMessage(`Web Node Synced in ${getElapsedTime(syncTotal)}`, {
           level: 'info',
           tags: {
-            type: 'webnode', subType: 'sync.total', publicKey,
-            duration: syncTotal
+            type: 'webnode', subType: 'sync.total', publicKey, duration: syncTotal
           },
           fingerprint: this.fingerprint,
         });
@@ -104,6 +103,21 @@ export class SentryService {
       tags: { type: 'webnode', subType: 'sync.peers', publicKey, duration: seconds },
       fingerprint: this.fingerprint,
     });
+  }
+
+  updateProducedBlock(block: BlockProductionWonSlotsSlot, publicKey: string): void {
+    // Sentry.captureMessage(`Block Produced - ` + block.height, {
+    //   level: 'info',
+    //   tags: { type: 'webnode', subType: 'block.production', publicKey },
+    //   fingerprint: this.fingerprint,
+    //   contexts: { block: { block } },
+    // });
+    console.log(`Block Produced ${block.status} - ` + block.height, {
+      level: 'info',
+      tags: { type: 'webnode', subType: 'block.production', publicKey },
+      fingerprint: this.fingerprint,
+      contexts: { block: { block } },
+    })
   }
 
   private get fingerprint(): string[] {

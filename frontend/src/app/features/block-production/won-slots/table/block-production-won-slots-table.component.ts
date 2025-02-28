@@ -10,6 +10,8 @@ import {
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
+import { SentryService } from '@core/services/sentry.service';
+import { WebNodeService } from '@core/services/web-node.service';
 
 @Component({
   selector: 'mina-block-production-won-slots-table',
@@ -47,13 +49,34 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
 
   private fromRoute: string;
 
-  constructor(private router: Router) { super(); }
+  constructor(private router: Router,
+              private sentryService: SentryService,
+              private webnodeService: WebNodeService) {
+    super();
+  }
+
+  currentlyProducing: BlockProductionWonSlotsSlot;
 
   override async ngOnInit(): Promise<void> {
     await super.ngOnInit();
     this.listenToRouteChange();
     this.listenToActiveSlotChange();
     this.listenToNodesChanges();
+
+
+    this.select(BlockProductionWonSlotsSelectors.filteredSlots, (slots: BlockProductionWonSlotsSlot[]) => {
+      const blockProductionWonSlotsSlot = slots.find(d => d.message.includes('Confirm') || d.message.includes('Producing'));
+
+      if (blockProductionWonSlotsSlot?.globalSlot !== this.currentlyProducing?.globalSlot) {
+        if (!blockProductionWonSlotsSlot?.globalSlot) {
+          const block = slots.find(d => d.globalSlot === this.currentlyProducing?.globalSlot);
+          this.sentryService.updateProducedBlock(block, this.webnodeService.publicKey);
+        }
+        this.currentlyProducing = blockProductionWonSlotsSlot;
+      }
+      this.detect();
+    }, filter((slots: BlockProductionWonSlotsSlot[]) => slots.length > 0));
+
   }
 
   protected override setupTable(): void {

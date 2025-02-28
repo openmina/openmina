@@ -51,7 +51,7 @@ export class WebNodeService {
   }
 
   get publicKey(): string {
-    return this.privateStake.publicKey;
+    return this.privateStake?.publicKey;
   }
 
   hasWebNodeConfig(): boolean {
