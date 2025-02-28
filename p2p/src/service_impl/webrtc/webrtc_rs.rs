@@ -54,7 +54,10 @@ pub enum RTCSignalingError {
 
 impl RTCConnection {
     pub async fn create(api: &Api, config: RTCConfig) -> Result<Self> {
-        api.new_peer_connection(config.into())
+        let mut configuration = RTCConfiguration::from(config);
+        // try default certificate, TODO(vlad): do it right
+        configuration.certificates.clear();
+        api.new_peer_connection(configuration)
             .await
             .map(|v| Self(v.into(), true))
     }
