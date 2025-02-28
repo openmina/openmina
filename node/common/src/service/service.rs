@@ -38,7 +38,7 @@ pub struct NodeService {
     pub event_sender: EventSender,
     pub event_receiver: EventReceiver,
 
-    pub snark_block_proof_verify: mpsc::UnboundedSender<SnarkBlockVerifyArgs>,
+    pub snark_block_proof_verify: mpsc::TrackedUnboundedSender<SnarkBlockVerifyArgs>,
 
     pub ledger_manager: LedgerManager,
     pub block_producer: Option<BlockProducerService>,
@@ -142,6 +142,26 @@ impl AsMut<NodeService> for NodeService {
 impl redux::Service for NodeService {}
 
 impl node::Service for NodeService {
+    fn queues(&mut self) -> node::service::Queues {
+        node::service::Queues {
+            events: self.event_receiver.len(),
+            snark_block_verify: self.snark_block_proof_verify.len(),
+            ledger: self.ledger_manager.pending_calls(),
+            vrf_evaluator: self
+                .block_producer
+                .as_ref()
+                .map(|v| v.vrf_pending_requests()),
+            block_prover: self
+                .block_producer
+                .as_ref()
+                .map(|v| v.prove_pending_requests()),
+            p2p_webrtc: self.p2p.webrtc.pending_cmds(),
+            #[cfg(feature = "p2p-libp2p")]
+            p2p_libp2p: self.p2p.mio.pending_cmds(),
+            rpc: self.rpc.req_receiver().len(),
+        }
+    }
+
     fn stats(&mut self) -> Option<&mut Stats> {
         self.stats()
     }

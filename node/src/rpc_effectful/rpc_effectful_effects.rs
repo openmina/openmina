@@ -845,6 +845,7 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             transition_frontier: state.transition_frontier.resources_usage(),
             snark_pool: state.snark_pool.resources_usage(),
         },
+        service_queues: store.service.queues(),
     };
     status
 }

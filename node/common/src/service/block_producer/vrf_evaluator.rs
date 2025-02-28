@@ -5,7 +5,7 @@ use node::{
         vrf_evaluator::{VrfEvaluationOutputWithHash, VrfEvaluatorInput},
         BlockProducerEvent,
     },
-    core::channels::mpsc::{UnboundedReceiver, UnboundedSender},
+    core::channels::mpsc::{TrackedUnboundedReceiver, UnboundedSender},
     event_source::Event,
 };
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
@@ -14,7 +14,7 @@ use crate::NodeService;
 
 pub fn vrf_evaluator(
     event_sender: UnboundedSender<Event>,
-    mut vrf_evaluation_receiver: UnboundedReceiver<VrfEvaluatorInput>,
+    mut vrf_evaluation_receiver: TrackedUnboundedReceiver<VrfEvaluatorInput>,
     keypair: Keypair,
 ) {
     while let Some(vrf_evaluator_input) = vrf_evaluation_receiver.blocking_recv() {
@@ -28,7 +28,7 @@ pub fn vrf_evaluator(
             global_slot,
             total_currency,
             staking_ledger_hash: _,
-        } = &vrf_evaluator_input;
+        } = &*vrf_evaluator_input;
 
         let vrf_result = delegator_table
             .iter()
@@ -73,7 +73,7 @@ impl node::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEv
 {
     fn evaluate(&mut self, data: VrfEvaluatorInput) {
         if let Some(bp) = self.block_producer.as_mut() {
-            let _ = bp.vrf_evaluation_sender.send(data);
+            let _ = bp.vrf_evaluation_sender.tracked_send(data);
         }
     }
 }

@@ -47,7 +47,7 @@ pub mod webrtc {
 
         fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event>;
 
-        fn cmd_sender(&self) -> &mpsc::UnboundedSender<Cmd>;
+        fn cmd_sender(&self) -> &mpsc::TrackedUnboundedSender<Cmd>;
 
         fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
