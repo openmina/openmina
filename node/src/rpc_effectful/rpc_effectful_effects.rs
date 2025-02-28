@@ -788,10 +788,20 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
         height: b.height(),
         global_slot: b.global_slot(),
     };
-    let current_block_production_attempt = store
+
+    let block_production_attempts = store
         .service
         .stats()
-        .and_then(|stats| Some(stats.block_producer().collect_attempts().last()?.clone()));
+        .map_or_else(Vec::new, |stats| stats.block_producer().collect_attempts());
+
+    let current_block_production_attempt = block_production_attempts.last().cloned();
+
+    let previous_block_production_attempt = block_production_attempts
+        .len()
+        .checked_sub(2)
+        .and_then(|idx| block_production_attempts.get(idx))
+        .cloned();
+
     let status = RpcNodeStatus {
         chain_id,
         transition_frontier: RpcNodeStatusTransitionFrontier {
@@ -835,6 +845,7 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             transaction_candidates: state.transaction_pool.candidates.transactions_count(),
         },
         current_block_production_attempt,
+        previous_block_production_attempt,
         resources_status: RpcNodeStatusResources {
             p2p_malloc_size: {
                 let mut set = BTreeSet::new();
