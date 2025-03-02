@@ -18,7 +18,9 @@ pub struct P2pReceiveMessage;
 
 impl P2pReceiveMessage {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let config = RustNodeTestingConfig::devnet_default().initial_peers(hosts::devnet());
+        let config = RustNodeTestingConfig::devnet_default()
+            .initial_peers(hosts::devnet())
+            .initial_time(redux::Timestamp::global_now());
 
         let retransmitter_openmina_node = runner.add_rust_node(config);
 

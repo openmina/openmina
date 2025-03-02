@@ -113,8 +113,14 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
                 .is_some(),
             TransactionPoolCandidateAction::Libp2pTransactionsReceived { .. } => true,
             TransactionPoolCandidateAction::VerifyNext => {
-                // TODO: if a block is being applied or produced, skip this action too
-                state.transition_frontier.sync.is_synced()
+                // Don't continue if we are producing a block, or we never synced yet
+                // or if the ledger service is busy.
+                !state.block_producer.is_producing()
+                    && state
+                        .transition_frontier
+                        .best_tip()
+                        .is_some_and(|b| !b.is_genesis())
+                    && !state.ledger.write.is_busy()
             }
             TransactionPoolCandidateAction::VerifyPending {
                 peer_id,
