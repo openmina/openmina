@@ -106,12 +106,21 @@ export class SentryService {
     });
   }
 
-  updateProducedBlock(block: BlockProductionAttempt, publicKey: string): void {
-    Sentry.captureMessage(`Block Produced (${block.status}) - ` + block.block?.height, {
+  updateProducedBlock(attempt: BlockProductionAttempt, publicKey: string): void {
+    const times = {
+      stagedLedgerDiffCreate: !attempt.times.staged_ledger_diff_create_end || !attempt.times.staged_ledger_diff_create_start
+        ? 0 : (attempt.times.staged_ledger_diff_create_end - attempt.times.staged_ledger_diff_create_start) / ONE_BILLION,
+      produced: !attempt.times.produced || !attempt.times.staged_ledger_diff_create_end
+        ? 0 : (attempt.times.produced - attempt.times.staged_ledger_diff_create_end) / ONE_BILLION,
+      proofCreate: !attempt.times.proof_create_end || !attempt.times.proof_create_start
+        ? 0 : (attempt.times.proof_create_end - attempt.times.proof_create_start) / ONE_BILLION,
+    };
+
+    Sentry.captureMessage(`Block Production Finished (${attempt.status}) - ` + attempt.block?.height, {
       level: 'info',
-      tags: { type: 'webnode', subType: 'block.production', publicKey },
+      tags: { type: 'webnode', subType: 'block.production', publicKey, duration: times.stagedLedgerDiffCreate + times.produced + times.proofCreate },
       fingerprint: this.fingerprint,
-      contexts: { block: { block } },
+      contexts: { block: { block: { ...attempt } } },
     });
   }
 
