@@ -236,9 +236,9 @@ impl LedgerRequest {
                     }
                     LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash, account_query) => {
                         let res = match &account_query {
+                            AccountQuery::All => ledger_ctx.get_accounts_for_rpc(ledger_hash, None),
                             AccountQuery::SinglePublicKey(public_key) => ledger_ctx
                                 .get_accounts_for_rpc(ledger_hash, Some(public_key.clone())),
-                            AccountQuery::All => ledger_ctx.get_accounts_for_rpc(ledger_hash, None),
                             AccountQuery::PubKeyWithTokenId(public_key, token_id_key_hash) => {
                                 let id = AccountId {
                                     public_key: public_key.clone().try_into().unwrap(),

@@ -639,9 +639,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             accounts,
             account_query,
         } => {
+            // Is this todo still relevant?
             // TODO(adonagy): maybe something more effective?
             match account_query {
-                AccountQuery::SinglePublicKey(_pk) => todo!(),
                 // all the accounts for the FE in Slim form
                 AccountQuery::All => {
                     let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
@@ -683,7 +683,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     )
                 }
                 // for the graphql endpoint
-                AccountQuery::PubKeyWithTokenId(..) => {
+                AccountQuery::SinglePublicKey(..) | AccountQuery::PubKeyWithTokenId(..) => {
                     respond_or_log!(
                         store.service().respond_ledger_accounts(rpc_id, accounts),
                         meta.time()
