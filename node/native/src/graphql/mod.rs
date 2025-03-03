@@ -19,11 +19,13 @@ use openmina_core::consensus::ConsensusConstants;
 use openmina_core::constants::constraint_constants;
 use openmina_node_common::rpc::RpcSender;
 use std::str::FromStr;
+use transaction::GraphQLTransactionStatus;
 use warp::{Filter, Rejection, Reply};
 
 pub mod account;
 pub mod block;
 pub mod constants;
+pub mod transaction;
 pub mod zkapp;
 
 #[derive(Debug, thiserror::Error)]
@@ -236,7 +238,7 @@ impl Query {
         payment: Option<String>,
         zkapp_transaction: Option<String>,
         context: &Context,
-    ) -> juniper::FieldResult<String> {
+    ) -> juniper::FieldResult<GraphQLTransactionStatus> {
         if payment.is_some() && zkapp_transaction.is_some() {
             return Err(Error::Custom(
                 "Cannot provide both payment and zkapp transaction".to_string(),
@@ -263,7 +265,8 @@ impl Query {
             .oneshot_request(RpcRequest::TransactionStatusGet(tx))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
-        Ok(res.to_string())
+
+        Ok(GraphQLTransactionStatus::from(res))
     }
 
     /// Retrieve a block with the given state hash or height, if contained in the transition frontier
