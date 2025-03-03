@@ -94,18 +94,21 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                         }
                     }
 
-                    match addresses.pop() {
-                        Some((address, expected_hash)) => {
-                            dispatcher.push(
-                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
-                                    peer_id,
-                                    expected_hash,
-                                    address,
-                                },
-                            );
+                    if let Some((address, expected_hash)) = addresses.last().cloned() {
+                        if dispatcher.push_if_enabled(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
+                                peer_id,
+                                expected_hash,
+                                address,
+                            },
+                            global_state,
+                            meta.time(),
+                        ) {
+                            addresses.pop();
+                            continue;
                         }
-                        None if retry_addresses.is_empty() => break,
-                        None => {}
+                    } else if retry_addresses.is_empty() {
+                        break;
                     }
                 }
             }
