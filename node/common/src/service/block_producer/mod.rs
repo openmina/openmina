@@ -2,7 +2,10 @@ mod vrf_evaluator;
 
 use std::sync::Arc;
 
-use ledger::proofs::{block::BlockParams, generate_block_proof, provers::BlockProver};
+use ledger::proofs::{
+    block::BlockParams, generate_block_proof, provers::BlockProver,
+    transaction::debug::KimchiProofError,
+};
 use mina_p2p_messages::{
     bigint::BigInt,
     binprot::{self, BinProtWrite},
@@ -101,7 +104,7 @@ fn prover_loop(
 ) {
     while let Some(msg) = rx.blocking_recv() {
         let (provers, block_hash, mut input) = msg.0;
-        let res = prove(provers, &mut input, &keypair, false).map_err(|err| format!("{err:?}"));
+        let res = prove(provers, &mut input, &keypair, false);
         if let Err(error) = &res {
             openmina_core::error!(message = "Block proof failed", error = format!("{error}"));
             if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input, error) {
@@ -111,6 +114,7 @@ fn prover_loop(
                 );
             }
         }
+        let res = res.map_err(|err| err.to_string());
         let _ = event_sender.send(BlockProducerEvent::BlockProve(block_hash, res).into());
     }
 }
@@ -180,8 +184,9 @@ impl node::service::BlockProducerService for crate::NodeService {
 fn dump_failed_block_proof_input(
     block_hash: StateHash,
     mut input: Box<ProverExtendBlockchainInputStableV2>,
-    error: &str,
+    error: &anyhow::Error,
 ) -> std::io::Result<()> {
+    use ledger::proofs::transaction::ProofError;
     use rsa::Pkcs1v15Encrypt;
 
     const PUBLIC_KEY: &str = "-----BEGIN RSA PUBLIC KEY-----
@@ -198,6 +203,7 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
         input: Box<ProverExtendBlockchainInputStableV2>,
         key: Vec<u8>,
         error: Vec<u8>,
+        kimchi_error_with_context: Option<KimchiProofError>,
     }
 
     let producer_private_key = {
@@ -221,10 +227,16 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
     // IMPORTANT: Make sure that `input` doesn't leak the private key.
     input.prover_state.producer_private_key = v2::SignatureLibPrivateKeyStableV1(BigInt::one());
 
+    let error_str = error.to_string();
+
     let input = DumpBlockProof {
         input,
         key: encrypted_producer_private_key,
-        error: error.as_bytes().to_vec(),
+        error: error_str.as_bytes().to_vec(),
+        kimchi_error_with_context: match error.downcast_ref::<ProofError>() {
+            Some(ProofError::ProvingErrorWithContext(context)) => Some(context.clone()),
+            _ => None,
+        },
     };
 
     let debug_dir = openmina_core::get_debug_dir();
