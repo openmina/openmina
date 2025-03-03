@@ -241,7 +241,7 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?rev=aea157a#aea157a8e81ddc9f16bae5123b5dda169e3842c9"
+source = "git+https://github.com/openmina/algebra?rev=150ab8d#150ab8d4cf4918f256580c0d17249ddf11e20aeb"
 dependencies = [
  "ark-ff",
  "ark-serialize 0.3.0",
@@ -255,7 +255,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?rev=aea157a#aea157a8e81ddc9f16bae5123b5dda169e3842c9"
+source = "git+https://github.com/openmina/algebra?rev=150ab8d#150ab8d4cf4918f256580c0d17249ddf11e20aeb"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
@@ -273,7 +273,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?rev=aea157a#aea157a8e81ddc9f16bae5123b5dda169e3842c9"
+source = "git+https://github.com/openmina/algebra?rev=150ab8d#150ab8d4cf4918f256580c0d17249ddf11e20aeb"
 dependencies = [
  "quote 1.0.35",
  "syn 1.0.109",
@@ -282,7 +282,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?rev=aea157a#aea157a8e81ddc9f16bae5123b5dda169e3842c9"
+source = "git+https://github.com/openmina/algebra?rev=150ab8d#150ab8d4cf4918f256580c0d17249ddf11e20aeb"
 dependencies = [
  "num-bigint",
  "num-traits",
@@ -293,7 +293,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?rev=aea157a#aea157a8e81ddc9f16bae5123b5dda169e3842c9"
+source = "git+https://github.com/openmina/algebra?rev=150ab8d#150ab8d4cf4918f256580c0d17249ddf11e20aeb"
 dependencies = [
  "ark-ff",
  "ark-serialize 0.3.0",
@@ -306,7 +306,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?rev=aea157a#aea157a8e81ddc9f16bae5123b5dda169e3842c9"
+source = "git+https://github.com/openmina/algebra?rev=150ab8d#150ab8d4cf4918f256580c0d17249ddf11e20aeb"
 dependencies = [
  "ark-serialize-derive",
  "ark-std 0.3.0",
@@ -327,7 +327,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.3.0"
-source = "git+https://github.com/openmina/algebra?rev=aea157a#aea157a8e81ddc9f16bae5123b5dda169e3842c9"
+source = "git+https://github.com/openmina/algebra?rev=150ab8d#150ab8d4cf4918f256580c0d17249ddf11e20aeb"
 dependencies = [
  "proc-macro2 1.0.93",
  "quote 1.0.35",
@@ -3289,7 +3289,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4054,7 +4054,7 @@ dependencies = [
 [[package]]
 name = "internal-tracing"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 
 [[package]]
 name = "io-lifetimes"
@@ -4233,7 +4233,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4316,7 +4316,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -4919,7 +4919,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -4928,7 +4928,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ff",
  "bitvec",
@@ -4983,7 +4983,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5000,7 +5000,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -5644,7 +5644,7 @@ dependencies = [
 [[package]]
 name = "o1-utils"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -6610,7 +6610,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -9571,7 +9571,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.1.0"
-source = "git+https://github.com/openmina/proof-systems?rev=e5552e2#e5552e255f674ca5ea9df58745ba1e126e2a7924"
+source = "git+https://github.com/openmina/proof-systems?rev=f461b4b#f461b4bf65fe9677f81033ed7c3c4f997caea3fe"
 dependencies = [
  "ark-ff",
  "hex",
