@@ -13,6 +13,7 @@ import { getElapsedTime } from '@shared/helpers/date.helper';
 import {
   BlockProductionWonSlotsSlot
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import { BlockProductionAttempt } from '@app/app.service';
 
 @Injectable({
   providedIn: 'root',
@@ -105,19 +106,13 @@ export class SentryService {
     });
   }
 
-  updateProducedBlock(block: BlockProductionWonSlotsSlot, publicKey: string): void {
-    // Sentry.captureMessage(`Block Produced - ` + block.height, {
-    //   level: 'info',
-    //   tags: { type: 'webnode', subType: 'block.production', publicKey },
-    //   fingerprint: this.fingerprint,
-    //   contexts: { block: { block } },
-    // });
-    console.log(`Block Produced ${block.status} - ` + block.height, {
+  updateProducedBlock(block: BlockProductionAttempt, publicKey: string): void {
+    Sentry.captureMessage(`Block Produced (${block.status}) - ` + block.block?.height, {
       level: 'info',
       tags: { type: 'webnode', subType: 'block.production', publicKey },
       fingerprint: this.fingerprint,
       contexts: { block: { block } },
-    })
+    });
   }
 
   private get fingerprint(): string[] {
