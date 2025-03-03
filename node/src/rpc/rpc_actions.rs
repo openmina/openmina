@@ -213,8 +213,8 @@ pub enum RpcAction {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AccountQuery {
-    SinglePublicKey(AccountPublicKey),
     All,
+    SinglePublicKey(AccountPublicKey),
     PubKeyWithTokenId(AccountPublicKey, TokenIdKeyHash),
 }
 

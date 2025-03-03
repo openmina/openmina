@@ -146,16 +146,20 @@ struct Query;
 impl Query {
     async fn account(
         public_key: String,
-        token: String,
+        token: Option<String>,
         context: &Context,
     ) -> juniper::FieldResult<account::GraphQLAccount> {
-        let token_id = TokenIdKeyHash::from_str(&token)?;
         let public_key = AccountPublicKey::from_str(&public_key)?;
+        let req = match token {
+            None => AccountQuery::SinglePublicKey(public_key),
+            Some(token) => {
+                let token_id = TokenIdKeyHash::from_str(&token)?;
+                AccountQuery::PubKeyWithTokenId(public_key, token_id)
+            }
+        };
         let accounts: Vec<Account> = context
             .0
-            .oneshot_request(RpcRequest::LedgerAccountsGet(
-                AccountQuery::PubKeyWithTokenId(public_key, token_id),
-            ))
+            .oneshot_request(RpcRequest::LedgerAccountsGet(req))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
 
