@@ -3914,6 +3914,8 @@ fn get_rng() -> rand::rngs::OsRng {
 pub enum ProofError {
     #[error("kimchi error: {0:?}")]
     ProvingError(#[from] kimchi::error::ProverError),
+    #[error("kimchi error with context: {0:?}")]
+    ProvingErrorWithContext(#[from] debug::KimchiProofError),
     #[error("constraint not satisfield: {0}")]
     ConstraintsNotSatisfied(String),
     #[error("invalid bigint")]
@@ -3959,12 +3961,11 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     let prover_index: &ProverIndex<F> = &prover.index;
 
     // public input
-    let public_input = computed_witness[0][0..prover_index.cs.public].to_vec();
+    let public_input = computed_witness[0][..prover_index.cs.public].to_vec();
 
     if only_verify_constraints {
-        let public = &computed_witness[0][0..prover_index.cs.public];
         prover_index
-            .verify(&computed_witness, public)
+            .verify(&computed_witness, &public_input)
             .map_err(|e| {
                 ProofError::ConstraintsNotSatisfied(format!("incorrect witness: {:?}", e))
             })?;
@@ -3984,10 +3985,38 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         computed_witness,
         &[],
         prover_index,
-        prev_challenges,
+        prev_challenges.clone(),
         None,
         &mut rng,
     )
+    .map_err(|e| {
+        use kimchi::groupmap::GroupMap;
+
+        let prev_challenges_hash = debug::hash_prev_challenge::<F>(&prev_challenges);
+        let witness_primary_hash = debug::hash_slice(&w.primary);
+        let witness_aux_hash = debug::hash_slice(w.aux());
+        let group_map_hash = debug::hash_slice(&group_map.composition());
+
+        dbg!(
+            &prev_challenges_hash,
+            &witness_primary_hash,
+            &witness_aux_hash,
+            &group_map_hash
+        );
+
+        let context = debug::KimchiProofError {
+            inner_error: e.to_string(),
+            witness_primary: w.primary.iter().map(|f| (*f).into()).collect(),
+            witness_aux: w.aux().iter().map(|f| (*f).into()).collect(),
+            // prev_challenges,
+            witness_primary_hash,
+            witness_aux_hash,
+            prev_challenges_hash,
+            group_map_hash,
+        };
+
+        ProofError::ProvingErrorWithContext(context)
+    })
     .context("create_recursive")?;
 
     eprintln!("proof_elapsed={:?}", now.elapsed());
@@ -3996,6 +4025,157 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         proof,
         public_input,
     })
+}
+
+pub mod debug {
+    use super::*;
+
+    use mina_p2p_messages::bigint::BigInt;
+    use mina_p2p_messages::binprot;
+    use sha2::Digest;
+
+    fn hash_field<F: FieldWitness>(state: &mut sha2::Sha256, f: &F) {
+        for limb in f.montgomery_form_ref() {
+            state.update(limb.to_le_bytes());
+        }
+    }
+
+    fn hash_field_slice<F: FieldWitness>(state: &mut sha2::Sha256, slice: &[F]) {
+        state.update(slice.len().to_le_bytes());
+        for f in slice.iter().flat_map(|f| f.montgomery_form_ref()) {
+            state.update(f.to_le_bytes());
+        }
+    }
+
+    pub(super) fn hash_slice<F: FieldWitness>(slice: &[F]) -> String {
+        let mut hasher = sha2::Sha256::new();
+        hash_field_slice(&mut hasher, slice);
+        hex::encode(hasher.finalize())
+    }
+
+    pub(super) fn hash_prev_challenge<F: FieldWitness>(
+        prevs: &[RecursionChallenge<F::OtherCurve>],
+    ) -> String {
+        use poly_commitment::commitment::CommitmentCurve;
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        for RecursionChallenge { chals, comm } in prevs {
+            hash_field_slice(&mut hasher, chals);
+            let poly_commitment::PolyComm { elems } = comm;
+            for elem in elems {
+                match elem.to_coordinates() {
+                    None => {
+                        hasher.update([0]);
+                    }
+                    Some((c1, c2)) => {
+                        hasher.update([1]);
+                        hash_field(&mut hasher, &c1);
+                        hash_field(&mut hasher, &c2);
+                    }
+                }
+            }
+        }
+        hex::encode(hasher.finalize())
+    }
+
+    #[derive(Clone)]
+    pub struct KimchiProofError {
+        pub inner_error: String,
+        pub witness_primary: Vec<BigInt>,
+        pub witness_aux: Vec<BigInt>,
+        // pub prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
+        // Store hashes in case there is a de/serialization bug
+        pub witness_primary_hash: String,
+        pub witness_aux_hash: String,
+        pub prev_challenges_hash: String,
+        pub group_map_hash: String,
+    }
+
+    // Manual implementation because String does not implement binprot traits (because unbounded)
+    impl binprot::BinProtWrite for KimchiProofError {
+        fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+            let Self {
+                inner_error,
+                witness_primary,
+                witness_aux,
+                witness_primary_hash,
+                witness_aux_hash,
+                prev_challenges_hash,
+                group_map_hash,
+            } = self;
+            let inner_error: &[u8] = inner_error.as_bytes();
+            let witness_primary_hash: &[u8] = witness_primary_hash.as_bytes();
+            let witness_aux_hash: &[u8] = witness_aux_hash.as_bytes();
+            let prev_challenges_hash: &[u8] = prev_challenges_hash.as_bytes();
+            let group_map_hash: &[u8] = group_map_hash.as_bytes();
+            binprot::BinProtWrite::binprot_write(&inner_error, w)?;
+            binprot::BinProtWrite::binprot_write(witness_primary, w)?;
+            binprot::BinProtWrite::binprot_write(witness_aux, w)?;
+            binprot::BinProtWrite::binprot_write(&witness_primary_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&witness_aux_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&prev_challenges_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&group_map_hash, w)?;
+            Ok(())
+        }
+    }
+    // Manual implementation because String does not implement binprot traits (because unbounded)
+    impl binprot::BinProtRead for KimchiProofError {
+        fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+        where
+            Self: Sized,
+        {
+            let to_string = |bytes: Vec<u8>| -> String { String::from_utf8(bytes).unwrap() };
+            let inner_error: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_primary: Vec<BigInt> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_aux: Vec<BigInt> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_primary_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_aux_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let prev_challenges_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let group_map_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            Ok(Self {
+                inner_error: to_string(inner_error),
+                witness_primary,
+                witness_aux,
+                witness_primary_hash: to_string(witness_primary_hash),
+                witness_aux_hash: to_string(witness_aux_hash),
+                prev_challenges_hash: to_string(prev_challenges_hash),
+                group_map_hash: to_string(group_map_hash),
+            })
+        }
+    }
+
+    impl core::fmt::Display for KimchiProofError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_fmt(format_args!("{:?}", self))
+        }
+    }
+
+    impl std::error::Error for KimchiProofError {}
+
+    impl core::fmt::Debug for KimchiProofError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let Self {
+                inner_error,
+                witness_primary,
+                witness_aux,
+                witness_primary_hash,
+                witness_aux_hash,
+                prev_challenges_hash,
+                group_map_hash,
+            } = self;
+
+            // Print witness lengths, not the whole vectors
+            f.debug_struct("KimchiProofError")
+                .field("inner_error", inner_error)
+                .field("witness_primary", &witness_primary.len())
+                .field("witness_aux", &witness_aux.len())
+                .field("witness_primary_hash", &witness_primary_hash)
+                .field("witness_aux_hash", &witness_aux_hash)
+                .field("prev_challenges_hash", &prev_challenges_hash)
+                .field("group_map_hash", &group_map_hash)
+                .finish()
+        }
+    }
 }
 
 #[derive(Clone)]

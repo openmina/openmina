@@ -50,14 +50,14 @@ mina-p2p-messages = { path = "mina-p2p-messages" }
 poseidon = { path = "poseidon" }
 ledger = { path = "ledger", package = "mina-tree" }
 
-mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
-mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
-mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
-# UNCOMMENTED_IN_CI mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2", features = [ "32x9" ] }
-o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
-kimchi = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
-mina-poseidon = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
-poly-commitment = { git = "https://github.com/openmina/proof-systems", rev = "e5552e2" }
+mina-hasher = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b" }
+mina-signer = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b" }
+mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b" }
+# UNCOMMENTED_IN_CI mina-curves = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b", features = [ "32x9" ] }
+o1-utils = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b" }
+kimchi = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b" }
+mina-poseidon = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b" }
+poly-commitment = { git = "https://github.com/openmina/proof-systems", rev = "f461b4b" }
 
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "5c44c7d9", default-features = false }
 vrf = { path = "vrf" }
@@ -92,10 +92,10 @@ incremental = false
 codegen-units = 1
 
 [patch.crates-io]
-ark-ff = { git = "https://github.com/openmina/algebra", rev = "aea157a" }        # branch: fix-openmina-webnode
-ark-ec = { git = "https://github.com/openmina/algebra", rev = "aea157a" }        # branch: fix-openmina-webnode
-ark-poly = { git = "https://github.com/openmina/algebra", rev = "aea157a" }      # branch: fix-openmina-webnode
-ark-serialize = { git = "https://github.com/openmina/algebra", rev = "aea157a" } # branch: fix-openmina-webnode
+ark-ff = { git = "https://github.com/openmina/algebra", rev = "150ab8d" }        # branch: fix-openmina-webnode
+ark-ec = { git = "https://github.com/openmina/algebra", rev = "150ab8d" }        # branch: fix-openmina-webnode
+ark-poly = { git = "https://github.com/openmina/algebra", rev = "150ab8d" }      # branch: fix-openmina-webnode
+ark-serialize = { git = "https://github.com/openmina/algebra", rev = "150ab8d" } # branch: fix-openmina-webnode
 
 num-bigint = { git = "https://github.com/openmina/num-bigint", rev = "8bb5ee4" }     # branch: on-stack
 num-rational = { git = "https://github.com/openmina/num-rational", rev = "336f11d" } # branch: on-stack
