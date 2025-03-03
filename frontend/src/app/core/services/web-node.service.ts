@@ -130,7 +130,6 @@ export class WebNodeService {
               }
             })();
             console.log('webnode config:', !!this.webNodeKeyPair.privateKey, this.webNodeNetwork, urls);
-            console.log(this.privateStake);
             let privateKey = this.privateStake ? [this.privateStake.stake, this.privateStake.password] : this.webNodeKeyPair.privateKey;
             if (this.noBlockProduction) {
               privateKey = null;

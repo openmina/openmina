@@ -9,7 +9,7 @@
     "logs": "firebase functions:log",
     "test": "jest",
     "test:watch": "jest --watch",
-    "build": "node build.js && tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node build.js",
     "build:watch": "tsc --watch"
   },
   "engines": {
