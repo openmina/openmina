@@ -64,18 +64,18 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
     this.listenToNodesChanges();
 
 
-    this.select(BlockProductionWonSlotsSelectors.filteredSlots, (slots: BlockProductionWonSlotsSlot[]) => {
-      const blockProductionWonSlotsSlot = slots.find(d => d.message.includes('Confirm') || d.message.includes('Producing'));
-
-      if (blockProductionWonSlotsSlot?.globalSlot !== this.currentlyProducing?.globalSlot) {
-        if (!blockProductionWonSlotsSlot?.globalSlot) {
-          const block = slots.find(d => d.globalSlot === this.currentlyProducing?.globalSlot);
-          this.sentryService.updateProducedBlock(block, this.webnodeService.publicKey);
-        }
-        this.currentlyProducing = blockProductionWonSlotsSlot;
-      }
-      this.detect();
-    }, filter((slots: BlockProductionWonSlotsSlot[]) => slots.length > 0));
+    // this.select(BlockProductionWonSlotsSelectors.filteredSlots, (slots: BlockProductionWonSlotsSlot[]) => {
+    //   const blockProductionWonSlotsSlot = slots.find(d => d.message.includes('Confirm') || d.message.includes('Producing'));
+    //
+    //   if (blockProductionWonSlotsSlot?.globalSlot !== this.currentlyProducing?.globalSlot) {
+    //     if (!blockProductionWonSlotsSlot?.globalSlot) {
+    //       const block = slots.find(d => d.globalSlot === this.currentlyProducing?.globalSlot);
+    //       this.sentryService.updateProducedBlock(block, this.webnodeService.publicKey);
+    //     }
+    //     this.currentlyProducing = blockProductionWonSlotsSlot;
+    //   }
+    //   this.detect();
+    // }, filter((slots: BlockProductionWonSlotsSlot[]) => slots.length > 0));
 
   }
 
