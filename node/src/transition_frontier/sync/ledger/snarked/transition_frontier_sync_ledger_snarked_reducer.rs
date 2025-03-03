@@ -6,6 +6,7 @@ use p2p::{
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     PeerId,
 };
+use rand::prelude::*;
 
 use crate::{
     ledger::{
@@ -54,7 +55,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     .filter(|(_, p)| p.channels.rpc.can_send_request())
                     .map(|(id, p)| (*id, p.connected_since))
                     .collect::<Vec<_>>();
-                peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
+                peer_ids.shuffle(&mut global_state.pseudo_rng());
 
                 if is_num_accounts_pending {
                     for (peer_id, _) in peer_ids {
