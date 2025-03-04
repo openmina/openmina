@@ -242,55 +242,58 @@ async fn batch_insert_produced_blocks(pool: &SqlitePool, blocks: &[ProducedBlock
     Ok(())
 }
 
-/// Marks heartbeat presence entries as outdated (disabled) based on global slot comparisons.
+/// Marks heartbeat presence entries as outdated (disabled) based on block height comparisons.
 ///
 /// This function performs the following steps:
-/// 1. Finds the maximum global slot for each window (considering only non-disabled entries).
-/// 2. Identifies the previous window's maximum global slot for each window.
-/// 3. Marks a presence entry as disabled if its global slot is less than:
-///    - The maximum global slot of the previous window (if it exists).
+/// 1. Finds the maximum block height for each window (considering only non-disabled entries).
+/// 2. Identifies the previous window's maximum block height for each window.
+/// 3. Marks a presence entry as disabled if its block height is less than:
+///    - The maximum block height of the previous window minus a tolerance of $HEIGHT_TOLERANCE blocks (if it exists).
 ///
-/// This approach allows for a full window of tolerance in synchronization:
-/// - Entries matching or exceeding the previous window's max slot are considered up-to-date.
-/// - This allows for slight delays in propagation between windows.
+/// This approach allows for a reasonable tolerance in synchronization:
+/// - Entries matching or exceeding the previous window's max height - $HEIGHT_TOLERANCE are considered up-to-date.
+/// - This allows for slight delays in block propagation between windows.
 ///
 /// Note: The first window in the sequence will not have any entries marked as disabled,
 /// as there is no previous window to compare against.
 ///
 /// Returns the number of presence entries marked as disabled.
 async fn mark_outdated_presence(pool: &SqlitePool) -> Result<usize> {
+    const HEIGHT_TOLERANCE: i64 = 5;
+
     let affected = sqlx::query!(
         r#"
-        WITH MaxSlots AS (
+        WITH MaxHeights AS (
             SELECT
                 window_id,
-                MAX(best_tip_global_slot) as max_slot
+                MAX(best_tip_height) as max_height
             FROM heartbeat_presence
             WHERE disabled = FALSE
             GROUP BY window_id
         ),
-        PrevMaxSlots AS (
-            -- Get the max slot from the immediate previous window
+        PrevMaxHeights AS (
+            -- Get the max height from the immediate previous window
             SELECT
                 tw.id as window_id,
-                prev.max_slot as prev_max_slot
+                prev.max_height as prev_max_height
             FROM time_windows tw
             LEFT JOIN time_windows prev_tw ON prev_tw.id = tw.id - 1
-            LEFT JOIN MaxSlots prev ON prev.window_id = prev_tw.id
+            LEFT JOIN MaxHeights prev ON prev.window_id = prev_tw.id
         )
         UPDATE heartbeat_presence
         SET disabled = TRUE
-        WHERE (window_id, best_tip_global_slot) IN (
+        WHERE (window_id, best_tip_height) IN (
             SELECT
                 hp.window_id,
-                hp.best_tip_global_slot
+                hp.best_tip_height
             FROM heartbeat_presence hp
-            JOIN PrevMaxSlots pms ON pms.window_id = hp.window_id
+            JOIN PrevMaxHeights pmh ON pmh.window_id = hp.window_id
             WHERE hp.disabled = FALSE
-            AND pms.prev_max_slot IS NOT NULL  -- Ensure there is a previous window
-            AND hp.best_tip_global_slot < pms.prev_max_slot  -- Less than previous window max
+            AND pmh.prev_max_height IS NOT NULL  -- Ensure there is a previous window
+            AND hp.best_tip_height < (pmh.prev_max_height - ?)
         )
-        "#
+        "#,
+        HEIGHT_TOLERANCE
     )
     .execute(pool)
     .await?;
