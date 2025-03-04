@@ -128,12 +128,10 @@ export class SentryService {
     return Object.keys(obj).reduce((acc: Record<string, any>, key: string) => {
       const prefixedKey = prefix ? `${prefix}.${key}` : key;
 
-      // If value is an object and not null/array, recursively flatten it
       if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
         const nestedObj = this.flattenObject(obj[key], prefixedKey);
         Object.assign(acc, nestedObj);
       } else {
-        // Otherwise add the value directly with the prefixed key
         acc[prefixedKey] = obj[key];
       }
 
