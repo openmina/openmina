@@ -5,7 +5,7 @@ use std::str::FromStr;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
-use ledger::scan_state::transaction_logic::{self, signed_command, valid, Memo};
+use ledger::scan_state::transaction_logic::{signed_command, valid, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
 use mina_p2p_messages::bigint::BigInt;
