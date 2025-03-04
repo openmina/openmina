@@ -27,12 +27,13 @@ export class FirestoreService {
 
   addHeartbeat(data: any): Observable<any> {
     console.log('Posting to cloud function:', data);
-    return this.http.post(this.cloudFunctionUrl, { data }).pipe(
-      catchError(error => {
-        console.error('Error while posting to cloud function:', error);
-        return of(null);
-      }),
-    );
+    return this.http.post(this.cloudFunctionUrl, { data })
+    //   .pipe(
+    //   catchError(error => {
+    //     console.error('Error while posting to cloud function:', error);
+    //     return of(null);
+    //   }),
+    // );
   }
 
   updateHeartbeat(id: string, data: any): Promise<void> {

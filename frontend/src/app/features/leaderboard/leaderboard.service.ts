@@ -1,10 +1,10 @@
-import {Injectable, Optional} from '@angular/core';
-import {combineLatest, map, Observable} from 'rxjs';
-import {HeartbeatSummary} from '@shared/types/leaderboard/heartbeat-summary.type';
-import {collection, collectionData, CollectionReference, Firestore, getDocs} from '@angular/fire/firestore';
-import {WebNodeService} from '@core/services/web-node.service';
-import {getElapsedTimeInMinsAndHours} from '@shared/helpers/date.helper';
-import {ONE_THOUSAND, toReadableDate} from '@openmina/shared';
+import { Injectable, Optional } from '@angular/core';
+import { combineLatest, map, Observable } from 'rxjs';
+import { HeartbeatSummary } from '@shared/types/leaderboard/heartbeat-summary.type';
+import { collection, collectionData, CollectionReference, Firestore, getDocs } from '@angular/fire/firestore';
+import { WebNodeService } from '@core/services/web-node.service';
+import { getElapsedTimeInMinsAndHours } from '@shared/helpers/date.helper';
+import { ONE_THOUSAND, toReadableDate } from '@openmina/shared';
 
 @Injectable({
   providedIn: 'root',
@@ -30,41 +30,11 @@ export class LeaderboardService {
       collectionData(this.maxScoreCollection, { idField: 'id' }),
     ]).pipe(
       map(([scores, maxScore]) => {
-        this.maxScoreRightNow = maxScore.find(c => c.id === 'current')['value'];
-        // scores = [
-        //   {
-        //     publicKey: "key1",
-        //     blocksProduced: 15,
-        //     lastHeartbeat: Date.now() - 10000,
-        //     score: 100
-        //   },
-        //   {
-        //     publicKey: "key2",
-        //     blocksProduced: 20,
-        //     lastHeartbeat: Date.now() - 5000,
-        //     score: 95
-        //   },
-        //   {
-        //     publicKey: "key3",
-        //     blocksProduced: 25,
-        //     lastHeartbeat: Date.now() - 15000,
-        //     score: 110
-        //   },
-        //   {
-        //     publicKey: "key4",
-        //     blocksProduced: 30,
-        //     lastHeartbeat: Date.now() - 2000,
-        //     score: 120
-        //   },
-        //   {
-        //     publicKey: "key5",
-        //     blocksProduced: 18,
-        //     lastHeartbeat: Date.now() - 8000,
-        //     score: 98
-        //   },
-        // ];
+        // this.printHeartbeats(scores);
+        const maxScoreNow: any = maxScore.find(c => c.id === 'current');
+        this.maxScoreRightNow = maxScoreNow ? maxScoreNow['value'] : 0;
         const items = scores.map(score => {
-          const isWhale = score['publicKey'].includes('key1') || score['publicKey'].includes('key2');
+          const isWhale = score['publicKey'].includes('B62qkiqPXFDayJV8JutYvjerERZ35EKrdmdcXh3j1rDUHRs1bJkFFcX') || score['publicKey'].includes('B62qpQT46XiGQs7KhcczifvvYcnx7fbTzKj8a83UcT2BhPEs5mYnzdp');
           return ({
             publicKey: score['publicKey'],
             blocksProduced: score['blocksProduced'],
@@ -77,10 +47,11 @@ export class LeaderboardService {
           } as HeartbeatSummary);
         });
 
-        const sortedItemsByUptime = [...items].sort((a, b) => b.uptimePercentage - a.uptimePercentage);
+        const sortedItemsByUptime = [...items].filter(i => !i.isWhale).sort((a, b) => b.uptimePercentage - a.uptimePercentage);
         const fifthPlacePercentageByUptime = sortedItemsByUptime[4]?.uptimePercentage ?? 0;
         const highestProducedBlocks = Math.max(
           ...items
+            .filter(i => !i.isWhale)
             .filter(item => item.score > 0.3333 * this.maxScoreRightNow)
             .map(item => item.blocksProduced),
         );
@@ -91,6 +62,68 @@ export class LeaderboardService {
         }));
       }),
     );
+  }
+
+  one: any;
+
+  printHeartbeats(heartbeats: any[]): void {
+    if (this.one) {
+      return;
+    }
+    this.one = 1;
+    // Sort the heartbeats by createTime (oldest first)
+    const sortedHeartbeats = [...heartbeats].sort((a, b) => {
+      const timeA = a.createTime.seconds * 1000 + a.createTime.nanoseconds / 1000000;
+      const timeB = b.createTime.seconds * 1000 + b.createTime.nanoseconds / 1000000;
+      return timeA - timeB;
+    });
+
+    // Create an array of {time, publicKey} objects
+    const formattedData = sortedHeartbeats.map(heartbeat => {
+      // Convert seconds and nanoseconds to milliseconds for Date constructor
+      const milliseconds = heartbeat.createTime.seconds * 1000 + heartbeat.createTime.nanoseconds / 1000000;
+      const date = new Date(milliseconds);
+
+      // Get full day name
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const fullDayName = dayNames[date.getUTCDay()];
+
+      // Format in UTC with full day name
+      const utcString = date.toUTCString();
+      const formattedTime = utcString.replace(/^[A-Za-z]{3},/, `${fullDayName},`);
+
+      return {
+        time: formattedTime,
+        'Public Key': heartbeat.submitter
+      };
+    });
+
+    const csvRows = [];
+
+    // Define headers to match the property names exactly
+    const headers = ['Public Key', 'time'];
+    csvRows.push(headers.join(','));
+
+    // Map rows by accessing properties directly
+    formattedData.forEach((row) => {
+      // Make sure to escape any commas within the values
+      const publicKey = `"${row['Public Key']}"`;
+      const time = `"${row['time']}"`;
+
+      // Join the values with a comma to create a CSV row
+      csvRows.push(`${publicKey},${time}`);
+    });
+
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `All heartbeats ${new Date().toISOString().replace(/:/g, '-')}.csv`;
+    link.click();
+
+    URL.revokeObjectURL(url);
   }
 
   getUptime(): Observable<any> {
