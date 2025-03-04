@@ -120,8 +120,25 @@ export class SentryService {
       level: 'info',
       tags: { type: 'webnode', subType: 'block.production', publicKey, duration: times.stagedLedgerDiffCreate + times.produced + times.proofCreate },
       fingerprint: this.fingerprint,
-      contexts: { block: { block: { ...attempt } } },
+      contexts: { block: this.flattenObject(attempt) },
     });
+  }
+
+  private flattenObject(obj: Record<string, any>, prefix: string = ''): Record<string, any> {
+    return Object.keys(obj).reduce((acc: Record<string, any>, key: string) => {
+      const prefixedKey = prefix ? `${prefix}.${key}` : key;
+
+      // If value is an object and not null/array, recursively flatten it
+      if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+        const nestedObj = this.flattenObject(obj[key], prefixedKey);
+        Object.assign(acc, nestedObj);
+      } else {
+        // Otherwise add the value directly with the prefixed key
+        acc[prefixedKey] = obj[key];
+      }
+
+      return acc;
+    }, {});
   }
 
   private get fingerprint(): string[] {
