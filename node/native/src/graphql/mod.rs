@@ -15,10 +15,11 @@ use node::{
         SyncStatsQuery,
     },
     stats::sync::SyncKind,
+    BuildEnv,
 };
 use o1_utils::field_helpers::FieldHelpersError;
 use openmina_core::{
-    block::AppliedBlock, consensus::ConsensusConstants, constants::constraint_constants,
+    block::AppliedBlock, consensus::ConsensusConstants, constants::constraint_constants, NetworkConfig
 };
 use openmina_node_common::rpc::RpcSender;
 use snark::GraphQLPendingSnarkWork;
@@ -26,6 +27,7 @@ use std::str::FromStr;
 use transaction::GraphQLTransactionStatus;
 use warp::{Filter, Rejection, Reply};
 use zkapp::GraphQLZkapp;
+
 
 pub mod account;
 pub mod block;
@@ -432,6 +434,19 @@ impl Query {
             .into_iter()
             .map(GraphQLPendingSnarkWork::try_from)
             .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// The chain-agnostic identifier of the network
+    #[graphql(name = "networkID")]
+    async fn network_id(_context: &Context) -> juniper::FieldResult<String> {
+        let res = format!("mina:{}", NetworkConfig::global().name);
+        Ok(res)
+    }
+
+    /// The version of the node (git commit hash)
+    async fn version(_context: &Context) -> juniper::FieldResult<String> {
+        let res = BuildEnv::get().git.commit_hash;
+        Ok(res)
     }
 }
 
