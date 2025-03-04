@@ -127,7 +127,7 @@ export class LeaderboardService {
   }
 
   getUptime(): Observable<{ uptimePercentage: number, uptimeTime: string }> {
-    const publicKey = this.webnodeService.privateStake.publicKey.replace('\n', '');
+    const publicKey = this.webnodeService.privateStake?.publicKey?.replace('\n', '');
 
     return combineLatest([
       collectionData(this.scoresCollection, { idField: 'id' }),

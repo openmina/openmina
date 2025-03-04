@@ -18,8 +18,8 @@
           <span class="fx-row-vert-cent text-capitalize pl-12">
             {{ row.publicKey | truncateMid: (desktop ? 15 : 6): 6 }}
           </span>
-          <span class="fx-row-vert-cent">
-            <span class="perc">{{ row.uptimePercentage }}%</span>
+          <span class="fx-row-vert-cent cursor-default">
+            <span class="perc" [tooltip]="'Score ' + row.score + ' of ' + row.maxScore">{{ row.uptimePercentage }}%</span>
             @if (!row.isWhale && row.uptimePercentage > 33.33) {
               <span class="mina-icon icon-200 f-big circle blue" [tooltip]="'Met minimum uptime for Uptime Lottery'" [position]="TooltipPosition.BOTTOM">circle</span>
             }
@@ -30,7 +30,7 @@
           <span class="fx-row-vert-cent">
             <span class="mr-8">{{ row.blocksProduced ?? 0 }}</span>
             @if (row.blocksPrize) {
-              <span class="mina-icon icon-200 f-big circle dark-red" [tooltip]="'Among top block producers'" [position]="TooltipPosition.BOTTOM">circle</span>
+              <span class="mina-icon icon-200 f-big circle dark-red cursor-default" [tooltip]="'Among top block producers'" [position]="TooltipPosition.BOTTOM">circle</span>
             }
           </span>
         </div>

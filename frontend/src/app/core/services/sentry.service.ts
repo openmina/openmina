@@ -128,9 +128,9 @@ export class SentryService {
     Sentry.captureMessage('Heartbeat', {
       level: 'info',
       tags: { type: 'webnode', subType: 'heartbeat', publicKey },
+      contexts: { heartbeat: { payload: data.payload, signatureField: data.signature.field, signatureScalar: data.signature.scalar } },
       fingerprint: this.fingerprint,
-      contexts: { payload: data.payload, signatureField: data.signature.field, signatureScalar: data.signature.scalar },
-    })
+    });
   }
 
   private flattenObject(obj: Record<string, any>, prefix: string = ''): Record<string, any> {
