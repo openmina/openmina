@@ -393,15 +393,15 @@ pub struct RpcTransactionInjectedPayment {
 }
 
 // TODO(adonagy): remove this, not needed anymore
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum RpcTransactionInjectedCommand {
-    Payment(valid::UserCommand),
-    Delegation,
-    Zkapp(valid::UserCommand),
-}
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub enum RpcTransactionInjectedCommand {
+//     Payment(valid::UserCommand),
+//     Delegation(valid::UserCommand),
+//     Zkapp(valid::UserCommand),
+// }
 
-pub type RpcTransactionInjectSuccess = Vec<RpcTransactionInjectedCommand>;
-pub type RpcTransactionInjectRejected = Vec<(RpcTransactionInjectedCommand, diff::Error)>;
+pub type RpcTransactionInjectSuccess = Vec<valid::UserCommand>;
+pub type RpcTransactionInjectRejected = Vec<(valid::UserCommand, diff::Error)>;
 /// Errors
 pub type RpcTransactionInjectFailure = Vec<String>;
 
@@ -413,25 +413,25 @@ pub enum RpcTransactionInjectResponse {
     Failure(RpcTransactionInjectFailure),
 }
 
-impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
-    fn from(value: ValidCommandWithHash) -> Self {
-        match value.data {
-            transaction_logic::valid::UserCommand::SignedCommand(ref signedcmd) => {
-                match signedcmd.payload.body {
-                    transaction_logic::signed_command::Body::Payment(_) => {
-                        Self::Payment(value.data.clone())
-                    }
-                    transaction_logic::signed_command::Body::StakeDelegation(_) => {
-                        todo!("inject stake delegation")
-                    }
-                }
-            }
-            transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
-                Self::Zkapp(value.data.clone())
-            }
-        }
-    }
-}
+// impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
+//     fn from(value: ValidCommandWithHash) -> Self {
+//         match value.data {
+//             transaction_logic::valid::UserCommand::SignedCommand(ref signedcmd) => {
+//                 match signedcmd.payload.body {
+//                     transaction_logic::signed_command::Body::Payment(_) => {
+//                         Self::Payment(value.data.clone())
+//                     }
+//                     transaction_logic::signed_command::Body::StakeDelegation(_) => {
+//                         Self::Delegation(value.data.clone())
+//                     }
+//                 }
+//             }
+//             transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
+//                 Self::Zkapp(value.data.clone())
+//             }
+//         }
+//     }
+// }
 
 // impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
 //     fn from(value: ValidCommandWithHash) -> Self {
