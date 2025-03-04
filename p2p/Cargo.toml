@@ -119,7 +119,7 @@ getrandom = { version = "0.2", features = ["js"] }
 
 [features]
 serializable_callbacks = []
-p2p-webrtc = ["p2p-webrtc-rs"]
+p2p-webrtc = ["p2p-webrtc-cpp"]
 p2p-webrtc-rs = ["webrtc", "rcgen"]
 p2p-webrtc-cpp = ["datachannel"]
 p2p-libp2p = ["fuzzing", "dep:reqwest", "dep:faster-stun"]
