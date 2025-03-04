@@ -7,13 +7,13 @@ use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1;
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use node::rpc::RpcTransactionInjectResponse;
-use node::rpc::RpcTransactionInjectedCommand;
 use node::rpc::{GetBlockQuery, RpcGetBlockResponse, RpcTransactionStatusGetResponse};
 use node::{
     account::AccountPublicKey,
     rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
     stats::sync::SyncKind,
 };
+use o1_utils::field_helpers::FieldHelpersError;
 use openmina_core::block::AppliedBlock;
 use openmina_core::consensus::ConsensusConstants;
 use openmina_core::constants::constraint_constants;
@@ -26,6 +26,7 @@ pub mod account;
 pub mod block;
 pub mod constants;
 pub mod transaction;
+pub mod user_command;
 pub mod zkapp;
 
 #[derive(Debug, thiserror::Error)]
@@ -54,6 +55,8 @@ pub enum ConversionError {
     InvalidDecimalNumber(#[from] mina_p2p_messages::bigint::InvalidDecimalNumber),
     #[error("Invalid bigint")]
     InvalidBigInt,
+    #[error("Invalid hex")]
+    InvalidHex,
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
     #[error(transparent)]
@@ -66,6 +69,14 @@ pub enum ConversionError {
     InvalidLength,
     #[error("Custom: {0}")]
     Custom(String),
+    #[error(transparent)]
+    FieldHelpers(#[from] FieldHelpersError),
+}
+
+impl From<ConversionError> for Error {
+    fn from(value: ConversionError) -> Self {
+        Error::Conversion(value)
+    }
 }
 
 struct Context(RpcSender);
@@ -310,6 +321,56 @@ impl Query {
     }
 }
 
+async fn inject_tx<R>(
+    cmd: MinaBaseUserCommandStableV2,
+    context: &Context,
+) -> juniper::FieldResult<R>
+where
+    R: TryFrom<MinaBaseUserCommandStableV2>,
+{
+    let res: RpcTransactionInjectResponse = context
+        .0
+        .oneshot_request(RpcRequest::TransactionInject(vec![cmd]))
+        .await
+        .ok_or(Error::StateMachineEmptyResponse)?;
+
+    match res {
+        RpcTransactionInjectResponse::Success(res) => {
+            let cmd: MinaBaseUserCommandStableV2 = match res.first().cloned() {
+                Some(cmd) => cmd.into(),
+                _ => unreachable!(),
+            };
+            cmd.try_into().map_err(|_| {
+                FieldError::new(
+                    "Failed to convert transaction to the required type".to_string(),
+                    graphql_value!(null),
+                )
+            })
+        }
+        RpcTransactionInjectResponse::Rejected(rejected) => {
+            let error_list = rejected
+                .into_iter()
+                .map(|(_, err)| graphql_value!({ "message": err.to_string() }))
+                .collect::<Vec<_>>();
+
+            Err(FieldError::new(
+                "Transaction rejected",
+                graphql_value!(juniper::Value::List(error_list)),
+            ))
+        }
+        RpcTransactionInjectResponse::Failure(failure) => {
+            let error_list = failure
+                .into_iter()
+                .map(|err| graphql_value!({ "message": err.to_string() }))
+                .collect::<Vec<_>>();
+
+            Err(FieldError::new(
+                "Transaction failed",
+                graphql_value!(juniper::Value::List(error_list)),
+            ))
+        }
+    }
+}
 #[derive(Clone, Debug)]
 struct Mutation;
 
@@ -319,43 +380,64 @@ impl Mutation {
         input: zkapp::SendZkappInput,
         context: &Context,
     ) -> juniper::FieldResult<zkapp::GraphQLSendZkappResponse> {
-        let res: RpcTransactionInjectResponse = context
+        inject_tx(input.try_into()?, context).await
+    }
+
+    async fn send_payment(
+        input: user_command::InputGraphQLPayment,
+        signature: user_command::UserCommandSignature,
+        context: &Context,
+    ) -> juniper::FieldResult<user_command::GraphQLSendPaymentResponse> {
+        // Grab the sender's account to get the infered nonce
+        let token_id = TokenIdKeyHash::default();
+        let public_key = AccountPublicKey::from_str(&input.from)
+            .map_err(|e| Error::Conversion(ConversionError::Base58Check(e)))?;
+
+        let accounts: Vec<Account> = context
             .0
-            .oneshot_request(RpcRequest::TransactionInject(vec![input.try_into()?]))
+            .oneshot_request(RpcRequest::LedgerAccountsGet(
+                AccountQuery::PubKeyWithTokenId(public_key, token_id),
+            ))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
 
-        match res {
-            RpcTransactionInjectResponse::Success(res) => {
-                let zkapp_cmd: MinaBaseUserCommandStableV2 = match res.first().cloned() {
-                    Some(RpcTransactionInjectedCommand::Zkapp(zkapp_cmd)) => zkapp_cmd.into(),
-                    _ => unreachable!(),
-                };
-                Ok(zkapp_cmd.try_into()?)
-            }
-            RpcTransactionInjectResponse::Rejected(rejected) => {
-                let error_list = rejected
-                    .into_iter()
-                    .map(|(_, err)| graphql_value!({ "message": err.to_string() }))
-                    .collect::<Vec<_>>();
+        let infered_nonce = accounts
+            .first()
+            .ok_or(Error::StateMachineEmptyResponse)?
+            .nonce;
 
-                Err(FieldError::new(
-                    "Transaction rejected",
-                    graphql_value!(juniper::Value::List(error_list)),
-                ))
-            }
-            RpcTransactionInjectResponse::Failure(failure) => {
-                let error_list = failure
-                    .into_iter()
-                    .map(|err| graphql_value!({ "message": err.to_string() }))
-                    .collect::<Vec<_>>();
+        let command = input
+            .create_user_command(infered_nonce, signature)
+            .map_err(Error::Conversion)?;
 
-                Err(FieldError::new(
-                    "Transaction failed",
-                    graphql_value!(juniper::Value::List(error_list)),
-                ))
-            }
-        }
+        inject_tx(command, context).await
+    }
+
+    async fn send_delegation(
+        input: user_command::InputGraphQLDelegation,
+        signature: user_command::UserCommandSignature,
+        context: &Context,
+    ) -> juniper::FieldResult<user_command::GraphQLSendDelegationResponse> {
+        // Payment commands are always for the default (MINA) token
+        let token_id = TokenIdKeyHash::default();
+        let public_key = AccountPublicKey::from_str(&input.from)?;
+
+        // Grab the sender's account to get the infered nonce
+        let accounts: Vec<Account> = context
+            .0
+            .oneshot_request(RpcRequest::LedgerAccountsGet(
+                AccountQuery::PubKeyWithTokenId(public_key, token_id),
+            ))
+            .await
+            .ok_or(Error::StateMachineEmptyResponse)?;
+
+        let infered_nonce = accounts
+            .first()
+            .ok_or(Error::StateMachineEmptyResponse)?
+            .nonce;
+        let command = input.create_user_command(infered_nonce, signature)?;
+
+        inject_tx(command, context).await
     }
 }
 

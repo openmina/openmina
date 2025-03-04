@@ -5,7 +5,7 @@ use std::str::FromStr;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
-use ledger::scan_state::transaction_logic::{self, signed_command, valid, Memo};
+use ledger::scan_state::transaction_logic::{signed_command, valid, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
 use mina_p2p_messages::bigint::BigInt;
@@ -392,15 +392,16 @@ pub struct RpcTransactionInjectedPayment {
     pub nonce: Nonce,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum RpcTransactionInjectedCommand {
-    Payment(RpcTransactionInjectedPayment),
-    Delegation,
-    Zkapp(valid::UserCommand),
-}
+// TODO(adonagy): remove this, not needed anymore
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub enum RpcTransactionInjectedCommand {
+//     Payment(valid::UserCommand),
+//     Delegation(valid::UserCommand),
+//     Zkapp(valid::UserCommand),
+// }
 
-pub type RpcTransactionInjectSuccess = Vec<RpcTransactionInjectedCommand>;
-pub type RpcTransactionInjectRejected = Vec<(RpcTransactionInjectedCommand, diff::Error)>;
+pub type RpcTransactionInjectSuccess = Vec<valid::UserCommand>;
+pub type RpcTransactionInjectRejected = Vec<(valid::UserCommand, diff::Error)>;
 /// Errors
 pub type RpcTransactionInjectFailure = Vec<String>;
 
@@ -412,36 +413,56 @@ pub enum RpcTransactionInjectResponse {
     Failure(RpcTransactionInjectFailure),
 }
 
-impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
-    fn from(value: ValidCommandWithHash) -> Self {
-        match value.data {
-            transaction_logic::valid::UserCommand::SignedCommand(signedcmd) => {
-                match signedcmd.payload.body {
-                    transaction_logic::signed_command::Body::Payment(ref payment) => {
-                        Self::Payment(RpcTransactionInjectedPayment {
-                            amount: payment.amount,
-                            fee: signedcmd.fee(),
-                            // fee_token: signedcmd.fee_token(),
-                            from: signedcmd.fee_payer_pk().clone().into(),
-                            to: payment.receiver_pk.clone().into(),
-                            hash: value.hash.to_string(),
-                            is_delegation: false,
-                            // memo: signedcmd.payload.common.memo.clone(),
-                            memo: signedcmd.payload.common.memo.to_string(),
-                            nonce: signedcmd.nonce(),
-                        })
-                    }
-                    transaction_logic::signed_command::Body::StakeDelegation(_) => {
-                        todo!("inject stake delegation")
-                    }
-                }
-            }
-            transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
-                Self::Zkapp(value.data.clone())
-            }
-        }
-    }
-}
+// impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
+//     fn from(value: ValidCommandWithHash) -> Self {
+//         match value.data {
+//             transaction_logic::valid::UserCommand::SignedCommand(ref signedcmd) => {
+//                 match signedcmd.payload.body {
+//                     transaction_logic::signed_command::Body::Payment(_) => {
+//                         Self::Payment(value.data.clone())
+//                     }
+//                     transaction_logic::signed_command::Body::StakeDelegation(_) => {
+//                         Self::Delegation(value.data.clone())
+//                     }
+//                 }
+//             }
+//             transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
+//                 Self::Zkapp(value.data.clone())
+//             }
+//         }
+//     }
+// }
+
+// impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
+//     fn from(value: ValidCommandWithHash) -> Self {
+//         match value.data {
+//             transaction_logic::valid::UserCommand::SignedCommand(signedcmd) => {
+//                 match signedcmd.payload.body {
+//                     transaction_logic::signed_command::Body::Payment(ref payment) => {
+//                         Self::RpcPayment(RpcTransactionInjectedPayment {
+//                             amount: payment.amount,
+//                             fee: signedcmd.fee(),
+//                             // fee_token: signedcmd.fee_token(),
+//                             from: signedcmd.fee_payer_pk().clone().into(),
+//                             to: payment.receiver_pk.clone().into(),
+//                             hash: value.hash.to_string(),
+//                             is_delegation: false,
+//                             // memo: signedcmd.payload.common.memo.clone(),
+//                             memo: signedcmd.payload.common.memo.to_string(),
+//                             nonce: signedcmd.nonce(),
+//                         })
+//                     }
+//                     transaction_logic::signed_command::Body::StakeDelegation(_) => {
+//                         todo!("inject stake delegation")
+//                     }
+//                 }
+//             }
+//             transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
+//                 Self::Zkapp(value.data.clone())
+//             }
+//         }
+//     }
+// }
 
 #[derive(Serialize, Debug, Clone)]
 pub struct AccountSlim {

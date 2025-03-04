@@ -532,7 +532,7 @@ impl RpcState {
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
 
                 let dispatcher = state_context.into_dispatcher();
-                let response = response.clone().into_iter().map(|cmd| cmd.into()).collect();
+                let response = response.clone().into_iter().map(|cmd| cmd.data).collect();
                 dispatcher.push(RpcEffectfulAction::TransactionInjectSuccess {
                     rpc_id: *rpc_id,
                     response,
@@ -548,7 +548,7 @@ impl RpcState {
                 let response = response
                     .clone()
                     .into_iter()
-                    .map(|(cmd, failure)| (cmd.into(), failure))
+                    .map(|(cmd, failure)| (cmd.data, failure))
                     .collect();
 
                 dispatcher.push(RpcEffectfulAction::TransactionInjectRejected {

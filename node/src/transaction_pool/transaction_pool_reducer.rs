@@ -306,10 +306,19 @@ impl TransactionPoolState {
                 // TODO: use callbacks
                 match (was_accepted, from_source) {
                     (true, TransactionPoolMessageSource::Rpc { id }) => {
-                        dispatcher.push(RpcAction::TransactionInjectSuccess {
-                            rpc_id: id,
-                            response: accepted.clone(),
-                        });
+                        // Note: even though the diff was labeled as accepted the specific tx could be rejected
+                        //       (if it is not grounds for diff rejection)
+                        if !rejected.is_empty() {
+                            dispatcher.push(RpcAction::TransactionInjectRejected {
+                                rpc_id: id,
+                                response: rejected.clone(),
+                            });
+                        } else if !accepted.is_empty() {
+                            dispatcher.push(RpcAction::TransactionInjectSuccess {
+                                rpc_id: id,
+                                response: accepted.clone(),
+                            });
+                        }
                     }
                     (true, TransactionPoolMessageSource::Pubsub { id }) => {
                         dispatcher.push(P2pNetworkPubsubAction::BroadcastValidatedMessage {
