@@ -46,6 +46,7 @@ import { LeaderboardModule } from '@leaderboard/leaderboard.module';
 import { UptimePillComponent } from '@app/layout/uptime-pill/uptime-pill.component';
 import { provideAppCheck } from '@angular/fire/app-check';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { SETTINGS } from '@angular/fire/compat/firestore';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -131,6 +132,10 @@ export class AppGlobalErrorhandler implements ErrorHandler {
 }
 
 const firebaseProviders = [
+  {
+    provide: SETTINGS,
+    useValue: { experimentalForceLongPolling: true },
+  },
   provideFirebaseApp(() => initializeApp(CONFIG.globalConfig.firebase)),
   provideClientHydration(),
   provideHttpClient(withFetch()),

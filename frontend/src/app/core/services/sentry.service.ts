@@ -124,6 +124,15 @@ export class SentryService {
     });
   }
 
+  updateHeartbeat(data: any, publicKey: string): void {
+    Sentry.captureMessage('Heartbeat', {
+      level: 'info',
+      tags: { type: 'webnode', subType: 'heartbeat', publicKey },
+      fingerprint: this.fingerprint,
+      contexts: { payload: data.payload, signatureField: data.signature.field, signatureScalar: data.signature.scalar },
+    })
+  }
+
   private flattenObject(obj: Record<string, any>, prefix: string = ''): Record<string, any> {
     return Object.keys(obj).reduce((acc: Record<string, any>, key: string) => {
       const prefixedKey = prefix ? `${prefix}.${key}` : key;

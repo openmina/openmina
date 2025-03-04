@@ -126,7 +126,7 @@ export class LeaderboardService {
     URL.revokeObjectURL(url);
   }
 
-  getUptime(): Observable<any> {
+  getUptime(): Observable<{ uptimePercentage: number, uptimeTime: string }> {
     const publicKey = this.webnodeService.privateStake.publicKey.replace('\n', '');
 
     return combineLatest([
