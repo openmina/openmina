@@ -1,5 +1,5 @@
 FROM rust:buster AS build
-RUN apt-get update && apt-get install -y protobuf-compiler && apt-get clean
+RUN apt-get update && apt-get install -y protobuf-compiler build-essential cmake pkg-config libssl-dev clang && apt-get clean
 RUN rustup default 1.84 && rustup component add rustfmt
 WORKDIR /openmina
 COPY . .
