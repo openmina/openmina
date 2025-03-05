@@ -716,15 +716,22 @@ pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
     println!("\nSubmitter Scores:");
     println!("--------------------------------------------------------");
     println!(
-        "Public Key                                              | Score | Blocks | Current Max | Total Max | Last Updated | Last Heartbeat"
+        "Public Key                                              | Score | Score % | Blocks | Current Max | Total Max | Last Updated | Last Heartbeat"
     );
     println!("--------------------------------------------------------");
 
     for row in scores {
+        let percentage = if max_scores.current > 0 {
+            (row.score as f64 / max_scores.current as f64) * 100.0
+        } else {
+            0.0
+        };
+
         println!(
-            "{:<40} | {:>5} | {:>6} | {:>11} | {:>9} | {} | {}",
+            "{:<40} | {:>5} | {:>6.2}% | {:>6} | {:>11} | {:>9} | {} | {}",
             row.public_key,
             row.score,
+            percentage,
             row.blocks_produced,
             max_scores.current,
             max_scores.total,
