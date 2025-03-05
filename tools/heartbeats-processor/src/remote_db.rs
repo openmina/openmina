@@ -113,6 +113,7 @@ impl HeartbeatEntry {
         })
     }
 
+    #[allow(dead_code)]
     pub fn sync_status(&self) -> Option<String> {
         self.transition_frontier()
             .and_then(|tf| tf.get("sync"))
@@ -120,10 +121,24 @@ impl HeartbeatEntry {
             .map(|status| status.as_str().unwrap().to_string())
     }
 
+    pub fn sync_phase(&self) -> Option<String> {
+        self.transition_frontier()
+            .and_then(|tf| tf.get("sync"))
+            .and_then(|sync| sync.get("phase"))
+            .map(|phase| phase.as_str().unwrap().to_string())
+    }
+
     pub fn is_synced(&self) -> bool {
-        self.sync_status()
+        self.sync_phase()
             .as_ref()
             .map(|status| status == "Synced")
+            .unwrap_or(false)
+    }
+
+    pub fn is_catchup(&self) -> bool {
+        self.sync_phase()
+            .as_ref()
+            .map(|status| status == "Catchup")
             .unwrap_or(false)
     }
 }

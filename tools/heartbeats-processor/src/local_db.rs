@@ -391,9 +391,11 @@ pub async fn process_heartbeats(
 
                     let best_tip = entry.best_tip_block();
                     let public_key_id = *public_key_map.get(&entry.submitter).unwrap();
+                    let has_presence =
+                        (entry.is_synced() || entry.is_catchup()) && best_tip.is_some();
 
                     // Record presence only if node is synced and has a best tip
-                    if entry.is_synced() && best_tip.is_some() {
+                    if has_presence {
                         presence_batch.push(HeartbeatPresence {
                             window_id: window.id.unwrap(),
                             public_key_id,
@@ -448,15 +450,25 @@ pub async fn process_heartbeats(
                                 continue;
                             }
 
-                            seen_blocks.insert(key.clone(), entry.create_time);
-                            produced_blocks_batch.push(ProducedBlock {
-                                window_id: window.id.unwrap(),
-                                public_key_id,
-                                block_hash: block_info.hash,
-                                block_height: block_info.height,
-                                block_global_slot: block_info.global_slot,
-                                block_data: block_info.base64_encoded_header,
-                            });
+                            if has_presence {
+                                seen_blocks.insert(key.clone(), entry.create_time);
+                                produced_blocks_batch.push(ProducedBlock {
+                                    window_id: window.id.unwrap(),
+                                    public_key_id,
+                                    block_hash: block_info.hash,
+                                    block_height: block_info.height,
+                                    block_global_slot: block_info.global_slot,
+                                    block_data: block_info.base64_encoded_header,
+                                });
+                            } else {
+                                println!(
+                                    "WARNING: Block produced by unsynced node: {} (height: {}, producer: {})",
+                                    block_info.hash, block_info.height, entry.submitter
+                                );
+                                println!("Submitter: {:?}", entry.submitter);
+                                println!("Sync status: {}", entry.sync_phase().unwrap_or_default());
+                                println!("Best tip: {:?}", entry.best_tip_block().map(|b| b.hash));
+                            }
                         }
                         Some((_block_info, Err(e))) => {
                             println!(
