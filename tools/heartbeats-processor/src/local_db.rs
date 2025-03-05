@@ -713,10 +713,13 @@ pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
 
     let max_scores = get_max_scores(pool).await?;
 
+    println!("\nSubmitter Scores Summary:");
+    println!("Current maximum score possible: {}", max_scores.current);
+    println!("Total maximum score possible: {}", max_scores.total);
     println!("\nSubmitter Scores:");
     println!("--------------------------------------------------------");
     println!(
-        "Public Key                                              | Score | Score % | Blocks | Current Max | Total Max | Last Updated | Last Heartbeat"
+        "Public Key                                              | Score | Score % | Blocks | Last Updated | Last Heartbeat"
     );
     println!("--------------------------------------------------------");
 
@@ -728,13 +731,11 @@ pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
         };
 
         println!(
-            "{:<40} | {:>5} | {:>6.2}% | {:>6} | {:>11} | {:>9} | {} | {}",
+            "{:<40} | {:>5} | {:>6.2}% | {:>6} | {} | {}",
             row.public_key,
             row.score,
             percentage,
             row.blocks_produced,
-            max_scores.current,
-            max_scores.total,
             row.last_updated.unwrap_or_default(),
             row.last_heartbeat.unwrap_or_default()
         );
