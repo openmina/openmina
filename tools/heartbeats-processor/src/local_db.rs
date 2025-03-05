@@ -431,9 +431,9 @@ pub async fn process_heartbeats(
                             }
 
                             // Verify that the block slot matches the expected one for the current time
-                            // TODO: maybe we can be a bit more lenient here?
+                            // Allow a difference of 1 in either direction
                             let expected_slot = global_slot_at_time(entry.create_time);
-                            if block_info.global_slot != expected_slot {
+                            if (block_info.global_slot as i64 - expected_slot as i64).abs() > 1 {
                                 println!(
                                     "WARNING: Invalid block slot: {} (height: {}, producer: {}, expected slot: {}, actual slot: {})",
                                     block_info.hash, block_info.height, entry.submitter, expected_slot, block_info.global_slot
