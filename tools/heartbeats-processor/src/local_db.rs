@@ -242,55 +242,58 @@ async fn batch_insert_produced_blocks(pool: &SqlitePool, blocks: &[ProducedBlock
     Ok(())
 }
 
-/// Marks heartbeat presence entries as outdated (disabled) based on global slot comparisons.
+/// Marks heartbeat presence entries as outdated (disabled) based on block height comparisons.
 ///
 /// This function performs the following steps:
-/// 1. Finds the maximum global slot for each window (considering only non-disabled entries).
-/// 2. Identifies the previous window's maximum global slot for each window.
-/// 3. Marks a presence entry as disabled if its global slot is less than:
-///    - The maximum global slot of the previous window (if it exists).
+/// 1. Finds the maximum block height for each window (considering only non-disabled entries).
+/// 2. Identifies the previous window's maximum block height for each window.
+/// 3. Marks a presence entry as disabled if its block height is less than:
+///    - The maximum block height of the previous window minus a tolerance of $HEIGHT_TOLERANCE blocks (if it exists).
 ///
-/// This approach allows for a full window of tolerance in synchronization:
-/// - Entries matching or exceeding the previous window's max slot are considered up-to-date.
-/// - This allows for slight delays in propagation between windows.
+/// This approach allows for a reasonable tolerance in synchronization:
+/// - Entries matching or exceeding the previous window's max height - $HEIGHT_TOLERANCE are considered up-to-date.
+/// - This allows for slight delays in block propagation between windows.
 ///
 /// Note: The first window in the sequence will not have any entries marked as disabled,
 /// as there is no previous window to compare against.
 ///
 /// Returns the number of presence entries marked as disabled.
 async fn mark_outdated_presence(pool: &SqlitePool) -> Result<usize> {
+    const HEIGHT_TOLERANCE: i64 = 5;
+
     let affected = sqlx::query!(
         r#"
-        WITH MaxSlots AS (
+        WITH MaxHeights AS (
             SELECT
                 window_id,
-                MAX(best_tip_global_slot) as max_slot
+                MAX(best_tip_height) as max_height
             FROM heartbeat_presence
             WHERE disabled = FALSE
             GROUP BY window_id
         ),
-        PrevMaxSlots AS (
-            -- Get the max slot from the immediate previous window
+        PrevMaxHeights AS (
+            -- Get the max height from the immediate previous window
             SELECT
                 tw.id as window_id,
-                prev.max_slot as prev_max_slot
+                prev.max_height as prev_max_height
             FROM time_windows tw
             LEFT JOIN time_windows prev_tw ON prev_tw.id = tw.id - 1
-            LEFT JOIN MaxSlots prev ON prev.window_id = prev_tw.id
+            LEFT JOIN MaxHeights prev ON prev.window_id = prev_tw.id
         )
         UPDATE heartbeat_presence
         SET disabled = TRUE
-        WHERE (window_id, best_tip_global_slot) IN (
+        WHERE (window_id, best_tip_height) IN (
             SELECT
                 hp.window_id,
-                hp.best_tip_global_slot
+                hp.best_tip_height
             FROM heartbeat_presence hp
-            JOIN PrevMaxSlots pms ON pms.window_id = hp.window_id
+            JOIN PrevMaxHeights pmh ON pmh.window_id = hp.window_id
             WHERE hp.disabled = FALSE
-            AND pms.prev_max_slot IS NOT NULL  -- Ensure there is a previous window
-            AND hp.best_tip_global_slot < pms.prev_max_slot  -- Less than previous window max
+            AND pmh.prev_max_height IS NOT NULL  -- Ensure there is a previous window
+            AND hp.best_tip_height < (pmh.prev_max_height - ?)
         )
-        "#
+        "#,
+        HEIGHT_TOLERANCE
     )
     .execute(pool)
     .await?;
@@ -388,9 +391,11 @@ pub async fn process_heartbeats(
 
                     let best_tip = entry.best_tip_block();
                     let public_key_id = *public_key_map.get(&entry.submitter).unwrap();
+                    let has_presence =
+                        (entry.is_synced() || entry.is_catchup()) && best_tip.is_some();
 
                     // Record presence only if node is synced and has a best tip
-                    if entry.is_synced() && best_tip.is_some() {
+                    if has_presence {
                         presence_batch.push(HeartbeatPresence {
                             window_id: window.id.unwrap(),
                             public_key_id,
@@ -426,9 +431,9 @@ pub async fn process_heartbeats(
                             }
 
                             // Verify that the block slot matches the expected one for the current time
-                            // TODO: maybe we can be a bit more lenient here?
+                            // Allow a difference of 1 in either direction
                             let expected_slot = global_slot_at_time(entry.create_time);
-                            if block_info.global_slot != expected_slot {
+                            if (block_info.global_slot as i64 - expected_slot as i64).abs() > 1 {
                                 println!(
                                     "WARNING: Invalid block slot: {} (height: {}, producer: {}, expected slot: {}, actual slot: {})",
                                     block_info.hash, block_info.height, entry.submitter, expected_slot, block_info.global_slot
@@ -445,15 +450,25 @@ pub async fn process_heartbeats(
                                 continue;
                             }
 
-                            seen_blocks.insert(key.clone(), entry.create_time);
-                            produced_blocks_batch.push(ProducedBlock {
-                                window_id: window.id.unwrap(),
-                                public_key_id,
-                                block_hash: block_info.hash,
-                                block_height: block_info.height,
-                                block_global_slot: block_info.global_slot,
-                                block_data: block_info.base64_encoded_header,
-                            });
+                            if has_presence {
+                                seen_blocks.insert(key.clone(), entry.create_time);
+                                produced_blocks_batch.push(ProducedBlock {
+                                    window_id: window.id.unwrap(),
+                                    public_key_id,
+                                    block_hash: block_info.hash,
+                                    block_height: block_info.height,
+                                    block_global_slot: block_info.global_slot,
+                                    block_data: block_info.base64_encoded_header,
+                                });
+                            } else {
+                                println!(
+                                    "WARNING: Block produced by unsynced node: {} (height: {}, producer: {})",
+                                    block_info.hash, block_info.height, entry.submitter
+                                );
+                                println!("Submitter: {:?}", entry.submitter);
+                                println!("Sync status: {}", entry.sync_phase().unwrap_or_default());
+                                println!("Best tip: {:?}", entry.best_tip_block().map(|b| b.hash));
+                            }
                         }
                         Some((_block_info, Err(e))) => {
                             println!(
@@ -698,21 +713,29 @@ pub async fn view_scores(pool: &SqlitePool, config: &Config) -> Result<()> {
 
     let max_scores = get_max_scores(pool).await?;
 
+    println!("\nSubmitter Scores Summary:");
+    println!("Current maximum score possible: {}", max_scores.current);
+    println!("Total maximum score possible: {}", max_scores.total);
     println!("\nSubmitter Scores:");
     println!("--------------------------------------------------------");
     println!(
-        "Public Key                                              | Score | Blocks | Current Max | Total Max | Last Updated | Last Heartbeat"
+        "Public Key                                              | Score | Score % | Blocks | Last Updated | Last Heartbeat"
     );
     println!("--------------------------------------------------------");
 
     for row in scores {
+        let percentage = if max_scores.current > 0 {
+            (row.score as f64 / max_scores.current as f64) * 100.0
+        } else {
+            0.0
+        };
+
         println!(
-            "{:<40} | {:>5} | {:>6} | {:>11} | {:>9} | {} | {}",
+            "{:<40} | {:>5} | {:>6.2}% | {:>6} | {} | {}",
             row.public_key,
             row.score,
+            percentage,
             row.blocks_produced,
-            max_scores.current,
-            max_scores.total,
             row.last_updated.unwrap_or_default(),
             row.last_heartbeat.unwrap_or_default()
         );
