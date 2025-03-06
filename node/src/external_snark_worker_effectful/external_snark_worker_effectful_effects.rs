@@ -9,7 +9,8 @@ pub fn external_snark_worker_effectful_effects<S: crate::Service>(
     let (action, _) = action.split();
     match action {
         ExternalSnarkWorkerEffectfulAction::Start { public_key, fee } => {
-            if let Err(err) = store.service.start(public_key, fee) {
+            let work_verifier = store.state().snark.work_verify.verifier_index.clone();
+            if let Err(err) = store.service.start(public_key, fee, work_verifier) {
                 store.dispatch(ExternalSnarkWorkerAction::Error {
                     error: err,
                     permanent: true,

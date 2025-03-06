@@ -226,7 +226,7 @@ fn is_job_commitment_timed_out(job: &JobState, time_now: Timestamp) -> bool {
     let didnt_deliver = job
         .snark
         .as_ref()
-        .map_or(true, |snark| snark.work < commitment.commitment);
+        .is_none_or(|snark| snark.work < commitment.commitment);
 
     is_timed_out && didnt_deliver
 }

@@ -22,6 +22,7 @@ impl Default for JaneStreetHasher {
     }
 }
 
+#[allow(clippy::precedence)]
 fn rotl32(x: u32, n: u32) -> u32 {
     (x) << n | (x) >> (32 - n)
 }

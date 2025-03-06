@@ -165,9 +165,8 @@ fn filter_fields(field_spec: &FieldsSpec, fields: &FieldsNamed) -> Result<Vec<To
         FieldsSpec::Some(f) => f
             .iter()
             .filter(|(name, _)| {
-                name.as_ref().map_or(true, |name| {
-                    fields.named.iter().any(|n| Some(name) == n.ident.as_ref())
-                })
+                name.as_ref()
+                    .is_none_or(|name| fields.named.iter().any(|n| Some(name) == n.ident.as_ref()))
             })
             .map(|(_, expr)| Ok(expr.clone()))
             .collect(),

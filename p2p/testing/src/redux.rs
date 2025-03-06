@@ -229,10 +229,7 @@ pub(super) fn event_effect(store: &mut crate::redux::Store, event: P2pEvent) -> 
             ),
             MioEvent::IncomingDataDidReceive(addr, result) => SubStore::dispatch(
                 store,
-                P2pNetworkSchedulerAction::IncomingDataDidReceive {
-                    addr,
-                    result: result.map(From::from),
-                },
+                P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, result },
             ),
             MioEvent::OutgoingDataDidSend(_, _result) => true,
             MioEvent::ConnectionDidClose(addr, result) => {

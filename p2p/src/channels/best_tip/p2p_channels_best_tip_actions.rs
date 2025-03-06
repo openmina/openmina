@@ -118,7 +118,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
                         }
                         last_sent
                             .as_ref()
-                            .map_or(true, |sent| sent.hash != best_tip.hash)
+                            .is_none_or(|sent| sent.hash != best_tip.hash)
                     }
                     _ => false,
                 }),

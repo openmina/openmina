@@ -605,6 +605,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         &mut self,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
+        _: TransactionVerifier,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         let pub_key = AccountPublicKey::from(public_key);
         let sok_message = SokMessage::create(

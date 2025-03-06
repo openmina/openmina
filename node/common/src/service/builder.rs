@@ -146,6 +146,8 @@ impl NodeServiceCommonBuilder {
             ),
             ledger_manager,
             block_producer: self.block_producer,
+            // initialized in state machine.
+            snark_worker: None,
             archive: self.archive,
             p2p,
             stats: self.gather_stats.then(Stats::new),
