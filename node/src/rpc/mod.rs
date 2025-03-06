@@ -17,7 +17,7 @@ use mina_p2p_messages::v2::{
     TransactionSnarkWorkTStableV2,
 };
 use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
-use openmina_core::consensus::ConsensusConstants;
+use openmina_core::consensus::{ConsensusConstants, ConsensusTime};
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
@@ -94,6 +94,13 @@ pub enum RpcRequest {
     PooledUserCommands(PooledUserCommandsQuery),
     PooledZkappCommands(PooledZkappsCommandsQuery),
     GenesisBlockGet,
+    ConsensusTimeGet(ConsensusTimeQuery),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ConsensusTimeQuery {
+    Now,
+    BestTip,
 }
 
 pub type MaxLength = u32;
@@ -166,7 +173,7 @@ pub enum ActionStatsResponse {
     ForBlock(ActionStatsForBlock),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 pub enum PeerConnectionStatus {
     Disconnecting,
     Disconnected,
@@ -379,6 +386,7 @@ pub type RpcTransactionStatusGetResponse = TransactionStatus;
 pub type RpcPooledUserCommandsResponse = Vec<MinaBaseSignedCommandStableV2>;
 pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireStableV1>;
 pub type RpcGenesisBlockResponse = Option<ArcBlockWithHash>;
+pub type RpcConsensusTimeGetResponse = Option<ConsensusTime>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]

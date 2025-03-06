@@ -473,6 +473,7 @@ pub enum ActionKind {
     RpcBlockGet,
     RpcBlockProducerStatsGet,
     RpcConsensusConstantsGet,
+    RpcConsensusTimeGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
@@ -525,6 +526,7 @@ pub enum ActionKind {
     RpcEffectfulBlockGet,
     RpcEffectfulBlockProducerStatsGet,
     RpcEffectfulConsensusConstantsGet,
+    RpcEffectfulConsensusTimeGet,
     RpcEffectfulDiscoveryBoostrapStats,
     RpcEffectfulDiscoveryRoutingTable,
     RpcEffectfulGenesisBlock,
@@ -728,7 +730,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 618;
+    pub const COUNT: u16 = 620;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1100,6 +1102,7 @@ impl ActionKindGet for RpcAction {
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::BlockGet { .. } => ActionKind::RpcBlockGet,
+            Self::ConsensusTimeGet { .. } => ActionKind::RpcConsensusTimeGet,
             Self::PooledUserCommands { .. } => ActionKind::RpcPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcPooledZkappCommands,
             Self::GenesisBlock { .. } => ActionKind::RpcGenesisBlock,
@@ -1176,6 +1179,7 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::PooledUserCommands { .. } => ActionKind::RpcEffectfulPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcEffectfulPooledZkappCommands,
             Self::GenesisBlock { .. } => ActionKind::RpcEffectfulGenesisBlock,
+            Self::ConsensusTimeGet { .. } => ActionKind::RpcEffectfulConsensusTimeGet,
         }
     }
 }

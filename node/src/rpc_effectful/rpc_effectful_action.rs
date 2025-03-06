@@ -7,7 +7,7 @@ use crate::{
         RpcPooledZkappCommandsResponse, RpcScanStateSummaryScanStateJob,
         RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse, RpcSnarkerConfig,
         RpcTransactionInjectFailure, RpcTransactionInjectRejected, RpcTransactionInjectSuccess,
-        SyncStatsQuery,
+        SyncStatsQuery, RpcConsensusTimeGetResponse,
     },
 };
 use ledger::{
@@ -172,6 +172,10 @@ pub enum RpcEffectfulAction {
     GenesisBlock {
         rpc_id: RpcId,
         genesis_block: RpcGenesisBlockResponse,
+    },
+    ConsensusTimeGet {
+        rpc_id: RpcId,
+        consensus_time: RpcConsensusTimeGetResponse,
     },
 }
 

@@ -25,8 +25,9 @@ use crate::{
 };
 
 use super::{
-    PeerConnectionStatus, RpcAction, RpcPeerInfo, RpcRequest, RpcRequestExtraData, RpcRequestState,
-    RpcRequestStatus, RpcScanStateSummaryGetQuery, RpcSnarkerConfig, RpcState,
+    ConsensusTimeQuery, PeerConnectionStatus, RpcAction, RpcPeerInfo, RpcRequest,
+    RpcRequestExtraData, RpcRequestState, RpcRequestStatus, RpcScanStateSummaryGetQuery,
+    RpcSnarkerConfig, RpcState,
 };
 
 impl RpcState {
@@ -771,6 +772,18 @@ impl RpcState {
                 dispatcher.push(RpcEffectfulAction::PooledZkappCommands {
                     rpc_id: *rpc_id,
                     zkapp_commands: zkapp_commands.into_iter().map(|(_, tx)| tx).collect(),
+                });
+            }
+            RpcAction::ConsensusTimeGet { rpc_id, query } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let consensus_time = match query {
+                    ConsensusTimeQuery::Now => state.consensus_time_now(),
+                    ConsensusTimeQuery::BestTip => state.consensus_time_best_tip(),
+                };
+                println!("consensus_time: {:?}", consensus_time);
+                dispatcher.push(RpcEffectfulAction::ConsensusTimeGet {
+                    rpc_id: *rpc_id,
+                    consensus_time,
                 });
             }
         }

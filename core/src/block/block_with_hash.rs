@@ -61,6 +61,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         global_slot(self.header())
     }
 
+    pub fn slot(&self) -> u32 {
+        slot(self.header())
+    }
+
     pub fn global_slot_since_genesis(&self) -> u32 {
         global_slot_since_genesis(self.header())
     }
@@ -180,6 +184,10 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         global_slot(self.header())
     }
 
+    pub fn slot(&self) -> u32 {
+        slot(self.header())
+    }
+
     pub fn global_slot_since_genesis(&self) -> u32 {
         global_slot_since_genesis(self.header())
     }
@@ -249,6 +257,15 @@ fn height(header: &BlockHeader) -> u32 {
 
 fn global_slot(header: &BlockHeader) -> u32 {
     consensus_state(header).global_slot()
+}
+
+fn slot(header: &BlockHeader) -> u32 {
+    let slot_struct = &consensus_state(header).curr_global_slot_since_hard_fork;
+    slot_struct
+        .slot_number
+        .as_u32()
+        .checked_rem(slot_struct.slots_per_epoch.as_u32())
+        .expect("division by zero")
 }
 
 fn global_slot_since_genesis(header: &BlockHeader) -> u32 {

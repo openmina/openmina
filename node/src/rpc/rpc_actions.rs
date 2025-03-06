@@ -16,7 +16,7 @@ use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
     ActionStatsQuery, GetBlockQuery, PooledUserCommandsQuery, PooledZkappsCommandsQuery, RpcId,
-    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, SyncStatsQuery,
+    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, SyncStatsQuery, ConsensusTimeQuery,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -215,6 +215,10 @@ pub enum RpcAction {
         rpc_id: RpcId,
         query: GetBlockQuery,
     },
+    ConsensusTimeGet {
+        rpc_id: RpcId,
+        query: ConsensusTimeQuery,
+    },
 
     PooledUserCommands {
         rpc_id: RpcId,
@@ -365,6 +369,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .is_some_and(|v| v.status.is_pending()),
             RpcAction::TransitionFrontierUserCommandsGet { .. } => true,
             RpcAction::BlockGet { .. } => true,
+            RpcAction::ConsensusTimeGet { .. } => true,
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests

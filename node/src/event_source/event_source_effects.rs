@@ -402,6 +402,8 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::PooledZkappCommands(query) => {
                     store.dispatch(RpcAction::PooledZkappCommands { rpc_id, query });
+                RpcRequest::ConsensusTimeGet(query) => {
+                    store.dispatch(RpcAction::ConsensusTimeGet { rpc_id, query });
                 }
                 RpcRequest::GenesisBlockGet => {
                     store.dispatch(RpcAction::GenesisBlock { rpc_id });

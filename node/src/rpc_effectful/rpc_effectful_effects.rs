@@ -793,6 +793,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             )
         }
+
         RpcEffectfulAction::PooledUserCommands {
             rpc_id,
             user_commands,
@@ -804,6 +805,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             )
         }
+
         RpcEffectfulAction::PooledZkappCommands {
             rpc_id,
             zkapp_commands,
@@ -821,6 +823,18 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
         } => {
             respond_or_log!(
                 store.service().respond_genesis_block(rpc_id, genesis_block),
+                meta.time()
+            )
+        }
+
+        RpcEffectfulAction::ConsensusTimeGet {
+            rpc_id,
+            consensus_time,
+        } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_consensus_time_get(rpc_id, consensus_time),
                 meta.time()
             )
         }

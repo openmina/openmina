@@ -2,6 +2,7 @@ use mina_p2p_messages::v2::{
     self, BlockTimeTimeStableV1,
     ConsensusProofOfStakeDataConsensusStateValueStableV2 as MinaConsensusState, StateHash,
 };
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use time::{macros::format_description, OffsetDateTime};
 
@@ -28,6 +29,15 @@ pub enum ConsensusLongRangeForkDecisionReason {
     ChainLength,
     Vrf,
     StateHash,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsensusTime {
+    pub start_time: Timestamp,
+    pub end_time: Timestamp,
+    pub epoch: u32,
+    pub global_slot: u32,
+    pub slot: u32,
 }
 
 // TODO(binier): do we need to verify constants? Probably they are verified

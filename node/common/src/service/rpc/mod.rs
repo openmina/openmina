@@ -9,8 +9,8 @@ pub mod transition_frontier;
 
 use node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
-    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGenesisBlockResponse,
-    RpcGetBlockResponse, RpcHealthCheckResponse, RpcHeartbeatGetResponse,
+    RpcConsensusTimeGetResponse, RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
+    RpcGenesisBlockResponse, RpcGetBlockResponse, RpcHealthCheckResponse, RpcHeartbeatGetResponse,
     RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
     RpcPeersGetResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
     RpcReadinessCheckResponse, RpcRequest, RpcSnarkPoolCompletedJobsResponse,
@@ -325,6 +325,7 @@ impl node::rpc_effectful::RpcService for NodeService {
         RpcPooledZkappCommandsResponse
     );
     rpc_service_impl!(respond_genesis_block, RpcGenesisBlockResponse);
+    rpc_service_impl!(respond_consensus_time_get, RpcConsensusTimeGetResponse);
 }
 
 #[cfg(test)]

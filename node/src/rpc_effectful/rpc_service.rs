@@ -12,7 +12,7 @@ use crate::{
         RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
         RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
         RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
-        RpcTransitionFrontierUserCommandsResponse,
+        RpcTransitionFrontierUserCommandsResponse, RpcConsensusTimeGetResponse,
     },
     State,
 };
@@ -224,5 +224,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcGenesisBlockResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_consensus_time_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcConsensusTimeGetResponse,
     ) -> Result<(), RespondError>;
 }

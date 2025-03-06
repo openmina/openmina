@@ -89,9 +89,19 @@ impl From<ConversionError> for Error {
     }
 }
 
-struct Context(RpcSender);
+pub(crate) struct Context(RpcSender);
 
 impl juniper::Context for Context {}
+
+// impl Context {
+//     pub(crate) async fn get_or_fetch_status(&self) -> RpcStatusGetResponse {
+//         let result: RpcStatusGetResponse = self
+//             .0
+//             .oneshot_request(RpcRequest::StatusGet)
+//             .await
+//             .flatten();
+//     }
+// }
 
 #[derive(Clone, Copy, Debug, GraphQLEnum)]
 #[allow(clippy::upper_case_acronyms)]
@@ -227,16 +237,9 @@ impl Query {
     }
 
     async fn daemon_status(
-        context: &Context,
+        _context: &Context,
     ) -> juniper::FieldResult<constants::GraphQLDaemonStatus> {
-        let consensus_constants: ConsensusConstants = context
-            .0
-            .oneshot_request(RpcRequest::ConsensusConstantsGet)
-            .await
-            .ok_or(Error::StateMachineEmptyResponse)?;
-        Ok(constants::GraphQLDaemonStatus {
-            consensus_configuration: consensus_constants.into(),
-        })
+        Ok(constants::GraphQLDaemonStatus)
     }
 
     async fn genesis_constants(

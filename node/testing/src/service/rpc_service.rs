@@ -126,4 +126,8 @@ impl RpcService for super::NodeTestingService {
         node::rpc::RpcPooledZkappCommandsResponse,
     );
     to_real!(respond_genesis_block, node::rpc::RpcGenesisBlockResponse,);
+    to_real!(
+        respond_consensus_time_get,
+        node::rpc::RpcConsensusTimeGetResponse,
+    );
 }
