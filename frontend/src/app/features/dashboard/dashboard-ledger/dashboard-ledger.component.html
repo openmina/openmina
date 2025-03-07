@@ -76,7 +76,12 @@
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.rootStaged.staged.fetchPartsStart, ledgers.rootStaged.staged.fetchPartsEnd)"
              (mouseleave)="hide()">
-          <div class="step">Fetch parts</div>
+          <div class="step">
+            Fetch parts
+            @if (fetchedParts.total) {
+              {{ fetchedParts.current }}/{{ fetchedParts.total }}
+            }
+          </div>
           <div>{{ ledgers.rootStaged.staged.fetchPartsDuration ?? ledgers.rootStaged.staged.fetchPassedTime | secDuration: configMap.rootStaged }}</div>
         </div>
         <div class="flex-row flex-between h-lg lh-lg"

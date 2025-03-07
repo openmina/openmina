@@ -16,9 +16,9 @@ export class FirestoreService {
     console.log('Posting to cloud function:', data);
     return this.http.post(this.cloudFunctionUrl, { data })
       .pipe(
-        tap(() => {
-          this.sentryService.updateHeartbeat(data, data.submitter);
-        }),
+        // tap(() => {
+        //   this.sentryService.updateHeartbeat(data, data.submitter);
+        // }),
         catchError(error => {
           console.error('Error while posting heartbeat', error);
           return of(null);
