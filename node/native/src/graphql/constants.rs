@@ -1,6 +1,10 @@
 use juniper::GraphQLObject;
-use node::rpc::{
-    ConsensusTimeQuery, PeerConnectionStatus, RpcConsensusTimeGetResponse, RpcPeerInfo, RpcRequest,
+use node::{
+    rpc::{
+        ConsensusTimeQuery, PeerConnectionStatus, RpcConsensusTimeGetResponse, RpcPeerInfo,
+        RpcRequest,
+    },
+    BuildEnv,
 };
 use openmina_core::{
     consensus::{ConsensusConstants, ConsensusTime},
@@ -19,7 +23,7 @@ impl GraphQLDaemonStatus {
         context: &Context,
     ) -> juniper::FieldResult<GraphQLConsensusConfiguration> {
         let consensus_constants: ConsensusConstants = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::ConsensusConstantsGet)
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -28,7 +32,7 @@ impl GraphQLDaemonStatus {
 
     async fn peers(&self, context: &Context) -> juniper::FieldResult<Vec<GraphQLRpcPeerInfo>> {
         let peers: Vec<RpcPeerInfo> = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::PeersGet)
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -47,7 +51,7 @@ impl GraphQLDaemonStatus {
         context: &Context,
     ) -> juniper::FieldResult<GraphQLConsensusTime> {
         let consensus_time: RpcConsensusTimeGetResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::ConsensusTimeGet(ConsensusTimeQuery::Now))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -66,7 +70,7 @@ impl GraphQLDaemonStatus {
         context: &Context,
     ) -> juniper::FieldResult<GraphQLConsensusTime> {
         let consensus_time_res: RpcConsensusTimeGetResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::ConsensusTimeGet(ConsensusTimeQuery::BestTip))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -78,6 +82,84 @@ impl GraphQLDaemonStatus {
                 juniper::Value::Null,
             )),
         }
+    }
+
+    async fn consensus_mechanism(&self, _context: &Context) -> juniper::FieldResult<String> {
+        Ok("proof_of_stake".to_string())
+    }
+
+    async fn blockchain_length(&self, context: &Context) -> juniper::FieldResult<Option<i32>> {
+        let status = context.get_or_fetch_status().await;
+
+        Ok(status.and_then(|status| {
+            status
+                .transition_frontier
+                .best_tip
+                .map(|block_summary| block_summary.height as i32)
+        }))
+    }
+
+    async fn chain_id(&self, context: &Context) -> juniper::FieldResult<Option<String>> {
+        let status = context.get_or_fetch_status().await;
+
+        Ok(status.and_then(|status| status.chain_id))
+    }
+
+    async fn commit_id(&self, _context: &Context) -> juniper::FieldResult<String> {
+        Ok(BuildEnv::get().git.commit_hash.to_string())
+    }
+
+    async fn global_slot_since_genesis_best_tip(
+        &self,
+        context: &Context,
+    ) -> juniper::FieldResult<Option<i32>> {
+        let best_tip = context.get_or_fetch_best_tip().await;
+        Ok(best_tip.and_then(|best_tip| {
+            println!("best_tip OK");
+            best_tip.global_slot_since_genesis().try_into().ok()
+        }))
+    }
+
+    // highestUnvalidatedBlockLengthReceived
+    async fn highest_unvalidated_block_length_received(
+        &self,
+        context: &Context,
+    ) -> juniper::FieldResult<Option<i32>> {
+        let status = context.get_or_fetch_status().await;
+        Ok(status.and_then(|status| {
+            status
+                .transition_frontier
+                .best_tip
+                .map(|best_tip| best_tip.height as i32)
+                .or_else(|| {
+                    status
+                        .transition_frontier
+                        .sync
+                        .target
+                        .map(|target| target.height as i32)
+                })
+        }))
+    }
+
+    //highestBlockLengthReceived
+    async fn highest_block_length_received(
+        &self,
+        context: &Context,
+    ) -> juniper::FieldResult<Option<i32>> {
+        let status = context.get_or_fetch_status().await;
+        Ok(status.and_then(|status| {
+            status
+                .transition_frontier
+                .best_tip
+                .map(|best_tip| best_tip.height as i32)
+                .or_else(|| {
+                    status
+                        .transition_frontier
+                        .sync
+                        .target
+                        .map(|target| target.height as i32)
+                })
+        }))
     }
 }
 

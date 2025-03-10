@@ -12,7 +12,7 @@ use node::{
         RpcGetBlockResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
         RpcRequest, RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse,
         RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionStatusGetResponse,
-        SyncStatsQuery,
+        SyncStatsQuery, RpcStatusGetResponse, RpcNodeStatus, RpcBestChainResponse
     },
     stats::sync::SyncKind,
     BuildEnv,
@@ -24,6 +24,7 @@ use openmina_core::{
 use openmina_node_common::rpc::RpcSender;
 use snark::GraphQLPendingSnarkWork;
 use std::str::FromStr;
+use tokio::sync::OnceCell;
 use transaction::GraphQLTransactionStatus;
 use warp::{Filter, Rejection, Reply};
 use zkapp::GraphQLZkapp;
@@ -81,6 +82,8 @@ pub enum ConversionError {
     Custom(String),
     #[error(transparent)]
     FieldHelpers(#[from] FieldHelpersError),
+    #[error("Failed to convert integer to i32")]
+    Integer,
 }
 
 impl From<ConversionError> for Error {
@@ -89,19 +92,54 @@ impl From<ConversionError> for Error {
     }
 }
 
-pub(crate) struct Context(RpcSender);
+/// Context for the GraphQL API
+///
+/// This is used to share state between the GraphQL queries and mutations.
+///
+/// The caching used here is only valid for the lifetime of the context
+/// i.e. for one request which is the goal as we can have multiple sources for one request.
+/// This optimizes the number of request to the state machine
+pub(crate) struct Context {
+    rpc_sender: RpcSender,
+    statemachine_status_cache: OnceCell<Option<RpcNodeStatus>>,
+    best_tip_cache: OnceCell<Option<AppliedBlock>>,
+}
 
 impl juniper::Context for Context {}
 
-// impl Context {
-//     pub(crate) async fn get_or_fetch_status(&self) -> RpcStatusGetResponse {
-//         let result: RpcStatusGetResponse = self
-//             .0
-//             .oneshot_request(RpcRequest::StatusGet)
-//             .await
-//             .flatten();
-//     }
-// }
+impl Context {
+    pub fn new(rpc_sender: RpcSender) -> Self {
+        Self {
+            rpc_sender,
+            statemachine_status_cache: OnceCell::new(),
+            best_tip_cache: OnceCell::new(),
+        }
+    }
+
+    pub(crate) async fn get_or_fetch_status(&self) -> RpcStatusGetResponse {
+        self.statemachine_status_cache
+            .get_or_init(|| async {
+                self.rpc_sender
+                    .oneshot_request(RpcRequest::StatusGet)
+                    .await
+                    .flatten()
+            })
+            .await
+            .clone()
+    }
+
+    pub(crate) async fn get_or_fetch_best_tip(&self) -> Option<AppliedBlock> {
+        self.best_tip_cache
+            .get_or_init(|| async {
+                self.rpc_sender
+                    .oneshot_request(RpcRequest::BestChain(1))
+                    .await
+                    .and_then(|blocks: RpcBestChainResponse| blocks.first().cloned())
+            })
+            .await
+            .clone()
+    }
+}
 
 #[derive(Clone, Copy, Debug, GraphQLEnum)]
 #[allow(clippy::upper_case_acronyms)]
@@ -185,7 +223,7 @@ impl Query {
         let token_id = TokenIdKeyHash::from_str(&token)?;
         let public_key = AccountPublicKey::from_str(&public_key)?;
         let accounts: Vec<Account> = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::LedgerAccountsGet(
                 AccountQuery::PubKeyWithTokenId(public_key, token_id),
             ))
@@ -201,7 +239,7 @@ impl Query {
 
     async fn sync_status(context: &Context) -> juniper::FieldResult<SyncStatus> {
         let state: RpcSyncStatsGetResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::SyncStatsGet(SyncStatsQuery { limit: Some(1) }))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -225,7 +263,7 @@ impl Query {
         context: &Context,
     ) -> juniper::FieldResult<Vec<GraphQLBlock>> {
         let best_chain: Vec<AppliedBlock> = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::BestChain(max_length as u32))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -246,7 +284,7 @@ impl Query {
         context: &Context,
     ) -> juniper::FieldResult<constants::GraphQLGenesisConstants> {
         let consensus_constants: ConsensusConstants = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::ConsensusConstantsGet)
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -285,7 +323,7 @@ impl Query {
             .into());
         };
         let res: RpcTransactionStatusGetResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::TransactionStatusGet(tx))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -311,7 +349,7 @@ impl Query {
         };
 
         let res: Option<RpcGetBlockResponse> = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::GetBlock(query.clone()))
             .await;
 
@@ -461,7 +499,7 @@ where
     R: TryFrom<MinaBaseUserCommandStableV2>,
 {
     let res: RpcTransactionInjectResponse = context
-        .0
+        .rpc_sender
         .oneshot_request(RpcRequest::TransactionInject(vec![cmd]))
         .await
         .ok_or(Error::StateMachineEmptyResponse)?;
@@ -527,7 +565,7 @@ impl Mutation {
             .map_err(|e| Error::Conversion(ConversionError::Base58Check(e)))?;
 
         let accounts: Vec<Account> = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::LedgerAccountsGet(
                 AccountQuery::PubKeyWithTokenId(public_key, token_id),
             ))
@@ -557,7 +595,7 @@ impl Mutation {
 
         // Grab the sender's account to get the infered nonce
         let accounts: Vec<Account> = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::LedgerAccountsGet(
                 AccountQuery::PubKeyWithTokenId(public_key, token_id),
             ))
@@ -577,7 +615,7 @@ impl Mutation {
 pub fn routes(
     rpc_sernder: RpcSender,
 ) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
-    let state = warp::any().map(move || Context(rpc_sernder.clone()));
+    let state = warp::any().map(move || Context::new(rpc_sernder.clone()));
     let schema = RootNode::new(Query, Mutation, EmptySubscription::<Context>::new());
     let graphql_filter = juniper_warp::make_graphql_filter(schema, state.boxed());
     let graphiql_filter = juniper_warp::graphiql_filter("/graphql", None);
