@@ -5,9 +5,6 @@ edition = "2021"
 license = "Apache-2.0"
 authors = [ "Alexander Koptelov <alexandre.koptelov@gmail.com>" ]
 
-[lints]
-workspace = true
-
 [lib]
 proc-macro = true
 
