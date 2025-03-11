@@ -1,5 +1,6 @@
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use serde::{Deserialize, Serialize};
+use snark::TransactionVerifier;
 
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkResult, SnarkWorkSpec,
@@ -21,6 +22,7 @@ pub trait ExternalSnarkWorkerService {
         &mut self,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
+        work_verifier: TransactionVerifier,
     ) -> Result<(), ExternalSnarkWorkerError>;
 
     /// Submits snark work

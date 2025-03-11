@@ -59,7 +59,7 @@ impl SnarkPoolState {
                     let take = state
                         .get(&id)
                         .and_then(|job| job.snark.as_ref())
-                        .map_or(true, |old_snark| snark.work > old_snark.work);
+                        .is_none_or(|old_snark| snark.work > old_snark.work);
                     if take {
                         state.set_snark_work(snark.clone());
                     }

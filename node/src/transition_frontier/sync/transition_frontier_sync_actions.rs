@@ -137,7 +137,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     && state
                         .transition_frontier
                         .best_tip()
-                        .map_or(true, |tip| best_tip.hash != tip.hash)
+                        .is_none_or(|tip| best_tip.hash != tip.hash)
                     && state
                         .transition_frontier
                         .candidates
@@ -161,7 +161,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     .transition_frontier
                     .sync
                     .best_tip()
-                    .map_or(true, |tip| best_tip.hash != tip.hash)
+                    .is_none_or(|tip| best_tip.hash != tip.hash)
                 // TODO(binier): TMP. we shouldn't need to check consensus here.
                 && state
                     .transition_frontier
@@ -194,7 +194,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     // TODO(binier): check if candidate best tip is short or
                     // long range fork and based on that compare slot that
                     // we are producing.
-                    .map_or(true, |won_slot| won_slot < best_tip)
+                    .is_none_or(|won_slot| won_slot < best_tip)
             }
             TransitionFrontierSyncAction::LedgerStakingPending => {
                 matches!(

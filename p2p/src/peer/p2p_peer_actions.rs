@@ -42,7 +42,7 @@ impl redux::EnablingCondition<P2pState> for P2pPeerAction {
                     && state
                         .peers
                         .get(peer_id)
-                        .map_or(true, |p| p.dial_opts.is_none())
+                        .is_none_or(|p| p.dial_opts.is_none())
                     && state.peers.len() < state.config.limits.max_peers_in_state()
             }
             P2pPeerAction::Ready { peer_id, .. } => state

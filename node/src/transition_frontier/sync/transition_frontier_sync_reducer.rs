@@ -734,7 +734,7 @@ fn next_required_ledger_to_sync(
 
     let (kind, ledger) = if old_best_tip.staking_epoch_ledger_hash()
         != new_best_tip.staking_epoch_ledger_hash()
-        && cur_best_tip.map_or(true, |cur| {
+        && cur_best_tip.is_none_or(|cur| {
             cur.staking_epoch_ledger_hash() != new_best_tip.staking_epoch_ledger_hash()
         }) {
         let ledger = TransitionFrontierSyncLedgerSnarkedState::pending(
@@ -744,7 +744,7 @@ fn next_required_ledger_to_sync(
         .into();
         (SyncLedgerTargetKind::StakingEpoch, ledger)
     } else if old_best_tip.next_epoch_ledger_hash() != new_best_tip.next_epoch_ledger_hash()
-        && cur_best_tip.map_or(true, |cur| {
+        && cur_best_tip.is_none_or(|cur| {
             cur.staking_epoch_ledger_hash() != new_best_tip.staking_epoch_ledger_hash()
         })
         && next_epoch_target.is_some()

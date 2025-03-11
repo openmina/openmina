@@ -137,7 +137,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                     sock_addr: *addr,
                     incoming: false,
                 })
-                .map_or(true, |v| v.closed.is_some()),
+                .is_none_or(|v| v.closed.is_some()),
             P2pNetworkSchedulerAction::OutgoingDidConnect { addr, .. } => state
                 .network
                 .scheduler

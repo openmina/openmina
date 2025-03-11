@@ -23,6 +23,7 @@ use super::{
     p2p::webrtc_with_libp2p::P2pServiceCtx,
     replay::ReplayerState,
     rpc::{RpcSender, RpcService},
+    snark_worker::SnarkWorker,
     snarks::SnarkBlockVerifyArgs,
     EventReceiver, EventSender,
 };
@@ -41,6 +42,7 @@ pub struct NodeService {
     pub snark_block_proof_verify: mpsc::TrackedUnboundedSender<SnarkBlockVerifyArgs>,
 
     pub ledger_manager: LedgerManager,
+    pub snark_worker: Option<SnarkWorker>,
     pub block_producer: Option<BlockProducerService>,
     pub archive: Option<ArchiveService>,
     pub p2p: P2pServiceCtx,
@@ -116,6 +118,7 @@ impl NodeService {
             event_receiver: mpsc::unbounded_channel().1.into(),
             snark_block_proof_verify: mpsc::unbounded_channel().0,
             ledger_manager: LedgerManager::spawn(Default::default()),
+            snark_worker: None,
             block_producer: None,
             archive: None,
             p2p: P2pServiceCtx::mocked(p2p_sec_key),
