@@ -1,15 +1,17 @@
 pub use tokio::sync::oneshot;
 
 pub mod mpsc {
-    use std::{
-        sync::{Arc, Weak},
-        task::{Context, Poll},
-    };
-    use tokio::sync::mpsc::error::*;
-    pub use tokio::sync::mpsc::{self, *};
+    use std::sync::{Arc, Weak};
 
-    pub struct UnboundedSender<T>(mpsc::UnboundedSender<T>, Arc<()>);
-    pub struct UnboundedReceiver<T>(mpsc::UnboundedReceiver<T>);
+    pub use flume::{SendError, TryRecvError, TrySendError};
+
+    pub type RecvStream<T> = flume::r#async::RecvStream<'static, T>;
+
+    pub struct Sender<T>(flume::Sender<T>);
+    pub struct Receiver<T>(flume::Receiver<T>);
+
+    pub struct UnboundedSender<T>(flume::Sender<T>, Arc<()>);
+    pub struct UnboundedReceiver<T>(flume::Receiver<T>);
 
     pub type TrackedUnboundedSender<T> = UnboundedSender<Tracked<T>>;
     pub type TrackedUnboundedReceiver<T> = UnboundedReceiver<Tracked<T>>;
@@ -31,6 +33,12 @@ pub mod mpsc {
         }
     }
 
+    impl<T> Clone for Sender<T> {
+        fn clone(&self) -> Self {
+            Self(self.0.clone())
+        }
+    }
+
     impl<T> Clone for UnboundedSender<T> {
         fn clone(&self) -> Self {
             Self(self.0.clone(), self.1.clone())
@@ -48,6 +56,34 @@ pub mod mpsc {
     impl<T> std::ops::DerefMut for Tracked<T> {
         fn deref_mut(&mut self) -> &mut Self::Target {
             &mut self.0
+        }
+    }
+
+    impl<T> Sender<T> {
+        pub async fn send(&self, message: T) -> Result<(), SendError<T>> {
+            self.0.send_async(message).await
+        }
+
+        pub fn try_send(&self, message: T) -> Result<(), TrySendError<T>> {
+            self.0.try_send(message)
+        }
+    }
+
+    impl<T> Receiver<T> {
+        pub fn is_empty(&self) -> bool {
+            self.0.is_empty()
+        }
+
+        pub fn len(&self) -> usize {
+            self.0.len()
+        }
+
+        pub async fn recv(&mut self) -> Option<T> {
+            self.0.recv_async().await.ok()
+        }
+
+        pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
+            self.0.try_recv()
         }
     }
 
@@ -82,31 +118,37 @@ pub mod mpsc {
         }
 
         pub async fn recv(&mut self) -> Option<T> {
-            self.0.recv().await
+            self.0.recv_async().await.ok()
         }
 
         pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
             self.0.try_recv()
         }
 
-        pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>> {
-            self.0.poll_recv(cx)
+        pub fn stream(&self) -> RecvStream<T> {
+            self.0.clone().into_stream()
         }
 
         pub fn blocking_recv(&mut self) -> Option<T> {
-            self.0.blocking_recv()
+            self.0.recv().ok()
         }
     }
 
+    pub fn channel<T>(bound: usize) -> (Sender<T>, Receiver<T>) {
+        let (tx, rx) = flume::bounded(bound);
+
+        (Sender(tx), Receiver(rx))
+    }
+
     pub fn unbounded_channel<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = flume::unbounded();
 
         (UnboundedSender(tx, Arc::new(())), UnboundedReceiver(rx))
     }
 
     pub fn tracked_unbounded_channel<T>(
     ) -> (UnboundedSender<Tracked<T>>, UnboundedReceiver<Tracked<T>>) {
-        let (tx, rx) = mpsc::unbounded_channel();
+        let (tx, rx) = flume::unbounded();
 
         (UnboundedSender(tx, Arc::new(())), UnboundedReceiver(rx))
     }
@@ -133,21 +175,21 @@ pub mod watch {
 }
 
 #[allow(dead_code)]
-pub struct Aborter(mpsc::Receiver<()>, mpsc::Sender<()>);
+pub struct Aborter(flume::Receiver<()>, flume::Sender<()>);
 
 #[derive(Clone)]
-pub struct Aborted(mpsc::Sender<()>);
+pub struct Aborted(flume::Sender<()>);
 
 impl Default for Aborter {
     fn default() -> Self {
-        let (tx, rx) = mpsc::channel(1);
+        let (tx, rx) = flume::bounded(0);
         Self(rx, tx)
     }
 }
 
 impl Aborter {
     pub fn listener_count(&self) -> usize {
-        self.1.strong_count().saturating_sub(1)
+        self.0.sender_count().saturating_sub(1)
     }
 
     /// Simply drops the object. No need to call manually, unless you
@@ -163,6 +205,7 @@ impl Aborter {
 
 impl Aborted {
     pub async fn wait(&self) {
-        self.0.closed().await;
+        // it returning an error means receiver was dropped
+        while self.0.send_async(()).await.is_ok() {}
     }
 }

@@ -5,6 +5,7 @@ mod p2p_task_spawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
+use openmina_core::channels::Aborter;
 
 pub mod runner;
 
@@ -19,7 +20,6 @@ use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 
 use ledger::proofs::provers::BlockProver;
 use node::account::{AccountPublicKey, AccountSecretKey};
-use node::core::channels::mpsc;
 use node::core::consensus::ConsensusConstants;
 use node::core::constants::constraint_constants;
 use node::core::invariants::InvariantsState;
@@ -208,7 +208,8 @@ impl Cluster {
         let node_config = testing_config.clone();
         let node_id = ClusterNodeId::new_unchecked(self.nodes.len());
         let work_dir = TempDir::new().unwrap();
-        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
+        let shutdown_initiator = Aborter::default();
+        let shutdown_listener = shutdown_initiator.aborted();
         let p2p_sec_key = match testing_config.peer_id {
             TestPeerId::Derived => P2pSecretKey::deterministic(node_id.index()),
             TestPeerId::Bytes(bytes) => P2pSecretKey::from_bytes(bytes),
@@ -306,7 +307,7 @@ impl Cluster {
             .ledger_init()
             .p2p_init_with_custom_task_spawner(
                 p2p_sec_key.clone(),
-                p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
+                p2p_task_spawner::P2pTaskSpawner::new(shutdown_listener.clone()),
             )
             .gather_stats()
             .record(match testing_config.recorder {
@@ -331,7 +332,7 @@ impl Cluster {
             .enable_all()
             .build()
             .unwrap();
-        let shutdown = shutdown_tx.clone();
+        let shutdown = shutdown_listener.clone();
         let rpc_sender = real_service.rpc_sender();
         thread::Builder::new()
             .name("openmina_http_server".to_owned())
@@ -339,7 +340,7 @@ impl Cluster {
                 let local_set = tokio::task::LocalSet::new();
                 let task = async {
                     tokio::select! {
-                        _ = shutdown.closed() => {}
+                        _ = shutdown.wait() => {}
                         _ = http_server::run(http_port, rpc_sender) => {}
                     }
                 };
@@ -349,7 +350,7 @@ impl Cluster {
 
         let invariants_state = self.invariants_state.clone();
         let mut service =
-            NodeTestingService::new(real_service, node_id, invariants_state, shutdown_rx);
+            NodeTestingService::new(real_service, node_id, invariants_state, shutdown_initiator);
 
         service.set_proof_kind(self.config.proof_kind());
         if self.config.all_rust_to_rust_use_webrtc() {

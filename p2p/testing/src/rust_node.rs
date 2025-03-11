@@ -73,14 +73,14 @@ impl RustNodeConfig {
 
 pub struct RustNode {
     store: Store,
-    event_receiver: mpsc::UnboundedReceiver<P2pEvent>,
+    event_receiver: mpsc::RecvStream<P2pEvent>,
 }
 
 impl RustNode {
     pub(super) fn new(store: Store, event_receiver: mpsc::UnboundedReceiver<P2pEvent>) -> Self {
         RustNode {
             store,
-            event_receiver,
+            event_receiver: event_receiver.stream(),
         }
     }
 
@@ -109,7 +109,7 @@ impl RustNode {
     }
 
     fn poll_event_receiver(&mut self, cx: &mut Context<'_>) -> Poll<Option<RustNodeEvent>> {
-        let event = ready!(Pin::new(&mut self.event_receiver).poll_recv(cx));
+        let event = ready!(Pin::new(&mut self.event_receiver).poll_next(cx));
         Poll::Ready(event.map(|event| {
             self.dispatch_event(event.clone());
             RustNodeEvent::P2p { event }
