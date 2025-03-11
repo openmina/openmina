@@ -73,6 +73,7 @@ impl std::fmt::Display for Event {
                     RpcRequest::ConsensusConstantsGet => write!(f, "ConsensusConstantsGet"),
                     RpcRequest::TransactionStatusGet(..) => write!(f, "TransactionStatusGet"),
                     RpcRequest::GetBlock(..) => write!(f, "GetBlock"),
+                    RpcRequest::PooledUserCommands(..) => write!(f, "PooledUserCommands"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {

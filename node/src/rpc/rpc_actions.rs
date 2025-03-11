@@ -15,7 +15,7 @@ use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnection
 use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
-    ActionStatsQuery, GetBlockQuery, RpcId, RpcScanStateSummaryGetQuery,
+    ActionStatsQuery, GetBlockQuery, PooledUserCommandsQuery, RpcId, RpcScanStateSummaryGetQuery,
     RpcScanStateSummaryScanStateJob, SyncStatsQuery,
 };
 
@@ -211,6 +211,11 @@ pub enum RpcAction {
         query: GetBlockQuery,
     },
 
+    PooledUserCommands {
+        rpc_id: RpcId,
+        query: PooledUserCommandsQuery,
+    },
+
     Finish {
         rpc_id: RpcId,
     },
@@ -306,6 +311,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::ConsensusConstantsGet { .. } => true,
             RpcAction::BestChain { .. } => state.transition_frontier.best_tip().is_some(),
             RpcAction::TransactionStatusGet { .. } => true,
+            RpcAction::PooledUserCommands { .. } => true,
             RpcAction::LedgerAccountsGetInit { .. } => {
                 state.transition_frontier.best_tip().is_some()
             }

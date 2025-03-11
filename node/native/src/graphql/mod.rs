@@ -1,22 +1,24 @@
-use block::GraphQLBlock;
-use juniper::{graphql_value, FieldError};
-use juniper::{EmptySubscription, GraphQLEnum, RootNode};
+use block::{GraphQLBlock, GraphQLUserCommands};
+use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
 use ledger::Account;
-use mina_p2p_messages::v2::MinaBaseSignedCommandStableV2;
-use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
-use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1;
-use mina_p2p_messages::v2::TokenIdKeyHash;
-use node::rpc::RpcTransactionInjectResponse;
-use node::rpc::{GetBlockQuery, RpcGetBlockResponse, RpcTransactionStatusGetResponse};
+use mina_p2p_messages::v2::{
+    MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
+    MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash,
+};
 use node::{
     account::AccountPublicKey,
-    rpc::{AccountQuery, RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
+    rpc::{
+        AccountQuery, GetBlockQuery, PooledUserCommandsQuery, RpcGetBlockResponse,
+        RpcPooledUserCommandsResponse, RpcRequest, RpcSyncStatsGetResponse,
+        RpcTransactionInjectResponse,
+        RpcTransactionStatusGetResponse, SyncStatsQuery,
+    },
     stats::sync::SyncKind,
 };
 use o1_utils::field_helpers::FieldHelpersError;
-use openmina_core::block::AppliedBlock;
-use openmina_core::consensus::ConsensusConstants;
-use openmina_core::constants::constraint_constants;
+use openmina_core::{
+    block::AppliedBlock, consensus::ConsensusConstants, constants::constraint_constants,
+};
 use openmina_node_common::rpc::RpcSender;
 use std::str::FromStr;
 use transaction::GraphQLTransactionStatus;
@@ -319,6 +321,55 @@ impl Query {
             Some(Some(block)) => Ok(GraphQLBlock::try_from(block)?),
         }
     }
+
+    async fn pooled_user_commands(
+        &self,
+        public_key: Option<String>,
+        hashes: Option<Vec<String>>,
+        ids: Option<Vec<String>>,
+        context: &Context,
+    ) -> juniper::FieldResult<Vec<GraphQLUserCommands>> {
+        let public_key = match public_key {
+            Some(public_key) => Some(AccountPublicKey::from_str(&public_key)?),
+            None => None,
+        };
+
+        let hashes = match hashes {
+            Some(hashes) => Some(
+                hashes
+                    .into_iter()
+                    .map(|tx| TransactionHash::from_str(tx.as_str()))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+            None => None,
+        };
+
+        let ids = match ids {
+            Some(ids) => Some(
+                ids.into_iter()
+                    .map(|id| MinaBaseSignedCommandStableV2::from_base64(id.as_str()))
+                    .collect::<Result<Vec<_>, _>>()?,
+            ),
+            None => None,
+        };
+
+        let query = PooledUserCommandsQuery {
+            public_key,
+            hashes,
+            ids,
+        };
+
+        let res: RpcPooledUserCommandsResponse = context
+            .0
+            .oneshot_request(RpcRequest::PooledUserCommands(query))
+            .await
+            .ok_or(Error::StateMachineEmptyResponse)?;
+
+        Ok(res
+            .into_iter()
+            .map(GraphQLUserCommands::try_from)
+            .collect::<Result<Vec<_>, _>>()?)
+    }
 }
 
 async fn inject_tx<R>(
@@ -371,6 +422,7 @@ where
         }
     }
 }
+
 #[derive(Clone, Debug)]
 struct Mutation;
 

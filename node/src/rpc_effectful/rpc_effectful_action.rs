@@ -3,9 +3,9 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         discovery::RpcDiscoveryRoutingTable, AccountQuery, ActionStatsQuery, RpcBestChainResponse,
-        RpcGetBlockResponse, RpcPeerInfo, RpcScanStateSummaryScanStateJob, RpcSnarkerConfig,
-        RpcTransactionInjectFailure, RpcTransactionInjectRejected, RpcTransactionInjectSuccess,
-        SyncStatsQuery,
+        RpcGetBlockResponse, RpcPeerInfo, RpcPooledUserCommandsResponse,
+        RpcScanStateSummaryScanStateJob, RpcSnarkerConfig, RpcTransactionInjectFailure,
+        RpcTransactionInjectRejected, RpcTransactionInjectSuccess, SyncStatsQuery,
     },
 };
 use ledger::{
@@ -150,6 +150,10 @@ pub enum RpcEffectfulAction {
     BlockGet {
         rpc_id: RpcId,
         block: RpcGetBlockResponse,
+    },
+    PooledUserCommands {
+        rpc_id: RpcId,
+        user_commands: RpcPooledUserCommandsResponse,
     },
 }
 

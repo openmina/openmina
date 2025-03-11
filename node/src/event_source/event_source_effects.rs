@@ -391,6 +391,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::GetBlock(query) => {
                     store.dispatch(RpcAction::BlockGet { rpc_id, query });
                 }
+                RpcRequest::PooledUserCommands(query) => {
+                    store.dispatch(RpcAction::PooledUserCommands { rpc_id, query });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

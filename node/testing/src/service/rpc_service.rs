@@ -109,4 +109,8 @@ impl RpcService for super::NodeTestingService {
         node::rpc::RpcTransactionStatusGetResponse,
     );
     to_real!(respond_block_get, node::rpc::RpcGetBlockResponse,);
+    to_real!(
+        respond_pooled_user_commands,
+        node::rpc::RpcPooledUserCommandsResponse,
+    );
 }
