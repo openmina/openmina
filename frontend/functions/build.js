@@ -10,7 +10,7 @@ if (fs.existsSync(keysFilePath)) {
     .map(key => key.trim())
     .filter(key => key.length > 0);
 
-  const validatorFilePath = path.resolve(__dirname, 'functions/submitterValidator.ts');
+  const validatorFilePath = path.resolve(__dirname, 'lib/submitterValidator.js');
   let validatorFileContent = fs.readFileSync(validatorFilePath, 'utf-8');
 
   const keysSetString = keys.map(key => `'${key}'`).join(',\n    ');

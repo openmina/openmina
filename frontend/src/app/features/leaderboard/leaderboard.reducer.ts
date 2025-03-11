@@ -40,7 +40,10 @@ export const leaderboardReducer = createReducer(
 
 
 function sortHeartbeats(node: HeartbeatSummary[], tableSort: TableSort<HeartbeatSummary>): HeartbeatSummary[] {
-  return sort<HeartbeatSummary>(node, tableSort, []);
+  const data = sort<HeartbeatSummary>(node, tableSort, []);
+  const whales = data.filter(d => d.isWhale).sort((a, b) => b.uptimePercentage - a.uptimePercentage);
+  const nonWhales = data.filter(d => !d.isWhale);
+  return [...nonWhales, ...whales];
 }
 
 function filterHeartbeats(summaries: HeartbeatSummary[], filters: any): HeartbeatSummary[] {

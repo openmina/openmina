@@ -16,12 +16,20 @@ import { AppSelectors } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { SentryService } from '@core/services/sentry.service';
 import { take } from 'rxjs';
+import { WebNodeService } from '@core/services/web-node.service';
 
 type LedgerConfigMap = {
   stakingEpoch: SecDurationConfig,
   nextEpoch: SecDurationConfig,
   rootSnarked: SecDurationConfig,
   rootStaged: SecDurationConfig,
+};
+
+type DetailsProgress = {
+  staking: { fetchHashes: number, fetchAccounts: number },
+  next: { fetchHashes: number, fetchAccounts: number },
+  rootSnarked: { fetchHashes: number, fetchAccounts: number },
+  rootStaged: { fetchParts: number, reconstruct: number },
 };
 
 const initialSnarked: NodesOverviewLedgerEpochStep = {
@@ -82,27 +90,7 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
   totalProgress: number;
   isWebNode: boolean;
 
-  private startSync: number = Date.now();
-
-  @ViewChild('tooltipRef') private tooltipRef: TemplateRef<{ start: number, end: number }>;
-  private overlayRef: OverlayRef;
-
-  constructor(private overlay: Overlay,
-              private viewContainerRef: ViewContainerRef,
-              private sentryService: SentryService) {
-    super();
-  }
-
-  ngOnInit(): void {
-    this.listenToActiveNode();
-    this.listenToNodesChanges();
-  }
-
-  private listenToActiveNode(): void {
-    this.select(AppSelectors.activeNode, (node: MinaNode) => {
-      this.isWebNode = node.isWebNode;
-    });
-  }
+  fetchedParts: { current: number, total: number } = { current: 0, total: 0 };
 
   remainingStakingLedger: number;
   private previousStakingLedgerDownloaded: number;
@@ -114,6 +102,25 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
   private previousRootStagedLedgerDownloaded: number;
   remainingReconstruct: number = 20;
   private reconstructTimer: any;
+
+  @ViewChild('tooltipRef') private tooltipRef: TemplateRef<{ start: number, end: number }>;
+  private overlayRef: OverlayRef;
+
+  constructor(private overlay: Overlay,
+              private viewContainerRef: ViewContainerRef,
+              private sentryService: SentryService,
+              private webNodeService: WebNodeService) { super() }
+
+  ngOnInit(): void {
+    this.listenToActiveNode();
+    this.listenToNodesChanges();
+  }
+
+  private listenToActiveNode(): void {
+    this.select(AppSelectors.activeNode, (node: MinaNode) => {
+      this.isWebNode = node.isWebNode;
+    });
+  }
 
   private listenToNodesChanges(): void {
     this.select(selectDashboardNodesAndRpcStats, ([nodes, rpcStats]: [NodesOverviewNode[], DashboardRpcStats]) => {
@@ -136,6 +143,7 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
         this.rootSnarkedProgress = 0;
         this.rootStagedProgress = 0;
         this.totalProgress = 0;
+        this.fetchedParts = { current: 0, total: 0 };
       } else {
         this.ledgers = nodes[0].ledgers;
 
@@ -208,6 +216,10 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
         this.nextProgress = rpcStats.nextLedger?.fetched / rpcStats.nextLedger?.estimation * 100 || 0;
         this.rootSnarkedProgress = rpcStats.snarkedRootLedger?.fetched / rpcStats.snarkedRootLedger?.estimation * 100 || 0;
 
+        if (rpcStats.stagedRootLedger?.estimation) {
+          this.fetchedParts = { current: rpcStats.stagedRootLedger?.fetched, total: rpcStats.stagedRootLedger?.estimation };
+        }
+
         this.rootStagedProgress = 0;
         if (this.ledgers.rootStaged.staged.fetchPartsEnd) {
           this.rootStagedProgress += 50;
@@ -232,10 +244,11 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
         }
         if (this.ledgers.rootStaged.state === NodesOverviewLedgerStepState.SUCCESS) {
           this.rootStagedProgress = 100;
+
         }
         this.totalProgress = (this.stakingProgress + this.nextProgress + this.rootSnarkedProgress + this.rootStagedProgress) / 4;
 
-        this.sentryService.updateLedgerSyncStatus(this.ledgers);
+        this.sentryService.updateLedgerSyncStatus(this.ledgers, this.webNodeService.publicKey);
       }
       this.detect();
     });

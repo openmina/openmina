@@ -36,7 +36,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
 import * as Sentry from '@sentry/angular';
 import { Router } from '@angular/router';
-import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
+import { getApp, initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { getAnalytics, provideAnalytics, ScreenTrackingService } from '@angular/fire/analytics';
 import { getPerformance, providePerformance } from '@angular/fire/performance';
 import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
@@ -44,6 +44,9 @@ import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
 import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { LeaderboardModule } from '@leaderboard/leaderboard.module';
 import { UptimePillComponent } from '@app/layout/uptime-pill/uptime-pill.component';
+import { provideAppCheck } from '@angular/fire/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { SETTINGS } from '@angular/fire/compat/firestore';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -129,15 +132,20 @@ export class AppGlobalErrorhandler implements ErrorHandler {
 }
 
 const firebaseProviders = [
+  {
+    provide: SETTINGS,
+    useValue: { experimentalForceLongPolling: true },
+  },
+  provideFirebaseApp(() => initializeApp(CONFIG.globalConfig.firebase)),
   provideClientHydration(),
   provideHttpClient(withFetch()),
-  provideFirebaseApp(() => initializeApp(CONFIG.globalConfig.firebase)),
   provideAnalytics(() => getAnalytics()),
   ScreenTrackingService,
   // provideAppCheck(() => {
   //   // TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
-  //   const provider = new ReCaptchaEnterpriseProvider(/* reCAPTCHA Enterprise site key */);
-  //   return initializeAppCheck(undefined, { provider, isTokenAutoRefreshEnabled: true });
+  //   const app = getApp();
+  //   const provider = new ReCaptchaV3Provider('6LfAB-QqAAAAAEu9BO6upFj6Sewd08lf0UtFC16c');
+  //   return initializeAppCheck(app, { provider, isTokenAutoRefreshEnabled: true });
   // }),
   providePerformance(() => getPerformance()),
   provideFirestore(() => getFirestore()),
@@ -192,7 +200,8 @@ const firebaseProviders = [
     { provide: Sentry.TraceService, deps: [Router] },
     {
       provide: APP_INITIALIZER,
-      useFactory: () => () => {},
+      useFactory: () => () => {
+      },
       deps: [Sentry.TraceService],
       multi: true,
     },
@@ -203,4 +212,5 @@ const firebaseProviders = [
     MenuComponent,
   ],
 })
-export class AppModule {}
+export class AppModule {
+}
