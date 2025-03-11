@@ -4,8 +4,9 @@ use crate::{
     rpc::{
         discovery::RpcDiscoveryRoutingTable, AccountQuery, ActionStatsQuery, RpcBestChainResponse,
         RpcGetBlockResponse, RpcPeerInfo, RpcPooledUserCommandsResponse,
-        RpcScanStateSummaryScanStateJob, RpcSnarkerConfig, RpcTransactionInjectFailure,
-        RpcTransactionInjectRejected, RpcTransactionInjectSuccess, SyncStatsQuery,
+        RpcPooledZkappCommandsResponse, RpcScanStateSummaryScanStateJob, RpcSnarkerConfig,
+        RpcTransactionInjectFailure, RpcTransactionInjectRejected, RpcTransactionInjectSuccess,
+        SyncStatsQuery,
     },
 };
 use ledger::{
@@ -154,6 +155,10 @@ pub enum RpcEffectfulAction {
     PooledUserCommands {
         rpc_id: RpcId,
         user_commands: RpcPooledUserCommandsResponse,
+    },
+    PooledZkappCommands {
+        rpc_id: RpcId,
+        zkapp_commands: RpcPooledZkappCommandsResponse,
     },
 }
 

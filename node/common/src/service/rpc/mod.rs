@@ -12,9 +12,10 @@ use node::rpc::{
     RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
     RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcLedgerAccountsResponse,
     RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
-    RpcPooledUserCommandsResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
-    RpcStatusGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
-    RpcTransactionStatusGetResponse, RpcTransitionFrontierUserCommandsResponse,
+    RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse,
+    RpcRequest, RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
+    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+    RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -310,6 +311,10 @@ impl node::rpc_effectful::RpcService for NodeService {
     rpc_service_impl!(respond_transaction_status, RpcTransactionStatusGetResponse);
     rpc_service_impl!(respond_block_get, RpcGetBlockResponse);
     rpc_service_impl!(respond_pooled_user_commands, RpcPooledUserCommandsResponse);
+    rpc_service_impl!(
+        respond_pooled_zkapp_commands,
+        RpcPooledZkappCommandsResponse
+    );
 }
 
 #[cfg(test)]

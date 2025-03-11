@@ -2,16 +2,16 @@ use block::{GraphQLBlock, GraphQLUserCommands};
 use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
 use ledger::Account;
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
+    conv, MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
     MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash,
 };
 use node::{
     account::AccountPublicKey,
     rpc::{
-        AccountQuery, GetBlockQuery, PooledUserCommandsQuery, RpcGetBlockResponse,
-        RpcPooledUserCommandsResponse, RpcRequest, RpcSyncStatsGetResponse,
-        RpcTransactionInjectResponse,
-        RpcTransactionStatusGetResponse, SyncStatsQuery,
+        AccountQuery, GetBlockQuery, PooledCommandsQuery, RpcGetBlockResponse,
+        RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcRequest,
+        RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionStatusGetResponse,
+        SyncStatsQuery,
     },
     stats::sync::SyncKind,
 };
@@ -23,6 +23,7 @@ use openmina_node_common::rpc::RpcSender;
 use std::str::FromStr;
 use transaction::GraphQLTransactionStatus;
 use warp::{Filter, Rejection, Reply};
+use zkapp::GraphQLZkapp;
 
 pub mod account;
 pub mod block;
@@ -53,6 +54,8 @@ pub enum ConversionError {
     SerdeJson(#[from] serde_json::Error),
     #[error("Base58Check: {0}")]
     Base58Check(#[from] mina_p2p_messages::b58::FromBase58CheckError),
+    #[error("Base58 error: {0}")]
+    Base58(#[from] bs58::decode::Error),
     #[error(transparent)]
     InvalidDecimalNumber(#[from] mina_p2p_messages::bigint::InvalidDecimalNumber),
     #[error("Invalid bigint")]
@@ -322,6 +325,14 @@ impl Query {
         }
     }
 
+    /// Retrieve all the scheduled user commands for a specified sender that
+    /// the current daemon sees in its transaction pool. All scheduled
+    /// commands are queried if no sender is specified
+    ///
+    /// Arguments:
+    /// - `public_key`: base58 encoded [`AccountPublicKey`]
+    /// - `hashes`: list of base58 encoded [`TransactionHash`]es
+    /// - `ids`: list of base64 encoded [`MinaBaseZkappCommandTStableV1WireStableV1`]
     async fn pooled_user_commands(
         &self,
         public_key: Option<String>,
@@ -329,35 +340,12 @@ impl Query {
         ids: Option<Vec<String>>,
         context: &Context,
     ) -> juniper::FieldResult<Vec<GraphQLUserCommands>> {
-        let public_key = match public_key {
-            Some(public_key) => Some(AccountPublicKey::from_str(&public_key)?),
-            None => None,
-        };
-
-        let hashes = match hashes {
-            Some(hashes) => Some(
-                hashes
-                    .into_iter()
-                    .map(|tx| TransactionHash::from_str(tx.as_str()))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-            None => None,
-        };
-
-        let ids = match ids {
-            Some(ids) => Some(
-                ids.into_iter()
-                    .map(|id| MinaBaseSignedCommandStableV2::from_base64(id.as_str()))
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-            None => None,
-        };
-
-        let query = PooledUserCommandsQuery {
+        let query = parse_pooled_commands_query(
             public_key,
             hashes,
             ids,
-        };
+            MinaBaseSignedCommandStableV2::from_base64,
+        )?;
 
         let res: RpcPooledUserCommandsResponse = context
             .0
@@ -368,6 +356,39 @@ impl Query {
         Ok(res
             .into_iter()
             .map(GraphQLUserCommands::try_from)
+            .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// Retrieve all the scheduled zkApp commands for a specified sender that
+    ///  the current daemon sees in its transaction pool. All scheduled
+    ///  commands are queried if no sender is specified
+    ///
+    /// Arguments:
+    /// - `public_key`: base58 encoded [`AccountPublicKey`]
+    /// - `hashes`: list of base58 encoded [`TransactionHash`]es
+    /// - `ids`: list of base64 encoded [`MinaBaseZkappCommandTStableV1WireStableV1`]
+    async fn pooled_zkapp_commands(
+        public_key: Option<String>,
+        hashes: Option<Vec<String>>,
+        ids: Option<Vec<String>>,
+        context: &Context,
+    ) -> juniper::FieldResult<Vec<GraphQLZkapp>> {
+        let query = parse_pooled_commands_query(
+            public_key,
+            hashes,
+            ids,
+            MinaBaseZkappCommandTStableV1WireStableV1::from_base64,
+        )?;
+
+        let res: RpcPooledZkappCommandsResponse = context
+            .0
+            .oneshot_request(RpcRequest::PooledZkappCommands(query))
+            .await
+            .ok_or(Error::StateMachineEmptyResponse)?;
+
+        Ok(res
+            .into_iter()
+            .map(GraphQLZkapp::try_from)
             .collect::<Result<Vec<_>, _>>()?)
     }
 }
@@ -540,3 +561,44 @@ pub fn routes(
 //         )))
 //     .or(homepage)
 //     .with(log);
+
+/// Helper function used by [`Query::pooled_user_commands`] and [`Query::pooled_zkapp_commands`] to parse public key, transaction hashes and command ids
+fn parse_pooled_commands_query<ID, F>(
+    public_key: Option<String>,
+    hashes: Option<Vec<String>>,
+    ids: Option<Vec<String>>,
+    id_map_fn: F,
+) -> Result<PooledCommandsQuery<ID>, ConversionError>
+where
+    F: Fn(&str) -> Result<ID, conv::Error>,
+{
+    let public_key = match public_key {
+        Some(public_key) => Some(AccountPublicKey::from_str(&public_key)?),
+        None => None,
+    };
+
+    let hashes = match hashes {
+        Some(hashes) => Some(
+            hashes
+                .into_iter()
+                .map(|tx| TransactionHash::from_str(tx.as_str()))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        None => None,
+    };
+
+    let ids = match ids {
+        Some(ids) => Some(
+            ids.into_iter()
+                .map(|id| id_map_fn(id.as_str()))
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        None => None,
+    };
+
+    Ok(PooledCommandsQuery {
+        public_key,
+        hashes,
+        ids,
+    })
+}

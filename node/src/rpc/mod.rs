@@ -12,8 +12,8 @@ use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::v2::{
     MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
     MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
-    MinaTransactionTransactionStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
-    StateHash, TransactionHash,
+    MinaBaseZkappCommandTStableV1WireStableV1, MinaTransactionTransactionStableV2,
+    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
 use openmina_core::block::AppliedBlock;
 use openmina_core::consensus::ConsensusConstants;
@@ -89,6 +89,7 @@ pub enum RpcRequest {
     TransactionStatusGet(MinaBaseUserCommandStableV2),
     GetBlock(GetBlockQuery),
     PooledUserCommands(PooledUserCommandsQuery),
+    PooledZkappCommands(PooledZkappsCommandsQuery),
 }
 
 pub type MaxLength = u32;
@@ -370,6 +371,7 @@ pub type RpcBestChainResponse = Vec<AppliedBlock>;
 pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
 pub type RpcTransactionStatusGetResponse = TransactionStatus;
 pub type RpcPooledUserCommandsResponse = Vec<MinaBaseSignedCommandStableV2>;
+pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireStableV1>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -644,11 +646,14 @@ pub enum GetBlockQuery {
 pub type RpcGetBlockResponse = Option<AppliedBlock>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct PooledUserCommandsQuery {
+pub struct PooledCommandsQuery<ID> {
     pub public_key: Option<AccountPublicKey>,
     pub hashes: Option<Vec<TransactionHash>>,
-    pub ids: Option<Vec<MinaBaseSignedCommandStableV2>>,
+    pub ids: Option<Vec<ID>>,
 }
+
+pub type PooledUserCommandsQuery = PooledCommandsQuery<MinaBaseSignedCommandStableV2>;
+pub type PooledZkappsCommandsQuery = PooledCommandsQuery<MinaBaseZkappCommandTStableV1WireStableV1>;
 
 pub mod discovery {
     use p2p::{

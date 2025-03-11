@@ -74,6 +74,7 @@ impl std::fmt::Display for Event {
                     RpcRequest::TransactionStatusGet(..) => write!(f, "TransactionStatusGet"),
                     RpcRequest::GetBlock(..) => write!(f, "GetBlock"),
                     RpcRequest::PooledUserCommands(..) => write!(f, "PooledUserCommands"),
+                    RpcRequest::PooledZkappCommands(..) => write!(f, "PooledZkappCommands"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {

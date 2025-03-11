@@ -113,4 +113,8 @@ impl RpcService for super::NodeTestingService {
         respond_pooled_user_commands,
         node::rpc::RpcPooledUserCommandsResponse,
     );
+    to_real!(
+        respond_pooled_zkapp_commands,
+        node::rpc::RpcPooledZkappCommandsResponse,
+    );
 }
