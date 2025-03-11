@@ -17,6 +17,7 @@ binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "400b52
 rand = "0.8.0"
 redux = { workspace = true }
 tokio = { version = "1.26", features = ["sync"] }
+flume = { version = "0.11.1", features = ["async", "spin"] }
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 md5 = "0.7.0"
 multihash = { version = "0.18.1", features = ["blake2b"] }

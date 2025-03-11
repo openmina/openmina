@@ -1,14 +1,14 @@
-use node::core::channels::mpsc;
 use node::core::thread;
 use node::p2p::service_impl::TaskSpawner;
+use openmina_core::channels::Aborted;
 
 #[derive(Clone)]
 pub struct P2pTaskSpawner {
-    shutdown: mpsc::Sender<()>,
+    shutdown: Aborted,
 }
 
 impl P2pTaskSpawner {
-    pub fn new(shutdown: mpsc::Sender<()>) -> Self {
+    pub fn new(shutdown: Aborted) -> Self {
         Self { shutdown }
     }
 }
@@ -28,7 +28,7 @@ impl TaskSpawner for P2pTaskSpawner {
             .spawn(move || {
                 let fut = async {
                     tokio::select! {
-                        _ = shutdown.closed() => {}
+                        _ = shutdown.wait() => {}
                         _ = fut => {}
                     }
                 };
