@@ -120,6 +120,42 @@ impl GraphQLDaemonStatus {
         }))
     }
 
+    async fn ledger_merkle_root(&self, context: &Context) -> juniper::FieldResult<Option<String>> {
+        let best_tip = context.get_or_fetch_best_tip().await;
+
+        Ok(best_tip.map(|best_tip| best_tip.merkle_root_hash().to_string()))
+        // match best_tip {
+        //     Some(best_tip) => {
+        //         println!("best_tip_ledger_merkle_root {:?}", best_tip.merkle_root_hash());
+        //         let ledger_status = context
+        //             .get_or_fetch_ledger_status(best_tip.merkle_root_hash())
+        //             .await;
+        //         Ok(ledger_status
+        //             .map(|ledger_status| ledger_status.best_tip_staged_ledger_hash.to_string()))
+        //     }
+        //     None => Ok(None),
+        // }
+    }
+
+    async fn state_hash(&self, context: &Context) -> juniper::FieldResult<Option<String>> {
+        let best_tip = context.get_or_fetch_best_tip().await;
+        Ok(best_tip.map(|best_tip| best_tip.hash().to_string()))
+    }
+
+    async fn num_accounts(&self, context: &Context) -> juniper::FieldResult<Option<i32>> {
+        let best_tip = context.get_or_fetch_best_tip().await;
+
+        match best_tip {
+            Some(best_tip) => {
+                let ledger_status = context
+                    .get_or_fetch_ledger_status(best_tip.merkle_root_hash())
+                    .await;
+                Ok(ledger_status.map(|ledger_status| ledger_status.num_accounts as i32))
+            }
+            None => Ok(None),
+        }
+    }
+
     // highestUnvalidatedBlockLengthReceived
     async fn highest_unvalidated_block_length_received(
         &self,

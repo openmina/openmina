@@ -484,6 +484,9 @@ pub enum ActionKind {
     RpcLedgerAccountsGetInit,
     RpcLedgerAccountsGetPending,
     RpcLedgerAccountsGetSuccess,
+    RpcLedgerStatusGetInit,
+    RpcLedgerStatusGetPending,
+    RpcLedgerStatusGetSuccess,
     RpcMessageProgressGet,
     RpcP2pConnectionIncomingAnswerReady,
     RpcP2pConnectionIncomingError,
@@ -534,6 +537,7 @@ pub enum ActionKind {
     RpcEffectfulHealthCheck,
     RpcEffectfulHeartbeatGet,
     RpcEffectfulLedgerAccountsGetSuccess,
+    RpcEffectfulLedgerStatusGetSuccess,
     RpcEffectfulMessageProgressGet,
     RpcEffectfulP2pConnectionIncomingError,
     RpcEffectfulP2pConnectionIncomingRespond,
@@ -730,7 +734,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 620;
+    pub const COUNT: u16 = 624;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1103,6 +1107,9 @@ impl ActionKindGet for RpcAction {
             Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::BlockGet { .. } => ActionKind::RpcBlockGet,
             Self::ConsensusTimeGet { .. } => ActionKind::RpcConsensusTimeGet,
+            Self::LedgerStatusGetInit { .. } => ActionKind::RpcLedgerStatusGetInit,
+            Self::LedgerStatusGetPending { .. } => ActionKind::RpcLedgerStatusGetPending,
+            Self::LedgerStatusGetSuccess { .. } => ActionKind::RpcLedgerStatusGetSuccess,
             Self::PooledUserCommands { .. } => ActionKind::RpcPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcPooledZkappCommands,
             Self::GenesisBlock { .. } => ActionKind::RpcGenesisBlock,
@@ -1180,6 +1187,7 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::PooledZkappCommands { .. } => ActionKind::RpcEffectfulPooledZkappCommands,
             Self::GenesisBlock { .. } => ActionKind::RpcEffectfulGenesisBlock,
             Self::ConsensusTimeGet { .. } => ActionKind::RpcEffectfulConsensusTimeGet,
+            Self::LedgerStatusGetSuccess { .. } => ActionKind::RpcEffectfulLedgerStatusGetSuccess,
         }
     }
 }

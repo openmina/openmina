@@ -1,7 +1,7 @@
 use super::{
-    read::{LedgerReadId, LedgerReadRequest, LedgerReadResponse},
+    read::{LedgerReadId, LedgerReadRequest, LedgerReadResponse, LedgerStatus},
     write::{LedgerWriteRequest, LedgerWriteResponse},
-    {LedgerCtx, LedgerService},
+    LedgerCtx, LedgerService,
 };
 use crate::{
     account::AccountPublicKey, ledger::LedgerAddress, rpc::AccountQuery,
@@ -249,6 +249,16 @@ impl LedgerRequest {
                         };
 
                         LedgerReadResponse::AccountsForRpc(rpc_id, res, account_query)
+                    }
+                    LedgerReadRequest::GetLedgerStatus(rpc_id, ledger_hash) => {
+                        let res = ledger_ctx.get_num_accounts(ledger_hash).map(
+                            |(num_accounts, ledger_hash)| LedgerStatus {
+                                num_accounts,
+                                best_tip_staged_ledger_hash: ledger_hash,
+                            },
+                        );
+
+                        LedgerReadResponse::GetLedgerStatus(rpc_id, res)
                     }
                 },
             ),

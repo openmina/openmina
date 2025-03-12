@@ -16,7 +16,7 @@ use node::rpc::{
     RpcReadinessCheckResponse, RpcRequest, RpcSnarkPoolCompletedJobsResponse,
     RpcSnarkPoolPendingJobsGetResponse, RpcStateGetError, RpcStatusGetResponse,
     RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
-    RpcTransitionFrontierUserCommandsResponse,
+    RpcTransitionFrontierUserCommandsResponse, RpcLedgerStatusGetResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -326,6 +326,7 @@ impl node::rpc_effectful::RpcService for NodeService {
     );
     rpc_service_impl!(respond_genesis_block, RpcGenesisBlockResponse);
     rpc_service_impl!(respond_consensus_time_get, RpcConsensusTimeGetResponse);
+    rpc_service_impl!(respond_ledger_status_get, RpcLedgerStatusGetResponse);
 }
 
 #[cfg(test)]

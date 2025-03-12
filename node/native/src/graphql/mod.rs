@@ -3,16 +3,18 @@ use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNod
 use ledger::Account;
 use mina_p2p_messages::v2::{
     conv, MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
-    MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash,
+    MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash, LedgerHash
 };
 use node::{
     account::AccountPublicKey,
+    ledger::read::LedgerStatus,
     rpc::{
         AccountQuery, GetBlockQuery, PooledCommandsQuery, RpcGenesisBlockResponse,
         RpcGetBlockResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
         RpcRequest, RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse,
         RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionStatusGetResponse,
-        SyncStatsQuery, RpcStatusGetResponse, RpcNodeStatus, RpcBestChainResponse
+        SyncStatsQuery, RpcStatusGetResponse, RpcNodeStatus, RpcBestChainResponse,
+        RpcLedgerStatusGetResponse
     },
     stats::sync::SyncKind,
     BuildEnv,
@@ -103,6 +105,7 @@ pub(crate) struct Context {
     rpc_sender: RpcSender,
     statemachine_status_cache: OnceCell<Option<RpcNodeStatus>>,
     best_tip_cache: OnceCell<Option<AppliedBlock>>,
+    ledger_status_cache: OnceCell<Option<LedgerStatus>>,
 }
 
 impl juniper::Context for Context {}
@@ -113,6 +116,7 @@ impl Context {
             rpc_sender,
             statemachine_status_cache: OnceCell::new(),
             best_tip_cache: OnceCell::new(),
+            ledger_status_cache: OnceCell::new(),
         }
     }
 
@@ -135,6 +139,21 @@ impl Context {
                     .oneshot_request(RpcRequest::BestChain(1))
                     .await
                     .and_then(|blocks: RpcBestChainResponse| blocks.first().cloned())
+            })
+            .await
+            .clone()
+    }
+
+    pub(crate) async fn get_or_fetch_ledger_status(
+        &self,
+        ledger_hash: &LedgerHash,
+    ) -> RpcLedgerStatusGetResponse {
+        self.ledger_status_cache
+            .get_or_init(|| async {
+                self.rpc_sender
+                    .oneshot_request(RpcRequest::LedgerStatusGet(ledger_hash.clone()))
+                    .await
+                    .flatten()
             })
             .await
             .clone()

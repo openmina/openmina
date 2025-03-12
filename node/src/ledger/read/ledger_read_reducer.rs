@@ -199,6 +199,12 @@ impl LedgerReadState {
                     account_query,
                 });
             }
+            (_, LedgerReadResponse::GetLedgerStatus(rpc_id, resp)) => {
+                dispatcher.push(RpcAction::LedgerStatusGetSuccess {
+                    rpc_id,
+                    response: resp.clone(),
+                });
+            }
         }
     }
 

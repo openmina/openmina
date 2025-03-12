@@ -1,7 +1,7 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
 use ledger::Account;
-use mina_p2p_messages::v2::MinaBaseUserCommandStableV2;
 use mina_p2p_messages::v2::TokenIdKeyHash;
+use mina_p2p_messages::v2::{LedgerHash, MinaBaseUserCommandStableV2};
 use openmina_core::block::AppliedBlock;
 use openmina_core::snark::SnarkJobId;
 use openmina_core::ActionEvent;
@@ -17,6 +17,7 @@ use crate::p2p::connection::P2pConnectionResponse;
 use super::{
     ActionStatsQuery, GetBlockQuery, PooledUserCommandsQuery, PooledZkappsCommandsQuery, RpcId,
     RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, SyncStatsQuery, ConsensusTimeQuery,
+    RpcLedgerStatusGetResponse,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -219,6 +220,17 @@ pub enum RpcAction {
         rpc_id: RpcId,
         query: ConsensusTimeQuery,
     },
+    LedgerStatusGetInit {
+        rpc_id: RpcId,
+        ledger_hash: LedgerHash,
+    },
+    LedgerStatusGetPending {
+        rpc_id: RpcId,
+    },
+    LedgerStatusGetSuccess {
+        rpc_id: RpcId,
+        response: RpcLedgerStatusGetResponse,
+    },
 
     PooledUserCommands {
         rpc_id: RpcId,
@@ -370,6 +382,17 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::TransitionFrontierUserCommandsGet { .. } => true,
             RpcAction::BlockGet { .. } => true,
             RpcAction::ConsensusTimeGet { .. } => true,
+            RpcAction::LedgerStatusGetInit { .. } => state.transition_frontier.best_tip().is_some(),
+            RpcAction::LedgerStatusGetPending { rpc_id } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .is_some_and(|v| v.status.is_init()),
+            RpcAction::LedgerStatusGetSuccess { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .is_some_and(|v| v.status.is_pending()),
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests

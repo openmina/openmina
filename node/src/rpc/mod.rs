@@ -13,6 +13,7 @@ use mina_p2p_messages::v2::{
     MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
     MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
     MinaBaseZkappCommandTStableV1WireStableV1, MinaTransactionTransactionStableV2,
+    LedgerHash, 
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
     TransactionSnarkWorkTStableV2,
 };
@@ -45,7 +46,7 @@ use serde::{Deserialize, Serialize};
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,
 };
-use crate::ledger::read::{LedgerReadId, LedgerReadKind};
+use crate::ledger::read::{LedgerReadId, LedgerReadKind, LedgerStatus};
 use crate::ledger::write::LedgerWriteKind;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -95,6 +96,7 @@ pub enum RpcRequest {
     PooledZkappCommands(PooledZkappsCommandsQuery),
     GenesisBlockGet,
     ConsensusTimeGet(ConsensusTimeQuery),
+    LedgerStatusGet(LedgerHash),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -387,6 +389,7 @@ pub type RpcPooledUserCommandsResponse = Vec<MinaBaseSignedCommandStableV2>;
 pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireStableV1>;
 pub type RpcGenesisBlockResponse = Option<ArcBlockWithHash>;
 pub type RpcConsensusTimeGetResponse = Option<ConsensusTime>;
+pub type RpcLedgerStatusGetResponse = Option<LedgerStatus>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]

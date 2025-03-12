@@ -130,4 +130,8 @@ impl RpcService for super::NodeTestingService {
         respond_consensus_time_get,
         node::rpc::RpcConsensusTimeGetResponse,
     );
+    to_real!(
+        respond_ledger_status_get,
+        node::rpc::RpcLedgerStatusGetResponse,
+    );
 }

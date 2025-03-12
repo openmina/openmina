@@ -13,6 +13,7 @@ use crate::{
         RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
         RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
         RpcTransitionFrontierUserCommandsResponse, RpcConsensusTimeGetResponse,
+        RpcLedgerStatusGetResponse,
     },
     State,
 };
@@ -229,5 +230,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcConsensusTimeGetResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_ledger_status_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcLedgerStatusGetResponse,
     ) -> Result<(), RespondError>;
 }

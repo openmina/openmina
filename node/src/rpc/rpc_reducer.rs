@@ -786,6 +786,54 @@ impl RpcState {
                     consensus_time,
                 });
             }
+            RpcAction::LedgerStatusGetInit {
+                rpc_id,
+                ledger_hash,
+            } => {
+                let rpc_state = RpcRequestState {
+                    req: RpcRequest::LedgerStatusGet(ledger_hash.clone()),
+                    status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
+                };
+                state.requests.insert(*rpc_id, rpc_state);
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let ledger_hash = if let Some(best_tip) = state.transition_frontier.best_tip() {
+                    best_tip.merkle_root_hash()
+                } else {
+                    return;
+                };
+
+                dispatcher.push(LedgerReadAction::Init {
+                    request: LedgerReadRequest::GetLedgerStatus(*rpc_id, ledger_hash.clone()),
+                    callback: LedgerReadInitCallback::RpcLedgerStatusGetPending {
+                        callback: redux::callback!(
+                            on_ledger_read_init_rpc_actions_get_init(rpc_id: RequestId<RpcIdType>) -> crate::Action{
+                                RpcAction::LedgerStatusGetPending { rpc_id }
+                            }
+                        ),
+                        args: *rpc_id,
+                    },
+                })
+            }
+            RpcAction::LedgerStatusGetPending { rpc_id } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Pending { time: meta.time() };
+            }
+            RpcAction::LedgerStatusGetSuccess { rpc_id, response } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(RpcEffectfulAction::LedgerStatusGetSuccess {
+                    rpc_id: *rpc_id,
+                    response: response.clone(),
+                });
+            }
         }
     }
 }
