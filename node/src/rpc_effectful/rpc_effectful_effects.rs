@@ -777,6 +777,28 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             )
         }
+        RpcEffectfulAction::PooledUserCommands {
+            rpc_id,
+            user_commands,
+        } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_pooled_user_commands(rpc_id, user_commands),
+                meta.time()
+            )
+        }
+        RpcEffectfulAction::PooledZkappCommands {
+            rpc_id,
+            zkapp_commands,
+        } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_pooled_zkapp_commands(rpc_id, zkapp_commands),
+                meta.time()
+            )
+        }
     }
 }
 

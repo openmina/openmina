@@ -5,11 +5,12 @@ use crate::{
         RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
         RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse,
         RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
-        RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
-        RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
-        RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-        RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
-        RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+        RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcPooledUserCommandsResponse,
+        RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
+        RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerConfigGetResponse,
+        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
+        RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
+        RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
         RpcTransitionFrontierUserCommandsResponse,
     },
     State,
@@ -197,5 +198,15 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcGetBlockResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_pooled_user_commands(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcPooledUserCommandsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_pooled_zkapp_commands(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcPooledZkappCommandsResponse,
     ) -> Result<(), RespondError>;
 }

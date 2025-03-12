@@ -494,6 +494,8 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
     RpcPeersGet,
+    RpcPooledUserCommands,
+    RpcPooledZkappCommands,
     RpcReadinessCheck,
     RpcScanStateSummaryGetInit,
     RpcScanStateSummaryGetPending,
@@ -533,6 +535,8 @@ pub enum ActionKind {
     RpcEffectfulP2pConnectionOutgoingError,
     RpcEffectfulP2pConnectionOutgoingSuccess,
     RpcEffectfulPeersGet,
+    RpcEffectfulPooledUserCommands,
+    RpcEffectfulPooledZkappCommands,
     RpcEffectfulReadinessCheck,
     RpcEffectfulScanStateSummaryGetSuccess,
     RpcEffectfulSnarkPoolAvailableJobsGet,
@@ -718,7 +722,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 608;
+    pub const COUNT: u16 = 612;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1088,6 +1092,8 @@ impl ActionKindGet for RpcAction {
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
             Self::BlockGet { .. } => ActionKind::RpcBlockGet,
+            Self::PooledUserCommands { .. } => ActionKind::RpcPooledUserCommands,
+            Self::PooledZkappCommands { .. } => ActionKind::RpcPooledZkappCommands,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -1154,6 +1160,8 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcEffectfulConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcEffectfulTransactionStatusGet,
             Self::BlockGet { .. } => ActionKind::RpcEffectfulBlockGet,
+            Self::PooledUserCommands { .. } => ActionKind::RpcEffectfulPooledUserCommands,
+            Self::PooledZkappCommands { .. } => ActionKind::RpcEffectfulPooledZkappCommands,
         }
     }
 }

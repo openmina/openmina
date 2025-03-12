@@ -1,3 +1,7 @@
+use ledger::scan_state::transaction_logic::valid;
+use mina_p2p_messages::v2::{
+    MinaBaseSignedCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1, NonZeroCurvePoint,
+};
 use openmina_core::{
     block::AppliedBlock,
     bug_condition,
@@ -14,7 +18,7 @@ use redux::ActionWithMeta;
 use crate::{
     ledger::read::{LedgerReadAction, LedgerReadInitCallback, LedgerReadRequest},
     p2p_ready,
-    rpc::GetBlockQuery,
+    rpc::{GetBlockQuery, PooledCommandsQuery},
     rpc_effectful::RpcEffectfulAction,
     TransactionPoolAction,
 };
@@ -651,6 +655,86 @@ impl RpcState {
                 });
                 dispatcher
                     .push(P2pConnectionIncomingAction::AnswerSendSuccess { peer_id: *peer_id });
+            }
+            RpcAction::PooledUserCommands { rpc_id, query } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+
+                let PooledCommandsQuery {
+                    public_key,
+                    hashes,
+                    ids,
+                } = query;
+
+                let all_transactions = state.transaction_pool.get_all_transactions();
+
+                let mut user_commands: Vec<_> = all_transactions
+                    .into_iter()
+                    .filter_map(|tx| match tx.data {
+                        valid::UserCommand::SignedCommand(signed_command) => Some((
+                            tx.hash,
+                            MinaBaseSignedCommandStableV2::from(*signed_command),
+                        )),
+                        valid::UserCommand::ZkAppCommand(_) => None,
+                    })
+                    .collect();
+
+                if let Some(pk) = public_key {
+                    let pk = NonZeroCurvePoint::from(pk.clone());
+                    user_commands.retain(|(_, tx)| tx.signer == pk)
+                }
+
+                if let Some(hashes) = hashes {
+                    user_commands.retain(|(hash, _)| hashes.contains(hash))
+                }
+
+                if let Some(ids) = ids {
+                    user_commands.retain(|(_, tx)| ids.contains(tx))
+                }
+
+                dispatcher.push(RpcEffectfulAction::PooledUserCommands {
+                    rpc_id: *rpc_id,
+                    user_commands: user_commands.into_iter().map(|(_, tx)| tx).collect(),
+                });
+            }
+            RpcAction::PooledZkappCommands { rpc_id, query } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+
+                let PooledCommandsQuery {
+                    public_key,
+                    hashes,
+                    ids,
+                } = query;
+
+                let all_transactions = state.transaction_pool.get_all_transactions();
+
+                let mut zkapp_commands: Vec<_> = all_transactions
+                    .into_iter()
+                    .filter_map(|tx| match tx.data {
+                        valid::UserCommand::SignedCommand(_) => None,
+                        valid::UserCommand::ZkAppCommand(zkapp) => Some((
+                            tx.hash,
+                            MinaBaseZkappCommandTStableV1WireStableV1::from(&zkapp.zkapp_command),
+                        )),
+                    })
+                    .collect();
+
+                if let Some(pk) = public_key {
+                    let pk = NonZeroCurvePoint::from(pk.clone());
+                    zkapp_commands.retain(|(_, tx)| tx.fee_payer.body.public_key == pk);
+                }
+
+                if let Some(hashes) = hashes {
+                    zkapp_commands.retain(|(hash, _)| hashes.contains(hash));
+                }
+
+                if let Some(ids) = ids {
+                    zkapp_commands.retain(|(_, tx)| ids.contains(tx));
+                }
+
+                dispatcher.push(RpcEffectfulAction::PooledZkappCommands {
+                    rpc_id: *rpc_id,
+                    zkapp_commands: zkapp_commands.into_iter().map(|(_, tx)| tx).collect(),
+                });
             }
         }
     }
