@@ -172,7 +172,7 @@ impl PreparedStatement {
         uses_lookup.to_field_elements(&mut fields);
 
         if uses_lookup {
-            fields.push(lookup_value.unwrap());
+            fields.push(lookup_value.unwrap_or(Fq::zero()));
         } else {
             fields.push(Fq::zero());
         }
