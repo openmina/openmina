@@ -1,8 +1,8 @@
 use juniper::GraphQLObject;
 use node::{
     rpc::{
-        ConsensusTimeQuery, PeerConnectionStatus, RpcConsensusTimeGetResponse, RpcPeerInfo,
-        RpcRequest,
+        ConsensusTimeQuery, PeerConnectionStatus, RpcConsensusTimeGetResponse,
+        RpcNodeStatusNetworkInfo, RpcPeerInfo, RpcRequest,
     },
     BuildEnv,
 };
@@ -156,7 +156,6 @@ impl GraphQLDaemonStatus {
         }
     }
 
-    // highestUnvalidatedBlockLengthReceived
     async fn highest_unvalidated_block_length_received(
         &self,
         context: &Context,
@@ -177,7 +176,6 @@ impl GraphQLDaemonStatus {
         }))
     }
 
-    //highestBlockLengthReceived
     async fn highest_block_length_received(
         &self,
         context: &Context,
@@ -196,6 +194,62 @@ impl GraphQLDaemonStatus {
                         .map(|target| target.height as i32)
                 })
         }))
+    }
+
+    async fn addrs_and_ports(
+        &self,
+        context: &Context,
+    ) -> juniper::FieldResult<GraphQLAddrsAndPorts> {
+        let status = context.get_or_fetch_status().await;
+
+        match status {
+            Some(status) => Ok(GraphQLAddrsAndPorts::from(&status.network_info)),
+            None => Ok(Default::default()),
+        }
+    }
+
+    async fn block_production_keys(&self, context: &Context) -> juniper::FieldResult<Vec<String>> {
+        let status = context.get_or_fetch_status().await;
+        Ok(status.map_or(vec![], |status| {
+            status
+                .block_producer
+                .map_or(vec![], |key| vec![key.to_string()])
+        }))
+    }
+
+    async fn coinbase_receiver(&self, context: &Context) -> juniper::FieldResult<Option<String>> {
+        let status = context.get_or_fetch_status().await;
+        Ok(status.and_then(|status| status.coinbase_receiver.map(|key| key.to_string())))
+    }
+}
+
+#[derive(GraphQLObject, Clone, Debug)]
+pub struct GraphQLAddrsAndPorts {
+    pub bind_ip: String,
+    pub external_ip: Option<String>,
+    pub client_port: Option<i32>,
+    pub libp2p_port: Option<i32>,
+}
+
+impl Default for GraphQLAddrsAndPorts {
+    fn default() -> Self {
+        Self {
+            bind_ip: "0.0.0.0".to_string(),
+            external_ip: None,
+            client_port: None,
+            libp2p_port: None,
+        }
+    }
+}
+
+impl From<&RpcNodeStatusNetworkInfo> for GraphQLAddrsAndPorts {
+    fn from(network_info: &RpcNodeStatusNetworkInfo) -> Self {
+        Self {
+            bind_ip: network_info.bind_ip.clone(),
+            external_ip: network_info.external_ip.clone(),
+            client_port: network_info.client_port.map(|port| port.into()),
+            libp2p_port: network_info.libp2p_port.map(|port| port.into()),
+        }
     }
 }
 

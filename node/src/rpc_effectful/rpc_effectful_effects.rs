@@ -14,14 +14,14 @@ use crate::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
         MessagesStats, NodeHeartbeat, ProducedBlockInfo, RootLedgerSyncProgress,
         RootStagedLedgerSyncProgress, RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse,
-        RpcNodeStatus, RpcNodeStatusLedger, RpcNodeStatusResources, RpcNodeStatusTransactionPool,
-        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
-        RpcNodeStatusTransitionFrontierSync, RpcRequestExtraData, RpcScanStateSummary,
-        RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-        RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryScanStateJob,
-        RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
-        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcTransactionInjectResponse,
-        TransactionStatus,
+        RpcNodeStatus, RpcNodeStatusLedger, RpcNodeStatusNetworkInfo, RpcNodeStatusResources,
+        RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
+        RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
+        RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
+        RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+        RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
+        RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+        RpcTransactionInjectResponse, TransactionStatus,
     },
     snark_pool::SnarkPoolAction,
     transition_frontier::sync::{
@@ -37,6 +37,7 @@ use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use mina_p2p_messages::{rpc_kernel::QueryHeader, v2};
 use mina_signer::CompressedPubKey;
 use openmina_core::{block::ArcBlockWithHash, bug_condition};
+use openmina_node_account::AccountPublicKey;
 use p2p::channels::streaming_rpc::{
     staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
 };
@@ -869,8 +870,31 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
         .and_then(|idx| block_production_attempts.get(idx))
         .cloned();
 
+    let network_info = RpcNodeStatusNetworkInfo {
+        bind_ip: "0.0.0.0".to_string(),
+        external_ip: state
+            .p2p
+            .config()
+            .external_addrs
+            .first()
+            .map(|addr| addr.to_string()),
+        client_port: state.config.client_port,
+        libp2p_port: state.p2p.config().libp2p_port,
+    };
+
+    let block_producer = state
+        .block_producer
+        .config()
+        .map(|config| AccountPublicKey::from(config.pub_key.clone()));
+    let coinbase_receiver = state
+        .block_producer
+        .config()
+        .map(|config| AccountPublicKey::from(config.coinbase_receiver().clone()));
+
     let status = RpcNodeStatus {
         chain_id,
+        block_producer,
+        coinbase_receiver,
         transition_frontier: RpcNodeStatusTransitionFrontier {
             best_tip: state.transition_frontier.best_tip().map(block_summary),
             sync: RpcNodeStatusTransitionFrontierSync {
@@ -924,6 +948,7 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             snark_pool: state.snark_pool.resources_usage(),
         },
         service_queues: store.service.queues(),
+        network_info,
     };
     status
 }

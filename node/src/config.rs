@@ -35,6 +35,7 @@ pub struct GlobalConfig {
     pub build: Box<BuildEnv>,
     pub snarker: Option<SnarkerConfig>,
     pub consensus_constants: ConsensusConstants,
+    pub client_port: Option<u16>,
     pub testing_run: bool,
 }
 

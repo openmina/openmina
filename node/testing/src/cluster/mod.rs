@@ -272,6 +272,7 @@ impl Cluster {
                 build: BuildEnv::get().into(),
                 snarker: testing_config.snark_worker,
                 consensus_constants: consensus_consts.clone(),
+                client_port: Some(http_port),
                 testing_run: true,
             },
             p2p: P2pConfig {

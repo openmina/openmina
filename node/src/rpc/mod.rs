@@ -516,6 +516,17 @@ pub struct RpcNodeStatus {
     pub peers: Vec<RpcPeerInfo>,
     pub resources_status: RpcNodeStatusResources,
     pub service_queues: Queues,
+    pub network_info: RpcNodeStatusNetworkInfo,
+    pub block_producer: Option<AccountPublicKey>,
+    pub coinbase_receiver: Option<AccountPublicKey>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusNetworkInfo {
+    pub bind_ip: String,
+    pub external_ip: Option<String>,
+    pub client_port: Option<u16>,
+    pub libp2p_port: Option<u16>,
 }
 
 #[derive(Serialize, Debug, Clone)]
