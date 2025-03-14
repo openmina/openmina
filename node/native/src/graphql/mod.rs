@@ -2,8 +2,8 @@ use block::{GraphQLBlock, GraphQLSnarkJob, GraphQLUserCommands};
 use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
 use ledger::Account;
 use mina_p2p_messages::v2::{
-    conv, MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
-    MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash, LedgerHash
+    conv, LedgerHash, MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
+    MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash,
 };
 use node::{
     account::AccountPublicKey,
@@ -21,7 +21,8 @@ use node::{
 };
 use o1_utils::field_helpers::FieldHelpersError;
 use openmina_core::{
-    block::AppliedBlock, consensus::ConsensusConstants, constants::constraint_constants, NetworkConfig
+    block::AppliedBlock, consensus::ConsensusConstants, constants::constraint_constants,
+    NetworkConfig,
 };
 use openmina_node_common::rpc::RpcSender;
 use snark::GraphQLPendingSnarkWork;
@@ -30,7 +31,6 @@ use tokio::sync::OnceCell;
 use transaction::GraphQLTransactionStatus;
 use warp::{Filter, Rejection, Reply};
 use zkapp::GraphQLZkapp;
-
 
 pub mod account;
 pub mod block;
@@ -413,7 +413,7 @@ impl Query {
         )?;
 
         let res: RpcPooledUserCommandsResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::PooledUserCommands(query))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -446,7 +446,7 @@ impl Query {
         )?;
 
         let res: RpcPooledZkappCommandsResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::PooledZkappCommands(query))
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -459,7 +459,7 @@ impl Query {
 
     async fn genesis_block(context: &Context) -> juniper::FieldResult<GraphQLBlock> {
         let block = context
-            .0
+            .rpc_sender
             .oneshot_request::<RpcGenesisBlockResponse>(RpcRequest::GenesisBlockGet)
             .await
             .ok_or(Error::StateMachineEmptyResponse)?
@@ -473,7 +473,7 @@ impl Query {
 
     async fn snark_pool(context: &Context) -> juniper::FieldResult<Vec<GraphQLSnarkJob>> {
         let jobs: RpcSnarkPoolCompletedJobsResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::SnarkPoolCompletedJobsGet)
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
@@ -485,7 +485,7 @@ impl Query {
         context: &Context,
     ) -> juniper::FieldResult<Vec<GraphQLPendingSnarkWork>> {
         let jobs: RpcSnarkPoolPendingJobsGetResponse = context
-            .0
+            .rpc_sender
             .oneshot_request(RpcRequest::SnarkPoolPendingJobsGet)
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;

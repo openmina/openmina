@@ -15,9 +15,9 @@ use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnection
 use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
-    ActionStatsQuery, GetBlockQuery, PooledUserCommandsQuery, PooledZkappsCommandsQuery, RpcId,
-    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, SyncStatsQuery, ConsensusTimeQuery,
-    RpcLedgerStatusGetResponse,
+    ActionStatsQuery, ConsensusTimeQuery, GetBlockQuery, PooledUserCommandsQuery,
+    PooledZkappsCommandsQuery, RpcId, RpcLedgerStatusGetResponse, RpcScanStateSummaryGetQuery,
+    RpcScanStateSummaryScanStateJob, SyncStatsQuery,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
