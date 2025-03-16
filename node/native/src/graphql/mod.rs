@@ -1,3 +1,4 @@
+use account::{create_account_loader, AccountLoader};
 use block::{GraphQLBlock, GraphQLSnarkJob, GraphQLUserCommands};
 use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
 use ledger::Account;
@@ -106,6 +107,7 @@ pub(crate) struct Context {
     statemachine_status_cache: OnceCell<Option<RpcNodeStatus>>,
     best_tip_cache: OnceCell<Option<AppliedBlock>>,
     ledger_status_cache: OnceCell<Option<LedgerStatus>>,
+    account_loader: AccountLoader,
 }
 
 impl juniper::Context for Context {}
@@ -113,10 +115,11 @@ impl juniper::Context for Context {}
 impl Context {
     pub fn new(rpc_sender: RpcSender) -> Self {
         Self {
-            rpc_sender,
+            rpc_sender: rpc_sender.clone(),
             statemachine_status_cache: OnceCell::new(),
             best_tip_cache: OnceCell::new(),
             ledger_status_cache: OnceCell::new(),
+            account_loader: create_account_loader(rpc_sender),
         }
     }
 
