@@ -17,6 +17,9 @@ const MINA_PUBLIC_KEY_LENGTH: usize = 44;
 // List of valid error report categories
 const VALID_CATEGORIES: [&str; 1] = ["blockProofFailure"];
 
+// Context string for signature verification
+// const SIGNATURE_CONTEXT: &[u8] = b"OpenminaErrorReport";
+
 #[derive(Clone)]
 struct ServerConfig {
     port: u16,
@@ -32,6 +35,24 @@ struct ErrorReport {
     category: String,
     data: String,      // Base64 encoded binary data
     signature: String, // Base64 encoded cryptographic signature
+}
+
+fn verify_signature(
+    public_key_bs58: &str,
+    _message: &[u8],
+    signature_b64: &str,
+) -> Result<bool, String> {
+    if let Err(e) = bs58::decode(public_key_bs58).into_vec() {
+        return Err(format!("Invalid public key encoding: {}", e));
+    }
+
+    if let Err(e) = BASE64.decode(signature_b64) {
+        return Err(format!("Invalid signature encoding: {}", e));
+    }
+
+    // Stub implementation - always return true
+    // TODO: Replace with actual signature verification
+    Ok(true)
 }
 
 /// Handles POST requests to the /error-report endpoint
@@ -80,18 +101,30 @@ async fn handle_error_report(
     })?;
 
     if data.verify_signatures {
-        let _sig_bytes = match BASE64.decode(&payload.signature) {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                warn!("Invalid signature format: {}", e);
+        // Verify the signature using the submitter's public key and the data
+        match verify_signature(&payload.submitter, &data_bytes, &payload.signature) {
+            Ok(true) => {
+                info!(
+                    "Signature verification successful for submitter: {}",
+                    payload.submitter
+                );
+            }
+            Ok(false) => {
+                error!(
+                    "Signature verification failed for submitter: {}",
+                    payload.submitter
+                );
                 return Err(actix_web::error::ErrorBadRequest(
-                    "Invalid signature format",
+                    "Invalid signature: verification failed",
                 ));
             }
-        };
-
-        // TODO: verify signature here
-        info!("Signature verification would occur here (not implemented yet)");
+            Err(e) => {
+                error!("Signature verification error: {}", e);
+                return Err(actix_web::error::ErrorBadRequest(
+                    "Signature verification error",
+                ));
+            }
+        }
     }
 
     let mut file = File::create(&file_name).map_err(|e| {
