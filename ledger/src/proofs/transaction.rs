@@ -1296,8 +1296,20 @@ impl<F: FieldWitness> InnerCurve<F> {
         let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
 
+        let proj2 = proj;
+        LATEST_RANDOM.set(Box::new(move || {
+            let this = Self { inner: proj2 };
+            format!("{:#?}", this.to_affine())
+        }));
+
         Self { inner: proj }
     }
+}
+
+use std::cell::RefCell;
+
+thread_local! {
+    static LATEST_RANDOM: RefCell<Box<dyn Fn() -> String>> = RefCell::new(Box::new(String::new));
 }
 
 impl InnerCurve<Fp> {
@@ -4013,6 +4025,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
             witness_aux_hash,
             prev_challenges_hash,
             group_map_hash,
+            latest_random: LATEST_RANDOM.with_borrow(|fun| (fun)()),
         };
 
         ProofError::ProvingErrorWithContext(context)
@@ -4089,6 +4102,7 @@ pub mod debug {
         pub witness_aux_hash: String,
         pub prev_challenges_hash: String,
         pub group_map_hash: String,
+        pub latest_random: String,
     }
 
     // Manual implementation because String does not implement binprot traits (because unbounded)
@@ -4102,12 +4116,14 @@ pub mod debug {
                 witness_aux_hash,
                 prev_challenges_hash,
                 group_map_hash,
+                latest_random,
             } = self;
             let inner_error: &[u8] = inner_error.as_bytes();
             let witness_primary_hash: &[u8] = witness_primary_hash.as_bytes();
             let witness_aux_hash: &[u8] = witness_aux_hash.as_bytes();
             let prev_challenges_hash: &[u8] = prev_challenges_hash.as_bytes();
             let group_map_hash: &[u8] = group_map_hash.as_bytes();
+            let latest_random: &[u8] = latest_random.as_bytes();
             binprot::BinProtWrite::binprot_write(&inner_error, w)?;
             binprot::BinProtWrite::binprot_write(witness_primary, w)?;
             binprot::BinProtWrite::binprot_write(witness_aux, w)?;
@@ -4115,6 +4131,7 @@ pub mod debug {
             binprot::BinProtWrite::binprot_write(&witness_aux_hash, w)?;
             binprot::BinProtWrite::binprot_write(&prev_challenges_hash, w)?;
             binprot::BinProtWrite::binprot_write(&group_map_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&latest_random, w)?;
             Ok(())
         }
     }
@@ -4132,6 +4149,7 @@ pub mod debug {
             let witness_aux_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
             let prev_challenges_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
             let group_map_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let latest_random: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
             Ok(Self {
                 inner_error: to_string(inner_error),
                 witness_primary,
@@ -4140,6 +4158,7 @@ pub mod debug {
                 witness_aux_hash: to_string(witness_aux_hash),
                 prev_challenges_hash: to_string(prev_challenges_hash),
                 group_map_hash: to_string(group_map_hash),
+                latest_random: to_string(latest_random),
             })
         }
     }
@@ -4162,6 +4181,7 @@ pub mod debug {
                 witness_aux_hash,
                 prev_challenges_hash,
                 group_map_hash,
+                latest_random,
             } = self;
 
             // Print witness lengths, not the whole vectors
@@ -4173,6 +4193,7 @@ pub mod debug {
                 .field("witness_aux_hash", &witness_aux_hash)
                 .field("prev_challenges_hash", &prev_challenges_hash)
                 .field("group_map_hash", &group_map_hash)
+                .field("latest_random", &latest_random)
                 .finish()
         }
     }
