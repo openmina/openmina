@@ -1079,6 +1079,10 @@ impl AccountId {
         }
     }
 
+    pub fn new_with_default_token(public_key: CompressedPubKey) -> Self {
+        Self::new(public_key, TokenId::default())
+    }
+
     pub fn create(public_key: CompressedPubKey, token_id: TokenId) -> Self {
         Self::new(public_key, token_id)
     }

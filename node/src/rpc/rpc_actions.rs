@@ -1,5 +1,5 @@
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
-use ledger::Account;
+use ledger::{Account, AccountId};
 use mina_p2p_messages::v2::TokenIdKeyHash;
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseUserCommandStableV2};
 use openmina_core::block::AppliedBlock;
@@ -253,6 +253,7 @@ pub enum RpcAction {
 pub enum AccountQuery {
     All,
     SinglePublicKey(AccountPublicKey),
+    MultipleIds(Vec<AccountId>),
     PubKeyWithTokenId(AccountPublicKey, TokenIdKeyHash),
 }
 

@@ -104,10 +104,11 @@ impl From<ConversionError> for Error {
 /// This optimizes the number of request to the state machine
 pub(crate) struct Context {
     rpc_sender: RpcSender,
+    account_loader: AccountLoader,
+    // Caches
     statemachine_status_cache: OnceCell<Option<RpcNodeStatus>>,
     best_tip_cache: OnceCell<Option<AppliedBlock>>,
     ledger_status_cache: OnceCell<Option<LedgerStatus>>,
-    account_loader: AccountLoader,
 }
 
 impl juniper::Context for Context {}
@@ -119,7 +120,7 @@ impl Context {
             statemachine_status_cache: OnceCell::new(),
             best_tip_cache: OnceCell::new(),
             ledger_status_cache: OnceCell::new(),
-            account_loader: create_account_loader(rpc_sender),
+            account_loader: create_account_loader(rpc_sender.clone()),
         }
     }
 

@@ -246,6 +246,9 @@ impl LedgerRequest {
                                 };
                                 ledger_ctx.get_accounts(ledger_hash, vec![id])
                             }
+                            AccountQuery::MultipleIds(ids) => {
+                                ledger_ctx.get_accounts(ledger_hash, ids.clone())
+                            }
                         };
 
                         LedgerReadResponse::AccountsForRpc(rpc_id, res, account_query)

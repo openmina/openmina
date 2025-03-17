@@ -1,33 +1,119 @@
-use crate::graphql::zkapp::{GraphQLFailureReason, GraphQLFeePayer, GraphQLZkappCommand};
-use juniper::{GraphQLEnum, GraphQLObject};
+use crate::graphql::{
+    account::GraphQLAccount,
+    zkapp::{GraphQLFailureReason, GraphQLFeePayer, GraphQLZkappCommand},
+};
+use juniper::{graphql_object, FieldResult, GraphQLEnum, GraphQLObject};
+use ledger::AccountId;
 use mina_p2p_messages::v2::{
     MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
     MinaBaseStakeDelegationStableV2, TransactionSnarkWorkTStableV2,
 };
+use mina_signer::CompressedPubKey;
+use node::account::AccountPublicKey;
 use openmina_core::block::AppliedBlock;
 
-use super::{account::GraphQLDummyAccount, zkapp::GraphQLZkapp, ConversionError};
+use super::{zkapp::GraphQLZkapp, Context, ConversionError};
 
-#[derive(GraphQLObject, Debug)]
-#[graphql(description = "A Mina block")]
+#[derive(Debug)]
 /// Location [src/lib/mina_graphql/types.ml:2095](https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_graphql/types.ml#L2095-L2151)
-pub struct GraphQLBlock {
-    pub creator: String,
-    /// TODO: this must be fetched separately from `AppliedBlock`
-    pub creator_account: GraphQLDummyAccount,
-    /// TODO: this must be fetched separately from `AppliedBlock`
-    pub winner_account: GraphQLDummyAccount,
-    pub state_hash: String,
+pub(crate) struct GraphQLBlock {
+    creator: String,
+    creator_account_key: CompressedPubKey,
+    winner_account_key: CompressedPubKey,
+    state_hash: String,
     /// Experimental: Bigint field-element representation of stateHash
-    pub state_hash_field: String,
-    pub protocol_state: GraphQLProtocolState,
+    state_hash_field: String,
+    protocol_state: GraphQLProtocolState,
     /// Public key of account that produced this block
     /// use creatorAccount field instead
-    pub transactions: GraphQLTransactions,
+    transactions: GraphQLTransactions,
     /// Base58Check-encoded hash of the state after this block
     /// Count of user command transactions in the block
-    pub command_transaction_count: i32,
-    pub snark_jobs: Vec<GraphQLSnarkJob>,
+    command_transaction_count: i32,
+    snark_jobs: Vec<GraphQLSnarkJob>,
+}
+
+#[graphql_object(context = Context)]
+#[graphql(description = "A Mina block")]
+impl GraphQLBlock {
+    fn creator(&self) -> &str {
+        &self.creator
+    }
+
+    async fn creator_account(&self, context: &Context) -> FieldResult<Box<GraphQLAccount>> {
+        // TODO(adonagy): cleanup
+        let account_id = AccountId::new_with_default_token(self.creator_account_key.clone());
+        // Use the loader to fetch the delegate account
+        let account_result = context
+            .account_loader
+            .try_load(account_id)
+            .await
+            .map_err(|e| {
+                juniper::FieldError::new(
+                    format!("Failed to load delegate account: {}", e),
+                    juniper::Value::null(),
+                )
+            })?;
+
+        // Handle the result
+        match account_result {
+            Ok(account) => Ok(Box::new(account)),
+            Err(e) => Err(juniper::FieldError::new(
+                format!("Error loading delegate account: {}", e),
+                juniper::Value::null(),
+            )),
+        }
+    }
+
+    async fn winner_account(&self, context: &Context) -> FieldResult<Box<GraphQLAccount>> {
+        // TODO(adonagy): cleanup
+        let account_id = AccountId::new_with_default_token(self.winner_account_key.clone());
+        // Use the loader to fetch the delegate account
+        let account_result = context
+            .account_loader
+            .try_load(account_id)
+            .await
+            .map_err(|e| {
+                juniper::FieldError::new(
+                    format!("Failed to load delegate account: {}", e),
+                    juniper::Value::null(),
+                )
+            })?;
+
+        // Handle the result
+        match account_result {
+            Ok(account) => Ok(Box::new(account)),
+            Err(e) => Err(juniper::FieldError::new(
+                format!("Error loading delegate account: {}", e),
+                juniper::Value::null(),
+            )),
+        }
+    }
+
+    async fn state_hash(&self) -> &str {
+        &self.state_hash
+    }
+
+    /// Experimental: Bigint field-element representation of stateHash
+    async fn state_hash_field(&self) -> &str {
+        &self.state_hash_field
+    }
+
+    async fn protocol_state(&self) -> &GraphQLProtocolState {
+        &self.protocol_state
+    }
+
+    async fn transactions(&self) -> &GraphQLTransactions {
+        &self.transactions
+    }
+
+    async fn command_transaction_count(&self) -> i32 {
+        self.command_transaction_count
+    }
+
+    async fn snark_jobs(&self) -> &Vec<GraphQLSnarkJob> {
+        &self.snark_jobs
+    }
 }
 
 #[derive(GraphQLObject, Debug)]
@@ -116,12 +202,12 @@ impl TryFrom<AppliedBlock> for GraphQLBlock {
             .collect();
 
         Ok(Self {
-            creator_account: GraphQLDummyAccount {
-                public_key: block.producer().to_string(),
-            },
-            winner_account: GraphQLDummyAccount {
-                public_key: block.block_stake_winner().to_string(),
-            },
+            creator_account_key: AccountPublicKey::from(block.producer().clone())
+                .try_into()
+                .map_err(|_| ConversionError::Custom("Invalid public key".to_string()))?,
+            winner_account_key: AccountPublicKey::from(block.block_stake_winner().clone())
+                .try_into()
+                .map_err(|_| ConversionError::Custom("Invalid public key".to_string()))?,
             protocol_state,
             state_hash: block.hash.to_string(),
             state_hash_field: block.hash.to_decimal(),

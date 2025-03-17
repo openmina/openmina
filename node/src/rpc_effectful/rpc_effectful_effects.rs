@@ -689,6 +689,12 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                         meta.time()
                     )
                 }
+                AccountQuery::MultipleIds(..) => {
+                    respond_or_log!(
+                        store.service().respond_ledger_accounts(rpc_id, accounts),
+                        meta.time()
+                    )
+                }
             }
         }
         RpcEffectfulAction::TransactionInjectSuccess { rpc_id, response } => {

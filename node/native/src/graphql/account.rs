@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use dataloader::non_cached::Loader;
 use juniper::{graphql_object, FieldResult, GraphQLInputObject, GraphQLObject};
-use ledger::{AccountId, FpExt};
+use ledger::{Account, AccountId, FpExt};
 use mina_p2p_messages::{
     string::{TokenSymbol, ZkAppUri},
     v2::{
@@ -10,26 +10,35 @@ use mina_p2p_messages::{
         ReceiptChainHash, TokenIdKeyHash,
     },
 };
-use node::account::AccountPublicKey;
+use mina_signer::CompressedPubKey;
+use node::rpc::{AccountQuery, RpcRequest};
 use openmina_node_common::rpc::RpcSender;
 
 use super::{Context, ConversionError};
 
 pub(crate) type AccountLoader =
-    Loader<AccountPublicKey, Result<GraphQLAccount, Arc<ConversionError>>, AccountBatcher>;
+    Loader<AccountId, Result<GraphQLAccount, Arc<ConversionError>>, AccountBatcher>;
 
 pub(crate) struct AccountBatcher {
     rpc_sender: RpcSender,
 }
 
-impl dataloader::BatchFn<AccountPublicKey, Result<GraphQLAccount, Arc<ConversionError>>>
+impl dataloader::BatchFn<AccountId, Result<GraphQLAccount, Arc<ConversionError>>>
     for AccountBatcher
 {
     async fn load(
         &mut self,
-        keys: &[AccountPublicKey],
-    ) -> HashMap<AccountPublicKey, Result<GraphQLAccount, Arc<ConversionError>>> {
-        todo!()
+        keys: &[AccountId],
+    ) -> HashMap<AccountId, Result<GraphQLAccount, Arc<ConversionError>>> {
+        self.rpc_sender
+            .oneshot_request::<Vec<Account>>(RpcRequest::LedgerAccountsGet(
+                AccountQuery::MultipleIds(keys.to_vec()),
+            ))
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|account| (account.id(), account.try_into().map_err(Arc::new)))
+            .collect()
     }
 }
 
@@ -47,9 +56,8 @@ pub(crate) struct GraphQLAccount {
     balance: GraphQLBalance,
     nonce: String,
     receipt_chain_hash: String,
-    delegate_account: Option<Box<GraphQLAccount>>,
     // Storing the key for later
-    delegate_key: Option<AccountPublicKey>,
+    delegate_key: Option<CompressedPubKey>,
     voting_for: String,
     timing: GraphQLTiming,
     permissions: GraphQLPermissions,
@@ -99,17 +107,20 @@ impl GraphQLAccount {
     ) -> FieldResult<Option<Box<GraphQLAccount>>> {
         // If we have a delegate key
         if let Some(delegate_key) = self.delegate_key.as_ref() {
+            // A delegate always has the default token id
+            let delegate_id = AccountId::new_with_default_token(delegate_key.clone());
             // Use the loader to fetch the delegate account
-            let delegate_result = context
-                .account_loader
-                .try_load(delegate_key.clone())
-                .await
-                .map_err(|e| {
-                    juniper::FieldError::new(
-                        format!("Failed to load delegate account: {}", e),
-                        juniper::Value::null(),
-                    )
-                })?;
+            let delegate_result =
+                context
+                    .account_loader
+                    .try_load(delegate_id)
+                    .await
+                    .map_err(|e| {
+                        juniper::FieldError::new(
+                            format!("Failed to load delegate account: {}", e),
+                            juniper::Value::null(),
+                        )
+                    })?;
 
             // Handle the result
             match delegate_result {
@@ -243,12 +254,6 @@ pub struct GraphQLVerificationKey {
     pub hash: String,
 }
 
-#[derive(GraphQLObject, Debug, Clone)]
-/// Dummy type to represent [`GraphQLAccount`]
-pub struct GraphQLDummyAccount {
-    pub public_key: String,
-}
-
 impl From<ledger::SetVerificationKey<ledger::AuthRequired>> for GraphQLSetVerificationKey {
     fn from(value: ledger::SetVerificationKey<ledger::AuthRequired>) -> Self {
         Self {
@@ -342,9 +347,7 @@ impl TryFrom<ledger::Account> for GraphQLAccount {
             balance: GraphQLBalance::from(value.balance),
             nonce: value.nonce.as_u32().to_string(),
             receipt_chain_hash: ReceiptChainHash::from(value.receipt_chain_hash).to_string(),
-            delegate_key: value.delegate.map(AccountPublicKey::from),
-            // Initialy set to None, will be set in the resolver
-            delegate_account: None,
+            delegate_key: value.delegate,
             voting_for: value.voting_for.to_base58check_graphql(),
             timing: GraphQLTiming::from(value.timing),
             permissions: GraphQLPermissions::from(value.permissions),
