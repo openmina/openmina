@@ -106,7 +106,7 @@ fn prover_loop(
         let (provers, block_hash, mut input) = msg.0;
         let res = prove(provers, &mut input, &keypair, false);
         if let Err(error) = &res {
-            openmina_core::error!(message = "Block proof failed", error = format!("{error}"));
+            openmina_core::error!(message = "Block proof failed", error = format!("{error:?}"));
             if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input, error) {
                 openmina_core::error!(
                     message = "Failure when dumping failed block proof inputs",
