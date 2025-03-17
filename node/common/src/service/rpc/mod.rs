@@ -9,12 +9,12 @@ pub mod transition_frontier;
 
 use node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
-    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
-    RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcLedgerAccountsResponse,
-    RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
-    RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse,
-    RpcRequest, RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
-    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGenesisBlockResponse,
+    RpcGetBlockResponse, RpcHealthCheckResponse, RpcHeartbeatGetResponse,
+    RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
+    RpcPeersGetResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
+    RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse,
+    RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
@@ -315,6 +315,7 @@ impl node::rpc_effectful::RpcService for NodeService {
         respond_pooled_zkapp_commands,
         RpcPooledZkappCommandsResponse
     );
+    rpc_service_impl!(respond_genesis_block, RpcGenesisBlockResponse);
 }
 
 #[cfg(test)]

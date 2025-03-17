@@ -476,6 +476,7 @@ pub enum ActionKind {
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
+    RpcGenesisBlock,
     RpcGlobalStateGet,
     RpcHealthCheck,
     RpcHeartbeatGet,
@@ -524,6 +525,7 @@ pub enum ActionKind {
     RpcEffectfulConsensusConstantsGet,
     RpcEffectfulDiscoveryBoostrapStats,
     RpcEffectfulDiscoveryRoutingTable,
+    RpcEffectfulGenesisBlock,
     RpcEffectfulGlobalStateGet,
     RpcEffectfulHealthCheck,
     RpcEffectfulHeartbeatGet,
@@ -722,7 +724,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 612;
+    pub const COUNT: u16 = 614;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1094,6 +1096,7 @@ impl ActionKindGet for RpcAction {
             Self::BlockGet { .. } => ActionKind::RpcBlockGet,
             Self::PooledUserCommands { .. } => ActionKind::RpcPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcPooledZkappCommands,
+            Self::GenesisBlock { .. } => ActionKind::RpcGenesisBlock,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -1162,6 +1165,7 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::BlockGet { .. } => ActionKind::RpcEffectfulBlockGet,
             Self::PooledUserCommands { .. } => ActionKind::RpcEffectfulPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcEffectfulPooledZkappCommands,
+            Self::GenesisBlock { .. } => ActionKind::RpcEffectfulGenesisBlock,
         }
     }
 }

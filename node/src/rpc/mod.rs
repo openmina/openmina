@@ -15,7 +15,7 @@ use mina_p2p_messages::v2::{
     MinaBaseZkappCommandTStableV1WireStableV1, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
-use openmina_core::block::AppliedBlock;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use openmina_core::consensus::ConsensusConstants;
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
@@ -90,6 +90,7 @@ pub enum RpcRequest {
     GetBlock(GetBlockQuery),
     PooledUserCommands(PooledUserCommandsQuery),
     PooledZkappCommands(PooledZkappsCommandsQuery),
+    GenesisBlockGet,
 }
 
 pub type MaxLength = u32;
@@ -372,6 +373,7 @@ pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
 pub type RpcTransactionStatusGetResponse = TransactionStatus;
 pub type RpcPooledUserCommandsResponse = Vec<MinaBaseSignedCommandStableV2>;
 pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireStableV1>;
+pub type RpcGenesisBlockResponse = Option<ArcBlockWithHash>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]

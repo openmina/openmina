@@ -117,4 +117,5 @@ impl RpcService for super::NodeTestingService {
         respond_pooled_zkapp_commands,
         node::rpc::RpcPooledZkappCommandsResponse,
     );
+    to_real!(respond_genesis_block, node::rpc::RpcGenesisBlockResponse,);
 }
