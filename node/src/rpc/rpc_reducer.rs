@@ -696,6 +696,14 @@ impl RpcState {
                     user_commands: user_commands.into_iter().map(|(_, tx)| tx).collect(),
                 });
             }
+            RpcAction::GenesisBlock { rpc_id } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let genesis_block = state.genesis_block();
+                dispatcher.push(RpcEffectfulAction::GenesisBlock {
+                    rpc_id: *rpc_id,
+                    genesis_block,
+                });
+            }
             RpcAction::PooledZkappCommands { rpc_id, query } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
 

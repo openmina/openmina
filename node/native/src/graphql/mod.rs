@@ -8,10 +8,10 @@ use mina_p2p_messages::v2::{
 use node::{
     account::AccountPublicKey,
     rpc::{
-        AccountQuery, GetBlockQuery, PooledCommandsQuery, RpcGetBlockResponse,
-        RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcRequest,
-        RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionStatusGetResponse,
-        SyncStatsQuery,
+        AccountQuery, GetBlockQuery, PooledCommandsQuery, RpcGenesisBlockResponse,
+        RpcGetBlockResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
+        RpcRequest, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
+        RpcTransactionStatusGetResponse, SyncStatsQuery,
     },
     stats::sync::SyncKind,
 };
@@ -390,6 +390,20 @@ impl Query {
             .into_iter()
             .map(GraphQLZkapp::try_from)
             .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    async fn genesis_block(context: &Context) -> juniper::FieldResult<GraphQLBlock> {
+        let block = context
+            .0
+            .oneshot_request::<RpcGenesisBlockResponse>(RpcRequest::GenesisBlockGet)
+            .await
+            .ok_or(Error::StateMachineEmptyResponse)?
+            .ok_or(Error::StateMachineEmptyResponse)?;
+
+        Ok(GraphQLBlock::try_from(AppliedBlock {
+            block,
+            just_emitted_a_proof: false,
+        })?)
     }
 }
 

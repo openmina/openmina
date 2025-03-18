@@ -799,6 +799,15 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             )
         }
+        RpcEffectfulAction::GenesisBlock {
+            rpc_id,
+            genesis_block,
+        } => {
+            respond_or_log!(
+                store.service().respond_genesis_block(rpc_id, genesis_block),
+                meta.time()
+            )
+        }
     }
 }
 

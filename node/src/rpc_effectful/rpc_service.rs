@@ -2,15 +2,15 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
-        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
-        RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse,
-        RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
-        RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcPooledUserCommandsResponse,
-        RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
-        RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerConfigGetResponse,
-        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
-        RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
-        RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
+        RpcGenesisBlockResponse, RpcGetBlockResponse, RpcHealthCheckResponse,
+        RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
+        RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
+        RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse,
+        RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+        RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+        RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
+        RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
         RpcTransitionFrontierUserCommandsResponse,
     },
     State,
@@ -208,5 +208,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcPooledZkappCommandsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_genesis_block(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcGenesisBlockResponse,
     ) -> Result<(), RespondError>;
 }
