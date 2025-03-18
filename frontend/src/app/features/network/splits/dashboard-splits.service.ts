@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { concatAll, forkJoin, from, map, Observable, toArray } from 'rxjs';
+import { concatAll, forkJoin, from, map, Observable, tap, toArray } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { DashboardSplits } from '@shared/types/network/splits/dashboard-splits.type';
 import { CONFIG } from '@shared/constants/config';
@@ -114,6 +114,7 @@ export class DashboardSplitsService {
         }, { peers: new Array<DashboardSplitsPeer>(), links: new Array<DashboardSplitsLink>() });
       }),
       map((response: DashboardSplits) => this.removeDuplicatedPeers(response)),
+      tap((d )=>console.log(d))
     );
   }
 

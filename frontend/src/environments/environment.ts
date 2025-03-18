@@ -4,8 +4,8 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  showWebNodeLandingPage: false,
-  showLeaderboard: false,
+  showWebNodeLandingPage: true,
+  showLeaderboard: true,
   hidePeersPill: true,
   hideTxPill: true,
   globalConfig: {
