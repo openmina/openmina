@@ -51,7 +51,7 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
 use crate::service::Queues;
-use crate::snark_pool::{JobCommitment, JobSummary};
+use crate::snark_pool::{JobCommitment, JobState, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 use crate::stats::block_producer::{
     BlockProductionAttempt, BlockProductionAttemptWonSlot, VrfEvaluatorStats,
@@ -74,6 +74,7 @@ pub enum RpcRequest {
     SnarkPoolGet,
     SnarkPoolJobGet { job_id: SnarkJobId },
     SnarkPoolCompletedJobsGet,
+    SnarkPoolPendingJobsGet,
     SnarkerConfig,
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
@@ -365,6 +366,7 @@ pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Result<RpcScanStateSummary, String>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolCompletedJobsResponse = Vec<TransactionSnarkWorkTStableV2>;
+pub type RpcSnarkPoolPendingJobsGetResponse = Vec<JobState>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;

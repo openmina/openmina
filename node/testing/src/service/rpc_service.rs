@@ -55,6 +55,10 @@ impl RpcService for super::NodeTestingService {
         node::rpc::RpcSnarkPoolCompletedJobsResponse,
     );
     to_real!(
+        respond_snark_pool_pending_jobs_get,
+        node::rpc::RpcSnarkPoolPendingJobsGetResponse
+    );
+    to_real!(
         respond_snarker_job_commit,
         node::rpc::RpcSnarkerJobCommitResponse,
     );

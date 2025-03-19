@@ -1,6 +1,7 @@
 use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1, NonZeroCurvePoint, TransactionSnarkWorkTStableV2,
+    MinaBaseSignedCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1, NonZeroCurvePoint,
+    TransactionSnarkWorkTStableV2,
 };
 use openmina_core::{
     block::AppliedBlock,
@@ -344,6 +345,20 @@ impl RpcState {
                     rpc_id: *rpc_id,
                     jobs,
                 });
+            }
+            RpcAction::SnarkPoolPendingJobsGet { rpc_id } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+
+                let jobs = state
+                    .snark_pool
+                    .available_jobs_iter()
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                dispatcher.push(RpcEffectfulAction::SnarkPoolPendingJobsGet {
+                    rpc_id: *rpc_id,
+                    jobs,
+                })
             }
             RpcAction::SnarkerConfigGet { rpc_id } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();

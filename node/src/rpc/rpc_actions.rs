@@ -118,6 +118,9 @@ pub enum RpcAction {
     SnarkPoolCompletedJobsGet {
         rpc_id: RpcId,
     },
+    SnarkPoolPendingJobsGet {
+        rpc_id: RpcId,
+    },
     SnarkerConfigGet {
         rpc_id: RpcId,
     },
@@ -309,6 +312,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::SnarkPoolAvailableJobsGet { .. } => true,
             RpcAction::SnarkPoolJobGet { .. } => true,
             RpcAction::SnarkPoolCompletedJobsGet { .. } => true,
+            RpcAction::SnarkPoolPendingJobsGet { .. } => true,
             RpcAction::SnarkerConfigGet { .. } => true,
             RpcAction::SnarkerJobCommit { .. } => true,
             RpcAction::SnarkerJobSpec { .. } => true,

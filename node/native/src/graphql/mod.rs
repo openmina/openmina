@@ -10,8 +10,9 @@ use node::{
     rpc::{
         AccountQuery, GetBlockQuery, PooledCommandsQuery, RpcGenesisBlockResponse,
         RpcGetBlockResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
-        RpcRequest, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
-        RpcTransactionStatusGetResponse, SyncStatsQuery,
+        RpcRequest, RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse,
+        RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionStatusGetResponse,
+        SyncStatsQuery,
     },
     stats::sync::SyncKind,
 };
@@ -20,6 +21,7 @@ use openmina_core::{
     block::AppliedBlock, consensus::ConsensusConstants, constants::constraint_constants,
 };
 use openmina_node_common::rpc::RpcSender;
+use snark::GraphQLPendingSnarkWork;
 use std::str::FromStr;
 use transaction::GraphQLTransactionStatus;
 use warp::{Filter, Rejection, Reply};
@@ -28,6 +30,7 @@ use zkapp::GraphQLZkapp;
 pub mod account;
 pub mod block;
 pub mod constants;
+pub mod snark;
 pub mod transaction;
 pub mod user_command;
 pub mod zkapp;
@@ -413,10 +416,22 @@ impl Query {
             .await
             .ok_or(Error::StateMachineEmptyResponse)?;
 
+        Ok(jobs.iter().map(GraphQLSnarkJob::from).collect())
+    }
+
+    async fn pending_snark_work(
+        context: &Context,
+    ) -> juniper::FieldResult<Vec<GraphQLPendingSnarkWork>> {
+        let jobs: RpcSnarkPoolPendingJobsGetResponse = context
+            .0
+            .oneshot_request(RpcRequest::SnarkPoolPendingJobsGet)
+            .await
+            .ok_or(Error::StateMachineEmptyResponse)?;
+
         Ok(jobs
-            .iter()
-            .map(GraphQLSnarkJob::from)
-            .collect())
+            .into_iter()
+            .map(GraphQLPendingSnarkWork::try_from)
+            .collect::<Result<Vec<_>, _>>()?)
     }
 }
 

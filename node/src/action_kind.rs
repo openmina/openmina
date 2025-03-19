@@ -505,6 +505,7 @@ pub enum ActionKind {
     RpcSnarkPoolAvailableJobsGet,
     RpcSnarkPoolCompletedJobsGet,
     RpcSnarkPoolJobGet,
+    RpcSnarkPoolPendingJobsGet,
     RpcSnarkerConfigGet,
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
@@ -545,6 +546,7 @@ pub enum ActionKind {
     RpcEffectfulSnarkPoolAvailableJobsGet,
     RpcEffectfulSnarkPoolCompletedJobsGet,
     RpcEffectfulSnarkPoolJobGet,
+    RpcEffectfulSnarkPoolPendingJobsGet,
     RpcEffectfulSnarkerConfigGet,
     RpcEffectfulSnarkerJobCommit,
     RpcEffectfulSnarkerJobSpec,
@@ -726,7 +728,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 616;
+    pub const COUNT: u16 = 618;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1073,6 +1075,7 @@ impl ActionKindGet for RpcAction {
             Self::SnarkPoolAvailableJobsGet { .. } => ActionKind::RpcSnarkPoolAvailableJobsGet,
             Self::SnarkPoolJobGet { .. } => ActionKind::RpcSnarkPoolJobGet,
             Self::SnarkPoolCompletedJobsGet { .. } => ActionKind::RpcSnarkPoolCompletedJobsGet,
+            Self::SnarkPoolPendingJobsGet { .. } => ActionKind::RpcSnarkPoolPendingJobsGet,
             Self::SnarkerConfigGet { .. } => ActionKind::RpcSnarkerConfigGet,
             Self::SnarkerJobCommit { .. } => ActionKind::RpcSnarkerJobCommit,
             Self::SnarkerJobSpec { .. } => ActionKind::RpcSnarkerJobSpec,
@@ -1141,6 +1144,7 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::SnarkPoolCompletedJobsGet { .. } => {
                 ActionKind::RpcEffectfulSnarkPoolCompletedJobsGet
             }
+            Self::SnarkPoolPendingJobsGet { .. } => ActionKind::RpcEffectfulSnarkPoolPendingJobsGet,
             Self::SnarkerConfigGet { .. } => ActionKind::RpcEffectfulSnarkerConfigGet,
             Self::SnarkerJobCommit { .. } => ActionKind::RpcEffectfulSnarkerJobCommit,
             Self::SnarkerJobSpec { .. } => ActionKind::RpcEffectfulSnarkerJobSpec,

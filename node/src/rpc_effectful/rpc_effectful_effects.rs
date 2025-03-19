@@ -483,6 +483,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             );
         }
+        RpcEffectfulAction::SnarkPoolPendingJobsGet { rpc_id, jobs } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_snark_pool_pending_jobs_get(rpc_id, jobs),
+                meta.time()
+            );
+        }
         RpcEffectfulAction::SnarkerConfigGet { rpc_id, config } => {
             let _ = store.service().respond_snarker_config_get(rpc_id, config);
         }

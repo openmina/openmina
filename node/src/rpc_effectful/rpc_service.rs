@@ -7,7 +7,8 @@ use crate::{
         RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
         RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
         RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse,
-        RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+        RpcScanStateSummaryGetResponse, RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolGetResponse,
+        RpcSnarkPoolJobGetResponse, RpcSnarkPoolPendingJobsGetResponse,
         RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
         RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
         RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
@@ -118,6 +119,11 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcSnarkPoolCompletedJobsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_snark_pool_pending_jobs_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcSnarkPoolPendingJobsGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_snarker_config_get(
         &mut self,

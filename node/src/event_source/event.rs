@@ -52,6 +52,7 @@ impl std::fmt::Display for Event {
                         write!(f, "SnarkPoolJobGet, {job_id}")
                     }
                     RpcRequest::SnarkPoolCompletedJobsGet => write!(f, "SnarkPoolCompletedJobsGet"),
+                    RpcRequest::SnarkPoolPendingJobsGet => write!(f, "SnarkPoolPendingJobsGet"),
                     RpcRequest::SnarkerConfig => write!(f, "SnarkerConfig"),
                     RpcRequest::SnarkerJobCommit { job_id } => {
                         write!(f, "SnarkerJobCommit, {job_id}")

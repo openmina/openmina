@@ -5,8 +5,9 @@ use crate::{
         discovery::RpcDiscoveryRoutingTable, AccountQuery, ActionStatsQuery, RpcBestChainResponse,
         RpcGenesisBlockResponse, RpcGetBlockResponse, RpcPeerInfo, RpcPooledUserCommandsResponse,
         RpcPooledZkappCommandsResponse, RpcScanStateSummaryScanStateJob,
-        RpcSnarkPoolCompletedJobsResponse, RpcSnarkerConfig, RpcTransactionInjectFailure,
-        RpcTransactionInjectRejected, RpcTransactionInjectSuccess, SyncStatsQuery,
+        RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse, RpcSnarkerConfig,
+        RpcTransactionInjectFailure, RpcTransactionInjectRejected, RpcTransactionInjectSuccess,
+        SyncStatsQuery,
     },
 };
 use ledger::{
@@ -83,6 +84,10 @@ pub enum RpcEffectfulAction {
     SnarkPoolCompletedJobsGet {
         rpc_id: RpcId,
         jobs: RpcSnarkPoolCompletedJobsResponse,
+    },
+    SnarkPoolPendingJobsGet {
+        rpc_id: RpcId,
+        jobs: RpcSnarkPoolPendingJobsGetResponse,
     },
     SnarkerConfigGet {
         rpc_id: RpcId,
