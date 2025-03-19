@@ -272,6 +272,10 @@ impl node::rpc_effectful::RpcService for NodeService {
     );
     rpc_service_impl!(respond_snark_pool_get, RpcSnarkPoolGetResponse);
     rpc_service_impl!(respond_snark_pool_job_get, RpcSnarkPoolJobGetResponse);
+    rpc_service_impl!(
+        respond_snark_pool_completed_jobs_get,
+        RpcSnarkPoolCompletedJobsResponse
+    );
     rpc_service_impl!(respond_snarker_job_commit, RpcSnarkerJobCommitResponse);
     rpc_service_impl!(
         respond_snarker_job_spec,

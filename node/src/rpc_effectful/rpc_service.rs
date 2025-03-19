@@ -114,6 +114,11 @@ pub trait RpcService {
         rpc_id: RpcId,
         response: RpcSnarkPoolJobGetResponse,
     ) -> Result<(), RespondError>;
+    fn respond_snark_pool_completed_jobs_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcSnarkPoolCompletedJobsResponse,
+    ) -> Result<(), RespondError>;
     fn respond_snarker_config_get(
         &mut self,
         rpc_id: RpcId,

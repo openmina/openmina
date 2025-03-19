@@ -1,4 +1,4 @@
-use block::{GraphQLBlock, GraphQLUserCommands};
+use block::{GraphQLBlock, GraphQLSnarkJob, GraphQLUserCommands};
 use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
 use ledger::Account;
 use mina_p2p_messages::v2::{
@@ -404,6 +404,19 @@ impl Query {
             block,
             just_emitted_a_proof: false,
         })?)
+    }
+
+    async fn snark_pool(context: &Context) -> juniper::FieldResult<Vec<GraphQLSnarkJob>> {
+        let jobs: RpcSnarkPoolCompletedJobsResponse = context
+            .0
+            .oneshot_request(RpcRequest::SnarkPoolCompletedJobsGet)
+            .await
+            .ok_or(Error::StateMachineEmptyResponse)?;
+
+        Ok(jobs
+            .iter()
+            .map(GraphQLSnarkJob::from)
+            .collect())
     }
 }
 

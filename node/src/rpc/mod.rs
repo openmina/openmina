@@ -14,6 +14,7 @@ use mina_p2p_messages::v2::{
     MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
     MinaBaseZkappCommandTStableV1WireStableV1, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
+    TransactionSnarkWorkTStableV2,
 };
 use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use openmina_core::consensus::ConsensusConstants;
@@ -72,6 +73,7 @@ pub enum RpcRequest {
     ScanStateSummaryGet(RpcScanStateSummaryGetQuery),
     SnarkPoolGet,
     SnarkPoolJobGet { job_id: SnarkJobId },
+    SnarkPoolCompletedJobsGet,
     SnarkerConfig,
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
@@ -362,6 +364,7 @@ pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Result<RpcScanStateSummary, String>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
+pub type RpcSnarkPoolCompletedJobsResponse = Vec<TransactionSnarkWorkTStableV2>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
