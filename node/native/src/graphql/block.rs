@@ -41,9 +41,7 @@ impl GraphQLBlock {
     }
 
     async fn creator_account(&self, context: &Context) -> FieldResult<Box<GraphQLAccount>> {
-        // TODO(adonagy): cleanup
         let account_id = AccountId::new_with_default_token(self.creator_account_key.clone());
-        // Use the loader to fetch the delegate account
         let account_result = context
             .account_loader
             .try_load(account_id)
@@ -66,9 +64,7 @@ impl GraphQLBlock {
     }
 
     async fn winner_account(&self, context: &Context) -> FieldResult<Box<GraphQLAccount>> {
-        // TODO(adonagy): cleanup
         let account_id = AccountId::new_with_default_token(self.winner_account_key.clone());
-        // Use the loader to fetch the delegate account
         let account_result = context
             .account_loader
             .try_load(account_id)

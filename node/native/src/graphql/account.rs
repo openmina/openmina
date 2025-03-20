@@ -2,7 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use dataloader::non_cached::Loader;
 use juniper::{graphql_object, FieldResult, GraphQLInputObject, GraphQLObject};
-use ledger::{Account, AccountId, FpExt};
+use ledger::{
+    scan_state::currency::{Balance, Magnitude, Slot},
+    Account, AccountId, FpExt, Timing,
+};
 use mina_p2p_messages::{
     string::{TokenSymbol, ZkAppUri},
     v2::{
@@ -49,11 +52,12 @@ pub(crate) fn create_account_loader(rpc_sender: RpcSender) -> AccountLoader {
 
 #[derive(Debug, Clone)]
 pub(crate) struct GraphQLAccount {
+    inner: Account,
     public_key: String,
     token_id: String,
     token: String,
     token_symbol: String,
-    balance: GraphQLBalance,
+    // balance: GraphQLBalance,
     nonce: String,
     receipt_chain_hash: String,
     // Storing the key for later
@@ -68,6 +72,27 @@ pub(crate) struct GraphQLAccount {
     action_state: Option<Vec<String>>,
     proved_state: Option<bool>,
     zkapp_uri: Option<String>,
+}
+
+impl GraphQLAccount {
+    fn min_balance(&self, global_slot: Option<u32>) -> Option<Balance> {
+        global_slot.map(|slot| match self.inner.timing {
+            Timing::Untimed => Balance::zero(),
+            Timing::Timed { .. } => self.inner.min_balance_at_slot(Slot::from_u32(slot)),
+        })
+    }
+
+    fn liquid_balance(&self, global_slot: Option<u32>) -> Option<Balance> {
+        let min_balance = self.min_balance(global_slot);
+        let total = self.inner.balance;
+        min_balance.map(|mb| {
+            if total > mb {
+                total.checked_sub(&mb).expect("overflow")
+            } else {
+                Balance::zero()
+            }
+        })
+    }
 }
 
 #[graphql_object(context = Context)]
@@ -89,8 +114,26 @@ impl GraphQLAccount {
         &self.token_symbol
     }
 
-    fn balance(&self) -> &GraphQLBalance {
-        &self.balance
+    async fn balance(&self, context: &Context) -> GraphQLBalance {
+        let best_tip = context.get_or_fetch_best_tip().await;
+        let global_slot = best_tip.as_ref().map(|bt| bt.global_slot());
+
+        GraphQLBalance {
+            total: self.inner.balance.as_u64().to_string(),
+            block_height: best_tip
+                .as_ref()
+                .map(|bt| bt.height())
+                .unwrap_or_default()
+                .to_string(),
+            state_hash: best_tip.as_ref().map(|bt| bt.hash().to_string()),
+            liquid: self
+                .liquid_balance(global_slot)
+                .map(|b| b.as_u64().to_string()),
+            locked: self
+                .min_balance(global_slot)
+                .map(|b| b.as_u64().to_string()),
+            unknown: self.inner.balance.as_u64().to_string(),
+        }
     }
 
     fn nonce(&self) -> &str {
@@ -232,6 +275,11 @@ pub struct GraphQLSetVerificationKey {
 #[derive(GraphQLObject, Debug, Clone)]
 pub struct GraphQLBalance {
     pub total: String,
+    pub block_height: String,
+    pub state_hash: Option<String>,
+    pub liquid: Option<String>,
+    pub locked: Option<String>,
+    pub unknown: String,
 }
 
 // #[derive(GraphQLObject, Debug)]
@@ -310,15 +358,6 @@ impl From<ledger::Timing> for GraphQLTiming {
     }
 }
 
-// TODO(adonagy)
-impl From<ledger::scan_state::currency::Balance> for GraphQLBalance {
-    fn from(value: ledger::scan_state::currency::Balance) -> Self {
-        Self {
-            total: value.as_u64().to_string(),
-        }
-    }
-}
-
 impl TryFrom<ledger::Account> for GraphQLAccount {
     type Error = ConversionError;
 
@@ -340,11 +379,12 @@ impl TryFrom<ledger::Account> for GraphQLAccount {
             .transpose()?; // Transpose Option<Result<...>> to Result<Option<...>>
 
         Ok(Self {
+            inner: value.clone(),
             public_key: value.public_key.into_address(),
             token_id: TokenIdKeyHash::from(value.token_id.clone()).to_string(),
             token: TokenIdKeyHash::from(value.token_id).to_string(),
             token_symbol: TokenSymbol::from(&value.token_symbol).to_string(),
-            balance: GraphQLBalance::from(value.balance),
+            // balance: GraphQLBalance::from(value.balance),
             nonce: value.nonce.as_u32().to_string(),
             receipt_chain_hash: ReceiptChainHash::from(value.receipt_chain_hash).to_string(),
             delegate_key: value.delegate,
