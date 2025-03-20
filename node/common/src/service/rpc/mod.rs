@@ -13,7 +13,8 @@ use node::rpc::{
     RpcGetBlockResponse, RpcHealthCheckResponse, RpcHeartbeatGetResponse,
     RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
     RpcPeersGetResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
-    RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse,
+    RpcReadinessCheckResponse, RpcRequest, RpcSnarkPoolCompletedJobsResponse,
+    RpcSnarkPoolPendingJobsGetResponse, RpcStateGetError, RpcStatusGetResponse,
     RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
@@ -272,6 +273,14 @@ impl node::rpc_effectful::RpcService for NodeService {
     );
     rpc_service_impl!(respond_snark_pool_get, RpcSnarkPoolGetResponse);
     rpc_service_impl!(respond_snark_pool_job_get, RpcSnarkPoolJobGetResponse);
+    rpc_service_impl!(
+        respond_snark_pool_completed_jobs_get,
+        RpcSnarkPoolCompletedJobsResponse
+    );
+    rpc_service_impl!(
+        respond_snark_pool_pending_jobs_get,
+        RpcSnarkPoolPendingJobsGetResponse
+    );
     rpc_service_impl!(respond_snarker_job_commit, RpcSnarkerJobCommitResponse);
     rpc_service_impl!(
         respond_snarker_job_spec,

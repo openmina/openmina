@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn test_snark_job_id_to_string_from_string() {
-        let s = "jw9nPCs68UNaKaLZwV6QzdswKWomwQxvTgrpmKWmnFJyswnrn4N:jwhHYWzvJG8esmqtYXbUZy3UGbLSjhKvn1FSxBGL1JDFHqbHMJc->jwiLuRrEqNgASgXEqibGs4VqKwSwiuFEtuPD53v8hiTtVuLfmTr:jwhHYWzvJG8esmqtYXbUZy3UGbLSjhKvn1FSxBGL1JDFHqbHMJc";
+        let s = "jw9nPCs68UNaKaLZwV6QzdswKWomwQxvTgrpmKWmnFJyswnrn4N_jwhHYWzvJG8esmqtYXbUZy3UGbLSjhKvn1FSxBGL1JDFHqbHMJc-jwiLuRrEqNgASgXEqibGs4VqKwSwiuFEtuPD53v8hiTtVuLfmTr_jwhHYWzvJG8esmqtYXbUZy3UGbLSjhKvn1FSxBGL1JDFHqbHMJc";
         let decoded = SnarkJobId::from_str(s).unwrap();
         assert_eq!(decoded.to_string(), s);
     }

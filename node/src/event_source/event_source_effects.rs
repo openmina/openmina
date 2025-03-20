@@ -340,6 +340,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::SnarkPoolJobGet { job_id } => {
                     store.dispatch(RpcAction::SnarkPoolJobGet { rpc_id, job_id });
                 }
+                RpcRequest::SnarkPoolCompletedJobsGet => {
+                    store.dispatch(RpcAction::SnarkPoolCompletedJobsGet { rpc_id });
+                }
+                RpcRequest::SnarkPoolPendingJobsGet => {
+                    store.dispatch(RpcAction::SnarkPoolPendingJobsGet { rpc_id });
+                }
                 RpcRequest::SnarkerConfig => {
                     store.dispatch(RpcAction::SnarkerConfigGet { rpc_id });
                 }
