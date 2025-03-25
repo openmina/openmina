@@ -46,7 +46,7 @@ export function topologyReducer(state: DashboardSplitsState = initialState, acti
     case DASHBOARD_SPLITS_GET_SPLITS_SUCCESS: {
       const peers = action.payload.peers.map((p) => ({
         ...p,
-        radius: getRadius(p.address, action.payload.links),
+        radius: getRadius(p, action.payload.links),
         outgoingConnections: action.payload.links.filter(l => l.source === p.address).length,
         incomingConnections: action.payload.links.filter(l => l.target === p.address).length,
       }));
@@ -72,6 +72,7 @@ export function topologyReducer(state: DashboardSplitsState = initialState, acti
     case DASHBOARD_SPLITS_SPLIT_NODES: {
       return {
         ...state,
+        fetching: true,
         networkSplitsDetails: 'Last split: ' + toReadableDate(Date.now(), noMillisFormat),
       };
     }
@@ -79,6 +80,7 @@ export function topologyReducer(state: DashboardSplitsState = initialState, acti
     case DASHBOARD_SPLITS_MERGE_NODES: {
       return {
         ...state,
+        fetching: true,
         networkMergeDetails: 'Last merge: ' + toReadableDate(Date.now(), noMillisFormat),
       };
     }
@@ -110,8 +112,11 @@ export function topologyReducer(state: DashboardSplitsState = initialState, acti
 }
 
 
-function getRadius(address: string, links: DashboardSplitsLink[]): number {
-  const occurrence = links.filter(link => link.source === address || link.target === address).length;
+function getRadius(peer: DashboardSplitsPeer, links: DashboardSplitsLink[]): number {
+  if (peer.node === 'Webnode') {
+    return 14;
+  }
+  const occurrence = links.filter(link => link.source === peer.address || link.target === peer.address).length;
   if (occurrence < 6) {
     return 4;
   } else if (occurrence < 8) {
@@ -176,5 +181,5 @@ function splitThePeers(peers: DashboardSplitsPeer[], links: DashboardSplitsLink[
 }
 
 function sortPeers(messages: DashboardSplitsPeer[], tableSort: TableSort<DashboardSplitsPeer>): DashboardSplitsPeer[] {
-  return sort<DashboardSplitsPeer>(messages, tableSort, ['address', 'peerId', 'node'], true);
+  return sort<DashboardSplitsPeer>(messages, tableSort, ['address', 'node'], true);
 }

@@ -85,5 +85,29 @@ export const peersMock: any = [
       ]
     },
     "node": "node4"
+  },
+  {
+    "data": {
+      "daemonStatus": {
+        "addrsAndPorts": {
+          "externalIp": "10.233.110.50",
+        }
+      },
+      "getPeers": [
+        {
+          "host": "10.233.64.200",
+        },
+        {
+          "host": "10.233.127.9",
+        },
+        {
+          "host": "10.233.80.87",
+        },
+        {
+          "host": "10.233.92.19",
+        },
+      ]
+    },
+    "node": "webnode"
   }
 ]

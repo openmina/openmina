@@ -43,6 +43,8 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
   private tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, undefined>;
   private simulation: Simulation<DashboardSplitsPeerSimulation, undefined>;
   private circles: d3.Selection<SVGCircleElement, DashboardSplitsPeerSimulation, SVGGElement, undefined>;
+  private webnodeInnerCircles: d3.Selection<SVGCircleElement, DashboardSplitsPeerSimulation, SVGGElement, undefined>;
+  private webnodeOuterCircles: d3.Selection<SVGCircleElement, DashboardSplitsPeerSimulation, SVGGElement, undefined>;
   private triangles: d3.Selection<SVGPathElement, DashboardSplitsPeerSimulation, SVGGElement, undefined>;
   private squares: d3.Selection<SVGRectElement, DashboardSplitsPeerSimulation, SVGGElement, undefined>;
   private diamonds: d3.Selection<SVGPathElement, DashboardSplitsPeerSimulation, SVGGElement, undefined>;
@@ -158,7 +160,8 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
         console.log('Spectral Gap:', spectralGap);
 
         this.renderGraph({ peers, links, sets });
-      }, tap(({ fetching }) => {
+      },
+      tap(({ fetching }) => {
         if (fetching) {
           this.fetching = fetching;
         }
@@ -245,7 +248,8 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
       .attr('class', d => `link ${d.source.address} ${d.target.address}`)
       .attr('stroke', 'var(--base-divider)');
 
-    const circleNodes = nodes.filter(peer => !peer.node || ['node', 'generator'].some(n => peer.node.toLowerCase().includes(n)));
+    const circleNodes = nodes.filter(peer => !peer.node || ['node', 'generator'].some(n => peer.node.toLowerCase().includes(n) && !peer.node.toLowerCase().includes('webnode')));
+    const webnodeNodes = nodes.filter(p => p.node).filter(peer => peer.node.toLowerCase().includes('webnode'));
     const triangleNodes = nodes.filter(p => p.node).filter(peer => peer.node.toLowerCase().includes('snark'));
     const squareNodes = nodes.filter(p => p.node).filter(peer => peer.node.toLowerCase().includes('prod'));
     const diamondNodes = nodes.filter(p => p.node).filter(peer => peer.node.toLowerCase().includes('seed'));
@@ -258,6 +262,34 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
       .append('circle')
       .attr('r', (d: DashboardSplitsPeerSimulation) => d.radius);
     this.addCommonProperties(this.circles, lines);
+
+    this.webnodeOuterCircles = this.getG('webnodes-outer', 'circle')
+      .attr('class', 'webnodes-outer')
+      .selectAll('circle')
+      .data(webnodeNodes)
+      .enter()
+      .append('circle')
+      .attr('r', (d: DashboardSplitsPeerSimulation) => d.radius)
+      .attr('fill', 'none')
+    this.addCommonProperties(this.webnodeOuterCircles, lines, true);
+
+    this.webnodeInnerCircles = this.getG('webnodes-inner', 'circle')
+      .attr('class', 'webnodes-inner')
+      .selectAll('circle')
+      .data(webnodeNodes)
+      .enter()
+      .append('circle')
+      .attr('r', (d: DashboardSplitsPeerSimulation) => d.radius * 0.7)
+      .attr('fill', 'var(--success-primary)')
+      .on('mouseover', (event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => this.mouseOverHandle(peer, event, true))
+      .on('mouseout', (event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => this.mouseOutHandler(peer, event, true))
+      .on('click', (_event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => {
+        let selectedPeer = this.peers.find(p => p.address === peer.address);
+        if (selectedPeer === this.activePeer) {
+          selectedPeer = undefined;
+        }
+        this.dispatch(DashboardSplitsSetActivePeer, selectedPeer);
+      })
 
     this.triangles = this.getG('triangles', 'path')
       .attr('class', 'triangles')
@@ -291,6 +323,30 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
   private createSimulation(sets: DashboardSplitsSet[], nodes: DashboardSplitsPeerSimulation[], lines: DashboardSplitsLinkSimulation[]): void {
     const numberOfSets = sets.length;
     const matrixSize = Math.ceil(Math.sqrt(numberOfSets));
+    const getRepulsion = (sets: number) => {
+      switch (sets) {
+        case 1:
+          return 30;
+        case 2:
+          return 25;
+        case 3:
+          return 22;
+        case 4:
+          return 20;
+        case 5:
+          return 15;
+        case 6:
+          return 12;
+        case 7:
+          return 9;
+        case 8:
+          return 7;
+        case 9:
+          return 5;
+        default:
+          return 2;
+      }
+    }
     this.simulation = d3.forceSimulation<DashboardSplitsPeerSimulation>(nodes)
       .force('link', d3.forceLink(lines).distance(numberOfSets === 1 ? 250 : 100))  // This adds links between nodes and sets the distance between them
       .force('charge', d3.forceManyBody().strength(-30))  // control the repulsion between groups - negative means bigger distance
@@ -310,7 +366,7 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
         }
         return this.height;
       }).strength(0.05))
-      .force('collide', d3.forceCollide().radius(numberOfSets < 3 ? 25 : 17)) // This adds repulsion between nodes. Play with the radius
+      .force('collide', d3.forceCollide().radius(getRepulsion(numberOfSets))) // This adds repulsion between nodes. Play with the radius
       .force('center', d3.forceCenter(this.width / 2, this.height / 2))
       .force('bounds', () => {
         for (let node of nodes) {
@@ -331,6 +387,12 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
       this.circles
         .attr('cx', (d: DashboardSplitsPeerSimulation) => d.x)
         .attr('cy', (d: DashboardSplitsPeerSimulation) => d.y);
+      this.webnodeInnerCircles
+        .attr('cx', (d: DashboardSplitsPeerSimulation) => d.x)
+        .attr('cy', (d: DashboardSplitsPeerSimulation) => d.y);
+      this.webnodeOuterCircles
+        .attr('cx', (d: DashboardSplitsPeerSimulation) => d.x)
+        .attr('cy', (d: DashboardSplitsPeerSimulation) => d.y);
       this.triangles
         .attr('transform', (d: DashboardSplitsPeerSimulation) => `translate(${d.x}, ${d.y})`);
       this.squares
@@ -346,14 +408,14 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
     this.simulation.alpha(0.1); // controls how much the animation lasts
   }
 
-  private addCommonProperties(selection: d3.Selection<any, DashboardSplitsPeerSimulation, SVGGElement, undefined>, lines: DashboardSplitsLinkSimulation[]): void {
+  private addCommonProperties(selection: d3.Selection<any, DashboardSplitsPeerSimulation, SVGGElement, undefined>, lines: DashboardSplitsLinkSimulation[], noColorChange: boolean = false): void {
     selection
       .attr('fill', 'var(--special-node)')
       .attr('stroke', (d: DashboardSplitsPeerSimulation) => `var(--${lines.some(link => link.source.address === d.address || link.target.address === d.address) ? 'success' : 'warn'}-primary)`)
       .attr('stroke-width', 1)
-      .on('mouseover', (event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => this.mouseOverHandle(peer, event))
-      .on('mouseout', (event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => this.mouseOutHandler(peer, event))
-      .on('click', (event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => {
+      .on('mouseover', (event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => this.mouseOverHandle(peer, event, noColorChange))
+      .on('mouseout', (event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => this.mouseOutHandler(peer, event, noColorChange))
+      .on('click', (_event: MouseEvent & { target: HTMLElement }, peer: DashboardSplitsPeerSimulation) => {
         let selectedPeer = this.peers.find(p => p.address === peer.address);
         if (selectedPeer === this.activePeer) {
           selectedPeer = undefined;
@@ -372,7 +434,7 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
       .attr('class', cls);
   }
 
-  private mouseOverHandle(peer: DashboardSplitsPeerSimulation, event: MouseEvent & { target: HTMLElement }): void {
+  private mouseOverHandle(peer: DashboardSplitsPeerSimulation, event: MouseEvent & { target: HTMLElement }, noColorChange: boolean = false): void {
     const selection = this.tooltip.html(`${peer.node || peer.address}, <span class="tertiary">→</span> ${peer.incomingConnections} <span class="tertiary">/</span> ${peer.outgoingConnections} <span class="tertiary">→</span>`)
       .style('display', 'block');
 
@@ -386,7 +448,9 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
     if (this.activePeer?.address === peer.address) {
       return;
     }
-    d3.select(event.target).attr('fill', 'var(--special-node-selected)');
+    if (!noColorChange) {
+      d3.select(event.target).attr('fill', 'var(--special-node-selected)');
+    }
     this.hoveredConnectedLinks = this.connections.filter(link => {
       const isDirectConnection = link.source.address === peer.address || link.target.address === peer.address;
       if (this.activePeer) {
@@ -398,12 +462,14 @@ export class DashboardSplitsGraphComponent extends StoreDispatcher implements On
     this.hoveredConnectedLinks.attr('stroke', 'var(--success-primary)');
   }
 
-  private mouseOutHandler(peer: DashboardSplitsPeerSimulation, event: MouseEvent & { target: HTMLElement }): void {
+  private mouseOutHandler(peer: DashboardSplitsPeerSimulation, event: MouseEvent & { target: HTMLElement }, noColorChange: boolean = false): void {
     this.tooltip.style('display', 'none');
     if (this.activePeer?.address === peer.address) {
       return;
     }
-    d3.select(event.target).attr('fill', 'var(--special-node)');
+    if (!noColorChange) {
+      d3.select(event.target).attr('fill', 'var(--special-node)');
+    }
     this.hoveredConnectedLinks.attr('stroke', 'var(--base-divider)');
   }
 }
