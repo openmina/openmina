@@ -476,6 +476,7 @@ pub enum ActionKind {
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
+    RpcGenesisBlock,
     RpcGlobalStateGet,
     RpcHealthCheck,
     RpcHeartbeatGet,
@@ -502,7 +503,9 @@ pub enum ActionKind {
     RpcScanStateSummaryGetSuccess,
     RpcScanStateSummaryLedgerGetInit,
     RpcSnarkPoolAvailableJobsGet,
+    RpcSnarkPoolCompletedJobsGet,
     RpcSnarkPoolJobGet,
+    RpcSnarkPoolPendingJobsGet,
     RpcSnarkerConfigGet,
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
@@ -524,6 +527,7 @@ pub enum ActionKind {
     RpcEffectfulConsensusConstantsGet,
     RpcEffectfulDiscoveryBoostrapStats,
     RpcEffectfulDiscoveryRoutingTable,
+    RpcEffectfulGenesisBlock,
     RpcEffectfulGlobalStateGet,
     RpcEffectfulHealthCheck,
     RpcEffectfulHeartbeatGet,
@@ -540,7 +544,9 @@ pub enum ActionKind {
     RpcEffectfulReadinessCheck,
     RpcEffectfulScanStateSummaryGetSuccess,
     RpcEffectfulSnarkPoolAvailableJobsGet,
+    RpcEffectfulSnarkPoolCompletedJobsGet,
     RpcEffectfulSnarkPoolJobGet,
+    RpcEffectfulSnarkPoolPendingJobsGet,
     RpcEffectfulSnarkerConfigGet,
     RpcEffectfulSnarkerJobCommit,
     RpcEffectfulSnarkerJobSpec,
@@ -722,7 +728,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 612;
+    pub const COUNT: u16 = 618;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1068,6 +1074,8 @@ impl ActionKindGet for RpcAction {
             Self::ScanStateSummaryGetSuccess { .. } => ActionKind::RpcScanStateSummaryGetSuccess,
             Self::SnarkPoolAvailableJobsGet { .. } => ActionKind::RpcSnarkPoolAvailableJobsGet,
             Self::SnarkPoolJobGet { .. } => ActionKind::RpcSnarkPoolJobGet,
+            Self::SnarkPoolCompletedJobsGet { .. } => ActionKind::RpcSnarkPoolCompletedJobsGet,
+            Self::SnarkPoolPendingJobsGet { .. } => ActionKind::RpcSnarkPoolPendingJobsGet,
             Self::SnarkerConfigGet { .. } => ActionKind::RpcSnarkerConfigGet,
             Self::SnarkerJobCommit { .. } => ActionKind::RpcSnarkerJobCommit,
             Self::SnarkerJobSpec { .. } => ActionKind::RpcSnarkerJobSpec,
@@ -1094,6 +1102,7 @@ impl ActionKindGet for RpcAction {
             Self::BlockGet { .. } => ActionKind::RpcBlockGet,
             Self::PooledUserCommands { .. } => ActionKind::RpcPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcPooledZkappCommands,
+            Self::GenesisBlock { .. } => ActionKind::RpcGenesisBlock,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -1132,6 +1141,10 @@ impl ActionKindGet for RpcEffectfulAction {
                 ActionKind::RpcEffectfulSnarkPoolAvailableJobsGet
             }
             Self::SnarkPoolJobGet { .. } => ActionKind::RpcEffectfulSnarkPoolJobGet,
+            Self::SnarkPoolCompletedJobsGet { .. } => {
+                ActionKind::RpcEffectfulSnarkPoolCompletedJobsGet
+            }
+            Self::SnarkPoolPendingJobsGet { .. } => ActionKind::RpcEffectfulSnarkPoolPendingJobsGet,
             Self::SnarkerConfigGet { .. } => ActionKind::RpcEffectfulSnarkerConfigGet,
             Self::SnarkerJobCommit { .. } => ActionKind::RpcEffectfulSnarkerJobCommit,
             Self::SnarkerJobSpec { .. } => ActionKind::RpcEffectfulSnarkerJobSpec,
@@ -1162,6 +1175,7 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::BlockGet { .. } => ActionKind::RpcEffectfulBlockGet,
             Self::PooledUserCommands { .. } => ActionKind::RpcEffectfulPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcEffectfulPooledZkappCommands,
+            Self::GenesisBlock { .. } => ActionKind::RpcEffectfulGenesisBlock,
         }
     }
 }

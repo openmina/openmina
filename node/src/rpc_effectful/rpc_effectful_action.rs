@@ -3,8 +3,9 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         discovery::RpcDiscoveryRoutingTable, AccountQuery, ActionStatsQuery, RpcBestChainResponse,
-        RpcGetBlockResponse, RpcPeerInfo, RpcPooledUserCommandsResponse,
-        RpcPooledZkappCommandsResponse, RpcScanStateSummaryScanStateJob, RpcSnarkerConfig,
+        RpcGenesisBlockResponse, RpcGetBlockResponse, RpcPeerInfo, RpcPooledUserCommandsResponse,
+        RpcPooledZkappCommandsResponse, RpcScanStateSummaryScanStateJob,
+        RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse, RpcSnarkerConfig,
         RpcTransactionInjectFailure, RpcTransactionInjectRejected, RpcTransactionInjectSuccess,
         SyncStatsQuery,
     },
@@ -79,6 +80,14 @@ pub enum RpcEffectfulAction {
     SnarkPoolJobGet {
         job_id: SnarkWorkId,
         rpc_id: RpcId,
+    },
+    SnarkPoolCompletedJobsGet {
+        rpc_id: RpcId,
+        jobs: RpcSnarkPoolCompletedJobsResponse,
+    },
+    SnarkPoolPendingJobsGet {
+        rpc_id: RpcId,
+        jobs: RpcSnarkPoolPendingJobsGetResponse,
     },
     SnarkerConfigGet {
         rpc_id: RpcId,
@@ -159,6 +168,10 @@ pub enum RpcEffectfulAction {
     PooledZkappCommands {
         rpc_id: RpcId,
         zkapp_commands: RpcPooledZkappCommandsResponse,
+    },
+    GenesisBlock {
+        rpc_id: RpcId,
+        genesis_block: RpcGenesisBlockResponse,
     },
 }
 

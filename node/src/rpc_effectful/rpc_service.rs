@@ -2,15 +2,16 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
-        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
-        RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse,
-        RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
-        RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcPooledUserCommandsResponse,
-        RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
-        RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerConfigGetResponse,
-        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
-        RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
-        RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
+        RpcGenesisBlockResponse, RpcGetBlockResponse, RpcHealthCheckResponse,
+        RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
+        RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
+        RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse,
+        RpcScanStateSummaryGetResponse, RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolGetResponse,
+        RpcSnarkPoolJobGetResponse, RpcSnarkPoolPendingJobsGetResponse,
+        RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+        RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
+        RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
         RpcTransitionFrontierUserCommandsResponse,
     },
     State,
@@ -114,6 +115,16 @@ pub trait RpcService {
         rpc_id: RpcId,
         response: RpcSnarkPoolJobGetResponse,
     ) -> Result<(), RespondError>;
+    fn respond_snark_pool_completed_jobs_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcSnarkPoolCompletedJobsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_snark_pool_pending_jobs_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcSnarkPoolPendingJobsGetResponse,
+    ) -> Result<(), RespondError>;
     fn respond_snarker_config_get(
         &mut self,
         rpc_id: RpcId,
@@ -208,5 +219,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcPooledZkappCommandsResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_genesis_block(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcGenesisBlockResponse,
     ) -> Result<(), RespondError>;
 }

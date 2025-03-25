@@ -9,12 +9,13 @@ pub mod transition_frontier;
 
 use node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
-    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGetBlockResponse,
-    RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcLedgerAccountsResponse,
-    RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
-    RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse,
-    RpcRequest, RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectResponse,
-    RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcGenesisBlockResponse,
+    RpcGetBlockResponse, RpcHealthCheckResponse, RpcHeartbeatGetResponse,
+    RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
+    RpcPeersGetResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
+    RpcReadinessCheckResponse, RpcRequest, RpcSnarkPoolCompletedJobsResponse,
+    RpcSnarkPoolPendingJobsGetResponse, RpcStateGetError, RpcStatusGetResponse,
+    RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
     RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
@@ -272,6 +273,14 @@ impl node::rpc_effectful::RpcService for NodeService {
     );
     rpc_service_impl!(respond_snark_pool_get, RpcSnarkPoolGetResponse);
     rpc_service_impl!(respond_snark_pool_job_get, RpcSnarkPoolJobGetResponse);
+    rpc_service_impl!(
+        respond_snark_pool_completed_jobs_get,
+        RpcSnarkPoolCompletedJobsResponse
+    );
+    rpc_service_impl!(
+        respond_snark_pool_pending_jobs_get,
+        RpcSnarkPoolPendingJobsGetResponse
+    );
     rpc_service_impl!(respond_snarker_job_commit, RpcSnarkerJobCommitResponse);
     rpc_service_impl!(
         respond_snarker_job_spec,
@@ -315,6 +324,7 @@ impl node::rpc_effectful::RpcService for NodeService {
         respond_pooled_zkapp_commands,
         RpcPooledZkappCommandsResponse
     );
+    rpc_service_impl!(respond_genesis_block, RpcGenesisBlockResponse);
 }
 
 #[cfg(test)]

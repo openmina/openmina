@@ -77,6 +77,16 @@ impl From<TransactionSnarkWorkTStableV2> for Snark {
     }
 }
 
+impl From<Snark> for TransactionSnarkWorkTStableV2 {
+    fn from(value: Snark) -> Self {
+        Self {
+            fee: value.fee,
+            proofs: value.proofs.as_ref().clone(),
+            prover: value.snarker,
+        }
+    }
+}
+
 impl From<NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1> for Snark {
     fn from(value: NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1) -> Self {
         Self {

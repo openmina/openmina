@@ -115,7 +115,12 @@ pub enum RpcAction {
         job_id: SnarkWorkId,
         rpc_id: RpcId,
     },
-
+    SnarkPoolCompletedJobsGet {
+        rpc_id: RpcId,
+    },
+    SnarkPoolPendingJobsGet {
+        rpc_id: RpcId,
+    },
     SnarkerConfigGet {
         rpc_id: RpcId,
     },
@@ -219,6 +224,9 @@ pub enum RpcAction {
         rpc_id: RpcId,
         query: PooledZkappsCommandsQuery,
     },
+    GenesisBlock {
+        rpc_id: RpcId,
+    },
 
     Finish {
         rpc_id: RpcId,
@@ -303,6 +311,8 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .is_some_and(|v| v.status.is_pending()),
             RpcAction::SnarkPoolAvailableJobsGet { .. } => true,
             RpcAction::SnarkPoolJobGet { .. } => true,
+            RpcAction::SnarkPoolCompletedJobsGet { .. } => true,
+            RpcAction::SnarkPoolPendingJobsGet { .. } => true,
             RpcAction::SnarkerConfigGet { .. } => true,
             RpcAction::SnarkerJobCommit { .. } => true,
             RpcAction::SnarkerJobSpec { .. } => true,
@@ -317,6 +327,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::TransactionStatusGet { .. } => true,
             RpcAction::PooledUserCommands { .. } => true,
             RpcAction::PooledZkappCommands { .. } => true,
+            RpcAction::GenesisBlock { .. } => true,
             RpcAction::LedgerAccountsGetInit { .. } => {
                 state.transition_frontier.best_tip().is_some()
             }

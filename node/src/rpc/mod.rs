@@ -14,8 +14,9 @@ use mina_p2p_messages::v2::{
     MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
     MinaBaseZkappCommandTStableV1WireStableV1, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
+    TransactionSnarkWorkTStableV2,
 };
-use openmina_core::block::AppliedBlock;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
 use openmina_core::consensus::ConsensusConstants;
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
@@ -50,7 +51,7 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
 use crate::service::Queues;
-use crate::snark_pool::{JobCommitment, JobSummary};
+use crate::snark_pool::{JobCommitment, JobState, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 use crate::stats::block_producer::{
     BlockProductionAttempt, BlockProductionAttemptWonSlot, VrfEvaluatorStats,
@@ -72,6 +73,8 @@ pub enum RpcRequest {
     ScanStateSummaryGet(RpcScanStateSummaryGetQuery),
     SnarkPoolGet,
     SnarkPoolJobGet { job_id: SnarkJobId },
+    SnarkPoolCompletedJobsGet,
+    SnarkPoolPendingJobsGet,
     SnarkerConfig,
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
@@ -90,6 +93,7 @@ pub enum RpcRequest {
     GetBlock(GetBlockQuery),
     PooledUserCommands(PooledUserCommandsQuery),
     PooledZkappCommands(PooledZkappsCommandsQuery),
+    GenesisBlockGet,
 }
 
 pub type MaxLength = u32;
@@ -361,6 +365,8 @@ pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Result<RpcScanStateSummary, String>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
+pub type RpcSnarkPoolCompletedJobsResponse = Vec<TransactionSnarkWorkTStableV2>;
+pub type RpcSnarkPoolPendingJobsGetResponse = Vec<JobState>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
@@ -372,6 +378,7 @@ pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
 pub type RpcTransactionStatusGetResponse = TransactionStatus;
 pub type RpcPooledUserCommandsResponse = Vec<MinaBaseSignedCommandStableV2>;
 pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireStableV1>;
+pub type RpcGenesisBlockResponse = Option<ArcBlockWithHash>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
