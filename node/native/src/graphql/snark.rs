@@ -1,4 +1,4 @@
-use juniper::GraphQLObject;
+use juniper::{graphql_object, GraphQLObject};
 use ledger::scan_state::scan_state::{AvailableJobMessage, ParallelScanAvailableJob};
 use mina_p2p_messages::v2::{
     MinaBaseFeeExcessStableV1, MinaStateBlockchainStateValueStableV2SignedAmount,
@@ -6,7 +6,7 @@ use mina_p2p_messages::v2::{
 };
 use node::snark_pool::JobState;
 
-use super::ConversionError;
+use super::{account::GraphQLAccount, Context, ConversionError, PublicKey};
 
 #[derive(GraphQLObject, Debug)]
 #[graphql(description = "A Mina block")]
@@ -147,5 +147,27 @@ impl TryFrom<TransactionSnarkStableV2> for GraphQLWorkDescription {
             supply_increase: value.statement.supply_increase.magnitude.to_string(),
             work_id: 0,
         })
+    }
+}
+
+pub(crate) struct GraphQLSnarkWorker {
+    pub key: PublicKey,
+    pub account: Option<GraphQLAccount>,
+    pub fee: String,
+}
+
+#[graphql_object(context = Context)]
+#[graphql(description = "A snark worker")]
+impl GraphQLSnarkWorker {
+    pub fn key(&self) -> String {
+        self.key.to_string()
+    }
+
+    pub fn fee(&self) -> String {
+        self.fee.to_string()
+    }
+
+    pub fn account(&self) -> Option<GraphQLAccount> {
+        self.account.clone()
     }
 }
