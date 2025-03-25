@@ -6,7 +6,7 @@ use mina_p2p_messages::v2::{
 };
 use node::snark_pool::JobState;
 
-use super::{account::GraphQLAccount, Context, ConversionError, PublicKey};
+use super::{account::GraphQLAccount, Context, ConversionError, GraphQLPublicKey};
 
 #[derive(GraphQLObject, Debug)]
 #[graphql(description = "A Mina block")]
@@ -151,7 +151,7 @@ impl TryFrom<TransactionSnarkStableV2> for GraphQLWorkDescription {
 }
 
 pub(crate) struct GraphQLSnarkWorker {
-    pub key: PublicKey,
+    pub key: GraphQLPublicKey,
     pub account: Option<GraphQLAccount>,
     pub fee: String,
 }

@@ -43,7 +43,8 @@ pub mod transaction;
 pub mod user_command;
 pub mod zkapp;
 
-pub type PublicKey = String;
+/// Base58 encoded public key
+pub type GraphQLPublicKey = String;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
