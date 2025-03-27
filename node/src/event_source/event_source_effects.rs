@@ -403,8 +403,24 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::PooledZkappCommands(query) => {
                     store.dispatch(RpcAction::PooledZkappCommands { rpc_id, query });
                 }
+                RpcRequest::ConsensusTimeGet(query) => {
+                    store.dispatch(RpcAction::ConsensusTimeGet { rpc_id, query });
+                }
                 RpcRequest::GenesisBlockGet => {
                     store.dispatch(RpcAction::GenesisBlock { rpc_id });
+                }
+                RpcRequest::LedgerStatusGet(ledger_hash) => {
+                    store.dispatch(RpcAction::LedgerStatusGetInit {
+                        rpc_id,
+                        ledger_hash,
+                    });
+                }
+                RpcRequest::LedgerAccountDelegatorsGet(ledger_hash, account_id) => {
+                    store.dispatch(RpcAction::LedgerAccountDelegatorsGetInit {
+                        rpc_id,
+                        ledger_hash,
+                        account_id,
+                    });
                 }
             },
             Event::ExternalSnarkWorker(e) => match e {

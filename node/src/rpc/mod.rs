@@ -7,17 +7,17 @@ use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
 use ledger::scan_state::transaction_logic::{signed_command, valid, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
-use ledger::Account;
+use ledger::{Account, AccountId};
 use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
+    LedgerHash, MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
     MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
     MinaBaseZkappCommandTStableV1WireStableV1, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
     TransactionSnarkWorkTStableV2,
 };
 use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
-use openmina_core::consensus::ConsensusConstants;
+use openmina_core::consensus::{ConsensusConstants, ConsensusTime};
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
@@ -45,7 +45,7 @@ use serde::{Deserialize, Serialize};
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,
 };
-use crate::ledger::read::{LedgerReadId, LedgerReadKind};
+use crate::ledger::read::{LedgerReadId, LedgerReadKind, LedgerStatus};
 use crate::ledger::write::LedgerWriteKind;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -94,6 +94,15 @@ pub enum RpcRequest {
     PooledUserCommands(PooledUserCommandsQuery),
     PooledZkappCommands(PooledZkappsCommandsQuery),
     GenesisBlockGet,
+    ConsensusTimeGet(ConsensusTimeQuery),
+    LedgerStatusGet(LedgerHash),
+    LedgerAccountDelegatorsGet(LedgerHash, AccountId),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ConsensusTimeQuery {
+    Now,
+    BestTip,
 }
 
 pub type MaxLength = u32;
@@ -166,7 +175,7 @@ pub enum ActionStatsResponse {
     ForBlock(ActionStatsForBlock),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 pub enum PeerConnectionStatus {
     Disconnecting,
     Disconnected,
@@ -379,6 +388,9 @@ pub type RpcTransactionStatusGetResponse = TransactionStatus;
 pub type RpcPooledUserCommandsResponse = Vec<MinaBaseSignedCommandStableV2>;
 pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireStableV1>;
 pub type RpcGenesisBlockResponse = Option<ArcBlockWithHash>;
+pub type RpcConsensusTimeGetResponse = Option<ConsensusTime>;
+pub type RpcLedgerStatusGetResponse = Option<LedgerStatus>;
+pub type RpcLedgerAccountDelegatorsGetResponse = Option<Vec<Account>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -505,6 +517,17 @@ pub struct RpcNodeStatus {
     pub peers: Vec<RpcPeerInfo>,
     pub resources_status: RpcNodeStatusResources,
     pub service_queues: Queues,
+    pub network_info: RpcNodeStatusNetworkInfo,
+    pub block_producer: Option<AccountPublicKey>,
+    pub coinbase_receiver: Option<AccountPublicKey>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusNetworkInfo {
+    pub bind_ip: String,
+    pub external_ip: Option<String>,
+    pub client_port: Option<u16>,
+    pub libp2p_port: Option<u16>,
 }
 
 #[derive(Serialize, Debug, Clone)]

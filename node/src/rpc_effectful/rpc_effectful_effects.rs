@@ -14,14 +14,14 @@ use crate::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
         MessagesStats, NodeHeartbeat, ProducedBlockInfo, RootLedgerSyncProgress,
         RootStagedLedgerSyncProgress, RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse,
-        RpcNodeStatus, RpcNodeStatusLedger, RpcNodeStatusResources, RpcNodeStatusTransactionPool,
-        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
-        RpcNodeStatusTransitionFrontierSync, RpcRequestExtraData, RpcScanStateSummary,
-        RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-        RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryScanStateJob,
-        RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
-        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcTransactionInjectResponse,
-        TransactionStatus,
+        RpcNodeStatus, RpcNodeStatusLedger, RpcNodeStatusNetworkInfo, RpcNodeStatusResources,
+        RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
+        RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
+        RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
+        RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+        RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
+        RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+        RpcTransactionInjectResponse, TransactionStatus,
     },
     snark_pool::SnarkPoolAction,
     transition_frontier::sync::{
@@ -37,6 +37,7 @@ use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use mina_p2p_messages::{rpc_kernel::QueryHeader, v2};
 use mina_signer::CompressedPubKey;
 use openmina_core::{block::ArcBlockWithHash, bug_condition};
+use openmina_node_account::AccountPublicKey;
 use p2p::channels::streaming_rpc::{
     staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
 };
@@ -539,17 +540,17 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             let public_key = config.public_key.clone().into();
             let fee = config.fee.clone();
             let input = match input {
-                Ok(instances) => RpcSnarkerJobSpecResponse::Ok(
-                    mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
-                        mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
-                            instances,
-                            fee,
-                        },
-                        public_key,
-                    )))
-                ),
-                Err(err) => RpcSnarkerJobSpecResponse::Err(err),
-            };
+                    Ok(instances) => RpcSnarkerJobSpecResponse::Ok(
+                        mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
+                            mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
+                                instances,
+                                fee,
+                            },
+                            public_key,
+                        )))
+                    ),
+                    Err(err) => RpcSnarkerJobSpecResponse::Err(err),
+                };
 
             // TODO: handle potential errors
             let _ = store.service().respond_snarker_job_spec(rpc_id, input);
@@ -638,9 +639,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             accounts,
             account_query,
         } => {
+            // Is this todo still relevant?
             // TODO(adonagy): maybe something more effective?
             match account_query {
-                AccountQuery::SinglePublicKey(_pk) => todo!(),
                 // all the accounts for the FE in Slim form
                 AccountQuery::All => {
                     let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
@@ -682,7 +683,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     )
                 }
                 // for the graphql endpoint
-                AccountQuery::PubKeyWithTokenId(..) => {
+                AccountQuery::SinglePublicKey(..) | AccountQuery::PubKeyWithTokenId(..) => {
+                    respond_or_log!(
+                        store.service().respond_ledger_accounts(rpc_id, accounts),
+                        meta.time()
+                    )
+                }
+                AccountQuery::MultipleIds(..) => {
                     respond_or_log!(
                         store.service().respond_ledger_accounts(rpc_id, accounts),
                         meta.time()
@@ -793,6 +800,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             )
         }
+
         RpcEffectfulAction::PooledUserCommands {
             rpc_id,
             user_commands,
@@ -804,6 +812,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             )
         }
+
         RpcEffectfulAction::PooledZkappCommands {
             rpc_id,
             zkapp_commands,
@@ -821,6 +830,32 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
         } => {
             respond_or_log!(
                 store.service().respond_genesis_block(rpc_id, genesis_block),
+                meta.time()
+            )
+        }
+
+        RpcEffectfulAction::ConsensusTimeGet {
+            rpc_id,
+            consensus_time,
+        } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_consensus_time_get(rpc_id, consensus_time),
+                meta.time()
+            )
+        }
+        RpcEffectfulAction::LedgerStatusGetSuccess { rpc_id, response } => {
+            respond_or_log!(
+                store.service().respond_ledger_status_get(rpc_id, response),
+                meta.time()
+            )
+        }
+        RpcEffectfulAction::LedgerAccountDelegatorsGetSuccess { rpc_id, response } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_ledger_account_delegators_get(rpc_id, response),
                 meta.time()
             )
         }
@@ -849,8 +884,31 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
         .and_then(|idx| block_production_attempts.get(idx))
         .cloned();
 
+    let network_info = RpcNodeStatusNetworkInfo {
+        bind_ip: "0.0.0.0".to_string(),
+        external_ip: state
+            .p2p
+            .config()
+            .external_addrs
+            .first()
+            .map(|addr| addr.to_string()),
+        client_port: state.config.client_port,
+        libp2p_port: state.p2p.config().libp2p_port,
+    };
+
+    let block_producer = state
+        .block_producer
+        .config()
+        .map(|config| AccountPublicKey::from(config.pub_key.clone()));
+    let coinbase_receiver = state
+        .block_producer
+        .config()
+        .map(|config| AccountPublicKey::from(config.coinbase_receiver().clone()));
+
     let status = RpcNodeStatus {
         chain_id,
+        block_producer,
+        coinbase_receiver,
         transition_frontier: RpcNodeStatusTransitionFrontier {
             best_tip: state.transition_frontier.best_tip().map(block_summary),
             sync: RpcNodeStatusTransitionFrontierSync {
@@ -904,6 +962,7 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             snark_pool: state.snark_pool.resources_usage(),
         },
         service_queues: store.service.queues(),
+        network_info,
     };
     status
 }

@@ -34,6 +34,8 @@ pub enum LedgerReadKind {
     GetStagedLedgerAuxAndPendingCoinbases,
     ScanStateSummary,
     AccountsForRpc,
+    GetLedgerStatus,
+    GetAccountDelegators,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -49,6 +51,14 @@ pub enum LedgerReadRequest {
     // rpcs
     ScanStateSummary(v2::MinaBaseStagedLedgerHashStableV1),
     AccountsForRpc(RpcId, v2::LedgerHash, AccountQuery),
+    GetLedgerStatus(RpcId, v2::LedgerHash),
+    GetAccountDelegators(RpcId, v2::LedgerHash, AccountId),
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct LedgerStatus {
+    pub num_accounts: u64,
+    pub best_tip_staged_ledger_hash: v2::LedgerHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -64,6 +74,8 @@ pub enum LedgerReadResponse {
     // rpcs
     ScanStateSummary(Result<Vec<Vec<RpcScanStateSummaryScanStateJob>>, String>),
     AccountsForRpc(RpcId, Vec<Account>, AccountQuery),
+    GetLedgerStatus(RpcId, Option<LedgerStatus>),
+    GetAccountDelegators(RpcId, Option<Vec<Account>>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -85,6 +97,8 @@ impl LedgerReadRequest {
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
             Self::AccountsForRpc(..) => LedgerReadKind::AccountsForRpc,
+            Self::GetLedgerStatus(..) => LedgerReadKind::GetLedgerStatus,
+            Self::GetAccountDelegators(..) => LedgerReadKind::GetAccountDelegators,
         }
     }
 
@@ -103,6 +117,8 @@ impl LedgerReadRequest {
             Self::ScanStateSummary(..) => 100,
             // TODO(adonagy): not sure
             Self::AccountsForRpc(..) => 10,
+            Self::GetLedgerStatus(..) => 1,
+            Self::GetAccountDelegators(..) => 10,
         };
         cost.max(1)
     }
@@ -121,6 +137,8 @@ impl LedgerReadResponse {
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
             Self::AccountsForRpc(..) => LedgerReadKind::AccountsForRpc,
+            Self::GetLedgerStatus(..) => LedgerReadKind::GetLedgerStatus,
+            Self::GetAccountDelegators(..) => LedgerReadKind::GetAccountDelegators,
         }
     }
 }
@@ -144,6 +162,14 @@ pub enum LedgerReadInitCallback {
     P2pChannelsResponsePending {
         callback: Callback<(bool, P2pRpcId, PeerId)>,
         args: (bool, P2pRpcId, PeerId),
+    },
+    RpcLedgerStatusGetPending {
+        callback: Callback<RequestId<RpcIdType>>,
+        args: RequestId<RpcIdType>,
+    },
+    RpcLedgerAccountDelegatorsGetPending {
+        callback: Callback<RequestId<RpcIdType>>,
+        args: RequestId<RpcIdType>,
     },
     None,
 }

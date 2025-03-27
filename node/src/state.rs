@@ -4,6 +4,7 @@ use std::time::Duration;
 use malloc_size_of_derive::MallocSizeOf;
 use mina_p2p_messages::v2;
 use openmina_core::block::prevalidate::{prevalidate_block, BlockPrevalidationError};
+use openmina_core::consensus::ConsensusTime;
 use openmina_core::transaction::{TransactionInfo, TransactionWithHash};
 use p2p::P2pNetworkPubsubMessageCacheId;
 use rand::prelude::*;
@@ -357,6 +358,24 @@ impl State {
         )
     }
 
+    pub fn slot_time(&self, global_slot: u64) -> Option<(Timestamp, Timestamp)> {
+        let genesis_timestamp = self.genesis_block()?.genesis_timestamp();
+        println!("genesis_timestamp: {}", u64::from(genesis_timestamp));
+
+        let start_time = genesis_timestamp.checked_add(
+            global_slot
+                .checked_mul(constraint_constants().block_window_duration_ms)?
+                .checked_mul(1_000_000)?,
+        )?;
+        let end_time = start_time.checked_add(
+            constraint_constants()
+                .block_window_duration_ms
+                .checked_mul(1_000_000)?,
+        )?;
+
+        Some((start_time, end_time))
+    }
+
     pub fn producing_block_after_genesis(&self) -> bool {
         #[allow(clippy::arithmetic_side_effects)]
         let two_mins_in_future = self.time() + Duration::from_secs(2 * 60);
@@ -394,6 +413,38 @@ impl State {
 
     pub fn should_log_node_id(&self) -> bool {
         self.config.testing_run
+    }
+
+    pub fn consensus_time_now(&self) -> Option<ConsensusTime> {
+        let (start_time, end_time) = self.slot_time(self.cur_global_slot()?.into())?;
+        let epoch = self.current_epoch()?;
+        let global_slot = self.cur_global_slot()?;
+        let slot = self.current_slot()?;
+        Some(ConsensusTime {
+            start_time,
+            end_time,
+            epoch,
+            global_slot,
+            slot,
+        })
+    }
+
+    pub fn consensus_time_best_tip(&self) -> Option<ConsensusTime> {
+        let best_tip = self.transition_frontier.best_tip()?;
+        let global_slot = best_tip
+            .curr_global_slot_since_hard_fork()
+            .slot_number
+            .as_u32();
+        let (start_time, end_time) = self.slot_time(global_slot.into())?;
+        let epoch = best_tip.consensus_state().epoch_count.as_u32();
+        let slot = best_tip.slot();
+        Some(ConsensusTime {
+            start_time,
+            end_time,
+            epoch,
+            global_slot,
+            slot,
+        })
     }
 }
 

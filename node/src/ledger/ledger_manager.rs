@@ -1,7 +1,7 @@
 use super::{
-    read::{LedgerReadId, LedgerReadRequest, LedgerReadResponse},
+    read::{LedgerReadId, LedgerReadRequest, LedgerReadResponse, LedgerStatus},
     write::{LedgerWriteRequest, LedgerWriteResponse},
-    {LedgerCtx, LedgerService},
+    LedgerCtx, LedgerService,
 };
 use crate::{
     account::AccountPublicKey, ledger::LedgerAddress, rpc::AccountQuery,
@@ -236,9 +236,9 @@ impl LedgerRequest {
                     }
                     LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash, account_query) => {
                         let res = match &account_query {
+                            AccountQuery::All => ledger_ctx.get_accounts_for_rpc(ledger_hash, None),
                             AccountQuery::SinglePublicKey(public_key) => ledger_ctx
                                 .get_accounts_for_rpc(ledger_hash, Some(public_key.clone())),
-                            AccountQuery::All => ledger_ctx.get_accounts_for_rpc(ledger_hash, None),
                             AccountQuery::PubKeyWithTokenId(public_key, token_id_key_hash) => {
                                 let id = AccountId {
                                     public_key: public_key.clone().try_into().unwrap(),
@@ -246,9 +246,26 @@ impl LedgerRequest {
                                 };
                                 ledger_ctx.get_accounts(ledger_hash, vec![id])
                             }
+                            AccountQuery::MultipleIds(ids) => {
+                                ledger_ctx.get_accounts(ledger_hash, ids.clone())
+                            }
                         };
 
                         LedgerReadResponse::AccountsForRpc(rpc_id, res, account_query)
+                    }
+                    LedgerReadRequest::GetLedgerStatus(rpc_id, ledger_hash) => {
+                        let res = ledger_ctx.get_num_accounts(ledger_hash).map(
+                            |(num_accounts, ledger_hash)| LedgerStatus {
+                                num_accounts,
+                                best_tip_staged_ledger_hash: ledger_hash,
+                            },
+                        );
+
+                        LedgerReadResponse::GetLedgerStatus(rpc_id, res)
+                    }
+                    LedgerReadRequest::GetAccountDelegators(rpc_id, ledger_hash, account_id) => {
+                        let res = ledger_ctx.get_account_delegators(&ledger_hash, &account_id);
+                        LedgerReadResponse::GetAccountDelegators(rpc_id, res)
                     }
                 },
             ),

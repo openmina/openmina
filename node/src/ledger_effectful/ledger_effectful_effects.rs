@@ -43,6 +43,12 @@ pub fn ledger_effectful_effects<S>(
                 LedgerReadInitCallback::P2pChannelsResponsePending { callback, args } => {
                     store.dispatch_callback(callback, args);
                 }
+                LedgerReadInitCallback::RpcLedgerStatusGetPending { callback, args } => {
+                    store.dispatch_callback(callback, args);
+                }
+                LedgerReadInitCallback::RpcLedgerAccountDelegatorsGetPending { callback, args } => {
+                    store.dispatch_callback(callback, args);
+                }
                 LedgerReadInitCallback::None => {}
             }
         }

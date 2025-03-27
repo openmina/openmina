@@ -25,8 +25,9 @@ use crate::{
 };
 
 use super::{
-    PeerConnectionStatus, RpcAction, RpcPeerInfo, RpcRequest, RpcRequestExtraData, RpcRequestState,
-    RpcRequestStatus, RpcScanStateSummaryGetQuery, RpcSnarkerConfig, RpcState,
+    ConsensusTimeQuery, PeerConnectionStatus, RpcAction, RpcPeerInfo, RpcRequest,
+    RpcRequestExtraData, RpcRequestState, RpcRequestStatus, RpcScanStateSummaryGetQuery,
+    RpcSnarkerConfig, RpcState,
 };
 
 impl RpcState {
@@ -771,6 +772,113 @@ impl RpcState {
                 dispatcher.push(RpcEffectfulAction::PooledZkappCommands {
                     rpc_id: *rpc_id,
                     zkapp_commands: zkapp_commands.into_iter().map(|(_, tx)| tx).collect(),
+                });
+            }
+            RpcAction::ConsensusTimeGet { rpc_id, query } => {
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let consensus_time = match query {
+                    ConsensusTimeQuery::Now => state.consensus_time_now(),
+                    ConsensusTimeQuery::BestTip => state.consensus_time_best_tip(),
+                };
+                println!("consensus_time: {:?}", consensus_time);
+                dispatcher.push(RpcEffectfulAction::ConsensusTimeGet {
+                    rpc_id: *rpc_id,
+                    consensus_time,
+                });
+            }
+            RpcAction::LedgerStatusGetInit {
+                rpc_id,
+                ledger_hash,
+            } => {
+                let rpc_state = RpcRequestState {
+                    req: RpcRequest::LedgerStatusGet(ledger_hash.clone()),
+                    status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
+                };
+                state.requests.insert(*rpc_id, rpc_state);
+
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let ledger_hash = if let Some(best_tip) = state.transition_frontier.best_tip() {
+                    best_tip.merkle_root_hash()
+                } else {
+                    return;
+                };
+
+                dispatcher.push(LedgerReadAction::Init {
+                    request: LedgerReadRequest::GetLedgerStatus(*rpc_id, ledger_hash.clone()),
+                    callback: LedgerReadInitCallback::RpcLedgerStatusGetPending {
+                        callback: redux::callback!(
+                            on_ledger_read_init_rpc_actions_get_init(rpc_id: RequestId<RpcIdType>) -> crate::Action{
+                                RpcAction::LedgerStatusGetPending { rpc_id }
+                            }
+                        ),
+                        args: *rpc_id,
+                    },
+                })
+            }
+            RpcAction::LedgerStatusGetPending { rpc_id } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Pending { time: meta.time() };
+            }
+            RpcAction::LedgerStatusGetSuccess { rpc_id, response } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(RpcEffectfulAction::LedgerStatusGetSuccess {
+                    rpc_id: *rpc_id,
+                    response: response.clone(),
+                });
+            }
+            RpcAction::LedgerAccountDelegatorsGetInit {
+                rpc_id,
+                ledger_hash,
+                account_id,
+            } => {
+                let rpc_state = RpcRequestState {
+                    req: RpcRequest::LedgerAccountDelegatorsGet(
+                        ledger_hash.clone(),
+                        account_id.clone(),
+                    ),
+                    status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
+                };
+                state.requests.insert(*rpc_id, rpc_state);
+
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(LedgerReadAction::Init {
+                    request: LedgerReadRequest::GetAccountDelegators(*rpc_id, ledger_hash.clone(), account_id.clone()),
+                    callback: LedgerReadInitCallback::RpcLedgerAccountDelegatorsGetPending {
+                        callback: redux::callback!(
+                            on_ledger_read_init_rpc_actions_get_init(rpc_id: RequestId<RpcIdType>) -> crate::Action{
+                                RpcAction::LedgerAccountDelegatorsGetPending { rpc_id }
+                            }
+                        ),
+                        args: *rpc_id,
+                    },
+                })
+            }
+            RpcAction::LedgerAccountDelegatorsGetPending { rpc_id } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Pending { time: meta.time() };
+            }
+            RpcAction::LedgerAccountDelegatorsGetSuccess { rpc_id, response } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(RpcEffectfulAction::LedgerAccountDelegatorsGetSuccess {
+                    rpc_id: *rpc_id,
+                    response: response.clone(),
                 });
             }
         }

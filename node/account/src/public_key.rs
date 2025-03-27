@@ -78,3 +78,10 @@ impl fmt::Display for AccountPublicKey {
         write!(f, "{p2p_key}")
     }
 }
+
+// for a simple hashmap or btree map use the hash of the string representation
+impl std::hash::Hash for AccountPublicKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.to_string().hash(state);
+    }
+}

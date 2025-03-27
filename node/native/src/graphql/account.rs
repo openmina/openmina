@@ -1,5 +1,11 @@
-use juniper::{GraphQLInputObject, GraphQLObject};
-use ledger::FpExt;
+use std::{collections::HashMap, sync::Arc};
+
+use dataloader::non_cached::Loader;
+use juniper::{graphql_object, FieldResult, GraphQLInputObject, GraphQLObject};
+use ledger::{
+    scan_state::currency::{Balance, Magnitude, Slot},
+    Account, AccountId, FpExt, Timing,
+};
 use mina_p2p_messages::{
     string::{TokenSymbol, ZkAppUri},
     v2::{
@@ -7,39 +13,211 @@ use mina_p2p_messages::{
         ReceiptChainHash, TokenIdKeyHash,
     },
 };
+use mina_signer::CompressedPubKey;
+use node::rpc::{AccountQuery, RpcRequest};
+use openmina_node_common::rpc::RpcSender;
 
-use super::ConversionError;
+use super::{Context, ConversionError};
 
-#[derive(GraphQLObject, Debug)]
-#[graphql(description = "A Mina account")]
-pub struct GraphQLAccount {
-    pub public_key: String,
-    pub token_id: String,
-    pub token: String,
-    pub token_symbol: String,
-    pub balance: GraphQLBalance,
-    pub nonce: String,
-    pub receipt_chain_hash: String,
-    // TODO(adonagy): this should be GraphQLAccount recursively
-    pub delegate_account: Option<GraphQLDelegateAccount>,
-    pub voting_for: String,
-    pub timing: GraphQLTiming,
-    pub permissions: GraphQLPermissions,
-    // can we flatten?
-    // pub zkapp: Option<GraphQLZkAppAccount>,
-    pub zkapp_state: Option<Vec<String>>,
-    pub verification_key: Option<GraphQLVerificationKey>,
-    pub action_state: Option<Vec<String>>,
-    pub proved_state: Option<bool>,
-    pub zkapp_uri: Option<String>,
+pub(crate) type AccountLoader =
+    Loader<AccountId, Result<GraphQLAccount, Arc<ConversionError>>, AccountBatcher>;
+
+pub(crate) struct AccountBatcher {
+    rpc_sender: RpcSender,
 }
 
-#[derive(GraphQLObject, Debug)]
+impl dataloader::BatchFn<AccountId, Result<GraphQLAccount, Arc<ConversionError>>>
+    for AccountBatcher
+{
+    async fn load(
+        &mut self,
+        keys: &[AccountId],
+    ) -> HashMap<AccountId, Result<GraphQLAccount, Arc<ConversionError>>> {
+        self.rpc_sender
+            .oneshot_request::<Vec<Account>>(RpcRequest::LedgerAccountsGet(
+                AccountQuery::MultipleIds(keys.to_vec()),
+            ))
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|account| (account.id(), account.try_into().map_err(Arc::new)))
+            .collect()
+    }
+}
+
+pub(crate) fn create_account_loader(rpc_sender: RpcSender) -> AccountLoader {
+    // TODO(adonagy): is 25 enough?
+    Loader::new(AccountBatcher { rpc_sender }).with_yield_count(25)
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct GraphQLAccount {
+    inner: Account,
+    public_key: String,
+    token_id: String,
+    token: String,
+    token_symbol: String,
+    // balance: GraphQLBalance,
+    nonce: String,
+    receipt_chain_hash: String,
+    // Storing the key for later
+    delegate_key: Option<CompressedPubKey>,
+    voting_for: String,
+    timing: GraphQLTiming,
+    permissions: GraphQLPermissions,
+    // can we flatten?
+    // pub zkapp: Option<GraphQLZkAppAccount>,
+    zkapp_state: Option<Vec<String>>,
+    verification_key: Option<GraphQLVerificationKey>,
+    action_state: Option<Vec<String>>,
+    proved_state: Option<bool>,
+    zkapp_uri: Option<String>,
+}
+
+impl GraphQLAccount {
+    fn min_balance(&self, global_slot: Option<u32>) -> Option<Balance> {
+        global_slot.map(|slot| match self.inner.timing {
+            Timing::Untimed => Balance::zero(),
+            Timing::Timed { .. } => self.inner.min_balance_at_slot(Slot::from_u32(slot)),
+        })
+    }
+
+    fn liquid_balance(&self, global_slot: Option<u32>) -> Option<Balance> {
+        let min_balance = self.min_balance(global_slot);
+        let total = self.inner.balance;
+        min_balance.map(|mb| {
+            if total > mb {
+                total.checked_sub(&mb).expect("overflow")
+            } else {
+                Balance::zero()
+            }
+        })
+    }
+}
+
+#[graphql_object(context = Context)]
+#[graphql(description = "A Mina account")]
+impl GraphQLAccount {
+    fn public_key(&self) -> &str {
+        &self.public_key
+    }
+
+    fn token_id(&self) -> &str {
+        &self.token_id
+    }
+
+    fn token(&self) -> &str {
+        &self.token
+    }
+
+    fn token_symbol(&self) -> &str {
+        &self.token_symbol
+    }
+
+    async fn balance(&self, context: &Context) -> GraphQLBalance {
+        let best_tip = context.get_or_fetch_best_tip().await;
+        let global_slot = best_tip.as_ref().map(|bt| bt.global_slot());
+
+        GraphQLBalance {
+            total: self.inner.balance.as_u64().to_string(),
+            block_height: best_tip
+                .as_ref()
+                .map(|bt| bt.height())
+                .unwrap_or_default()
+                .to_string(),
+            state_hash: best_tip.as_ref().map(|bt| bt.hash().to_string()),
+            liquid: self
+                .liquid_balance(global_slot)
+                .map(|b| b.as_u64().to_string()),
+            locked: self
+                .min_balance(global_slot)
+                .map(|b| b.as_u64().to_string()),
+            unknown: self.inner.balance.as_u64().to_string(),
+        }
+    }
+
+    fn nonce(&self) -> &str {
+        &self.nonce
+    }
+
+    fn receipt_chain_hash(&self) -> &str {
+        &self.receipt_chain_hash
+    }
+
+    async fn delegate_account(
+        &self,
+        context: &Context,
+    ) -> FieldResult<Option<Box<GraphQLAccount>>> {
+        // If we have a delegate key
+        if let Some(delegate_key) = self.delegate_key.as_ref() {
+            // A delegate always has the default token id
+            let delegate_id = AccountId::new_with_default_token(delegate_key.clone());
+            // Use the loader to fetch the delegate account
+            Ok(context.load_account(delegate_id).await.map(Box::new))
+        } else {
+            // No delegate
+            Ok(None)
+        }
+    }
+
+    pub async fn delegators(&self, context: &Context) -> FieldResult<Vec<GraphQLAccount>> {
+        if let Some(best_tip) = context.get_or_fetch_best_tip().await {
+            let staking_ledger_hash = best_tip.staking_epoch_ledger_hash();
+
+            let id = self.inner.id();
+            let delegators = context
+                .fetch_delegators(staking_ledger_hash.clone(), id.clone())
+                .await
+                .unwrap_or_default();
+
+            Ok(delegators
+                .into_iter()
+                .map(GraphQLAccount::try_from)
+                .collect::<Result<Vec<_>, _>>()?)
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    fn voting_for(&self) -> &str {
+        &self.voting_for
+    }
+
+    fn timing(&self) -> &GraphQLTiming {
+        &self.timing
+    }
+
+    fn permissions(&self) -> &GraphQLPermissions {
+        &self.permissions
+    }
+
+    fn zkapp_state(&self) -> &Option<Vec<String>> {
+        &self.zkapp_state
+    }
+
+    fn verification_key(&self) -> &Option<GraphQLVerificationKey> {
+        &self.verification_key
+    }
+
+    fn action_state(&self) -> &Option<Vec<String>> {
+        &self.action_state
+    }
+
+    fn proved_state(&self) -> &Option<bool> {
+        &self.proved_state
+    }
+
+    fn zkapp_uri(&self) -> &Option<String> {
+        &self.zkapp_uri
+    }
+}
+
+#[derive(GraphQLObject, Debug, Clone)]
 pub struct GraphQLDelegateAccount {
     pub public_key: String,
 }
 
-#[derive(GraphQLObject, Debug)]
+#[derive(GraphQLObject, Debug, Clone)]
 pub struct GraphQLTiming {
     // pub is_timed: bool,
     pub initial_minimum_balance: Option<String>,
@@ -49,7 +227,7 @@ pub struct GraphQLTiming {
     pub vesting_increment: Option<String>,
 }
 
-#[derive(GraphQLInputObject, Debug)]
+#[derive(GraphQLInputObject, Debug, Clone)]
 pub struct InputGraphQLTiming {
     // pub is_timed: bool,
     pub initial_minimum_balance: String,
@@ -70,7 +248,8 @@ impl From<MinaBaseAccountUpdateUpdateTimingInfoStableV1> for GraphQLTiming {
         }
     }
 }
-#[derive(GraphQLObject, Debug)]
+
+#[derive(GraphQLObject, Debug, Clone)]
 pub struct GraphQLPermissions {
     pub edit_state: String,
     pub access: String,
@@ -87,15 +266,20 @@ pub struct GraphQLPermissions {
     pub set_timing: String,
 }
 
-#[derive(GraphQLObject, Debug)]
+#[derive(GraphQLObject, Debug, Clone)]
 pub struct GraphQLSetVerificationKey {
     pub auth: String,
     pub txn_version: String,
 }
 
-#[derive(GraphQLObject, Debug)]
+#[derive(GraphQLObject, Debug, Clone)]
 pub struct GraphQLBalance {
     pub total: String,
+    pub block_height: String,
+    pub state_hash: Option<String>,
+    pub liquid: Option<String>,
+    pub locked: Option<String>,
+    pub unknown: String,
 }
 
 // #[derive(GraphQLObject, Debug)]
@@ -109,19 +293,13 @@ pub struct GraphQLBalance {
 //     pub zkapp_uri: String,
 // }
 
-#[derive(GraphQLObject, Debug)]
+#[derive(GraphQLObject, Debug, Clone)]
 pub struct GraphQLVerificationKey {
     // pub max_proofs_verified: String,
     // pub actual_wrap_domain_size: String,
     // pub wrap_index: String,
     pub verification_key: String,
     pub hash: String,
-}
-
-#[derive(GraphQLObject, Debug)]
-/// Dummy type to represent [`GraphQLAccount`]
-pub struct GraphQLDummyAccount {
-    pub public_key: String,
 }
 
 impl From<ledger::SetVerificationKey<ledger::AuthRequired>> for GraphQLSetVerificationKey {
@@ -180,15 +358,6 @@ impl From<ledger::Timing> for GraphQLTiming {
     }
 }
 
-// TODO(adonagy)
-impl From<ledger::scan_state::currency::Balance> for GraphQLBalance {
-    fn from(value: ledger::scan_state::currency::Balance) -> Self {
-        Self {
-            total: value.as_u64().to_string(),
-        }
-    }
-}
-
 impl TryFrom<ledger::Account> for GraphQLAccount {
     type Error = ConversionError;
 
@@ -210,16 +379,15 @@ impl TryFrom<ledger::Account> for GraphQLAccount {
             .transpose()?; // Transpose Option<Result<...>> to Result<Option<...>>
 
         Ok(Self {
+            inner: value.clone(),
             public_key: value.public_key.into_address(),
             token_id: TokenIdKeyHash::from(value.token_id.clone()).to_string(),
             token: TokenIdKeyHash::from(value.token_id).to_string(),
             token_symbol: TokenSymbol::from(&value.token_symbol).to_string(),
-            balance: GraphQLBalance::from(value.balance),
+            // balance: GraphQLBalance::from(value.balance),
             nonce: value.nonce.as_u32().to_string(),
             receipt_chain_hash: ReceiptChainHash::from(value.receipt_chain_hash).to_string(),
-            delegate_account: value.delegate.map(|d| GraphQLDelegateAccount {
-                public_key: d.into_address(),
-            }),
+            delegate_key: value.delegate,
             voting_for: value.voting_for.to_base58check_graphql(),
             timing: GraphQLTiming::from(value.timing),
             permissions: GraphQLPermissions::from(value.permissions),

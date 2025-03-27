@@ -345,6 +345,7 @@ impl NodeBuilder {
                 snarker: self.snarker,
                 consensus_constants: consensus_consts.clone(),
                 testing_run: false,
+                client_port: self.http_port,
             },
             p2p: self.p2p,
             ledger: LedgerConfig {},
