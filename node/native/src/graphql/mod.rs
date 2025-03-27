@@ -1,7 +1,7 @@
-use account::{create_account_loader, AccountLoader};
+use account::{create_account_loader, AccountLoader, GraphQLAccount};
 use block::{GraphQLBlock, GraphQLSnarkJob, GraphQLUserCommands};
 use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
-use ledger::Account;
+use ledger::{Account, AccountId};
 use mina_p2p_messages::v2::{
     conv, LedgerHash, MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
     MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash,
@@ -10,12 +10,12 @@ use node::{
     account::AccountPublicKey,
     ledger::read::LedgerStatus,
     rpc::{
-        AccountQuery, GetBlockQuery, PooledCommandsQuery, RpcGenesisBlockResponse,
-        RpcGetBlockResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
-        RpcRequest, RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse,
-        RpcSyncStatsGetResponse, RpcTransactionInjectResponse, RpcTransactionStatusGetResponse,
-        SyncStatsQuery, RpcStatusGetResponse, RpcNodeStatus, RpcBestChainResponse,
-        RpcLedgerStatusGetResponse
+        AccountQuery, GetBlockQuery, PooledCommandsQuery, RpcBestChainResponse,
+        RpcGenesisBlockResponse, RpcGetBlockResponse, RpcLedgerAccountDelegatorsGetResponse,
+        RpcLedgerStatusGetResponse, RpcNodeStatus, RpcPooledUserCommandsResponse,
+        RpcPooledZkappCommandsResponse, RpcRequest, RpcSnarkPoolCompletedJobsResponse,
+        RpcSnarkPoolPendingJobsGetResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
+        RpcTransactionInjectResponse, RpcTransactionStatusGetResponse, SyncStatsQuery,
     },
     stats::sync::SyncKind,
     BuildEnv,
@@ -161,6 +161,24 @@ impl Context {
             })
             .await
             .clone()
+    }
+
+    pub(crate) async fn load_account(&self, account_id: AccountId) -> Option<GraphQLAccount> {
+        self.account_loader.try_load(account_id).await.ok()?.ok()
+    }
+
+    pub async fn fetch_delegators(
+        &self,
+        ledger_hash: LedgerHash,
+        account_id: AccountId,
+    ) -> RpcLedgerAccountDelegatorsGetResponse {
+        self.rpc_sender
+            .oneshot_request(RpcRequest::LedgerAccountDelegatorsGet(
+                ledger_hash.clone(),
+                account_id.clone(),
+            ))
+            .await
+            .flatten()
     }
 }
 

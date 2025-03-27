@@ -42,47 +42,24 @@ impl GraphQLBlock {
 
     async fn creator_account(&self, context: &Context) -> FieldResult<Box<GraphQLAccount>> {
         let account_id = AccountId::new_with_default_token(self.creator_account_key.clone());
-        let account_result = context
-            .account_loader
-            .try_load(account_id)
-            .await
-            .map_err(|e| {
-                juniper::FieldError::new(
-                    format!("Failed to load delegate account: {}", e),
-                    juniper::Value::null(),
-                )
-            })?;
-
-        // Handle the result
-        match account_result {
-            Ok(account) => Ok(Box::new(account)),
-            Err(e) => Err(juniper::FieldError::new(
-                format!("Error loading delegate account: {}", e),
+        if let Some(account) = context.load_account(account_id).await {
+            Ok(Box::new(account))
+        } else {
+            Err(juniper::FieldError::new(
+                "Failed to load creator account".to_string(),
                 juniper::Value::null(),
-            )),
+            ))
         }
     }
-
     async fn winner_account(&self, context: &Context) -> FieldResult<Box<GraphQLAccount>> {
         let account_id = AccountId::new_with_default_token(self.winner_account_key.clone());
-        let account_result = context
-            .account_loader
-            .try_load(account_id)
-            .await
-            .map_err(|e| {
-                juniper::FieldError::new(
-                    format!("Failed to load delegate account: {}", e),
-                    juniper::Value::null(),
-                )
-            })?;
-
-        // Handle the result
-        match account_result {
-            Ok(account) => Ok(Box::new(account)),
-            Err(e) => Err(juniper::FieldError::new(
-                format!("Error loading delegate account: {}", e),
+        if let Some(account) = context.load_account(account_id).await {
+            Ok(Box::new(account))
+        } else {
+            Err(juniper::FieldError::new(
+                "Failed to load winner account".to_string(),
                 juniper::Value::null(),
-            )),
+            ))
         }
     }
 

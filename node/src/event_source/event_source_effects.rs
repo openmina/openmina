@@ -415,6 +415,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         ledger_hash,
                     });
                 }
+                RpcRequest::LedgerAccountDelegatorsGet(ledger_hash, account_id) => {
+                    store.dispatch(RpcAction::LedgerAccountDelegatorsGetInit {
+                        rpc_id,
+                        ledger_hash,
+                        account_id,
+                    });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

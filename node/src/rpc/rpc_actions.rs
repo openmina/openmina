@@ -16,8 +16,9 @@ use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
     ActionStatsQuery, ConsensusTimeQuery, GetBlockQuery, PooledUserCommandsQuery,
-    PooledZkappsCommandsQuery, RpcId, RpcLedgerStatusGetResponse, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryScanStateJob, SyncStatsQuery,
+    PooledZkappsCommandsQuery, RpcId, RpcLedgerAccountDelegatorsGetResponse,
+    RpcLedgerStatusGetResponse, RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob,
+    SyncStatsQuery,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -231,6 +232,21 @@ pub enum RpcAction {
         rpc_id: RpcId,
         response: RpcLedgerStatusGetResponse,
     },
+    #[action_event(level = info)]
+    LedgerAccountDelegatorsGetInit {
+        rpc_id: RpcId,
+        ledger_hash: LedgerHash,
+        account_id: AccountId,
+    },
+    #[action_event(level = info)]
+    LedgerAccountDelegatorsGetPending {
+        rpc_id: RpcId,
+    },
+    #[action_event(level = info)]
+    LedgerAccountDelegatorsGetSuccess {
+        rpc_id: RpcId,
+        response: RpcLedgerAccountDelegatorsGetResponse,
+    },
 
     PooledUserCommands {
         rpc_id: RpcId,
@@ -390,6 +406,19 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .get(rpc_id)
                 .is_some_and(|v| v.status.is_init()),
             RpcAction::LedgerStatusGetSuccess { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .is_some_and(|v| v.status.is_pending()),
+            RpcAction::LedgerAccountDelegatorsGetInit { .. } => {
+                state.transition_frontier.best_tip().is_some()
+            }
+            RpcAction::LedgerAccountDelegatorsGetPending { rpc_id } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .is_some_and(|v| v.status.is_init()),
+            RpcAction::LedgerAccountDelegatorsGetSuccess { rpc_id, .. } => state
                 .rpc
                 .requests
                 .get(rpc_id)

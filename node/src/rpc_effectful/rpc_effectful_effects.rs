@@ -851,6 +851,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 meta.time()
             )
         }
+        RpcEffectfulAction::LedgerAccountDelegatorsGetSuccess { rpc_id, response } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_ledger_account_delegators_get(rpc_id, response),
+                meta.time()
+            )
+        }
     }
 }
 

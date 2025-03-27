@@ -9,14 +9,15 @@ pub mod transition_frontier;
 
 use node::rpc::{
     RpcBestChainResponse, RpcBlockProducerStatsGetResponse, RpcConsensusConstantsGetResponse,
-    RpcConsensusTimeGetResponse, RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
-    RpcGenesisBlockResponse, RpcGetBlockResponse, RpcHealthCheckResponse, RpcHeartbeatGetResponse,
-    RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcMessageProgressResponse,
-    RpcPeersGetResponse, RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
-    RpcReadinessCheckResponse, RpcRequest, RpcSnarkPoolCompletedJobsResponse,
-    RpcSnarkPoolPendingJobsGetResponse, RpcStateGetError, RpcStatusGetResponse,
-    RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
-    RpcTransitionFrontierUserCommandsResponse, RpcLedgerStatusGetResponse,
+    RpcConsensusTimeGetResponse, RpcDiscoveryBoostrapStatsResponse,
+    RpcDiscoveryRoutingTableResponse, RpcGenesisBlockResponse, RpcGetBlockResponse,
+    RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcLedgerAccountDelegatorsGetResponse,
+    RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse, RpcLedgerStatusGetResponse,
+    RpcMessageProgressResponse, RpcPeersGetResponse, RpcPooledUserCommandsResponse,
+    RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse, RpcRequest,
+    RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse, RpcStateGetError,
+    RpcStatusGetResponse, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcTransactionStatusGetResponse, RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -327,6 +328,10 @@ impl node::rpc_effectful::RpcService for NodeService {
     rpc_service_impl!(respond_genesis_block, RpcGenesisBlockResponse);
     rpc_service_impl!(respond_consensus_time_get, RpcConsensusTimeGetResponse);
     rpc_service_impl!(respond_ledger_status_get, RpcLedgerStatusGetResponse);
+    rpc_service_impl!(
+        respond_ledger_account_delegators_get,
+        RpcLedgerAccountDelegatorsGetResponse
+    );
 }
 
 #[cfg(test)]

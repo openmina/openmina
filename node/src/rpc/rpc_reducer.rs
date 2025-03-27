@@ -834,6 +834,53 @@ impl RpcState {
                     response: response.clone(),
                 });
             }
+            RpcAction::LedgerAccountDelegatorsGetInit {
+                rpc_id,
+                ledger_hash,
+                account_id,
+            } => {
+                let rpc_state = RpcRequestState {
+                    req: RpcRequest::LedgerAccountDelegatorsGet(
+                        ledger_hash.clone(),
+                        account_id.clone(),
+                    ),
+                    status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
+                };
+                state.requests.insert(*rpc_id, rpc_state);
+
+                let dispatcher = state_context.into_dispatcher();
+
+                dispatcher.push(LedgerReadAction::Init {
+                    request: LedgerReadRequest::GetAccountDelegators(*rpc_id, ledger_hash.clone(), account_id.clone()),
+                    callback: LedgerReadInitCallback::RpcLedgerAccountDelegatorsGetPending {
+                        callback: redux::callback!(
+                            on_ledger_read_init_rpc_actions_get_init(rpc_id: RequestId<RpcIdType>) -> crate::Action{
+                                RpcAction::LedgerAccountDelegatorsGetPending { rpc_id }
+                            }
+                        ),
+                        args: *rpc_id,
+                    },
+                })
+            }
+            RpcAction::LedgerAccountDelegatorsGetPending { rpc_id } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Pending { time: meta.time() };
+            }
+            RpcAction::LedgerAccountDelegatorsGetSuccess { rpc_id, response } => {
+                let Some(rpc) = state.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(RpcEffectfulAction::LedgerAccountDelegatorsGetSuccess {
+                    rpc_id: *rpc_id,
+                    response: response.clone(),
+                });
+            }
         }
     }
 }

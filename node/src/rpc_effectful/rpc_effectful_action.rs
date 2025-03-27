@@ -3,11 +3,12 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         discovery::RpcDiscoveryRoutingTable, AccountQuery, ActionStatsQuery, RpcBestChainResponse,
-        RpcGenesisBlockResponse, RpcGetBlockResponse, RpcPeerInfo, RpcPooledUserCommandsResponse,
-        RpcPooledZkappCommandsResponse, RpcScanStateSummaryScanStateJob,
-        RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolPendingJobsGetResponse, RpcSnarkerConfig,
-        RpcTransactionInjectFailure, RpcTransactionInjectRejected, RpcTransactionInjectSuccess,
-        SyncStatsQuery, RpcConsensusTimeGetResponse, RpcLedgerStatusGetResponse, 
+        RpcConsensusTimeGetResponse, RpcGenesisBlockResponse, RpcGetBlockResponse,
+        RpcLedgerAccountDelegatorsGetResponse, RpcLedgerStatusGetResponse, RpcPeerInfo,
+        RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse,
+        RpcScanStateSummaryScanStateJob, RpcSnarkPoolCompletedJobsResponse,
+        RpcSnarkPoolPendingJobsGetResponse, RpcSnarkerConfig, RpcTransactionInjectFailure,
+        RpcTransactionInjectRejected, RpcTransactionInjectSuccess, SyncStatsQuery,
     },
 };
 use ledger::{
@@ -180,6 +181,10 @@ pub enum RpcEffectfulAction {
     LedgerStatusGetSuccess {
         rpc_id: RpcId,
         response: RpcLedgerStatusGetResponse,
+    },
+    LedgerAccountDelegatorsGetSuccess {
+        rpc_id: RpcId,
+        response: RpcLedgerAccountDelegatorsGetResponse,
     },
 }
 

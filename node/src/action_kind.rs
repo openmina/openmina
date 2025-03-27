@@ -481,6 +481,9 @@ pub enum ActionKind {
     RpcGlobalStateGet,
     RpcHealthCheck,
     RpcHeartbeatGet,
+    RpcLedgerAccountDelegatorsGetInit,
+    RpcLedgerAccountDelegatorsGetPending,
+    RpcLedgerAccountDelegatorsGetSuccess,
     RpcLedgerAccountsGetInit,
     RpcLedgerAccountsGetPending,
     RpcLedgerAccountsGetSuccess,
@@ -536,6 +539,7 @@ pub enum ActionKind {
     RpcEffectfulGlobalStateGet,
     RpcEffectfulHealthCheck,
     RpcEffectfulHeartbeatGet,
+    RpcEffectfulLedgerAccountDelegatorsGetSuccess,
     RpcEffectfulLedgerAccountsGetSuccess,
     RpcEffectfulLedgerStatusGetSuccess,
     RpcEffectfulMessageProgressGet,
@@ -734,7 +738,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 624;
+    pub const COUNT: u16 = 628;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1110,6 +1114,15 @@ impl ActionKindGet for RpcAction {
             Self::LedgerStatusGetInit { .. } => ActionKind::RpcLedgerStatusGetInit,
             Self::LedgerStatusGetPending { .. } => ActionKind::RpcLedgerStatusGetPending,
             Self::LedgerStatusGetSuccess { .. } => ActionKind::RpcLedgerStatusGetSuccess,
+            Self::LedgerAccountDelegatorsGetInit { .. } => {
+                ActionKind::RpcLedgerAccountDelegatorsGetInit
+            }
+            Self::LedgerAccountDelegatorsGetPending { .. } => {
+                ActionKind::RpcLedgerAccountDelegatorsGetPending
+            }
+            Self::LedgerAccountDelegatorsGetSuccess { .. } => {
+                ActionKind::RpcLedgerAccountDelegatorsGetSuccess
+            }
             Self::PooledUserCommands { .. } => ActionKind::RpcPooledUserCommands,
             Self::PooledZkappCommands { .. } => ActionKind::RpcPooledZkappCommands,
             Self::GenesisBlock { .. } => ActionKind::RpcGenesisBlock,
@@ -1188,6 +1201,9 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::GenesisBlock { .. } => ActionKind::RpcEffectfulGenesisBlock,
             Self::ConsensusTimeGet { .. } => ActionKind::RpcEffectfulConsensusTimeGet,
             Self::LedgerStatusGetSuccess { .. } => ActionKind::RpcEffectfulLedgerStatusGetSuccess,
+            Self::LedgerAccountDelegatorsGetSuccess { .. } => {
+                ActionKind::RpcEffectfulLedgerAccountDelegatorsGetSuccess
+            }
         }
     }
 }

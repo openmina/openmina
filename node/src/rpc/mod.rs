@@ -7,7 +7,7 @@ use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
 use ledger::scan_state::transaction_logic::{signed_command, valid, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
-use ledger::Account;
+use ledger::{Account, AccountId};
 use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::v2::{
     LedgerHash, MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
@@ -96,6 +96,7 @@ pub enum RpcRequest {
     GenesisBlockGet,
     ConsensusTimeGet(ConsensusTimeQuery),
     LedgerStatusGet(LedgerHash),
+    LedgerAccountDelegatorsGet(LedgerHash, AccountId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -389,6 +390,7 @@ pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireS
 pub type RpcGenesisBlockResponse = Option<ArcBlockWithHash>;
 pub type RpcConsensusTimeGetResponse = Option<ConsensusTime>;
 pub type RpcLedgerStatusGetResponse = Option<LedgerStatus>;
+pub type RpcLedgerAccountDelegatorsGetResponse = Option<Vec<Account>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]

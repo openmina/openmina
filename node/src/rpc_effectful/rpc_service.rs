@@ -2,18 +2,19 @@ use crate::{
     p2p::connection::P2pConnectionResponse,
     rpc::{
         RpcActionStatsGetResponse, RpcBestChainResponse, RpcBlockProducerStatsGetResponse,
-        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
-        RpcGenesisBlockResponse, RpcGetBlockResponse, RpcHealthCheckResponse,
-        RpcHeartbeatGetResponse, RpcId, RpcLedgerAccountsResponse, RpcLedgerSlimAccountsResponse,
-        RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
-        RpcPooledUserCommandsResponse, RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse,
-        RpcScanStateSummaryGetResponse, RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolGetResponse,
-        RpcSnarkPoolJobGetResponse, RpcSnarkPoolPendingJobsGetResponse,
-        RpcSnarkerConfigGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-        RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
-        RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
-        RpcTransitionFrontierUserCommandsResponse, RpcConsensusTimeGetResponse,
-        RpcLedgerStatusGetResponse,
+        RpcConsensusTimeGetResponse, RpcDiscoveryBoostrapStatsResponse,
+        RpcDiscoveryRoutingTableResponse, RpcGenesisBlockResponse, RpcGetBlockResponse,
+        RpcHealthCheckResponse, RpcHeartbeatGetResponse, RpcId,
+        RpcLedgerAccountDelegatorsGetResponse, RpcLedgerAccountsResponse,
+        RpcLedgerSlimAccountsResponse, RpcLedgerStatusGetResponse, RpcMessageProgressResponse,
+        RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcPooledUserCommandsResponse,
+        RpcPooledZkappCommandsResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
+        RpcSnarkPoolCompletedJobsResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+        RpcSnarkPoolPendingJobsGetResponse, RpcSnarkerConfigGetResponse,
+        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
+        RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
+        RpcTransactionPoolResponse, RpcTransactionStatusGetResponse,
+        RpcTransitionFrontierUserCommandsResponse,
     },
     State,
 };
@@ -235,5 +236,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcLedgerStatusGetResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_ledger_account_delegators_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcLedgerAccountDelegatorsGetResponse,
     ) -> Result<(), RespondError>;
 }

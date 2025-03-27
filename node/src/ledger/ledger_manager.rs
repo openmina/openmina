@@ -263,6 +263,10 @@ impl LedgerRequest {
 
                         LedgerReadResponse::GetLedgerStatus(rpc_id, res)
                     }
+                    LedgerReadRequest::GetAccountDelegators(rpc_id, ledger_hash, account_id) => {
+                        let res = ledger_ctx.get_account_delegators(&ledger_hash, &account_id);
+                        LedgerReadResponse::GetAccountDelegators(rpc_id, res)
+                    }
                 },
             ),
             LedgerRequest::AccountsSet {

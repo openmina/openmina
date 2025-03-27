@@ -153,29 +153,29 @@ impl GraphQLAccount {
             // A delegate always has the default token id
             let delegate_id = AccountId::new_with_default_token(delegate_key.clone());
             // Use the loader to fetch the delegate account
-            let delegate_result =
-                context
-                    .account_loader
-                    .try_load(delegate_id)
-                    .await
-                    .map_err(|e| {
-                        juniper::FieldError::new(
-                            format!("Failed to load delegate account: {}", e),
-                            juniper::Value::null(),
-                        )
-                    })?;
-
-            // Handle the result
-            match delegate_result {
-                Ok(account) => Ok(Some(Box::new(account))),
-                Err(e) => Err(juniper::FieldError::new(
-                    format!("Error loading delegate account: {}", e),
-                    juniper::Value::null(),
-                )),
-            }
+            Ok(context.load_account(delegate_id).await.map(Box::new))
         } else {
             // No delegate
             Ok(None)
+        }
+    }
+
+    pub async fn delegators(&self, context: &Context) -> FieldResult<Vec<GraphQLAccount>> {
+        if let Some(best_tip) = context.get_or_fetch_best_tip().await {
+            let staking_ledger_hash = best_tip.staking_epoch_ledger_hash();
+
+            let id = self.inner.id();
+            let delegators = context
+                .fetch_delegators(staking_ledger_hash.clone(), id.clone())
+                .await
+                .unwrap_or_default();
+
+            Ok(delegators
+                .into_iter()
+                .map(GraphQLAccount::try_from)
+                .collect::<Result<Vec<_>, _>>()?)
+        } else {
+            Ok(vec![])
         }
     }
 

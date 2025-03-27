@@ -522,6 +522,23 @@ impl LedgerCtx {
         Ok(())
     }
 
+    pub fn get_account_delegators(
+        &self,
+        ledger_hash: &LedgerHash,
+        account_id: &AccountId,
+    ) -> Option<Vec<Account>> {
+        let (mask, _) = self.mask(ledger_hash)?;
+        let mut accounts = Vec::new();
+
+        mask.iter(|account| {
+            if account.delegate == Some(account_id.public_key.clone()) {
+                accounts.push(account.clone());
+            }
+        });
+
+        Some(accounts)
+    }
+
     #[allow(clippy::type_complexity)]
     pub fn producers_with_delegates<F: FnMut(&CompressedPubKey) -> bool>(
         &self,

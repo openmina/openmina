@@ -134,4 +134,8 @@ impl RpcService for super::NodeTestingService {
         respond_ledger_status_get,
         node::rpc::RpcLedgerStatusGetResponse,
     );
+    to_real!(
+        respond_ledger_account_delegators_get,
+        node::rpc::RpcLedgerAccountDelegatorsGetResponse,
+    );
 }

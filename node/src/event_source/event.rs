@@ -80,6 +80,9 @@ impl std::fmt::Display for Event {
                     RpcRequest::GenesisBlockGet => write!(f, "GenesisBlock"),
                     RpcRequest::ConsensusTimeGet(..) => write!(f, "ConsensusTimeGet"),
                     RpcRequest::LedgerStatusGet(..) => write!(f, "LedgerStatusGet"),
+                    RpcRequest::LedgerAccountDelegatorsGet(..) => {
+                        write!(f, "LedgerAccountDelegatorsGet")
+                    }
                 }
             }
             Self::ExternalSnarkWorker(event) => {
