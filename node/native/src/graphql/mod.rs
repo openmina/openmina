@@ -6,6 +6,8 @@ use mina_p2p_messages::v2::{
     conv, LedgerHash, MinaBaseSignedCommandStableV2, MinaBaseUserCommandStableV2,
     MinaBaseZkappCommandTStableV1WireStableV1, TokenIdKeyHash, TransactionHash,
 };
+use mina_signer::CompressedPubKey;
+use node::rpc::RpcSnarkerConfig;
 use node::{
     account::AccountPublicKey,
     ledger::read::LedgerStatus,
@@ -26,7 +28,7 @@ use openmina_core::{
     NetworkConfig,
 };
 use openmina_node_common::rpc::RpcSender;
-use snark::GraphQLPendingSnarkWork;
+use snark::{GraphQLPendingSnarkWork, GraphQLSnarkWorker};
 use std::str::FromStr;
 use tokio::sync::OnceCell;
 use transaction::GraphQLTransactionStatus;
@@ -40,6 +42,9 @@ pub mod snark;
 pub mod transaction;
 pub mod user_command;
 pub mod zkapp;
+
+/// Base58 encoded public key
+pub type GraphQLPublicKey = String;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -533,6 +538,34 @@ impl Query {
     async fn version(_context: &Context) -> juniper::FieldResult<String> {
         let res = BuildEnv::get().git.commit_hash;
         Ok(res)
+    }
+
+    async fn current_snark_worker(
+        &self,
+        context: &Context,
+    ) -> juniper::FieldResult<Option<GraphQLSnarkWorker>> {
+        let config: Option<RpcSnarkerConfig> = context
+            .rpc_sender
+            .oneshot_request(RpcRequest::SnarkerConfig)
+            .await
+            .ok_or(Error::StateMachineEmptyResponse)?;
+
+        let Some(config) = config else {
+            return Ok(None);
+        };
+
+        let account = context
+            .load_account(AccountId {
+                public_key: CompressedPubKey::try_from(&config.public_key)?,
+                token_id: TokenIdKeyHash::default().into(),
+            })
+            .await;
+
+        Ok(Some(GraphQLSnarkWorker {
+            key: config.public_key.to_string(),
+            account,
+            fee: config.fee.to_string(),
+        }))
     }
 }
 
