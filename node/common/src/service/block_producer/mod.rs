@@ -1,6 +1,6 @@
 mod vrf_evaluator;
 
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 use ledger::proofs::{
     block::BlockParams, generate_block_proof, provers::BlockProver,
@@ -107,11 +107,27 @@ fn prover_loop(
         let res = prove(provers, &mut input, &keypair, false);
         if let Err(error) = &res {
             openmina_core::error!(message = "Block proof failed", error = format!("{error:?}"));
-            if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input, error) {
-                openmina_core::error!(
-                    message = "Failure when dumping failed block proof inputs",
-                    error = format!("{error}")
-                );
+            let submission_url = std::env::var("OPENMINA_ERROR_SINK_SERVICE_URL").ok();
+            if let Some(submission_url) = submission_url {
+                if let Err(error) = submit_failed_block_proof_input(
+                    block_hash.clone(),
+                    input,
+                    error,
+                    &submission_url,
+                ) {
+                    openmina_core::error!(
+                        message = "Failed to submit failed block proof",
+                        error = format!("{error}")
+                    );
+                }
+            } else {
+                if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input, error)
+                {
+                    openmina_core::error!(
+                        message = "Failure when dumping failed block proof inputs",
+                        error = format!("{error}")
+                    );
+                }
             }
         }
         let res = res.map_err(|err| err.to_string());
@@ -181,11 +197,20 @@ impl node::service::BlockProducerService for crate::NodeService {
     }
 }
 
-fn dump_failed_block_proof_input(
+/// Represents the destination for failed block proof data
+pub enum BlockProofOutputDestination {
+    /// Save the proof data to a file in the debug directory
+    FilesystemDump,
+    /// Submit the proof data to an external service via HTTP
+    ErrorService(String),
+}
+
+fn handle_failed_block_proof_input(
     block_hash: StateHash,
     mut input: Box<ProverExtendBlockchainInputStableV2>,
     error: &anyhow::Error,
-) -> std::io::Result<()> {
+    destination: BlockProofOutputDestination,
+) -> anyhow::Result<()> {
     use ledger::proofs::transaction::ProofError;
     use rsa::Pkcs1v15Encrypt;
 
@@ -229,7 +254,7 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
 
     let error_str = error.to_string();
 
-    let input = DumpBlockProof {
+    let input_data = DumpBlockProof {
         input,
         key: encrypted_producer_private_key,
         error: error_str.as_bytes().to_vec(),
@@ -239,15 +264,89 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
         },
     };
 
-    let debug_dir = openmina_core::get_debug_dir();
-    let filename = debug_dir
-        .join(format!("failed_block_proof_input_{block_hash}.binprot"))
-        .to_string_lossy()
-        .to_string();
-    openmina_core::warn!(message = "Dumping failed block proof.", filename = filename);
-    std::fs::create_dir_all(&debug_dir)?;
-    let mut file = std::fs::File::create(&filename)?;
-    input.binprot_write(&mut file)?;
-    file.sync_all()?;
-    Ok(())
+    // Serialize the data
+    let mut buffer = Vec::new();
+    input_data.binprot_write(&mut buffer)?;
+
+    // Handle the data according to the destination
+    match destination {
+        BlockProofOutputDestination::FilesystemDump => {
+            let debug_dir = openmina_core::get_debug_dir();
+            let filename = debug_dir
+                .join(format!("failed_block_proof_input_{block_hash}.binprot"))
+                .to_string_lossy()
+                .to_string();
+            openmina_core::warn!(message = "Dumping failed block proof.", filename = filename);
+            std::fs::create_dir_all(&debug_dir)?;
+            let mut file = std::fs::File::create(&filename)?;
+            file.write_all(&buffer)?;
+            file.sync_all()?;
+            Ok(())
+        }
+        BlockProofOutputDestination::ErrorService(url) => {
+            use reqwest::blocking::Client;
+
+            openmina_core::warn!(
+                message = "Submitting failed block proof to external service.",
+                block_hash = format!("{block_hash}"),
+                url = url
+            );
+
+            let client = Client::new();
+            let response = client
+                .post(&url)
+                .header("Content-Type", "application/octet-stream")
+                .body(buffer)
+                .send()?;
+
+            // Check if the request was successful
+            if response.status().is_success() {
+                openmina_core::info!(
+                    message = "Successfully submitted failed block proof.",
+                    block_hash = format!("{block_hash}"),
+                    status = response.status().as_u16()
+                );
+                Ok(())
+            } else {
+                let error_message = format!(
+                    "Failed to submit block proof: HTTP error {}",
+                    response.status()
+                );
+                openmina_core::error!(
+                    message = "Failed to submit block proof",
+                    block_hash = format!("{block_hash}"),
+                    status = response.status().as_u16()
+                );
+                Err(anyhow::anyhow!(error_message))
+            }
+        }
+    }
+}
+
+fn dump_failed_block_proof_input(
+    block_hash: StateHash,
+    input: Box<ProverExtendBlockchainInputStableV2>,
+    error: &anyhow::Error,
+) -> std::io::Result<()> {
+    handle_failed_block_proof_input(
+        block_hash,
+        input,
+        error,
+        BlockProofOutputDestination::FilesystemDump,
+    )
+    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+}
+
+pub fn submit_failed_block_proof_input(
+    block_hash: StateHash,
+    input: Box<ProverExtendBlockchainInputStableV2>,
+    error: &anyhow::Error,
+    submission_url: &str,
+) -> anyhow::Result<()> {
+    handle_failed_block_proof_input(
+        block_hash,
+        input,
+        error,
+        BlockProofOutputDestination::ErrorService(submission_url.to_string()),
+    )
 }

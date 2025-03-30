@@ -283,6 +283,34 @@ impl BlockProducerEnabled {
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(BlockProducerEffectfulAction::BlockProveSuccess);
             }
+            BlockProducerAction::BlockProveError { error } => {
+                let current_state = std::mem::take(&mut state.current);
+
+                if let BlockProducerCurrentState::BlockProvePending {
+                    won_slot,
+                    chain,
+                    block,
+                    block_hash,
+                    ..
+                } = current_state
+                {
+                    state.current = BlockProducerCurrentState::BlockProveError {
+                        time: meta.time(),
+                        won_slot,
+                        chain,
+                        block,
+                        block_hash,
+                        error: error.clone(),
+                    };
+                } else {
+                    bug_condition!("Invalid state for `BlockProducerAction::BlockProveError` expected: `BlockProducerCurrentState::BlockProvePending`, found: {:?}", current_state);
+                }
+
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(BlockProducerEffectfulAction::BlockProveError {
+                    error: error.clone(),
+                });
+            }
             BlockProducerAction::BlockProduced => {
                 let current_state = std::mem::take(&mut state.current);
 
