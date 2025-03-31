@@ -6,7 +6,8 @@ use tikv_jemallocator::Jemalloc;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
+static GLOBAL: allocator::Minalloc = allocator::Minalloc;
+// static GLOBAL: Jemalloc = Jemalloc;
 
 pub mod commands;
 use clap::Parser;
