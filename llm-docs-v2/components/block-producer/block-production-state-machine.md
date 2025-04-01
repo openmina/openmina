@@ -10,26 +10,26 @@ stateDiagram-v2
     WonSlot --> WonSlotProduceInit: WonSlotProduce
     WonSlot --> WonSlotDiscarded: WonSlotDiscard
     WonSlotProduceInit --> WonSlotTransactionsGet: WonSlotTransactionsGet
-    WonSlotProduceInit --> WonSlotDiscarded: WonSlotDiscard(NoChain)
+    WonSlotProduceInit --> WonSlotDiscarded: WonSlotDiscard
     WonSlotTransactionsGet --> WonSlotTransactionsSuccess: WonSlotTransactionsSuccess
-    WonSlotTransactionsGet --> WonSlotDiscarded: WonSlotDiscard(NoTransactions)
+    WonSlotTransactionsGet --> WonSlotDiscarded: WonSlotDiscard
     WonSlotTransactionsSuccess --> StagedLedgerDiffCreatePending: StagedLedgerDiffCreate
     WonSlotTransactionsSuccess --> WonSlotDiscarded: WonSlotDiscard
     StagedLedgerDiffCreatePending --> StagedLedgerDiffCreateSuccess: StagedLedgerDiffCreateSuccess
-    StagedLedgerDiffCreatePending --> WonSlotDiscarded: WonSlotDiscard(StagedLedgerDiffError)
+    StagedLedgerDiffCreatePending --> WonSlotDiscarded: WonSlotDiscard
     StagedLedgerDiffCreateSuccess --> BlockUnprovenBuilt: BlockUnprovenBuild
     StagedLedgerDiffCreateSuccess --> WonSlotDiscarded: WonSlotDiscard
     BlockUnprovenBuilt --> BlockProvePending: BlockProve
     BlockUnprovenBuilt --> WonSlotDiscarded: WonSlotDiscard
     BlockProvePending --> BlockProveSuccess: BlockProveSuccess
-    BlockProvePending --> WonSlotDiscarded: WonSlotDiscard(ProveError)
+    BlockProvePending --> WonSlotDiscarded: WonSlotDiscard
     BlockProveSuccess --> Produced: BlockInject
     BlockProveSuccess --> WonSlotDiscarded: WonSlotDiscard
     Produced --> Idle: Reset
     WonSlotDiscarded --> Idle: Reset
 
     note right of WonSlot: Slot won, ready to produce
-    note right of WonSlotDiscarded: Discard Reasons:\n- Syncing\n- NoChain\n- NoTransactions\n- StagedLedgerDiffError\n- ProveError\n- Other
+    note right of WonSlotDiscarded: Slot discarded for various reasons
     note right of WonSlotProduceInit: Initializing block production
     note right of WonSlotTransactionsGet: Getting transactions
     note right of WonSlotTransactionsSuccess: Transactions received
@@ -61,6 +61,51 @@ stateDiagram-v2
     class Produced producedState
     class Idle idleState
 ```
+
+## Discard Logic
+
+The following diagram focuses specifically on when and why slots can be discarded during the block production process:
+
+```mermaid
+stateDiagram-v2
+    WonSlot --> WonSlotDiscarded: WonSlotDiscard(Syncing)
+    WonSlotProduceInit --> WonSlotDiscarded: WonSlotDiscard(NoChain)
+    WonSlotTransactionsGet --> WonSlotDiscarded: WonSlotDiscard(NoTransactions)
+    StagedLedgerDiffCreatePending --> WonSlotDiscarded: WonSlotDiscard(StagedLedgerDiffError)
+    BlockProvePending --> WonSlotDiscarded: WonSlotDiscard(ProveError)
+
+    note right of WonSlotDiscarded: All states can transition to<br/>WonSlotDiscarded with "Other" reason
+
+    classDef discardedState stroke:#e71d36,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    class WonSlotDiscarded discardedState
+```
+
+### Discard Reasons
+
+1. **Syncing**: Occurs when the node is still syncing with the network. A syncing node should not produce blocks.
+
+    - Can happen from any state when sync status changes
+
+2. **NoChain**: Occurs when there is no chain to extend.
+
+    - Happens during `WonSlotProduceInit` when checking for a valid chain to extend
+
+3. **NoTransactions**: Occurs when there are no transactions to include in the block.
+
+    - Happens during `WonSlotTransactionsGet` when fetching transactions returns empty
+
+4. **StagedLedgerDiffError**: Occurs when there is an error creating the staged ledger diff.
+
+    - Happens during `StagedLedgerDiffCreatePending` if the diff creation fails
+
+5. **ProveError**: Occurs when there is an error proving the block.
+
+    - Happens during `BlockProvePending` if the proving process fails
+
+6. **Other**: A catch-all for other errors that can occur during the block production process.
+    - Can happen at any stage due to unexpected errors
+
+Each discard reason is represented in the code as a variant of the `BlockProducerWonSlotDiscardReason` enum.
 
 ## State Definition
 
