@@ -13,18 +13,31 @@ flowchart TD
     TF_BestChain --> TF_Sync["Transition Frontier (Sync)"]
     TF_Sync --> P2P
 
-    classDef p2pClass fill:#0466c8,stroke:#333,stroke-width:1px,color:white;
-    classDef tfCandidatesClass fill:#048ba8,stroke:#333,stroke-width:1px,color:white;
-    classDef tfBestChainClass fill:#06d6a0,stroke:#333,stroke-width:1px,color:black;
-    classDef tfSyncClass fill:#54c6eb,stroke:#333,stroke-width:1px,color:black;
-    classDef snarkClass fill:#2374ab,stroke:#333,stroke-width:1px,color:white;
+    %% Legend
+    L1["Reception"] --- L2["Validation"] --- L3["Verification"] --- L4["Chain Update"]
+
+    classDef p2pClass stroke:#0466c8,stroke-width:2px,fill:none;
+    classDef tfCandidatesClass stroke:#048ba8,stroke-width:2px,fill:none;
+    classDef tfBestChainClass stroke:#06d6a0,stroke-width:2px,fill:none;
+    classDef tfSyncClass stroke:#54c6eb,stroke-width:2px,fill:none;
+    classDef snarkClass stroke:#2374ab,stroke-width:2px,fill:none;
+    classDef legend stroke-dasharray: 5 5, fill:none;
 
     class P2P p2pClass;
     class TF_Candidates tfCandidatesClass;
     class TF_BestChain tfBestChainClass;
     class TF_Sync tfSyncClass;
     class SNARK snarkClass;
+    class L1,L2,L3,L4 legend;
 ```
+
+**Diagram Legend:**
+
+-   **P2P Network**: Receives and propagates blocks across the network
+-   **Transition Frontier (Candidates)**: Validates block syntax and structure
+-   **SNARK System**: Verifies zero-knowledge proofs in blocks
+-   **Transition Frontier (Best Chain)**: Updates the best chain with validated blocks
+-   **Transition Frontier (Sync)**: Synchronizes missing blocks with other nodes
 
 ## Block Processing Steps
 

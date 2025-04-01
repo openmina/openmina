@@ -13,18 +13,31 @@ graph TD
         Protocol <--> Discovery
     end
 
-    classDef p2pClass fill:#0466c8,stroke:#333,stroke-width:1px,color:white;
-    classDef transportClass fill:#0353a4,stroke:#333,stroke-width:1px,color:white;
-    classDef securityClass fill:#023e7d,stroke:#333,stroke-width:1px,color:white;
-    classDef protocolClass fill:#002855,stroke:#333,stroke-width:1px,color:white;
-    classDef discoveryClass fill:#001845,stroke:#333,stroke-width:1px,color:white;
+    %% Legend
+    L1["Network Layer"] --- L2["Transport"] --- L3["Security"] --- L4["Protocol"]
+
+    classDef p2pClass stroke:#0466c8,stroke-width:2px,fill:none;
+    classDef transportClass stroke:#0353a4,stroke-width:2px,fill:none;
+    classDef securityClass stroke:#023e7d,stroke-width:2px,fill:none;
+    classDef protocolClass stroke:#002855,stroke-width:2px,fill:none;
+    classDef discoveryClass stroke:#001845,stroke-width:2px,fill:none;
+    classDef legend stroke-dasharray: 5 5, fill:none;
 
     class P2P p2pClass;
     class Transport transportClass;
     class Security securityClass;
     class Protocol protocolClass;
     class Discovery discoveryClass;
+    class L1,L2,L3,L4 legend;
 ```
+
+**Diagram Legend:**
+
+-   **P2P Communication**: Network component managing connections between nodes
+-   **Transport (TCP)**: Low-level data transmission using TCP protocol
+-   **Security (Noise)**: Encryption layer using the Noise protocol
+-   **Protocol (GossipSub)**: Message propagation using the GossipSub protocol
+-   **Discovery**: Peer discovery and connection management
 
 ## Subcomponents
 

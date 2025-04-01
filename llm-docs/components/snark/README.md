@@ -13,18 +13,31 @@ graph TD
         WorkVerifier <--> Services
     end
 
-    classDef snarkClass fill:#2374ab,stroke:#333,stroke-width:1px,color:white;
-    classDef blockClass fill:#4a7c59,stroke:#333,stroke-width:1px,color:white;
-    classDef txClass fill:#8cb369,stroke:#333,stroke-width:1px,color:black;
-    classDef workClass fill:#f4e285,stroke:#333,stroke-width:1px,color:black;
-    classDef serviceClass fill:#f4a259,stroke:#333,stroke-width:1px,color:black;
+    %% Legend
+    L1["System"] --- L2["Block Proof"] --- L3["Transaction Proof"] --- L4["Work Proof"]
+
+    classDef snarkClass stroke:#2374ab,stroke-width:2px,fill:none;
+    classDef blockClass stroke:#4a7c59,stroke-width:2px,fill:none;
+    classDef txClass stroke:#8cb369,stroke-width:2px,fill:none;
+    classDef workClass stroke:#f4e285,stroke-width:2px,fill:none;
+    classDef serviceClass stroke:#f4a259,stroke-width:2px,fill:none;
+    classDef legend stroke-dasharray: 5 5, fill:none;
 
     class SNARK snarkClass;
     class BlockVerifier blockClass;
     class TransactionVerifier txClass;
     class WorkVerifier workClass;
     class Services serviceClass;
+    class L1,L2,L3,L4 legend;
 ```
+
+**Diagram Legend:**
+
+-   **SNARK System**: Core component handling zero-knowledge proof verification
+-   **Block Verifier**: Verifies block proofs and validates state transitions
+-   **Transaction Verifier**: Verifies transaction proofs
+-   **Work Verifier**: Verifies SNARK work proofs
+-   **Services**: Handles computationally heavy verification operations
 
 ## Subcomponents
 

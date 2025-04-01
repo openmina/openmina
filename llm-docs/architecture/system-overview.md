@@ -13,14 +13,25 @@ graph TD
         SNARK <--> Services
     end
 
-    classDef core fill:#2374ab,stroke:#333,stroke-width:1px,color:white;
-    classDef component fill:#048ba8,stroke:#333,stroke-width:1px,color:white;
-    classDef service fill:#16db93,stroke:#333,stroke-width:1px,color:white;
+    %% Legend
+    L1["Node Container"] --- L2["Core Component"] --- L3["Service"]
+
+    classDef core stroke:#4361ee,stroke-width:2px,fill:none;
+    classDef component stroke:#3a0ca3,stroke-width:2px,fill:none;
+    classDef service stroke:#7209b7,stroke-width:2px,fill:none;
+    classDef legend stroke-dasharray: 5 5, fill:none;
 
     class OpenMina core;
     class TF,SNARK,P2P component;
     class Services service;
+    class L1,L2,L3 legend;
 ```
+
+**Diagram Legend:**
+
+-   **Node Container**: The main OpenMina node that contains all components
+-   **Core Component**: Primary functional units (Transition Frontier, SNARK System, P2P Network)
+-   **Service**: Abstracted components for IO or computationally heavy tasks
 
 ## Main Components
 

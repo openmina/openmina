@@ -13,18 +13,31 @@ graph TD
         BestChain <--> Sync
     end
 
-    classDef tfClass fill:#048ba8,stroke:#333,stroke-width:1px,color:white;
-    classDef genesisClass fill:#a4c3b2,stroke:#333,stroke-width:1px,color:black;
-    classDef candidatesClass fill:#6b9080,stroke:#333,stroke-width:1px,color:white;
-    classDef bestChainClass fill:#cce3de,stroke:#333,stroke-width:1px,color:black;
-    classDef syncClass fill:#f6fff8,stroke:#333,stroke-width:1px,color:black;
+    %% Legend
+    L1["Container"] --- L2["Initialization"] --- L3["Processing"] --- L4["Synchronization"]
+
+    classDef tfClass stroke:#3a0ca3,stroke-width:2px,fill:none;
+    classDef genesisClass stroke:#4cc9f0,stroke-width:2px,fill:none;
+    classDef candidatesClass stroke:#4361ee,stroke-width:2px,fill:none;
+    classDef bestChainClass stroke:#3f37c9,stroke-width:2px,fill:none;
+    classDef syncClass stroke:#480ca8,stroke-width:2px,fill:none;
+    classDef legend stroke-dasharray: 5 5, fill:none;
 
     class TransitionFrontier tfClass;
     class Genesis genesisClass;
     class Candidates candidatesClass;
     class BestChain bestChainClass;
     class Sync syncClass;
+    class L1,L2,L3,L4 legend;
 ```
+
+**Diagram Legend:**
+
+-   **Transition Frontier**: Main component managing blockchain state
+-   **Genesis**: Initializes blockchain state from genesis configuration
+-   **Candidates**: Manages block candidates received from peers or produced locally
+-   **Best Chain**: Maintains the current best chain of blocks
+-   **Sync**: Synchronizes the node's state with other nodes
 
 ## Subcomponents
 

@@ -13,12 +13,16 @@ flowchart TD
     State --> Effects["Effects"]
     Effects --> Action
 
-    classDef eventClass fill:#fdfffc,stroke:#333,stroke-width:1px,color:black;
-    classDef actionClass fill:#ff9f1c,stroke:#333,stroke-width:1px,color:black;
-    classDef conditionClass fill:#f15bb5,stroke:#333,stroke-width:1px,color:black;
-    classDef reducerClass fill:#2ec4b6,stroke:#333,stroke-width:1px,color:black;
-    classDef stateClass fill:#e71d36,stroke:#333,stroke-width:1px,color:white;
-    classDef effectsClass fill:#011627,stroke:#333,stroke-width:1px,color:white;
+    %% Legend
+    L1["Trigger"] --- L2["Process"] --- L3["Validation"] --- L4["Cycle"]
+
+    classDef eventClass stroke:#0077b6,stroke-width:2px,fill:none;
+    classDef actionClass stroke:#ff9f1c,stroke-width:2px,fill:none;
+    classDef conditionClass stroke:#7b2cbf,stroke-width:2px,fill:none;
+    classDef reducerClass stroke:#2ec4b6,stroke-width:2px,fill:none;
+    classDef stateClass stroke:#e71d36,stroke-width:2px,fill:none;
+    classDef effectsClass stroke:#011627,stroke-width:2px,fill:none;
+    classDef legend stroke-dasharray: 5 5, fill:none;
 
     class ExternalEvent eventClass;
     class Action actionClass;
@@ -26,7 +30,17 @@ flowchart TD
     class Reducer reducerClass;
     class State stateClass;
     class Effects effectsClass;
+    class L1,L2,L3,L4 legend;
 ```
+
+**Diagram Legend:**
+
+-   **External Event**: Triggers that initiate actions (user input, network message, etc.)
+-   **Action**: Operation to be performed
+-   **Enabling Condition**: Validates if an action can be processed in the current state
+-   **Reducer**: Updates state based on action
+-   **State**: Current state of the system
+-   **Effects**: Handles side effects and may dispatch new actions
 
 ## Data Lifecycle
 

@@ -11,16 +11,28 @@ flowchart LR
     Reducer --> State["State"]
     Effects --> Action
 
-    classDef actionClass fill:#ff9f1c,stroke:#333,stroke-width:1px,color:black;
-    classDef reducerClass fill:#2ec4b6,stroke:#333,stroke-width:1px,color:black;
-    classDef stateClass fill:#e71d36,stroke:#333,stroke-width:1px,color:white;
-    classDef effectsClass fill:#011627,stroke:#333,stroke-width:1px,color:white;
+    %% Legend
+    L1["Input"] --- L2["Process"] --- L3["Output"] --- L4["State"]
+
+    classDef actionClass stroke:#ff9f1c,stroke-width:2px,fill:none;
+    classDef reducerClass stroke:#2ec4b6,stroke-width:2px,fill:none;
+    classDef stateClass stroke:#e71d36,stroke-width:2px,fill:none;
+    classDef effectsClass stroke:#011627,stroke-width:2px,fill:none;
+    classDef legend stroke-dasharray: 5 5, fill:none;
 
     class Action actionClass;
     class Reducer reducerClass;
     class State stateClass;
     class Effects effectsClass;
+    class L1,L2,L3,L4 legend;
 ```
+
+**Diagram Legend:**
+
+-   **Action**: Operation to be performed (input to the state machine)
+-   **Reducer**: Pure function that updates state based on action
+-   **Effects**: Handles side effects and may dispatch new actions
+-   **State**: Current state of the system
 
 ## Core Concepts
 
