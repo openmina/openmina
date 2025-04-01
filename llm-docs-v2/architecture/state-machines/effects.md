@@ -199,26 +199,16 @@ sequenceDiagram
     participant Effect
     participant Service
     participant Callback
-    
+
     Reducer->>Effect: Dispatch Effectful Action
     Effect->>Service: Call Service Method
     Service-->>Callback: Invoke Callback with Result
     Callback->>Reducer: Dispatch Result Action
-    
+
     note right of Reducer: Pure function that updates state
     note right of Effect: Handles side effects
     note right of Service: Platform-specific implementation
     note right of Callback: Dispatches result action
-    
-    classDef reducerClass stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
-    classDef effectClass stroke:#011627,stroke-width:2px,fill:none,padding:15px,margin:10px;
-    classDef serviceClass stroke:#7209b7,stroke-width:2px,fill:none,padding:15px,margin:10px;
-    classDef callbackClass stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
-    
-    class Reducer reducerClass
-    class Effect effectClass
-    class Service serviceClass
-    class Callback callbackClass
 ```
 
 ## Best Practices
