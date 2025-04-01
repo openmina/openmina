@@ -10,26 +10,26 @@ stateDiagram-v2
     WonSlot --> WonSlotProduceInit: WonSlotProduce
     WonSlot --> WonSlotDiscarded: WonSlotDiscard
     WonSlotProduceInit --> WonSlotTransactionsGet: WonSlotTransactionsGet
-    WonSlotProduceInit --> WonSlotDiscarded: WonSlotDiscard
+    WonSlotProduceInit --> WonSlotDiscarded: WonSlotDiscard(NoChain)
     WonSlotTransactionsGet --> WonSlotTransactionsSuccess: WonSlotTransactionsSuccess
-    WonSlotTransactionsGet --> WonSlotDiscarded: WonSlotDiscard
+    WonSlotTransactionsGet --> WonSlotDiscarded: WonSlotDiscard(NoTransactions)
     WonSlotTransactionsSuccess --> StagedLedgerDiffCreatePending: StagedLedgerDiffCreate
     WonSlotTransactionsSuccess --> WonSlotDiscarded: WonSlotDiscard
     StagedLedgerDiffCreatePending --> StagedLedgerDiffCreateSuccess: StagedLedgerDiffCreateSuccess
-    StagedLedgerDiffCreatePending --> WonSlotDiscarded: WonSlotDiscard
+    StagedLedgerDiffCreatePending --> WonSlotDiscarded: WonSlotDiscard(StagedLedgerDiffError)
     StagedLedgerDiffCreateSuccess --> BlockUnprovenBuilt: BlockUnprovenBuild
     StagedLedgerDiffCreateSuccess --> WonSlotDiscarded: WonSlotDiscard
     BlockUnprovenBuilt --> BlockProvePending: BlockProve
     BlockUnprovenBuilt --> WonSlotDiscarded: WonSlotDiscard
     BlockProvePending --> BlockProveSuccess: BlockProveSuccess
-    BlockProvePending --> WonSlotDiscarded: WonSlotDiscard
+    BlockProvePending --> WonSlotDiscarded: WonSlotDiscard(ProveError)
     BlockProveSuccess --> Produced: BlockInject
     BlockProveSuccess --> WonSlotDiscarded: WonSlotDiscard
     Produced --> Idle: Reset
     WonSlotDiscarded --> Idle: Reset
 
     note right of WonSlot: Slot won, ready to produce
-    note right of WonSlotDiscarded: Slot discarded due to error or condition
+    note right of WonSlotDiscarded: Discard Reasons:\n- Syncing\n- NoChain\n- NoTransactions\n- StagedLedgerDiffError\n- ProveError\n- Other
     note right of WonSlotProduceInit: Initializing block production
     note right of WonSlotTransactionsGet: Getting transactions
     note right of WonSlotTransactionsSuccess: Transactions received
