@@ -8,17 +8,28 @@ The Block Production State Machine is responsible for creating and proving new b
 stateDiagram-v2
     [*] --> WonSlot
     WonSlot --> WonSlotProduceInit: WonSlotProduce
+    WonSlot --> WonSlotDiscarded: WonSlotDiscard
     WonSlotProduceInit --> WonSlotTransactionsGet: WonSlotTransactionsGet
+    WonSlotProduceInit --> WonSlotDiscarded: WonSlotDiscard
     WonSlotTransactionsGet --> WonSlotTransactionsSuccess: WonSlotTransactionsSuccess
+    WonSlotTransactionsGet --> WonSlotDiscarded: WonSlotDiscard
     WonSlotTransactionsSuccess --> StagedLedgerDiffCreatePending: StagedLedgerDiffCreate
+    WonSlotTransactionsSuccess --> WonSlotDiscarded: WonSlotDiscard
     StagedLedgerDiffCreatePending --> StagedLedgerDiffCreateSuccess: StagedLedgerDiffCreateSuccess
+    StagedLedgerDiffCreatePending --> WonSlotDiscarded: WonSlotDiscard
     StagedLedgerDiffCreateSuccess --> BlockUnprovenBuilt: BlockUnprovenBuild
+    StagedLedgerDiffCreateSuccess --> WonSlotDiscarded: WonSlotDiscard
     BlockUnprovenBuilt --> BlockProvePending: BlockProve
+    BlockUnprovenBuilt --> WonSlotDiscarded: WonSlotDiscard
     BlockProvePending --> BlockProveSuccess: BlockProveSuccess
+    BlockProvePending --> WonSlotDiscarded: WonSlotDiscard
     BlockProveSuccess --> Produced: BlockInject
+    BlockProveSuccess --> WonSlotDiscarded: WonSlotDiscard
     Produced --> Idle: Reset
-    
+    WonSlotDiscarded --> Idle: Reset
+
     note right of WonSlot: Slot won, ready to produce
+    note right of WonSlotDiscarded: Slot discarded due to error or condition
     note right of WonSlotProduceInit: Initializing block production
     note right of WonSlotTransactionsGet: Getting transactions
     note right of WonSlotTransactionsSuccess: Transactions received
@@ -29,8 +40,9 @@ stateDiagram-v2
     note right of BlockProveSuccess: Block proven
     note right of Produced: Block produced and injected
     note right of Idle: Production complete
-    
+
     classDef wonSlotState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef discardedState stroke:#e71d36,stroke-width:2px,fill:none,padding:15px,margin:10px;
     classDef initState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
     classDef txState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
     classDef diffState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
@@ -38,8 +50,9 @@ stateDiagram-v2
     classDef proveState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
     classDef producedState stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
     classDef idleState stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
-    
+
     class WonSlot wonSlotState
+    class WonSlotDiscarded discardedState
     class WonSlotProduceInit initState
     class WonSlotTransactionsGet,WonSlotTransactionsSuccess txState
     class StagedLedgerDiffCreatePending,StagedLedgerDiffCreateSuccess diffState
@@ -62,6 +75,11 @@ pub enum BlockProducerCurrentState {
     WonSlot {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
+    },
+    WonSlotDiscarded {
+        time: redux::Timestamp,
+        won_slot: BlockProducerWonSlot,
+        reason: BlockProducerWonSlotDiscardReason,
     },
     WonSlotProduceInit {
         time: redux::Timestamp,
@@ -146,18 +164,32 @@ pub enum BlockProducerCurrentState {
 }
 ```
 
+The discard reason is defined as:
+
+```rust
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum BlockProducerWonSlotDiscardReason {
+    Syncing,
+    NoChain,
+    NoTransactions,
+    Other(String),
+}
+```
+
 This state includes:
-- `WonSlot`: Slot won, ready to produce a block
-- `WonSlotProduceInit`: Initializing block production
-- `WonSlotTransactionsGet`: Getting transactions for the block
-- `WonSlotTransactionsSuccess`: Transactions received
-- `StagedLedgerDiffCreatePending`: Creating a staged ledger diff
-- `StagedLedgerDiffCreateSuccess`: Staged ledger diff created
-- `BlockUnprovenBuilt`: Unproven block built
-- `BlockProvePending`: Proving the block
-- `BlockProveSuccess`: Block proven
-- `Produced`: Block produced and injected
-- `Idle`: Production complete
+
+-   `WonSlot`: Slot won, ready to produce a block
+-   `WonSlotDiscarded`: Slot discarded due to an error or condition
+-   `WonSlotProduceInit`: Initializing block production
+-   `WonSlotTransactionsGet`: Getting transactions for the block
+-   `WonSlotTransactionsSuccess`: Transactions received
+-   `StagedLedgerDiffCreatePending`: Creating a staged ledger diff
+-   `StagedLedgerDiffCreateSuccess`: Staged ledger diff created
+-   `BlockUnprovenBuilt`: Unproven block built
+-   `BlockProvePending`: Proving the block
+-   `BlockProveSuccess`: Block proven
+-   `Produced`: Block produced and injected
+-   `Idle`: Production complete
 
 ## Actions
 
@@ -166,6 +198,9 @@ The Block Production State Machine uses the following actions from the Block Pro
 ```rust
 pub enum BlockProducerAction {
     WonSlotProduce,
+    WonSlotDiscard {
+        reason: BlockProducerWonSlotDiscardReason,
+    },
     WonSlotTransactionsGet,
     WonSlotTransactionsSuccess {
         transactions: Vec<SignedCommandWithStatus>,
@@ -189,13 +224,15 @@ pub enum BlockProducerAction {
 ```
 
 These actions allow for:
-- Initiating block production
-- Getting transactions for the block
-- Creating a staged ledger diff
-- Building an unproven block
-- Proving the block
-- Injecting the block into the transition frontier
-- Resetting the state
+
+-   Initiating block production
+-   Discarding a won slot due to various reasons
+-   Getting transactions for the block
+-   Creating a staged ledger diff
+-   Building an unproven block
+-   Proving the block
+-   Injecting the block into the transition frontier
+-   Resetting the state
 
 The Block Production State Machine also uses effectful actions:
 
@@ -216,9 +253,10 @@ pub enum BlockProducerEffectfulAction {
 ```
 
 These actions allow for:
-- Initializing transaction retrieval
-- Initializing staged ledger diff creation
-- Initializing block proving
+
+-   Initializing transaction retrieval
+-   Initializing staged ledger diff creation
+-   Initializing block proving
 
 ## Enabling Conditions
 
@@ -230,6 +268,17 @@ impl EnablingCondition<State> for BlockProducerAction {
         match self {
             BlockProducerAction::WonSlotProduce => {
                 matches!(state.block_producer.current, BlockProducerCurrentState::WonSlot { .. })
+            },
+            BlockProducerAction::WonSlotDiscard { .. } => {
+                matches!(state.block_producer.current, BlockProducerCurrentState::WonSlot { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::WonSlotProduceInit { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::WonSlotTransactionsGet { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::WonSlotTransactionsSuccess { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::StagedLedgerDiffCreatePending { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::StagedLedgerDiffCreateSuccess { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::BlockUnprovenBuilt { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::BlockProvePending { .. }) ||
+                matches!(state.block_producer.current, BlockProducerCurrentState::BlockProveSuccess { .. })
             },
             BlockProducerAction::WonSlotTransactionsGet => {
                 matches!(state.block_producer.current, BlockProducerCurrentState::WonSlotProduceInit { .. })
@@ -294,7 +343,7 @@ impl BlockProducerState {
                     // Get the current best chain
                     let global_state = state_context.get_global_state();
                     let best_chain = global_state.transition_frontier().best_chain.clone();
-                    
+
                     if best_chain.is_empty() {
                         // No chain to extend
                         let dispatcher = state_context.dispatcher();
@@ -308,12 +357,37 @@ impl BlockProducerState {
                             won_slot: won_slot.clone(),
                             chain: best_chain,
                         };
-                        
+
                         // Continue with block production
                         let dispatcher = state_context.dispatcher();
                         dispatcher.dispatch(BlockProducerAction::WonSlotTransactionsGet);
                     }
                 }
+            },
+            BlockProducerAction::WonSlotDiscard { reason } => {
+                // Get the current won slot
+                let won_slot = match &state.current {
+                    BlockProducerCurrentState::WonSlot { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::WonSlotProduceInit { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::WonSlotTransactionsGet { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::WonSlotTransactionsSuccess { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::StagedLedgerDiffCreatePending { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::StagedLedgerDiffCreateSuccess { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::BlockUnprovenBuilt { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::BlockProvePending { won_slot, .. } => won_slot.clone(),
+                    BlockProducerCurrentState::BlockProveSuccess { won_slot, .. } => won_slot.clone(),
+                    _ => return,
+                };
+
+                // Transition to discarded state
+                state.current = BlockProducerCurrentState::WonSlotDiscarded {
+                    time: meta.time(),
+                    won_slot,
+                    reason: reason.clone(),
+                };
+
+                // Log the discard reason
+                log::info!("Discarded won slot: {:?}", reason);
             },
             BlockProducerAction::WonSlotTransactionsGet => {
                 if let BlockProducerCurrentState::WonSlotProduceInit { time, won_slot, chain } = &state.current {
@@ -323,7 +397,7 @@ impl BlockProducerState {
                         won_slot: won_slot.clone(),
                         chain: chain.clone(),
                     };
-                    
+
                     // Dispatch effectful action to get transactions
                     let dispatcher = state_context.dispatcher();
                     dispatcher.dispatch(BlockProducerEffectfulAction::WonSlotTransactionsGetInit {
@@ -347,7 +421,7 @@ impl BlockProducerState {
                             chain: chain.clone(),
                             transactions: transactions.clone(),
                         };
-                        
+
                         // Continue with block production
                         let dispatcher = state_context.dispatcher();
                         dispatcher.dispatch(BlockProducerAction::StagedLedgerDiffCreate);
@@ -363,7 +437,7 @@ impl BlockProducerState {
                         chain: chain.clone(),
                         transactions: transactions.clone(),
                     };
-                    
+
                     // Dispatch effectful action to create staged ledger diff
                     let dispatcher = state_context.dispatcher();
                     dispatcher.dispatch(BlockProducerEffectfulAction::StagedLedgerDiffCreateInit {
@@ -382,7 +456,7 @@ impl BlockProducerState {
                         transactions: transactions.clone(),
                         staged_ledger_diff: staged_ledger_diff.clone(),
                     };
-                    
+
                     // Continue with block production
                     let dispatcher = state_context.dispatcher();
                     dispatcher.dispatch(BlockProducerAction::BlockUnprovenBuild);
@@ -396,7 +470,7 @@ impl BlockProducerState {
                         chain.last().unwrap(),
                         staged_ledger_diff,
                     );
-                    
+
                     // Dispatch success action
                     let dispatcher = state_context.dispatcher();
                     dispatcher.dispatch(BlockProducerAction::BlockUnprovenBuildSuccess {
@@ -415,7 +489,7 @@ impl BlockProducerState {
                         staged_ledger_diff: staged_ledger_diff.clone(),
                         block: block.clone(),
                     };
-                    
+
                     // Continue with block production
                     let dispatcher = state_context.dispatcher();
                     dispatcher.dispatch(BlockProducerAction::BlockProve);
@@ -432,10 +506,10 @@ impl BlockProducerState {
                         staged_ledger_diff: staged_ledger_diff.clone(),
                         block: block.clone(),
                     };
-                    
+
                     // Create proof input
                     let input = create_proof_input(block);
-                    
+
                     // Dispatch effectful action to prove block
                     let dispatcher = state_context.dispatcher();
                     dispatcher.dispatch(BlockProducerEffectfulAction::BlockProveInit {
@@ -455,7 +529,7 @@ impl BlockProducerState {
                         staged_ledger_diff: staged_ledger_diff.clone(),
                         block: block.clone(),
                     };
-                    
+
                     // Continue with block production
                     let dispatcher = state_context.dispatcher();
                     dispatcher.dispatch(BlockProducerAction::BlockInject);
@@ -466,7 +540,7 @@ impl BlockProducerState {
                     // Inject the block into the transition frontier
                     let global_state = state_context.get_global_state();
                     let dispatcher = state_context.dispatcher();
-                    
+
                     // Dispatch action to inject block
                     dispatcher.dispatch(Action::TransitionFrontier(
                         TransitionFrontierAction::Candidate(
@@ -476,7 +550,7 @@ impl BlockProducerState {
                             },
                         ),
                     ));
-                    
+
                     // Dispatch success action
                     dispatcher.dispatch(BlockProducerAction::BlockInjectSuccess);
                 }
@@ -489,7 +563,7 @@ impl BlockProducerState {
                         won_slot: won_slot.clone(),
                         block: block.clone(),
                     };
-                    
+
                     // Update last produced block
                     state.last_produced_block = Some(block.clone());
                     state.last_produced_block_timestamp = Some(meta.time());
@@ -537,7 +611,7 @@ impl BlockProducerEffectfulAction {
                             Err(error) => {
                                 // Log the error
                                 log::error!("Failed to get transactions: {}", error);
-                                
+
                                 // Dispatch discard action
                                 store.dispatch(BlockProducerAction::WonSlotDiscard {
                                     reason: BlockProducerWonSlotDiscardReason::Other(
@@ -565,7 +639,7 @@ impl BlockProducerEffectfulAction {
                             Err(error) => {
                                 // Log the error
                                 log::error!("Failed to create staged ledger diff: {}", error);
-                                
+
                                 // Dispatch discard action
                                 store.dispatch(BlockProducerAction::WonSlotDiscard {
                                     reason: BlockProducerWonSlotDiscardReason::Other(
@@ -593,7 +667,7 @@ impl BlockProducerEffectfulAction {
                             Err(error) => {
                                 // Log the error
                                 log::error!("Failed to prove block: {}", error);
-                                
+
                                 // Dispatch discard action
                                 store.dispatch(BlockProducerAction::WonSlotDiscard {
                                     reason: BlockProducerWonSlotDiscardReason::Other(
@@ -642,6 +716,32 @@ This effects function delegates to the service for handling the actual operation
 24. The `Reset` action is dispatched to reset the state
 25. The state transitions to `Idle`
 
+### Slot Discarding
+
+1. A slot can be discarded at any point in the block production process
+2. The `WonSlotDiscard` action is dispatched with a reason
+3. The state transitions to `WonSlotDiscarded`
+4. The `Reset` action is dispatched to reset the state
+5. The state transitions to `Idle`
+
+Slots can be discarded for several reasons:
+
+1. **Syncing**: The node is syncing and should not produce blocks
+2. **NoChain**: There is no chain to extend
+3. **NoTransactions**: There are no transactions to include in the block
+4. **Other**: Other reasons, such as errors during the block production process
+
+Slot discarding can happen at any stage of the block production process:
+
+-   During initial slot winning check (e.g., if the node is syncing)
+-   During block production initialization (e.g., if there is no chain to extend)
+-   During transaction retrieval (e.g., if there are no transactions)
+-   During staged ledger diff creation (e.g., if there is an error creating the diff)
+-   During block building (e.g., if there is an error building the block)
+-   During block proving (e.g., if there is an error proving the block)
+
+This ensures that the block producer can gracefully handle errors and conditions that prevent block production.
+
 ## Implementation Details
 
 ### Transaction Selection
@@ -683,9 +783,9 @@ The block is proven using the SNARK system:
 
 The Block Production State Machine interacts with:
 
-- **Transition Frontier**: For getting the current best chain and injecting produced blocks
-- **Transaction Pool**: For getting transactions to include in the block
-- **SNARK System**: For proving blocks
+-   **Transition Frontier**: For getting the current best chain and injecting produced blocks
+-   **Transaction Pool**: For getting transactions to include in the block
+-   **SNARK System**: For proving blocks
 
 These interactions are managed through actions and effects.
 
@@ -693,8 +793,27 @@ These interactions are managed through actions and effects.
 
 The Block Production State Machine handles errors by:
 
-- Discarding slots when errors occur
-- Providing detailed error messages
-- Logging errors for debugging purposes
+-   Discarding slots when errors occur using the `WonSlotDiscard` action
+-   Transitioning to the `WonSlotDiscarded` state with a reason
+-   Providing detailed error messages through the `BlockProducerWonSlotDiscardReason` enum
+-   Logging errors for debugging purposes
+
+The discard reason enum provides specific information about why a slot was discarded:
+
+```rust
+pub enum BlockProducerWonSlotDiscardReason {
+    Syncing,        // Node is syncing
+    NoChain,        // No chain to extend
+    NoTransactions, // No transactions to include
+    Other(String),  // Other reasons with detailed message
+}
+```
+
+This approach allows for:
+
+1. **Graceful Error Handling**: Errors at any stage of block production can be handled gracefully
+2. **Detailed Error Reporting**: The reason for discarding a slot is captured and logged
+3. **Consistent State Management**: The state machine always transitions to a well-defined state
+4. **Proper Resource Cleanup**: Resources allocated during block production can be properly released
 
 This allows for proper monitoring and debugging of the block production process.
