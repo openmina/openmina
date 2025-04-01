@@ -15,17 +15,17 @@ flowchart LR
     Reducer --> State["State"]
     Reducer --> Effects["Effects"]
     Effects --> |"Dispatch"| Action
-    
+
     %% Legend
     L1["Input"] --- L2["Validation"] --- L3["Processing"] --- L4["Output"]
-    
-    classDef actionClass stroke:#ff9f1c,stroke-width:2px,fill:none;
-    classDef conditionClass stroke:#7b2cbf,stroke-width:2px,fill:none;
-    classDef reducerClass stroke:#2ec4b6,stroke-width:2px,fill:none;
-    classDef stateClass stroke:#e71d36,stroke-width:2px,fill:none;
-    classDef effectsClass stroke:#011627,stroke-width:2px,fill:none;
-    classDef legend stroke-dasharray: 5 5, fill:none;
-    
+
+    classDef actionClass stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef conditionClass stroke:#7b2cbf,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef reducerClass stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef stateClass stroke:#e71d36,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef effectsClass stroke:#011627,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef legend stroke-dasharray: 5 5, fill:none,padding:15px,margin:10px;
+
     class Action actionClass;
     class EnablingCondition conditionClass;
     class Reducer reducerClass;
@@ -35,11 +35,12 @@ flowchart LR
 ```
 
 **Diagram Legend:**
-- **Action**: Operation to be performed (input to the state machine)
-- **Enabling Condition**: Validates if an action can be processed in the current state
-- **Reducer**: Pure function that updates state based on action
-- **State**: Current state of the system
-- **Effects**: Handles side effects and may dispatch new actions
+
+-   **Action**: Operation to be performed (input to the state machine)
+-   **Enabling Condition**: Validates if an action can be processed in the current state
+-   **Reducer**: Pure function that updates state based on action
+-   **State**: Current state of the system
+-   **Effects**: Handles side effects and may dispatch new actions
 
 ## Core Concepts
 
@@ -65,6 +66,7 @@ pub enum TransitionFrontierGenesisState {
 ```
 
 Benefits of this state-centric approach:
+
 1. Easy to debug, since state represents the flow
 2. Easy to read/process, since state definition conveys a lot of information
 3. Minimized or non-existent impossible/duplicate states
@@ -115,9 +117,10 @@ Enabling conditions help restrict the flow of actions and prevent impossible or 
 Reducers are functions that update the state based on an action. They are pure functions that take the current state and an action and return a new state.
 
 In the newer architecture, reducers accept a `Substate` context as their first argument, which provides:
-- A mutable reference to the substate that the reducer will mutate
-- An immutable reference to the global state
-- A mutable reference to a `Dispatcher`
+
+-   A mutable reference to the substate that the reducer will mutate
+-   An immutable reference to the global state
+-   A mutable reference to a `Dispatcher`
 
 ```rust
 fn reducer(substate: &mut Substate<MyState>, action: &MyAction) {
@@ -125,7 +128,7 @@ fn reducer(substate: &mut Substate<MyState>, action: &MyAction) {
     match action {
         MyAction::SomeAction { param } => {
             substate.some_field = param.clone();
-            
+
             // Dispatch a new action if needed
             let dispatcher = substate.dispatcher();
             dispatcher.dispatch(AnotherAction {});

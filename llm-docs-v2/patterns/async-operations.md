@@ -14,17 +14,17 @@ stateDiagram-v2
     Pending --> Error: ErrorAction
     Success --> Idle: ResetAction
     Error --> Idle: ResetAction
-    
+
     note right of Idle: Initial state
     note right of Pending: Operation in progress
     note right of Success: Operation completed successfully
     note right of Error: Operation failed
-    
-    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none;
-    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none;
-    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none;
-    classDef errorState stroke:#e71d36,stroke-width:2px,fill:none;
-    
+
+    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef errorState stroke:#e71d36,stroke-width:2px,fill:none,padding:15px,margin:10px;
+
     class Idle idleState
     class Pending pendingState
     class Success successState
@@ -32,9 +32,10 @@ stateDiagram-v2
 ```
 
 This pattern is used for operations like:
-- Loading data from disk
-- Network requests
-- Computationally intensive operations
+
+-   Loading data from disk
+-   Network requests
+-   Computationally intensive operations
 
 ## State Definition
 

@@ -13,17 +13,17 @@ stateDiagram-v2
     Pending --> Success: SuccessAction
     Pending --> Error: ErrorAction(error)
     Error --> Idle: ResetAction
-    
+
     note right of Idle: Initial state
     note right of Pending: Operation in progress
     note right of Success: Operation completed successfully
     note right of Error: Operation failed with error
-    
-    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none;
-    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none;
-    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none;
-    classDef errorState stroke:#e71d36,stroke-width:2px,fill:none;
-    
+
+    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef errorState stroke:#e71d36,stroke-width:2px,fill:none,padding:15px,margin:10px;
+
     class Idle idleState
     class Pending pendingState
     class Success successState
@@ -31,10 +31,11 @@ stateDiagram-v2
 ```
 
 This pattern is used for operations that can fail, such as:
-- Loading data from disk
-- Network requests
-- Computationally intensive operations
-- Operations that depend on external systems
+
+-   Loading data from disk
+-   Network requests
+-   Computationally intensive operations
+-   Operations that depend on external systems
 
 ## Error State
 
@@ -58,9 +59,10 @@ pub enum AsyncOperationState {
 ```
 
 The error state typically includes:
-- A timestamp to track when the error occurred
-- Error information, such as an error message or error code
-- Additional context that might be useful for debugging
+
+-   A timestamp to track when the error occurred
+-   Error information, such as an error message or error code
+-   Additional context that might be useful for debugging
 
 ## Error Actions
 
@@ -80,9 +82,10 @@ pub enum AsyncOperationAction {
 ```
 
 These actions allow for:
-- Transitioning to the error state
-- Including error information in the state
-- Resetting the state machine to try again
+
+-   Transitioning to the error state
+-   Including error information in the state
+-   Resetting the state machine to try again
 
 ## Error Handling in Reducers
 
@@ -206,10 +209,10 @@ impl TransitionFrontierState {
                 // This is an example of error propagation
                 // The sync component has failed, and the error is propagated to the transition frontier
                 state.sync = TransitionFrontierSyncState::Idle;
-                
+
                 // Log the error
                 log::error!("Sync failed: {}", error);
-                
+
                 // Dispatch an action to notify other components
                 let dispatcher = state_context.dispatcher();
                 dispatcher.dispatch(Action::Rpc(RpcAction::SyncFailed {
@@ -364,7 +367,7 @@ impl P2pConnectionState {
                 if let P2pConnectionState::Connecting { time, attempts, max_attempts } = state {
                     let attempts = *attempts;
                     let max_attempts = *max_attempts;
-                    
+
                     if attempts < max_attempts {
                         // Retry connection
                         *state = P2pConnectionState::Connecting {
@@ -372,7 +375,7 @@ impl P2pConnectionState {
                             attempts: attempts + 1,
                             max_attempts,
                         };
-                        
+
                         // Dispatch effectful action to retry connection
                         let dispatcher = state_context.dispatcher();
                         dispatcher.dispatch(P2pConnectionEffectfulAction::ConnectInit);
@@ -413,10 +416,10 @@ impl TransitionFrontierState {
             TransitionFrontierAction::SyncFailed { error, needed_protocol_states } => {
                 // Handle sync failure
                 state.sync = TransitionFrontierSyncState::Idle;
-                
+
                 // Log the error
                 log::error!("Sync failed: {}", error);
-                
+
                 // Dispatch an action to notify other components
                 let dispatcher = state_context.dispatcher();
                 dispatcher.dispatch(Action::Rpc(RpcAction::SyncFailed {

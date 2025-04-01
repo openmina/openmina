@@ -6,10 +6,10 @@ The Transition Frontier is a core component of the OpenMina node that manages th
 
 The Transition Frontier component consists of several subcomponents, each with its own state machine:
 
-- **Genesis**: Initializes the blockchain state from the genesis configuration
-- **Candidates**: Manages block candidates received from peers or produced locally
-- **Best Chain**: Maintains the current best chain of blocks
-- **Sync**: Synchronizes the node's state with other nodes
+-   **Genesis**: Initializes the blockchain state from the genesis configuration
+-   **Candidates**: Manages block candidates received from peers or produced locally
+-   **Best Chain**: Maintains the current best chain of blocks
+-   **Sync**: Synchronizes the node's state with other nodes
 
 ## Component Diagram
 
@@ -21,17 +21,17 @@ graph TD
         Candidates <--> Sync["Sync"]
         BestChain <--> Sync
     end
-    
+
     %% Legend
     L1["Container"] --- L2["Initialization"] --- L3["Processing"] --- L4["Synchronization"]
-    
-    classDef tfClass stroke:#3a0ca3,stroke-width:2px,fill:none;
-    classDef genesisClass stroke:#4cc9f0,stroke-width:2px,fill:none;
-    classDef candidatesClass stroke:#4361ee,stroke-width:2px,fill:none;
-    classDef bestChainClass stroke:#3f37c9,stroke-width:2px,fill:none;
-    classDef syncClass stroke:#480ca8,stroke-width:2px,fill:none;
-    classDef legend stroke-dasharray: 5 5, fill:none;
-    
+
+    classDef tfClass stroke:#3a0ca3,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef genesisClass stroke:#4cc9f0,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef candidatesClass stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef bestChainClass stroke:#3f37c9,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef syncClass stroke:#480ca8,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef legend stroke-dasharray: 5 5, fill:none,padding:15px,margin:10px;
+
     class TransitionFrontier tfClass;
     class Genesis genesisClass;
     class Candidates candidatesClass;
@@ -41,11 +41,12 @@ graph TD
 ```
 
 **Diagram Legend:**
-- **Transition Frontier**: Main component managing blockchain state
-- **Genesis**: Initializes blockchain state from genesis configuration
-- **Candidates**: Manages block candidates received from peers or produced locally
-- **Best Chain**: Maintains the current best chain of blocks
-- **Sync**: Synchronizes the node's state with other nodes
+
+-   **Transition Frontier**: Main component managing blockchain state
+-   **Genesis**: Initializes blockchain state from genesis configuration
+-   **Candidates**: Manages block candidates received from peers or produced locally
+-   **Best Chain**: Maintains the current best chain of blocks
+-   **Sync**: Synchronizes the node's state with other nodes
 
 ## State Definition
 
@@ -70,12 +71,13 @@ pub struct TransitionFrontierState {
 ```
 
 This state includes:
-- Configuration for the transition frontier
-- Genesis state for initializing the blockchain
-- Best chain of blocks
-- Protocol states needed for transaction application
-- Candidate blocks
-- Synchronization state
+
+-   Configuration for the transition frontier
+-   Genesis state for initializing the blockchain
+-   Best chain of blocks
+-   Protocol states needed for transaction application
+-   Candidate blocks
+-   Synchronization state
 
 ## Actions
 
@@ -100,12 +102,13 @@ pub enum TransitionFrontierAction {
 ```
 
 These actions allow for:
-- Managing the genesis state
-- Handling genesis effects
-- Injecting genesis blocks
-- Managing block candidates
-- Synchronizing the blockchain
-- Handling synchronization success and failure
+
+-   Managing the genesis state
+-   Handling genesis effects
+-   Injecting genesis blocks
+-   Managing block candidates
+-   Synchronizing the blockchain
+-   Handling synchronization success and failure
 
 ## Reducer
 
@@ -179,9 +182,9 @@ The effects handle side effects and dispatch new actions as needed.
 
 The Transition Frontier component includes several state machines:
 
-- [Genesis State Machine](genesis-state-machine.md): Manages the initialization of the blockchain from the genesis configuration
-- [Candidates State Machine](candidates-state-machine.md): Manages block candidates received from peers or produced locally
-- [Sync State Machine](sync-state-machine.md): Manages the synchronization of the blockchain with other nodes
+-   [Genesis State Machine](genesis-state-machine.md): Manages the initialization of the blockchain from the genesis configuration
+-   [Candidates State Machine](candidates-state-machine.md): Manages block candidates received from peers or produced locally
+-   [Sync State Machine](sync-state-machine.md): Manages the synchronization of the blockchain with other nodes
 
 Each state machine has its own state, actions, reducers, and effects.
 
@@ -189,10 +192,10 @@ Each state machine has its own state, actions, reducers, and effects.
 
 The Transition Frontier interacts with several other components:
 
-- **SNARK System**: For verifying block proofs
-- **P2P Network**: For receiving and sending blocks and sync messages
-- **Block Producer**: For receiving newly produced blocks
-- **Transaction Pool**: For providing transactions to be included in blocks
+-   **SNARK System**: For verifying block proofs
+-   **P2P Network**: For receiving and sending blocks and sync messages
+-   **Block Producer**: For receiving newly produced blocks
+-   **Transaction Pool**: For providing transactions to be included in blocks
 
 These interactions are managed through actions and effects.
 
@@ -261,6 +264,6 @@ This state tracks the progress of synchronization and manages the transition to 
 
 To learn more about specific aspects of the Transition Frontier component, see:
 
-- [Genesis State Machine](genesis-state-machine.md)
-- [Candidates State Machine](candidates-state-machine.md)
-- [Sync State Machine](sync-state-machine.md)
+-   [Genesis State Machine](genesis-state-machine.md)
+-   [Candidates State Machine](candidates-state-machine.md)
+-   [Sync State Machine](sync-state-machine.md)

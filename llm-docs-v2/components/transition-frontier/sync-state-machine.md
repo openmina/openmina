@@ -18,7 +18,7 @@ stateDiagram-v2
     CommitPending --> CommitSuccess: CommitSuccess
     CommitPending --> Idle: CommitFailed
     CommitSuccess --> Synced: Synced
-    
+
     note right of Idle: Initial state
     note right of Init: Sync initialized
     note right of StakingLedgerPending: Requesting staking ledger
@@ -28,13 +28,13 @@ stateDiagram-v2
     note right of CommitPending: Committing changes
     note right of CommitSuccess: Changes committed
     note right of Synced: Sync complete
-    
-    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none;
-    classDef initState stroke:#ff9f1c,stroke-width:2px,fill:none;
-    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none;
-    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none;
-    classDef syncedState stroke:#7209b7,stroke-width:2px,fill:none;
-    
+
+    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef initState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef syncedState stroke:#7209b7,stroke-width:2px,fill:none,padding:15px,margin:10px;
+
     class Idle idleState
     class Init initState
     class StakingLedgerPending,BlocksPending,CommitPending pendingState
@@ -97,15 +97,16 @@ pub enum TransitionFrontierSyncState {
 ```
 
 This state includes:
-- `Idle`: The initial state
-- `Init`: Sync initialized with best tip and root block
-- `StakingLedgerPending`: Requesting staking ledger
-- `StakingLedgerSuccess`: Staking ledger received
-- `BlocksPending`: Requesting blocks
-- `BlocksSuccess`: Blocks received
-- `CommitPending`: Committing changes
-- `CommitSuccess`: Changes committed
-- `Synced`: Sync complete
+
+-   `Idle`: The initial state
+-   `Init`: Sync initialized with best tip and root block
+-   `StakingLedgerPending`: Requesting staking ledger
+-   `StakingLedgerSuccess`: Staking ledger received
+-   `BlocksPending`: Requesting blocks
+-   `BlocksSuccess`: Blocks received
+-   `CommitPending`: Committing changes
+-   `CommitSuccess`: Changes committed
+-   `Synced`: Sync complete
 
 ## Actions
 
@@ -139,14 +140,15 @@ pub enum TransitionFrontierSyncAction {
 ```
 
 These actions allow for:
-- Starting the sync process
-- Requesting the staking ledger
-- Handling staking ledger success and failure
-- Requesting blocks
-- Handling block reception
-- Handling block request failure
-- Committing changes
-- Handling commit success and failure
+
+-   Starting the sync process
+-   Requesting the staking ledger
+-   Handling staking ledger success and failure
+-   Requesting blocks
+-   Handling block reception
+-   Handling block request failure
+-   Committing changes
+-   Handling commit success and failure
 
 ## Enabling Conditions
 
@@ -368,9 +370,9 @@ The commit process involves:
 
 The Sync State Machine interacts with:
 
-- **P2P Network**: For requesting blocks from peers
-- **SNARK System**: For verifying block proofs
-- **Ledger**: For updating the ledger state
+-   **P2P Network**: For requesting blocks from peers
+-   **SNARK System**: For verifying block proofs
+-   **Ledger**: For updating the ledger state
 
 These interactions are managed through actions and effects.
 
@@ -378,8 +380,8 @@ These interactions are managed through actions and effects.
 
 The Sync State Machine handles errors by:
 
-- Transitioning to the `Idle` state on staking ledger failure
-- Transitioning to the `Idle` state on block request failure
-- Transitioning to the `Idle` state on commit failure
+-   Transitioning to the `Idle` state on staking ledger failure
+-   Transitioning to the `Idle` state on block request failure
+-   Transitioning to the `Idle` state on commit failure
 
 This allows the sync process to be retried if needed.

@@ -13,19 +13,19 @@ stateDiagram-v2
     WonSlot --> WonSlotWait: WonSlotWait
     WonSlotWait --> WonSlotProduceInit: WonSlotProduce
     WonSlotDiscarded --> Idle: Reset
-    
+
     note right of Idle: Waiting for slot opportunity
     note right of WonSlot: Slot won, deciding what to do
     note right of WonSlotDiscarded: Slot discarded (e.g., syncing)
     note right of WonSlotWait: Waiting for right time to produce
     note right of WonSlotProduceInit: Starting block production
-    
-    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none;
-    classDef wonState stroke:#ff9f1c,stroke-width:2px,fill:none;
-    classDef discardedState stroke:#e71d36,stroke-width:2px,fill:none;
-    classDef waitState stroke:#2ec4b6,stroke-width:2px,fill:none;
-    classDef produceState stroke:#7209b7,stroke-width:2px,fill:none;
-    
+
+    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef wonState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef discardedState stroke:#e71d36,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef waitState stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef produceState stroke:#7209b7,stroke-width:2px,fill:none,padding:15px,margin:10px;
+
     class Idle idleState
     class WonSlot wonState
     class WonSlotDiscarded discardedState
@@ -87,11 +87,12 @@ pub enum BlockProducerWonSlotDiscardReason {
 ```
 
 The relevant states for slot selection are:
-- `Idle`: Waiting for slot opportunity
-- `WonSlot`: Slot won, deciding what to do
-- `WonSlotDiscarded`: Slot discarded (e.g., because the node is syncing)
-- `WonSlotWait`: Waiting for the right time to produce the block
-- `WonSlotProduceInit`: Starting block production
+
+-   `Idle`: Waiting for slot opportunity
+-   `WonSlot`: Slot won, deciding what to do
+-   `WonSlotDiscarded`: Slot discarded (e.g., because the node is syncing)
+-   `WonSlotWait`: Waiting for the right time to produce the block
+-   `WonSlotProduceInit`: Starting block production
 
 ## Actions
 
@@ -114,12 +115,13 @@ pub enum BlockProducerAction {
 ```
 
 These actions allow for:
-- Checking if the node has won a slot
-- Handling won slots
-- Discarding won slots
-- Waiting for the right time to produce a block
-- Starting block production
-- Resetting the state
+
+-   Checking if the node has won a slot
+-   Handling won slots
+-   Discarding won slots
+-   Waiting for the right time to produce a block
+-   Starting block production
+-   Resetting the state
 
 ## Enabling Conditions
 
@@ -174,7 +176,7 @@ impl BlockProducerState {
                 // Check if we have won the current slot
                 let global_state = state_context.get_global_state();
                 let current_slot = global_state.consensus().current_slot();
-                
+
                 if let Some(won_slot) = check_slot(current_slot, &state.config) {
                     // We won the slot, dispatch WonSlot action
                     let dispatcher = state_context.dispatcher();
@@ -189,7 +191,7 @@ impl BlockProducerState {
                     time: meta.time(),
                     won_slot: won_slot.clone(),
                 };
-                
+
                 // Check if we should discard the slot
                 let global_state = state_context.get_global_state();
                 if global_state.transition_frontier().is_syncing() {
@@ -221,11 +223,11 @@ impl BlockProducerState {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
                     };
-                    
+
                     // Schedule WonSlotProduce action for the right time
                     let slot_time = calculate_slot_time(&won_slot.global_slot);
                     let now = meta.time();
-                    
+
                     if now >= slot_time {
                         // It's already time to produce
                         let dispatcher = state_context.dispatcher();
@@ -241,7 +243,7 @@ impl BlockProducerState {
                     // Get the current best chain
                     let global_state = state_context.get_global_state();
                     let best_chain = global_state.transition_frontier().best_chain.clone();
-                    
+
                     if best_chain.is_empty() {
                         // No chain to extend
                         let dispatcher = state_context.dispatcher();
@@ -255,7 +257,7 @@ impl BlockProducerState {
                             won_slot: won_slot.clone(),
                             chain: best_chain,
                         };
-                        
+
                         // Continue with block production
                         let dispatcher = state_context.dispatcher();
                         dispatcher.dispatch(BlockProducerAction::WonSlotTransactionsGet);
@@ -312,10 +314,10 @@ fn check_slot(current_slot: Slot, config: &BlockProducerConfig) -> Option<BlockP
     // Get the current epoch and slot in epoch
     let epoch = current_slot.epoch;
     let slot_in_epoch = current_slot.slot;
-    
+
     // Get the epoch seed
     let epoch_seed = get_epoch_seed(epoch);
-    
+
     // Check each stake delegation
     for delegation in &config.delegations {
         // Calculate VRF output
@@ -324,7 +326,7 @@ fn check_slot(current_slot: Slot, config: &BlockProducerConfig) -> Option<BlockP
             &epoch_seed,
             slot_in_epoch,
         );
-        
+
         // Check if VRF output is below threshold
         if is_vrf_output_below_threshold(vrf_output, delegation.stake_fraction) {
             // We won the slot
@@ -340,7 +342,7 @@ fn check_slot(current_slot: Slot, config: &BlockProducerConfig) -> Option<BlockP
             });
         }
     }
-    
+
     // We didn't win the slot
     None
 }
@@ -354,10 +356,10 @@ The block producer calculates the right time to produce a block based on the slo
 fn calculate_slot_time(slot: &Slot) -> Timestamp {
     // Calculate the time at which the slot begins
     let slot_begin = GENESIS_TIME + (slot.value as u64 * SLOT_DURATION_MS);
-    
+
     // Add a small delay to allow for network propagation
     let slot_time = slot_begin + SLOT_PRODUCTION_DELAY_MS;
-    
+
     Timestamp::from_millis(slot_time)
 }
 ```
@@ -366,8 +368,8 @@ fn calculate_slot_time(slot: &Slot) -> Timestamp {
 
 The Slot Selection State Machine interacts with:
 
-- **Transition Frontier**: To check if the node is syncing and to get the current best chain
-- **Consensus**: To get the current slot and epoch information
+-   **Transition Frontier**: To check if the node is syncing and to get the current best chain
+-   **Consensus**: To get the current slot and epoch information
 
 These interactions are managed through the global state and actions.
 
@@ -375,8 +377,8 @@ These interactions are managed through the global state and actions.
 
 The Slot Selection State Machine handles errors by:
 
-- Discarding slots when the node is syncing
-- Discarding slots when there is no chain to extend
-- Providing detailed reasons for discarded slots
+-   Discarding slots when the node is syncing
+-   Discarding slots when there is no chain to extend
+-   Providing detailed reasons for discarded slots
 
 This allows for proper monitoring and debugging of the slot selection process.

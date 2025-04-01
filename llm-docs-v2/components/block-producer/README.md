@@ -6,8 +6,8 @@ The Block Producer is a core component of the OpenMina node that is responsible 
 
 The Block Producer component consists of several subcomponents, each with its own state machine:
 
-- **Slot Selection**: Determines when the node has won a slot and should produce a block
-- **Block Production**: Creates and proves a new block
+-   **Slot Selection**: Determines when the node has won a slot and should produce a block
+-   **Block Production**: Creates and proves a new block
 
 ## Component Diagram
 
@@ -17,20 +17,20 @@ graph TD
         SlotSelection["Slot Selection"] --> BlockProduction["Block Production"]
         BlockProduction --> BlockBroadcast["Block Broadcast"]
     end
-    
+
     BlockProducer --> TransactionPool["Transaction Pool"]
     BlockProducer --> TransitionFrontier["Transition Frontier"]
     BlockProducer --> SNARK["SNARK System"]
     BlockProducer --> P2P["P2P Network"]
-    
+
     %% Legend
     L1["Component"] --- L2["Subcomponent"] --- L3["External Component"]
-    
-    classDef bpClass stroke:#3a0ca3,stroke-width:2px,fill:none;
-    classDef subcompClass stroke:#4cc9f0,stroke-width:2px,fill:none;
-    classDef extClass stroke:#4361ee,stroke-width:2px,fill:none;
-    classDef legend stroke-dasharray: 5 5, fill:none;
-    
+
+    classDef bpClass stroke:#3a0ca3,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef subcompClass stroke:#4cc9f0,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef extClass stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef legend stroke-dasharray: 5 5, fill:none,padding:15px,margin:10px;
+
     class BlockProducer bpClass;
     class SlotSelection,BlockProduction,BlockBroadcast subcompClass;
     class TransactionPool,TransitionFrontier,SNARK,P2P extClass;
@@ -38,9 +38,10 @@ graph TD
 ```
 
 **Diagram Legend:**
-- **Component**: The main Block Producer component
-- **Subcomponent**: Functional units within the Block Producer
-- **External Component**: Components that interact with the Block Producer
+
+-   **Component**: The main Block Producer component
+-   **Subcomponent**: Functional units within the Block Producer
+-   **External Component**: Components that interact with the Block Producer
 
 ## State Definition
 
@@ -162,10 +163,11 @@ pub enum BlockProducerCurrentState {
 ```
 
 This state includes:
-- Configuration for the block producer
-- Current state of the block producer
-- Last produced block
-- Last produced block timestamp
+
+-   Configuration for the block producer
+-   Current state of the block producer
+-   Last produced block
+-   Last produced block timestamp
 
 The current state can be one of several variants, representing different stages of the block production process.
 
@@ -207,24 +209,25 @@ pub enum BlockProducerAction {
 ```
 
 These actions allow for:
-- Checking if the node has won a slot
-- Handling won slots
-- Discarding won slots
-- Waiting for the right time to produce a block
-- Producing a block
-- Getting transactions for the block
-- Creating a staged ledger diff
-- Building an unproven block
-- Proving the block
-- Injecting the block into the transition frontier
-- Resetting the block producer state
+
+-   Checking if the node has won a slot
+-   Handling won slots
+-   Discarding won slots
+-   Waiting for the right time to produce a block
+-   Producing a block
+-   Getting transactions for the block
+-   Creating a staged ledger diff
+-   Building an unproven block
+-   Proving the block
+-   Injecting the block into the transition frontier
+-   Resetting the block producer state
 
 ## State Machines
 
 The Block Producer component includes several state machines:
 
-- [Slot Selection State Machine](slot-selection-state-machine.md): Determines when the node has won a slot and should produce a block
-- [Block Production State Machine](block-production-state-machine.md): Creates and proves a new block
+-   [Slot Selection State Machine](slot-selection-state-machine.md): Determines when the node has won a slot and should produce a block
+-   [Block Production State Machine](block-production-state-machine.md): Creates and proves a new block
 
 Each state machine has its own state, actions, reducers, and effects.
 
@@ -232,10 +235,10 @@ Each state machine has its own state, actions, reducers, and effects.
 
 The Block Producer interacts with several other components:
 
-- **Transaction Pool**: For getting transactions to include in the block
-- **Transition Frontier**: For getting the current best chain and injecting produced blocks
-- **SNARK System**: For proving blocks
-- **P2P Network**: For broadcasting produced blocks
+-   **Transaction Pool**: For getting transactions to include in the block
+-   **Transition Frontier**: For getting the current best chain and injecting produced blocks
+-   **SNARK System**: For proving blocks
+-   **P2P Network**: For broadcasting produced blocks
 
 These interactions are managed through actions and effects.
 
@@ -271,13 +274,15 @@ These interactions are managed through actions and effects.
 ### Slot Selection
 
 The block producer uses a VRF (Verifiable Random Function) to determine if it has won a slot. The VRF is based on:
-- The node's private key
-- The current slot number
-- The current epoch seed
+
+-   The node's private key
+-   The current slot number
+-   The current epoch seed
 
 ### Block Building
 
 The block building process involves:
+
 1. Selecting transactions from the transaction pool
 2. Creating a staged ledger diff
 3. Building a block with the staged ledger diff
@@ -286,6 +291,7 @@ The block building process involves:
 ### Block Injection
 
 Once a block is produced, it is injected into the transition frontier, which:
+
 1. Validates the block
 2. Adds it to the best chain
 3. Broadcasts it to other nodes
@@ -294,5 +300,5 @@ Once a block is produced, it is injected into the transition frontier, which:
 
 To learn more about specific aspects of the Block Producer component, see:
 
-- [Slot Selection State Machine](slot-selection-state-machine.md)
-- [Block Production State Machine](block-production-state-machine.md)
+-   [Slot Selection State Machine](slot-selection-state-machine.md)
+-   [Block Production State Machine](block-production-state-machine.md)

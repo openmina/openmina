@@ -14,19 +14,19 @@ stateDiagram-v2
     Produced --> ProvePending: Prove
     ProvePending --> ProveSuccess: ProveSuccess
     ProvePending --> Idle: ProveFailed
-    
+
     note right of Idle: Initial state
     note right of LedgerLoadPending: Loading genesis ledger
     note right of LedgerLoadSuccess: Genesis ledger loaded
     note right of Produced: Genesis block produced
     note right of ProvePending: Proving genesis block
     note right of ProveSuccess: Genesis block proven
-    
-    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none;
-    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none;
-    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none;
-    classDef producedState stroke:#7209b7,stroke-width:2px,fill:none;
-    
+
+    classDef idleState stroke:#4361ee,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef pendingState stroke:#ff9f1c,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef successState stroke:#2ec4b6,stroke-width:2px,fill:none,padding:15px,margin:10px;
+    classDef producedState stroke:#7209b7,stroke-width:2px,fill:none,padding:15px,margin:10px;
+
     class Idle idleState
     class LedgerLoadPending,ProvePending pendingState
     class LedgerLoadSuccess,ProveSuccess successState
@@ -74,12 +74,13 @@ pub enum TransitionFrontierGenesisState {
 ```
 
 This state includes:
-- `Idle`: The initial state
-- `LedgerLoadPending`: Loading the genesis ledger
-- `LedgerLoadSuccess`: Genesis ledger loaded successfully
-- `Produced`: Genesis block produced
-- `ProvePending`: Proving the genesis block
-- `ProveSuccess`: Genesis block proven successfully
+
+-   `Idle`: The initial state
+-   `LedgerLoadPending`: Loading the genesis ledger
+-   `LedgerLoadSuccess`: Genesis ledger loaded successfully
+-   `Produced`: Genesis block produced
+-   `ProvePending`: Proving the genesis block
+-   `ProveSuccess`: Genesis block proven successfully
 
 ## Actions
 
@@ -105,10 +106,11 @@ pub enum TransitionFrontierGenesisAction {
 ```
 
 These actions allow for:
-- Producing the genesis block
-- Handling ledger load success and failure
-- Proving the genesis block
-- Handling proof success and failure
+
+-   Producing the genesis block
+-   Handling ledger load success and failure
+-   Proving the genesis block
+-   Handling proof success and failure
 
 The Genesis State Machine also defines effectful actions for interacting with services:
 
@@ -125,8 +127,9 @@ pub enum TransitionFrontierGenesisEffectfulAction {
 ```
 
 These actions allow for:
-- Initializing ledger loading
-- Initializing block proving
+
+-   Initializing ledger loading
+-   Initializing block proving
 
 ## Enabling Conditions
 
@@ -376,8 +379,8 @@ The genesis block is proven by the `create_proof_input` function, which:
 
 The Genesis State Machine interacts with:
 
-- **Transition Frontier**: The genesis block is injected into the transition frontier
-- **SNARK System**: The genesis block proof is verified by the SNARK system
+-   **Transition Frontier**: The genesis block is injected into the transition frontier
+-   **SNARK System**: The genesis block proof is verified by the SNARK system
 
 These interactions are managed through actions and effects.
 
@@ -385,7 +388,7 @@ These interactions are managed through actions and effects.
 
 The Genesis State Machine handles errors by:
 
-- Transitioning to the `Idle` state on ledger load failure
-- Transitioning to the `Idle` state on proof failure
+-   Transitioning to the `Idle` state on ledger load failure
+-   Transitioning to the `Idle` state on proof failure
 
 This allows the process to be retried if needed.
