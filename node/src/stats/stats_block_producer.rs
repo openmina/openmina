@@ -45,7 +45,6 @@ pub struct BlockProductionTimes {
     pub produced: Option<redux::Timestamp>,
     pub proof_create_start: Option<redux::Timestamp>,
     pub proof_create_end: Option<redux::Timestamp>,
-    pub proof_create_error: Option<redux::Timestamp>,
     pub block_apply_start: Option<redux::Timestamp>,
     pub block_apply_end: Option<redux::Timestamp>,
     pub committed: Option<redux::Timestamp>,
@@ -61,9 +60,6 @@ pub enum BlockProductionStatus {
     Produced,
     ProofCreatePending,
     ProofCreateSuccess,
-    ProofCreateError {
-        error: String,
-    },
     BlockApplyPending,
     BlockApplySuccess,
     Committed,
@@ -205,7 +201,6 @@ impl BlockProducerStats {
                 produced: None,
                 proof_create_start: None,
                 proof_create_end: None,
-                proof_create_error: None,
                 block_apply_start: None,
                 block_apply_end: None,
                 committed: None,
@@ -276,17 +271,6 @@ impl BlockProducerStats {
             BlockProductionStatus::ProofCreatePending => {
                 attempt.status = BlockProductionStatus::ProofCreateSuccess;
                 attempt.times.proof_create_end = Some(time);
-                true
-            }
-            _ => false,
-        });
-    }
-
-    pub fn proof_create_error(&mut self, time: redux::Timestamp, error: String) {
-        self.update("proof_create_error", move |attempt| match attempt.status {
-            BlockProductionStatus::ProofCreatePending => {
-                attempt.status = BlockProductionStatus::ProofCreateError { error };
-                attempt.times.proof_create_error = Some(time);
                 true
             }
             _ => false,

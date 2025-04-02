@@ -2,7 +2,7 @@ use actix_web::middleware::{DefaultHeaders, Logger};
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::Utc;
-use log::{error, info, warn};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs::{self, File};

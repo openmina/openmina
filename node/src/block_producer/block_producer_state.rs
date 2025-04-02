@@ -149,6 +149,7 @@ pub enum BlockProducerWonSlotDiscardReason {
     BestTipStakingLedgerDifferent,
     BestTipGlobalSlotHigher,
     BestTipSuperior,
+    BlockProofError,
 }
 
 impl BlockProducerState {

@@ -130,6 +130,7 @@ fn prover_loop(
                 }
             }
         }
+        // TODO: error must include the input
         let res = res.map_err(|err| err.to_string());
         let _ = event_sender.send(BlockProducerEvent::BlockProve(block_hash, res).into());
     }

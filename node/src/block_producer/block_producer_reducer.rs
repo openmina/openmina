@@ -310,6 +310,9 @@ impl BlockProducerEnabled {
                 dispatcher.push(BlockProducerEffectfulAction::BlockProveError {
                     error: error.clone(),
                 });
+                dispatcher.push(BlockProducerAction::WonSlotDiscard {
+                    reason: super::BlockProducerWonSlotDiscardReason::BlockProofError,
+                });
             }
             BlockProducerAction::BlockProduced => {
                 let current_state = std::mem::take(&mut state.current);
