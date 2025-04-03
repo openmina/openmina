@@ -319,6 +319,10 @@ impl BlockProducerCurrentState {
         &self,
         best_tip: &ArcBlockWithHash,
     ) -> Option<BlockProducerWonSlotDiscardReason> {
+        if matches!(self, Self::WonSlotDiscarded { .. }) {
+            return None;
+        }
+
         let won_slot = self.won_slot()?;
         if won_slot.global_slot() < best_tip.global_slot() {
             return Some(BlockProducerWonSlotDiscardReason::BestTipGlobalSlotHigher);
