@@ -1,7 +1,7 @@
-use super::{p2p_network_pubsub_state::P2pNetworkPubsubMessageCacheId, pb, BroadcastMessageId};
+use super::{pb, BroadcastMessageId};
 use crate::{token::BroadcastAlgorithm, ConnectionAddr, Data, P2pState, PeerId, StreamId};
 use mina_p2p_messages::gossip::GossipNetMessageV2;
-use openmina_core::ActionEvent;
+use openmina_core::{p2p::P2pNetworkPubsubMessageCacheId, ActionEvent};
 use serde::{Deserialize, Serialize};
 
 /// Actions that can occur within the P2P Network PubSub system.

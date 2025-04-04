@@ -1,0 +1,26 @@
+[package]
+name = "webrtc-sniffer"
+version = "0.16.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+env_logger = { version = "0.11.6" }
+log = { version = "0.4.25" }
+pcap = { version = "2.2" }
+ctrlc = { version = "3.4" }
+sudo = { version = "0.6.0" }
+hex = { version = "0.4.3" }
+etherparse = { version = "0.17.0" }
+thiserror = { version = "2.0" }
+nom = { version = "8.0.0" }
+
+sha2 = { version = "0.10.8" }
+rand = { version = "0.8" }
+hkdf = { version = "0.12" }
+hmac = { version = "0.12" }
+p256 = { version = "0.13", features = ["default", "ecdh", "ecdsa"] }
+p384 = { version = "0.13" }
+aes = { version = "0.8" }
+cbc = { version = "0.1", features = ["block-padding", "alloc"] }
+aes-gcm = { version = "0.10" }

@@ -6,17 +6,24 @@ import { RustService } from '@core/services/rust.service';
 import { AppNodeDetails, AppNodeStatus } from '@shared/types/app/app-node-details.type';
 import { getNetwork } from '@shared/helpers/mina.helper';
 import { getLocalStorage, nanOrElse, ONE_MILLION } from '@openmina/shared';
-import { BlockProductionWonSlotsStatus } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import {
+  BlockProductionWonSlotsStatus
+} from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { AppEnvBuild } from '@shared/types/app/app-env-build.type';
-import { FirestoreService } from '@core/services/firestore.service';
+import { SentryService } from '@core/services/sentry.service';
+import { WebNodeService } from '@core/services/web-node.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AppService {
 
+  private previousProducedBlock: BlockProductionAttempt;
+
   constructor(private rust: RustService,
-              private firestoreService: FirestoreService) { }
+              private sentryService: SentryService,
+              private webnodeService: WebNodeService) {
+  }
 
   getActiveNode(nodes: MinaNode[]): Observable<MinaNode> {
     const nodeName = new URL(location.href).searchParams.get('node');
@@ -39,6 +46,7 @@ export class AppService {
   getActiveNodeDetails(): Observable<AppNodeDetails> {
     return this.rust.get<NodeDetailsResponse>('/status')
       .pipe(
+        tap((data: NodeDetailsResponse) => this.notifyPrevBlockChanged(data)),
         map((data: NodeDetailsResponse): AppNodeDetails => ({
           status: this.getStatus(data),
           blockHeight: data.transition_frontier.best_tip?.height,
@@ -54,17 +62,28 @@ export class AppService {
           producingBlockGlobalSlot: data.current_block_production_attempt?.won_slot.global_slot,
           producingBlockStatus: data.current_block_production_attempt?.status,
         } as AppNodeDetails)),
-        tap((details: any) => {
-          // undefined not allowed. Firestore does not accept undefined values
-          // foreach undefined value, we set it to null
-          Object.keys(details).forEach((key: string) => {
-            if (details[key] === undefined) {
-              details[key] = null;
-            }
-          });
-          // this.firestoreService.addHeartbeat(details);
-        }),
       );
+  }
+
+  private notifyPrevBlockChanged(data: NodeDetailsResponse): void {
+    if (!this.rust.activeNodeIsWebNode) {
+      return;
+    }
+
+    const isInProduction = (status: BlockProductionWonSlotsStatus) =>
+      ![
+        BlockProductionWonSlotsStatus.Discarded,
+        BlockProductionWonSlotsStatus.Orphaned,
+        BlockProductionWonSlotsStatus.Canonical,
+      ].includes(status)
+
+    if (
+      this.previousProducedBlock && data.previous_block_production_attempt
+      && isInProduction(this.previousProducedBlock.status) !== isInProduction(data.previous_block_production_attempt.status)
+    ) {
+      this.sentryService.updateProducedBlock(data.previous_block_production_attempt, this.webnodeService.publicKey);
+    }
+    this.previousProducedBlock = data.previous_block_production_attempt;
   }
 
   private getStatus(data: NodeDetailsResponse): AppNodeStatus {
@@ -88,6 +107,7 @@ export interface NodeDetailsResponse {
   snark_pool: SnarkPool;
   chain_id: string | undefined;
   current_block_production_attempt: BlockProductionAttempt;
+  previous_block_production_attempt: BlockProductionAttempt;
 }
 
 export interface BlockProductionAttempt {

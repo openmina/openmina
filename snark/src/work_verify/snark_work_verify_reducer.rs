@@ -1,4 +1,4 @@
-use openmina_core::{bug_condition, Substate, SubstateAccess};
+use openmina_core::{bug_condition, snark::Snark, Substate, SubstateAccess};
 use redux::EnablingCondition;
 
 use crate::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
@@ -94,16 +94,17 @@ pub fn reducer<State, Action>(
             };
             let callback = on_error.clone();
             let sender = std::mem::take(sender);
-
+            let batch = std::mem::take(batch);
+            let job_ids = batch.iter().map(Snark::job_id).collect();
             *req = SnarkWorkVerifyStatus::Error {
                 time: meta.time(),
-                batch: std::mem::take(batch),
+                batch,
                 sender: sender.clone(),
                 error: error.clone(),
             };
             // Dispatch
             let dispatcher = state_context.into_dispatcher();
-            dispatcher.push_callback(callback, (*req_id, sender));
+            dispatcher.push_callback(callback, (*req_id, sender, job_ids));
             dispatcher.push(SnarkWorkVerifyAction::Finish { req_id: *req_id });
         }
         SnarkWorkVerifyAction::Success { req_id } => {

@@ -28,6 +28,7 @@ export class AppComponent extends StoreDispatcher implements OnInit {
   readonly showLeaderboardPage$: Observable<boolean> = this.select$(getMergedRoute).pipe(filter(Boolean), map((route: MergedRoute) => route.url.startsWith(`/${Routes.LEADERBOARD}`)));
   subMenusLength: number = 0;
   hideToolbar: boolean = CONFIG.hideToolbar;
+  showLeaderboard: boolean = CONFIG.showLeaderboard;
   loaded: boolean;
   isDesktop: boolean = isDesktop();
 
@@ -54,27 +55,25 @@ export class AppComponent extends StoreDispatcher implements OnInit {
         localStorage.setItem('webnodeArgs', args);
       }
     }
+    this.select(getMergedRoute, () => {
+      this.loaded = true;
+      this.detect();
+    }, filter(Boolean), take(1));
 
-    this.select(
-      getMergedRoute,
-      () => this.initAppFunctionalities(),
-      filter(Boolean),
-      take(1),
-      filter((route: MergedRoute) => route.url !== '/' && !route.url.startsWith('/?') && !route.url.startsWith('/leaderboard')),
-    );
-    this.select(
-      getMergedRoute,
-      () => {
-        this.loaded = true;
-        this.detect();
-      },
-      filter(Boolean),
-      take(1),
-    );
+    if (CONFIG.showLeaderboard && CONFIG.showWebNodeLandingPage) {
+      /* frontend with some landing page */
+      this.select(getMergedRoute, () => {
+        this.initAppFunctionalities();
+      }, filter((route: MergedRoute) => route?.url.startsWith('/loading-web-node')), take(1));
+
+    } else if (!CONFIG.showLeaderboard && !CONFIG.showWebNodeLandingPage) {
+      /* normal frontend (no landing pages) */
+      this.initAppFunctionalities();
+    }
   }
 
   goToWebNode(): void {
-    this.router.navigate([Routes.LOADING_WEB_NODE], { queryParamsHandling: 'merge' });
+    // this.router.navigate([Routes.LOADING_WEB_NODE], { queryParamsHandling: 'merge' });
     this.initAppFunctionalities();
   }
 

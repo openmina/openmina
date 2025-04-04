@@ -109,6 +109,8 @@ impl Recorder {
                 let mut writer = BufWriter::new(file);
 
                 let encoded = data.encode().unwrap();
+                // RecordedActionWithMeta::decode(&encoded)
+                //     .expect(&format!("failed to decode encoded message: {:?}", data));
                 writer
                     .write_all(&(encoded.len() as u64).to_be_bytes())
                     .unwrap();
@@ -158,7 +160,7 @@ fn graceful_shutdown(only_i: Option<usize>) {
     let files_iter = files
         .iter_mut()
         .enumerate()
-        .filter(|(i, _)| only_i.map_or(true, |only_i| only_i == *i))
+        .filter(|(i, _)| only_i.is_none_or(|only_i| only_i == *i))
         .filter_map(|(i, v)| Some((i, v.take()?)));
 
     for (i, file) in files_iter {

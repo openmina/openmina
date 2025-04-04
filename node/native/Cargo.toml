@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-native"
-version = "0.14.0"
+version = "0.16.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -22,6 +22,7 @@ redux = { workspace = true, features=["serializable_callbacks"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
+o1-utils = { workspace = true }
 bytes = "1.4.0"
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
 tracing = "0.1.37"
@@ -33,6 +34,8 @@ jsonpath-rust = "0.5.0"
 sha3 = "0.10.8"
 strum = "0.26.2"
 strum_macros = "0.26.4"
+hex = { version = "0.4.3" }
+dataloader = "0.18"
 
 openmina-core = { path = "../../core" }
 openmina-node-common = { path = "../common" }

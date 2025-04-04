@@ -111,7 +111,18 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                                 || proven_block.is_some_and(|b| Arc::ptr_eq(&b.block, &tip.block))
                         })
                     };
-                    this.current.won_slot_should_produce(time) && has_genesis_proven_if_needed()
+                    this.current.won_slot_should_produce(time)
+                        && has_genesis_proven_if_needed()
+                        // don't start block production (particularly staged ledger diff creation),
+                        // if transition frontier sync commit is pending,
+                        // as in case when fork is being committed, there
+                        // is no guarantee that staged ledger for the current
+                        // best tip (chosen as a parent for the new block being produced),
+                        // will be still there, once the staged ledger
+                        // diff creation request reaches the ledger service.
+                        // So we would be trying to build on top of
+                        // non-existent staged ledger causing a failure.
+                        && !state.transition_frontier.sync.is_commit_pending()
                 })
             }
             BlockProducerAction::WonSlotTransactionsGet => {

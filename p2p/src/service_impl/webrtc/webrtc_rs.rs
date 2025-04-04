@@ -28,6 +28,13 @@ pub type RTCConnectionState = RTCPeerConnectionState;
 
 pub type Api = Arc<webrtc::api::API>;
 
+pub type RTCCertificate = webrtc::peer_connection::certificate::RTCCertificate;
+
+pub fn certificate_from_pem_key(pem_str: &str) -> RTCCertificate {
+    let keypair = rcgen::KeyPair::from_pem(pem_str).expect("valid pem");
+    RTCCertificate::from_key_pair(keypair).expect("keypair is compatible")
+}
+
 pub fn build_api() -> Api {
     APIBuilder::new().build().into()
 }
@@ -47,7 +54,10 @@ pub enum RTCSignalingError {
 
 impl RTCConnection {
     pub async fn create(api: &Api, config: RTCConfig) -> Result<Self> {
-        api.new_peer_connection(config.into())
+        let mut configuration = RTCConfiguration::from(config);
+        // try default certificate, TODO(vlad): do it right
+        configuration.certificates.clear();
+        api.new_peer_connection(configuration)
             .await
             .map(|v| Self(v.into(), true))
     }
@@ -192,6 +202,8 @@ impl From<RTCConfig> for RTCConfiguration {
         RTCConfiguration {
             ice_servers: value.ice_servers.0.into_iter().map(Into::into).collect(),
             ice_transport_policy: RTCIceTransportPolicy::All,
+            certificates: vec![value.certificate],
+            seed: Some(value.seed.to_vec()),
             ..Default::default()
         }
     }

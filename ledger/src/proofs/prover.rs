@@ -1,6 +1,5 @@
 use std::{borrow::Cow, str::FromStr};
 
-use ark_ff::fields::arithmetic::InvalidBigInt;
 use kimchi::{
     poly_commitment::PolyComm,
     proof::{PointEvaluations, ProofEvaluations, ProverCommitments, RecursionChallenge},
@@ -37,11 +36,12 @@ pub fn make_padded_proof_from_p2p(
         prev_evals: _, // unused
         proof,
     }: &PicklesProofProofsVerified2ReprStableV2,
-) -> Result<ProverProof<Fq>, InvalidBigInt> {
-    let of_coord =
-        |(a, b): &(BigInt, BigInt)| Ok(Pallas::of_coordinates(a.to_field()?, b.to_field()?));
+) -> anyhow::Result<ProverProof<Fq>> {
+    let of_coord = |(a, b): &(BigInt, BigInt)| -> anyhow::Result<_> {
+        Ok(Pallas::of_coordinates(a.to_field()?, b.to_field()?))
+    };
 
-    let make_poly = |poly: &(BigInt, BigInt)| {
+    let make_poly = |poly: &(BigInt, BigInt)| -> anyhow::Result<_> {
         Ok(PolyComm {
             elems: vec![of_coord(poly)?],
         })
@@ -66,7 +66,7 @@ pub fn make_padded_proof_from_p2p(
     let lr: Vec<(Pallas, Pallas)> = lr
         .iter()
         .map(|(a, b)| Ok((of_coord(a)?, of_coord(b)?)))
-        .collect::<Result<_, _>>()?;
+        .collect::<anyhow::Result<_>>()?;
 
     let delta: Pallas = of_coord(&bulletproof.delta)?;
     let z1: Fq = bulletproof.z_1.to_field()?;
@@ -83,7 +83,7 @@ pub fn make_padded_proof_from_p2p(
     // };
 
     // let to_fields = |x: &Vec<BigInt>| x.iter().map(BigInt::to_field).collect();
-    let to_pt_eval = |(first, second): &(BigInt, BigInt)| {
+    let to_pt_eval = |(first, second): &(BigInt, BigInt)| -> anyhow::Result<_> {
         Ok(PointEvaluations {
             zeta: vec![first.to_field::<Fq>()?],
             zeta_omega: vec![second.to_field::<Fq>()?],
@@ -130,7 +130,7 @@ pub fn make_padded_proof_from_p2p(
         old_bulletproof_challenges.0[1].0.clone(),
     ]);
 
-    let make_poly = |poly: &(BigInt, BigInt)| {
+    let make_poly = |poly: &(BigInt, BigInt)| -> anyhow::Result<_> {
         let point = of_coord(poly)?;
         Ok(PolyComm { elems: vec![point] })
     };

@@ -17,7 +17,7 @@ use node::p2p::identity::SecretKey;
 use node::service::Recorder;
 use node::SnarkerStrategy;
 
-use openmina_node_native::{tracing, NodeBuilder};
+use openmina_node_native::{archive::config::ArchiveStorageOptions, tracing, NodeBuilder};
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -138,9 +138,42 @@ pub struct Node {
     #[arg(short = 'c', long, env)]
     pub config: Option<PathBuf>,
 
-    /// Enable archive mode (seding blocks to the archive process).
+    /// Enable local precomputed storage.
+    ///
+    /// This option requires the following environment variables to be set:
+    /// - OPENMINA_ARCHIVE_LOCAL_STORAGE_PATH (otherwise the path to the working directory will be used)
     #[arg(long, env)]
-    pub archive_address: Option<Url>,
+    pub archive_local_storage: bool,
+
+    /// Enable archiver process.
+    ///
+    /// This requires the following environment variables to be set:
+    /// - OPENMINA_ARCHIVE_ADDRESS
+    #[arg(long, env)]
+    pub archive_archiver_process: bool,
+
+    /// Enable GCP precomputed storage.
+    ///
+    /// This requires the following environment variables to be set:
+    /// - GCP_CREDENTIALS_JSON
+    /// - GCP_BUCKET_NAME
+    ///
+    #[arg(long, env)]
+    pub archive_gcp_storage: bool,
+
+    /// Enable AWS precomputed storage.
+    ///
+    /// This requires the following environment variables to be set:
+    /// - AWS_ACCESS_KEY_ID
+    /// - AWS_SECRET_ACCESS_KEY
+    /// - AWS_SESSION_TOKEN
+    /// - AWS_DEFAULT_REGION
+    /// - OPENMINA_AWS_BUCKET_NAME
+    #[arg(long, env)]
+    pub archive_aws_storage: bool,
+
+    #[arg(long, env)]
+    pub rng_seed: Option<String>,
 }
 
 impl Node {
@@ -186,7 +219,27 @@ impl Node {
                 node::config::DEVNET_CONFIG.clone(),
             ),
         };
-        let mut node_builder: NodeBuilder = NodeBuilder::new(None, daemon_conf, genesis_conf);
+
+        let custom_rng_seed = match self.rng_seed {
+            None => None,
+            Some(v) => match hex::decode(v)
+                .map_err(anyhow::Error::from)
+                .and_then(|bytes| {
+                    <[u8; 32]>::try_from(bytes.as_slice()).map_err(anyhow::Error::from)
+                }) {
+                Ok(v) => Some(v),
+                Err(err) => {
+                    node::core::error!(
+                        node::core::log::system_time();
+                        summary = "bad rng seed",
+                        err = err.to_string(),
+                    );
+                    return Err(err);
+                }
+            },
+        };
+        let mut node_builder: NodeBuilder =
+            NodeBuilder::new(custom_rng_seed, daemon_conf, genesis_conf);
 
         // let genesis_config = match self.config {
         //     Some(config_path) => GenesisConfig::DaemonJsonFile(config_path).into(),
@@ -272,23 +325,44 @@ impl Node {
             }
         }
 
-        if let Some(address) = self.archive_address {
-            openmina_core::IS_ARCHIVE
-                .set(true)
-                .expect("IS_ARCHIVE already set");
+        let archive_storage_options = ArchiveStorageOptions::from_iter(
+            [
+                (
+                    self.archive_local_storage,
+                    ArchiveStorageOptions::LOCAL_PRECOMPUTED_STORAGE,
+                ),
+                (
+                    self.archive_archiver_process,
+                    ArchiveStorageOptions::ARCHIVER_PROCESS,
+                ),
+                (
+                    self.archive_gcp_storage,
+                    ArchiveStorageOptions::GCP_PRECOMPUTED_STORAGE,
+                ),
+                (
+                    self.archive_aws_storage,
+                    ArchiveStorageOptions::AWS_PRECOMPUTED_STORAGE,
+                ),
+            ]
+            .iter()
+            .filter(|(enabled, _)| *enabled)
+            .map(|(_, option)| option.clone()),
+        );
+
+        if archive_storage_options.is_enabled() {
             node::core::info!(
                 summary = "Archive mode enabled",
-                address = address.to_string()
+                local_storage = archive_storage_options.uses_local_precomputed_storage(),
+                archiver_process = archive_storage_options.uses_archiver_process(),
+                gcp_storage = archive_storage_options.uses_gcp_precomputed_storage(),
+                aws_storage = archive_storage_options.uses_aws_precomputed_storage(),
             );
-            // Convert URL to SocketAddr
-            let socket_addrs = address.socket_addrs(|| None).expect("Invalid URL");
 
-            let socket_addr = socket_addrs.first().expect("No socket address found");
-            node_builder.archive(*socket_addr);
-        } else {
-            openmina_core::IS_ARCHIVE
-                .set(false)
-                .expect("IS_ARCHIVE already set");
+            archive_storage_options
+                .validate_env_vars()
+                .map_err(|e| anyhow::anyhow!(e))?;
+
+            node_builder.archive(archive_storage_options, work_dir.clone());
         }
 
         if let Some(sec_key) = self.run_snarker {

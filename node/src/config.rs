@@ -35,6 +35,7 @@ pub struct GlobalConfig {
     pub build: Box<BuildEnv>,
     pub snarker: Option<SnarkerConfig>,
     pub consensus_constants: ConsensusConstants,
+    pub client_port: Option<u16>,
     pub testing_run: bool,
 }
 
@@ -55,6 +56,7 @@ pub enum SnarkerStrategy {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BuildEnv {
     pub time: String,
+    pub version: String,
     pub git: GitBuildEnv,
     pub cargo: CargoBuildEnv,
     pub rustc: RustCBuildEnv,
@@ -90,6 +92,7 @@ impl BuildEnv {
     pub fn get() -> Self {
         Self {
             time: env!("VERGEN_BUILD_TIMESTAMP").to_owned(),
+            version: env!("VERGEN_GIT_DESCRIBE").to_owned(),
             git: GitBuildEnv {
                 commit_time: env!("VERGEN_GIT_COMMIT_TIMESTAMP").to_owned(),
                 commit_hash: env!("VERGEN_GIT_SHA").to_owned(),

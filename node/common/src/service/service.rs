@@ -23,6 +23,7 @@ use super::{
     p2p::webrtc_with_libp2p::P2pServiceCtx,
     replay::ReplayerState,
     rpc::{RpcSender, RpcService},
+    snark_worker::SnarkWorker,
     snarks::SnarkBlockVerifyArgs,
     EventReceiver, EventSender,
 };
@@ -38,9 +39,10 @@ pub struct NodeService {
     pub event_sender: EventSender,
     pub event_receiver: EventReceiver,
 
-    pub snark_block_proof_verify: mpsc::UnboundedSender<SnarkBlockVerifyArgs>,
+    pub snark_block_proof_verify: mpsc::TrackedUnboundedSender<SnarkBlockVerifyArgs>,
 
     pub ledger_manager: LedgerManager,
+    pub snark_worker: Option<SnarkWorker>,
     pub block_producer: Option<BlockProducerService>,
     pub archive: Option<ArchiveService>,
     pub p2p: P2pServiceCtx,
@@ -116,6 +118,7 @@ impl NodeService {
             event_receiver: mpsc::unbounded_channel().1.into(),
             snark_block_proof_verify: mpsc::unbounded_channel().0,
             ledger_manager: LedgerManager::spawn(Default::default()),
+            snark_worker: None,
             block_producer: None,
             archive: None,
             p2p: P2pServiceCtx::mocked(p2p_sec_key),
@@ -142,6 +145,26 @@ impl AsMut<NodeService> for NodeService {
 impl redux::Service for NodeService {}
 
 impl node::Service for NodeService {
+    fn queues(&mut self) -> node::service::Queues {
+        node::service::Queues {
+            events: self.event_receiver.len(),
+            snark_block_verify: self.snark_block_proof_verify.len(),
+            ledger: self.ledger_manager.pending_calls(),
+            vrf_evaluator: self
+                .block_producer
+                .as_ref()
+                .map(|v| v.vrf_pending_requests()),
+            block_prover: self
+                .block_producer
+                .as_ref()
+                .map(|v| v.prove_pending_requests()),
+            p2p_webrtc: self.p2p.webrtc.pending_cmds(),
+            #[cfg(feature = "p2p-libp2p")]
+            p2p_libp2p: self.p2p.mio.pending_cmds(),
+            rpc: self.rpc.req_receiver().len(),
+        }
+    }
+
     fn stats(&mut self) -> Option<&mut Stats> {
         self.stats()
     }
@@ -185,9 +208,14 @@ impl node::service::TransitionFrontierGenesisService for NodeService {
         let res = match config.load() {
             Err(err) => Err(err.to_string()),
             Ok((masks, data)) => {
-                masks
-                    .into_iter()
-                    .for_each(|mask| self.ledger_manager.insert_genesis_ledger(mask));
+                let is_archive = self.archive().is_some();
+                masks.into_iter().for_each(|mut mask| {
+                    if !is_archive {
+                        // Optimization: We don't need token owners if the node is not an archive
+                        mask.unset_token_owners();
+                    }
+                    self.ledger_manager.insert_genesis_ledger(mask);
+                });
                 Ok(data)
             }
         };

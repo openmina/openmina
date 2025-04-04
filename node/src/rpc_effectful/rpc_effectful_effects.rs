@@ -12,16 +12,16 @@ use crate::{
     p2p_ready,
     rpc::{
         AccountQuery, AccountSlim, ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress,
-        MessagesStats, NodeHeartbeat, RootLedgerSyncProgress, RootStagedLedgerSyncProgress,
-        RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
-        RpcNodeStatusLedger, RpcNodeStatusResources, RpcNodeStatusTransactionPool,
-        RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
-        RpcNodeStatusTransitionFrontierSync, RpcRequestExtraData, RpcScanStateSummary,
-        RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-        RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryScanStateJob,
-        RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary,
-        RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcTransactionInjectResponse,
-        TransactionStatus,
+        MessagesStats, NodeHeartbeat, ProducedBlockInfo, RootLedgerSyncProgress,
+        RootStagedLedgerSyncProgress, RpcAction, RpcBlockProducerStats, RpcMessageProgressResponse,
+        RpcNodeStatus, RpcNodeStatusLedger, RpcNodeStatusNetworkInfo, RpcNodeStatusResources,
+        RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
+        RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync,
+        RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
+        RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+        RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
+        RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+        RpcTransactionInjectResponse, TransactionStatus,
     },
     snark_pool::SnarkPoolAction,
     transition_frontier::sync::{
@@ -37,6 +37,7 @@ use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use mina_p2p_messages::{rpc_kernel::QueryHeader, v2};
 use mina_signer::CompressedPubKey;
 use openmina_core::{block::ArcBlockWithHash, bug_condition};
+use openmina_node_account::AccountPublicKey;
 use p2p::channels::streaming_rpc::{
     staged_ledger_parts::calc_total_pieces_to_transfer, P2pStreamingRpcReceiveProgress,
 };
@@ -70,10 +71,12 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 .stats()
                 .and_then(|stats| stats.block_producer().last_produced_block.take());
 
-            let last_produced_block = match base64_encode_block(last_produced_block) {
-                Ok(block) => block,
+            let last_produced_block_info = match make_produced_block_info(last_produced_block) {
+                Ok(data) => data,
                 Err(error) => {
-                    bug_condition!("HeartbeatGet: Failed to encode block, returning None: {error}");
+                    bug_condition!(
+                        "HeartbeatGet: Failed to encode block header, returning None: {error}"
+                    );
                     None
                 }
             };
@@ -82,7 +85,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 status: status.into(),
                 node_timestamp: meta.time(),
                 peer_id: store.state().p2p.my_id(),
-                last_produced_block,
+                last_produced_block_info,
             };
             let response = store
                 .service()
@@ -473,6 +476,22 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             });
             let _ = store.service().respond_snark_pool_job_get(rpc_id, resp);
         }
+        RpcEffectfulAction::SnarkPoolCompletedJobsGet { rpc_id, jobs } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_snark_pool_completed_jobs_get(rpc_id, jobs),
+                meta.time()
+            );
+        }
+        RpcEffectfulAction::SnarkPoolPendingJobsGet { rpc_id, jobs } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_snark_pool_pending_jobs_get(rpc_id, jobs),
+                meta.time()
+            );
+        }
         RpcEffectfulAction::SnarkerConfigGet { rpc_id, config } => {
             let _ = store.service().respond_snarker_config_get(rpc_id, config);
         }
@@ -521,17 +540,17 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             let public_key = config.public_key.clone().into();
             let fee = config.fee.clone();
             let input = match input {
-                Ok(instances) => RpcSnarkerJobSpecResponse::Ok(
-                    mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
-                        mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
-                            instances,
-                            fee,
-                        },
-                        public_key,
-                    )))
-                ),
-                Err(err) => RpcSnarkerJobSpecResponse::Err(err),
-            };
+                    Ok(instances) => RpcSnarkerJobSpecResponse::Ok(
+                        mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((
+                            mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
+                                instances,
+                                fee,
+                            },
+                            public_key,
+                        )))
+                    ),
+                    Err(err) => RpcSnarkerJobSpecResponse::Err(err),
+                };
 
             // TODO: handle potential errors
             let _ = store.service().respond_snarker_job_spec(rpc_id, input);
@@ -620,9 +639,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
             accounts,
             account_query,
         } => {
+            // Is this todo still relevant?
             // TODO(adonagy): maybe something more effective?
             match account_query {
-                AccountQuery::SinglePublicKey(_pk) => todo!(),
                 // all the accounts for the FE in Slim form
                 AccountQuery::All => {
                     let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
@@ -664,7 +683,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                     )
                 }
                 // for the graphql endpoint
-                AccountQuery::PubKeyWithTokenId(..) => {
+                AccountQuery::SinglePublicKey(..) | AccountQuery::PubKeyWithTokenId(..) => {
+                    respond_or_log!(
+                        store.service().respond_ledger_accounts(rpc_id, accounts),
+                        meta.time()
+                    )
+                }
+                AccountQuery::MultipleIds(..) => {
                     respond_or_log!(
                         store.service().respond_ledger_accounts(rpc_id, accounts),
                         meta.time()
@@ -769,6 +794,71 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta<RpcE
                 )
             }
         }
+        RpcEffectfulAction::BlockGet { rpc_id, block } => {
+            respond_or_log!(
+                store.service().respond_block_get(rpc_id, block),
+                meta.time()
+            )
+        }
+
+        RpcEffectfulAction::PooledUserCommands {
+            rpc_id,
+            user_commands,
+        } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_pooled_user_commands(rpc_id, user_commands),
+                meta.time()
+            )
+        }
+
+        RpcEffectfulAction::PooledZkappCommands {
+            rpc_id,
+            zkapp_commands,
+        } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_pooled_zkapp_commands(rpc_id, zkapp_commands),
+                meta.time()
+            )
+        }
+        RpcEffectfulAction::GenesisBlock {
+            rpc_id,
+            genesis_block,
+        } => {
+            respond_or_log!(
+                store.service().respond_genesis_block(rpc_id, genesis_block),
+                meta.time()
+            )
+        }
+
+        RpcEffectfulAction::ConsensusTimeGet {
+            rpc_id,
+            consensus_time,
+        } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_consensus_time_get(rpc_id, consensus_time),
+                meta.time()
+            )
+        }
+        RpcEffectfulAction::LedgerStatusGetSuccess { rpc_id, response } => {
+            respond_or_log!(
+                store.service().respond_ledger_status_get(rpc_id, response),
+                meta.time()
+            )
+        }
+        RpcEffectfulAction::LedgerAccountDelegatorsGetSuccess { rpc_id, response } => {
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_ledger_account_delegators_get(rpc_id, response),
+                meta.time()
+            )
+        }
     }
 }
 
@@ -780,12 +870,45 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
         height: b.height(),
         global_slot: b.global_slot(),
     };
-    let current_block_production_attempt = store
+
+    let block_production_attempts = store
         .service
         .stats()
-        .and_then(|stats| Some(stats.block_producer().collect_attempts().last()?.clone()));
+        .map_or_else(Vec::new, |stats| stats.block_producer().collect_attempts());
+
+    let current_block_production_attempt = block_production_attempts.last().cloned();
+
+    let previous_block_production_attempt = block_production_attempts
+        .len()
+        .checked_sub(2)
+        .and_then(|idx| block_production_attempts.get(idx))
+        .cloned();
+
+    let network_info = RpcNodeStatusNetworkInfo {
+        bind_ip: "0.0.0.0".to_string(),
+        external_ip: state
+            .p2p
+            .config()
+            .external_addrs
+            .first()
+            .map(|addr| addr.to_string()),
+        client_port: state.config.client_port,
+        libp2p_port: state.p2p.config().libp2p_port,
+    };
+
+    let block_producer = state
+        .block_producer
+        .config()
+        .map(|config| AccountPublicKey::from(config.pub_key.clone()));
+    let coinbase_receiver = state
+        .block_producer
+        .config()
+        .map(|config| AccountPublicKey::from(config.coinbase_receiver().clone()));
+
     let status = RpcNodeStatus {
         chain_id,
+        block_producer,
+        coinbase_receiver,
         transition_frontier: RpcNodeStatusTransitionFrontier {
             best_tip: state.transition_frontier.best_tip().map(block_summary),
             sync: RpcNodeStatusTransitionFrontierSync {
@@ -827,6 +950,7 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             transaction_candidates: state.transaction_pool.candidates.transactions_count(),
         },
         current_block_production_attempt,
+        previous_block_production_attempt,
         resources_status: RpcNodeStatusResources {
             p2p_malloc_size: {
                 let mut set = BTreeSet::new();
@@ -837,20 +961,32 @@ fn compute_node_status<S: Service>(store: &mut Store<S>) -> RpcNodeStatus {
             transition_frontier: state.transition_frontier.resources_usage(),
             snark_pool: state.snark_pool.resources_usage(),
         },
+        service_queues: store.service.queues(),
+        network_info,
     };
     status
 }
 
-fn base64_encode_block(block: Option<ArcBlockWithHash>) -> std::io::Result<Option<String>> {
+fn make_produced_block_info(
+    block: Option<ArcBlockWithHash>,
+) -> std::io::Result<Option<ProducedBlockInfo>> {
     use base64::{engine::general_purpose::URL_SAFE, Engine as _};
     use mina_p2p_messages::binprot::BinProtWrite;
 
     let Some(block) = block else { return Ok(None) };
 
-    let mut buf = Vec::with_capacity(10 * 1024 * 1024);
-    v2::MinaBlockBlockStableV2::binprot_write(&block.block, &mut buf)?;
+    let height = block.height();
+    let global_slot = block.global_slot();
+    let hash = block.hash().to_string();
+    let mut buf = Vec::with_capacity(5 * 1024 * 1024);
+    v2::MinaBlockHeaderStableV2::binprot_write(block.header(), &mut buf)?;
 
-    let base64_encoded = URL_SAFE.encode(&buf);
+    let base64_encoded_header = URL_SAFE.encode(&buf);
 
-    Ok(Some(base64_encoded))
+    Ok(Some(ProducedBlockInfo {
+        height,
+        global_slot,
+        hash,
+        base64_encoded_header,
+    }))
 }

@@ -10,6 +10,9 @@ pub struct ReplayStateWithInputActions {
     #[arg(long, default_value = "./target/release/libreplay_dynamic_effects.so")]
     pub dynamic_effects_lib: String,
 
+    #[arg(long)]
+    pub ignore_mismatch: bool,
+
     /// Verbosity level
     #[arg(long, short, default_value = "info")]
     pub verbosity: tracing::Level,
@@ -30,13 +33,22 @@ impl ReplayStateWithInputActions {
             }
         };
 
-        replay_state_with_input_actions(&dir, dynamic_effects_lib, check_build_env)?;
+        replay_state_with_input_actions(
+            &dir,
+            dynamic_effects_lib,
+            self.ignore_mismatch,
+            check_build_env,
+        )?;
 
         Ok(())
     }
 }
 
-pub fn check_build_env(record_env: &BuildEnv, replay_env: &BuildEnv) -> anyhow::Result<()> {
+pub fn check_build_env(
+    record_env: &BuildEnv,
+    replay_env: &BuildEnv,
+    ignore_mismatch: bool,
+) -> anyhow::Result<()> {
     let is_git_same = record_env.git.commit_hash == replay_env.git.commit_hash;
     let is_cargo_same = record_env.cargo == replay_env.cargo;
     let is_rustc_same = record_env.rustc == replay_env.rustc;
@@ -47,7 +59,8 @@ pub fn check_build_env(record_env: &BuildEnv, replay_env: &BuildEnv) -> anyhow::
             record_env.git, replay_env.git
         );
         let msg = format!("git build env mismatch!\n{diff}");
-        if console::user_attended() {
+        if ignore_mismatch {
+        } else if console::user_attended() {
             use dialoguer::Confirm;
 
             let prompt = format!("{msg}\nDo you want to continue?");

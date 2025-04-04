@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
 use crate::{p2p_ready, SnarkPoolAction};
-use openmina_core::snark::Snark;
+use openmina_core::snark::{Snark, SnarkJobId};
 use p2p::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcId, P2pRpcRequest},
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
-    PeerId,
+    BroadcastMessageId, P2pNetworkPubsubAction, PeerId,
 };
 use snark::{work_verify::SnarkWorkVerifyAction, work_verify_effectful::SnarkWorkVerifyId};
 
@@ -124,10 +124,11 @@ impl SnarkPoolCandidatesState {
                             }
                         }),
                     on_error: redux::callback!(
-                        on_snark_pool_candidate_work_verify_error((req_id: SnarkWorkVerifyId, sender: String)) -> crate::Action {
+                        on_snark_pool_candidate_work_verify_error((req_id: SnarkWorkVerifyId, sender: String, batch: Vec<SnarkJobId>)) -> crate::Action {
                             SnarkPoolCandidateAction::WorkVerifyError {
                                 peer_id: sender.parse().unwrap(),
                                 verify_id: req_id,
+                                batch
                             }
                         }),
                 });
@@ -144,7 +145,11 @@ impl SnarkPoolCandidatesState {
             } => {
                 state.verify_pending(meta.time(), peer_id, *verify_id, job_ids);
             }
-            SnarkPoolCandidateAction::WorkVerifyError { peer_id, verify_id } => {
+            SnarkPoolCandidateAction::WorkVerifyError {
+                peer_id,
+                verify_id,
+                batch,
+            } => {
                 state.verify_result(meta.time(), peer_id, *verify_id, Err(()));
 
                 // TODO(binier): blacklist peer
@@ -154,6 +159,22 @@ impl SnarkPoolCandidatesState {
                     peer_id,
                     reason: P2pDisconnectionReason::SnarkPoolVerifyError,
                 });
+
+                // TODO: This is not correct. We are rejecting all snark messages, but the fact that the batch
+                // failed to verify means that there is at least one invalid snark in the batch, not that all of them
+                // are invalid.
+                // Instead, what should happen here is that we split the batch in two and try to verify the two batches
+                // again. Repeating until batches don't fail to verify anymore, or each batch is of size 1.
+                // It may also be worth capping the batch sizes to 10.
+                for snark_job_id in batch {
+                    dispatcher.push(P2pNetworkPubsubAction::RejectMessage {
+                        message_id: Some(BroadcastMessageId::Snark {
+                            job_id: snark_job_id.clone(),
+                        }),
+                        peer_id: None,
+                        reason: "Snark work verification failed".to_string(),
+                    });
+                }
             }
             SnarkPoolCandidateAction::WorkVerifySuccess {
                 peer_id,

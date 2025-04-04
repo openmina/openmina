@@ -1,5 +1,6 @@
 use std::{collections::HashMap, rc::Rc, str::FromStr, sync::Arc};
 
+use anyhow::Context;
 use ark_ec::{short_weierstrass_jacobian::GroupProjective, AffineCurve, ProjectiveCurve};
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Field, PrimeField};
 use kimchi::{
@@ -1295,8 +1296,20 @@ impl<F: FieldWitness> InnerCurve<F> {
         let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
 
+        let proj2 = proj;
+        LATEST_RANDOM.set(Box::new(move || {
+            let this = Self { inner: proj2 };
+            format!("{:#?}", this.to_affine())
+        }));
+
         Self { inner: proj }
     }
+}
+
+use std::cell::RefCell;
+
+thread_local! {
+    static LATEST_RANDOM: RefCell<Box<dyn Fn() -> String>> = RefCell::new(Box::new(String::new));
 }
 
 impl InnerCurve<Fp> {
@@ -2786,14 +2799,11 @@ pub mod transaction_snark {
         tx: &TransactionUnion,
         sparse_ledger: &SparseLedger,
         w: &mut Witness<Fp>,
-    ) -> Result<
-        (
-            Fp,
-            CheckedSigned<Fp, CheckedAmount<Fp>>,
-            CheckedSigned<Fp, CheckedAmount<Fp>>,
-        ),
-        InvalidBigInt,
-    > {
+    ) -> anyhow::Result<(
+        Fp,
+        CheckedSigned<Fp, CheckedAmount<Fp>>,
+        CheckedSigned<Fp, CheckedAmount<Fp>>,
+    )> {
         let TransactionUnion {
             payload,
             signer,
@@ -3591,7 +3601,7 @@ pub mod transaction_snark {
         statement_with_sok: &Statement<SokDigest>,
         tx_witness: &v2::TransactionWitnessStableV2,
         w: &mut Witness<Fp>,
-    ) -> Result<(), InvalidBigInt> {
+    ) -> anyhow::Result<()> {
         let tx: crate::scan_state::transaction_logic::Transaction =
             (&tx_witness.transaction).try_into()?;
         let tx = transaction_union_payload::TransactionUnion::of_transaction(&tx);
@@ -3912,15 +3922,19 @@ fn get_rng() -> rand::rngs::OsRng {
     rand::rngs::OsRng
 }
 
-#[derive(Debug, derive_more::From)]
+#[derive(Debug, thiserror::Error)]
 pub enum ProofError {
-    #[from]
-    ProvingError(kimchi::error::ProverError),
+    #[error("kimchi error: {0:?}")]
+    ProvingError(#[from] kimchi::error::ProverError),
+    #[error("kimchi error with context: {0:?}")]
+    ProvingErrorWithContext(#[from] debug::KimchiProofError),
+    #[error("constraint not satisfield: {0}")]
     ConstraintsNotSatisfied(String),
-    #[from]
-    InvalidBigint(InvalidBigInt),
+    #[error("invalid bigint")]
+    InvalidBigint(#[from] InvalidBigInt),
     /// We still return an error when `only_verify_constraints` is true and
     /// constraints are verified, to short-circuit easily
+    #[error("Constraints ok")]
     ConstraintsOk,
 }
 
@@ -3946,7 +3960,7 @@ impl<F: FieldWitness> ProofWithPublic<F> {
 pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     params: CreateProofParams<F>,
     w: &Witness<F>,
-) -> Result<ProofWithPublic<F>, ProofError> {
+) -> anyhow::Result<ProofWithPublic<F>> {
     type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
 
     let CreateProofParams {
@@ -3959,19 +3973,18 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     let prover_index: &ProverIndex<F> = &prover.index;
 
     // public input
-    let public_input = computed_witness[0][0..prover_index.cs.public].to_vec();
+    let public_input = computed_witness[0][..prover_index.cs.public].to_vec();
 
     if only_verify_constraints {
-        let public = &computed_witness[0][0..prover_index.cs.public];
         prover_index
-            .verify(&computed_witness, public)
+            .verify(&computed_witness, &public_input)
             .map_err(|e| {
                 ProofError::ConstraintsNotSatisfied(format!("incorrect witness: {:?}", e))
             })?;
 
         // We still return an error when `only_verify_constraints` is true and
         // constraints are verified, to short-circuit easily
-        return Err(ProofError::ConstraintsOk);
+        return Err(ProofError::ConstraintsOk.into());
     }
 
     // NOTE: Not random in `cfg(test)`
@@ -3984,10 +3997,40 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         computed_witness,
         &[],
         prover_index,
-        prev_challenges,
+        prev_challenges.clone(),
         None,
         &mut rng,
-    )?;
+    )
+    .map_err(|e| {
+        use kimchi::groupmap::GroupMap;
+
+        let prev_challenges_hash = debug::hash_prev_challenge::<F>(&prev_challenges);
+        let witness_primary_hash = debug::hash_slice(&w.primary);
+        let witness_aux_hash = debug::hash_slice(w.aux());
+        let group_map_hash = debug::hash_slice(&group_map.composition());
+
+        dbg!(
+            &prev_challenges_hash,
+            &witness_primary_hash,
+            &witness_aux_hash,
+            &group_map_hash
+        );
+
+        let context = debug::KimchiProofError {
+            inner_error: e.to_string(),
+            witness_primary: w.primary.iter().map(|f| (*f).into()).collect(),
+            witness_aux: w.aux().iter().map(|f| (*f).into()).collect(),
+            // prev_challenges,
+            witness_primary_hash,
+            witness_aux_hash,
+            prev_challenges_hash,
+            group_map_hash,
+            latest_random: LATEST_RANDOM.with_borrow(|fun| (fun)()),
+        };
+
+        ProofError::ProvingErrorWithContext(context)
+    })
+    .context("create_recursive")?;
 
     eprintln!("proof_elapsed={:?}", now.elapsed());
 
@@ -3995,6 +4038,165 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         proof,
         public_input,
     })
+}
+
+pub mod debug {
+    use super::*;
+
+    use mina_p2p_messages::bigint::BigInt;
+    use mina_p2p_messages::binprot;
+    use sha2::Digest;
+
+    fn hash_field<F: FieldWitness>(state: &mut sha2::Sha256, f: &F) {
+        for limb in f.montgomery_form_ref() {
+            state.update(limb.to_le_bytes());
+        }
+    }
+
+    fn hash_field_slice<F: FieldWitness>(state: &mut sha2::Sha256, slice: &[F]) {
+        state.update(slice.len().to_le_bytes());
+        for f in slice.iter().flat_map(|f| f.montgomery_form_ref()) {
+            state.update(f.to_le_bytes());
+        }
+    }
+
+    pub(super) fn hash_slice<F: FieldWitness>(slice: &[F]) -> String {
+        let mut hasher = sha2::Sha256::new();
+        hash_field_slice(&mut hasher, slice);
+        hex::encode(hasher.finalize())
+    }
+
+    pub(super) fn hash_prev_challenge<F: FieldWitness>(
+        prevs: &[RecursionChallenge<F::OtherCurve>],
+    ) -> String {
+        use poly_commitment::commitment::CommitmentCurve;
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        for RecursionChallenge { chals, comm } in prevs {
+            hash_field_slice(&mut hasher, chals);
+            let poly_commitment::PolyComm { elems } = comm;
+            for elem in elems {
+                match elem.to_coordinates() {
+                    None => {
+                        hasher.update([0]);
+                    }
+                    Some((c1, c2)) => {
+                        hasher.update([1]);
+                        hash_field(&mut hasher, &c1);
+                        hash_field(&mut hasher, &c2);
+                    }
+                }
+            }
+        }
+        hex::encode(hasher.finalize())
+    }
+
+    #[derive(Clone)]
+    pub struct KimchiProofError {
+        pub inner_error: String,
+        pub witness_primary: Vec<BigInt>,
+        pub witness_aux: Vec<BigInt>,
+        // pub prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
+        // Store hashes in case there is a de/serialization bug
+        pub witness_primary_hash: String,
+        pub witness_aux_hash: String,
+        pub prev_challenges_hash: String,
+        pub group_map_hash: String,
+        pub latest_random: String,
+    }
+
+    // Manual implementation because String does not implement binprot traits (because unbounded)
+    impl binprot::BinProtWrite for KimchiProofError {
+        fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+            let Self {
+                inner_error,
+                witness_primary,
+                witness_aux,
+                witness_primary_hash,
+                witness_aux_hash,
+                prev_challenges_hash,
+                group_map_hash,
+                latest_random,
+            } = self;
+            let inner_error: &[u8] = inner_error.as_bytes();
+            let witness_primary_hash: &[u8] = witness_primary_hash.as_bytes();
+            let witness_aux_hash: &[u8] = witness_aux_hash.as_bytes();
+            let prev_challenges_hash: &[u8] = prev_challenges_hash.as_bytes();
+            let group_map_hash: &[u8] = group_map_hash.as_bytes();
+            let latest_random: &[u8] = latest_random.as_bytes();
+            binprot::BinProtWrite::binprot_write(&inner_error, w)?;
+            binprot::BinProtWrite::binprot_write(witness_primary, w)?;
+            binprot::BinProtWrite::binprot_write(witness_aux, w)?;
+            binprot::BinProtWrite::binprot_write(&witness_primary_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&witness_aux_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&prev_challenges_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&group_map_hash, w)?;
+            binprot::BinProtWrite::binprot_write(&latest_random, w)?;
+            Ok(())
+        }
+    }
+    // Manual implementation because String does not implement binprot traits (because unbounded)
+    impl binprot::BinProtRead for KimchiProofError {
+        fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+        where
+            Self: Sized,
+        {
+            let to_string = |bytes: Vec<u8>| -> String { String::from_utf8(bytes).unwrap() };
+            let inner_error: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_primary: Vec<BigInt> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_aux: Vec<BigInt> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_primary_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let witness_aux_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let prev_challenges_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let group_map_hash: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            let latest_random: Vec<u8> = binprot::BinProtRead::binprot_read(r)?;
+            Ok(Self {
+                inner_error: to_string(inner_error),
+                witness_primary,
+                witness_aux,
+                witness_primary_hash: to_string(witness_primary_hash),
+                witness_aux_hash: to_string(witness_aux_hash),
+                prev_challenges_hash: to_string(prev_challenges_hash),
+                group_map_hash: to_string(group_map_hash),
+                latest_random: to_string(latest_random),
+            })
+        }
+    }
+
+    impl core::fmt::Display for KimchiProofError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_fmt(format_args!("{:?}", self))
+        }
+    }
+
+    impl std::error::Error for KimchiProofError {}
+
+    impl core::fmt::Debug for KimchiProofError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let Self {
+                inner_error,
+                witness_primary,
+                witness_aux,
+                witness_primary_hash,
+                witness_aux_hash,
+                prev_challenges_hash,
+                group_map_hash,
+                latest_random,
+            } = self;
+
+            // Print witness lengths, not the whole vectors
+            f.debug_struct("KimchiProofError")
+                .field("inner_error", inner_error)
+                .field("witness_primary", &witness_primary.len())
+                .field("witness_aux", &witness_aux.len())
+                .field("witness_primary_hash", &witness_primary_hash)
+                .field("witness_aux_hash", &witness_aux_hash)
+                .field("prev_challenges_hash", &prev_challenges_hash)
+                .field("group_map_hash", &group_map_hash)
+                .field("latest_random", &latest_random)
+                .finish()
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -4024,7 +4226,7 @@ pub struct TransactionParams<'a> {
 pub(super) fn generate_tx_proof(
     params: TransactionParams,
     w: &mut Witness<Fp>,
-) -> Result<WrapProof, ProofError> {
+) -> anyhow::Result<WrapProof> {
     let TransactionParams {
         statement,
         tx_witness,
@@ -4752,6 +4954,7 @@ pub(super) mod tests {
         struct DumpBlockProof {
             input: Box<v2::ProverExtendBlockchainInputStableV2>,
             key: Vec<u8>,
+            error: Vec<u8>,
         }
 
         let rsa_private_key = {
@@ -4767,13 +4970,18 @@ pub(super) mod tests {
             rsa::RsaPrivateKey::from_pkcs1_pem(&string).unwrap()
         };
 
-        let DumpBlockProof { mut input, key } = {
+        let DumpBlockProof {
+            mut input,
+            key,
+            error,
+        } = {
             let Ok(data) = std::fs::read("/tmp/block_proof.binprot") else {
                 eprintln!("Missing block proof");
                 return;
             };
             DumpBlockProof::binprot_read(&mut data.as_slice()).unwrap()
         };
+        eprintln!("error was: {}", String::from_utf8_lossy(&error));
 
         let producer_private_key = {
             let producer_private_key = rsa_private_key.decrypt(Pkcs1v15Encrypt, &key).unwrap();
@@ -4786,6 +4994,7 @@ pub(super) mod tests {
         let mut file = std::fs::File::create("/tmp/block_proof_with_key.binprot").unwrap();
         input.binprot_write(&mut file).unwrap();
         file.sync_all().unwrap();
+        eprintln!("saved to /tmp/block_proof_with_key.binprot");
     }
 
     #[test]

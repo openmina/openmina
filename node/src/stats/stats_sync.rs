@@ -178,9 +178,11 @@ impl SyncStats {
         best_tip: &ArcBlockWithHash,
         root_block: &ArcBlockWithHash,
     ) -> &mut Self {
-        let kind = match self.snapshots.back().map_or(true, |s| {
-            matches!(s.kind, SyncKind::Bootstrap) && s.synced.is_none()
-        }) {
+        let kind = match self
+            .snapshots
+            .back()
+            .is_none_or(|s| matches!(s.kind, SyncKind::Bootstrap) && s.synced.is_none())
+        {
             true => SyncKind::Bootstrap,
             false => SyncKind::Catchup,
         };

@@ -1,7 +1,6 @@
 use openmina_core::{
     block::{ArcBlockWithHash, BlockHash},
     bug_condition,
-    consensus::{is_short_range_fork, long_range_fork_take, short_range_fork_take},
 };
 use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError, SnarkBlockVerifyId};
 
@@ -17,10 +16,8 @@ use crate::{
 };
 
 use super::{
-    ConsensusLongRangeForkDecision, ConsensusShortRangeForkDecision,
     TransitionFrontierCandidateAction, TransitionFrontierCandidateActionWithMetaRef,
-    TransitionFrontierCandidateState, TransitionFrontierCandidateStatus,
-    TransitionFrontierCandidatesState,
+    TransitionFrontierCandidateStatus, TransitionFrontierCandidatesState,
 };
 
 impl TransitionFrontierCandidatesState {
@@ -35,55 +32,55 @@ impl TransitionFrontierCandidatesState {
         let (action, meta) = action.split();
 
         match action {
-            TransitionFrontierCandidateAction::BlockReceived {
-                hash,
-                block,
-                chain_proof,
-            } => {
-                state.blocks.insert(
-                    hash.clone(),
-                    TransitionFrontierCandidateState {
-                        block: block.clone(),
-                        status: TransitionFrontierCandidateStatus::Received { time: meta.time() },
-                        chain_proof: chain_proof.clone(),
-                    },
-                );
+            TransitionFrontierCandidateAction::P2pBestTipUpdate { best_tip } => {
+                let dispatcher = state_context.into_dispatcher();
+                dispatcher.push(TransitionFrontierCandidateAction::BlockReceived {
+                    block: best_tip.clone(),
+                    chain_proof: None,
+                });
+
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
+                dispatcher.push(TransitionFrontierSyncAction::BlocksPeersQuery);
+            }
+            TransitionFrontierCandidateAction::BlockReceived { block, chain_proof } => {
+                state.add(meta.time(), block.clone(), chain_proof.clone());
 
                 // Dispatch
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
 
-                let hash = hash.clone();
-                let block = ArcBlockWithHash {
-                    hash: hash.clone(),
-                    block: block.clone(),
-                };
-                let allow_block_too_late = allow_block_too_late(state, &block);
+                let allow_block_too_late = allow_block_too_late(state, block);
 
-                match state.prevalidate_block(&block, allow_block_too_late) {
+                match state.prevalidate_block(block, allow_block_too_late) {
                     Ok(()) => {
                         dispatcher.push(
-                            TransitionFrontierCandidateAction::BlockPrevalidateSuccess { hash },
+                            TransitionFrontierCandidateAction::BlockPrevalidateSuccess {
+                                hash: block.hash().clone(),
+                            },
                         );
                     }
                     Err(error) => {
                         dispatcher.push(TransitionFrontierCandidateAction::BlockPrevalidateError {
-                            hash,
+                            hash: block.hash().clone(),
                             error,
                         });
                     }
                 }
             }
+            TransitionFrontierCandidateAction::BlockPrevalidateError { hash, error } => {
+                state.invalidate(hash, error.is_forever_invalid());
+            }
             TransitionFrontierCandidateAction::BlockPrevalidateSuccess { hash } => {
-                let Some(block) = state.blocks.get_mut(hash) else {
+                state.update_status(hash, |_| TransitionFrontierCandidateStatus::Prevalidated);
+                let Some(block) = state.get(hash).map(|s| s.block.clone()) else {
+                    bug_condition!("TransitionFrontierCandidateAction::BlockPrevalidateSuccess block not found but action enabled");
                     return;
                 };
-                block.status = TransitionFrontierCandidateStatus::Prevalidated;
 
                 // Dispatch
-                let block = (hash.clone(), block.block.clone()).into();
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(SnarkBlockVerifyAction::Init {
-                    block,
+                    block: block.into(),
                     on_init: redux::callback!(
                         on_received_block_snark_verify_init((hash: BlockHash, req_id: SnarkBlockVerifyId)) -> crate::Action {
                             TransitionFrontierCandidateAction::BlockSnarkVerifyPending { hash, req_id }
@@ -98,185 +95,35 @@ impl TransitionFrontierCandidatesState {
                         }),
                 });
             }
-            TransitionFrontierCandidateAction::BlockPrevalidateError { hash, .. } => {
-                state.blocks.remove(hash);
-            }
             TransitionFrontierCandidateAction::BlockChainProofUpdate { hash, chain_proof } => {
-                if state.best_tip.as_ref() == Some(hash) {
-                    state.best_tip_chain_proof = Some(chain_proof.clone());
-                } else if let Some(block) = state.blocks.get_mut(hash) {
-                    block.chain_proof = Some(chain_proof.clone());
-                }
+                state.set_chain_proof(hash, chain_proof.clone());
 
-                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
-                if global_state
-                    .transition_frontier
-                    .candidates
-                    .best_tip
-                    .as_ref()
-                    != Some(hash)
-                {
-                    return;
-                }
-
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher
                     .push(TransitionFrontierCandidateAction::TransitionFrontierSyncTargetUpdate);
             }
             TransitionFrontierCandidateAction::BlockSnarkVerifyPending { req_id, hash } => {
-                if let Some(block) = state.blocks.get_mut(hash) {
-                    block.status = TransitionFrontierCandidateStatus::SnarkVerifyPending {
+                state.update_status(hash, |_| {
+                    TransitionFrontierCandidateStatus::SnarkVerifyPending {
                         time: meta.time(),
                         req_id: *req_id,
-                    };
-                }
+                    }
+                });
+            }
+            TransitionFrontierCandidateAction::BlockSnarkVerifyError { hash, .. } => {
+                state.invalidate(hash, true);
             }
             TransitionFrontierCandidateAction::BlockSnarkVerifySuccess { hash } => {
-                if let Some(block) = state.blocks.get_mut(hash) {
-                    block.status =
-                        TransitionFrontierCandidateStatus::SnarkVerifySuccess { time: meta.time() };
-                }
-
-                // Dispatch
-                let hash = hash.clone();
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(TransitionFrontierCandidateAction::DetectForkRange { hash });
-            }
-            TransitionFrontierCandidateAction::BlockSnarkVerifyError { .. } => {
-                // TODO: handle block verification error.
-            }
-            TransitionFrontierCandidateAction::DetectForkRange { hash } => {
-                let candidate_hash = hash;
-                let Some(candidate_state) = state.blocks.get(candidate_hash) else {
-                    return;
-                };
-                let candidate = &candidate_state.block.header;
-                let (tip_hash, short_fork) = if let Some(tip_ref) = state.best_tip() {
-                    let tip = tip_ref.header;
-                    (
-                        Some(tip_ref.hash.clone()),
-                        is_short_range_fork(
-                            &candidate.protocol_state.body.consensus_state,
-                            &tip.protocol_state.body.consensus_state,
-                        ),
-                    )
-                } else {
-                    (None, true)
-                };
-                if let Some(candidate_state) = state.blocks.get_mut(candidate_hash) {
-                    candidate_state.status = TransitionFrontierCandidateStatus::ForkRangeDetected {
-                        time: meta.time(),
-                        compared_with: tip_hash,
-                        short_fork,
-                    };
-                    openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::DetectForkRange", status = serde_json::to_string(&candidate_state.status).unwrap());
-                }
-                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::DetectForkRange");
-
-                // Dispatch
-                let hash = hash.clone();
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(TransitionFrontierCandidateAction::ShortRangeForkResolve {
-                    hash: hash.clone(),
+                state.update_status(hash, |_| {
+                    TransitionFrontierCandidateStatus::SnarkVerifySuccess { time: meta.time() }
                 });
-                dispatcher.push(TransitionFrontierCandidateAction::LongRangeForkResolve { hash });
-            }
-            TransitionFrontierCandidateAction::ShortRangeForkResolve { hash } => {
-                let candidate_hash = hash;
-                if let Some(candidate) = state.blocks.get(candidate_hash) {
-                    let (best_tip_hash, decision): (_, ConsensusShortRangeForkDecision) =
-                        match state.best_tip() {
-                            Some(tip) => (Some(tip.hash.clone()), {
-                                let tip_cs = &tip.header.protocol_state.body.consensus_state;
-                                let candidate_cs =
-                                    &candidate.block.header.protocol_state.body.consensus_state;
-                                let (take, why) = short_range_fork_take(
-                                    tip_cs,
-                                    candidate_cs,
-                                    tip.hash,
-                                    candidate_hash,
-                                );
-                                if take {
-                                    ConsensusShortRangeForkDecision::Take(why)
-                                } else {
-                                    ConsensusShortRangeForkDecision::Keep(why)
-                                }
-                            }),
-                            None => (None, ConsensusShortRangeForkDecision::TakeNoBestTip),
-                        };
-                    if let Some(best_tip_hash) = &best_tip_hash {
-                        openmina_core::log::info!(openmina_core::log::system_time(); best_tip_hash = best_tip_hash.to_string(), candidate_hash = candidate_hash.to_string(), decision = format!("{decision:?}"));
-                    }
-                    if let Some(candidate) = state.blocks.get_mut(candidate_hash) {
-                        if !decision.use_as_best_tip() {
-                            candidate.chain_proof = None;
-                        }
-
-                        candidate.status =
-                            TransitionFrontierCandidateStatus::ShortRangeForkResolve {
-                                time: meta.time(),
-                                compared_with: best_tip_hash,
-                                decision,
-                            };
-                    }
-                }
-
-                // Dispatch
-                let hash = hash.clone();
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(TransitionFrontierCandidateAction::BestTipUpdate { hash });
-            }
-            TransitionFrontierCandidateAction::LongRangeForkResolve { hash } => {
-                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve");
-                let candidate_hash = hash;
-                let Some(tip_ref) = state.best_tip() else {
-                    return;
-                };
-                let Some(candidate_state) = state.blocks.get(candidate_hash) else {
-                    return;
-                };
-                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", pre_status = serde_json::to_string(&candidate_state.status).unwrap());
-                let tip_hash = tip_ref.hash.clone();
-                let tip = tip_ref.header;
-                let tip_cs = &tip.protocol_state.body.consensus_state;
-                let candidate = &candidate_state.block.header;
-                let candidate_cs = &candidate.protocol_state.body.consensus_state;
-
-                let (take, why) =
-                    long_range_fork_take(tip_cs, candidate_cs, &tip_hash, candidate_hash);
-
-                let Some(candidate_state) = state.blocks.get_mut(candidate_hash) else {
-                    return;
-                };
-                candidate_state.status = TransitionFrontierCandidateStatus::LongRangeForkResolve {
-                    time: meta.time(),
-                    compared_with: tip_hash,
-                    decision: if take {
-                        ConsensusLongRangeForkDecision::Take(why)
-                    } else {
-                        candidate_state.chain_proof = None;
-                        ConsensusLongRangeForkDecision::Keep(why)
-                    },
-                };
-                openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", status = serde_json::to_string(&candidate_state.status).unwrap());
-
-                // Dispatch
-                let hash = hash.clone();
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(TransitionFrontierCandidateAction::BestTipUpdate { hash });
-            }
-            TransitionFrontierCandidateAction::BestTipUpdate { hash } => {
-                state.best_tip = Some(hash.clone());
-
-                if let Some(tip) = state.blocks.get_mut(hash) {
-                    state.best_tip_chain_proof = tip.chain_proof.take();
-                }
 
                 // Dispatch
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let Some(block) = global_state
                     .transition_frontier
                     .candidates
-                    .best_tip_block_with_hash()
+                    .best_verified_block()
                 else {
                     return;
                 };
@@ -295,10 +142,7 @@ impl TransitionFrontierCandidatesState {
             }
             TransitionFrontierCandidateAction::TransitionFrontierSyncTargetUpdate => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
-                let Some(best_tip) = state
-                    .transition_frontier
-                    .candidates
-                    .best_tip_block_with_hash()
+                let Some(best_tip) = state.transition_frontier.candidates.best_verified_block()
                 else {
                     bug_condition!(
                         "ConsensusAction::TransitionFrontierSyncTargetUpdate | no chosen best tip"
@@ -309,7 +153,7 @@ impl TransitionFrontierCandidatesState {
                 let Some((blocks_inbetween, root_block)) = state
                     .transition_frontier
                     .candidates
-                    .best_tip_chain_proof(&state.transition_frontier)
+                    .best_verified_block_chain_proof(&state.transition_frontier)
                 else {
                     bug_condition!("ConsensusAction::TransitionFrontierSyncTargetUpdate | no best tip chain proof");
                     return;
@@ -322,44 +166,14 @@ impl TransitionFrontierCandidatesState {
 
                 dispatcher.push(TransitionFrontierSyncAction::BestTipUpdate {
                     previous_root_snarked_ledger_hash,
-                    best_tip,
+                    best_tip: best_tip.clone(),
                     root_block,
                     blocks_inbetween,
                     on_success: None,
                 });
             }
-            TransitionFrontierCandidateAction::P2pBestTipUpdate { best_tip } => {
-                let dispatcher = state_context.into_dispatcher();
-                dispatcher.push(TransitionFrontierCandidateAction::BlockReceived {
-                    hash: best_tip.hash.clone(),
-                    block: best_tip.block.clone(),
-                    chain_proof: None,
-                });
-
-                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
-                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
-                dispatcher.push(TransitionFrontierSyncAction::BlocksPeersQuery);
-            }
             TransitionFrontierCandidateAction::Prune => {
-                let Some(best_tip_hash) = state.best_tip.clone() else {
-                    return;
-                };
-                let blocks = &mut state.blocks;
-
-                // keep at most latest 32 candidate blocks.
-                let blocks_to_keep = (0..32)
-                    .scan(best_tip_hash, |block_hash, _| {
-                        let block_state = blocks.remove(block_hash)?;
-                        let block_hash = match block_state.status.compared_with() {
-                            None => block_hash.clone(),
-                            Some(compared_with) => {
-                                std::mem::replace(block_hash, compared_with.clone())
-                            }
-                        };
-                        Some((block_hash, block_state))
-                    })
-                    .collect();
-                *blocks = blocks_to_keep;
+                state.prune();
             }
         }
     }

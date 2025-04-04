@@ -54,7 +54,7 @@ pub enum LedgerWriteRequest {
         skip_verification: bool,
     },
     Commit {
-        ledgers_to_keep: BTreeSet<v2::LedgerHash>,
+        ledgers_to_keep: LedgersToKeep,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<v2::StateHash, v2::MinaStateProtocolStateValueStableV2>,
         new_root: AppliedBlock,
@@ -98,7 +98,15 @@ pub struct BlockApplyResultArchive {
     pub sender_receipt_chains_from_parent_ledger: Vec<(AccountId, v2::ReceiptChainHash)>,
 }
 
-impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
+impl TryFrom<BlockApplyResult> for v2::ArchiveTransitionFrontierDiff {
+    type Error = String;
+
+    fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
+        (&value).try_into()
+    }
+}
+
+impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFrontierDiff {
     type Error = String;
 
     fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
@@ -159,6 +167,108 @@ impl TryFrom<&BlockApplyResult> for v2::ArchiveTransitionFronntierDiff {
         } else {
             Err("Archive data not available, not running in archive mode".to_string())
         }
+    }
+}
+
+impl TryFrom<&BlockApplyResult> for v2::PrecomputedBlock {
+    type Error = String;
+
+    fn try_from(value: &BlockApplyResult) -> Result<Self, Self::Error> {
+        let archive_transition_frontier_diff: v2::ArchiveTransitionFrontierDiff =
+            value.try_into()?;
+
+        let res = Self {
+            scheduled_time: value
+                .block
+                .header()
+                .protocol_state
+                .body
+                .blockchain_state
+                .timestamp,
+            protocol_state: value.block.header().protocol_state.clone(),
+            protocol_state_proof: value
+                .block
+                .header()
+                .protocol_state_proof
+                .as_ref()
+                .clone()
+                .into(),
+            staged_ledger_diff: value.block.body().staged_ledger_diff.clone(),
+            delta_transition_chain_proof: value.block.header().delta_block_chain_proof.clone(),
+            protocol_version: value.block.header().current_protocol_version.clone(),
+            proposed_protocol_version: None,
+            accounts_accessed: archive_transition_frontier_diff.accounts_accessed(),
+            accounts_created: archive_transition_frontier_diff.accounts_created(),
+            tokens_used: archive_transition_frontier_diff.tokens_used(),
+        };
+
+        Ok(res)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Default, Clone)]
+pub struct LedgersToKeep {
+    snarked: BTreeSet<v2::LedgerHash>,
+    staged: BTreeSet<Arc<v2::MinaBaseStagedLedgerHashStableV1>>,
+}
+
+impl LedgersToKeep {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn contains<'a, T>(&self, key: T) -> bool
+    where
+        T: 'a + Into<LedgerToKeep<'a>>,
+    {
+        match key.into() {
+            LedgerToKeep::Snarked(hash) => self.snarked.contains(hash),
+            LedgerToKeep::Staged(hash) => self.staged.contains(hash),
+        }
+    }
+
+    pub fn add_snarked(&mut self, hash: v2::LedgerHash) -> bool {
+        self.snarked.insert(hash)
+    }
+
+    pub fn add_staged(&mut self, hash: Arc<v2::MinaBaseStagedLedgerHashStableV1>) -> bool {
+        self.staged.insert(hash)
+    }
+}
+
+impl<'a> FromIterator<&'a ArcBlockWithHash> for LedgersToKeep {
+    fn from_iter<T: IntoIterator<Item = &'a ArcBlockWithHash>>(iter: T) -> Self {
+        let mut res = Self::new();
+        let best_tip = iter.into_iter().fold(None, |best_tip, block| {
+            res.add_snarked(block.snarked_ledger_hash().clone());
+            res.add_staged(Arc::new(block.staged_ledger_hashes().clone()));
+            match best_tip {
+                None => Some(block),
+                Some(tip) if tip.height() < block.height() => Some(block),
+                old => old,
+            }
+        });
+
+        if let Some(best_tip) = best_tip {
+            res.add_snarked(best_tip.staking_epoch_ledger_hash().clone());
+            res.add_snarked(best_tip.next_epoch_ledger_hash().clone());
+        }
+
+        res
+    }
+}
+
+#[derive(derive_more::From)]
+pub enum LedgerToKeep<'a> {
+    Snarked(&'a v2::LedgerHash),
+    Staged(&'a v2::MinaBaseStagedLedgerHashStableV1),
+}
+
+impl TryFrom<BlockApplyResult> for v2::PrecomputedBlock {
+    type Error = String;
+
+    fn try_from(value: BlockApplyResult) -> Result<Self, Self::Error> {
+        (&value).try_into()
     }
 }
 

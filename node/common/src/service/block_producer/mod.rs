@@ -3,7 +3,8 @@ mod vrf_evaluator;
 use std::sync::Arc;
 
 use ledger::proofs::{
-    block::BlockParams, generate_block_proof, provers::BlockProver, transaction::ProofError,
+    block::BlockParams, generate_block_proof, provers::BlockProver,
+    transaction::debug::KimchiProofError,
 };
 use mina_p2p_messages::{
     bigint::BigInt,
@@ -22,8 +23,8 @@ use crate::EventSender;
 pub struct BlockProducerService {
     provers: Option<BlockProver>,
     keypair: AccountSecretKey,
-    vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
-    prove_sender: mpsc::UnboundedSender<(
+    vrf_evaluation_sender: mpsc::TrackedUnboundedSender<VrfEvaluatorInput>,
+    prove_sender: mpsc::TrackedUnboundedSender<(
         BlockProver,
         StateHash,
         Box<ProverExtendBlockchainInputStableV2>,
@@ -33,8 +34,8 @@ pub struct BlockProducerService {
 impl BlockProducerService {
     pub fn new(
         keypair: AccountSecretKey,
-        vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,
-        prove_sender: mpsc::UnboundedSender<(
+        vrf_evaluation_sender: mpsc::TrackedUnboundedSender<VrfEvaluatorInput>,
+        prove_sender: mpsc::TrackedUnboundedSender<(
             BlockProver,
             StateHash,
             Box<ProverExtendBlockchainInputStableV2>,
@@ -82,26 +83,38 @@ impl BlockProducerService {
     pub fn keypair(&self) -> AccountSecretKey {
         self.keypair.clone()
     }
+
+    pub fn vrf_pending_requests(&self) -> usize {
+        self.vrf_evaluation_sender.len()
+    }
+
+    pub fn prove_pending_requests(&self) -> usize {
+        self.prove_sender.len()
+    }
 }
 
 fn prover_loop(
     keypair: AccountSecretKey,
     event_sender: EventSender,
-    mut rx: mpsc::UnboundedReceiver<(
+    mut rx: mpsc::TrackedUnboundedReceiver<(
         BlockProver,
         StateHash,
         Box<ProverExtendBlockchainInputStableV2>,
     )>,
 ) {
-    while let Some((provers, block_hash, mut input)) = rx.blocking_recv() {
-        let res = prove(provers, &mut input, &keypair, false).map_err(|err| format!("{err:?}"));
-        if res.is_err() {
-            if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input) {
+    while let Some(msg) = rx.blocking_recv() {
+        let (provers, block_hash, mut input) = msg.0;
+        let res = prove(provers, &mut input, &keypair, false);
+        if let Err(error) = &res {
+            openmina_core::error!(message = "Block proof failed", error = format!("{error:?}"));
+            if let Err(error) = dump_failed_block_proof_input(block_hash.clone(), input, error) {
                 openmina_core::error!(
-                        openmina_core::log::system_time();
-                        message = "Failure when dumping failed block proof inputs", error = format!("{error}"));
+                    message = "Failure when dumping failed block proof inputs",
+                    error = format!("{error}")
+                );
             }
         }
+        let res = res.map_err(|err| err.to_string());
         let _ = event_sender.send(BlockProducerEvent::BlockProve(block_hash, res).into());
     }
 }
@@ -111,7 +124,7 @@ pub fn prove(
     input: &mut ProverExtendBlockchainInputStableV2,
     keypair: &AccountSecretKey,
     only_verify_constraints: bool,
-) -> Result<Arc<MinaBaseProofStableV2>, ProofError> {
+) -> anyhow::Result<Arc<MinaBaseProofStableV2>> {
     let height = input
         .next_state
         .body
@@ -160,7 +173,7 @@ impl node::service::BlockProducerService for crate::NodeService {
             .as_ref()
             .expect("prove shouldn't be requested if block producer isn't initialized")
             .prove_sender
-            .send((provers, block_hash, input));
+            .tracked_send((provers, block_hash, input));
     }
 
     fn with_producer_keypair<T>(&self, f: impl FnOnce(&AccountSecretKey) -> T) -> Option<T> {
@@ -171,7 +184,9 @@ impl node::service::BlockProducerService for crate::NodeService {
 fn dump_failed_block_proof_input(
     block_hash: StateHash,
     mut input: Box<ProverExtendBlockchainInputStableV2>,
+    error: &anyhow::Error,
 ) -> std::io::Result<()> {
+    use ledger::proofs::transaction::ProofError;
     use rsa::Pkcs1v15Encrypt;
 
     const PUBLIC_KEY: &str = "-----BEGIN RSA PUBLIC KEY-----
@@ -187,6 +202,8 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
     struct DumpBlockProof {
         input: Box<ProverExtendBlockchainInputStableV2>,
         key: Vec<u8>,
+        error: Vec<u8>,
+        kimchi_error_with_context: Option<KimchiProofError>,
     }
 
     let producer_private_key = {
@@ -210,9 +227,16 @@ kGqG7QLzSPjAtP/YbUponwaD+t+A0kBg0hV4hhcJOkPeA2NOi04K93bz3HuYCVRe
     // IMPORTANT: Make sure that `input` doesn't leak the private key.
     input.prover_state.producer_private_key = v2::SignatureLibPrivateKeyStableV1(BigInt::one());
 
+    let error_str = error.to_string();
+
     let input = DumpBlockProof {
         input,
         key: encrypted_producer_private_key,
+        error: error_str.as_bytes().to_vec(),
+        kimchi_error_with_context: match error.downcast_ref::<ProofError>() {
+            Some(ProofError::ProvingErrorWithContext(context)) => Some(context.clone()),
+            _ => None,
+        },
     };
 
     let debug_dir = openmina_core::get_debug_dir();

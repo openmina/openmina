@@ -39,6 +39,10 @@ impl LedgerWriteState {
         })
         .flatten()
     }
+
+    pub fn is_busy(&self) -> bool {
+        self.pending_requests().peekable().peek().is_some()
+    }
 }
 
 impl Default for LedgerWriteState {

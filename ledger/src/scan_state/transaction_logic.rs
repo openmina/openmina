@@ -7710,10 +7710,7 @@ fn validate_timing_with_min_balance_impl(
         }
         Timed {
             initial_minimum_balance,
-            cliff_time,
-            cliff_amount,
-            vesting_period,
-            vesting_increment,
+            ..
         } => {
             let account_balance = account.balance;
 
@@ -7727,14 +7724,7 @@ fn validate_timing_with_min_balance_impl(
                         (true, false, *initial_minimum_balance)
                     }
                     Some(proposed_new_balance) => {
-                        let curr_min_balance = account_min_balance_at_slot(
-                            *txn_global_slot,
-                            *cliff_time,
-                            *cliff_amount,
-                            *vesting_period,
-                            *vesting_increment,
-                            *initial_minimum_balance,
-                        );
+                        let curr_min_balance = account.min_balance_at_slot(*txn_global_slot);
 
                         if proposed_new_balance < curr_min_balance {
                             (false, true, curr_min_balance)
@@ -7759,54 +7749,6 @@ fn validate_timing_with_min_balance_impl(
                 )
             } else {
                 (possibly_error, Untimed, MinBalance(Balance::zero()))
-            }
-        }
-    }
-}
-
-// TODO: This should be in `account.rs`
-pub fn account_min_balance_at_slot(
-    global_slot: Slot,
-    cliff_time: Slot,
-    cliff_amount: Amount,
-    vesting_period: SlotSpan,
-    vesting_increment: Amount,
-    initial_minimum_balance: Balance,
-) -> Balance {
-    if global_slot < cliff_time {
-        initial_minimum_balance
-    } else if vesting_period.is_zero() {
-        // If vesting period is zero then everything vests immediately at the cliff
-        Balance::zero()
-    } else {
-        match initial_minimum_balance.sub_amount(cliff_amount) {
-            None => Balance::zero(),
-            Some(min_balance_past_cliff) => {
-                // take advantage of fact that global slots are uint32's
-
-                let num_periods =
-                    (global_slot.as_u32() - cliff_time.as_u32()) / vesting_period.as_u32();
-                let num_periods: u64 = num_periods.into();
-
-                let vesting_decrement = {
-                    let vesting_increment = vesting_increment.as_u64();
-
-                    if u64::MAX
-                        .checked_div(num_periods)
-                        .map(|res| matches!(res.cmp(&vesting_increment), std::cmp::Ordering::Less))
-                        .unwrap_or(false)
-                    {
-                        // The vesting decrement will overflow, use [max_int] instead.
-                        Amount::from_u64(u64::MAX)
-                    } else {
-                        Amount::from_u64(num_periods.checked_mul(vesting_increment).unwrap())
-                    }
-                };
-
-                match min_balance_past_cliff.sub_amount(vesting_decrement) {
-                    None => Balance::zero(),
-                    Some(amount) => amount,
-                }
             }
         }
     }

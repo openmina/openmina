@@ -89,6 +89,18 @@ impl TransactionPoolCandidatesState {
             } => {
                 state.transaction_received(meta.time(), *peer_id, transaction.clone());
             }
+            TransactionPoolCandidateAction::Libp2pTransactionsReceived {
+                peer_id,
+                transactions,
+                message_id,
+            } => {
+                state.transactions_received(
+                    meta.time(),
+                    *peer_id,
+                    transactions.clone(),
+                    *message_id,
+                );
+            }
             TransactionPoolCandidateAction::VerifyNext => {
                 let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
 
@@ -96,31 +108,34 @@ impl TransactionPoolCandidatesState {
                     .transaction_pool
                     .candidates
                     .get_batch_to_verify();
-                let Some((peer_id, batch)) = batch else {
+                let Some((peer_id, batch, from_source)) = batch else {
                     return;
                 };
 
                 let transaction_hashes = batch.iter().map(|tx| tx.hash().clone()).collect();
                 dispatcher.push(TransactionPoolAction::StartVerify {
                     commands: batch.into_iter().collect(),
-                    from_rpc: None,
+                    from_source,
                 });
                 dispatcher.push(TransactionPoolCandidateAction::VerifyPending {
                     peer_id,
                     transaction_hashes,
                     verify_id: (),
+                    from_source,
                 });
             }
             TransactionPoolCandidateAction::VerifyPending {
                 peer_id,
                 transaction_hashes,
                 verify_id,
+                from_source,
             } => {
                 state.verify_pending(meta.time(), peer_id, *verify_id, transaction_hashes);
                 let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransactionPoolCandidateAction::VerifySuccess {
                     peer_id: *peer_id,
                     verify_id: *verify_id,
+                    from_source: *from_source,
                 });
             }
             TransactionPoolCandidateAction::VerifyError {
@@ -138,8 +153,12 @@ impl TransactionPoolCandidatesState {
                 //     reason: P2pDisconnectionReason::TransactionPoolVerifyError,
                 // });
             }
-            TransactionPoolCandidateAction::VerifySuccess { peer_id, verify_id } => {
-                state.verify_result(meta.time(), peer_id, *verify_id, Ok(()));
+            TransactionPoolCandidateAction::VerifySuccess {
+                peer_id,
+                verify_id,
+                from_source,
+            } => {
+                state.verify_result(meta.time(), peer_id, *verify_id, from_source, Ok(()));
             }
             TransactionPoolCandidateAction::PeerPrune { peer_id } => {
                 state.peer_remove(*peer_id);

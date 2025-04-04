@@ -1,5 +1,8 @@
-use openmina_core::transaction::{TransactionHash, TransactionInfo, TransactionWithHash};
+use openmina_core::transaction::{
+    TransactionHash, TransactionInfo, TransactionPoolMessageSource, TransactionWithHash,
+};
 use openmina_core::ActionEvent;
+use p2p::P2pNetworkPubsubMessageCacheId;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
@@ -37,12 +40,19 @@ pub enum TransactionPoolCandidateAction {
         peer_id: PeerId,
         transaction: TransactionWithHash,
     },
+    /// Callback for transactions received over pubsub
+    Libp2pTransactionsReceived {
+        peer_id: PeerId,
+        transactions: Vec<TransactionWithHash>,
+        message_id: P2pNetworkPubsubMessageCacheId,
+    },
     #[action_event(level = trace)]
     VerifyNext,
     VerifyPending {
         peer_id: PeerId,
         transaction_hashes: Vec<TransactionHash>,
         verify_id: (),
+        from_source: TransactionPoolMessageSource,
     },
     VerifyError {
         peer_id: PeerId,
@@ -51,6 +61,7 @@ pub enum TransactionPoolCandidateAction {
     VerifySuccess {
         peer_id: PeerId,
         verify_id: (),
+        from_source: TransactionPoolMessageSource,
     },
     PeerPrune {
         peer_id: PeerId,
@@ -100,7 +111,17 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolCandidateAction {
                 .candidates
                 .get(*peer_id, transaction.hash())
                 .is_some(),
-            TransactionPoolCandidateAction::VerifyNext => true,
+            TransactionPoolCandidateAction::Libp2pTransactionsReceived { .. } => true,
+            TransactionPoolCandidateAction::VerifyNext => {
+                // Don't continue if we are producing a block, or we never synced yet
+                // or if the ledger service is busy.
+                !state.block_producer.is_producing()
+                    && state
+                        .transition_frontier
+                        .best_tip()
+                        .is_some_and(|b| !b.is_genesis())
+                    && !state.ledger.write.is_busy()
+            }
             TransactionPoolCandidateAction::VerifyPending {
                 peer_id,
                 transaction_hashes,

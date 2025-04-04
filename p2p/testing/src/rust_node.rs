@@ -5,9 +5,9 @@ use std::{
 };
 
 use futures::Stream;
+use openmina_core::channels::mpsc;
 use p2p::{P2pAction, P2pEvent, P2pLimits, P2pState, P2pTimeouts, PeerId};
 use redux::{Effects, EnablingCondition, Reducer, SubStore};
-use tokio::sync::mpsc;
 
 use crate::{
     cluster::{Listener, PeerIdConfig},
@@ -73,14 +73,14 @@ impl RustNodeConfig {
 
 pub struct RustNode {
     store: Store,
-    event_receiver: mpsc::UnboundedReceiver<P2pEvent>,
+    event_receiver: mpsc::RecvStream<P2pEvent>,
 }
 
 impl RustNode {
     pub(super) fn new(store: Store, event_receiver: mpsc::UnboundedReceiver<P2pEvent>) -> Self {
         RustNode {
             store,
-            event_receiver,
+            event_receiver: event_receiver.stream(),
         }
     }
 
@@ -109,7 +109,7 @@ impl RustNode {
     }
 
     fn poll_event_receiver(&mut self, cx: &mut Context<'_>) -> Poll<Option<RustNodeEvent>> {
-        let event = ready!(Pin::new(&mut self.event_receiver).poll_recv(cx));
+        let event = ready!(Pin::new(&mut self.event_receiver).poll_next(cx));
         Poll::Ready(event.map(|event| {
             self.dispatch_event(event.clone());
             RustNodeEvent::P2p { event }

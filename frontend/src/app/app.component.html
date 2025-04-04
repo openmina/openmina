@@ -1,7 +1,11 @@
 @if (showLandingPage$ | async) {
-  <mina-leaderboard-landing-page></mina-leaderboard-landing-page>
-  <!--  <mina-web-node-landing-page (goToNode)="goToWebNode()"-->
-    <!--                              (stopRequests)="clearNodeUpdateSubscription()"></mina-web-node-landing-page>-->
+  @if (showLeaderboard) {
+    <router-outlet></router-outlet>
+    <!--    <mina-leaderboard-landing-page></mina-leaderboard-landing-page>-->
+  } @else {
+    <mina-web-node-landing-page (goToNode)="goToWebNode()"
+                                (stopRequests)="clearNodeUpdateSubscription()"></mina-web-node-landing-page>
+  }
 } @else if (showLoadingWebNodePage$ | async) {
   <router-outlet></router-outlet>
 } @else if (showLeaderboardPage$ | async) {
@@ -28,7 +32,8 @@
            class="overflow-hidden"
            [class.no-toolbar]="hideToolbar"
            [class.no-submenus]="subMenusLength < 2"
-           [class.mobile]="menu.isMobile">
+           [class.mobile]="menu.isMobile"
+           [class.uptime]="showLeaderboard">
         <router-outlet></router-outlet>
       </div>
       @if (!isDesktop) {

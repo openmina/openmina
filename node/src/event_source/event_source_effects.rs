@@ -97,7 +97,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     MioEvent::IncomingDataDidReceive(addr, result) => {
                         store.dispatch(P2pNetworkSchedulerAction::IncomingDataDidReceive {
                             addr,
-                            result: result.map(From::from),
+                            result,
                         });
                     }
                     MioEvent::OutgoingDataDidSend(_, _result) => {}
@@ -340,6 +340,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::SnarkPoolJobGet { job_id } => {
                     store.dispatch(RpcAction::SnarkPoolJobGet { rpc_id, job_id });
                 }
+                RpcRequest::SnarkPoolCompletedJobsGet => {
+                    store.dispatch(RpcAction::SnarkPoolCompletedJobsGet { rpc_id });
+                }
+                RpcRequest::SnarkPoolPendingJobsGet => {
+                    store.dispatch(RpcAction::SnarkPoolPendingJobsGet { rpc_id });
+                }
                 RpcRequest::SnarkerConfig => {
                     store.dispatch(RpcAction::SnarkerConfigGet { rpc_id });
                 }
@@ -387,6 +393,34 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::TransactionStatusGet(tx) => {
                     store.dispatch(RpcAction::TransactionStatusGet { rpc_id, tx });
+                }
+                RpcRequest::GetBlock(query) => {
+                    store.dispatch(RpcAction::BlockGet { rpc_id, query });
+                }
+                RpcRequest::PooledUserCommands(query) => {
+                    store.dispatch(RpcAction::PooledUserCommands { rpc_id, query });
+                }
+                RpcRequest::PooledZkappCommands(query) => {
+                    store.dispatch(RpcAction::PooledZkappCommands { rpc_id, query });
+                }
+                RpcRequest::ConsensusTimeGet(query) => {
+                    store.dispatch(RpcAction::ConsensusTimeGet { rpc_id, query });
+                }
+                RpcRequest::GenesisBlockGet => {
+                    store.dispatch(RpcAction::GenesisBlock { rpc_id });
+                }
+                RpcRequest::LedgerStatusGet(ledger_hash) => {
+                    store.dispatch(RpcAction::LedgerStatusGetInit {
+                        rpc_id,
+                        ledger_hash,
+                    });
+                }
+                RpcRequest::LedgerAccountDelegatorsGet(ledger_hash, account_id) => {
+                    store.dispatch(RpcAction::LedgerAccountDelegatorsGetInit {
+                        rpc_id,
+                        ledger_hash,
+                        account_id,
+                    });
                 }
             },
             Event::ExternalSnarkWorker(e) => match e {

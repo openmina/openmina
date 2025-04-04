@@ -6,6 +6,7 @@ use p2p::{
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     PeerId,
 };
+use rand::prelude::*;
 
 use crate::{
     ledger::{
@@ -54,7 +55,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     .filter(|(_, p)| p.channels.rpc.can_send_request())
                     .map(|(id, p)| (*id, p.connected_since))
                     .collect::<Vec<_>>();
-                peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
+                peer_ids.shuffle(&mut global_state.pseudo_rng());
 
                 if is_num_accounts_pending {
                     for (peer_id, _) in peer_ids {
@@ -93,18 +94,21 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                         }
                     }
 
-                    match addresses.pop() {
-                        Some((address, expected_hash)) => {
-                            dispatcher.push(
-                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
-                                    peer_id,
-                                    expected_hash,
-                                    address,
-                                },
-                            );
+                    if let Some((address, expected_hash)) = addresses.last().cloned() {
+                        if dispatcher.push_if_enabled(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
+                                peer_id,
+                                expected_hash,
+                                address,
+                            },
+                            global_state,
+                            meta.time(),
+                        ) {
+                            addresses.pop();
+                            continue;
                         }
-                        None if retry_addresses.is_empty() => break,
-                        None => {}
+                    } else if retry_addresses.is_empty() {
+                        break;
                     }
                 }
             }

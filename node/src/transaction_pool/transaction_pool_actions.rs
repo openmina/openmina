@@ -8,8 +8,14 @@ use ledger::{
     },
     Account, AccountId,
 };
-use mina_p2p_messages::{list::List, v2};
-use openmina_core::{requests::RpcId, transaction::TransactionWithHash, ActionEvent};
+use mina_p2p_messages::{
+    list::List,
+    v2::{self},
+};
+use openmina_core::{
+    transaction::{TransactionPoolMessageSource, TransactionWithHash},
+    ActionEvent,
+};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -24,16 +30,16 @@ pub enum TransactionPoolAction {
     Candidate(TransactionPoolCandidateAction),
     StartVerify {
         commands: List<TransactionWithHash>,
-        from_rpc: Option<RpcId>,
+        from_source: TransactionPoolMessageSource,
     },
     StartVerifyWithAccounts {
         accounts: BTreeMap<AccountId, Account>,
         pending_id: PendingId,
-        from_rpc: Option<RpcId>,
+        from_source: TransactionPoolMessageSource,
     },
     VerifySuccess {
         valids: Vec<valid::UserCommand>,
-        from_rpc: Option<RpcId>,
+        from_source: TransactionPoolMessageSource,
     },
     #[action_event(level = warn, fields(debug(errors)))]
     VerifyError {
@@ -48,9 +54,7 @@ pub enum TransactionPoolAction {
     ApplyVerifiedDiff {
         best_tip_hash: v2::LedgerHash,
         diff: DiffVerified,
-        /// Diff was crearted locally, or from remote peer ?
-        is_sender_local: bool,
-        from_rpc: Option<RpcId>,
+        from_source: TransactionPoolMessageSource,
     },
     ApplyVerifiedDiffWithAccounts {
         accounts: BTreeMap<AccountId, Account>,
@@ -127,7 +131,7 @@ impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
 type TransactionPoolEffectfulActionCallback = Callback<(
     BTreeMap<AccountId, Account>,
     Option<PendingId>,
-    Option<RpcId>,
+    TransactionPoolMessageSource,
 )>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -137,7 +141,7 @@ pub enum TransactionPoolEffectfulAction {
         ledger_hash: v2::LedgerHash,
         on_result: TransactionPoolEffectfulActionCallback,
         pending_id: Option<PendingId>,
-        from_rpc: Option<RpcId>,
+        from_source: TransactionPoolMessageSource,
     },
 }
 

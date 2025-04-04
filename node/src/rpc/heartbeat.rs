@@ -97,8 +97,16 @@ pub struct NodeHeartbeat {
     pub status: NodeStatus,
     pub node_timestamp: Timestamp,
     pub peer_id: PeerId,
-    // binprot+base64 encoded block
-    pub last_produced_block: Option<String>,
+    // binprot+base64 encoded block header
+    pub last_produced_block_info: Option<ProducedBlockInfo>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProducedBlockInfo {
+    pub height: u32,
+    pub global_slot: u32,
+    pub hash: String,
+    pub base64_encoded_header: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -283,7 +291,7 @@ pub(crate) mod tests {
             peer_id: "2bEgBrPTzL8wov2D4Kz34WVLCxR4uCarsBmHYXWKQA5wvBQzd9H"
                 .parse()
                 .unwrap(),
-            last_produced_block: None,
+            last_produced_block_info: None,
         }
     }
 }

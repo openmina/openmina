@@ -4,10 +4,24 @@
 
 
 :host {
-  padding-top: 52px;
   background-color: $mina-cta-primary;
   color: $mina-base-primary;
   font-family: "IBM Plex Sans", sans-serif;
+}
+
+.floating-banner {
+  position: fixed;
+  bottom: -100%;
+  left: 20px;
+  right: 20px;
+  transition: bottom 0.5s ease;
+  z-index: 1000;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  &.show {
+    bottom: 20px;
+  }
 }
 
 main,
@@ -34,6 +48,7 @@ mina-leaderboard-footer {
     line-height: 20px;
     font-weight: 300;
     transition: .15s ease;
+    min-width: 240px;
 
     &:hover {
       background-color: $black;
@@ -49,6 +64,7 @@ mina-leaderboard-footer {
 }
 
 .overflow-y-scroll {
+  padding-bottom: 72px;
   background-color: $mina-cta-primary;
 
   &::-webkit-scrollbar-track {

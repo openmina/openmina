@@ -101,7 +101,6 @@ describe('BLOCK PRODUCTION WON SLOTS SIDE PANEL', () => {
                 .then((state: BlockProductionWonSlotsState) => {
                   expect(state.activeSlot.globalSlot).to.equal(expectedActiveSlot.globalSlot);
                   expect(state.activeSlot.height).to.equal(expectedActiveSlot.height);
-                  console.log(expectedActiveSlot.times);
                 })
                 .get('mina-block-production-won-slots-side-panel .percentage')
                 .should('have.text', ([

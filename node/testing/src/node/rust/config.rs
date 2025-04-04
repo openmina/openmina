@@ -99,6 +99,11 @@ impl RustNodeTestingConfig {
         self
     }
 
+    pub fn initial_time(mut self, time: redux::Timestamp) -> Self {
+        self.initial_time = time;
+        self
+    }
+
     pub fn with_peer_id(mut self, bytes: [u8; 32]) -> Self {
         self.peer_id = TestPeerId::Bytes(bytes);
         self

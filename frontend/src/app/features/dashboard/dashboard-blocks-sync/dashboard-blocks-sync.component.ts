@@ -1,12 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { selectDashboardNodesAndPeers } from '@dashboard/dashboard.state';
-import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
-import { isDesktop, lastItem, ONE_MILLION } from '@openmina/shared';
-import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
-import { SentryService } from '@core/services/sentry.service';
-import { AppActions } from '@app/app.actions';
+import {ChangeDetectionStrategy, Component, OnInit} from '@angular/core';
+import {StoreDispatcher} from '@shared/base-classes/store-dispatcher.class';
+import {selectDashboardNodesAndPeers} from '@dashboard/dashboard.state';
+import {NodesOverviewNode} from '@shared/types/nodes/dashboard/nodes-overview-node.type';
+import {NodesOverviewNodeBlockStatus} from '@shared/types/nodes/dashboard/nodes-overview-block.type';
+import {isDesktop, lastItem, ONE_MILLION} from '@openmina/shared';
+import {DashboardPeer} from '@shared/types/dashboard/dashboard.peer';
+import {SentryService} from '@core/services/sentry.service';
+import {AppActions} from '@app/app.actions';
+import {WebNodeService} from "@core/services/web-node.service";
+import {RustService} from "@core/services/rust.service";
 
 const PENDING = 'Pending';
 const SYNCED = 'Synced';
@@ -35,7 +37,11 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
 
   private syncStartTime: number = Date.now();
 
-  constructor(private sentryService: SentryService) {super();}
+  constructor(private sentryService: SentryService,
+              private webNodeService: WebNodeService,
+              private rustService: RustService) {
+    super();
+  }
 
   ngOnInit(): void {
     this.listenToNodesChanges();
@@ -84,7 +90,9 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
         this.extractNodesData(nodes);
         this.extractPeersData(peers);
 
-        this.sentryService.updateBlockSyncStatus(nodes[0].blocks, this.syncStartTime);
+        if (this.rustService.activeNodeIsWebNode) {
+          this.sentryService.updateBlockSyncStatus(nodes[0].blocks, this.syncStartTime, this.webNodeService.publicKey);
+        }
 
         if (this.appliedPercentage === 100) {
           this.dispatch2(AppActions.getNodeDetails());
@@ -128,7 +136,6 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
     blocks = blocks.slice(1);
 
     this.lengthWithoutRoot = blocks.length ?? null; // 290 or 291
-    console.log(this.lengthWithoutRoot);
 
     this.fetched = blocks.filter(b => ![NodesOverviewNodeBlockStatus.MISSING, NodesOverviewNodeBlockStatus.FETCHING].includes(b.status)).length;
     this.applied = blocks.filter(b => b.status === NodesOverviewNodeBlockStatus.APPLIED).length;

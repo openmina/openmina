@@ -673,7 +673,7 @@ fn run_checks(
 
 fn compute_deferred_values(
     proof: &PicklesProofProofsVerified2ReprStableV2,
-) -> Result<DeferredValues<Fp>, InvalidBigInt> {
+) -> anyhow::Result<DeferredValues<Fp>> {
     let bulletproof_challenges: Vec<Fp> = proof
         .statement
         .proof_state
@@ -837,7 +837,7 @@ fn verify_impl<AppState>(
     app_state: &AppState,
     proof: &PicklesProofProofsVerified2ReprStableV2,
     vk: &VK,
-) -> Result<bool, InvalidBigInt>
+) -> anyhow::Result<bool>
 where
     AppState: ToFieldElements<Fp>,
 {
@@ -875,7 +875,7 @@ where
 
 fn batch_verify_impl<AppState>(
     proofs: &[(&AppState, &PicklesProofProofsVerified2ReprStableV2, &VK)],
-) -> Result<bool, InvalidBigInt>
+) -> anyhow::Result<bool>
 where
     AppState: ToFieldElements<Fp>,
 {
@@ -976,7 +976,7 @@ mod on_fail {
 
     #[allow(unreachable_code)]
     fn dump_to_file<D: BinProtWrite>(data: &D, filename: &str) {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "fuzzing"))]
         {
             let (_, _) = (data, filename); // avoid unused vars
             return;

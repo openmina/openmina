@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2025-04-04
+
+### Added
+
+- **GraphQL**: More queries (snark pool, pending snark work, genesis block, ledger status).
+
+### Changed
+
+- **GraphQL**: Added more fields to `daemonStatus` query˙
+
+### Fixed
+
+- **GraphQL**: Some issues with accounts.
+- **Block Producer**: Corner case that caused the won slot search to sometimes be interrupted at epoch bounds.
+
+## [0.15.0] - 2025-03-13
+
+### Added
+
+- Restored support for snark workers.
+- **Archive**: Support for storing blocks to AWS, GCP and filesystem.
+- **Tooling**: WebRTC traffic sniffer.
+- **GraphQL**:
+  - `sendPayment` mutation.
+  - `sendDelegation` mutation.
+  - `pooledUserCommands` query.
+  - `pooledZkappCommands` query.
+  - Various other partially implemented queries expanded to ensure compatibility with the OCaml node.
+
+
+### Changed
+
+- **P2P**: Wait until full validation is complete before broadcasting transactions and completed works.
+- **Transition frontier**: Perform cheap consensus operation first, and then the more expensive proof verification.
+- **Transaction pool**: Unified libp2p and webrtc logic for the initial phase of handling transactions received from gossip network. As a result, processing of transactions received during bootstrap is delayed until the initial sync is complete.
+- **Transaction pool**: Suspend processing during block production.
+
+### Fixed
+
+- **Transition frontier**: Rare race condition in the case of forks during block production that could result in dropping staged ledgers too early.
+- **Webnode**: Replaced tokio channels which had a race condition that could crash the thread on WASM.
+- **Transaction pool**: Verify zkApp proofs in a dedicated thread to avoid blocking the state machine.
+
 ## [0.14.0] - 2025-01-31
 
 ### Changed
@@ -366,7 +409,9 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.14.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.16.0...develop
+[0.15.0]: https://github.com/openmina/openmina/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/openmina/openmina/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/openmina/openmina/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/openmina/openmina/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/openmina/openmina/compare/v0.11.0...v0.12.0

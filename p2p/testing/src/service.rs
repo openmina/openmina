@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, time::Instant};
 
+use openmina_core::channels::mpsc;
 use p2p::{
     identity::SecretKey,
     service_impl::{
@@ -9,14 +10,13 @@ use p2p::{
 };
 use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
 use redux::{Service, TimeService};
-use tokio::sync::mpsc;
 
 use crate::event::{RustNodeEvent, RustNodeEventStore};
 
 pub struct ClusterService {
     pub rng: StdRng,
     pub event_sender: mpsc::UnboundedSender<P2pEvent>,
-    pub cmd_sender: mpsc::UnboundedSender<p2p::service_impl::webrtc::Cmd>,
+    pub cmd_sender: mpsc::TrackedUnboundedSender<p2p::service_impl::webrtc::Cmd>,
     mio: MioService,
     peers: std::collections::BTreeMap<p2p::PeerId, p2p::service_impl::webrtc::PeerState>,
     time: Instant,
@@ -29,7 +29,7 @@ impl ClusterService {
         node_idx: usize,
         secret_key: SecretKey,
         event_sender: mpsc::UnboundedSender<P2pEvent>,
-        cmd_sender: mpsc::UnboundedSender<p2p::service_impl::webrtc::Cmd>,
+        cmd_sender: mpsc::TrackedUnboundedSender<p2p::service_impl::webrtc::Cmd>,
         time: Instant,
     ) -> Self {
         let mio = {
@@ -94,7 +94,7 @@ impl P2pServiceWebrtc for ClusterService {
         &self.event_sender
     }
 
-    fn cmd_sender(&self) -> &mpsc::UnboundedSender<p2p::service_impl::webrtc::Cmd> {
+    fn cmd_sender(&self) -> &mpsc::TrackedUnboundedSender<p2p::service_impl::webrtc::Cmd> {
         &self.cmd_sender
     }
 

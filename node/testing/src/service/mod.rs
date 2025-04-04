@@ -12,8 +12,8 @@ use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    ArchiveTransitionFronntierDiff, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2,
-    MinaBaseProofStableV2, MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
+    MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
@@ -24,6 +24,7 @@ use node::core::channels::mpsc;
 use node::core::invariants::InvariantsState;
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker_effectful::ExternalSnarkWorkerEvent;
+use node::ledger::write::BlockApplyResult;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
@@ -52,6 +53,7 @@ use node::{
     },
 };
 use node::{ActionWithMeta, State};
+use openmina_core::channels::Aborter;
 use openmina_node_native::NodeService;
 use redux::Instant;
 
@@ -140,7 +142,7 @@ pub struct NodeTestingService {
 
     cluster_invariants_state: Arc<StdMutex<InvariantsState>>,
     /// Once dropped, it will cause all threads associated to shutdown.
-    _shutdown: mpsc::Receiver<()>,
+    _shutdown: Aborter,
 }
 
 impl NodeTestingService {
@@ -148,7 +150,7 @@ impl NodeTestingService {
         real: NodeService,
         id: ClusterNodeId,
         cluster_invariants_state: Arc<StdMutex<InvariantsState>>,
-        _shutdown: mpsc::Receiver<()>,
+        _shutdown: Aborter,
     ) -> Self {
         Self {
             real,
@@ -278,6 +280,10 @@ impl NodeTestingService {
 impl redux::Service for NodeTestingService {}
 
 impl node::Service for NodeTestingService {
+    fn queues(&mut self) -> node::service::Queues {
+        self.real.queues()
+    }
+
     fn stats(&mut self) -> Option<&mut Stats> {
         self.real.stats()
     }
@@ -360,7 +366,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         P2pServiceWebrtc::event_sender(&self.real)
     }
 
-    fn cmd_sender(&self) -> &mpsc::UnboundedSender<Cmd> {
+    fn cmd_sender(&self) -> &mpsc::TrackedUnboundedSender<Cmd> {
         P2pServiceWebrtc::cmd_sender(&self.real)
     }
 
@@ -501,7 +507,7 @@ impl BlockProducerVrfEvaluatorService for NodeTestingService {
 }
 
 impl ArchiveService for NodeTestingService {
-    fn send_to_archive(&mut self, data: ArchiveTransitionFronntierDiff) {
+    fn send_to_archive(&mut self, data: BlockApplyResult) {
         self.real.send_to_archive(data);
     }
 }
@@ -538,7 +544,12 @@ impl BlockProducerService for NodeTestingService {
                     &keypair,
                     true,
                 ) {
-                    Err(ProofError::ConstraintsOk) => {
+                    Err(e)
+                        if matches!(
+                            e.downcast_ref::<ProofError>(),
+                            Some(ProofError::ConstraintsOk)
+                        ) =>
+                    {
                         let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
                     }
                     Err(err) => panic!("unexpected block proof generation error: {err:?}"),
@@ -595,6 +606,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         &mut self,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
+        _: TransactionVerifier,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         let pub_key = AccountPublicKey::from(public_key);
         let sok_message = SokMessage::create(

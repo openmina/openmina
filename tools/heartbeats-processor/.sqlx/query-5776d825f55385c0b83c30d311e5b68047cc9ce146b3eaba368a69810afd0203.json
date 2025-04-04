@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n        WITH MaxHeights AS (\n            SELECT\n                window_id,\n                MAX(best_tip_height) as max_height\n            FROM heartbeat_presence\n            WHERE disabled = FALSE\n            GROUP BY window_id\n        ),\n        PrevMaxHeights AS (\n            -- Get the max height from the immediate previous window\n            SELECT\n                tw.id as window_id,\n                prev.max_height as prev_max_height\n            FROM time_windows tw\n            LEFT JOIN time_windows prev_tw ON prev_tw.id = tw.id - 1\n            LEFT JOIN MaxHeights prev ON prev.window_id = prev_tw.id\n        )\n        UPDATE heartbeat_presence\n        SET disabled = TRUE\n        WHERE (window_id, best_tip_height) IN (\n            SELECT\n                hp.window_id,\n                hp.best_tip_height\n            FROM heartbeat_presence hp\n            JOIN PrevMaxHeights pmh ON pmh.window_id = hp.window_id\n            WHERE hp.disabled = FALSE\n            AND pmh.prev_max_height IS NOT NULL  -- Ensure there is a previous window\n            AND hp.best_tip_height < (pmh.prev_max_height - ?)\n        )\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "5776d825f55385c0b83c30d311e5b68047cc9ce146b3eaba368a69810afd0203"
+}

@@ -49,6 +49,7 @@ pub enum SnarkPoolCandidateAction {
     WorkVerifyError {
         peer_id: PeerId,
         verify_id: SnarkWorkVerifyId,
+        batch: Vec<SnarkJobId>,
     },
     WorkVerifySuccess {
         peer_id: PeerId,
@@ -69,7 +70,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                         .snark_pool
                         .candidates
                         .get(*peer_id, &info.job_id)
-                        .map_or(true, |v| info > v)
+                        .is_none_or(|v| info > v)
             }
             SnarkPoolCandidateAction::WorkFetchAll => state.p2p.ready().is_some(),
             SnarkPoolCandidateAction::WorkFetchInit { peer_id, job_id } => {
@@ -103,7 +104,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                         .snark_pool
                         .candidates
                         .get(*peer_id, &job_id)
-                        .map_or(true, |v| match work.partial_cmp(v).unwrap() {
+                        .is_none_or(|v| match work.partial_cmp(v).unwrap() {
                             Ordering::Less => false,
                             Ordering::Greater => true,
                             Ordering::Equal => {
@@ -111,7 +112,10 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                             }
                         })
             }
-            SnarkPoolCandidateAction::WorkVerifyNext => state.snark.work_verify.jobs.is_empty(),
+            SnarkPoolCandidateAction::WorkVerifyNext => {
+                state.snark.work_verify.jobs.is_empty()
+                    && state.transition_frontier.sync.is_synced()
+            }
             SnarkPoolCandidateAction::WorkVerifyPending {
                 peer_id, job_ids, ..
             } => {

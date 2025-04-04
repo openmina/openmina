@@ -5,17 +5,19 @@ use std::str::FromStr;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use ledger::scan_state::currency::{Amount, Balance, Fee, Nonce, Slot};
 use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
-use ledger::scan_state::transaction_logic::{self, signed_command, valid, Memo};
+use ledger::scan_state::transaction_logic::{signed_command, valid, Memo};
 use ledger::transaction_pool::{diff, ValidCommandWithHash};
-use ledger::Account;
+use ledger::{Account, AccountId};
 use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseTransactionStatusStableV2,
-    MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
+    LedgerHash, MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
+    MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
+    MinaBaseZkappCommandTStableV1WireStableV1, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
+    TransactionSnarkWorkTStableV2,
 };
-use openmina_core::block::AppliedBlock;
-use openmina_core::consensus::ConsensusConstants;
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
+use openmina_core::consensus::{ConsensusConstants, ConsensusTime};
 use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
@@ -29,7 +31,7 @@ pub use rpc_reducer::collect_rpc_peers_info;
 mod rpc_impls;
 
 mod heartbeat;
-pub use heartbeat::{NodeHeartbeat, SignedNodeHeartbeat};
+pub use heartbeat::{NodeHeartbeat, ProducedBlockInfo, SignedNodeHeartbeat};
 
 pub use openmina_core::requests::{RpcId, RpcIdType};
 
@@ -43,12 +45,13 @@ use serde::{Deserialize, Serialize};
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,
 };
-use crate::ledger::read::{LedgerReadId, LedgerReadKind};
+use crate::ledger::read::{LedgerReadId, LedgerReadKind, LedgerStatus};
 use crate::ledger::write::LedgerWriteKind;
 use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
-use crate::snark_pool::{JobCommitment, JobSummary};
+use crate::service::Queues;
+use crate::snark_pool::{JobCommitment, JobState, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 use crate::stats::block_producer::{
     BlockProductionAttempt, BlockProductionAttemptWonSlot, VrfEvaluatorStats,
@@ -70,6 +73,8 @@ pub enum RpcRequest {
     ScanStateSummaryGet(RpcScanStateSummaryGetQuery),
     SnarkPoolGet,
     SnarkPoolJobGet { job_id: SnarkJobId },
+    SnarkPoolCompletedJobsGet,
+    SnarkPoolPendingJobsGet,
     SnarkerConfig,
     SnarkerJobCommit { job_id: SnarkJobId },
     SnarkerJobSpec { job_id: SnarkJobId },
@@ -85,6 +90,19 @@ pub enum RpcRequest {
     BestChain(MaxLength),
     ConsensusConstantsGet,
     TransactionStatusGet(MinaBaseUserCommandStableV2),
+    GetBlock(GetBlockQuery),
+    PooledUserCommands(PooledUserCommandsQuery),
+    PooledZkappCommands(PooledZkappsCommandsQuery),
+    GenesisBlockGet,
+    ConsensusTimeGet(ConsensusTimeQuery),
+    LedgerStatusGet(LedgerHash),
+    LedgerAccountDelegatorsGet(LedgerHash, AccountId),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ConsensusTimeQuery {
+    Now,
+    BestTip,
 }
 
 pub type MaxLength = u32;
@@ -157,7 +175,7 @@ pub enum ActionStatsResponse {
     ForBlock(ActionStatsForBlock),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 pub enum PeerConnectionStatus {
     Disconnecting,
     Disconnected,
@@ -356,6 +374,8 @@ pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Result<RpcScanStateSummary, String>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
+pub type RpcSnarkPoolCompletedJobsResponse = Vec<TransactionSnarkWorkTStableV2>;
+pub type RpcSnarkPoolPendingJobsGetResponse = Vec<JobState>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
@@ -365,6 +385,12 @@ pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStab
 pub type RpcBestChainResponse = Vec<AppliedBlock>;
 pub type RpcConsensusConstantsGetResponse = ConsensusConstants;
 pub type RpcTransactionStatusGetResponse = TransactionStatus;
+pub type RpcPooledUserCommandsResponse = Vec<MinaBaseSignedCommandStableV2>;
+pub type RpcPooledZkappCommandsResponse = Vec<MinaBaseZkappCommandTStableV1WireStableV1>;
+pub type RpcGenesisBlockResponse = Option<ArcBlockWithHash>;
+pub type RpcConsensusTimeGetResponse = Option<ConsensusTime>;
+pub type RpcLedgerStatusGetResponse = Option<LedgerStatus>;
+pub type RpcLedgerAccountDelegatorsGetResponse = Option<Vec<Account>>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, strum_macros::Display)]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -390,15 +416,16 @@ pub struct RpcTransactionInjectedPayment {
     pub nonce: Nonce,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum RpcTransactionInjectedCommand {
-    Payment(RpcTransactionInjectedPayment),
-    Delegation,
-    Zkapp(valid::UserCommand),
-}
+// TODO(adonagy): remove this, not needed anymore
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub enum RpcTransactionInjectedCommand {
+//     Payment(valid::UserCommand),
+//     Delegation(valid::UserCommand),
+//     Zkapp(valid::UserCommand),
+// }
 
-pub type RpcTransactionInjectSuccess = Vec<RpcTransactionInjectedCommand>;
-pub type RpcTransactionInjectRejected = Vec<(RpcTransactionInjectedCommand, diff::Error)>;
+pub type RpcTransactionInjectSuccess = Vec<valid::UserCommand>;
+pub type RpcTransactionInjectRejected = Vec<(valid::UserCommand, diff::Error)>;
 /// Errors
 pub type RpcTransactionInjectFailure = Vec<String>;
 
@@ -410,36 +437,56 @@ pub enum RpcTransactionInjectResponse {
     Failure(RpcTransactionInjectFailure),
 }
 
-impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
-    fn from(value: ValidCommandWithHash) -> Self {
-        match value.data {
-            transaction_logic::valid::UserCommand::SignedCommand(signedcmd) => {
-                match signedcmd.payload.body {
-                    transaction_logic::signed_command::Body::Payment(ref payment) => {
-                        Self::Payment(RpcTransactionInjectedPayment {
-                            amount: payment.amount,
-                            fee: signedcmd.fee(),
-                            // fee_token: signedcmd.fee_token(),
-                            from: signedcmd.fee_payer_pk().clone().into(),
-                            to: payment.receiver_pk.clone().into(),
-                            hash: value.hash.to_string(),
-                            is_delegation: false,
-                            // memo: signedcmd.payload.common.memo.clone(),
-                            memo: signedcmd.payload.common.memo.to_string(),
-                            nonce: signedcmd.nonce(),
-                        })
-                    }
-                    transaction_logic::signed_command::Body::StakeDelegation(_) => {
-                        todo!("inject stake delegation")
-                    }
-                }
-            }
-            transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
-                Self::Zkapp(value.data.clone())
-            }
-        }
-    }
-}
+// impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
+//     fn from(value: ValidCommandWithHash) -> Self {
+//         match value.data {
+//             transaction_logic::valid::UserCommand::SignedCommand(ref signedcmd) => {
+//                 match signedcmd.payload.body {
+//                     transaction_logic::signed_command::Body::Payment(_) => {
+//                         Self::Payment(value.data.clone())
+//                     }
+//                     transaction_logic::signed_command::Body::StakeDelegation(_) => {
+//                         Self::Delegation(value.data.clone())
+//                     }
+//                 }
+//             }
+//             transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
+//                 Self::Zkapp(value.data.clone())
+//             }
+//         }
+//     }
+// }
+
+// impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
+//     fn from(value: ValidCommandWithHash) -> Self {
+//         match value.data {
+//             transaction_logic::valid::UserCommand::SignedCommand(signedcmd) => {
+//                 match signedcmd.payload.body {
+//                     transaction_logic::signed_command::Body::Payment(ref payment) => {
+//                         Self::RpcPayment(RpcTransactionInjectedPayment {
+//                             amount: payment.amount,
+//                             fee: signedcmd.fee(),
+//                             // fee_token: signedcmd.fee_token(),
+//                             from: signedcmd.fee_payer_pk().clone().into(),
+//                             to: payment.receiver_pk.clone().into(),
+//                             hash: value.hash.to_string(),
+//                             is_delegation: false,
+//                             // memo: signedcmd.payload.common.memo.clone(),
+//                             memo: signedcmd.payload.common.memo.to_string(),
+//                             nonce: signedcmd.nonce(),
+//                         })
+//                     }
+//                     transaction_logic::signed_command::Body::StakeDelegation(_) => {
+//                         todo!("inject stake delegation")
+//                     }
+//                 }
+//             }
+//             transaction_logic::valid::UserCommand::ZkAppCommand(_) => {
+//                 Self::Zkapp(value.data.clone())
+//             }
+//         }
+//     }
+// }
 
 #[derive(Serialize, Debug, Clone)]
 pub struct AccountSlim {
@@ -466,8 +513,21 @@ pub struct RpcNodeStatus {
     pub snark_pool: RpcNodeStatusSnarkPool,
     pub transaction_pool: RpcNodeStatusTransactionPool,
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
+    pub previous_block_production_attempt: Option<BlockProductionAttempt>,
     pub peers: Vec<RpcPeerInfo>,
     pub resources_status: RpcNodeStatusResources,
+    pub service_queues: Queues,
+    pub network_info: RpcNodeStatusNetworkInfo,
+    pub block_producer: Option<AccountPublicKey>,
+    pub coinbase_receiver: Option<AccountPublicKey>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusNetworkInfo {
+    pub bind_ip: String,
+    pub external_ip: Option<String>,
+    pub client_port: Option<u16>,
+    pub libp2p_port: Option<u16>,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -606,6 +666,24 @@ pub type RpcReadinessCheckResponse = Result<(), String>;
 
 pub type RpcDiscoveryRoutingTableResponse = Option<discovery::RpcDiscoveryRoutingTable>;
 pub type RpcDiscoveryBoostrapStatsResponse = Option<P2pNetworkKadBootstrapStats>;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum GetBlockQuery {
+    Hash(StateHash),
+    Height(u32),
+}
+
+pub type RpcGetBlockResponse = Option<AppliedBlock>;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PooledCommandsQuery<ID> {
+    pub public_key: Option<AccountPublicKey>,
+    pub hashes: Option<Vec<TransactionHash>>,
+    pub ids: Option<Vec<ID>>,
+}
+
+pub type PooledUserCommandsQuery = PooledCommandsQuery<MinaBaseSignedCommandStableV2>;
+pub type PooledZkappsCommandsQuery = PooledCommandsQuery<MinaBaseZkappCommandTStableV1WireStableV1>;
 
 pub mod discovery {
     use p2p::{

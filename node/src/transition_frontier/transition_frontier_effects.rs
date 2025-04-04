@@ -245,7 +245,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                             } else if let Some(index) =
                                 chain.len().checked_sub(height_diff.saturating_add(1))
                             {
-                                chain.get(index).map_or(true, |b2| b1.hash() != b2.hash())
+                                chain.get(index).is_none_or(|b2| b1.hash() != b2.hash())
                             } else {
                                 true
                             }

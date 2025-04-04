@@ -27,10 +27,7 @@ use crate::{
         },
         witness::Witness,
     },
-    scan_state::{
-        currency::{Balance, Magnitude, Nonce, Slot, TxnVersion},
-        transaction_logic::account_min_balance_at_slot,
-    },
+    scan_state::currency::{Amount, Balance, Magnitude, Nonce, Slot, TxnVersion},
     zkapps::snark::FlaggedOption,
     AppendToInputs as _, MerklePath, MyCow, ToInputs,
 };
@@ -1079,6 +1076,10 @@ impl AccountId {
         }
     }
 
+    pub fn new_with_default_token(public_key: CompressedPubKey) -> Self {
+        Self::new(public_key, TokenId::default())
+    }
+
     pub fn create(public_key: CompressedPubKey, token_id: TokenId) -> Self {
         Self::new(public_key, token_id)
     }
@@ -1382,21 +1383,8 @@ impl Account {
     pub fn has_locked_tokens(&self, global_slot: Slot) -> bool {
         match self.timing {
             Timing::Untimed => false,
-            Timing::Timed {
-                initial_minimum_balance,
-                cliff_time,
-                cliff_amount,
-                vesting_period,
-                vesting_increment,
-            } => {
-                let curr_min_balance = account_min_balance_at_slot(
-                    global_slot,
-                    cliff_time,
-                    cliff_amount,
-                    vesting_period,
-                    vesting_increment,
-                    initial_minimum_balance,
-                );
+            Timing::Timed { .. } => {
+                let curr_min_balance = self.min_balance_at_slot(global_slot);
 
                 !curr_min_balance.is_zero()
             }
@@ -1434,26 +1422,68 @@ impl Account {
     pub fn liquid_balance_at_slot(&self, global_slot: Slot) -> Balance {
         match self.timing {
             Timing::Untimed => self.balance,
+            Timing::Timed { .. } => self
+                .balance
+                .sub_amount(self.min_balance_at_slot(global_slot).to_amount())
+                .unwrap(),
+        }
+    }
+
+    pub fn min_balance_at_slot(&self, global_slot: Slot) -> Balance {
+        match self.timing {
+            Timing::Untimed => Balance::zero(),
             Timing::Timed {
                 initial_minimum_balance,
                 cliff_time,
                 cliff_amount,
                 vesting_period,
                 vesting_increment,
-            } => self
-                .balance
-                .sub_amount(
-                    account_min_balance_at_slot(
-                        global_slot,
-                        cliff_time,
-                        cliff_amount,
-                        vesting_period,
-                        vesting_increment,
-                        initial_minimum_balance,
-                    )
-                    .to_amount(),
-                )
-                .unwrap(),
+            } => {
+                if global_slot < cliff_time {
+                    initial_minimum_balance
+                } else if vesting_period.is_zero() {
+                    // If vesting period is zero then everything vests immediately at the cliff
+                    Balance::zero()
+                } else {
+                    match initial_minimum_balance.sub_amount(cliff_amount) {
+                        None => Balance::zero(),
+                        Some(min_balance_past_cliff) => {
+                            // take advantage of fact that global slots are uint32's
+
+                            let num_periods = (global_slot.as_u32() - cliff_time.as_u32())
+                                / vesting_period.as_u32();
+                            let num_periods: u64 = num_periods.into();
+
+                            let vesting_decrement = {
+                                let vesting_increment = vesting_increment.as_u64();
+
+                                if u64::MAX
+                                    .checked_div(num_periods)
+                                    .map(|res| {
+                                        matches!(
+                                            res.cmp(&vesting_increment),
+                                            std::cmp::Ordering::Less
+                                        )
+                                    })
+                                    .unwrap_or(false)
+                                {
+                                    // The vesting decrement will overflow, use [max_int] instead.
+                                    Amount::from_u64(u64::MAX)
+                                } else {
+                                    Amount::from_u64(
+                                        num_periods.checked_mul(vesting_increment).unwrap(),
+                                    )
+                                }
+                            };
+
+                            match min_balance_past_cliff.sub_amount(vesting_decrement) {
+                                None => Balance::zero(),
+                                Some(amount) => amount,
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

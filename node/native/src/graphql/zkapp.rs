@@ -103,29 +103,37 @@ pub struct InputGraphQLZkappCommand {
     pub fee_payer: InputGraphQLFeePayer,
 }
 
+impl TryFrom<MinaBaseZkappCommandTStableV1WireStableV1> for GraphQLZkapp {
+    type Error = ConversionError;
+
+    fn try_from(zkapp: MinaBaseZkappCommandTStableV1WireStableV1) -> Result<Self, Self::Error> {
+        let account_updates = zkapp
+            .account_updates
+            .clone()
+            .into_iter()
+            .map(|v| v.elt.account_update.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(GraphQLZkapp {
+            hash: zkapp.hash()?.to_string(),
+            failure_reason: None,
+            id: zkapp.to_base64()?,
+            zkapp_command: GraphQLZkappCommand {
+                memo: zkapp.memo.to_base58check(),
+                account_updates,
+                fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
+            },
+        })
+    }
+}
+
 impl TryFrom<MinaBaseUserCommandStableV2> for GraphQLSendZkappResponse {
     type Error = ConversionError;
     fn try_from(value: MinaBaseUserCommandStableV2) -> Result<Self, Self::Error> {
         if let MinaBaseUserCommandStableV2::ZkappCommand(zkapp) = value {
-            let account_updates = zkapp
-                .account_updates
-                .clone()
-                .into_iter()
-                .map(|v| v.elt.account_update.try_into())
-                .collect::<Result<Vec<_>, _>>()?;
-            let res = GraphQLSendZkappResponse {
-                zkapp: GraphQLZkapp {
-                    hash: zkapp.hash()?.to_string(),
-                    failure_reason: None,
-                    id: zkapp.to_base64()?,
-                    zkapp_command: GraphQLZkappCommand {
-                        memo: zkapp.memo.to_base58check(),
-                        account_updates,
-                        fee_payer: GraphQLFeePayer::from(zkapp.fee_payer),
-                    },
-                },
-            };
-            Ok(res)
+            Ok(GraphQLSendZkappResponse {
+                zkapp: GraphQLZkapp::try_from(zkapp)?,
+            })
         } else {
             Err(ConversionError::WrongVariant)
         }

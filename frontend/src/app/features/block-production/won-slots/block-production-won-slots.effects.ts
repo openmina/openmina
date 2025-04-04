@@ -39,7 +39,7 @@ export class BlockProductionWonSlotsEffects extends BaseEffect {
       ofType(BlockProductionWonSlotsActions.getSlots, BlockProductionWonSlotsActions.close),
       this.latestActionState(),
       switchMap(({ action, state }) =>
-        action.type === BlockProductionWonSlotsActions.close.type
+        action.type.includes('Close')
           ? EMPTY
           : this.wonSlotsService.getSlots().pipe(
             switchMap(({ slots, epoch }) => {

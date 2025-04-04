@@ -18,7 +18,7 @@ import { safelyExecuteInBrowser } from '@openmina/shared';
 export class BlockProductionOverviewSlotDetailsComponent extends StoreDispatcher {
   @Input({ required: true }) activeSlot: BlockProductionOverviewSlot;
 
-  private minaExplorer: string;
+  private network: string;
 
   ngOnInit(): void {
     this.listenToActiveNode();
@@ -26,13 +26,12 @@ export class BlockProductionOverviewSlotDetailsComponent extends StoreDispatcher
 
   private listenToActiveNode(): void {
     this.select(AppSelectors.activeNodeDetails, (node: AppNodeDetails) => {
-      this.minaExplorer = node.network?.toLowerCase();
+      this.network = node.network?.toLowerCase();
     }, filter(Boolean));
   }
 
-  viewInMinaExplorer(): void {
-    const network = this.minaExplorer !== 'mainnet' ? (this.minaExplorer + '.') : '';
-    const url = `https://${network}minaexplorer.com/block/${this.activeSlot.hash}`;
+  viewInMinaScan(): void {
+    const url = `https://minascan.io/${this.network}/block/${this.activeSlot.hash}`;
     safelyExecuteInBrowser(() => window.open(url, '_blank'));
   }
 }

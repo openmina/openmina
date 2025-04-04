@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { LeaderboardSelectors } from '@leaderboard/leaderboard.state';
 import { HeartbeatSummary } from '@shared/types/leaderboard/heartbeat-summary.type';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { isDesktop } from '@openmina/shared';
+import { isDesktop, TooltipPosition } from '@openmina/shared';
 import { animate, style, transition, trigger } from '@angular/animations';
 
 @Component({
@@ -47,4 +47,6 @@ export class LeaderboardTableComponent extends StoreDispatcher implements OnInit
       this.detect();
     });
   }
+
+  protected readonly TooltipPosition = TooltipPosition;
 }

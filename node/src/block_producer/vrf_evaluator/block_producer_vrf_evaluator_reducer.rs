@@ -424,7 +424,7 @@ impl BlockProducerVrfEvaluatorState {
                     time: meta.time(),
                     epoch_number: *epoch_number,
                 };
-                state.set_last_evaluated_epoch();
+                state.set_last_evaluated_epoch(*epoch_number);
             }
             BlockProducerVrfEvaluatorAction::WaitForNextEvaluation => {
                 state.status =

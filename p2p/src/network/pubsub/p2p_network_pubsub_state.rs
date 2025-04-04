@@ -3,7 +3,11 @@ use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 
 use libp2p_identity::ParseError;
 use mina_p2p_messages::gossip::GossipNetMessageV2;
-use openmina_core::{snark::Snark, transaction::Transaction};
+use openmina_core::{
+    p2p::P2pNetworkPubsubMessageCacheId,
+    snark::{Snark, SnarkJobId},
+    transaction::Transaction,
+};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -175,7 +179,7 @@ pub struct P2pNetworkPubsubClientState {
 
 impl P2pNetworkPubsubClientState {
     pub fn publish(&mut self, message: &pb::Message) {
-        let Ok(id) = P2pNetworkPubsubMessageCacheId::compute_message_id(message) else {
+        let Ok(id) = compute_message_id(message) else {
             self.message.publish.push(message.clone());
             return;
         };
@@ -228,7 +232,12 @@ pub enum P2pNetworkPubsubMessageCacheMessage {
         peer_id: PeerId,
         time: Timestamp,
     },
-    // This is temporary handling for transactions and snark pool
+    PreValidatedSnark {
+        job_id: SnarkJobId,
+        message: pb::Message,
+        peer_id: PeerId,
+        time: Timestamp,
+    },
     PreValidated {
         message: pb::Message,
         peer_id: PeerId,
@@ -241,62 +250,41 @@ pub enum P2pNetworkPubsubMessageCacheMessage {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Copy)]
-pub struct P2pNetworkPubsubMessageCacheId {
-    pub source: libp2p_identity::PeerId,
-    pub seqno: u64,
+// TODO: what if wasm32?
+// How to test it?
+pub fn compute_message_id(
+    message: &pb::Message,
+) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
+    let source = source_from_message(message)?;
+
+    let seqno = message
+        .seqno
+        .as_ref()
+        .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
+        .map(u64::from_be_bytes)
+        .unwrap_or_default();
+
+    Ok(P2pNetworkPubsubMessageCacheId { source, seqno })
 }
 
-impl P2pNetworkPubsubMessageCacheId {
-    // TODO: what if wasm32?
-    // How to test it?
-    pub fn compute_message_id(
-        message: &pb::Message,
-    ) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
-        let source = source_from_message(message)?;
-
-        let seqno = message
-            .seqno
-            .as_ref()
-            .and_then(|b| <[u8; 8]>::try_from(b.as_slice()).ok())
-            .map(u64::from_be_bytes)
-            .unwrap_or_default();
-
-        Ok(P2pNetworkPubsubMessageCacheId { source, seqno })
-    }
-
-    pub fn to_raw_bytes(&self) -> Vec<u8> {
-        let mut message_id = self.source.to_base58();
-        message_id.push_str(&self.seqno.to_string());
-        message_id.into_bytes()
-    }
+macro_rules! enum_field {
+    ($field:ident: $field_type:ty) => {
+        pub fn $field(&self) -> &$field_type {
+            match self {
+                Self::Init { $field, .. }
+                | Self::PreValidated { $field, .. }
+                | Self::PreValidatedBlockMessage { $field, .. }
+                | Self::PreValidatedSnark { $field, .. }
+                | Self::Validated { $field, .. } => $field,
+            }
+        }
+    };
 }
 
 impl P2pNetworkPubsubMessageCacheMessage {
-    pub fn message(&self) -> &pb::Message {
-        match self {
-            Self::Init { message, .. } => message,
-            Self::PreValidated { message, .. } => message,
-            Self::PreValidatedBlockMessage { message, .. } => message,
-            Self::Validated { message, .. } => message,
-        }
-    }
-    pub fn time(&self) -> Timestamp {
-        *match self {
-            Self::Init { time, .. } => time,
-            Self::PreValidated { time, .. } => time,
-            Self::PreValidatedBlockMessage { time, .. } => time,
-            Self::Validated { time, .. } => time,
-        }
-    }
-    pub fn peer_id(&self) -> PeerId {
-        *match self {
-            Self::Init { peer_id, .. } => peer_id,
-            Self::PreValidated { peer_id, .. } => peer_id,
-            Self::PreValidatedBlockMessage { peer_id, .. } => peer_id,
-            Self::Validated { peer_id, .. } => peer_id,
-        }
-    }
+    enum_field!(message: pb::Message);
+    enum_field!(time: Timestamp);
+    enum_field!(peer_id: PeerId);
 }
 
 impl P2pNetworkPubsubMessageCache {
@@ -309,7 +297,7 @@ impl P2pNetworkPubsubMessageCache {
         peer_id: PeerId,
         time: Timestamp,
     ) -> Result<P2pNetworkPubsubMessageCacheId, ParseError> {
-        let id = P2pNetworkPubsubMessageCacheId::compute_message_id(&message)?;
+        let id = compute_message_id(&message)?;
         self.map.insert(
             id,
             P2pNetworkPubsubMessageCacheMessage::Init {
@@ -339,13 +327,19 @@ impl P2pNetworkPubsubMessageCache {
 
     pub fn contains_broadcast_id(&self, message_id: &BroadcastMessageId) -> bool {
         match message_id {
-            super::BroadcastMessageId::BlockHash { hash } => self
+            BroadcastMessageId::BlockHash { hash } => self
                 .map
                 .values()
                 .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedBlockMessage { block_hash, .. } if block_hash == hash)),
-            super::BroadcastMessageId::MessageId { message_id } => {
+            BroadcastMessageId::MessageId { message_id } => {
                 self.map.contains_key(message_id)
-            }
+            },
+            BroadcastMessageId::Snark { job_id: snark_job_id } => {
+                self
+                    .map
+                    .values()
+                    .any(|message| matches!(message, P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark { job_id,.. } if job_id == snark_job_id))
+            },
         }
     }
 
@@ -357,7 +351,7 @@ impl P2pNetworkPubsubMessageCache {
         &mut P2pNetworkPubsubMessageCacheMessage,
     )> {
         match message_id {
-            super::BroadcastMessageId::BlockHash { hash } => {
+            BroadcastMessageId::BlockHash { hash } => {
                 self.map
                     .iter_mut()
                     .find_map(|(message_id, message)| match message {
@@ -368,18 +362,34 @@ impl P2pNetworkPubsubMessageCache {
                         _ => None,
                     })
             }
-            super::BroadcastMessageId::MessageId { message_id } => self
+            BroadcastMessageId::MessageId { message_id } => self
                 .map
                 .get_mut(message_id)
                 .map(|content| (*message_id, content)),
+            BroadcastMessageId::Snark {
+                job_id: snark_job_id,
+            } => {
+                self.map
+                    .iter_mut()
+                    .find_map(|(message_id, message)| match message {
+                        P2pNetworkPubsubMessageCacheMessage::PreValidatedSnark {
+                            job_id, ..
+                        } if job_id == snark_job_id => Some((*message_id, message)),
+                        _ => None,
+                    })
+            }
         }
     }
 
-    pub fn remove_message(&mut self, message_id: P2pNetworkPubsubMessageCacheId) {
-        let _ = self.map.remove(&message_id);
+    pub fn remove_message(
+        &mut self,
+        message_id: P2pNetworkPubsubMessageCacheId,
+    ) -> Option<P2pNetworkPubsubMessageCacheMessage> {
+        let message = self.map.remove(&message_id);
         if let Some(position) = self.queue.iter().position(|id| id == &message_id) {
             self.queue.remove(position);
         }
+        message
     }
 
     pub fn get_message_from_raw_message_id(

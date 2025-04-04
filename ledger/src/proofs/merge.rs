@@ -29,7 +29,7 @@ use super::{
     step::{
         extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement, StepProof,
     },
-    transaction::{PlonkVerificationKeyEvals, ProofError, Prover},
+    transaction::{PlonkVerificationKeyEvals, Prover},
     util::two_u64_to_field,
     witness::Witness,
     wrap::WrapProof,
@@ -39,7 +39,7 @@ fn merge_main(
     statement: &Statement<SokDigest>,
     proofs: &[v2::LedgerProofProdStableV2; 2],
     w: &mut Witness<Fp>,
-) -> Result<(Statement<SokDigest>, Statement<SokDigest>), InvalidBigInt> {
+) -> anyhow::Result<(Statement<SokDigest>, Statement<SokDigest>)> {
     let (s1, s2) = w.exists({
         let [p1, p2] = proofs;
         let (s1, s2) = (&p1.0.statement, &p2.0.statement);
@@ -216,7 +216,7 @@ const MERGE_N_PREVIOUS_PROOFS: usize = 2;
 pub(super) fn generate_merge_proof(
     params: MergeParams,
     w: &mut Witness<Fp>,
-) -> Result<WrapProof, ProofError> {
+) -> anyhow::Result<WrapProof> {
     let MergeParams {
         statement,
         proofs,

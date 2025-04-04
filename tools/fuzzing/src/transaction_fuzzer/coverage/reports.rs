@@ -497,7 +497,7 @@ impl CoverageReport {
                     //println!("{:?}", source_range);
 
                     for line in start..=end {
-                        if line == lines.len() || lines[line].line.chars().count() == 0 {
+                        if line >= lines.len() || lines[line].line.chars().count() == 0 {
                             continue;
                         }
 

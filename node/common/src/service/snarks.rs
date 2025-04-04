@@ -37,18 +37,18 @@ pub struct SnarkBlockVerifyArgs {
 impl NodeService {
     pub fn snark_block_proof_verifier_spawn(
         event_sender: EventSender,
-    ) -> mpsc::UnboundedSender<SnarkBlockVerifyArgs> {
-        let (tx, mut rx) = mpsc::unbounded_channel();
+    ) -> mpsc::TrackedUnboundedSender<SnarkBlockVerifyArgs> {
+        let (tx, mut rx) = mpsc::tracked_unbounded_channel();
         thread::Builder::new()
             .name("block_proof_verifier".to_owned())
             .spawn(move || {
-                while let Some(SnarkBlockVerifyArgs {
-                    req_id,
-                    verifier_index,
-                    verifier_srs,
-                    block,
-                }) = rx.blocking_recv()
-                {
+                while let Some(msg) = rx.blocking_recv() {
+                    let SnarkBlockVerifyArgs {
+                        req_id,
+                        verifier_index,
+                        verifier_srs,
+                        block,
+                    } = msg.0;
                     eprintln!("verify({}) - start", block.hash_ref());
                     let header = block.header_ref();
                     let result = {
@@ -90,7 +90,7 @@ impl node::service::SnarkBlockVerifyService for NodeService {
             verifier_srs,
             block,
         };
-        let _ = self.snark_block_proof_verify.send(args);
+        let _ = self.snark_block_proof_verify.tracked_send(args);
     }
 }
 
@@ -155,31 +155,33 @@ impl node::service::SnarkUserCommandVerifyService for NodeService {
         }
 
         let tx = self.event_sender().clone();
-        let result = {
-            let (verified, invalid): (Vec<_>, Vec<_>) = ledger::verifier::Verifier
-                .verify_commands(commands, None)
-                .into_iter()
-                .partition(Result::is_ok);
-
-            let verified: Vec<_> = verified.into_iter().map(Result::unwrap).collect();
-            let invalid: Vec<_> = invalid.into_iter().map(Result::unwrap_err).collect();
-
-            if !invalid.is_empty() {
-                let transaction_pool_errors = invalid
+        rayon::spawn_fifo(move || {
+            let result = {
+                let (verified, invalid): (Vec<_>, Vec<_>) = ledger::verifier::Verifier
+                    .verify_commands(commands, None)
                     .into_iter()
-                    .map(TransactionError::Verifier)
-                    .collect();
-                Err(TransactionPoolErrors::BatchedErrors(
-                    transaction_pool_errors,
-                ))
-            } else {
-                Ok(verified)
-            }
-        };
+                    .partition(Result::is_ok);
 
-        let result = result.map_err(|err| err.to_string());
+                let verified: Vec<_> = verified.into_iter().map(Result::unwrap).collect();
+                let invalid: Vec<_> = invalid.into_iter().map(Result::unwrap_err).collect();
 
-        let _ = tx.send(SnarkEvent::UserCommandVerify(req_id, result).into());
+                if !invalid.is_empty() {
+                    let transaction_pool_errors = invalid
+                        .into_iter()
+                        .map(TransactionError::Verifier)
+                        .collect();
+                    Err(TransactionPoolErrors::BatchedErrors(
+                        transaction_pool_errors,
+                    ))
+                } else {
+                    Ok(verified)
+                }
+            };
+
+            let result = result.map_err(|err| err.to_string());
+
+            let _ = tx.send(SnarkEvent::UserCommandVerify(req_id, result).into());
+        });
     }
 }
 

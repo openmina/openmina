@@ -2,6 +2,9 @@ import { NgModule } from '@angular/core';
 import { NoPreloading, RouterModule, Routes } from '@angular/router';
 import { CONFIG, getFirstFeature } from '@shared/constants/config';
 import { WebNodeLandingPageComponent } from '@app/layout/web-node-landing-page/web-node-landing-page.component';
+import { getMergedRoute, MergedRoute } from '@openmina/shared';
+import { filter, take } from 'rxjs';
+import { landingPageGuard } from '@shared/guards/landing-page.guard';
 
 const APP_TITLE: string = 'Open Mina';
 
@@ -24,6 +27,7 @@ function generateRoutes(): Routes {
       path: 'dashboard',
       loadChildren: () => import('@dashboard/dashboard.module').then(m => m.DashboardModule),
       title: DASHBOARD_TITLE,
+      canActivate: [landingPageGuard],
     },
     {
       path: 'nodes',
@@ -45,6 +49,7 @@ function generateRoutes(): Routes {
       path: 'state',
       loadChildren: () => import('@state/state.module').then(m => m.StateModule),
       title: STATE_TITLE,
+      canActivate: [landingPageGuard],
     },
     {
       path: 'snarks',
@@ -55,16 +60,19 @@ function generateRoutes(): Routes {
       path: 'block-production',
       loadChildren: () => import('@block-production/block-production.module').then(m => m.BlockProductionModule),
       title: BLOCK_PRODUCTION_TITLE,
+      canActivate: [landingPageGuard],
     },
     {
       path: 'mempool',
       loadChildren: () => import('@mempool/mempool.module').then(m => m.MempoolModule),
       title: MEMPOOL_TITLE,
+      canActivate: [landingPageGuard],
     },
     {
       path: 'benchmarks',
       loadChildren: () => import('@benchmarks/benchmarks.module').then(m => m.BenchmarksModule),
       title: BENCHMARKS_TITLE,
+      canActivate: [landingPageGuard],
     },
     {
       path: 'fuzzing',
@@ -75,13 +83,15 @@ function generateRoutes(): Routes {
       path: 'loading-web-node',
       loadChildren: () => import('@web-node/web-node.module').then(m => m.WebNodeModule),
       title: WEBNODE_TITLE,
-    },
-    {
-      path: '',
-      loadChildren: () => import('@leaderboard/leaderboard.module').then(m => m.LeaderboardModule),
+      canActivate: [landingPageGuard],
     },
   ];
-  if (CONFIG.showWebNodeLandingPage) {
+  if (CONFIG.showLeaderboard) {
+    routes.push({
+      path: '',
+      loadChildren: () => import('@leaderboard/leaderboard.module').then(m => m.LeaderboardModule),
+    });
+  } else if (CONFIG.showWebNodeLandingPage) {
     routes.push({
       path: '',
       component: WebNodeLandingPageComponent,

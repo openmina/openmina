@@ -60,9 +60,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                 let Some(genesis) = state.transition_frontier.genesis.proven_block() else {
                     return false;
                 };
-                state.transition_frontier.root().map_or(true, |b| {
-                    b.is_genesis() && !Arc::ptr_eq(&genesis.block, &b.block)
-                })
+                state
+                    .transition_frontier
+                    .root()
+                    .is_none_or(|b| b.is_genesis() && !Arc::ptr_eq(&genesis.block, &b.block))
             }
             TransitionFrontierAction::Candidate(a) => a.is_enabled(state, time),
             TransitionFrontierAction::Sync(a) => a.is_enabled(state, time),

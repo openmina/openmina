@@ -1,8 +1,38 @@
 @import 'leaderboard-variables';
 
 :host {
-  padding-top: 52px;
   background-color: $mina-cta-primary;
+}
+
+.floating-banner {
+  position: fixed;
+  bottom: -100%;
+  left: 20px;
+  right: 20px;
+  transition: bottom 0.5s ease;
+  z-index: 1000;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  &.show {
+    bottom: 20px;
+  }
+}
+
+.overflow-y-scroll {
+  background-color: $mina-cta-primary;
+
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: $white4;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: $mina-base-secondary;
+  }
 }
 
 main,
@@ -39,5 +69,55 @@ main {
 
   &::-webkit-scrollbar-thumb:hover {
     background-color: $mina-base-secondary;
+  }
+}
+
+.accordion {
+  color: $mina-base-primary;
+  font-size: 16px;
+  font-weight: 600;
+  background: rgba(248, 214, 17, 0.10);
+  cursor: pointer;
+  padding: 16px;
+}
+
+.accordion-content {
+  font-weight: 400;
+  line-height: 24px;
+}
+
+p {
+  font-size: 16px;
+  line-height: 24px;
+  color: $mina-base-primary;
+}
+
+.download-btns {
+  color: $mina-base-primary;
+  margin-bottom: 80px;
+
+  button {
+    border-radius: 999px;
+    font-size: 20px;
+    gap: 8px;
+    padding: 0 16px;
+    font-weight: 300;
+    transition: all 0.15s ease;
+
+    &:hover {
+      box-shadow: 0 2px 4px 0 $black3;
+    }
+
+    &:nth-child(1) {
+      background-color: $mina-brand-aqua;
+    }
+
+    &:nth-child(2) {
+      background-color: $mina-brand-lilac;
+    }
+
+    &:nth-child(3) {
+      background-color: $mina-brand-peony;
+    }
   }
 }

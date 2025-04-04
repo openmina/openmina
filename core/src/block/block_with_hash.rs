@@ -61,6 +61,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         global_slot(self.header())
     }
 
+    pub fn slot(&self) -> u32 {
+        slot(self.header())
+    }
+
     pub fn global_slot_since_genesis(&self) -> u32 {
         global_slot_since_genesis(self.header())
     }
@@ -149,6 +153,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     ) -> Box<dyn 'a + Iterator<Item = &'a v2::TransactionSnarkWorkTStableV2>> {
         self.body().completed_works_iter()
     }
+
+    pub fn block_stake_winner(&self) -> &v2::NonZeroCurvePoint {
+        block_stake_winner(self.header())
+    }
 }
 
 impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
@@ -174,6 +182,10 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
 
     pub fn global_slot(&self) -> u32 {
         global_slot(self.header())
+    }
+
+    pub fn slot(&self) -> u32 {
+        slot(self.header())
     }
 
     pub fn global_slot_since_genesis(&self) -> u32 {
@@ -227,6 +239,10 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
     pub fn staged_ledger_hashes(&self) -> &v2::MinaBaseStagedLedgerHashStableV1 {
         staged_ledger_hashes(self.header())
     }
+
+    pub fn block_stake_winner(&self) -> &v2::NonZeroCurvePoint {
+        block_stake_winner(self.header())
+    }
 }
 
 fn consensus_state(
@@ -241,6 +257,15 @@ fn height(header: &BlockHeader) -> u32 {
 
 fn global_slot(header: &BlockHeader) -> u32 {
     consensus_state(header).global_slot()
+}
+
+fn slot(header: &BlockHeader) -> u32 {
+    let slot_struct = &consensus_state(header).curr_global_slot_since_hard_fork;
+    slot_struct
+        .slot_number
+        .as_u32()
+        .checked_rem(slot_struct.slots_per_epoch.as_u32())
+        .expect("division by zero")
 }
 
 fn global_slot_since_genesis(header: &BlockHeader) -> u32 {
@@ -317,4 +342,12 @@ fn staged_ledger_hashes(header: &BlockHeader) -> &v2::MinaBaseStagedLedgerHashSt
         .body
         .blockchain_state
         .staged_ledger_hash
+}
+
+fn block_stake_winner(header: &BlockHeader) -> &v2::NonZeroCurvePoint {
+    &header
+        .protocol_state
+        .body
+        .consensus_state
+        .block_stake_winner
 }

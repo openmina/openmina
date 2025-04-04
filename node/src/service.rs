@@ -34,7 +34,21 @@ pub trait Service:
     + RpcService
     + ArchiveService
 {
+    fn queues(&mut self) -> Queues;
     fn stats(&mut self) -> Option<&mut Stats>;
     fn recorder(&mut self) -> &mut Recorder;
     fn is_replay(&self) -> bool;
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct Queues {
+    pub events: usize,
+    pub snark_block_verify: usize,
+    pub ledger: usize,
+    pub vrf_evaluator: Option<usize>,
+    pub block_prover: Option<usize>,
+    pub p2p_webrtc: usize,
+    #[cfg(feature = "p2p-libp2p")]
+    pub p2p_libp2p: usize,
+    pub rpc: usize,
 }

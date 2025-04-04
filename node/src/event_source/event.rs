@@ -51,6 +51,8 @@ impl std::fmt::Display for Event {
                     RpcRequest::SnarkPoolJobGet { job_id } => {
                         write!(f, "SnarkPoolJobGet, {job_id}")
                     }
+                    RpcRequest::SnarkPoolCompletedJobsGet => write!(f, "SnarkPoolCompletedJobsGet"),
+                    RpcRequest::SnarkPoolPendingJobsGet => write!(f, "SnarkPoolPendingJobsGet"),
                     RpcRequest::SnarkerConfig => write!(f, "SnarkerConfig"),
                     RpcRequest::SnarkerJobCommit { job_id } => {
                         write!(f, "SnarkerJobCommit, {job_id}")
@@ -72,6 +74,15 @@ impl std::fmt::Display for Event {
                     RpcRequest::BestChain(..) => write!(f, "BestChain"),
                     RpcRequest::ConsensusConstantsGet => write!(f, "ConsensusConstantsGet"),
                     RpcRequest::TransactionStatusGet(..) => write!(f, "TransactionStatusGet"),
+                    RpcRequest::GetBlock(..) => write!(f, "GetBlock"),
+                    RpcRequest::PooledUserCommands(..) => write!(f, "PooledUserCommands"),
+                    RpcRequest::PooledZkappCommands(..) => write!(f, "PooledZkappCommands"),
+                    RpcRequest::GenesisBlockGet => write!(f, "GenesisBlock"),
+                    RpcRequest::ConsensusTimeGet(..) => write!(f, "ConsensusTimeGet"),
+                    RpcRequest::LedgerStatusGet(..) => write!(f, "LedgerStatusGet"),
+                    RpcRequest::LedgerAccountDelegatorsGet(..) => {
+                        write!(f, "LedgerAccountDelegatorsGet")
+                    }
                 }
             }
             Self::ExternalSnarkWorker(event) => {

@@ -11,6 +11,10 @@
 }
 
 .row-wrap {
+  &.whale {
+    opacity: 0.3;
+  }
+
   &.head {
     max-width: unset;
     height: 56px;
@@ -36,13 +40,20 @@
   font-size: 16px;
 
   @media (max-width: 480px) {
-    grid-template-columns: 48% 24% 1fr;
+    grid-template-columns: 43% 28% 1fr;
+  }
+
+  @media (max-width: 676px) {
+    grid-template-columns: 43% 28% 1fr;
   }
 
   span {
     color: $black;
 
     &:not(.mina-icon) {
+      @media (max-width: 676px) {
+        font-size: 2.5vw;
+      }
       @media (max-width: 480px) {
         font-size: 3vw;
       }
@@ -50,18 +61,31 @@
   }
 
   .circle {
-    color: $black4;
-  }
+    &.blue {
+      color: $mina-brand-cyan;
+    }
 
-  .perc {
-    width: 37px;
-    @media (max-width: 480px) {
-      width: 26px;
+    &.purple {
+      color: $mina-access-primary;
+    }
+
+    &.dark-red {
+      color: $mina-brand-orchid;
     }
   }
 
-  .circle.active {
-    color: $mina-brand-cyan;
+  .cursor-default {
+    cursor: default;
+  }
+
+  .perc {
+    width: 58px;
+    @media (max-width: 676px) {
+      width: 55px;
+    }
+    @media (max-width: 480px) {
+      width: 48px;
+    }
   }
 }
 

@@ -10,9 +10,6 @@ export default {
     features: {
       'dashboard': [],
       'block-production': ['won-slots'],
-      'mempool': [],
-      'benchmarks': ['wallets'],
-      'state': ['actions'],
     },
     firebase: {
       'projectId': 'openminawebnode',

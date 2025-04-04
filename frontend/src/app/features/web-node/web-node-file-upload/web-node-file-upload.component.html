@@ -9,7 +9,7 @@
     </div>
     @if (!validFiles) {
       @if (!error) {
-        <div class="upload-container mb-8 bg-surface border-rad-6 fx-row-vert-cent flex-between pr-12">
+        <div class="upload-container mb-8 bg-surface border-rad-6 fx-row-vert-cent flex-between pr-5">
           <div class="fx-row-vert-cent">
             <svg xmlns="http://www.w3.org/2000/svg" width="49" height="49" viewBox="0 0 49 49" fill="none">
               <mask id="mask0_777_21854" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="12" y="12" width="25" height="25">
@@ -22,7 +22,7 @@
             </svg>
             <i class="tertiary">Select configuration file (.zip)</i>
           </div>
-          <button class="whitey fx-row-full-cent p-relative" (click)="fileInput.click()">
+          <button class="whitey pr-12 pl-8 h-lg border-rad-8 fx-row-full-cent p-relative" (click)="fileInput.click()">
             <span class="mina-icon icon-300">upload</span>
             <span class="lh-sm">Upload</span>
           </button>
@@ -31,7 +31,7 @@
                  (change)="onFileSelected($event)"
                  accept=".zip">
         </div>
-        <div class="tertiary">Upload webnode-account-XY.zip we sent you</div>
+        <div class="primary">Upload webnode-account-XY.zip we sent you</div>
       } @else {
         <div class="upload-container warn-primary bg-warn-container mb-8 bg-surface border-rad-6 fx-row-vert-cent flex-between pl-12 pr-12"
              [@messageChange]>
@@ -68,18 +68,19 @@
     }
     <div class="buttons-container fx-row-vert-cent flex-between">
       <div class="develop-buttons fx-row-vert-cent">
-        <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
-                [tooltip]="'Start a develop Block Producer Web Node'"
-                (click)="onStartDevelopWebnode()">Start BP
-        </button>
-        <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
-                [tooltip]="'Start a develop Web Node without Block Producer feature'"
-                (click)="onStartDevelopWebnodeNonBP()">Start Non BP
-        </button>
+        @if (!isLeaderboard) {
+          <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
+                  [tooltip]="'Start a develop Block Producer Web Node'"
+                  (click)="onStartDevelopWebnode()">Start BP
+          </button>
+          <button class="btn-aware h-lg border-rad-8 f-500 pl-12 pr-12"
+                  [tooltip]="'Start a develop Web Node without Block Producer feature'"
+                  (click)="onStartDevelopWebnodeNonBP()">Start Non BP
+          </button>
+        }
       </div>
       <button class="whitey h-lg border-rad-8 f-500 pl-12 pr-12"
               (click)="startCustomWebNode()"
-              [tooltip]="'Start a Block Producer Web Node with your own keys'"
               [class.disabled]="!validFiles">Start Web Node
       </button>
     </div>

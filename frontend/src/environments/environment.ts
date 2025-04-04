@@ -4,7 +4,10 @@ export const environment: Readonly<MinaEnv> = {
   production: false,
   identifier: 'Dev FE',
   canAddNodes: true,
-  showWebNodeLandingPage: true,
+  showWebNodeLandingPage: false,
+  showLeaderboard: false,
+  hidePeersPill: true,
+  hideTxPill: true,
   globalConfig: {
     features: {
       dashboard: [],
@@ -27,6 +30,7 @@ export const environment: Readonly<MinaEnv> = {
       appId: '1:1016673359357:web:bbd2cbf3f031756aec7594',
       measurementId: 'G-ENDBL923XT',
     },
+    heartbeats: true,
     graphQL: 'https://adonagy.com/graphql',
     // graphQL: 'https://api.minascan.io/node/devnet/v1/graphql',
     // graphQL: 'http://65.109.105.40:5000/graphql',
@@ -48,14 +52,14 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'Producer-2',
     //   url: 'https://staging-devnet-openmina-bp-2-dashboard.minaprotocol.network',
     // },
-    // {
-    //   name: 'staging-devnet-bp-0',
-    //   url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
-    // },
-    // {
-    //   name: 'staging-devnet-bp-1',
-    //   url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
-    // },
+    {
+      name: 'staging-devnet-bp-0',
+      url: 'https://staging-devnet-openmina-bp-0.minaprotocol.network',
+    },
+    {
+      name: 'staging-devnet-bp-1',
+      url: 'https://staging-devnet-openmina-bp-1.minaprotocol.network',
+    },
     // {
     //   name: 'staging-devnet-bp-2',
     //   url: 'https://staging-devnet-openmina-bp-2.minaprotocol.network',
@@ -64,10 +68,10 @@ export const environment: Readonly<MinaEnv> = {
     //   name: 'staging-devnet-bp-3',
     //   url: 'https://staging-devnet-openmina-bp-3.minaprotocol.network',
     // },
-    {
-      name: 'Web Node 1',
-      isWebNode: true,
-    },
+    // {
+    //   name: 'Web Node 1',
+    //   isWebNode: true,
+    // },
     // {
     //   name: 'http://65.109.105.40:3000',
     //   url: 'http://65.109.105.40:3000',
@@ -87,46 +91,41 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
-    {
-      name: 'Docker 11010',
-      url: 'http://localhost:11010',
-    },
-    {
-      name: 'Docker 11012',
-      url: 'http://localhost:11012',
-    },
-    {
-      name: 'Docker 11014',
-      url: 'http://localhost:11014',
-    },
+    // {
+    //   name: 'Docker 11010',
+    //   url: 'http://localhost:11010',
+    // },
+    // {
+    //   name: 'Docker 11012',
+    //   url: 'http://localhost:11012',
+    // },
+    // {
+    //   name: 'Docker 11014',
+    //   url: 'http://localhost:11014',
+    // },
     // {
     //   name: 'Producer',
     //   url: 'http://65.109.105.40:3000',
-    //   minaExplorerNetwork: 'devnet',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
     // {
     //   name: 'http://65.109.110.75:3000',
     //   url: 'http://65.109.110.75:3000',
-    //   minaExplorerNetwork: 'devnet',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
     // {
     //   name: 'http://65.109.110.75:11010',
     //   url: 'http://65.109.110.75:11010',
-    //   minaExplorerNetwork: 'devnet',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
     // {
     //   name: 'http://65.109.110.75:11012',
     //   url: 'http://65.109.110.75:11012',
-    //   minaExplorerNetwork: 'devnet',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
     // {
     //   name: 'http://65.109.110.75:11014',
     //   url: 'http://65.109.110.75:11014',
-    //   minaExplorerNetwork: 'devnet',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
     // {

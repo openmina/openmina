@@ -19,7 +19,7 @@ use tokio::task::spawn_local;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 
-use openmina_core::channels::{broadcast, mpsc, oneshot};
+use openmina_core::channels::{mpsc, oneshot, Aborted, Aborter};
 
 use crate::identity::{EncryptableType, PublicKey};
 use crate::webrtc::{ConnectionAuth, ConnectionAuthEncrypted};
@@ -33,22 +33,22 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-rs"))]
 mod imports {
     pub use super::webrtc_rs::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp"))]
 mod imports {
     pub use super::webrtc_cpp::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 #[cfg(target_arch = "wasm32")]
 mod imports {
     pub use super::web::{
-        build_api, webrtc_signal_send, Api, RTCChannel, RTCConnection, RTCConnectionState,
-        RTCSignalingError,
+        build_api, certificate_from_pem_key, webrtc_signal_send, Api, RTCCertificate, RTCChannel,
+        RTCConnection, RTCConnectionState, RTCSignalingError,
     };
 }
 
@@ -61,10 +61,7 @@ use super::TaskSpawner;
 const CHUNK_SIZE: usize = 16 * 1024;
 
 pub enum Cmd {
-    PeerAdd {
-        args: PeerAddArgs,
-        abort: broadcast::Receiver<()>,
-    },
+    PeerAdd { args: PeerAddArgs, aborted: Aborted },
 }
 
 #[derive(Debug)]
@@ -87,7 +84,7 @@ enum PeerCmdAll {
 }
 
 pub struct P2pServiceCtx {
-    pub cmd_sender: mpsc::UnboundedSender<Cmd>,
+    pub cmd_sender: mpsc::TrackedUnboundedSender<Cmd>,
     pub peers: BTreeMap<PeerId, PeerState>,
 }
 
@@ -95,7 +92,7 @@ pub struct PeerAddArgs {
     peer_id: PeerId,
     kind: PeerConnectionKind,
     event_sender: Arc<dyn Fn(P2pEvent) -> Option<()> + Send + Sync + 'static>,
-    cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
+    cmd_receiver: mpsc::TrackedUnboundedReceiver<PeerCmd>,
 }
 
 pub enum PeerConnectionKind {
@@ -104,8 +101,8 @@ pub enum PeerConnectionKind {
 }
 
 pub struct PeerState {
-    pub cmd_sender: mpsc::UnboundedSender<PeerCmd>,
-    pub abort: broadcast::Sender<()>,
+    pub cmd_sender: mpsc::TrackedUnboundedSender<PeerCmd>,
+    pub abort: Aborter,
 }
 
 #[derive(thiserror::Error, derive_more::From, Debug)]
@@ -143,7 +140,8 @@ pub type OnConnectionStateChangeHdlrFn = Box<
 
 pub struct RTCConfig {
     pub ice_servers: RTCConfigIceServers,
-    // TODO(binier): certificate
+    pub certificate: RTCCertificate,
+    pub seed: [u8; 32],
 }
 
 #[derive(Serialize)]
@@ -229,8 +227,10 @@ async fn wait_for_ice_gathering_complete(pc: &mut RTCConnection) {
 async fn peer_start(
     api: Api,
     args: PeerAddArgs,
-    abort: broadcast::Receiver<()>,
-    closed: broadcast::Sender<()>,
+    abort: Aborted,
+    closed: mpsc::Sender<()>,
+    certificate: RTCCertificate,
+    rng_seed: [u8; 32],
 ) {
     let PeerAddArgs {
         peer_id,
@@ -242,6 +242,8 @@ async fn peer_start(
 
     let config = RTCConfig {
         ice_servers: Default::default(),
+        certificate,
+        seed: rng_seed,
     };
     let fut = async {
         let mut pc = RTCConnection::create(&api, config).await?;
@@ -290,14 +292,14 @@ async fn peer_start(
             let sdp = pc.local_sdp().await.unwrap();
             event_sender(P2pConnectionEvent::OfferSdpReady(peer_id, Ok(sdp)).into())
                 .ok_or(Error::ChannelClosed)?;
-            match cmd_receiver.recv().await.ok_or(Error::ChannelClosed)? {
+            match cmd_receiver.recv().await.ok_or(Error::ChannelClosed)?.0 {
                 PeerCmd::PeerHttpOfferSend(url, offer) => {
                     let answer = webrtc_signal_send(&url, offer).await?;
                     event_sender(P2pConnectionEvent::AnswerReceived(peer_id, answer).into())
                         .ok_or(Error::ChannelClosed)?;
 
                     if let PeerCmd::AnswerSet(v) =
-                        cmd_receiver.recv().await.ok_or(Error::ChannelClosed)?
+                        cmd_receiver.recv().await.ok_or(Error::ChannelClosed)?.0
                     {
                         return Ok(v);
                     }
@@ -353,7 +355,7 @@ async fn peer_start(
                     if let Some(connected_tx) = connected_tx.take() {
                         let _ = connected_tx.send(Err("disconnected"));
                     } else {
-                        let _ = closed.send(());
+                        let _ = closed.try_send(());
                     }
                 }
                 _ => {}
@@ -386,13 +388,16 @@ async fn peer_start(
         #[cfg(not(all(not(target_arch = "wasm32"), feature = "p2p-webrtc-cpp")))]
         std::future::ready(())
     });
-    match cmd_receiver.recv().await {
+    let msg = match cmd_receiver.recv().await {
         None => return,
-        Some(PeerCmd::ConnectionAuthorizationSend(None)) => {
+        Some(msg) => msg,
+    };
+    match msg.0 {
+        PeerCmd::ConnectionAuthorizationSend(None) => {
             // eprintln!("PeerCmd::ConnectionAuthorizationSend(None)");
             return;
         }
-        Some(PeerCmd::ConnectionAuthorizationSend(Some(auth))) => {
+        PeerCmd::ConnectionAuthorizationSend(Some(auth)) => {
             let _ = main_channel_open.await;
 
             // Add a delay for sending messages after channel
@@ -413,7 +418,7 @@ async fn peer_start(
                 return;
             }
         }
-        Some(cmd) => {
+        cmd => {
             bug_condition!("unexpected peer cmd! Expected `PeerCmd::ConnectionAuthorizationSend`. received: {cmd:?}");
             return;
         }
@@ -426,8 +431,10 @@ async fn peer_start(
 
 struct Channel {
     id: ChannelId,
-    msg_sender: mpsc::UnboundedSender<(MsgId, Vec<u8>)>,
+    msg_sender: ChannelMsgSender,
 }
+
+type ChannelMsgSender = mpsc::UnboundedSender<(MsgId, Vec<u8>, Option<mpsc::Tracker>)>;
 
 struct MsgBuffer {
     buf: Vec<u8>,
@@ -463,11 +470,11 @@ impl Channels {
         }
     }
 
-    fn get_msg_sender(&self, id: ChannelId) -> Option<&mpsc::UnboundedSender<(MsgId, Vec<u8>)>> {
+    fn get_msg_sender(&self, id: ChannelId) -> Option<&ChannelMsgSender> {
         self.list.iter().find(|c| c.id == id).map(|c| &c.msg_sender)
     }
 
-    fn add(&mut self, id: ChannelId, msg_sender: mpsc::UnboundedSender<(MsgId, Vec<u8>)>) {
+    fn add(&mut self, id: ChannelId, msg_sender: ChannelMsgSender) {
         self.list.push(Channel { id, msg_sender });
     }
 
@@ -487,9 +494,9 @@ impl Channels {
 async fn peer_loop(
     peer_id: PeerId,
     event_sender: Arc<dyn Fn(P2pEvent) -> Option<()> + Send + Sync + 'static>,
-    mut cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
+    mut cmd_receiver: mpsc::TrackedUnboundedReceiver<PeerCmd>,
     mut pc: RTCConnection,
-    abort: broadcast::Receiver<()>,
+    aborted: Aborted,
 ) {
     // TODO(binier): maybe use small_vec (stack allocated) or something like that.
     let mut channels = Channels::new();
@@ -499,14 +506,14 @@ async fn peer_loop(
         mpsc::unbounded_channel::<PeerCmdInternal>();
 
     while matches!(pc.connection_state(), RTCConnectionState::Connected) {
-        let cmd = tokio::select! {
+        let (cmd, _tracker) = tokio::select! {
             cmd = cmd_receiver.recv() => match cmd {
                 None => return,
-                Some(cmd) => PeerCmdAll::External(cmd),
+                Some(cmd) => (PeerCmdAll::External(cmd.0), Some(cmd.1)),
             },
             cmd = internal_cmd_receiver.recv() => match cmd {
                 None => return,
-                Some(cmd) => PeerCmdAll::Internal(cmd),
+                Some(cmd) => (PeerCmdAll::Internal(cmd), None),
             },
         };
         match cmd {
@@ -566,10 +573,10 @@ async fn peer_loop(
                     let _ =
                         internal_cmd_sender.send(PeerCmdInternal::ChannelOpened(id, result.await));
                 };
-                let mut aborted = abort.resubscribe();
+                let mut aborted = aborted.clone();
                 spawn_local(async move {
                     tokio::select! {
-                        _ = aborted.recv() => {}
+                        _ = aborted.wait() => {}
                         _ = fut => {}
                     }
                 });
@@ -578,7 +585,7 @@ async fn peer_loop(
                 let id = msg.channel_id();
                 let err = match channels.get_msg_sender(id) {
                     Some(msg_sender) => match msg_buf.encode(&msg) {
-                        Ok(encoded) => match msg_sender.send((msg_id, encoded)) {
+                        Ok(encoded) => match msg_sender.send((msg_id, encoded, _tracker)) {
                             Ok(_) => None,
                             Err(_) => Some("ChannelMsgMpscSendFailed".to_owned()),
                         },
@@ -671,7 +678,7 @@ async fn peer_loop(
                         // TODO(binier): find deeper cause and fix it.
                         sleep(Duration::from_secs(3)).await;
 
-                        while let Some((msg_id, encoded)) = sender_rx.recv().await {
+                        while let Some((msg_id, encoded, _tracker)) = sender_rx.recv().await {
                             let encoded = bytes::Bytes::from(encoded);
                             let mut chunks =
                                 encoded.chunks(CHUNK_SIZE).map(|b| encoded.slice_ref(b));
@@ -698,10 +705,10 @@ async fn peer_loop(
                         }
                     };
 
-                    let mut aborted = abort.resubscribe();
+                    let mut aborted = aborted.clone();
                     spawn_local(async move {
                         tokio::select! {
-                            _ = aborted.recv() => {}
+                            _ = aborted.wait() => {}
                             _ = fut => {}
                         }
                     });
@@ -727,35 +734,40 @@ pub trait P2pServiceWebrtc: redux::Service {
 
     fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event>;
 
-    fn cmd_sender(&self) -> &mpsc::UnboundedSender<Cmd>;
+    fn cmd_sender(&self) -> &mpsc::TrackedUnboundedSender<Cmd>;
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 
-    fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(
+        secret_key: SecretKey,
+        spawner: S,
+        rng_seed: [u8; 32],
+    ) -> P2pServiceCtx {
         const MAX_PEERS: usize = 500;
-        let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
+        let (cmd_sender, mut cmd_receiver) = mpsc::tracked_unbounded_channel();
 
-        let _ = secret_key;
+        let certificate = certificate_from_pem_key(secret_key.to_pem().as_str());
 
         spawner.spawn_main("webrtc", async move {
             #[allow(clippy::all)]
             let api = build_api();
             let conn_permits = Arc::new(Semaphore::const_new(MAX_PEERS));
             while let Some(cmd) = cmd_receiver.recv().await {
-                match cmd {
-                    Cmd::PeerAdd { args, mut abort } => {
+                match cmd.0 {
+                    Cmd::PeerAdd { args, aborted } => {
                         #[allow(clippy::all)]
                         let api = api.clone();
                         let conn_permits = conn_permits.clone();
                         let peer_id = args.peer_id;
                         let event_sender = args.event_sender.clone();
+                        let certificate = certificate.clone();
                         spawn_local(async move {
                             let Ok(_permit) = conn_permits.try_acquire() else {
                                 // state machine shouldn't allow this to happen.
                                 bug_condition!("P2P WebRTC Semaphore acquisition failed!");
                                 return;
                             };
-                            let (closed_tx, mut closed) = broadcast::channel(1);
+                            let (closed_tx, mut closed) = mpsc::channel(1);
                             let event_sender_clone = event_sender.clone();
                             spawn_local(async move {
                                 // to avoid sending closed multiple times
@@ -763,14 +775,14 @@ pub trait P2pServiceWebrtc: redux::Service {
                                 event_sender_clone(P2pConnectionEvent::Closed(peer_id).into());
                             });
                             tokio::select! {
-                                _ = peer_start(api, args, abort.resubscribe(), closed_tx.clone()) => {}
-                                _ = abort.recv() => {
+                                _ = peer_start(api, args, aborted.clone(), closed_tx.clone(), certificate, rng_seed) => {}
+                                _ = aborted.wait() => {
                                 }
                             }
 
                             // delay dropping permit to give some time for cleanup.
                             sleep(Duration::from_millis(100)).await;
-                            let _ = closed_tx.send(());
+                            let _ = closed_tx.send(()).await;
                         });
                     }
                 }
@@ -784,75 +796,80 @@ pub trait P2pServiceWebrtc: redux::Service {
     }
 
     fn outgoing_init(&mut self, peer_id: PeerId) {
-        let (peer_cmd_sender, peer_cmd_receiver) = mpsc::unbounded_channel();
-        let (abort_sender, abort_receiver) = broadcast::channel(1);
+        let (peer_cmd_sender, peer_cmd_receiver) = mpsc::tracked_unbounded_channel();
+        let aborter = Aborter::default();
+        let aborted = aborter.aborted();
 
         self.peers().insert(
             peer_id,
             PeerState {
                 cmd_sender: peer_cmd_sender,
-                abort: abort_sender,
+                abort: aborter,
             },
         );
         let event_sender = self.event_sender().clone();
         let event_sender =
             Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
-        let _ = self.cmd_sender().send(Cmd::PeerAdd {
+        let _ = self.cmd_sender().tracked_send(Cmd::PeerAdd {
             args: PeerAddArgs {
                 peer_id,
                 kind: PeerConnectionKind::Outgoing,
                 event_sender,
                 cmd_receiver: peer_cmd_receiver,
             },
-            abort: abort_receiver,
+            aborted,
         });
     }
 
     fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer) {
-        let (peer_cmd_sender, peer_cmd_receiver) = mpsc::unbounded_channel();
-        let (abort_sender, abort_receiver) = broadcast::channel(1);
+        let (peer_cmd_sender, peer_cmd_receiver) = mpsc::tracked_unbounded_channel();
+        let aborter = Aborter::default();
+        let aborted = aborter.aborted();
 
         self.peers().insert(
             peer_id,
             PeerState {
                 cmd_sender: peer_cmd_sender,
-                abort: abort_sender,
+                abort: aborter,
             },
         );
         let event_sender = self.event_sender().clone();
         let event_sender =
             Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
-        let _ = self.cmd_sender().send(Cmd::PeerAdd {
+        let _ = self.cmd_sender().tracked_send(Cmd::PeerAdd {
             args: PeerAddArgs {
                 peer_id,
                 kind: PeerConnectionKind::Incoming(Box::new(offer)),
                 event_sender,
                 cmd_receiver: peer_cmd_receiver,
             },
-            abort: abort_receiver,
+            aborted,
         });
     }
 
     fn set_answer(&mut self, peer_id: PeerId, answer: webrtc::Answer) {
         if let Some(peer) = self.peers().get(&peer_id) {
-            let _ = peer.cmd_sender.send(PeerCmd::AnswerSet(answer));
+            let _ = peer.cmd_sender.tracked_send(PeerCmd::AnswerSet(answer));
         }
     }
 
     fn http_signaling_request(&mut self, url: String, offer: webrtc::Offer) {
         if let Some(peer) = self.peers().get(&offer.target_peer_id) {
-            let _ = peer.cmd_sender.send(PeerCmd::PeerHttpOfferSend(url, offer));
+            let _ = peer
+                .cmd_sender
+                .tracked_send(PeerCmd::PeerHttpOfferSend(url, offer));
         }
     }
 
     fn disconnect(&mut self, peer_id: PeerId) -> bool {
+        // TODO(binier): improve
         // By removing the peer, `abort` gets dropped which will
         // cause `peer_loop` to end.
-        if let Some(peer) = self.peers().remove(&peer_id) {
-            if peer.abort.receiver_count() > 0 {
-                // peer disconnection not yet finished
-                return false;
-            }
+        if let Some(_peer) = self.peers().remove(&peer_id) {
+            // if peer.abort.receiver_count() > 0 {
+            //     // peer disconnection not yet finished
+            //     return false;
+            // }
         } else {
             openmina_core::error!(openmina_core::log::system_time(); "`disconnect` shouldn't be used for libp2p peers");
         }
@@ -861,13 +878,15 @@ pub trait P2pServiceWebrtc: redux::Service {
 
     fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {
         if let Some(peer) = self.peers().get(&peer_id) {
-            let _ = peer.cmd_sender.send(PeerCmd::ChannelOpen(id));
+            let _ = peer.cmd_sender.tracked_send(PeerCmd::ChannelOpen(id));
         }
     }
 
     fn channel_send(&mut self, peer_id: PeerId, msg_id: MsgId, msg: ChannelMsg) {
         if let Some(peer) = self.peers().get(&peer_id) {
-            let _ = peer.cmd_sender.send(PeerCmd::ChannelSend(msg_id, msg));
+            let _ = peer
+                .cmd_sender
+                .tracked_send(PeerCmd::ChannelSend(msg_id, msg));
         }
     }
 
@@ -892,7 +911,7 @@ pub trait P2pServiceWebrtc: redux::Service {
         if let Some(peer) = self.peers().get(&peer_id) {
             let _ = peer
                 .cmd_sender
-                .send(PeerCmd::ConnectionAuthorizationSend(auth));
+                .tracked_send(PeerCmd::ConnectionAuthorizationSend(auth));
         }
     }
 
@@ -908,4 +927,14 @@ pub trait P2pServiceWebrtc: redux::Service {
         other_pub_key: &PublicKey,
         auth: ConnectionAuthEncrypted,
     ) -> Option<ConnectionAuth>;
+}
+
+impl P2pServiceCtx {
+    pub fn pending_cmds(&self) -> usize {
+        self.peers
+            .iter()
+            .fold(self.cmd_sender.len(), |acc, (_, peer)| {
+                acc + peer.cmd_sender.len()
+            })
+    }
 }

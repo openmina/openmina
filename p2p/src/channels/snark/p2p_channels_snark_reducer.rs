@@ -218,7 +218,21 @@ impl P2pChannelsSnarkState {
                 nonce,
                 is_local,
             } => {
-                let dispatcher = state_context.into_dispatcher();
+                let (dispatcher, state) = state_context.into_dispatcher_and_state();
+                let p2p_state: &P2pState = state.substate()?;
+                let pubsub_state = &p2p_state.network.scheduler.broadcast_state.mcache;
+
+                let message_id = crate::BroadcastMessageId::Snark {
+                    job_id: snark.job_id(),
+                };
+
+                if pubsub_state.contains_broadcast_id(&message_id) {
+                    dispatcher
+                        .push(P2pNetworkPubsubAction::BroadcastValidatedMessage { message_id });
+
+                    return Ok(());
+                };
+
                 let message = Box::new((snark.statement(), (&snark).into()));
                 let message = v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
                 let nonce = nonce.into();

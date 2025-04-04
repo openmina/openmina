@@ -17,6 +17,7 @@ use crate::{
     },
     verifier::{get_srs, get_srs_mut},
 };
+use anyhow::Context;
 use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, Radix2EvaluationDomain, UVPolynomial,
@@ -52,7 +53,7 @@ use super::{
         create_proof, make_group, messages_for_next_wrap_proof_padding,
         scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals,
         CreateProofParams, InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals,
-        ProofError, ProofWithPublic, Prover, ReducedMessagesForNextStepProof, StepStatement,
+        ProofWithPublic, Prover, ReducedMessagesForNextStepProof, StepStatement,
     },
     unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
     util::{extract_bulletproof, two_u64_to_field},
@@ -336,7 +337,6 @@ pub mod step_verifier {
             MakeScalarsEnvParams, PERMUTS_MINUS_1_ADD_N1,
         },
     };
-    use ark_ff::fields::arithmetic::InvalidBigInt;
     use itertools::Itertools;
     use kimchi::circuits::wires::PERMUTS;
     use poly_commitment::{srs::SRS, PolyComm};
@@ -532,7 +532,7 @@ pub mod step_verifier {
     pub(super) fn finalize_other_proof(
         params: FinalizeOtherProofParams,
         w: &mut Witness<Fp>,
-    ) -> Result<(Boolean, Vec<Fp>), InvalidBigInt> {
+    ) -> anyhow::Result<(Boolean, Vec<Fp>)> {
         let FinalizeOtherProofParams {
             max_proof_verified,
             feature_flags: _,
@@ -1387,7 +1387,7 @@ pub mod step_verifier {
     fn check_bulletproof(
         params: CheckBulletProofParams,
         w: &mut Witness<Fp>,
-    ) -> Result<(Boolean, Vec<Fp>), InvalidBigInt> {
+    ) -> anyhow::Result<(Boolean, Vec<Fp>)> {
         let CheckBulletProofParams {
             pcs_batch: _,
             mut sponge,
@@ -1550,7 +1550,7 @@ pub mod step_verifier {
     fn incrementally_verify_proof(
         params: IncrementallyVerifyProofParams,
         w: &mut Witness<Fp>,
-    ) -> Result<(Fp, (Boolean, Vec<Fp>)), InvalidBigInt> {
+    ) -> anyhow::Result<(Fp, (Boolean, Vec<Fp>))> {
         let IncrementallyVerifyProofParams {
             proofs_verified: _,
             srs,
@@ -1707,10 +1707,7 @@ pub mod step_verifier {
         pub(super) unfinalized: &'a Unfinalized,
     }
 
-    pub(super) fn verify(
-        params: VerifyParams,
-        w: &mut Witness<Fp>,
-    ) -> Result<Boolean, InvalidBigInt> {
+    pub(super) fn verify(params: VerifyParams, w: &mut Witness<Fp>) -> anyhow::Result<Boolean> {
         let VerifyParams {
             srs,
             feature_flags: _,
@@ -1800,10 +1797,7 @@ struct VerifyOneParams<'a> {
     should_verify: CircuitVar<Boolean>,
 }
 
-fn verify_one(
-    params: VerifyOneParams,
-    w: &mut Witness<Fp>,
-) -> Result<(Vec<Fp>, Boolean), InvalidBigInt> {
+fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> anyhow::Result<(Vec<Fp>, Boolean)> {
     let VerifyOneParams {
         srs,
         proof,
@@ -1931,7 +1925,7 @@ pub struct ExpandDeferredParams<'a> {
     pub zk_rows: u64,
 }
 
-pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp>, InvalidBigInt> {
+pub fn expand_deferred(params: ExpandDeferredParams) -> anyhow::Result<DeferredValues<Fp>> {
     let ExpandDeferredParams {
         evals,
         old_bulletproof_challenges,
@@ -1948,8 +1942,15 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> Result<DeferredValues<Fp
     let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
     let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
     let step_domain: u8 = proof_state.deferred_values.branch_data.domain_log2.as_u8();
-    let domain: Radix2EvaluationDomain<Fp> =
-        Radix2EvaluationDomain::new(1 << step_domain as u64).unwrap();
+
+    let Some(num_coeffs) = 1u64.checked_shl(step_domain as u32) else {
+        return Err(InvalidBigInt)?;
+    };
+
+    let Some(domain) = Radix2EvaluationDomain::<Fp>::new(num_coeffs as usize) else {
+        return Err(InvalidBigInt)?;
+    };
+
     let zetaw = zeta * domain.group_gen;
 
     let plonk_minimal = PlonkMinimal::<Fp, 4> {
@@ -2116,7 +2117,7 @@ struct ExpandProofParams<'a> {
     zk_rows: u64,
 }
 
-fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigInt> {
+fn expand_proof(params: ExpandProofParams) -> anyhow::Result<ExpandedProof> {
     let ExpandProofParams {
         dlog_vk,
         dlog_plonk_index,
@@ -2226,7 +2227,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
                     y.to_field()?,
                 )))
             })
-            .collect::<Result<_, _>>()?,
+            .collect::<Result<_, InvalidBigInt>>()?,
         old_bulletproof_challenges: old_bulletproof_challenges.clone(),
     }
     .hash();
@@ -2372,7 +2373,7 @@ fn expand_proof(params: ExpandProofParams) -> Result<ExpandedProof, InvalidBigIn
                 .challenge_polynomial_commitments
                 .iter()
                 .map(|(x, y)| Ok(make_group::<Fp>(x.to_field()?, y.to_field()?)))
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, InvalidBigInt>>()?;
 
             while challenge_polynomial_commitments.len() < 2 {
                 challenge_polynomial_commitments.insert(0, dummy_ipa_wrap_sg());
@@ -2645,17 +2646,18 @@ impl Check<Fp> for PerProofWitness {
 
 pub fn extract_recursion_challenges<const N: usize>(
     proofs: &[&v2::PicklesProofProofsVerified2ReprStableV2; N],
-) -> Result<Vec<RecursionChallenge<GroupAffine<Fq>>>, InvalidBigInt> {
+) -> anyhow::Result<Vec<RecursionChallenge<GroupAffine<Fq>>>> {
     use poly_commitment::PolyComm;
 
-    let comms: [(Fq, Fq); N] = crate::try_array_into_with(proofs, |proof| {
-        let (a, b) = &proof
-            .statement
-            .proof_state
-            .messages_for_next_wrap_proof
-            .challenge_polynomial_commitment;
-        Ok((a.to_field::<Fq>()?, b.to_field::<Fq>()?))
-    })?;
+    let comms: [(Fq, Fq); N] =
+        crate::try_array_into_with(proofs, |proof| -> Result<_, InvalidBigInt> {
+            let (a, b) = &proof
+                .statement
+                .proof_state
+                .messages_for_next_wrap_proof
+                .challenge_polynomial_commitment;
+            Ok((a.to_field::<Fq>()?, b.to_field::<Fq>()?))
+        })?;
 
     let challs = proofs
         .iter()
@@ -2713,7 +2715,7 @@ pub struct StepProof {
 pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
-) -> Result<StepProof, ProofError> {
+) -> anyhow::Result<StepProof> {
     let StepParams {
         app_state,
         rule,
@@ -2752,7 +2754,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 zk_rows: data.zk_rows,
             })
         })
-        .collect::<Result<Vec<_>, _>>()?
+        .collect::<Result<Vec<_>, _>>()
+        .context("expand_proof")?
         .try_into()
         .unwrap();
 
@@ -2847,7 +2850,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 Ok(chals.try_into().unwrap()) // Never fail, we know it's 16
             },
         )
-        .collect::<Result<Vec<[Fp; 16]>, InvalidBigInt>>()?;
+        .collect::<Result<Vec<[Fp; 16]>, anyhow::Error>>()
+        .context("verify_one")?;
 
     std::mem::drop(srs);
 
@@ -2890,7 +2894,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
             only_verify_constraints,
         },
         w,
-    )?;
+    )
+    .context("create_proof")?;
 
     let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; N_PREVIOUS] = rule
         .previous_proof_statements
@@ -2913,7 +2918,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 },
             })
         })
-        .collect::<Result<Vec<_>, InvalidBigInt>>()?;
+        .collect::<anyhow::Result<Vec<_>>>()
+        .context("prev_evals")?;
 
     let challenge_polynomial_commitments = expanded_proofs
         .iter()
@@ -2933,7 +2939,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 messages_for_next_wrap_proof,
             ))
         })
-        .collect::<Result<Vec<_>, InvalidBigInt>>()? // TODO: Refactor when `try_unzip` is stable
+        .collect::<Result<Vec<_>, InvalidBigInt>>() // TODO: Refactor when `try_unzip` is stable
+        .context("unzip proof state")?
         .into_iter()
         .unzip();
 

@@ -48,7 +48,7 @@ use super::{
     step::{step_verifier::PlonkDomain, FeatureFlags},
     to_field_elements::{ToFieldElements, ToFieldElementsDebug},
     transaction::{
-        plonk_curve_ops::scale_fast, Check, PlonkVerificationKeyEvals, ProofError, Prover,
+        plonk_curve_ops::scale_fast, Check, PlonkVerificationKeyEvals, Prover,
         ReducedMessagesForNextStepProof, StepProofState, StepStatement,
     },
     unfinalized::{AllEvals, EvalsWithPublicInput},
@@ -540,7 +540,7 @@ fn exists_prev_statement(
     step_statement: &StepStatement,
     messages_for_next_step_proof_hash: [u64; 4],
     w: &mut Witness<Fq>,
-) -> Result<(), InvalidBigInt> {
+) -> anyhow::Result<()> {
     for unfinalized in &step_statement.proof_state.unfinalized_proofs {
         w.exists_no_check(unfinalized);
     }
@@ -593,7 +593,7 @@ pub struct WrapParams<'a> {
 pub fn wrap<C: ProofConstants + ForWrapData>(
     params: WrapParams,
     w: &mut Witness<Fq>,
-) -> Result<WrapProof, ProofError> {
+) -> anyhow::Result<WrapProof> {
     use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
 
     let WrapParams {
@@ -2653,7 +2653,7 @@ fn pack_statement(
     statement: &StepStatementWithHash,
     messages_for_next_step_proof_hash: &[u64; 4],
     w: &mut Witness<Fq>,
-) -> Result<Vec<Packed<Boolean>>, InvalidBigInt> {
+) -> anyhow::Result<Vec<Packed<Boolean>>> {
     let StepStatementWithHash {
         proof_state:
             StepProofState {
@@ -2788,7 +2788,7 @@ struct WrapMainParams<'a> {
     step_prover_index: &'a ProverIndex<Fp>,
 }
 
-fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) -> Result<(), InvalidBigInt> {
+fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) -> anyhow::Result<()> {
     let WrapMainParams {
         step_statement,
         next_statement,

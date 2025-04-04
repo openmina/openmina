@@ -4,7 +4,7 @@ use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcId};
 use p2p::{P2pNetworkPubsubAction, PeerId};
 use redux::ActionMeta;
 
-use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
+use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest, LedgersToKeep};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
 use crate::{p2p_ready, Service, Store, TransitionFrontierAction};
@@ -324,10 +324,7 @@ impl TransitionFrontierSyncAction {
                 }
             }
             TransitionFrontierSyncAction::BlocksSendToArchive { data, .. } => {
-                // Should be safe to unwrap because archive mode contains the necessary data, and this action is only called in archive mode
-                if let Ok(data) = data.try_into() {
-                    store.service().send_to_archive(data);
-                }
+                store.service().send_to_archive(data.clone());
             }
             TransitionFrontierSyncAction::BlocksSuccess => {}
             // Bootstrap/Catchup is practically complete at this point.
@@ -354,16 +351,8 @@ impl TransitionFrontierSyncAction {
                 };
                 let ledgers_to_keep = chain
                     .iter()
-                    .flat_map(|b| {
-                        [
-                            b.snarked_ledger_hash(),
-                            b.merkle_root_hash(),
-                            b.staking_epoch_ledger_hash(),
-                            b.next_epoch_ledger_hash(),
-                        ]
-                    })
-                    .cloned()
-                    .collect();
+                    .map(|block| &block.block)
+                    .collect::<LedgersToKeep>();
                 let mut root_snarked_ledger_updates = root_snarked_ledger_updates.clone();
                 if transition_frontier
                     .best_chain

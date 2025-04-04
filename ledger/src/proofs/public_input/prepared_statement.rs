@@ -1,4 +1,4 @@
-use ark_ff::{fields::arithmetic::InvalidBigInt, BigInteger256, Zero};
+use ark_ff::{BigInteger256, Zero};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
@@ -51,7 +51,7 @@ pub struct PreparedStatement {
 impl PreparedStatement {
     /// Implementation of `tock_unpadded_public_input_of_statement`
     /// https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/common.ml#L202
-    pub fn to_public_input(&self, npublic_input: usize) -> Result<Vec<Fq>, InvalidBigInt> {
+    pub fn to_public_input(&self, npublic_input: usize) -> anyhow::Result<Vec<Fq>> {
         let PreparedStatement {
             proof_state:
                 ProofState {
@@ -172,7 +172,7 @@ impl PreparedStatement {
         uses_lookup.to_field_elements(&mut fields);
 
         if uses_lookup {
-            fields.push(lookup_value.unwrap());
+            fields.push(lookup_value.unwrap_or(Fq::zero()));
         } else {
             fields.push(Fq::zero());
         }
@@ -186,7 +186,7 @@ impl PreparedStatement {
         &self,
         hack_feature_flags: OptFlag,
         npublic_input: usize,
-    ) -> Result<Vec<Packed>, InvalidBigInt> {
+    ) -> anyhow::Result<Vec<Packed>> {
         let PreparedStatement {
             proof_state:
                 ProofState {

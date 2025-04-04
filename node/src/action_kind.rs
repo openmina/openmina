@@ -470,17 +470,26 @@ pub enum ActionKind {
     P2pPeerRemove,
     RpcActionStatsGet,
     RpcBestChain,
+    RpcBlockGet,
     RpcBlockProducerStatsGet,
     RpcConsensusConstantsGet,
+    RpcConsensusTimeGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
+    RpcGenesisBlock,
     RpcGlobalStateGet,
     RpcHealthCheck,
     RpcHeartbeatGet,
+    RpcLedgerAccountDelegatorsGetInit,
+    RpcLedgerAccountDelegatorsGetPending,
+    RpcLedgerAccountDelegatorsGetSuccess,
     RpcLedgerAccountsGetInit,
     RpcLedgerAccountsGetPending,
     RpcLedgerAccountsGetSuccess,
+    RpcLedgerStatusGetInit,
+    RpcLedgerStatusGetPending,
+    RpcLedgerStatusGetSuccess,
     RpcMessageProgressGet,
     RpcP2pConnectionIncomingAnswerReady,
     RpcP2pConnectionIncomingError,
@@ -493,13 +502,17 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
     RpcPeersGet,
+    RpcPooledUserCommands,
+    RpcPooledZkappCommands,
     RpcReadinessCheck,
     RpcScanStateSummaryGetInit,
     RpcScanStateSummaryGetPending,
     RpcScanStateSummaryGetSuccess,
     RpcScanStateSummaryLedgerGetInit,
     RpcSnarkPoolAvailableJobsGet,
+    RpcSnarkPoolCompletedJobsGet,
     RpcSnarkPoolJobGet,
+    RpcSnarkPoolPendingJobsGet,
     RpcSnarkerConfigGet,
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
@@ -516,14 +529,19 @@ pub enum ActionKind {
     RpcTransitionFrontierUserCommandsGet,
     RpcEffectfulActionStatsGet,
     RpcEffectfulBestChain,
+    RpcEffectfulBlockGet,
     RpcEffectfulBlockProducerStatsGet,
     RpcEffectfulConsensusConstantsGet,
+    RpcEffectfulConsensusTimeGet,
     RpcEffectfulDiscoveryBoostrapStats,
     RpcEffectfulDiscoveryRoutingTable,
+    RpcEffectfulGenesisBlock,
     RpcEffectfulGlobalStateGet,
     RpcEffectfulHealthCheck,
     RpcEffectfulHeartbeatGet,
+    RpcEffectfulLedgerAccountDelegatorsGetSuccess,
     RpcEffectfulLedgerAccountsGetSuccess,
+    RpcEffectfulLedgerStatusGetSuccess,
     RpcEffectfulMessageProgressGet,
     RpcEffectfulP2pConnectionIncomingError,
     RpcEffectfulP2pConnectionIncomingRespond,
@@ -531,10 +549,14 @@ pub enum ActionKind {
     RpcEffectfulP2pConnectionOutgoingError,
     RpcEffectfulP2pConnectionOutgoingSuccess,
     RpcEffectfulPeersGet,
+    RpcEffectfulPooledUserCommands,
+    RpcEffectfulPooledZkappCommands,
     RpcEffectfulReadinessCheck,
     RpcEffectfulScanStateSummaryGetSuccess,
     RpcEffectfulSnarkPoolAvailableJobsGet,
+    RpcEffectfulSnarkPoolCompletedJobsGet,
     RpcEffectfulSnarkPoolJobGet,
+    RpcEffectfulSnarkPoolPendingJobsGet,
     RpcEffectfulSnarkerConfigGet,
     RpcEffectfulSnarkerJobCommit,
     RpcEffectfulSnarkerJobSpec,
@@ -607,6 +629,7 @@ pub enum ActionKind {
     TransactionPoolCandidateFetchPending,
     TransactionPoolCandidateFetchSuccess,
     TransactionPoolCandidateInfoReceived,
+    TransactionPoolCandidateLibp2pTransactionsReceived,
     TransactionPoolCandidatePeerPrune,
     TransactionPoolCandidateVerifyError,
     TransactionPoolCandidateVerifyNext,
@@ -617,7 +640,6 @@ pub enum ActionKind {
     TransitionFrontierGenesisProvenInject,
     TransitionFrontierSyncFailed,
     TransitionFrontierSynced,
-    TransitionFrontierCandidateBestTipUpdate,
     TransitionFrontierCandidateBlockChainProofUpdate,
     TransitionFrontierCandidateBlockPrevalidateError,
     TransitionFrontierCandidateBlockPrevalidateSuccess,
@@ -625,11 +647,8 @@ pub enum ActionKind {
     TransitionFrontierCandidateBlockSnarkVerifyError,
     TransitionFrontierCandidateBlockSnarkVerifyPending,
     TransitionFrontierCandidateBlockSnarkVerifySuccess,
-    TransitionFrontierCandidateDetectForkRange,
-    TransitionFrontierCandidateLongRangeForkResolve,
     TransitionFrontierCandidateP2pBestTipUpdate,
     TransitionFrontierCandidatePrune,
-    TransitionFrontierCandidateShortRangeForkResolve,
     TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate,
     TransitionFrontierGenesisLedgerLoadInit,
     TransitionFrontierGenesisLedgerLoadPending,
@@ -719,7 +738,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 609;
+    pub const COUNT: u16 = 628;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1065,6 +1084,8 @@ impl ActionKindGet for RpcAction {
             Self::ScanStateSummaryGetSuccess { .. } => ActionKind::RpcScanStateSummaryGetSuccess,
             Self::SnarkPoolAvailableJobsGet { .. } => ActionKind::RpcSnarkPoolAvailableJobsGet,
             Self::SnarkPoolJobGet { .. } => ActionKind::RpcSnarkPoolJobGet,
+            Self::SnarkPoolCompletedJobsGet { .. } => ActionKind::RpcSnarkPoolCompletedJobsGet,
+            Self::SnarkPoolPendingJobsGet { .. } => ActionKind::RpcSnarkPoolPendingJobsGet,
             Self::SnarkerConfigGet { .. } => ActionKind::RpcSnarkerConfigGet,
             Self::SnarkerJobCommit { .. } => ActionKind::RpcSnarkerJobCommit,
             Self::SnarkerJobSpec { .. } => ActionKind::RpcSnarkerJobSpec,
@@ -1088,6 +1109,23 @@ impl ActionKindGet for RpcAction {
             Self::BestChain { .. } => ActionKind::RpcBestChain,
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcTransactionStatusGet,
+            Self::BlockGet { .. } => ActionKind::RpcBlockGet,
+            Self::ConsensusTimeGet { .. } => ActionKind::RpcConsensusTimeGet,
+            Self::LedgerStatusGetInit { .. } => ActionKind::RpcLedgerStatusGetInit,
+            Self::LedgerStatusGetPending { .. } => ActionKind::RpcLedgerStatusGetPending,
+            Self::LedgerStatusGetSuccess { .. } => ActionKind::RpcLedgerStatusGetSuccess,
+            Self::LedgerAccountDelegatorsGetInit { .. } => {
+                ActionKind::RpcLedgerAccountDelegatorsGetInit
+            }
+            Self::LedgerAccountDelegatorsGetPending { .. } => {
+                ActionKind::RpcLedgerAccountDelegatorsGetPending
+            }
+            Self::LedgerAccountDelegatorsGetSuccess { .. } => {
+                ActionKind::RpcLedgerAccountDelegatorsGetSuccess
+            }
+            Self::PooledUserCommands { .. } => ActionKind::RpcPooledUserCommands,
+            Self::PooledZkappCommands { .. } => ActionKind::RpcPooledZkappCommands,
+            Self::GenesisBlock { .. } => ActionKind::RpcGenesisBlock,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -1126,6 +1164,10 @@ impl ActionKindGet for RpcEffectfulAction {
                 ActionKind::RpcEffectfulSnarkPoolAvailableJobsGet
             }
             Self::SnarkPoolJobGet { .. } => ActionKind::RpcEffectfulSnarkPoolJobGet,
+            Self::SnarkPoolCompletedJobsGet { .. } => {
+                ActionKind::RpcEffectfulSnarkPoolCompletedJobsGet
+            }
+            Self::SnarkPoolPendingJobsGet { .. } => ActionKind::RpcEffectfulSnarkPoolPendingJobsGet,
             Self::SnarkerConfigGet { .. } => ActionKind::RpcEffectfulSnarkerConfigGet,
             Self::SnarkerJobCommit { .. } => ActionKind::RpcEffectfulSnarkerJobCommit,
             Self::SnarkerJobSpec { .. } => ActionKind::RpcEffectfulSnarkerJobSpec,
@@ -1153,6 +1195,15 @@ impl ActionKindGet for RpcEffectfulAction {
             Self::BestChain { .. } => ActionKind::RpcEffectfulBestChain,
             Self::ConsensusConstantsGet { .. } => ActionKind::RpcEffectfulConsensusConstantsGet,
             Self::TransactionStatusGet { .. } => ActionKind::RpcEffectfulTransactionStatusGet,
+            Self::BlockGet { .. } => ActionKind::RpcEffectfulBlockGet,
+            Self::PooledUserCommands { .. } => ActionKind::RpcEffectfulPooledUserCommands,
+            Self::PooledZkappCommands { .. } => ActionKind::RpcEffectfulPooledZkappCommands,
+            Self::GenesisBlock { .. } => ActionKind::RpcEffectfulGenesisBlock,
+            Self::ConsensusTimeGet { .. } => ActionKind::RpcEffectfulConsensusTimeGet,
+            Self::LedgerStatusGetSuccess { .. } => ActionKind::RpcEffectfulLedgerStatusGetSuccess,
+            Self::LedgerAccountDelegatorsGetSuccess { .. } => {
+                ActionKind::RpcEffectfulLedgerAccountDelegatorsGetSuccess
+            }
         }
     }
 }
@@ -1433,6 +1484,9 @@ impl ActionKindGet for TransitionFrontierGenesisEffectfulAction {
 impl ActionKindGet for TransitionFrontierCandidateAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::P2pBestTipUpdate { .. } => {
+                ActionKind::TransitionFrontierCandidateP2pBestTipUpdate
+            }
             Self::BlockReceived { .. } => ActionKind::TransitionFrontierCandidateBlockReceived,
             Self::BlockPrevalidateSuccess { .. } => {
                 ActionKind::TransitionFrontierCandidateBlockPrevalidateSuccess
@@ -1452,19 +1506,8 @@ impl ActionKindGet for TransitionFrontierCandidateAction {
             Self::BlockSnarkVerifyError { .. } => {
                 ActionKind::TransitionFrontierCandidateBlockSnarkVerifyError
             }
-            Self::DetectForkRange { .. } => ActionKind::TransitionFrontierCandidateDetectForkRange,
-            Self::ShortRangeForkResolve { .. } => {
-                ActionKind::TransitionFrontierCandidateShortRangeForkResolve
-            }
-            Self::LongRangeForkResolve { .. } => {
-                ActionKind::TransitionFrontierCandidateLongRangeForkResolve
-            }
-            Self::BestTipUpdate { .. } => ActionKind::TransitionFrontierCandidateBestTipUpdate,
             Self::TransitionFrontierSyncTargetUpdate => {
                 ActionKind::TransitionFrontierCandidateTransitionFrontierSyncTargetUpdate
-            }
-            Self::P2pBestTipUpdate { .. } => {
-                ActionKind::TransitionFrontierCandidateP2pBestTipUpdate
             }
             Self::Prune => ActionKind::TransitionFrontierCandidatePrune,
         }
@@ -1553,6 +1596,9 @@ impl ActionKindGet for TransactionPoolCandidateAction {
             Self::FetchPending { .. } => ActionKind::TransactionPoolCandidateFetchPending,
             Self::FetchError { .. } => ActionKind::TransactionPoolCandidateFetchError,
             Self::FetchSuccess { .. } => ActionKind::TransactionPoolCandidateFetchSuccess,
+            Self::Libp2pTransactionsReceived { .. } => {
+                ActionKind::TransactionPoolCandidateLibp2pTransactionsReceived
+            }
             Self::VerifyNext => ActionKind::TransactionPoolCandidateVerifyNext,
             Self::VerifyPending { .. } => ActionKind::TransactionPoolCandidateVerifyPending,
             Self::VerifyError { .. } => ActionKind::TransactionPoolCandidateVerifyError,

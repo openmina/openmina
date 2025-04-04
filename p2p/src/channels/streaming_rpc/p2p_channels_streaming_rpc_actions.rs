@@ -211,7 +211,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                             && (response.is_none() || progress.is_done())
                             && response
                                 .as_ref()
-                                .map_or(true, |resp| resp.kind() == request.kind())
+                                .is_none_or(|resp| resp.kind() == request.kind())
                     }
                     _ => false,
                 }),
@@ -242,7 +242,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsStreamingRpcAction {
                     rpc_id == *id
                         && response
                             .as_ref()
-                            .map_or(true, |resp| resp.kind() == req.kind())
+                            .is_none_or(|resp| resp.kind() == req.kind())
                 }),
             P2pChannelsStreamingRpcAction::ResponsePartNextSend { peer_id, id } => state
                 .get_ready_peer(peer_id)

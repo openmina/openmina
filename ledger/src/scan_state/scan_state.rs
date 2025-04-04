@@ -59,7 +59,9 @@ use super::{
 
 pub use super::parallel_scan::base::Job as JobValueBase;
 pub use super::parallel_scan::merge::Job as JobValueMerge;
-pub use super::parallel_scan::{JobValue, JobValueWithIndex, SpacePartition};
+pub use super::parallel_scan::{
+    AvailableJob as ParallelScanAvailableJob, JobValue, JobValueWithIndex, SpacePartition,
+};
 
 // type LedgerProof = LedgerProofProdStableV2;
 // type LedgerProofWithSokMessage = TransactionSnarkScanStateLedgerProofWithSokMessageStableV2;

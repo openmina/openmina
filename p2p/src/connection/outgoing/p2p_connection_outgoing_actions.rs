@@ -99,7 +99,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                 state
                     .peers
                     .get(opts.peer_id())
-                    .map_or(true, |peer| !peer.status.is_connected_or_connecting())
+                    .is_none_or(|peer| !peer.status.is_connected_or_connecting())
             }
             P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 !state.already_has_min_peers()

@@ -61,9 +61,13 @@ enum Commands {
     },
 }
 
-async fn post_scores_to_firestore(pool: &SqlitePool, db: &FirestoreDb) -> Result<()> {
+async fn post_scores_to_firestore(
+    pool: &SqlitePool,
+    db: &FirestoreDb,
+    config: &Config,
+) -> Result<()> {
     // Make sure scores are up to date
-    local_db::update_scores(pool).await?;
+    local_db::update_scores(pool, config).await?;
 
     let scores = sqlx::query!(
         r#"
@@ -71,7 +75,8 @@ async fn post_scores_to_firestore(pool: &SqlitePool, db: &FirestoreDb) -> Result
             pk.public_key,
             ss.score,
             ss.blocks_produced,
-            ss.last_updated
+            ss.last_updated,
+            ss.last_heartbeat
         FROM submitter_scores ss
         JOIN public_keys pk ON pk.id = ss.public_key_id
         ORDER BY ss.score DESC
@@ -87,6 +92,7 @@ async fn post_scores_to_firestore(pool: &SqlitePool, db: &FirestoreDb) -> Result
             score: row.score,
             blocks_produced: row.blocks_produced,
             last_updated: row.last_updated,
+            last_heartbeat: row.last_heartbeat,
         })
         .collect();
 
@@ -106,10 +112,12 @@ async fn run_process_loop(
 
     loop {
         println!("Processing heartbeats...");
-        local_db::process_heartbeats(db, pool, config).await?;
+        let count = local_db::process_heartbeats(db, pool, config).await?;
 
-        println!("Posting scores...");
-        post_scores_to_firestore(pool, db).await?;
+        if count > 0 {
+            println!("Posting scores...");
+            post_scores_to_firestore(pool, db, config).await?;
+        }
 
         println!("Sleeping for {} seconds...", interval_seconds);
         tokio::time::sleep(interval).await;
@@ -149,12 +157,12 @@ async fn main() -> Result<()> {
             local_db::toggle_windows(&pool, start, end, disabled).await?;
         }
         Commands::ViewScores => {
-            local_db::view_scores(&pool).await?;
+            local_db::view_scores(&pool, &config).await?;
         }
         Commands::PostScores => {
             println!("Initializing firestore connection...");
             let db = remote_db::get_db(&config).await?;
-            post_scores_to_firestore(&pool, &db).await?;
+            post_scores_to_firestore(&pool, &db, &config).await?;
         }
         Commands::SetLastProcessed { time } => {
             local_db::set_last_processed_time(&pool, &time).await?;

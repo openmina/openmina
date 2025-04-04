@@ -212,17 +212,26 @@ impl P2pChannelsTransactionState {
                 }
                 Ok(())
             }
-            P2pChannelsTransactionAction::Libp2pReceived { transaction, .. } => {
+            P2pChannelsTransactionAction::Libp2pReceived {
+                transactions,
+                message_id,
+                peer_id,
+                ..
+            } => {
                 let (dispatcher, state) = state_context.into_dispatcher_and_state();
                 let p2p_state: &P2pState = state.substate()?;
 
                 if let Some(callback) = &p2p_state
                     .callbacks
-                    .on_p2p_channels_transaction_libp2p_received
+                    .on_p2p_channels_transactions_libp2p_received
                 {
-                    if let Ok(transaction) = TransactionWithHash::try_new(*transaction) {
-                        dispatcher.push_callback(callback.clone(), Box::new(transaction));
-                    }
+                    let transactions = transactions
+                        .into_iter()
+                        .map(TransactionWithHash::try_new)
+                        .filter_map(Result::ok)
+                        .collect();
+
+                    dispatcher.push_callback(callback.clone(), (peer_id, transactions, message_id));
                 }
 
                 Ok(())

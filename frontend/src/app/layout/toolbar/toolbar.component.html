@@ -10,9 +10,12 @@
       <mina-submenu-tabs class="pl-12 h-xl overflow-hidden"></mina-submenu-tabs>
     }
   </div>
-  <div class="flex-row flex-end align-center" [class.w-100]="isMobile">
-    @if (!isMobile || (isMobile && errors.length)) {
+  <div class="pills-holder flex-row flex-end" [class.align-center]="!isMobile" [class.is-mobile]="isMobile">
+    @if (!isMobile) {
       <mina-error-preview></mina-error-preview>
+    }
+    @if (showUptime) {
+      <mina-uptime-pill></mina-uptime-pill>
     }
     <div class="server-pill flex-row flex-end align-center flex-grow" [class.bootstrapping]="!haveNextBP || isAllNodesPage">
       <mina-server-status></mina-server-status>

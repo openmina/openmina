@@ -1,17 +1,14 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
-import { lastItem, ONE_BILLION, ONE_THOUSAND } from '@openmina/shared';
+import { lastItem, ONE_BILLION, ONE_THOUSAND, safelyExecuteInBrowser } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { filter } from 'rxjs';
-import {
-  BlockProductionWonSlotsSlot,
-  BlockProductionWonSlotsStatus,
-} from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
-import {
-  BlockProductionWonSlotsEpoch,
-} from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
+import { BlockProductionWonSlotsSlot, BlockProductionWonSlotsStatus, } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import { BlockProductionWonSlotsEpoch, } from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
+import { AppSelectors } from '@app/app.state';
+import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
 
 @Component({
   selector: 'mina-block-production-won-slots-cards',
@@ -28,9 +25,18 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
   card4: { epochProgress: string; endIn: string; } = { epochProgress: '-', endIn: null };
   card5: { publicKey: string; totalRewards: string } = { publicKey: null, totalRewards: null };
 
+  private network: string;
+
   ngOnInit(): void {
     this.listenToSlots();
     this.listenToEpoch();
+    this.listenToActiveNode();
+  }
+
+  private listenToActiveNode(): void {
+    this.select(AppSelectors.activeNodeDetails, (node: AppNodeDetails) => {
+      this.network = node.network?.toLowerCase();
+    }, filter(Boolean));
   }
 
   private listenToEpoch(): void {
@@ -79,5 +85,10 @@ export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher imple
 
   toggleSidePanel(): void {
     this.dispatch2(BlockProductionWonSlotsActions.toggleSidePanel());
+  }
+
+  openInMinascan(): void {
+    const url = `https://minascan.io/${this.network}/account/${this.card5.publicKey}`;
+    safelyExecuteInBrowser(() => window.open(url, '_blank'));
   }
 }

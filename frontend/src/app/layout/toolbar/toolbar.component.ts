@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { filter, map } from 'rxjs';
+import { ChangeDetectionStrategy, Component, ElementRef, HostBinding, OnInit, ViewChild } from '@angular/core';
+import { catchError, filter, map, of, switchMap, timer } from 'rxjs';
 import { AppSelectors } from '@app/app.state';
 import { getMergedRoute, hasValue, MergedRoute, removeParamsFromURL, TooltipService } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
@@ -10,6 +10,9 @@ import { selectErrorPreviewErrors } from '@error-preview/error-preview.state';
 import { MinaError } from '@shared/types/error-preview/mina-error.type';
 import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
 import { Routes } from '@shared/enums/routes.enum';
+import { CONFIG } from '@shared/constants/config';
+import { LeaderboardService } from '@leaderboard/leaderboard.service';
+import { untilDestroyed } from '@ngneat/until-destroy';
 
 @Component({
   selector: 'mina-toolbar',
@@ -25,6 +28,9 @@ export class ToolbarComponent extends StoreDispatcher implements OnInit {
   errors: MinaError[] = [];
   haveNextBP: boolean;
   isAllNodesPage: boolean;
+
+  @HostBinding('class.uptime')
+  showUptime: boolean = CONFIG.showLeaderboard;
 
   @ViewChild('loadingRef') private loadingRef: ElementRef<HTMLDivElement>;
 
