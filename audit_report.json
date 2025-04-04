@@ -1,0 +1,40 @@
+{
+  "status": "audit_completed",
+  "annotations_added": [
+    {
+      "file": "node/src/block_producer_effectful/mod.rs",
+      "line": "14",
+      "issue_description": "Documentation omits the BlockUnprovenBuild effect which is a critical step between staged ledger diff creation and block proving, as shown in the code and diagram."
+    },
+    {
+      "file": "node/src/block_producer_effectful/mod.rs",
+      "line": "19",
+      "issue_description": "Documentation does not mention block injection, which is a critical responsibility shown in the block_producer module but not explicitly handled in the effectful module."
+    },
+    {
+      "file": "node/src/block_producer_effectful/README.md",
+      "line": "5",
+      "issue_description": "The diagram does not show the final step of block injection to the transition frontier and P2P network, which is a critical part of the block production process."
+    },
+    {
+      "file": "node/src/block_producer_effectful/README.md",
+      "line": "37",
+      "issue_description": "The documentation does not mention block injection to the transition frontier and P2P network, which is a critical final step in the block production process as shown in the block_producer module."
+    },
+    {
+      "file": "node/src/block_producer_effectful/block_producer_effectful_actions.rs",
+      "line": "13",
+      "issue_description": "The action enum is missing actions for block injection to the transition frontier and P2P network, which are critical parts of the block production process shown in the block_producer module."
+    },
+    {
+      "file": "node/src/block_producer_effectful/block_producer_effectful_effects.rs",
+      "line": "24",
+      "issue_description": "Documentation does not mention block injection effects, which are critical for completing the block production process by adding the block to the transition frontier and broadcasting it to the P2P network."
+    },
+    {
+      "file": "node/src/block_producer_effectful/block_producer_effectful_service.rs",
+      "line": "34",
+      "issue_description": "The service interface is missing methods for block injection to the transition frontier and P2P network, which are critical parts of the block production process."
+    }
+  ]
+}

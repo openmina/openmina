@@ -1,3 +1,6 @@
+//! Implements effect handlers for VRF evaluation actions in block production.
+//! Manages the interaction with VRF evaluation services and statistics tracking.
+
 use crate::Service;
 use crate::Store;
 use redux::ActionMeta;
@@ -5,6 +8,10 @@ use redux::ActionMeta;
 use super::BlockProducerVrfEvaluatorEffectfulAction;
 
 impl BlockProducerVrfEvaluatorEffectfulAction {
+    /// Handles side effects for VRF evaluator actions.
+    ///
+    /// This method processes VRF evaluation requests, tracks statistics,
+    /// and manages epoch transitions for the VRF evaluation process.
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         match self {
             BlockProducerVrfEvaluatorEffectfulAction::EvaluateSlot { vrf_input } => {

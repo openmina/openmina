@@ -1,8 +1,13 @@
+//! Defines actions related to VRF evaluation in the block production process.
+//! These actions handle the evaluation of slots to determine block production eligibility.
+
 use crate::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+/// Actions related to VRF evaluation for block production.
+/// These actions trigger the evaluation of slots and track evaluation statistics.
 pub enum BlockProducerVrfEvaluatorEffectfulAction {
     EvaluateSlot { vrf_input: VrfEvaluatorInput },
     SlotEvaluated { epoch: u32 },

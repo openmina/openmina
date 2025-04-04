@@ -1,3 +1,7 @@
+//! Implements the effect handlers for block producer effectful actions.
+//! This module contains the logic that translates actions into service calls
+//! and manages the flow of block production side effects.
+
 use crate::{
     block_producer::BlockProducerCurrentState,
     ledger::write::{LedgerWriteAction, LedgerWriteRequest},
@@ -12,6 +16,12 @@ use redux::ActionWithMeta;
 
 use super::BlockProducerEffectfulAction;
 
+/// Handles side effects for block producer actions.
+///
+/// This function is the central handler for all block production-related effects,
+/// including VRF evaluation, staged ledger diff creation, block building, and block proving.
+/// It translates actions into service calls and manages the flow of the block production process.
+// FACT-CHECKER-WARNING: Documentation does not mention block injection effects, which are critical for completing the block production process by adding the block to the transition frontier and broadcasting it to the P2P network.
 pub fn block_producer_effects<S: crate::Service>(
     store: &mut Store<S>,
     action: ActionWithMeta<BlockProducerEffectfulAction>,
@@ -30,6 +40,9 @@ pub fn block_producer_effects<S: crate::Service>(
                 store.dispatch(BlockProducerAction::WonSlotProduceInit);
             }
         }
+        // Initiates the creation of a staged ledger diff, which is a key step in block production.
+        // This complex process involves gathering data from multiple sources and initiating
+        // a ledger write request to create the diff.
         BlockProducerEffectfulAction::StagedLedgerDiffCreateInit => {
             if let Some(stats) = store.service.stats() {
                 stats
@@ -137,6 +150,9 @@ pub fn block_producer_effects<S: crate::Service>(
 
             store.dispatch(BlockProducerAction::BlockProveInit);
         }
+        // Initiates the block proving process, which creates a zero-knowledge proof for the block.
+        // This is a cryptographically intensive operation that validates the block's correctness
+        // without revealing the full ledger state.
         BlockProducerEffectfulAction::BlockProveInit => {
             let service = &mut store.service;
 
