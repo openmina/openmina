@@ -1,3 +1,6 @@
+//! Implements GraphQL types and resolvers for network constants and daemon status.
+//! This module provides access to consensus configuration, genesis constants, and network status information.
+
 use juniper::GraphQLObject;
 use node::{
     rpc::{

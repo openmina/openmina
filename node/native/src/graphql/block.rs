@@ -1,3 +1,6 @@
+//! Implements GraphQL types and resolvers for Mina blocks, including block metadata, transactions, and SNARK jobs.
+//! This module provides the core block query functionality for the GraphQL API.
+
 use crate::graphql::{
     account::GraphQLAccount,
     zkapp::{GraphQLFailureReason, GraphQLFeePayer, GraphQLZkappCommand},
@@ -15,6 +18,8 @@ use openmina_core::block::AppliedBlock;
 use super::{zkapp::GraphQLZkapp, Context, ConversionError};
 
 #[derive(Debug)]
+/// GraphQL representation of a Mina block.
+///
 /// Location [src/lib/mina_graphql/types.ml:2095](https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_graphql/types.ml#L2095-L2151)
 pub(crate) struct GraphQLBlock {
     creator: String,

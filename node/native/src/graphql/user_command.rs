@@ -1,3 +1,6 @@
+//! Implements GraphQL types and resolvers for user commands (payments and delegations).
+//! This module handles the conversion between GraphQL input types and internal transaction representations.
+
 use std::str::FromStr;
 
 use juniper::{GraphQLInputObject, GraphQLObject};

@@ -1,3 +1,6 @@
+//! Implements GraphQL types and resolvers for Mina accounts, providing access to account balances, permissions, and zkApp state.
+//! This module includes data loaders for efficient batched account queries and conversion logic between internal and GraphQL types.
+
 use std::{collections::HashMap, sync::Arc};
 
 use dataloader::non_cached::Loader;
@@ -75,6 +78,10 @@ pub(crate) struct GraphQLAccount {
 }
 
 impl GraphQLAccount {
+    /// Calculates the minimum balance required for this account at the given global slot.
+    ///
+    /// For timed accounts, this represents the locked portion of funds based on vesting schedule.
+    /// For untimed accounts, this is always zero.
     fn min_balance(&self, global_slot: Option<u32>) -> Option<Balance> {
         global_slot.map(|slot| match self.inner.timing {
             Timing::Untimed => Balance::zero(),
@@ -82,6 +89,10 @@ impl GraphQLAccount {
         })
     }
 
+    /// Calculates the liquid (spendable) balance for this account at the given global slot.
+    ///
+    /// This is the difference between total balance and minimum balance (locked funds).
+    /// If total balance is less than minimum balance, returns zero.
     fn liquid_balance(&self, global_slot: Option<u32>) -> Option<Balance> {
         let min_balance = self.min_balance(global_slot);
         let total = self.inner.balance;
@@ -361,6 +372,10 @@ impl From<ledger::Timing> for GraphQLTiming {
 impl TryFrom<ledger::Account> for GraphQLAccount {
     type Error = ConversionError;
 
+    /// Converts a ledger Account to a GraphQL-compatible account representation.
+    ///
+    /// This complex conversion handles all account fields including zkApp-specific data,
+    /// with special attention to verification keys that require additional processing.
     fn try_from(value: ledger::Account) -> Result<Self, Self::Error> {
         // Process the verification_key with proper error handling
         let verification_key = value

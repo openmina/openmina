@@ -1,3 +1,6 @@
+//! Implements GraphQL types for transaction status information.
+//! This module provides enums and conversion logic for transaction status queries.
+
 use juniper::GraphQLEnum;
 use node::rpc::TransactionStatus;
 

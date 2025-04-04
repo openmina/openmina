@@ -1,3 +1,6 @@
+//! Implements GraphQL types and resolvers for SNARK-related functionality, including SNARK jobs, workers, and pending work.
+//! This module provides access to the SNARK pool and worker configuration.
+
 use juniper::{graphql_object, GraphQLObject};
 use ledger::scan_state::scan_state::{AvailableJobMessage, ParallelScanAvailableJob};
 use mina_p2p_messages::v2::{

@@ -1,3 +1,6 @@
+//! Implements GraphQL types and resolvers for zkApp transactions and commands.
+//! This module handles the complex conversion between GraphQL zkApp inputs and the internal zkApp transaction format.
+
 use std::str::FromStr;
 
 use juniper::{GraphQLInputObject, GraphQLObject};
@@ -61,6 +64,9 @@ pub struct SendZkappInput {
 
 impl TryFrom<SendZkappInput> for MinaBaseUserCommandStableV2 {
     type Error = ConversionError;
+
+    /// Converts a GraphQL zkApp command input to the internal transaction representation.
+    /// This is a simple wrapper that delegates to the zkapp_command conversion.
     fn try_from(value: SendZkappInput) -> Result<Self, Self::Error> {
         value.zkapp_command.try_into()
     }
