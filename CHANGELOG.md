@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2025-04-04
+
+### Added
+
+- **GraphQL**: More queries (snark pool, pending snark work, genesis block, ledger status).
+
+### Changed
+
+- **GraphQL**: Added more fields to `daemonStatus` query˙
+
+### Fixed
+
+- **GraphQL**: Some issues with accounts.
+- **Block Producer**: Corner case that caused the won slot search to sometimes be interrupted at epoch bounds.
+
 ## [0.15.0] - 2025-03-13
 
 ### Added
@@ -394,7 +409,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.15.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.16.0...develop
+[0.15.0]: https://github.com/openmina/openmina/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/openmina/openmina/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/openmina/openmina/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/openmina/openmina/compare/v0.12.0...v0.13.0
