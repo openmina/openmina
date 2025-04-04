@@ -1,3 +1,7 @@
+//! Block producer actions module.
+//! Defines the actions that can be dispatched to trigger state transitions
+//! in the block producer state machine.
+
 use std::sync::Arc;
 
 use ledger::scan_state::transaction_logic::valid;
@@ -14,6 +18,8 @@ use super::{BlockProducerCurrentState, BlockProducerWonSlot, BlockProducerWonSlo
 pub type BlockProducerActionWithMeta = redux::ActionWithMeta<BlockProducerAction>;
 pub type BlockProducerActionWithMetaRef<'a> = redux::ActionWithMeta<&'a BlockProducerAction>;
 
+/// Actions that trigger state transitions in the block producer state machine.
+/// Each action corresponds to a specific step in the block production process.
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = info)]
 pub enum BlockProducerAction {
@@ -67,7 +73,10 @@ pub enum BlockProducerAction {
     BlockInjected,
 }
 
+/// Enabling conditions determine when each action is allowed to be dispatched.
+/// This prevents invalid state transitions in the block producer state machine.
 impl redux::EnablingCondition<crate::State> for BlockProducerAction {
+    /// Checks if an action is enabled based on the current state and timestamp.
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             BlockProducerAction::VrfEvaluator(a) => a.is_enabled(state, time),
@@ -226,6 +235,10 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
     }
 }
 
+/// Checks if the node is currently syncing to a block that it produced.
+///
+/// This is used to prevent producing new blocks while syncing to our own blocks,
+/// which could lead to chain forks or other consensus issues.
 fn is_syncing_to_produced_block(state: &crate::State) -> bool {
     state
         .transition_frontier

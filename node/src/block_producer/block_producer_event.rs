@@ -1,3 +1,7 @@
+//! Block producer event module.
+//! Defines the events that can be emitted by the block producer module.
+//! These events represent the results of asynchronous operations.
+
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaBaseProofStableV2, StateHash};
@@ -5,6 +9,8 @@ use serde::{Deserialize, Serialize};
 
 pub use super::vrf_evaluator::BlockProducerVrfEvaluatorEvent;
 
+/// Events emitted by the block producer module.
+/// These events typically represent the results of asynchronous operations.
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum BlockProducerEvent {
     VrfEvaluator(BlockProducerVrfEvaluatorEvent),

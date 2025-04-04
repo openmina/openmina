@@ -1,3 +1,7 @@
+//! VRF evaluator module for block production.
+//! Responsible for evaluating VRF (Verifiable Random Function) to determine
+//! if the node has won a slot and can produce a block.
+
 mod block_producer_vrf_evaluator_state;
 pub use block_producer_vrf_evaluator_state::*;
 
@@ -19,8 +23,12 @@ use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 use crate::account::AccountPublicKey;
 
+/// Maps account indices to delegator public keys and their stake amounts.
+/// Used for VRF evaluation to determine slot winners based on stake.
 pub type DelegatorTable = BTreeMap<AccountIndex, (AccountPublicKey, u64)>;
 
+/// Input parameters required for VRF evaluation.
+/// Contains all the necessary data to determine if a node has won a slot.
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfEvaluatorInput {
     pub epoch_seed: EpochSeed,
@@ -30,6 +38,8 @@ pub struct VrfEvaluatorInput {
     pub staking_ledger_hash: LedgerHash,
 }
 
+/// A won slot with the associated staking ledger hash.
+/// Combines the VRF output indicating a won slot with the ledger hash used for evaluation.
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfWonSlotWithHash {
     pub won_slot: VrfWonSlot,
@@ -45,6 +55,8 @@ impl VrfWonSlotWithHash {
     }
 }
 
+/// VRF evaluation result with the associated staking ledger hash.
+/// Contains either a won slot or information about a lost slot.
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfEvaluationOutputWithHash {
     pub evaluation_result: VrfEvaluationOutput,

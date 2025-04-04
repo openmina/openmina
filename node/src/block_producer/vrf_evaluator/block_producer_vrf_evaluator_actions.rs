@@ -1,3 +1,7 @@
+//! VRF evaluator actions module.
+//! Defines the actions that trigger state transitions in the VRF evaluator state machine.
+//! These actions control the evaluation of slots to determine if the node has won them.
+
 use std::sync::Arc;
 
 use crate::account::AccountPublicKey;
@@ -24,6 +28,8 @@ pub type BlockProducerVrfEvaluatorActionWithMeta =
 pub type BlockProducerVrfEvaluatorActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a BlockProducerVrfEvaluatorAction>;
 
+/// Actions that trigger state transitions in the VRF evaluator state machine.
+/// Each action corresponds to a specific step in the VRF evaluation process.
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = info)]
 pub enum BlockProducerVrfEvaluatorAction {

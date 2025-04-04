@@ -1,3 +1,7 @@
+//! Block producer state management module.
+//! Defines the state machine for block production, including slot winning, block creation,
+//! and block injection into the transition frontier.
+
 use std::{collections::BTreeSet, sync::Arc, time::Duration};
 
 use ledger::scan_state::transaction_logic::valid;
@@ -15,49 +19,63 @@ use super::{
     BlockWithoutProof,
 };
 
+/// Main state container for the block producer module.
+/// When None, block production is disabled.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerState(Option<BlockProducerEnabled>);
 
+/// Active block producer state when block production is enabled.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerEnabled {
     pub config: BlockProducerConfig,
     pub vrf_evaluator: BlockProducerVrfEvaluatorState,
+    /// Current state in the block production state machine.
     pub current: BlockProducerCurrentState,
-    /// Blocks that were injected into transition frontier, but hasn't
+    /// Blocks that were injected into transition frontier, but haven't
     /// become our best tip yet.
     pub injected_blocks: BTreeSet<v2::StateHash>,
 }
 
+/// State machine for block production process.
+/// Represents all possible states in the block production workflow from
+/// winning a slot to injecting a produced block into the transition frontier.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockProducerCurrentState {
+    /// No active block production.
     Idle {
         time: redux::Timestamp,
     },
+    /// A won slot was discarded due to a specific reason.
     WonSlotDiscarded {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         reason: BlockProducerWonSlotDiscardReason,
     },
+    /// A slot has been won but production hasn't started yet.
     WonSlot {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
     },
+    /// Waiting for the right time to produce a block for a won slot.
     WonSlotWait {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
     },
+    /// Initializing block production for a won slot.
     WonSlotProduceInit {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<AppliedBlock>,
     },
+    /// Fetching transactions from the mempool for block production.
     WonSlotTransactionsGet {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<AppliedBlock>,
     },
+    /// Successfully retrieved transactions for block production.
     WonSlotTransactionsSuccess {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -65,6 +83,7 @@ pub enum BlockProducerCurrentState {
         chain: Vec<AppliedBlock>,
         transactions_by_fee: Vec<valid::UserCommand>,
     },
+    /// Creating a staged ledger diff for the new block.
     StagedLedgerDiffCreatePending {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -72,6 +91,7 @@ pub enum BlockProducerCurrentState {
         chain: Vec<AppliedBlock>,
         transactions_by_fee: Vec<valid::UserCommand>,
     },
+    /// Successfully created a staged ledger diff for the new block.
     StagedLedgerDiffCreateSuccess {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -86,6 +106,7 @@ pub enum BlockProducerCurrentState {
         pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
         stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
     },
+    /// Built an unproven block (without SNARK proof).
     BlockUnprovenBuilt {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -98,6 +119,7 @@ pub enum BlockProducerCurrentState {
         block: BlockWithoutProof,
         block_hash: v2::StateHash,
     },
+    /// Generating a SNARK proof for the block.
     BlockProvePending {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -110,6 +132,7 @@ pub enum BlockProducerCurrentState {
         block: BlockWithoutProof,
         block_hash: v2::StateHash,
     },
+    /// Successfully generated a SNARK proof for the block.
     BlockProveSuccess {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -119,6 +142,7 @@ pub enum BlockProducerCurrentState {
         block_hash: v2::StateHash,
         proof: Arc<v2::MinaBaseProofStableV2>,
     },
+    /// Block has been fully produced with proof.
     Produced {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -126,6 +150,7 @@ pub enum BlockProducerCurrentState {
         chain: Vec<AppliedBlock>,
         block: ArcBlockWithHash,
     },
+    /// Block has been injected into the transition frontier.
     Injected {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -135,10 +160,14 @@ pub enum BlockProducerCurrentState {
     },
 }
 
+/// Reasons why a won slot might be discarded instead of producing a block.
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone, Copy)]
 pub enum BlockProducerWonSlotDiscardReason {
+    /// The staking ledger hash of the best tip is different from the one used in VRF evaluation.
     BestTipStakingLedgerDifferent,
+    /// The global slot of the best tip is higher than the won slot.
     BestTipGlobalSlotHigher,
+    /// The best tip is superior according to consensus rules.
     BestTipSuperior,
 }
 
@@ -287,10 +316,15 @@ impl BlockProducerCurrentState {
         }
     }
 
+    /// Determines if we should wait before producing a block for a won slot.
     pub fn won_slot_should_wait(&self, now: redux::Timestamp) -> bool {
         matches!(self, Self::WonSlot { .. }) && !self.won_slot_should_produce(now)
     }
 
+    /// Determines if it's the right time to produce a block for a won slot.
+    ///
+    /// Ensures block production happens within the slot interval and accounts for
+    /// estimated production time to avoid producing blocks too late in the slot.
     pub fn won_slot_should_produce(&self, now: redux::Timestamp) -> bool {
         // TODO(binier): maybe have runtime estimate
         #[cfg(not(target_arch = "wasm32"))]
@@ -301,7 +335,7 @@ impl BlockProducerCurrentState {
         let slot_interval = Duration::from_secs(3 * 60).as_nanos() as u64;
         match self {
             Self::WonSlot { won_slot, .. } | Self::WonSlotWait { won_slot, .. } => {
-                // Make sure to only producer blocks when in the slot interval
+                // Make sure to only produce blocks when in the slot interval
                 let slot_upper_bound = won_slot
                     .slot_time
                     .checked_add(slot_interval)
@@ -315,6 +349,12 @@ impl BlockProducerCurrentState {
         }
     }
 
+    /// Determines if a won slot should be discarded based on the current best tip.
+    ///
+    /// Checks several conditions that would make block production for this slot invalid:
+    /// 1. If the best tip's global slot is higher than our won slot
+    /// 2. If the staking ledger hash used for VRF evaluation doesn't match the best tip's ledger hashes
+    /// 3. If the best tip is superior according to consensus rules
     pub fn won_slot_should_discard(
         &self,
         best_tip: &ArcBlockWithHash,

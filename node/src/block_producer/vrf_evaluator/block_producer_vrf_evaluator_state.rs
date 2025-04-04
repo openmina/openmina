@@ -1,3 +1,7 @@
+//! VRF evaluator state module.
+//! Defines the state machine for VRF evaluation to determine slot winners.
+//! Tracks won slots and manages the evaluation process for future slots.
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -9,16 +13,28 @@ use crate::{account::AccountPublicKey, block_producer::BlockProducerWonSlot};
 
 use super::{DelegatorTable, VrfEvaluatorInput, VrfWonSlotWithHash};
 
+/// Number of slots in each epoch in the Mina protocol.
 pub const SLOTS_PER_EPOCH: u32 = 7140;
-/// Vrf evaluator sub-state
+
+/// VRF evaluator state that tracks the evaluation process and won slots.
+///
+/// Maintains the current evaluation status, won slots, and context needed
+/// for evaluating future slots.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorState {
+    /// Current status of the VRF evaluator.
     pub status: BlockProducerVrfEvaluatorStatus,
+    /// Map of global slots to won slots with their staking ledger hashes.
     pub won_slots: BTreeMap<u32, VrfWonSlotWithHash>,
+    /// The highest slot that has been evaluated so far.
     pub latest_evaluated_slot: u32,
+    /// Genesis timestamp used for calculating slot times.
     pub genesis_timestamp: redux::Timestamp,
+    /// The last epoch that was fully evaluated.
     last_evaluated_epoch: Option<u32>,
+    /// Currently pending evaluation, if any.
     pending_evaluation: Option<PendingEvaluation>,
+    /// Context for the current epoch evaluation.
     epoch_context: EpochContext,
 }
 

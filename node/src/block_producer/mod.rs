@@ -1,3 +1,64 @@
+//! # Block Producer Module
+//!
+//! The Block Producer module is responsible for creating and injecting new blocks into the Mina blockchain
+//! when the node wins a slot through the Verifiable Random Function (VRF) lottery. [Ref: file:node/src/block_producer/mod.rs (0.95)]
+//!
+//! ## Core Responsibilities
+//!
+//! - **Slot Winning**: Evaluates VRF to determine if the node has won the right to produce a block in a specific slot.
+//!   [Ref: item:node/src/block_producer/vrf_evaluator/mod.rs::VrfEvaluatorInput (0.9)]
+//! - **Transaction Selection**: Retrieves and prioritizes transactions from the mempool for inclusion in new blocks.
+//!   [Ref: item:node/src/block_producer/block_producer_state.rs::BlockProducerCurrentState::WonSlotTransactionsGet (0.9)]
+//! - **Staged Ledger Manipulation**: Creates staged ledger diffs that represent the state transition for the new block.
+//!   [Ref: item:node/src/block_producer/block_producer_state.rs::BlockProducerCurrentState::StagedLedgerDiffCreateSuccess (0.9)]
+//! - **Block Construction**: Builds protocol state, includes transactions, and prepares the block structure.
+//!   [Ref: item:node/src/block_producer/block_producer_state.rs::BlockProducerCurrentState::BlockUnprovenBuilt (0.9)]
+//! - **Block Proving**: Generates SNARK proofs for blocks to ensure validity.
+//!   [Ref: item:node/src/block_producer/block_producer_state.rs::BlockProducerCurrentState::BlockProvePending (0.9)]
+//! - **Block Injection**: Injects produced blocks into the transition frontier and broadcasts them to the network.
+//!   [Ref: item:node/src/block_producer/block_producer_state.rs::BlockProducerCurrentState::Injected (0.9)]
+//!
+//! ## Key Components
+//!
+//! - **BlockProducerState**: The main state container that manages the block production state machine.
+//!   [Ref: item:node/src/block_producer/block_producer_state.rs::BlockProducerState (0.95)]
+//! - **BlockProducerCurrentState**: An enum representing all possible states in the block production workflow.
+//!   [Ref: item:node/src/block_producer/block_producer_state.rs::BlockProducerCurrentState (0.95)]
+//! - **VRF Evaluator**: Determines if the node has won a slot based on stake and randomness.
+//!   [Ref: item:node/src/block_producer/vrf_evaluator/mod.rs (0.9)]
+//! - **BlockProducerWonSlot**: Represents a slot that the node has won and can produce a block for.
+//!   [Ref: item:node/src/block_producer/mod.rs::BlockProducerWonSlot (0.95)]
+//! - **BlockWithoutProof**: Represents a block that has been constructed but not yet proven with a SNARK.
+//!   [Ref: item:node/src/block_producer/mod.rs::BlockWithoutProof (0.95)]
+//!
+//! ## Critical Interactions
+//!
+//! - **Ledger**: Interfaces with the ledger module to create staged ledger diffs and validate state transitions.
+//!   [Ref: multi:(node/src/block_producer/block_producer_reducer.rs, ledger/) (0.85)]
+//! - **Transaction Pool**: Retrieves pending transactions for inclusion in new blocks.
+//!   [Ref: item:node/src/block_producer/block_producer_actions.rs::BlockProducerAction::WonSlotTransactionsGet (0.9)]
+//! - **VRF Service**: Uses the VRF service to evaluate slot winning based on stake.
+//!   [Ref: multi:(node/src/block_producer/vrf_evaluator/, vrf/) (0.85)]
+//! - **Transition Frontier**: Injects produced blocks into the blockchain's current state.
+//!   [Ref: item:node/src/block_producer/block_producer_reducer.rs::BlockProducerEnabled::dispatch_best_tip_update (0.85)]
+//! - **P2P Network**: Broadcasts newly produced blocks to peers.
+//!   [Ref: item:node/src/block_producer/block_producer_reducer.rs::broadcast_injected_block (0.9)]
+//!
+//! ## Submodules
+//!
+//! - **vrf_evaluator**: Implements the VRF evaluation logic to determine slot winners.
+//!   [Ref: item:node/src/block_producer/vrf_evaluator/mod.rs (0.95)]
+//! - **block_producer_config**: Defines configuration parameters for block production.
+//!   [Ref: file:node/src/block_producer/block_producer_config.rs (0.95)]
+//! - **block_producer_state**: Manages the state machine for block production.
+//!   [Ref: file:node/src/block_producer/block_producer_state.rs (0.95)]
+//! - **block_producer_actions**: Defines actions that trigger state transitions.
+//!   [Ref: file:node/src/block_producer/block_producer_actions.rs (0.95)]
+//! - **block_producer_reducer**: Implements state transition logic for the block producer.
+//!   [Ref: file:node/src/block_producer/block_producer_reducer.rs (0.95)]
+//! - **block_producer_event**: Defines events emitted by the block producer module.
+//!   [Ref: file:node/src/block_producer/block_producer_event.rs (0.95)]
+
 pub mod vrf_evaluator;
 
 mod block_producer_config;
@@ -25,6 +86,8 @@ use vrf::output::VrfOutput;
 
 use self::vrf_evaluator::VrfWonSlotWithHash;
 
+/// Represents a slot that the node has won and can produce a block for.
+/// Contains all necessary information to create a valid block for the slot.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct BlockProducerWonSlot {
     pub slot_time: redux::Timestamp,
@@ -32,10 +95,12 @@ pub struct BlockProducerWonSlot {
     pub global_slot: v2::ConsensusGlobalSlotStableV1,
     pub vrf_output: Box<VrfOutput>,
     pub value_with_threshold: Option<(f64, f64)>,
-    // Staking ledger which was used during vrf evaluation.
+    /// Staking ledger hash which was used during VRF evaluation.
     pub staking_ledger_hash: v2::LedgerHash,
 }
 
+/// Represents a block that has been constructed but not yet proven.
+/// Contains all components needed for a valid block except the SNARK proof.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockWithoutProof {
     pub protocol_state: v2::MinaStateProtocolStateValueStableV2,
@@ -154,6 +219,10 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
     }
 }
 
+/// Converts a global slot to its corresponding epoch and slot within that epoch.
+///
+/// The global slot is divided by slots_per_epoch to get the epoch number,
+/// and the remainder gives the slot number within that epoch.
 pub fn to_epoch_and_slot(global_slot: &v2::ConsensusGlobalSlotStableV1) -> (u32, u32) {
     let epoch = global_slot
         .slot_number
@@ -207,6 +276,10 @@ impl BlockWithoutProof {
     }
 }
 
+/// Calculates the next epoch seed from the previous epoch seed and VRF hash.
+///
+/// Uses Poseidon hash with the Mina epoch seed constant and combines the previous
+/// epoch seed with the VRF hash to generate the new epoch seed.
 pub fn calc_epoch_seed(
     prev_epoch_seed: &v2::EpochSeed,
     vrf_hash: mina_hasher::Fp,

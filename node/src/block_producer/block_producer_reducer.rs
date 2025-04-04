@@ -1,3 +1,7 @@
+//! Block producer reducer module.
+//! Implements the state transition logic for the block producer state machine.
+//! Handles all actions that modify the block producer state.
+
 use ledger::scan_state::currency::{Amount, Signed};
 use mina_p2p_messages::{list::List, v2};
 use openmina_core::{
@@ -27,13 +31,18 @@ use super::{
 };
 
 impl BlockProducerState {
+    /// Main reducer function for the block producer module.
+    /// Delegates to the BlockProducerEnabled reducer for actual state transitions.
     pub fn reducer(state_context: Substate<State>, action: BlockProducerActionWithMetaRef<'_>) {
         BlockProducerEnabled::reducer(state_context, action);
     }
 }
 
 impl BlockProducerEnabled {
-    /// Substate is accesses from global state, because applied blocks from transition frontier are required
+    /// Main reducer implementation for the block producer module.
+    /// Handles all actions that modify the block producer state.
+    ///
+    /// Substate is accessed from global state because applied blocks from transition frontier are required.
     pub fn reducer(mut state_context: Substate<State>, action: BlockProducerActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         let Ok(global_state) = state_context.get_substate_mut() else {
@@ -379,6 +388,10 @@ impl BlockProducerEnabled {
         }
     }
 
+    /// Complex state transition to build an unproven block.
+    ///
+    /// This function handles the creation of a new block without a proof,
+    /// including all the consensus state updates and protocol state construction.
     fn reduce_block_unproved_build(
         &mut self,
         consensus_constants: &ConsensusConstants,
@@ -694,6 +707,10 @@ impl BlockProducerEnabled {
         };
     }
 
+    /// Dispatches actions in response to a best tip update.
+    ///
+    /// This function is responsible for initializing VRF evaluation for the new best tip
+    /// and checking if any won slots should be discarded due to the new best tip.
     fn dispatch_best_tip_update(
         dispatcher: &mut Dispatcher<Action, State>,
         state: &State,
