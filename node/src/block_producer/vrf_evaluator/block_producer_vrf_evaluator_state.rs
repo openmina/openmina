@@ -277,18 +277,8 @@ impl BlockProducerVrfEvaluatorState {
 
     pub fn initialize_evaluator(&mut self, _epoch: u32, _last_height: u32) {}
 
-    pub fn set_last_evaluated_epoch(&mut self) {
-        if let BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess { epoch_number, .. } =
-            &self.status
-        {
-            match self.epoch_context {
-                EpochContext::Current(_) => self.last_evaluated_epoch = Some(*epoch_number),
-                EpochContext::Next(_) => {
-                    self.last_evaluated_epoch = Some(epoch_number.checked_add(1).expect("overflow"))
-                }
-                EpochContext::Waiting => {}
-            }
-        }
+    pub fn set_last_evaluated_epoch(&mut self, epoch_number: u32) {
+        self.last_evaluated_epoch = Some(epoch_number);
     }
 
     pub fn initial_slot(&self) -> Option<u32> {

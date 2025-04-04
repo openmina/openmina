@@ -105,6 +105,7 @@ pub enum BlockProducerVrfEvaluatorAction {
     /// Epoch evaluation finished.
     #[action_event(level = info, fields(epoch_number, latest_evaluated_global_slot))]
     FinishEpochEvaluation {
+        /// The evaluated epoch number.
         epoch_number: u32,
         latest_evaluated_global_slot: u32,
     },
