@@ -458,9 +458,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
                 BlockProducerEvent::BlockProve(block_hash, res) => match res {
-                    Err(err) => todo!(
-                        "error while trying to produce block proof for block {block_hash} - {err}"
-                    ),
+                    Err(error) => {
+                        store.dispatch(BlockProducerAction::BlockProveError { error });
+                    }
                     Ok(proof) => {
                         if store
                             .state()

@@ -61,6 +61,9 @@ pub enum BlockProducerAction {
     BlockProveSuccess {
         proof: Arc<MinaBaseProofStableV2>,
     },
+    BlockProveError {
+        error: String,
+    },
     BlockProduced,
     #[action_event(level = trace)]
     BlockInject,
@@ -183,7 +186,8 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                     BlockProducerCurrentState::BlockUnprovenBuilt { .. }
                 )
             }),
-            BlockProducerAction::BlockProveSuccess { .. } => {
+            BlockProducerAction::BlockProveSuccess { .. }
+            | BlockProducerAction::BlockProveError { .. } => {
                 state.block_producer.with(false, |this| {
                     matches!(
                         this.current,

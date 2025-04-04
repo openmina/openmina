@@ -31,6 +31,7 @@ members = [
     "tools/fuzzing",
     "tools/archive-breadcrumb-compare",
     "tools/heartbeats-processor",
+    "tools/error-sink-service",
     "tools/webrtc-sniffer",
 
     "producer-dashboard",

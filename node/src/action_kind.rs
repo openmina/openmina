@@ -112,6 +112,7 @@ pub enum ActionKind {
     BlockProducerBlockInject,
     BlockProducerBlockInjected,
     BlockProducerBlockProduced,
+    BlockProducerBlockProveError,
     BlockProducerBlockProveInit,
     BlockProducerBlockProvePending,
     BlockProducerBlockProveSuccess,
@@ -127,6 +128,7 @@ pub enum ActionKind {
     BlockProducerWonSlotTransactionsSuccess,
     BlockProducerWonSlotWait,
     BlockProducerEffectfulBlockProduced,
+    BlockProducerEffectfulBlockProveError,
     BlockProducerEffectfulBlockProveInit,
     BlockProducerEffectfulBlockProveSuccess,
     BlockProducerEffectfulBlockUnprovenBuild,
@@ -738,7 +740,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 628;
+    pub const COUNT: u16 = 630;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1016,6 +1018,7 @@ impl ActionKindGet for BlockProducerAction {
             Self::BlockProveInit => ActionKind::BlockProducerBlockProveInit,
             Self::BlockProvePending => ActionKind::BlockProducerBlockProvePending,
             Self::BlockProveSuccess { .. } => ActionKind::BlockProducerBlockProveSuccess,
+            Self::BlockProveError { .. } => ActionKind::BlockProducerBlockProveError,
             Self::BlockProduced => ActionKind::BlockProducerBlockProduced,
             Self::BlockInject => ActionKind::BlockProducerBlockInject,
             Self::BlockInjected => ActionKind::BlockProducerBlockInjected,
@@ -1038,6 +1041,7 @@ impl ActionKindGet for BlockProducerEffectfulAction {
             Self::BlockUnprovenBuild => ActionKind::BlockProducerEffectfulBlockUnprovenBuild,
             Self::BlockProveInit => ActionKind::BlockProducerEffectfulBlockProveInit,
             Self::BlockProveSuccess => ActionKind::BlockProducerEffectfulBlockProveSuccess,
+            Self::BlockProveError { .. } => ActionKind::BlockProducerEffectfulBlockProveError,
             Self::BlockProduced { .. } => ActionKind::BlockProducerEffectfulBlockProduced,
         }
     }

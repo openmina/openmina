@@ -215,6 +215,9 @@ pub fn block_producer_effects<S: crate::Service>(
             }
             store.dispatch(BlockProducerAction::BlockProduced);
         }
+        BlockProducerEffectfulAction::BlockProveError { error } => {
+            store.service.submit_error_report("blockProofFailure", error);
+        }
         BlockProducerEffectfulAction::WonSlotDiscard { reason } => {
             if let Some(stats) = store.service.stats() {
                 stats.block_producer().discarded(meta.time(), reason);

@@ -1,5 +1,6 @@
 pub use crate::block_producer_effectful::vrf_evaluator_effectful::BlockProducerVrfEvaluatorService;
 pub use crate::block_producer_effectful::BlockProducerService;
+pub use crate::error_sink::ErrorSinkService;
 pub use crate::event_source::EventSourceService;
 pub use crate::external_snark_worker_effectful::ExternalSnarkWorkerService;
 pub use crate::ledger::LedgerService;
@@ -33,6 +34,7 @@ pub trait Service:
     + ExternalSnarkWorkerService
     + RpcService
     + ArchiveService
+    + ErrorSinkService
 {
     fn queues(&mut self) -> Queues;
     fn stats(&mut self) -> Option<&mut Stats>;

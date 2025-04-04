@@ -35,6 +35,7 @@ pub mod stats;
 pub mod block_producer;
 pub mod block_producer_effectful;
 pub mod daemon_json;
+pub mod error_sink;
 pub mod event_source;
 pub mod external_snark_worker;
 pub mod external_snark_worker_effectful;

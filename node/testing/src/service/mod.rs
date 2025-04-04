@@ -340,6 +340,12 @@ impl redux::TimeService for NodeTestingService {
     }
 }
 
+impl node::service::ErrorSinkService for NodeTestingService {
+    fn submit_error_report_data(&mut self, _category: &str, _data: Vec<u8>) {
+        // TODO: log or store on disk?
+    }
+}
+
 impl node::event_source::EventSourceService for NodeTestingService {
     fn next_event(&mut self) -> Option<Event> {
         None

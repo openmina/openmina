@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  error-sink-service:
+    build: .
+    container_name: error-sink-service
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./reports:/app/reports
+    environment:
+      - ERROR_SINK_PORT=8080
+      - ERROR_SINK_DIR=/app/reports
+      - ERROR_SINK_VERIFY_SIGNATURES=true
+      - RUST_LOG=info
+    restart: unless-stopped

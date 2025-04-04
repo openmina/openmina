@@ -119,6 +119,15 @@ pub enum BlockProducerCurrentState {
         block_hash: v2::StateHash,
         proof: Arc<v2::MinaBaseProofStableV2>,
     },
+    BlockProveError {
+        time: redux::Timestamp,
+        won_slot: BlockProducerWonSlot,
+        /// Chain that we are extending.
+        chain: Vec<AppliedBlock>,
+        block: BlockWithoutProof,
+        block_hash: v2::StateHash,
+        error: String,
+    },
     Produced {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
@@ -140,6 +149,7 @@ pub enum BlockProducerWonSlotDiscardReason {
     BestTipStakingLedgerDifferent,
     BestTipGlobalSlotHigher,
     BestTipSuperior,
+    BlockProofError,
 }
 
 impl BlockProducerState {
@@ -245,6 +255,7 @@ impl BlockProducerCurrentState {
             | Self::BlockUnprovenBuilt { .. }
             | Self::BlockProvePending { .. }
             | Self::BlockProveSuccess { .. }
+            | Self::BlockProveError { .. }
             | Self::Produced { .. } => false,
         }
     }
@@ -263,6 +274,7 @@ impl BlockProducerCurrentState {
             | Self::BlockUnprovenBuilt { won_slot, .. }
             | Self::BlockProvePending { won_slot, .. }
             | Self::BlockProveSuccess { won_slot, .. }
+            | Self::BlockProveError { won_slot, .. }
             | Self::Produced { won_slot, .. }
             | Self::Injected { won_slot, .. } => Some(won_slot),
         }
@@ -282,6 +294,7 @@ impl BlockProducerCurrentState {
             | Self::BlockUnprovenBuilt { chain, .. }
             | Self::BlockProvePending { chain, .. }
             | Self::BlockProveSuccess { chain, .. }
+            | Self::BlockProveError { chain, .. }
             | Self::Produced { chain, .. }
             | Self::Injected { chain, .. } => Some(chain),
         }
@@ -356,6 +369,7 @@ impl BlockProducerCurrentState {
             | Self::WonSlotDiscarded { .. }
             | Self::WonSlot { .. }
             | Self::WonSlotWait { .. }
+            | Self::BlockProveError { .. }
             | Self::Injected { .. } => false,
             Self::WonSlotProduceInit { .. }
             | Self::WonSlotTransactionsGet { .. }

@@ -187,6 +187,14 @@ impl redux::TimeService for NodeService {
     }
 }
 
+impl node::service::ErrorSinkService for NodeService {
+    fn submit_error_report_data(&mut self, category: &str, data: Vec<u8>) {
+        let _ = category;
+        let _ = data;
+        todo!()
+    }
+}
+
 impl node::service::EventSourceService for NodeService {
     fn next_event(&mut self) -> Option<Event> {
         self.event_receiver.try_next()

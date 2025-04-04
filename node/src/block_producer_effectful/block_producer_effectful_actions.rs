@@ -17,6 +17,9 @@ pub enum BlockProducerEffectfulAction {
     BlockUnprovenBuild,
     BlockProveInit,
     BlockProveSuccess,
+    BlockProveError {
+        error: String,
+    },
     BlockProduced {
         block: ArcBlockWithHash,
     },
