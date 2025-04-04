@@ -1,3 +1,6 @@
+//! Implements the GraphQL API for the OpenMina node, providing a web-accessible interface for querying blockchain state and submitting transactions.
+//! This module defines the schema, resolvers, and HTTP routes for the GraphQL endpoint.
+
 use account::{create_account_loader, AccountLoader, GraphQLAccount};
 use block::{GraphQLBlock, GraphQLSnarkJob, GraphQLUserCommands};
 use juniper::{graphql_value, EmptySubscription, FieldError, GraphQLEnum, RootNode};
@@ -569,6 +572,12 @@ impl Query {
     }
 }
 
+/// Injects a transaction into the mempool and handles the response.
+///
+/// This helper function is used by both payment and zkapp transaction mutations to:
+/// 1. Submit the transaction to the node's mempool via RPC
+/// 2. Process the response (success, rejection, or failure)
+/// 3. Convert the result to the appropriate GraphQL response type
 async fn inject_tx<R>(
     cmd: MinaBaseUserCommandStableV2,
     context: &Context,
