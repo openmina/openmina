@@ -1,3 +1,6 @@
+//! Implements the reducer function for the transition frontier state,
+//! handling state transitions in response to dispatched actions.
+
 use super::sync::{SyncError, TransitionFrontierSyncState};
 use super::{
     TransitionFrontierAction, TransitionFrontierActionWithMetaRef, TransitionFrontierState,
@@ -5,6 +8,10 @@ use super::{
 use openmina_core::block::AppliedBlock;
 
 impl TransitionFrontierState {
+    /// Main reducer function for the transition frontier state.
+    /// 
+    /// This function handles all actions that can be dispatched to the transition frontier,
+    /// delegating to sub-reducers for specific components like genesis, candidates, and sync.
     pub fn reducer(
         mut state_context: crate::Substate<Self>,
         action: TransitionFrontierActionWithMetaRef<'_>,
@@ -69,34 +76,18 @@ impl TransitionFrontierState {
                 );
             }
             TransitionFrontierAction::Synced {
-                needed_protocol_states: needed_protocol_state_hashes,
+                needed_protocol_states,
             } => {
-                let TransitionFrontierSyncState::CommitSuccess {
-                    chain,
-                    needed_protocol_states,
-                    ..
-                } = &mut state.sync
-                else {
+                let Some(sync) = state.sync.as_commit_success() else {
                     return;
                 };
-                let mut needed_protocol_state_hashes = needed_protocol_state_hashes.clone();
-                let new_chain = std::mem::take(chain);
-                let needed_protocol_states = std::mem::take(needed_protocol_states);
+                let new_chain = sync.new_chain.clone();
 
-                state.needed_protocol_states.extend(needed_protocol_states);
-                state
-                    .needed_protocol_states
-                    .retain(|k, _| needed_protocol_state_hashes.remove(k));
-
-                for hash in needed_protocol_state_hashes {
-                    let block = state
-                        .best_chain
-                        .iter()
-                        .find(|b| b.hash() == &hash)
-                        .or_else(|| new_chain.iter().find(|b| b.hash() == &hash));
-                    // TODO(binier): error log instead.
-                    let block = block.expect("we lack needed block!");
-                    let protocol_state = block.header().protocol_state.clone();
+                // Add needed protocol states
+                for hash in needed_protocol_states {
+                    let Some(protocol_state) = sync.needed_protocol_states.get(&hash).cloned() else {
+                        continue;
+                    };
                     state.needed_protocol_states.insert(hash, protocol_state);
                 }
 

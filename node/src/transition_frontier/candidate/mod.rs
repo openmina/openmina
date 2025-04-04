@@ -1,3 +1,6 @@
+//! Manages candidate blocks that may become part of the best chain,
+//! including validation, verification, and consensus-based ordering.
+
 mod transition_frontier_candidate_state;
 pub use transition_frontier_candidate_state::*;
 

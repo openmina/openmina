@@ -1,0 +1,24 @@
+//! Implements side effects for the transition frontier component,
+//! handling interactions with external services and other components
+//! in response to state changes.
+
+use mina_p2p_messages::gossip::GossipNetMessageV2;
+use redux::Timestamp;
+
+use crate::block_producer::BlockProducerAction;
+use crate::ledger::LEDGER_DEPTH;
+use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
+use crate::p2p::P2pNetworkPubsubAction;
+use crate::snark_pool::{SnarkPoolAction, SnarkWork};
+use crate::stats::sync::SyncingLedger;
+use crate::{Store, TransactionPoolAction};
+
+use super::candidate::TransitionFrontierCandidateAction;
+use super::genesis::TransitionFrontierGenesisAction;
+use super::sync::ledger::snarked::{
+    TransitionFrontierSyncLedgerSnarkedAction, ACCOUNT_SUBTREE_HEIGHT,
+};
+use super::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
+use super::sync::ledger::{
+    transition_frontier_sync_ledger_init_effects,
+    transition_frontier_sync_ledger_snarked_success_effects,

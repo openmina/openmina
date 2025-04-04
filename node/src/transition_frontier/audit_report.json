@@ -1,0 +1,40 @@
+{
+  "status": "audit_completed",
+  "annotations_added": [
+    {
+      "file": "openmina/node/src/transition_frontier/mod.rs",
+      "line": 10,
+      "issue_description": "The documentation doesn't specify that the fork-choice rule implements Ouroboros Samasika consensus protocol, which uses both short-range and long-range fork rules as seen in the consensus_take function."
+    },
+    {
+      "file": "openmina/node/src/transition_frontier/README.md",
+      "line": 37,
+      "issue_description": "The documentation doesn't specify that the fork-choice rule implements Ouroboros Samasika consensus protocol, which uses both short-range and long-range fork rules as seen in the consensus_take function."
+    },
+    {
+      "file": "openmina/node/src/transition_frontier/mod.rs",
+      "line": 13,
+      "issue_description": "The archive functionality appears to be in a preliminary state with minimal implementation. The ArchiveConfig contains a TODO comment questioning if it's just unnecessary boilerplate, and the service interface only has a single method."
+    },
+    {
+      "file": "openmina/node/src/transition_frontier/README.md",
+      "line": 47,
+      "issue_description": "The archive functionality appears to be in a preliminary state with minimal implementation. The ArchiveConfig contains a TODO comment questioning if it's just unnecessary boilerplate, and the service interface only has a single method."
+    },
+    {
+      "file": "openmina/node/src/transition_frontier/mod.rs",
+      "line": 22,
+      "issue_description": "The documentation is incomplete regarding synchronization states. The TransitionFrontierSyncState enum includes additional states like BlockFetchPending, BlockApplyPending, LedgerPending, and CommitSuccess that are not mentioned."
+    },
+    {
+      "file": "openmina/node/src/transition_frontier/README.md",
+      "line": 43,
+      "issue_description": "The documentation is incomplete regarding synchronization states. The TransitionFrontierSyncState enum includes additional states like BlockFetchPending, BlockApplyPending, LedgerPending, and CommitSuccess that are not mentioned."
+    },
+    {
+      "file": "openmina/node/src/transition_frontier/mod.rs",
+      "line": 30,
+      "issue_description": "The documentation doesn't fully explain the chain_diff mechanism. The TransitionFrontierState maintains a chain_diff field that represents the difference between the old and new best chains, which is used to update the transaction pool when chain reorganizations occur."
+    }
+  ]
+}

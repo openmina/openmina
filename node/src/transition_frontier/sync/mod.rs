@@ -1,3 +1,6 @@
+//! Manages the synchronization of the transition frontier with the network,
+//! including block fetching, validation, and ledger state synchronization.
+
 pub mod ledger;
 
 mod transition_frontier_sync_state;

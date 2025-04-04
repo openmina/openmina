@@ -1,3 +1,6 @@
+//! Defines the state structures for managing candidate blocks in the transition frontier,
+//! including their validation status and consensus-based ordering.
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use mina_p2p_messages::v2::StateHash;
@@ -118,6 +121,10 @@ impl TransitionFrontierCandidateState {
     }
 }
 
+/// Manages the set of candidate blocks that may become part of the best chain.
+///
+/// Candidates are ordered according to consensus rules, with the best candidate
+/// (according to consensus) at the end of the ordered set.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TransitionFrontierCandidatesState {
     /// Maintains an ordered list of transition frontier Candidates,
@@ -204,6 +211,12 @@ impl TransitionFrontierCandidatesState {
         })
     }
 
+    /// Prunes candidates that are worse than the best verified candidate.
+    ///
+    /// This method:
+    /// 1. Finds the best verified candidate (one that passed SNARK verification)
+    /// 2. Removes all candidates that are worse according to consensus rules
+    /// 3. Cleans up the invalid blocks list by removing entries for slots older than the best candidate
     pub(super) fn prune(&mut self) {
         let mut has_reached_best_candidate = false;
         let Some(best_candidate_hash) = self.best_verified().map(|s| s.block.hash().clone()) else {
@@ -252,6 +265,12 @@ impl TransitionFrontierCandidatesState {
         self.block_chain_proof(self.best_verified()?, transition_frontier)
     }
 
+    /// Attempts to construct a chain proof for a candidate block.
+    ///
+    /// A chain proof consists of a root block and a list of block hashes that connect
+    /// the root to the candidate. This is used to validate that a candidate block
+    /// extends a valid chain. The method tries to use an existing proof or construct
+    /// one from the current best chain if the candidate is a direct extension.
     fn block_chain_proof(
         &self,
         block_state: &TransitionFrontierCandidateState,

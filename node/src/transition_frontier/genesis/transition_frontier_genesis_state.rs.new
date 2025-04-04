@@ -1,0 +1,28 @@
+//! Defines the state for genesis block generation and initialization,
+//! tracking the progress from loading the genesis ledger to producing the genesis block.
+
+use ledger::dummy::dummy_blockchain_proof;
+use mina_p2p_messages::v2;
+use openmina_core::{block::ArcBlockWithHash, constants::PROTOCOL_VERSION};
+use serde::{Deserialize, Serialize};
+
+use super::{empty_block_body, GenesisConfigLoaded};
+
+/// State for tracking the genesis block generation process.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum TransitionFrontierGenesisState {
+    /// Initial state before genesis generation begins
+    Idle,
+    /// Genesis ledger is being loaded
+    LedgerLoadPending {
+        time: redux::Timestamp,
+    },
+    /// Genesis ledger has been successfully loaded
+    LedgerLoadSuccess {
+        time: redux::Timestamp,
+        data: GenesisConfigLoaded,
+    },
+    /// Genesis block has been produced
+    Produced {
+        time: redux::Timestamp,
+        negative_one: v2::MinaStateProtocolStateValueStableV2,

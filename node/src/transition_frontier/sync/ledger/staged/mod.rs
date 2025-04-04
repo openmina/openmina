@@ -1,3 +1,7 @@
+//! Manages the synchronization of the staged ledger, which contains
+//! pending transactions and their effects that haven't yet been
+//! incorporated into the snarked ledger.
+
 mod transition_frontier_sync_ledger_staged_state;
 use ark_ff::fields::arithmetic::InvalidBigInt;
 use mina_hasher::Fp;
@@ -22,22 +26,30 @@ use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 
+/// Represents errors that can occur when fetching staged ledger parts from peers.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PeerStagedLedgerPartsFetchError {
+    /// The fetch request timed out
     Timeout,
+    /// The peer disconnected before responding
     Disconnected,
+    /// The peer doesn't have the requested data
     DataUnavailable,
 }
 
 // TODO(binier): must be separate type
 pub type StagedLedgerAuxAndPendingCoinbasesValid = StagedLedgerAuxAndPendingCoinbases;
 
+/// Represents the result of validating staged ledger data received from peers.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum StagedLedgerAuxAndPendingCoinbasesValidated {
+    /// The staged ledger data is valid (hash matches expected value)
     Valid(Arc<StagedLedgerAuxAndPendingCoinbasesValid>),
+    /// The staged ledger data is invalid (hash doesn't match expected value)
     Invalid(Arc<StagedLedgerAuxAndPendingCoinbases>),
 }
 
+/// Converts staged ledger parts from the P2P message format to internal types.
 fn conv(
     parts: &StagedLedgerAuxAndPendingCoinbases,
 ) -> Result<(ScanState, PendingCoinbase, Fp), InvalidBigInt> {
@@ -48,6 +60,12 @@ fn conv(
 }
 
 impl StagedLedgerAuxAndPendingCoinbasesValidated {
+    /// Validates staged ledger data by checking that its hash matches the expected hash.
+    ///
+    /// This method:
+    /// 1. Converts the data to internal types
+    /// 2. Calculates the hash of the staged ledger
+    /// 3. Compares it with the expected hash
     pub fn validate(
         parts: &Arc<StagedLedgerAuxAndPendingCoinbases>,
         expected_hash: &MinaBaseStagedLedgerHashStableV1,

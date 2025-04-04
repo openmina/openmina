@@ -1,3 +1,6 @@
+//! Defines the actions that can be dispatched to modify the transition frontier state,
+//! including genesis initialization, block candidate management, and synchronization.
+
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
@@ -15,6 +18,8 @@ pub type TransitionFrontierActionWithMeta = redux::ActionWithMeta<TransitionFron
 pub type TransitionFrontierActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierAction>;
 
+/// Actions that can be dispatched to the transition frontier component.
+/// These actions trigger state changes through the reducer functions.
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum TransitionFrontierAction {
     Genesis(TransitionFrontierGenesisAction),
@@ -43,6 +48,11 @@ pub enum TransitionFrontierAction {
     },
 }
 
+/// Implements enabling conditions for transition frontier actions.
+/// 
+/// This determines when an action is allowed to be dispatched based on the current state.
+/// For example, GenesisInject is only enabled when there's no root block yet but we have
+/// a genesis block available.
 impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {

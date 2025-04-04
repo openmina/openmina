@@ -1,3 +1,6 @@
+//! Defines the core state structure for the Transition Frontier, including the best chain,
+//! candidate blocks, synchronization state, and methods for chain management.
+
 use std::collections::BTreeMap;
 
 use ledger::transaction_pool::diff::BestTipDiff;
@@ -14,6 +17,8 @@ use super::genesis::TransitionFrontierGenesisState;
 use super::sync::TransitionFrontierSyncState;
 use super::TransitionFrontierConfig;
 
+/// The central state structure for the Transition Frontier, maintaining the current blockchain state,
+/// candidate blocks, and synchronization status.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierState {
     pub config: TransitionFrontierConfig,
@@ -106,8 +111,12 @@ impl TransitionFrontierState {
             })
     }
 
-    /// Create a diff between the old best chain and the new one
-    /// This is used to update the transaction pool
+    /// Creates a diff between the old best chain and the new one to update the transaction pool.
+    ///
+    /// This method computes the differences in transactions between chains by:
+    /// 1. Finding the common ancestor between old and new chains
+    /// 2. Identifying the divergent parts of both chains
+    /// 3. Extracting transactions that need to be added or removed from the pool
     pub fn maybe_make_chain_diff(&self, new_chain: &[AppliedBlock]) -> Option<BestTipDiff> {
         let old_chain = self.best_chain.as_slice();
         let new_root = new_chain.first();

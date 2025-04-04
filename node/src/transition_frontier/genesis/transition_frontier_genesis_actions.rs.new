@@ -1,0 +1,24 @@
+//! Defines actions for managing the genesis block generation and initialization,
+//! including loading the genesis ledger and creating the genesis block.
+
+use std::sync::Arc;
+
+use mina_p2p_messages::v2;
+use openmina_core::ActionEvent;
+use serde::{Deserialize, Serialize};
+
+use super::{GenesisConfigLoaded, TransitionFrontierGenesisState};
+
+pub type TransitionFrontierGenesisActionWithMeta =
+    redux::ActionWithMeta<TransitionFrontierGenesisAction>;
+pub type TransitionFrontierGenesisActionWithMetaRef<'a> =
+    redux::ActionWithMeta<&'a TransitionFrontierGenesisAction>;
+
+/// Actions for managing the genesis block generation and initialization.
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace)]
+pub enum TransitionFrontierGenesisAction {
+    LedgerLoadInit,
+    LedgerLoadPending,
+    LedgerLoadSuccess {
+        data: GenesisConfigLoaded,

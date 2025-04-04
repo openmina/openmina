@@ -1,0 +1,23 @@
+//! Defines the configuration for the genesis block and ledger,
+//! including loading and parsing genesis data from files.
+
+use std::{
+    borrow::Cow,
+    fs::File,
+    io::{Read, Write},
+    path::PathBuf,
+    str::FromStr,
+};
+
+use crate::{account::AccountSecretKey, daemon_json::EpochData};
+use ark_ff::fields::arithmetic::InvalidBigInt;
+use ledger::{
+    proofs::caching::{ensure_path_exists, openmina_cache_path},
+    scan_state::currency::Balance,
+    BaseLedger,
+};
+use mina_hasher::Fp;
+use mina_p2p_messages::{
+    binprot::{
+        self,
+        macros::{BinProtRead, BinProtWrite},

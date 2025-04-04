@@ -1,0 +1,26 @@
+//! Defines actions for side effects related to genesis block generation,
+//! including loading the genesis ledger and proving the genesis block.
+
+use std::sync::Arc;
+
+use mina_p2p_messages::v2::{ProverExtendBlockchainInputStableV2, StateHash};
+use openmina_core::ActionEvent;
+use serde::{Deserialize, Serialize};
+
+use crate::transition_frontier::genesis::GenesisConfig;
+
+pub type TransitionFrontierGenesisEffectfulActionWithMeta =
+    redux::ActionWithMeta<TransitionFrontierGenesisEffectfulAction>;
+pub type TransitionFrontierGenesisEffectfulActionWithMetaRef<'a> =
+    redux::ActionWithMeta<&'a TransitionFrontierGenesisEffectfulAction>;
+
+/// Actions for side effects related to genesis block generation.
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace)]
+pub enum TransitionFrontierGenesisEffectfulAction {
+    /// Initialize loading of the genesis ledger
+    LedgerLoadInit {
+        config: Arc<GenesisConfig>,
+    },
+    /// Initialize proving of the genesis block
+    ProveInit {

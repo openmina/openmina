@@ -1,3 +1,7 @@
+//! Implements side effects for genesis block generation,
+//! handling interactions with external services for loading the genesis ledger
+//! and proving the genesis block.
+
 use redux::ActionMeta;
 
 use crate::Store;
@@ -5,6 +9,10 @@ use crate::Store;
 use super::{TransitionFrontierGenesisEffectfulAction, TransitionFrontierGenesisService};
 
 impl TransitionFrontierGenesisEffectfulAction {
+    /// Handles side effects for genesis effectful actions.
+    ///
+    /// This delegates to the appropriate service methods for loading the genesis ledger
+    /// or proving the genesis block.
     pub fn effects<S>(&self, _: &ActionMeta, store: &mut Store<S>)
     where
         S: redux::Service + TransitionFrontierGenesisService,
@@ -18,4 +26,3 @@ impl TransitionFrontierGenesisEffectfulAction {
             }
         }
     }
-}

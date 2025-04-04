@@ -1,0 +1,26 @@
+//! Defines the state for transition frontier synchronization,
+//! tracking the progress of fetching blocks, validating them, and updating the ledger state.
+
+use std::collections::BTreeMap;
+
+use mina_p2p_messages::v2::{self, LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
+use openmina_core::block::{AppliedBlock, ArcBlockWithHash};
+use redux::Timestamp;
+use serde::{Deserialize, Serialize};
+use strum_macros::Display;
+
+use crate::p2p::channels::rpc::P2pRpcId;
+use crate::p2p::PeerId;
+
+use super::ledger::{SyncLedgerTarget, SyncLedgerTargetKind, TransitionFrontierSyncLedgerState};
+use super::PeerBlockFetchError;
+
+/// State for tracking the synchronization of the transition frontier.
+#[derive(Serialize, Deserialize, Display, Debug, Clone)]
+pub enum TransitionFrontierSyncState {
+    /// No synchronization is in progress
+    Idle,
+    /// Synchronization has been initialized
+    Init {
+        time: Timestamp,
+        best_tip: ArcBlockWithHash,

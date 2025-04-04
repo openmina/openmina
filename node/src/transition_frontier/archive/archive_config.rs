@@ -1,7 +1,9 @@
+//! Configuration for the archive service that stores historical blockchain data.
+
 use serde::{Deserialize, Serialize};
 // use std::path::PathBuf;
 
-// TODO(adonagy): Do we need this? Is it just unnecessary boilerplate?
+// TODO(adonagy): Do we need this? Is it just unnecessary boilerplate?
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ArchiveConfig {

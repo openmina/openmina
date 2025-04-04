@@ -1,0 +1,23 @@
+//! Implements the reducer function for genesis state transitions,
+//! handling the process of loading the genesis ledger and creating the genesis block.
+
+use crate::{
+    account::AccountSecretKey, block_producer::calc_epoch_seed,
+    transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction,
+};
+use ledger::{
+    dummy::dummy_blockchain_proof, scan_state::transaction_logic::local_state::LocalState,
+};
+use mina_p2p_messages::v2;
+use openmina_core::{
+    block::{genesis::genesis_and_negative_one_protocol_states, BlockWithHash},
+    constants::PROTOCOL_VERSION,
+    error,
+};
+use p2p::P2pInitializeAction;
+
+use super::{
+    empty_block_body, empty_block_body_hash, empty_pending_coinbase, empty_pending_coinbase_hash,
+    TransitionFrontierGenesisAction, TransitionFrontierGenesisActionWithMetaRef,
+    TransitionFrontierGenesisState,
+};

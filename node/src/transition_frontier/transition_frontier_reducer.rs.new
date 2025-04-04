@@ -1,0 +1,26 @@
+//! Implements the reducer function for the transition frontier state,
+//! handling state transitions in response to dispatched actions.
+
+use super::sync::{SyncError, TransitionFrontierSyncState};
+use super::{
+    TransitionFrontierAction, TransitionFrontierActionWithMetaRef, TransitionFrontierState,
+};
+use openmina_core::block::AppliedBlock;
+
+impl TransitionFrontierState {
+    /// Main reducer function for the transition frontier state.
+    /// 
+    /// This function handles all actions that can be dispatched to the transition frontier,
+    /// delegating to sub-reducers for specific components like genesis, candidates, and sync.
+    pub fn reducer(
+        mut state_context: crate::Substate<Self>,
+        action: TransitionFrontierActionWithMetaRef<'_>,
+    ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
+        let (action, meta) = action.split();
+
+        // Drop the diff, it's been processed in the effect
+        state.chain_diff.take();

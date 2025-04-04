@@ -1,0 +1,23 @@
+//! Implements the reducer function for candidate blocks in the transition frontier,
+//! handling state transitions for block validation and verification.
+
+use openmina_core::{
+    block::{ArcBlockWithHash, BlockHash},
+    bug_condition,
+};
+use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError, SnarkBlockVerifyId};
+
+use crate::{
+    transition_frontier::sync::{
+        ledger::{
+            snarked::TransitionFrontierSyncLedgerSnarkedAction,
+            staged::TransitionFrontierSyncLedgerStagedAction,
+        },
+        TransitionFrontierSyncAction,
+    },
+    WatchedAccountsAction,
+};
+
+use super::{
+    TransitionFrontierCandidateAction, TransitionFrontierCandidateActionWithMetaRef,
+    TransitionFrontierCandidateStatus, TransitionFrontierCandidatesState,
