@@ -2,6 +2,10 @@
 
 ```mermaid
 graph TD
+    %% Transition Frontier Flow Diagram
+    %% Using transparent fills with colored borders for accessibility on both light and dark backgrounds
+
+    %% Block Processing Flow
     A[New Block Received] --> B{Validate Block}
     B -- Valid --> C[Add to Candidates]
     B -- Invalid --> D[Reject Block]
@@ -12,6 +16,7 @@ graph TD
     H --> I[Update Transaction Pool]
     H --> J[Broadcast Best Tip]
 
+    %% Synchronization Flow
     K[Network Sync Required] --> L{Sync State}
     L -- Root Ledger --> M[Fetch Root Ledger]
     L -- Blocks --> N[Fetch Missing Blocks]
@@ -20,12 +25,26 @@ graph TD
     O --> Q[Sync Complete]
     P --> Q
 
-    classDef process fill:#f9f,stroke:#333,stroke-width:1px;
-    classDef decision fill:none,stroke:#333,stroke-width:1px;
-    classDef state fill:none,stroke:#333,stroke-width:1px;
+    %% Style Definitions - Transparent fills with colored borders
+    classDef process fill:transparent,stroke:#4285F4,stroke-width:2px,color:#4285F4;
+    classDef decision fill:transparent,stroke:#34A853,stroke-width:2px,color:#34A853;
+    classDef action fill:transparent,stroke:#FBBC05,stroke-width:2px,color:#FBBC05;
+    classDef state fill:transparent,stroke:#EA4335,stroke-width:2px,color:#EA4335;
 
-    class A,C,D,F,G,H,I,J,K,M,N,O,P,Q process;
+    %% Apply styles to nodes
+    class A,K process;
     class B,E,L decision;
+    class C,D,F,G,H,I,J action;
+    class M,N,O,P,Q state;
+
+    %% Legend
+    subgraph Legend
+        Z1[Process] --- Z2{Decision} --- Z3[Action] --- Z4[State]
+    end
+    class Z1 process;
+    class Z2 decision;
+    class Z3 action;
+    class Z4 state;
 ```
 
 ## Overview
