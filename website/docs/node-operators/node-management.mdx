@@ -4,6 +4,14 @@ title: Node Management
 description: Essential commands and tools for managing your Mina Rust node
 ---
 
+import CodeBlock from "@theme/CodeBlock";
+import BuildInfoDocker from "!!raw-loader!./scripts/build-info-docker.sh";
+import BuildInfoDockerVersion from "!!raw-loader!./scripts/build-info-docker-version.sh";
+import BuildInfoNative from "!!raw-loader!./scripts/build-info-native.sh";
+import BuildInfoNativePath from "!!raw-loader!./scripts/build-info-native-path.sh";
+import VerifyBuildInfoDocker from "!!raw-loader!./scripts/verify-build-info-docker.sh";
+import VerifyBuildInfoNative from "!!raw-loader!./scripts/verify-build-info-native.sh";
+
 # Node Management
 
 This guide covers essential commands and tools for managing your Mina Rust node,
@@ -18,10 +26,9 @@ ensure you're running the correct version and to help with troubleshooting.
 
 To check the build information of your Docker-based node:
 
-```bash
-# Get build information
-docker run --rm o1labs/mina-rust:latest build-info
-```
+<CodeBlock language="bash" title="scripts/build-info-docker.sh">
+  {BuildInfoDocker}
+</CodeBlock>
 
 Example output:
 
@@ -37,21 +44,23 @@ Rustc version: 1.84.1
 
 For a specific version:
 
-```bash
-docker run --rm o1labs/mina-rust:v0.18.0 build-info
-```
+<CodeBlock language="bash" title="scripts/build-info-docker-version.sh">
+  {BuildInfoDockerVersion}
+</CodeBlock>
 
 ### Using Native Binary
 
 If you've built from source or are running the binary directly:
 
-```bash
-# Get build information
-mina build-info
+<CodeBlock language="bash" title="scripts/build-info-native.sh">
+  {BuildInfoNative}
+</CodeBlock>
 
-# Or with the full path if not in PATH
-./target/release/mina build-info
-```
+Or with the full path if not in PATH:
+
+<CodeBlock language="bash" title="scripts/build-info-native-path.sh">
+  {BuildInfoNativePath}
+</CodeBlock>
 
 ### Understanding Build Information
 
@@ -69,13 +78,17 @@ The build info provides critical details:
 
 Always verify your node version after installation or updates:
 
-```bash
-# For Docker users
-docker run --rm o1labs/mina-rust:latest build-info | grep "Version\|branch"
+For Docker users:
 
-# For native binary users
-mina build-info | grep "Version\|branch"
-```
+<CodeBlock language="bash" title="scripts/verify-build-info-docker.sh">
+  {VerifyBuildInfoDocker}
+</CodeBlock>
+
+For native binary users:
+
+<CodeBlock language="bash" title="scripts/verify-build-info-native.sh">
+  {VerifyBuildInfoNative}
+</CodeBlock>
 
 ## Monitoring Your Node
 

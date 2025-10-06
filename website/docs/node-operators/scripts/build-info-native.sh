@@ -1,0 +1,1 @@
+mina build-info
