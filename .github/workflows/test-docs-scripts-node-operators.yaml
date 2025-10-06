@@ -2,6 +2,7 @@ name: Test Documentation Scripts - Node Operators
 
 # Test node-operators documentation scripts to ensure they work correctly
 # These scripts demonstrate node management commands for users
+# Run locally: gh act -W .github/workflows/test-docs-scripts-node-operators.yaml
 on:
   push:
     branches: [main, develop]
@@ -19,9 +20,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Make scripts executable
+      - name: Install Docker on macOS
+        if: runner.os == 'macOS'
         run: |
-          chmod +x website/docs/node-operators/scripts/*.sh
+          brew install docker
+          brew install colima
+          colima start
 
       - name: Test build-info-docker script
         run: |
@@ -29,7 +33,7 @@ jobs:
 
       - name: Test build-info-docker-version script
         run: |
-          bash website/docs/node-operators/scripts/build-info-docker-version.sh
+          bash website/docs/node-operators/scripts/build-info-docker.sh
 
       - name: Test verify-build-info-docker script
         run: |
@@ -44,11 +48,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Install timeout on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install coreutils
+          sudo ln -s /opt/homebrew/bin/gtimeout /usr/local/bin/timeout || sudo ln -s /usr/local/bin/gtimeout /usr/local/bin/timeout
 
       - name: Create test environment
         run: |

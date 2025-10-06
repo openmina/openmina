@@ -11,6 +11,13 @@ import BuildInfoNative from "!!raw-loader!./scripts/build-info-native.sh";
 import BuildInfoNativePath from "!!raw-loader!./scripts/build-info-native-path.sh";
 import VerifyBuildInfoDocker from "!!raw-loader!./scripts/verify-build-info-docker.sh";
 import VerifyBuildInfoNative from "!!raw-loader!./scripts/verify-build-info-native.sh";
+import BuildInfoExample from "!!raw-loader!./example-output/build-info-example.txt";
+import BackupConfiguration from "!!raw-loader!./scripts/backup-configuration.sh";
+import ManageFilePermissions from "!!raw-loader!./scripts/manage-file-permissions.sh";
+import CheckSystemResources from "!!raw-loader!./scripts/check-system-resources.sh";
+import CreateEmptyEnv from "!!raw-loader!./scripts/create-empty-env.sh";
+import CreateEnvCustom from "!!raw-loader!./scripts/create-env-custom.sh";
+import CreateEnvArchive from "!!raw-loader!./scripts/create-env-archive.sh";
 
 # Node Management
 
@@ -32,15 +39,9 @@ To check the build information of your Docker-based node:
 
 Example output:
 
-```
-Version:       0341fff
-Build time:    2025-09-10T18:11:40.953050700Z
-Commit SHA:    0341fffedba4900371504ad4b30853674960a209
-Commit time:   2025-09-10T19:30:31.000000000+02:00
-Commit branch: release/v0.17.0
-Rustc channel: stable
-Rustc version: 1.84.1
-```
+<CodeBlock language="text" title="example-output/build-info-example.txt">
+  {BuildInfoExample}
+</CodeBlock>
 
 For a specific version:
 
@@ -168,36 +169,25 @@ docker compose up -d --force-recreate
 
 Always backup your keys and configuration:
 
-```bash
-# Backup producer key (if running block producer)
-cp -r mina-workdir/producer-key ~/mina-backup/
-
-# Backup entire working directory
-tar -czf mina-backup-$(date +%Y%m%d).tar.gz mina-workdir/
-```
+<CodeBlock language="bash" title="scripts/backup-configuration.sh">
+  {BackupConfiguration}
+</CodeBlock>
 
 ### Managing File Permissions
 
 Docker containers often run as root, creating files owned by root on your host:
 
-```bash
-# Check file ownership
-ls -la mina-workdir/
-
-# Fix ownership for all files in mina-workdir
-sudo chown -R $(id -u):$(id -g) mina-workdir/
-
-# Set appropriate permissions for the producer key
-chmod 600 mina-workdir/producer-key
-```
+<CodeBlock language="bash" title="scripts/manage-file-permissions.sh">
+  {ManageFilePermissions}
+</CodeBlock>
 
 <!-- prettier-ignore-start -->
 
 :::tip Best Practice
 
-Always fix file ownership after Docker operations to ensure your
-local user can properly access, backup, and manage the files. This is especially
-important for sensitive files like producer keys.
+Always fix file ownership after Docker operations to ensure your local user can
+properly access, backup, and manage the files. This is especially important for
+sensitive files like producer keys.
 
 :::
 
@@ -224,32 +214,23 @@ environment variables:
 
 **For regular node and block producer:**
 
-```bash
-# Quick fix: Create an empty .env file (has defaults)
-touch .env
+Quick fix: Create an empty .env file (has defaults)
 
-# Or create with custom settings
-cat > .env << EOF
-MINA_RUST_TAG=latest
-MINA_FRONTEND_TAG=latest
-MINA_LIBP2P_PORT=8302
-MINA_LIBP2P_EXTERNAL_IP=
-MINA_PRIVKEY_PASS=
-COINBASE_RECEIVER=
-EOF
-```
+<CodeBlock language="bash" title="scripts/create-empty-env.sh">
+  {CreateEmptyEnv}
+</CodeBlock>
+
+Or create with custom settings:
+
+<CodeBlock language="bash" title="scripts/create-env-custom.sh">
+  {CreateEnvCustom}
+</CodeBlock>
 
 **For archive node (required):**
 
-```bash
-# Archive node requires specific database settings
-cat > .env << EOF
-POSTGRES_PASSWORD=mina
-PG_PORT=5432
-PG_DB=archive
-MINA_RUST_TAG=latest
-EOF
-```
+<CodeBlock language="bash" title="scripts/create-env-archive.sh">
+  {CreateEnvArchive}
+</CodeBlock>
 
 Regular node docker-compose files have default values, but the archive node
 docker-compose file requires the `.env` file with PostgreSQL configuration.
@@ -266,11 +247,11 @@ docker-compose file requires the `.env` file with PostgreSQL configuration.
 ### Performance Issues
 
 1. Check system resources:
-   ```bash
-   free -h
-   df -h
-   docker stats
-   ```
+
+   <CodeBlock language="bash" title="scripts/check-system-resources.sh">
+     {CheckSystemResources}
+   </CodeBlock>
+
 2. Review node logs for warnings
 3. Consider adjusting Docker resource limits
 
