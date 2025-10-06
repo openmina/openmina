@@ -1,0 +1,91 @@
+name: Test Documentation Scripts - Node Operators
+
+# Test node-operators documentation scripts to ensure they work correctly
+# These scripts demonstrate node management commands for users
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  test-build-info-scripts:
+    name: Test Build Info Scripts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Make scripts executable
+        run: |
+          chmod +x website/docs/node-operators/scripts/*.sh
+
+      - name: Test build-info-docker script
+        run: |
+          bash website/docs/node-operators/scripts/build-info-docker.sh
+
+      - name: Test build-info-docker-version script
+        run: |
+          bash website/docs/node-operators/scripts/build-info-docker-version.sh
+
+      - name: Test verify-build-info-docker script
+        run: |
+          bash website/docs/node-operators/scripts/verify-build-info-docker.sh
+
+      - name: Check build-info output format matches example
+        run: |
+          bash website/docs/node-operators/scripts/check-build-info-format.sh
+
+  test-management-scripts:
+    name: Test Management Scripts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Create test environment
+        run: |
+          mkdir -p mina-workdir/producer-key
+          echo "test-key" > mina-workdir/producer-key/test.key
+          mkdir -p ~/mina-backup
+
+      - name: Test backup-configuration script
+        run: |
+          bash website/docs/node-operators/scripts/backup-configuration.sh
+          test -f ~/mina-backup/producer-key/test.key
+          test -f mina-backup-$(date +%Y%m%d).tar.gz
+
+      - name: Test manage-file-permissions script
+        run: |
+          bash website/docs/node-operators/scripts/manage-file-permissions.sh
+
+      - name: Test check-system-resources script
+        run: |
+          timeout 5 bash website/docs/node-operators/scripts/check-system-resources.sh || true
+
+      - name: Test create-empty-env script
+        run: |
+          cd $(mktemp -d)
+          bash $GITHUB_WORKSPACE/website/docs/node-operators/scripts/create-empty-env.sh
+          test -f .env
+
+      - name: Test create-env-custom script
+        run: |
+          cd $(mktemp -d)
+          bash $GITHUB_WORKSPACE/website/docs/node-operators/scripts/create-env-custom.sh
+          test -f .env
+          grep -q "MINA_RUST_TAG=latest" .env
+
+      - name: Test create-env-archive script
+        run: |
+          cd $(mktemp -d)
+          bash $GITHUB_WORKSPACE/website/docs/node-operators/scripts/create-env-archive.sh
+          test -f .env
+          grep -q "POSTGRES_PASSWORD=mina" .env
