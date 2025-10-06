@@ -2,7 +2,7 @@ name: Test Documentation Scripts - Node Operators
 
 # Test node-operators documentation scripts to ensure they work correctly
 # These scripts demonstrate node management commands for users
-# Run locally: gh act -W .github/workflows/test-docs-scripts-node-operators.yaml
+# Run locally: gh act -W .github/workflows/test-docs-scripts-node-management.yaml
 on:
   push:
     branches: [main, develop]
