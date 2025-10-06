@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove ocaml-interop dependency, fix
   [#1235](https://github.com/o1-labs/mina-rust/issues/1235)
   ([#1646](https://github.com/o1-labs/mina-rust/pull/1646))
+- **Website/CI**: run most commands from the page node management in CI after
+  moving them into scripts imported on the page
+  ([#1511](https://github.com/o1-labs/mina-rust/pull/1511))
 
 ### Removed
 
