@@ -450,7 +450,7 @@ For network connectivity in testing environments, you may need to configure:
 
 ```bash
 # Enable connection to replayer service (used in CI)
-export REPLAYER_MULTIADDR="/dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40110/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv"
+export REPLAYER_MULTIADDR="/dns4/mina-rust-ci-1-libp2p.gcp.o1test.net/tcp/8302/p2p/12D3KooWNazk9D7RnbHFaPEfrL7BReAKr3rDRf7PivS2Lwx3ShAA"
 
 # Allow local address discovery
 export MINA_DISCOVERY_FILTER_ADDR=false

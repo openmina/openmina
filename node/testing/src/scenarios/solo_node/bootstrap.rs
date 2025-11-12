@@ -22,7 +22,7 @@ pub struct SoloNodeBootstrap;
 // This test will fail if we don't start with this as the initial time because
 // the time validation for the first block will reject it.
 fn first_block_slot_timestamp_nanos(config: &RustNodeTestingConfig) -> u64 {
-    let first_block_global_slot = 46891; // Update if replay changes
+    let first_block_global_slot = 279218; // Update if replay changes
     let protocol_constants = config.genesis.protocol_constants().unwrap();
     let genesis_timestamp_ms = protocol_constants.genesis_state_timestamp.0.as_u64();
     let milliseconds_per_slot = constraint_constants().block_window_duration_ms;
