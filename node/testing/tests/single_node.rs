@@ -28,7 +28,8 @@ scenario_test!(
     SoloNodeSyncRootSnarkedLedger
 );
 
-// TO RUN locally:
+// To run locally:
+// ```bash
 // export MINA_DISCOVERY_FILTER_ADDR=false
 // export KEEP_CONNECTION_WITH_UNKNOWN_STREAM=true
 // export REPLAYER_MULTIADDR=/dns4/mina-rust-ci-1-libp2p.gcp.o1test.net/tcp/8302/p2p/12D3KooWNazk9D7RnbHFaPEfrL7BReAKr3rDRf7PivS2Lwx3ShAA
