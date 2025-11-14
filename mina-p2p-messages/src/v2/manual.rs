@@ -1,14 +1,4 @@
 pub mod conv;
-
-use ark_ff::BigInteger256;
-use binprot::{BinProtRead, BinProtWrite};
-use binprot_derive::{BinProtRead, BinProtWrite};
-use derive_more::Deref;
-use malloc_size_of_derive::MallocSizeOf;
-use poseidon::hash::params::NO_INPUT_COINBASE_STACK;
-use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
-use time::OffsetDateTime;
-
 use crate::{
     b58::{self, Base58CheckOfBinProt, Base58CheckOfBytes},
     b58version::USER_COMMAND_MEMO,
@@ -18,6 +8,14 @@ use crate::{
     string::ByteString,
     versioned::Versioned,
 };
+use ark_ff::BigInteger256;
+use binprot::{BinProtRead, BinProtWrite};
+use binprot_derive::{BinProtRead, BinProtWrite};
+use derive_more::Deref;
+use malloc_size_of_derive::MallocSizeOf;
+use poseidon::hash::params::NO_INPUT_COINBASE_STACK;
+use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
+use time::OffsetDateTime;
 
 use super::*;
 
@@ -866,12 +864,15 @@ impl PrecomputedBlock {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
-
     use binprot::{BinProtRead, BinProtWrite};
     use serde::{de::DeserializeOwned, Serialize};
+    use std::fmt::Debug;
 
-    use super::*;
+    use crate::v2::{
+        CoinbaseStackData, CoinbaseStackHash, EpochSeed, LedgerHash, NonZeroCurvePoint,
+        PendingCoinbaseHash, Signature, StagedLedgerHashAuxHash,
+        StagedLedgerHashPendingCoinbaseAux, StateBodyHash, StateHash, TokenIdKeyHash,
+    };
 
     fn base58check_test<T: Serialize + DeserializeOwned + BinProtRead + BinProtWrite + Debug>(
         b58: &str,

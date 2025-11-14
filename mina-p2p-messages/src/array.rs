@@ -1,9 +1,8 @@
-use std::ops::Deref;
-
 use binprot::{BinProtRead, BinProtWrite, Nat0};
 use malloc_size_of_derive::MallocSizeOf;
 use rsexp::OfSexp;
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 /// Mina array bounded to specific length. Note that the length is only checked
 /// when performing binprot operations.

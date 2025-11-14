@@ -1,47 +1,3 @@
-use std::rc::Rc;
-
-use crate::{
-    proofs::{
-        prover::make_padded_proof_from_p2p,
-        public_input::{
-            plonk_checks::ShiftingValue,
-            prepared_statement::{DeferredValues, PreparedStatement, ProofState},
-        },
-        unfinalized::dummy_ipa_step_challenges_computed,
-        util::proof_evaluation_to_absorption_sequence,
-        verifiers::wrap_domains,
-        wrap::{
-            create_oracle_with_public_input, dummy_ipa_wrap_sg, wrap_verifier, Domain,
-            COMMON_MAX_DEGREE_WRAP_LOG2,
-        },
-    },
-    verifier::{get_srs, get_srs_mut},
-};
-use anyhow::Context;
-use ark_ff::{BigInteger256, One, Zero};
-use ark_poly::{
-    univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Radix2EvaluationDomain,
-};
-use kimchi::proof::{PointEvaluations, ProverCommitments, RecursionChallenge};
-use mina_curves::pasta::{Fp, Fq, Pallas};
-use mina_p2p_messages::{bigint::InvalidBigInt, v2};
-use poly_commitment::{commitment::b_poly_coefficients, ipa::OpeningProof};
-
-use crate::proofs::{
-    public_input::{
-        plonk_checks::{derive_plonk, InCircuit},
-        prepared_statement::Plonk,
-    },
-    transaction::endos,
-    util::{challenge_polynomial, four_u64_to_field},
-    verification::{make_scalars_env, prev_evals_from_p2p},
-    wrap::{
-        combined_inner_product, evals_of_split_evals, CombinedInnerProductParams,
-        COMMON_MAX_DEGREE_STEP_LOG2,
-    },
-    BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
-};
-
 use super::{
     constants::ProofConstants,
     field::{Boolean, CircuitVar, FieldWitness, GroupAffine},
@@ -59,6 +15,37 @@ use super::{
     wrap::Domains,
     ProverProof, VerifierIndex,
 };
+use crate::{
+    proofs::{
+        prover::make_padded_proof_from_p2p,
+        public_input::{
+            plonk_checks::{derive_plonk, InCircuit, ShiftingValue},
+            prepared_statement::{DeferredValues, Plonk, PreparedStatement, ProofState},
+        },
+        transaction::endos,
+        unfinalized::dummy_ipa_step_challenges_computed,
+        util::{challenge_polynomial, four_u64_to_field, proof_evaluation_to_absorption_sequence},
+        verification::{make_scalars_env, prev_evals_from_p2p},
+        verifiers::wrap_domains,
+        wrap::{
+            combined_inner_product, create_oracle_with_public_input, dummy_ipa_wrap_sg,
+            evals_of_split_evals, wrap_verifier, CombinedInnerProductParams, Domain,
+            COMMON_MAX_DEGREE_STEP_LOG2, COMMON_MAX_DEGREE_WRAP_LOG2,
+        },
+        BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
+    },
+    verifier::{get_srs, get_srs_mut},
+};
+use anyhow::Context;
+use ark_ff::{BigInteger256, One, Zero};
+use ark_poly::{
+    univariate::DensePolynomial, DenseUVPolynomial, EvaluationDomain, Radix2EvaluationDomain,
+};
+use kimchi::proof::{PointEvaluations, ProverCommitments, RecursionChallenge};
+use mina_curves::pasta::{Fp, Fq, Pallas};
+use mina_p2p_messages::{bigint::InvalidBigInt, v2};
+use poly_commitment::{commitment::b_poly_coefficients, ipa::OpeningProof};
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct PreviousProofStatement<'a> {

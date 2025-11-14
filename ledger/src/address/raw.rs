@@ -261,15 +261,6 @@ impl<const NBYTES: usize> Address<NBYTES> {
 
     pub fn nused_bytes(&self) -> usize {
         self.length.saturating_sub(1) / 8 + 1
-
-        // let length_div = self.length / 8;
-        // let length_mod = self.length % 8;
-
-        // if length_mod == 0 {
-        //     length_div
-        // } else {
-        //     length_div + 1
-        // }
     }
 
     pub fn used_bytes(&self) -> &[u8] {

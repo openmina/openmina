@@ -1,13 +1,11 @@
-use std::ops::Deref;
-
-use poseidon::hash::Inputs;
-
 use crate::{
     bigint::{BigInt, InvalidBigInt},
     list::List,
     number::{Int32, Int64, UInt32, UInt64},
     string::{ByteString, ZkAppUri},
 };
+use poseidon::hash::Inputs;
+use std::ops::Deref;
 
 /// Difference with `ToInputs` in `ledger` is that it can fail here, due
 /// to invalid bigints
@@ -87,9 +85,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use o1_utils::FieldHelpers;
-
     use super::Inputs;
+    use o1_utils::FieldHelpers;
 
     macro_rules! test_to_field {
         ($test:ident : $fun:ident ( $( $value:expr ),* $(,)? ) = $hex:expr ) => {
