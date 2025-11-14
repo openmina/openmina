@@ -68,7 +68,6 @@ wasm-bindgen-futures = { workspace = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 zstd = { workspace = true, optional = true }
-ocaml-interop = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["blocking"] }
 
 [dev-dependencies]

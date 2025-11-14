@@ -2073,12 +2073,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cty"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
-
-[[package]]
 name = "curve25519-dalek"
 version = "4.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5325,7 +5319,6 @@ dependencies = [
  "mina-signer",
  "num-bigint",
  "o1-utils",
- "ocaml-interop",
  "once_cell",
  "poly-commitment",
  "poseidon",
@@ -5955,34 +5948,6 @@ dependencies = [
  "flate2",
  "memchr",
  "ruzstd",
-]
-
-[[package]]
-name = "ocaml-boxroot-sys"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5186393bfbee4ce2bc5bbb82beafb77e85c1d0a557e3cfc8c8a0d63d7845fed5"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "ocaml-interop"
-version = "0.8.8"
-source = "git+https://github.com/sebastiencs/ocaml-interop.git?branch=closure-values#f9ecf016e725589a402f3d61e120d96b8284d506"
-dependencies = [
- "ocaml-boxroot-sys",
- "ocaml-sys",
- "static_assertions",
-]
-
-[[package]]
-name = "ocaml-sys"
-version = "0.22.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73ec6ca7d41458442627435afb8f4671e83fd642e8a560171d671a1f679aa3cf"
-dependencies = [
- "cty",
 ]
 
 [[package]]
