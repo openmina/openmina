@@ -296,7 +296,7 @@ setup-taplo: ## Install taplo TOML formatter
 	@if taplo --version 2>/dev/null | grep -q ${TAPLO_CLI_VERSION}; then \
 		echo "taplo ${TAPLO_CLI_VERSION} already installed"; \
 	else \
-		cargo install taplo-cli --version ${TAPLO_CLI_VERSION} --force; \
+		cargo +nightly install taplo-cli --version ${TAPLO_CLI_VERSION} --force; \
 	fi
 
 .PHONY: setup
