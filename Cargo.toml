@@ -12,7 +12,7 @@ members = [
   "node/common",
   "node/invariants",
   "node/native",
-  "node/testing",
+  "tools/testing",
   "node/web",
   "p2p",
   "p2p/libp2p-rpc-behaviour",
@@ -142,7 +142,7 @@ mina-node-account = { path = "node/account" }
 mina-node-common = { path = "node/common" }
 mina-node-invariants = { path = "node/invariants" }
 mina-node-native = { path = "node/native" }
-mina-node-testing = { path = "node/testing" }
+mina-node-testing = { path = "tools/testing" }
 mina-p2p-messages = { path = "mina-p2p-messages" }
 mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }

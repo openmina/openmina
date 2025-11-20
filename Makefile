@@ -368,7 +368,7 @@ docker-build-bootstrap-sandbox: ## Build bootstrap sandbox Docker image
 .PHONY: docker-build-debugger
 docker-build-debugger: ## Build debugger Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-debugger:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.debugger node/testing/docker/
+		-f tools/testing/docker/Dockerfile.debugger tools/testing/docker/
 
 .PHONY: docker-build-frontend
 docker-build-frontend: ## Build frontend Docker image
@@ -395,12 +395,12 @@ docker-build-fuzzing: ## Build fuzzing Docker image
 .PHONY: docker-build-light
 docker-build-light: ## Build light Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-light:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.light node/testing/docker/
+		-f tools/testing/docker/Dockerfile.light tools/testing/docker/
 
 .PHONY: docker-build-light-focal
 docker-build-light-focal: ## Build light focal Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-light-focal:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.light.focal node/testing/docker/
+		-f tools/testing/docker/Dockerfile.light.focal tools/testing/docker/
 
 .PHONY: docker-build-mina
 docker-build-mina: ## Build main Mina Docker image
@@ -419,12 +419,12 @@ docker-build-mina: ## Build main Mina Docker image
 .PHONY: docker-build-mina-testing
 docker-build-mina-testing: ## Build Mina testing Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-testing:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.mina node/testing/docker/
+		-f tools/testing/docker/Dockerfile.mina tools/testing/docker/
 
 .PHONY: docker-build-test
 docker-build-test: ## Build test Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-test:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.test node/testing/docker/
+		-f tools/testing/docker/Dockerfile.test tools/testing/docker/
 
 # Docker push targets
 

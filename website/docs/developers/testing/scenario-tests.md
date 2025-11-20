@@ -31,7 +31,7 @@ deterministically across different environments.
 
 ### mina-node-testing framework
 
-#### Test library (`node/testing/src/`)
+#### Test library (`tools/testing/src/`)
 
 The `mina-node-testing` library provides the core runtime infrastructure:
 
@@ -44,7 +44,7 @@ The `mina-node-testing` library provides the core runtime infrastructure:
 - **Recording/replay**: Captures and reproduces test scenarios with complete
   fidelity
 
-#### Test runner (`node/testing/src/bin/runner.rs`)
+#### Test runner (`tools/testing/src/bin/runner.rs`)
 
 The test runner provides comprehensive scenario management:
 
@@ -395,18 +395,18 @@ isolation.
 ### Workflow Requirements
 
 - **scenarios-run**: Expects pre-existing scenario files in
-  `node/testing/res/scenarios/`
+  `tools/testing/res/scenarios/`
 - **scenarios-generate**:
   - Default (`--output=stdout`): Runs scenarios and outputs to stdout, no JSON
     files created
   - With `--output=json`: Runs scenarios and saves them as JSON files in
-    `node/testing/res/scenarios/`
+    `tools/testing/res/scenarios/`
 
 #### Understanding Scenario Load/Save Implementation
 
 For detailed technical information about how scenarios are loaded and saved, see
 the
-[scenario module source code](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/src/scenario/mod.rs).
+[scenario module source code](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/src/scenario/mod.rs).
 
 ### Scenario generation and replay
 

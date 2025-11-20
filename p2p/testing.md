@@ -7,11 +7,11 @@
 If two nodes are connecting to each other at the same time, they should be
 connected, so each one has exactly one connection.
 
-- [`p2p_basic_connections(simultaneous_connections)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L25)
+- [`p2p_basic_connections(simultaneous_connections)`](../tools/testing/src/scenarios/p2p/basic_connection_handling.rs#L25)
 
 ### Two Rust nodes shouldn't be disconnected for a while after they are connected
 
-- [`p2p_basic_connections(connection_stbility)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L342)
+- [`p2p_basic_connections(connection_stbility)`](../tools/testing/src/scenarios/p2p/basic_connection_handling.rs#L342)
 
 ### All connections should be tracked by the state machine
 
@@ -20,14 +20,14 @@ should be present in the state machine.
 
 **Tests:**
 
-- [`p2p_basic_connections(all_nodes_connections_are_symmetric)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L98)
-- [`p2p_basic_connections(seed_connections_are_symmetric)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L165)
+- [`p2p_basic_connections(all_nodes_connections_are_symmetric)`](../tools/testing/src/scenarios/p2p/basic_connection_handling.rs#L98)
+- [`p2p_basic_connections(seed_connections_are_symmetric)`](../tools/testing/src/scenarios/p2p/basic_connection_handling.rs#L165)
 
 ### Number of active peers should not exceed configured maximum number
 
 **Tests:**
 
-- [`p2p_basic_connections(max_number_of_peers)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L248)
+- [`p2p_basic_connections(max_number_of_peers)`](../tools/testing/src/scenarios/p2p/basic_connection_handling.rs#L248)
 
 ## Incoming Connections
 
@@ -37,10 +37,10 @@ We should accept an incoming connection from an arbitrary node.
 
 **Tests:**
 
-- [p2p_basic_incoming(accept_connection)](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L16)
-- [p2p_basic_incoming(accept_multiple_connections)](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L62)
-- [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
-- [multi_node_connection_discovery/OCamlToRust](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L127)
+- [p2p_basic_incoming(accept_connection)](../tools/testing/src/scenarios/p2p/basic_incoming_connections.rs#L16)
+- [p2p_basic_incoming(accept_multiple_connections)](../tools/testing/src/scenarios/p2p/basic_incoming_connections.rs#L62)
+- [solo_node_accept_incoming](../tools/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
+- [multi_node_connection_discovery/OCamlToRust](../tools/testing/src/scenarios/multi_node/connection_discovery.rs#L127)
   (should be replaced with one with non-OCaml peer)
 - TODO: fast-running short test
 
@@ -59,14 +59,14 @@ malicious node that uses the same peer ID.
 
 **Tests:**
 
-- [`p2p_basic_incoming(does_not_accept_self_connection)`](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L120)
+- [`p2p_basic_incoming(does_not_accept_self_connection)`](../tools/testing/src/scenarios/p2p/basic_incoming_connections.rs#L120)
 
 ## Outgoing connections
 
 ### Node should connect to other nodes
 
-- [`p2p_basic_outgoing(make_connection)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L19)
-- [`p2p_basic_outgoing(make_multiple_connections)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L74)
+- [`p2p_basic_outgoing(make_connection)`](../tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L19)
+- [`p2p_basic_outgoing(make_multiple_connections)`](../tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L74)
 
 ### Node shouldn't try to make outgoing connection using its own peer_id
 
@@ -75,21 +75,21 @@ connecting to new peers.
 
 **Tests:**
 
-- [`p2p_basic_outgoing(dont_connect_to_node_same_id)`](node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L134)
-- [`p2p_basic_outgoing(dont_connect_to_initial_peer_same_id)`](node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L187)
-- [`p2p_basic_outgoing(dont_connect_to_self_initial_peer)`](node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L226)
+- [`p2p_basic_outgoing(dont_connect_to_node_same_id)`](tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L134)
+- [`p2p_basic_outgoing(dont_connect_to_initial_peer_same_id)`](tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L187)
+- [`p2p_basic_outgoing(dont_connect_to_self_initial_peer)`](tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L226)
 
 ### Node should connect to all available initial peers
 
 TODO: what if the number of initial peers exceeds the max number of peers?
 
-- [`p2p_basic_outgoing(connect_to_all_initial_peers)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L293)
-- [multi_node_initial_joining](../node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs)
+- [`p2p_basic_outgoing(connect_to_all_initial_peers)`](../tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L293)
+- [multi_node_initial_joining](../tools/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs)
   (partially?)
 
 ### Node should retry connecting to unavailable initial peers
 
-- [`p2p_basic_outgoing(connect_to_unavailableinitial_peers)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L433)
+- [`p2p_basic_outgoing(connect_to_unavailableinitial_peers)`](../tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L433)
 
 ### Node should be able to connect to initial peers eventually, even if initially they are not available.
 
@@ -101,7 +101,7 @@ TODO: Use cases where this is important.
 
 **Tests:**
 
-- [`p2p_basic_outgoing(connect_to_all_initial_peers_become_ready)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L362)
+- [`p2p_basic_outgoing(connect_to_all_initial_peers_become_ready)`](../tools/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L362)
 
 ### Node should have a reasonable retry rate for reconnection
 
@@ -114,7 +114,7 @@ Rust node shouldn't reconnect too soon to a node that dropped the connection.
 
 ### Node advertises itself through Kademlia
 
-- [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
+- [solo_node_accept_incoming](../tools/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
   (TODO: should be replaced by one with Rust-only peer)
 
 ### Node should be able to perform initial peer selection (Kademlia "bootstrap")
@@ -135,9 +135,9 @@ returns a list of peers that are "close" to some random peer.
 
 This step starts after Kademlia initialization is complete.
 
-- [multi_node_peer_discovery](../node/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs)
+- [multi_node_peer_discovery](../tools/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs)
   (partially, should be replaced with one with a non-OCaml peer)
-- [multi_node_connection_discovery/OCamlToRust](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L127)
+- [multi_node_connection_discovery/OCamlToRust](../tools/testing/src/scenarios/multi_node/connection_discovery.rs#L127)
   (indirectly, should be replaced with one with a non-OCaml peer)
 - TODO: fast-running Rust-only test
 
@@ -155,33 +155,33 @@ node behind NAT shouldn't advertise its address obtained using external
 
 ### Advertising to OCaml nodes
 
-- [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
-- [multi_node_connection_discovery/OCamlToRustViaSeed](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L267)
+- [solo_node_accept_incoming](../tools/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
+- [multi_node_connection_discovery/OCamlToRustViaSeed](../tools/testing/src/scenarios/multi_node/connection_discovery.rs#L267)
 
 ### Peer discovery via Rust node
 
 If a Rust node is used as a seed node, OCaml nodes connected to it should be
 able to also discover and connect to each other.
 
-- [multi_node_connection_discovery/RustAsSeed](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L25)
+- [multi_node_connection_discovery/RustAsSeed](../tools/testing/src/scenarios/multi_node/connection_discovery.rs#L25)
 
 ### Peer discovery using OCaml seed node
 
-- [multi_node_peer_discovery](../node/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs)
-- [multi_node_connection_discovery/RustToOCamlViaSeed](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L362)
+- [multi_node_peer_discovery](../tools/testing/src/scenarios/multi_node/basic_connectivity_peer_discovery.rs)
+- [multi_node_connection_discovery/RustToOCamlViaSeed](../tools/testing/src/scenarios/multi_node/connection_discovery.rs#L362)
 
 ## Incoming Connections
 
 ### OCaml node should be able to successfully connect to a Rust node
 
-- [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
-- [multi_node_connection_discovery/OCamlToRust](../node/testing/src/scenarios/multi_node/connection_discovery.rs#L127)
+- [solo_node_accept_incoming](../tools/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
+- [multi_node_connection_discovery/OCamlToRust](../tools/testing/src/scenarios/multi_node/connection_discovery.rs#L127)
 
 ## Outgoing Connections
 
 ### Rust node should be able to successfully connect to an OCaml node
 
-- [multi_node_connection_discovery/RustToOCaml](../node/testing/src/scenarios/multi_node/connection_discovery.rs#201)
+- [multi_node_connection_discovery/RustToOCaml](../tools/testing/src/scenarios/multi_node/connection_discovery.rs#201)
 
 # General Safety
 
@@ -192,7 +192,7 @@ able to also discover and connect to each other.
 The node should connect to as many peers as it is configured to (between min and
 max number).
 
-- [multi_node_initial_joining](../node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs)
+- [multi_node_initial_joining](../tools/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs)
 
 ### Peer disconnection
 

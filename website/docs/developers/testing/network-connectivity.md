@@ -42,7 +42,7 @@ of the public (or private) OCaml testnet.
 
 _The source code for this test can be found in this repo:_
 
-[https://github.com/o1-labs/mina-rust/blob/develop/node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs)
+[https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs)
 
 We are testing these scenarios:
 
@@ -181,7 +181,7 @@ under our control.
 
 _The source code for this test can be found in this repo:_
 
-[https://github.com/o1-labs/mina-rust/blob/develop/node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9)
+[https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9)
 
 ### How it's tested
 
