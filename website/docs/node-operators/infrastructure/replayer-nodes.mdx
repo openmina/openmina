@@ -4,6 +4,9 @@ description: o1Labs replayer nodes for debugging and verification
 sidebar_position: 7
 ---
 
+import CodeBlock from "@theme/CodeBlock";
+import ReplayerNodesList from "!!raw-loader!../../developers/scripts/infrastructure/replayer-nodes.txt";
+
 # Replayer Nodes
 
 This section is still a work in progress. It will cover nodes running with
@@ -15,4 +18,9 @@ replaying node execution, see the
 [Replayer documentation](/docs/developers/testing/replayer) in the developers
 testing section.
 
-Track progress: [Issue #1619](https://github.com/o1-labs/mina-rust/issues/1619)
+<CodeBlock
+  language="text"
+  title="website/docs/developers/scripts/infrastructure/replayer-nodes.txt"
+>
+  {ReplayerNodesList}
+</CodeBlock>
