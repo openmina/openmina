@@ -28,7 +28,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_cache == 'true' }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -122,7 +122,7 @@ jobs:
   #   runs-on: ubuntu-24.04
   #   steps:
   #     - name: Git checkout
-  #       uses: actions/checkout@v5
+  #       uses: actions/checkout@v6
 
   #     - name: Setup build dependencies
   #       uses: ./.github/actions/setup-build-deps
@@ -155,7 +155,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -208,7 +208,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -269,7 +269,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -325,7 +325,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -348,7 +348,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download mina binary
         uses: actions/download-artifact@v6
@@ -376,7 +376,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -410,7 +410,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -444,7 +444,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -472,7 +472,7 @@ jobs:
       RUSTFLAGS: "-C overflow-checks=off -C debug-assertions=off ${{ inputs.rustflags }}"
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
