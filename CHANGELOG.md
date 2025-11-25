@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from `compose` to `local` and exposing port 3000 for mina-node HTTP API
   ([#1649](https://github.com/o1-labs/mina-rust/pull/1649))
 
+### Changed
+
+- **Dependencies/proof-systems**: bump up proof-systems to 282faf5
+  ([#1662](https://github.com/o1-labs/mina-rust/pull/1662))
+
 ## [0.18.0] - 2025-11-04
 
 ### OCaml node
