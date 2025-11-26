@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changes
+
+- **Dependency**: use tag instead of references of o1-labs/proof-systems, fix
+  [[#1674](https://github.com/o1-labs/mina-rust/issues/1674)]
+  ([#1673](https://github.com/o1-labs/mina-rust/pull/1673))
+
 ## [0.18.1] - 2025-11-20
+
 ### Added
 
 - **Documentation**: Add comprehensive API endpoints reference for the Node
