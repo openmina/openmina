@@ -12,6 +12,7 @@ services:
     volumes:
       - ./mina-workdir:/root/.mina:rw
     ports:
+      - "3000:3000"
       - "${MINA_LIBP2P_PORT:-8302}:${MINA_LIBP2P_PORT:-8302}"
     environment:
       MINA_LIBP2P_EXTERNAL_IP: "${MINA_LIBP2P_EXTERNAL_IP:-}"
@@ -20,6 +21,6 @@ services:
   frontend:
     image: o1labs/mina-rust-frontend:${MINA_FRONTEND_TAG:-latest}
     environment:
-      MINA_FRONTEND_ENVIRONMENT: compose
+      MINA_FRONTEND_ENVIRONMENT: local
     ports:
       - "8070:80"

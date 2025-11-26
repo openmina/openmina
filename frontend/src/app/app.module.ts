@@ -42,8 +42,6 @@
 // import { BlockProductionPillComponent } from '@app/layout/block-production-pill/block-production-pill.component';
 // import { MenuTabsComponent } from '@app/layout/menu-tabs/menu-tabs.component';
 // import { getFirestore, provideFirestore } from '@angular/fire/firestore';
-// import { LeaderboardModule } from '@leaderboard/leaderboard.module';
-// import { UptimePillComponent } from '@app/layout/uptime-pill/uptime-pill.component';
 // import { provideAppCheck } from '@angular/fire/app-check';
 // import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 // import { SETTINGS } from '@angular/fire/compat/firestore';
@@ -190,9 +188,7 @@
 //     CopyComponent,
 //     WebNodeLandingPageComponent,
 //     BlockProductionPillComponent,
-//     MenuTabsComponent,
-//     LeaderboardModule,
-//     UptimePillComponent], providers: [
+//     MenuTabsComponent], providers: [
 //     THEME_PROVIDER,
 //     { provide: LOCALE_ID, useValue: 'en' },
 //     { provide: ErrorHandler, useValue: Sentry.createErrorHandler() },

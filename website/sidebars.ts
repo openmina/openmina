@@ -49,6 +49,7 @@ const sidebars: SidebarsConfig = {
         'node-operators/infrastructure/plain-nodes',
         'node-operators/infrastructure/archive-nodes',
         'node-operators/infrastructure/block-producers',
+        'node-operators/infrastructure/replayer-nodes',
         'node-operators/infrastructure/memory-profiler',
         'node-operators/infrastructure/network-debugger',
         'node-operators/infrastructure/frontend',
@@ -111,9 +112,9 @@ const sidebars: SidebarsConfig = {
       items: [
         'developers/frontend/index',
         'developers/frontend/node-dashboard',
-        'developers/frontend/leaderboard',
         'developers/frontend/webnode',
         'developers/frontend/environment-configuration',
+        'developers/frontend/api-endpoints',
       ],
     },
     {
@@ -143,6 +144,7 @@ const sidebars: SidebarsConfig = {
         'developers/testing/p2p-tests',
         'developers/testing/network-connectivity',
         'developers/testing/ocaml-node-tests',
+        'developers/testing/replayer',
       ],
     },
     {

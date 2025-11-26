@@ -27,8 +27,6 @@ import { sendSentryEvent } from '@shared/helpers/webnode.helper';
 import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { FileProgressHelper } from '@core/helpers/file-progress.helper';
 import { CONFIG } from '@shared/constants/config';
-import firebase from 'firebase/compat';
-import { FirestoreService } from '@core/services/firestore.service';
 import { SentryService } from '@core/services/sentry.service';
 
 export interface PrivateStake {
@@ -60,7 +58,6 @@ export class WebNodeService {
 
   constructor(
     private http: HttpClient,
-    private firestore: FirestoreService,
     private sentryService: SentryService,
   ) {
     FileProgressHelper.initDownloadProgress();
@@ -191,15 +188,6 @@ export class WebNodeService {
           sendSentryEvent('WebNode failed to start: ' + error.message);
           return throwError(() => new Error(error.message));
         }),
-        switchMap(() => this.webnode$.asObservable()),
-        filter(() => CONFIG.globalConfig.heartbeats),
-        switchMap(() => timer(0, 60000)),
-        switchMap(() => this.heartBeat$),
-        switchMap(heartBeat => this.firestore.addHeartbeat(heartBeat)),
-        catchError(error => {
-          console.log('Error from heartbeat api:', error);
-          return of(null);
-        }),
       );
     }
     return EMPTY;
@@ -298,13 +286,6 @@ export class WebNodeService {
     return this.wasm$.asObservable().pipe(
       filter(Boolean),
       map(webnode => webnode.build_env()),
-    );
-  }
-
-  get heartBeat$(): Observable<any> {
-    return this.webnode$.asObservable().pipe(
-      filter(Boolean),
-      switchMap(webnode => from(webnode.make_heartbeat())),
     );
   }
 

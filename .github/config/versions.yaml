@@ -15,3 +15,6 @@ rust:
 
 ocaml:
   version: "4.14.2"
+
+node:
+  version: "24.11.0"

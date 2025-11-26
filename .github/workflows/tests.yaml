@@ -28,7 +28,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_cache == 'true' }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -122,7 +122,7 @@ jobs:
   #   runs-on: ubuntu-24.04
   #   steps:
   #     - name: Git checkout
-  #       uses: actions/checkout@v5
+  #       uses: actions/checkout@v6
 
   #     - name: Setup build dependencies
   #       uses: ./.github/actions/setup-build-deps
@@ -155,7 +155,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -185,7 +185,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -208,7 +208,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -265,12 +265,67 @@ jobs:
           path: target/release/mina
           retention-days: 7
 
+  unit-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v6
+
+      - name: Load versions
+        uses: ./.github/actions/load-versions
+
+      - name: Setup build dependencies
+        uses: ./.github/actions/setup-build-deps
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ env.RUST_STABLE_VERSION }}
+          cache-prefix: unit-tests-${{ env.CACHE_VERSION }}
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      # TODO: add this to the makefile
+      - name: Run unit tests
+        run: |
+          cargo nextest run --workspace --lib \
+              --exclude mina-core \
+              --exclude mina-fuzzer \
+              --exclude mina-macros \
+              --exclude mina-p2p-messages \
+              --exclude poseidon \
+              --exclude snark \
+              --exclude p2p \
+              --exclude salsa-simple \
+              --exclude p2p-testing \
+              --exclude libp2p-rpc-behaviour \
+              --exclude node \
+              --exclude mina-node-account \
+              --exclude vrf \
+              --exclude mina-node-common \
+              --exclude mina-node-native \
+              --exclude mina-node-web \
+              --exclude mina-node-invariants \
+              --exclude mina-node-testing \
+              --exclude cli \
+              --exclude replay_dynamic_effects \
+              --exclude mina-transport \
+              --exclude mina-bootstrap-sandbox \
+              --exclude mina-gossipsub-sandbox \
+              --exclude hash-tool \
+              --exclude ledger-tool \
+              --exclude transaction_fuzzer \
+              --exclude mina-archive-breadcrumb-compare \
+              --exclude webrtc-sniffer
+              # --exclude mina-tree
+
   account-tests:
     timeout-minutes: 20
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -293,7 +348,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Download mina binary
         uses: actions/download-artifact@v6
@@ -321,7 +376,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -355,7 +410,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -389,7 +444,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -417,7 +472,7 @@ jobs:
       RUSTFLAGS: "-C overflow-checks=off -C debug-assertions=off ${{ inputs.rustflags }}"
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions
@@ -523,7 +578,7 @@ jobs:
       # to allow connection with replayer
       # TODO: remove when replayer supports identify
       KEEP_CONNECTION_WITH_UNKNOWN_STREAM: true
-      REPLAYER_MULTIADDR: "/dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40110/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv"
+      REPLAYER_MULTIADDR: "/dns4/mina-rust-ci-1-libp2p.gcp.o1test.net/tcp/8302/p2p/12D3KooWQi9rSWT2kmEavbEc5eP13nG1FRStMiERKZB3wPJSkNrE"
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
       matrix:

@@ -156,10 +156,10 @@ mkdir mina-rust-node && cd mina-rust-node
 
 # Download the docker-compose.yml file (choose one method)
 # Using wget:
-wget https://raw.githubusercontent.com/o1-labs/mina-rust/v0.17.0/docker-compose.yml
+wget https://raw.githubusercontent.com/o1-labs/mina-rust/v0.18.0/docker-compose.yml
 
 # Or using curl:
-curl -O https://raw.githubusercontent.com/o1-labs/mina-rust/v0.17.0/docker-compose.yml
+curl -O https://raw.githubusercontent.com/o1-labs/mina-rust/v0.18.0/docker-compose.yml
 
 # Create an empty .env file to avoid warnings (optional - has defaults)
 touch .env

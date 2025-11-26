@@ -1,5 +1,14 @@
-use std::sync::Arc;
-
+use super::{
+    archive::ArchiveService,
+    block_producer::BlockProducerService,
+    p2p::webrtc_with_libp2p::P2pServiceCtx,
+    replay::ReplayerState,
+    rpc::{RpcSender, RpcService},
+    snark_worker::SnarkWorker,
+    snarks::SnarkBlockVerifyArgs,
+    EventReceiver, EventSender,
+};
+use crate::rpc::RpcReceiver;
 use node::{
     core::{channels::mpsc, invariants::InvariantsState},
     event_source::Event,
@@ -14,43 +23,51 @@ use sha3::{
     digest::{core_api::XofReaderCoreWrapper, ExtendableOutput, Update},
     Shake256, Shake256ReaderCore,
 };
-
-use crate::rpc::RpcReceiver;
-
-use super::{
-    archive::ArchiveService,
-    block_producer::BlockProducerService,
-    p2p::webrtc_with_libp2p::P2pServiceCtx,
-    replay::ReplayerState,
-    rpc::{RpcSender, RpcService},
-    snark_worker::SnarkWorker,
-    snarks::SnarkBlockVerifyArgs,
-    EventReceiver, EventSender,
-};
+use std::sync::Arc;
 
 pub struct NodeService {
+    /// Master seed for deterministic random number generation.
     pub rng_seed: [u8; 32],
+    /// XOF-based RNG for ephemeral keys (derived from seed + "ephemeral").
     pub rng_ephemeral: XofReaderCoreWrapper<Shake256ReaderCore>,
+    /// XOF-based RNG for static operations (derived from seed + "static").
     pub rng_static: XofReaderCoreWrapper<Shake256ReaderCore>,
+    /// Standard RNG for general-purpose randomness.
     pub rng: StdRng,
 
     /// Events sent on this channel are retrieved and processed in the
     /// `event_source` state machine defined in the `mina-node` crate.
     pub event_sender: EventSender,
+    /// Channel for consuming events in the event source state machine.
     pub event_receiver: EventReceiver,
 
+    /// Channel for asynchronous block proof verification requests.
     pub snark_block_proof_verify: mpsc::TrackedUnboundedSender<SnarkBlockVerifyArgs>,
 
+    /// Manages ledger operations, database access, and staged ledger state.
     pub ledger_manager: LedgerManager,
+    /// SNARK proof worker for generating transaction proofs (enabled when node
+    /// acts as SNARK worker).
     pub snark_worker: Option<SnarkWorker>,
+    /// Block production service including VRF evaluation and block proving
+    /// (enabled when node acts as block producer).
     pub block_producer: Option<BlockProducerService>,
+    /// Archive service for storing full blockchain history (enabled when node
+    /// acts as archive node).
     pub archive: Option<ArchiveService>,
+    /// P2P networking context (WebRTC and optionally libp2p transports).
     pub p2p: P2pServiceCtx,
 
+    /// Runtime statistics and metrics collection.
     pub stats: Option<Stats>,
+    /// RPC service for external API queries.
     pub rpc: RpcService,
+    /// Records node state and actions for debugging and replay.
     pub recorder: Recorder,
+    /// Replayer state for deterministic action replay (only set in replay
+    /// mode).
     pub replayer: Option<ReplayerState>,
+    /// State for runtime invariant checking and validation.
     pub invariants_state: InvariantsState,
 }
 

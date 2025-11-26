@@ -38,7 +38,7 @@ Rustc version: 1.84.1
 For a specific version:
 
 ```bash
-docker run --rm o1labs/mina-rust:v0.17.0 build-info
+docker run --rm o1labs/mina-rust:v0.18.0 build-info
 ```
 
 ### Using Native Binary

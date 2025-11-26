@@ -11,6 +11,9 @@ outputs:
   ocaml-version:
     description: "OCaml version"
     value: ${{ steps.load.outputs.ocaml-version }}
+  node-version:
+    description: "Node.js version"
+    value: ${{ steps.load.outputs.node-version }}
 
 runs:
   using: composite
@@ -25,18 +28,33 @@ runs:
         RUST_STABLE=$(yq eval '.rust.stable' "$VERSIONS_FILE")
         RUST_NIGHTLY=$(yq eval '.rust.nightly' "$VERSIONS_FILE")
         OCAML_VERSION=$(yq eval '.ocaml.version' "$VERSIONS_FILE")
+        NODE_VERSION_YAML=$(yq eval '.node.version' "$VERSIONS_FILE")
+
+        # Read node version from .nvmrc
+        NODE_VERSION_NVMRC=$(cat .nvmrc)
+
+        # Verify that the versions match
+        if [ "$NODE_VERSION_YAML" != "$NODE_VERSION_NVMRC" ]; then
+          echo "Error: Node.js version mismatch!"
+          echo "  .github/config/versions.yaml: $NODE_VERSION_YAML"
+          echo "  .nvmrc: $NODE_VERSION_NVMRC"
+          exit 1
+        fi
 
         # Set outputs
         echo "rust-stable=$RUST_STABLE" >> $GITHUB_OUTPUT
         echo "rust-nightly=$RUST_NIGHTLY" >> $GITHUB_OUTPUT
         echo "ocaml-version=$OCAML_VERSION" >> $GITHUB_OUTPUT
+        echo "node-version=$NODE_VERSION_YAML" >> $GITHUB_OUTPUT
 
         # Also set as environment variables for convenience
         echo "RUST_STABLE_VERSION=$RUST_STABLE" >> $GITHUB_ENV
         echo "RUST_NIGHTLY_VERSION=$RUST_NIGHTLY" >> $GITHUB_ENV
         echo "OCAML_VERSION=$OCAML_VERSION" >> $GITHUB_ENV
+        echo "NODE_VERSION=$NODE_VERSION_YAML" >> $GITHUB_ENV
 
         echo "Loaded versions:"
         echo "  Rust stable: $RUST_STABLE"
         echo "  Rust nightly: $RUST_NIGHTLY"
         echo "  OCaml: $OCAML_VERSION"
+        echo "  Node.js: $NODE_VERSION_YAML"

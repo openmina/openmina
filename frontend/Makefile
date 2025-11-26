@@ -42,23 +42,11 @@ build-webnode: ## Build the frontend with webnode configuration
 	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
 
-.PHONY: build-leaderboard
-build-leaderboard: build-production ## Build the frontend with leaderboard configuration
-	cp dist/frontend/browser/assets/environments/leaderboard.js \
-		dist/frontend/browser/assets/environments/env.js
-
 .PHONY: build-staging
 build-staging: ## Build the frontend with staging configuration
 	npx ng build --configuration production
 	cp dist/frontend/browser/assets/environments/staging.js \
 		dist/frontend/browser/assets/environments/env.js
-
-.PHONY: build-leaderboard-sentry
-build-leaderboard-sentry: ## Build the frontend with leaderboard configuration and Sentry sourcemaps
-	npx ng build --configuration production
-	cp dist/frontend/browser/assets/environments/leaderboard.js \
-		dist/frontend/browser/assets/environments/env.js
-	$(MAKE) sentry-sourcemaps
 
 .PHONY: check-prettify
 check-prettify: ## Check if files are formatted with Prettier
@@ -72,18 +60,6 @@ clean: ## Clean build artifacts and node_modules
 copy-env: ## Copy webnode.js to env.js
 	cp dist/frontend/browser/assets/environments/webnode.js \
 		dist/frontend/browser/assets/environments/env.js
-
-.PHONY: deploy
-deploy: prebuild build-production-sentry copy-env ## Deploy the application
-	firebase deploy
-
-.PHONY: deploy-leaderboard
-deploy-leaderboard: prebuild build-leaderboard ## Deploy the leaderboard application
-	firebase deploy
-
-.PHONY: deploy-leaderboard-sentry
-deploy-leaderboard-sentry: prebuild build-leaderboard-sentry ## Deploy the leaderboard application with Sentry sourcemaps
-	firebase deploy
 
 .PHONY: install-deps
 install-deps: ## Install npm dependencies (alias)

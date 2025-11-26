@@ -27,16 +27,16 @@ Ensure Docker and Docker Compose are installed on your system -
 
    # Download the block producer docker-compose file (choose one method)
    # Using wget:
-   wget https://raw.githubusercontent.com/o1-labs/mina-rust/v0.17.0/docker-compose.block-producer.yml
+   wget https://raw.githubusercontent.com/o1-labs/mina-rust/v0.18.0/docker-compose.block-producer.yml
 
    # Or using curl:
-   curl -O https://raw.githubusercontent.com/o1-labs/mina-rust/v0.17.0/docker-compose.block-producer.yml
+   curl -O https://raw.githubusercontent.com/o1-labs/mina-rust/v0.18.0/docker-compose.block-producer.yml
 
    # Create an empty .env file to avoid warnings (optional - has defaults)
    touch .env
    ```
 
-   For the latest development version, replace `v0.17.0` with `develop` in the
+   For the latest development version, replace `v0.18.0` with `develop` in the
    URL.
 
 2. **Verify Docker Image Version** (Optional but recommended)

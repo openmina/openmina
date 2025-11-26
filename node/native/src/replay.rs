@@ -1,13 +1,11 @@
-use std::cell::RefCell;
-
+use crate::NodeService;
 use node::{
     core::thread,
     recorder::StateWithInputActionsReader,
     snark::{BlockVerifier, TransactionVerifier},
     ActionWithMeta, BuildEnv, Store,
 };
-
-use crate::NodeService;
+use std::cell::RefCell;
 
 pub fn replay_state_with_input_actions(
     dir: &str,

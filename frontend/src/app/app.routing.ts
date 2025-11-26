@@ -98,15 +98,7 @@ export function generateRoutes(): Routes {
       canActivate: [landingPageGuard],
     },
   ];
-  if (CONFIG.showLeaderboard) {
-    routes.push({
-      path: '',
-      loadChildren: () =>
-        import('@leaderboard/leaderboard.module').then(
-          m => m.LeaderboardModule,
-        ),
-    });
-  } else if (CONFIG.showWebNodeLandingPage) {
+  if (CONFIG.showWebNodeLandingPage) {
     routes.push({
       path: '',
       component: WebNodeLandingPageComponent,

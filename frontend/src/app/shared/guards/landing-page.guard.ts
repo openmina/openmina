@@ -35,11 +35,7 @@ export const landingPageGuard: CanActivateFn = (route, state) => {
         });
       }
 
-      if (
-        !startsWith('/') &&
-        !startsWith('/?') &&
-        !startsWith('/leaderboard')
-      ) {
+      if (!startsWith('/') && !startsWith('/?')) {
         return router.createUrlTree(['']);
       }
 

@@ -1,6 +1,6 @@
 [package]
 name = "mina-gossipsub-sandbox"
-version = "0.17.0"
+version = "0.18.0"
 edition = "2021"
 
 [dependencies]
@@ -8,7 +8,7 @@ bs58 = { workspace = true, features = ["check"] }
 env_logger = { workspace = true }
 libp2p = { workspace = true }
 log = { workspace = true }
-mina-transport = { path = "../transport" }
+mina-transport = { workspace = true }
 rand = { workspace = true }
 structopt = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
