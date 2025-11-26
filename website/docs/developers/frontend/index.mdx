@@ -7,8 +7,7 @@ sidebar_position: 1
 import CodeBlock from "@theme/CodeBlock";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-import InstallNodejsLinux from "!!raw-loader!../scripts/frontend/install-nodejs-linux.sh";
-import InstallNodejsMacos from "!!raw-loader!../scripts/frontend/install-nodejs-macos.sh";
+
 import InstallAngularCli from "!!raw-loader!../scripts/frontend/install-angular-cli.sh";
 import InstallCypressUbuntu2204 from "!!raw-loader!../scripts/frontend/install-cypress-deps-ubuntu-22-04.sh";
 import InstallCypressUbuntu2404 from "!!raw-loader!../scripts/frontend/install-cypress-deps-ubuntu-24-04.sh";
@@ -25,12 +24,6 @@ each serving a specific purpose in the network.
 A comprehensive web interface for monitoring and interacting with your Mina Rust
 node. View real-time blockchain state, network activity, and node metrics
 through an intuitive dashboard.
-
-### [Leaderboard](./leaderboard)
-
-Track community participation in testnets with a competitive leaderboard system.
-Previously used to monitor and rank testnet participants based on their
-contributions to network stability and block production.
 
 ### [WebNode](./webnode)
 
@@ -58,22 +51,12 @@ These instructions are tested and compatible with:
 
 ### Install Node.js
 
-<Tabs groupId="operating-systems">
-<TabItem value="linux" label="Linux">
+We recommend using the latest Node.js version specified in the `.nvmrc` file at
+the root of the repository. You can use a Node.js version manager like `nvm` to
+easily switch to the correct version.
 
-<CodeBlock language="bash" title="scripts/frontend/install-nodejs-linux.sh">
-  {InstallNodejsLinux}
-</CodeBlock>
-
-</TabItem>
-<TabItem value="macos" label="macOS">
-
-<CodeBlock language="bash" title="scripts/frontend/install-nodejs-macos.sh">
-  {InstallNodejsMacos}
-</CodeBlock>
-
-</TabItem>
-</Tabs>
+For more information on how to install Node.js, please refer to the
+[official Node.js documentation](https://nodejs.org/en/download/package-manager/).
 
 ### Install Angular CLI
 

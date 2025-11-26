@@ -4364,6 +4364,7 @@ mod tests_with_wasm {
 
 #[cfg(test)]
 pub(super) mod tests {
+    use core::panic;
     use std::path::Path;
 
     use ::poseidon::hash::params::MINA_ZKAPP_EVENT;
@@ -4397,13 +4398,6 @@ pub(super) mod tests {
         AwaitReadiness,
         /// Commands worker to start specified snark job, expected reply is `ExternalSnarkWorkerResult`[ExternalSnarkWorkerResult].
         PerformJob(mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse),
-    }
-
-    pub fn panic_in_ci() {
-        fn is_ci() -> bool {
-            std::env::var("CI").is_ok()
-        }
-        assert!(!is_ci(), "missing circuit files !");
     }
 
     fn read_binprot<T, R>(mut r: R) -> T
@@ -4644,19 +4638,13 @@ pub(super) mod tests {
     #[test]
     #[ignore = "Failing due to circuits"]
     fn test_regular_tx() {
-        let Ok(data) =
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("command-0-1.bin"))
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
-            // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
-            // std::fs::read("/tmp/coinbase_1_rampup4.bin")
-            // std::fs::read("/tmp/stake_0_rampup4.bin")
-        else {
-            eprintln!("request not found");
-            panic_in_ci();
-            return;
-        };
+        let data = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(devnet_circuit_directory())
+                .join("tests")
+                .join("command-0-1.bin"),
+        )
+        .unwrap();
 
         let (statement, tx_witness, message) = extract_request(&data);
         let TransactionProver {
@@ -4771,19 +4759,13 @@ pub(super) mod tests {
     #[test]
     #[ignore = "Failing due to circuits"]
     fn test_merge_proof() {
-        let Ok(data) =
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
-            // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("merge_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(devnet_circuit_directory()).join("tests").join("merge-100-0.bin"))
-            // std::fs::read("/tmp/minaa/mina-works-dump/merge-100-0.bin")
-            // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
-            // std::fs::read("/tmp/coinbase_1_rampup4.bin")
-            // std::fs::read("/tmp/stake_0_rampup4.bin")
-        else {
-            eprintln!("request not found");
-            panic_in_ci();
-            return;
-        };
+        let data = std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(devnet_circuit_directory())
+                .join("tests")
+                .join("merge-100-0.bin"),
+        )
+        .unwrap();
 
         let (statement, proofs, message) = extract_merge(&data);
         let TransactionProver {
@@ -4821,16 +4803,13 @@ pub(super) mod tests {
     #[test]
     #[ignore = "Failing due to circuits"]
     fn test_proof_zkapp_sig() {
-        let Ok(data) = std::fs::read(
+        let data = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join(devnet_circuit_directory())
                 .join("tests")
                 .join("command-1-0.bin"),
-        ) else {
-            eprintln!("request not found");
-            panic_in_ci();
-            return;
-        };
+        )
+        .unwrap();
 
         let (statement, tx_witness, message) = extract_request(&data);
 
@@ -4867,16 +4846,13 @@ pub(super) mod tests {
     #[test]
     #[ignore = "Failing due to circuits"]
     fn test_proof_zkapp_proof() {
-        let Ok(data) = std::fs::read(
+        let data = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join(devnet_circuit_directory())
                 .join("tests")
                 .join("zkapp-command-with-proof-128-1.bin"),
-        ) else {
-            eprintln!("request not found");
-            panic_in_ci();
-            return;
-        };
+        )
+        .unwrap();
 
         let (statement, tx_witness, message) = extract_request(&data);
 
@@ -4911,16 +4887,13 @@ pub(super) mod tests {
     #[test]
     #[ignore = "Failing due to circuits"]
     fn test_block_proof() {
-        let Ok(data) = std::fs::read(
+        let data = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join(devnet_circuit_directory())
                 .join("tests")
                 .join("block_input-2483246-0.bin"),
-        ) else {
-            eprintln!("request not found");
-            panic_in_ci();
-            return;
-        };
+        )
+        .unwrap();
 
         let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
             read_binprot(&mut data.as_slice());
@@ -5038,8 +5011,7 @@ pub(super) mod tests {
 
         if !base_dir.exists() {
             eprintln!("{:?} not found", base_dir);
-            panic_in_ci();
-            return;
+            panic!();
         }
 
         let BlockProver {

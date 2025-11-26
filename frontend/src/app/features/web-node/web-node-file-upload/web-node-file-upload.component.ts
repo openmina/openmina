@@ -34,7 +34,6 @@ export class WebNodeFileUploadComponent extends ManualDetection {
   validFiles: boolean = false;
   error: boolean = false;
   uploadedFileName: string;
-  isLeaderboard: boolean = CONFIG.showLeaderboard;
 
   constructor(private webnodeService: WebNodeService) {
     super();

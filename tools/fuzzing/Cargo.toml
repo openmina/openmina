@@ -10,35 +10,31 @@ ark-serialize = { workspace = true }
 bitvec = { workspace = true }
 btreemultimap = { workspace = true }
 flate2 = { workspace = true }
+itertools = { workspace = true }
 leb128 = { workspace = true }
-ledger = { path = "../../ledger", package = "mina-tree", features = [
-  "fuzzing",
-] }
+ledger = { workspace = true, package = "mina-tree", features = ["fuzzing"] }
 md5 = { workspace = true }
-mina-core = { path = "../../core" }
+mina-core = { workspace = true }
 mina-curves = { workspace = true }
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
+num-bigint = { workspace = true }
 object = { workspace = true }
+once_cell = { workspace = true }
 poseidon = { workspace = true }
 rand = { workspace = true, features = ["small_rng"] }
 ring_buffer = { workspace = true }
 rsprocmaps = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-#ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
-#ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "std" ] }
-itertools = { workspace = true }
-num-bigint = { workspace = true }
-once_cell = { workspace = true }
 text-diff = { workspace = true }
 tuple-map = { workspace = true }
 #binprot = "0.1.7"
 binprot = { workspace = true }
 binprot_derive = { workspace = true }
 clap = { workspace = true }
-node = { path = "../../node" }
+node = { workspace = true }
 
 [profile.release]
 opt-level = 3

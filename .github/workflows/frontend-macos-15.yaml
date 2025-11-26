@@ -14,9 +14,13 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+
+      - id: versions
+        uses: ./.github/actions/load-versions
 
       - name: Frontend build
         uses: ./.github/actions/frontend-build
         with:
+          node-version: ${{ steps.versions.outputs.node-version }}
           test-build-commands: 'true'

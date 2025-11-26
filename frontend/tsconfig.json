@@ -79,9 +79,6 @@
       ],
       "@fuzzing/*": [
         "src/app/features/fuzzing/*"
-      ],
-      "@leaderboard/*": [
-        "src/app/features/leaderboard/*"
       ]
     }
   },

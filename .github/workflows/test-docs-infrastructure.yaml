@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test seed node connectivity
         run: ./.github/scripts/test-seed-node-connectivity.sh
@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Verify seed nodes are subset of official seeds
         run: ./.github/scripts/test-seed-node-format.sh
@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test plain node GraphQL endpoints
         run: ./.github/scripts/test-plain-node-connectivity.sh
@@ -77,7 +77,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test block producer node GraphQL endpoints
         run: ./.github/scripts/test-block-producer-node-connectivity.sh

@@ -37,7 +37,6 @@ export default {
   canAddNodes: boolean,
   hideNodeStats: boolean,
   showWebNodeLandingPage: boolean,
-  showLeaderboard: boolean,
   hidePeersPill: boolean,
   hideTxPill: boolean,
 
@@ -107,13 +106,6 @@ export default {
 - **Purpose**: Controls whether to display the WebNode-specific landing page
 - **Default**: `false`
 - **Effects**: Shows WebNode introduction and setup instructions
-
-#### `showLeaderboard: boolean`
-
-- **Purpose**: Enables leaderboard functionality for community participation
-  tracking
-- **Default**: `false`
-- **Effects**: Shows participant rankings and testnet metrics
 
 #### `hidePeersPill: boolean`
 
@@ -319,42 +311,6 @@ export default {
       url: "https://producer-0.example.com",
     },
     // Additional producer nodes...
-  ],
-};
-```
-
-### `leaderboard.js`
-
-Community participation tracking:
-
-```javascript
-export default {
-  production: true,
-  canAddNodes: false,
-  showWebNodeLandingPage: true,
-  showLeaderboard: true,
-  hidePeersPill: true,
-  hideTxPill: true,
-  globalConfig: {
-    features: {
-      dashboard: [],
-      "block-production": ["won-slots"],
-      mempool: [],
-      state: ["actions"],
-    },
-    firebase: {
-      /* Firebase config */
-    },
-    heartbeats: true,
-  },
-  sentry: {
-    /* Sentry config */
-  },
-  configs: [
-    {
-      name: "Web Node",
-      isWebNode: true,
-    },
   ],
 };
 ```
@@ -597,10 +553,6 @@ CONFIG.configs.forEach(node => {
 // Control UI elements based on configuration
 if (CONFIG.canAddNodes) {
   // Show "Add Node" button
-}
-
-if (CONFIG.showLeaderboard) {
-  // Display leaderboard features
 }
 
 if (CONFIG.hidePeersPill) {

@@ -8,11 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ## [0.18.1] - 2025-11-20
+### Added
+
+- **Documentation**: Add comprehensive API endpoints reference for the Node
+  Dashboard, documenting all endpoints and specific data fields used by the
+  frontend ([#1566](https://github.com/o1-labs/mina-rust/issues/1566))
 
 ### Fixed
 
 - **Docker Compose**: Fix frontend black screen issue by changing environment
   from `compose` to `local` and exposing port 3000 for rust node HTTP API (hotfix `v0.18.1`)
+  from `compose` to `local` and exposing port 3000 for mina-node HTTP API
+  ([#1649](https://github.com/o1-labs/mina-rust/pull/1649))
+
+### Changed
+
+- **Dependencies/proof-systems**: bump up proof-systems to 282faf5
+  ([#1662](https://github.com/o1-labs/mina-rust/pull/1662))
 
 ## [0.18.0] - 2025-11-04
 
@@ -161,6 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: build benches for each PR with the workflow `tests`, and fix the step
   in the workflow `build` by adding the missing SQLx/SQLite setup
   ([#1548](https://github.com/o1-labs/mina-rust/pull/1548))
+- **frontend**: remove leaderboard from the frontend
+  ([#1579](https://github.com/o1-labs/mina-rust/pull/1579)
 
 ### Fixed
 

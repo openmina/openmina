@@ -28,5 +28,13 @@ export default {
       name: 'o1Labs Plain Node 3',
       url: 'https://mina-rust-plain-3.gcp.o1test.net/',
     },
+    {
+      name: 'o1Labs BP Node 1',
+      url: 'https://mina-rust-bp-1.gcp.o1test.net/',
+    },
+    {
+      name: 'o1Labs BP Node 2',
+      url: 'https://mina-rust-bp-2.gcp.o1test.net/',
+    },
   ],
 };

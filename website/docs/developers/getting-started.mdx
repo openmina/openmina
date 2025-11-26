@@ -10,8 +10,7 @@ import TabItem from "@theme/TabItem";
 import InstallRustSh from "!!raw-loader!./scripts/setup/install-rust.sh";
 import InstallSystemDepsSh from "!!raw-loader!./scripts/setup/install-system-deps.sh";
 import InstallSystemDepsMacOSSh from "!!raw-loader!./scripts/setup/install-system-deps-macos.sh";
-import InstallNodejsSh from "!!raw-loader!./scripts/setup/install-nodejs.sh";
-import InstallNodejsMacOSSh from "!!raw-loader!./scripts/setup/install-nodejs-macos.sh";
+
 import InstallDockerSh from "!!raw-loader!./scripts/setup/install-docker.sh";
 import InstallDockerMacOSSh from "!!raw-loader!./scripts/setup/install-docker-macos.sh";
 import InstallWasmToolsSh from "!!raw-loader!./scripts/setup/install-wasm-tools.sh";
@@ -81,18 +80,12 @@ This installs:
 
 **Node.js (for documentation and frontend):**
 
-<Tabs groupId="operating-systems">
-<TabItem value="linux" label="Linux (Ubuntu/Debian)">
+We recommend using the latest Node.js version specified in the `.nvmrc` file at
+the root of the repository. You can use a Node.js version manager like `nvm` to
+easily switch to the correct version.
 
-<CodeBlock language="bash">{InstallNodejsSh}</CodeBlock>
-
-</TabItem>
-<TabItem value="macos" label="macOS">
-
-<CodeBlock language="bash">{InstallNodejsMacOSSh}</CodeBlock>
-
-</TabItem>
-</Tabs>
+For more information on how to install Node.js, please refer to the
+[official Node.js documentation](https://nodejs.org/en/download/package-manager/).
 
 **Docker (optional, for containerized builds):**
 

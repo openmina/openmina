@@ -1033,7 +1033,7 @@ mod tests {
     use mina_curves::pasta::Fp;
     use mina_p2p_messages::{binprot::BinProtRead, v2};
 
-    use crate::proofs::{provers::devnet_circuit_directory, transaction::tests::panic_in_ci};
+    use crate::proofs::provers::devnet_circuit_directory;
 
     use super::*;
 
@@ -1041,6 +1041,7 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
     #[test]
+    #[ignore = "the file are missing"]
     fn test_verify_zkapp() {
         use mina_p2p_messages::{
             binprot,
@@ -1066,10 +1067,7 @@ mod tests {
         ];
 
         for filename in cases {
-            let Ok(file) = std::fs::read(base_dir.join(filename)) else {
-                panic_in_ci();
-                return;
-            };
+            let file = std::fs::read(base_dir.join(filename)).expect("file not found");
 
             let VerifyZkapp {
                 vk,

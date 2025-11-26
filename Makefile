@@ -7,6 +7,7 @@
 # - ./github/workflows/fmt.yaml
 # - ./github/workflows/lint.yaml
 NIGHTLY_RUST_VERSION = "nightly"
+NODE_VERSION := $(shell cat .nvmrc)
 
 # WebAssembly
 WASM_BINDGEN_CLI_VERSION = "0.2.99"
@@ -295,7 +296,7 @@ setup-taplo: ## Install taplo TOML formatter
 	@if taplo --version 2>/dev/null | grep -q ${TAPLO_CLI_VERSION}; then \
 		echo "taplo ${TAPLO_CLI_VERSION} already installed"; \
 	else \
-		cargo install taplo-cli --version ${TAPLO_CLI_VERSION} --force; \
+		cargo +nightly install taplo-cli --version ${TAPLO_CLI_VERSION} --force; \
 	fi
 
 .PHONY: setup
@@ -394,6 +395,7 @@ docker-build-frontend: ## Build frontend Docker image
 	esac; \
 	echo "Building for platform: $$PLATFORM"; \
 	docker buildx build \
+		--build-arg NODE_VERSION=$(NODE_VERSION) \
 		--platform $$PLATFORM \
 		--tag $(DOCKER_ORG)/mina-rust-frontend:$(GIT_COMMIT) \
 		--file ./frontend/Dockerfile \

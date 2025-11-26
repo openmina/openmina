@@ -1,7 +1,6 @@
 @use '@angular/material' as mat;
 
 @use 'mina-rust';
-@use 'leaderboard-variables';
 
 $custom-typography: mat.m2-define-legacy-typography-config(
   $font-family: '"Inter", sans-serif',

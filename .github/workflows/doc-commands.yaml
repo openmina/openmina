@@ -4,11 +4,6 @@ on:
   push:
     branches: [ main, develop ]
   pull_request:
-    paths:
-      - 'Makefile'
-      - 'docs/**'
-      - 'CLAUDE.md'
-      - '.github/workflows/doc-commands.yml'
   workflow_dispatch:
 
 env:
@@ -24,7 +19,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Load versions
         uses: ./.github/actions/load-versions

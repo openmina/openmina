@@ -1,14 +1,10 @@
+use crate::scenario::ListenerNode;
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 /// This should be the only place where environment variables are converted to addresses.
 ///
 use std::{env, str::FromStr};
 
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-
-use crate::scenario::ListenerNode;
-
 pub fn replayer() -> P2pConnectionOutgoingInitOpts {
-    // "/dns4/1.k8.openmina.com/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv",
-
     let multiaddr = env::var("REPLAYER_MULTIADDR")
         .expect("must set variable `REPLAYER_MULTIADDR`")
         .parse::<libp2p::Multiaddr>()
