@@ -117,10 +117,6 @@ build-tests-webrtc: ## Build tests for WebRTC
 		cp -a $$FILE target/release/tests/webrtc_$$NAME; \
 	done < tests.tsv
 
-.PHONY: build-vrf
-build-vrf: ## Build the VRF package
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) build --release --tests
-
 .PHONY: build-wasm
 build-wasm: ## Build WebAssembly node
 	@cd node/web && cargo +${NIGHTLY_RUST_VERSION} build \
@@ -318,11 +314,6 @@ test-p2p: ## Run P2P tests
 test-release: ## Run tests in release mode
 	cargo test --release
 
-.PHONY: test-vrf
-test-vrf: ## Run VRF tests, requires nightly Rust
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) test --release -- \
-		-Z unstable-options --report-time
-
 .PHONY: test-account
 test-account: ## Run account tests
 	@cargo test -p mina-node-account
@@ -359,10 +350,6 @@ nextest-p2p: ## Run P2P tests with cargo-nextest
 .PHONY: nextest-ledger
 nextest-ledger: build-ledger ## Run ledger tests with cargo-nextest, requires nightly Rust
 	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
-
-.PHONY: nextest-vrf
-nextest-vrf: ## Run VRF tests with cargo-nextest, requires nightly Rust
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
 
 # Docker build targets
 
