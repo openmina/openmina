@@ -427,7 +427,7 @@ For urgent patches to released versions:
 
    ```bash
    git checkout v1.5.0
-   git checkout -b hotfix/v1.5.1
+   git checkout -b release/v1.5.1
    ```
 
 2. **Apply minimal fix**
@@ -445,7 +445,7 @@ For urgent patches to released versions:
 If issues are discovered after release:
 
 1. **Immediate mitigation**
-   - Remove problematic Docker tags if possible
+   - Yank problematic Docker tags if the issue is critical.
    - Update release notes with known issues
 
 2. **Create hotfix release**
