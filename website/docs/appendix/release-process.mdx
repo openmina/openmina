@@ -18,11 +18,17 @@ import MergeBackScript from "!!raw-loader!../developers/scripts/release/merge-ba
 This document outlines the complete process for creating and publishing Mina
 Rust releases.
 
-:::info Release Branch Strategy
+:::info Release strategy
 
-All releases are made from the `main` branch. The release process involves
-creating a release branch from `develop`, merging it to `main`, and then tagging
-from `main`.
+Releases use **short-lived release branches** and **immutable tags**:
+
+- **Release branch** (`release/vX.Y.Z`): Short-lived branch created from
+  `develop` for version bump and release preparation. Merged to both `main` and
+  `develop`, then deleted.
+- **Tags** (`vX.Y.Z`): Immutable markers created on `main` after the release
+  branch is merged.
+- **Minor release branch** (`release/vX.Y`): Long-lived branch for hotfix
+  development in a minor version series.
 
 :::
 
@@ -30,7 +36,6 @@ from `main`.
 
 ## Prerequisites
 
-- Push access to the main repository
 - Docker Hub credentials configured for CI
 - GitHub CLI (`gh`) installed and authenticated
 - Write access to create GitHub releases
@@ -61,18 +66,21 @@ from `main`.
 
 Copy and paste this checklist when announcing a release in progress:
 
-```markdown
+<!-- prettier-ignore-start -->
+
+```text
 ## 🚀 Release in Progress: vX.Y.Z
 
-**Release Manager:** @[your-name] **Target Date:** [date] **Type:** [ ] Major [
-] Minor [ ] Patch
+**Release Manager:** @[your-name]
+**Target Date:** [date]
+**Type:** [ ] Major [ ] Minor [ ] Patch
 
 ### Pre-Release
 
 - [ ] Develop branch stability verified
-- [ ] CHANGELOG.md updated
 - [ ] Version compatibility checked
-- [ ] Release branch created (if major/minor)
+- [ ] Release branch created from develop
+- [ ] CHANGELOG.md updated
 - [ ] Version numbers updated in Cargo.toml files
 
 ### Release Process
@@ -94,7 +102,10 @@ Copy and paste this checklist when announcing a release in progress:
 
 ### Post-Release
 
-- [ ] Main branch merged back to develop
+- [ ] Release branch deleted
+- [ ] Minor release branch created (if initial minor release)
+- [ ] PR created to merge main back to develop
+- [ ] Main merged back to develop
 - [ ] Documentation updated
 - [ ] Release announced in #releases
 - [ ] Release announced in Discord (#rust-node-testing, #mina-web-node,
@@ -104,10 +115,75 @@ Copy and paste this checklist when announcing a release in progress:
       release
 - [ ] Known issues documented (if any)
 
-**Tracking:** [Link to PR/Issue] **Status:** 🟡 In Progress
+**Tracking:** [Link to PR/Issue]
+**Status:** 🟡 In Progress
 
 _Updates will be posted in this thread_
 ```
+
+<!-- prettier-ignore-stop -->
+
+### Hotfix Communication Template
+
+Copy and paste this checklist when announcing a hotfix release:
+
+<!-- prettier-ignore-start -->
+
+```text
+## 🔥 Hotfix Release in Progress: vX.Y.Z
+
+**Release Manager:** @[your-name]
+**Target Date:** [date]
+**Urgency:** [ ] Critical [ ] High [ ] Medium
+**Issue:** [Brief description of the issue being fixed]
+
+### Preparation
+
+- [ ] Issue identified and documented
+- [ ] Minor release branch exists (release/vX.Y)
+- [ ] Release branch created from minor release branch (release/vX.Y.Z)
+
+### Fix and Release Preparation
+
+- [ ] Fix implemented and tested
+- [ ] Version bumped to X.Y.Z
+- [ ] CHANGELOG.md updated with patch entry
+- [ ] PR created to minor release branch
+- [ ] PR reviewed and approved
+- [ ] PR merged to minor release branch
+
+### Release Process
+
+- [ ] PR created from minor release branch to main
+- [ ] CI tests passing
+- [ ] PR merged to main
+- [ ] Git tag created and pushed
+- [ ] Docker images building (automated)
+
+### Verification
+
+- [ ] Docker images available on Docker Hub
+- [ ] Multi-arch images verified (amd64/arm64)
+- [ ] GitHub release published
+
+### Post-Release
+
+- [ ] Temporary release branch deleted
+- [ ] PR created to merge main back to develop
+- [ ] Main merged back to develop
+- [ ] Platform lead contacted for infrastructure updates
+- [ ] Release announced in #releases
+- [ ] Release announced in Discord (#rust-node-testing, #mina-web-node,
+      #mina-web-node-testing, #rust-node-questions-and-feedback)
+
+**Original Issue:** [Link to issue/bug report]
+**Tracking:** [Link to PR]
+**Status:** 🔴 Hotfix In Progress
+
+_Updates will be posted in this thread_
+```
+
+<!-- prettier-ignore-stop -->
 
 ## Pre-Release Checklist
 
@@ -146,7 +222,16 @@ _Updates will be posted in this thread_
 
 ## Release Steps
 
-### 1. Update Version Numbers
+### 1. Create Release Branch
+
+```bash
+# Create release branch from develop
+git checkout develop
+git pull origin develop
+git checkout -b release/v1.5.0
+```
+
+### 2. Update Version Numbers
 
 ```bash
 # Update all Cargo.toml version fields
@@ -178,80 +263,18 @@ You may also need to manually update:
 - Documentation examples
 - Any hardcoded version references in other files
 
-### 2. Create Release Branch (for major/minor releases)
-
-<!-- prettier-ignore-start -->
-
-:::info Release Branch Naming Convention
-
-Release branches **must** follow the format `release/vX.Y.Z` where:
-
-- The version **must** start with a lowercase `v`
-- X, Y, and Z are version numbers following semantic versioning (all three
-  components required)
-
-**Valid examples:**
-
-- `release/v1.5.0`
-- `release/v1.2.3`
-- `release/v2.0.0`
-
-**Invalid examples:**
-
-- `release/1.5.0` ❌ (missing 'v' prefix)
-- `release/V1.5.0` ❌ (uppercase 'V')
-
-Note: `release/vX.Y` (e.g., `release/v1.5`) is valid for minor release branches
-that track the latest patch version. See the
-[minor release branch](#5-create-and-push-git-tag) section.
-
-This naming convention is enforced by CI checks. Any push to a branch starting
-with `release/` that doesn't follow this format will fail validation.
-
-:::
-
-<!-- prettier-ignore-stop -->
+Commit the version changes:
 
 ```bash
-# Create release branch from develop
-git checkout develop
-git pull origin develop
-git checkout -b release/v1.5.0
+git add -A
+git commit -m "Bump version to 1.5.0"
 git push -u origin release/v1.5.0
 ```
 
-<!-- prettier-ignore-start -->
-
-:::info Docker Images for Release Branches
-
-After pushing the release branch, CI will automatically build and push Docker
-images tagged with the branch name. These images are available for local testing
-while the release PR is being reviewed.
-
-**Images will be available as:**
-
-- `o1labs/mina-rust:v1.5.0`
-- `o1labs/mina-rust-frontend:v1.5.0`
-
-**To test locally:** See
-[Docker Images documentation](../developers/docker-images) for complete usage
-instructions.
+### 3. Create Release PR to Main
 
 ```bash
-# Example usage
-docker pull o1labs/mina-rust:v1.5.0
-docker run -p 8302:8302 o1labs/mina-rust:v1.5.0
-```
-
-:::
-
-<!-- prettier-ignore-stop -->
-
-### 3. Create Release PR
-
-```bash
-# Create PR from release branch to main
-gh pr create --base main --title "Release v1.5.0" --body "$(cat <<'EOF'
+gh pr create --base main --head release/v1.5.0 --title "Release v1.5.0" --body "$(cat <<'EOF'
 ## Release v1.5.0
 
 ### Summary
@@ -271,7 +294,7 @@ EOF
 )"
 ```
 
-### 4. Review and Merge
+### 4. Review and Merge to Main
 
 - Wait for CI to pass
 - Get required approvals
@@ -287,28 +310,6 @@ git pull origin main
 # Create and push annotated tag
 make release-create-tag TAG=v1.5.0 MESSAGE="Release v1.5.0. See CHANGELOG.md for complete details."
 ```
-
-<!-- prettier-ignore-start -->
-
-:::info Minor release branch
-
-For an initial minor release (x.y.0), you must also create a minor release
-branch `release/vX.Y` pointing to the same commit. This branch will be used to
-track the latest patch version and receive hotfix updates.
-
-```bash
-# After creating the tag, also create the minor release branch
-git checkout main
-git checkout -b release/v1.5
-git push -u origin release/v1.5
-```
-
-This ensures that the `release/vX.Y` branch always points to the latest `vX.Y.Z`
-release, making it easy to find the most recent patch for any minor version.
-
-:::
-
-<!-- prettier-ignore-stop -->
 
 <!-- prettier-ignore-start -->
 
@@ -391,34 +392,55 @@ Once verification is complete:
 gh release edit v1.5.0 --draft=false
 ```
 
-### 9. Update Documentation
+### 9. Clean Up and Create Minor Release Branch
+
+Delete the short-lived release branch:
+
+```bash
+git branch -d release/v1.5.0
+git push origin --delete release/v1.5.0
+```
+
+<!-- prettier-ignore-start -->
+
+:::info Minor release branch
+
+For an initial minor release (x.y.0), create a long-lived minor release branch
+`release/vX.Y` from `main`. This branch will be used for hotfix development.
+
+```bash
+git checkout main
+git checkout -b release/v1.5
+git push -u origin release/v1.5
+```
+
+The `release/vX.Y` branch serves as the base for any future hotfix development
+in that minor version series.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+### 10. Merge Main Back to Develop
+
+After the release is complete, create a PR to merge `main` back to `develop` to
+ensure all release changes are included in future development:
+
+```bash
+gh pr create --base develop --head main \
+  --title "Merge main back to develop after v1.5.0" \
+  --body "Syncs released changes from v1.5.0 back to develop."
+```
+
+After approval, merge the PR.
+
+### 11. Update Documentation
 
 - Update any documentation that references version numbers
 - Announce release in relevant channels
 - Update getting started guides if needed
 
 ## Post-Release Tasks
-
-### Merge Back to Develop
-
-```bash
-# Merge main back to develop to sync version updates
-make release-merge-back
-```
-
-<details>
-<summary>Script contents (click to expand)</summary>
-
-<CodeBlock
-  language="bash"
-  title="website/docs/developers/scripts/release/merge-back.sh"
->
-  {MergeBackScript}
-</CodeBlock>
-
-</details>
-
-This target includes safety confirmations since it pushes directly to develop.
 
 ### Infrastructure Updates
 
@@ -448,55 +470,99 @@ deploying new node versions across o1Labs infrastructure.
 
 For urgent patches to released versions:
 
-1. **Create hotfix branch from the release tag**
+1. **Create a release branch from the minor release branch**
 
    ```bash
-   git checkout v1.5.0
+   git checkout release/v1.5
+   git pull origin release/v1.5
    git checkout -b release/v1.5.1
    ```
 
-2. **Apply minimal fix**
-   - Make only essential changes
-   - Update CHANGELOG.md with patch entry
-
-3. **Follow standard release process**
-   - Create PR to main
-   - Create new patch tag (v1.5.1)
-   - Verify Docker builds
-   - Create GitHub release
-
-4. **Update the minor release branch**
-
-   After the hotfix is released, update the minor release branch
-   (`release/vX.Y`) to include the hotfix changes. This ensures the branch
-   always points to the latest patch version.
+2. **Apply fix, update version, and update CHANGELOG**
 
    ```bash
-   # Create a PR from the hotfix branch to the minor release branch
-   gh pr create --base release/v1.5 --head release/v1.5.1 \
-     --title "Update release/v1.5 branch with v1.5.1 hotfix" \
-     --body "Updates the release/v1.5 branch to include the v1.5.1 hotfix."
+   # Apply your fix
+   # ...
+
+   # Update version
+   make release-update-version VERSION=1.5.1
    ```
 
-   After the PR is reviewed and merged, the `release/v1.5` branch will reflect
-   the latest `v1.5.1` release.
+   Update `CHANGELOG.md`:
+   - Add a new section for the patch version (e.g., `## [1.5.1] - YYYY-MM-DD`)
+   - Document the fix with a clear description
+   - Follow [Keep a Changelog](https://keepachangelog.com/) format
+
+   Commit and push:
+
+   ```bash
+   git add -A
+   git commit -m "Fix: description of the fix
+
+   Bump version to 1.5.1"
+   git push -u origin release/v1.5.1
+   ```
+
+3. **Create PR to the minor release branch and merge**
+
+   ```bash
+   gh pr create --base release/v1.5 --head release/v1.5.1 \
+     --title "Release v1.5.1" \
+     --body "Hotfix release v1.5.1. See CHANGELOG.md for details."
+   ```
+
+   After approval, merge the PR to `release/v1.5`.
+
+4. **Create PR to main and merge**
+
+   ```bash
+   gh pr create --base main --head release/v1.5 \
+     --title "Release v1.5.1" \
+     --body "Hotfix release v1.5.1. See CHANGELOG.md for details."
+   ```
+
+   After approval, merge the PR to main.
+
+5. **Create the patch tag**
+
+   ```bash
+   git checkout main
+   git pull origin main
+   make release-create-tag TAG=v1.5.1 MESSAGE="Release v1.5.1. See CHANGELOG.md for complete details."
+   ```
+
+6. **Verify and publish**
+   - Verify Docker builds
+   - Create and publish GitHub release
+
+7. **Clean up**
+
+   Delete the temporary release branch:
+
+   ```bash
+   git branch -d release/v1.5.1
+   git push origin --delete release/v1.5.1
+   ```
+
+8. **Merge main back to develop**
+
+   The fix must be synced to `develop` to ensure it's included in future
+   releases. Create a PR to merge `main` back to `develop`.
+
+   ```bash
+   gh pr create --base develop --head main \
+     --title "Merge main back to develop after v1.5.1" \
+     --body "Syncs released changes from v1.5.1 back to develop."
+   ```
+
+   After approval, merge the PR.
 
 <!-- prettier-ignore-start -->
 
-:::important Keep minor release branches current
+:::important Always sync main to develop
 
-The minor release branch (`release/vX.Y`) must always point to the latest patch
-release in that series. After every hotfix release (`vX.Y.Z` where `Z > 0`),
-create a PR to merge the hotfix branch into the corresponding `release/vX.Y`
-branch.
-
-For example:
-
-- After releasing `v1.5.1`, merge `release/v1.5.1` into `release/v1.5`
-- After releasing `v1.5.2`, merge `release/v1.5.2` into `release/v1.5`
-
-This allows users to track the `release/vX.Y` branch to always get the latest
-stable patch version.
+After every release (including hotfixes), create a PR to merge `main` back to
+`develop`. This ensures `develop` always contains all released changes.
 
 :::
 
