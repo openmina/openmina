@@ -116,8 +116,8 @@ pub use transaction_union_payload::{
 };
 
 /// OCaml reference: src/lib/mina_base/transaction_status.ml L:9-51
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-08
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum TransactionFailure {
     Predicate,
@@ -234,8 +234,8 @@ impl Display for TransactionFailure {
 }
 
 /// OCaml reference: src/lib/mina_base/transaction_status.ml L:452-454
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-08
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(SerdeYojsonEnum, Debug, Clone, PartialEq, Eq)]
 pub enum TransactionStatus {
     Applied,
@@ -252,8 +252,8 @@ impl TransactionStatus {
 }
 
 /// OCaml reference: src/lib/mina_base/with_status.ml L:6-10
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-08
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct WithStatus<T> {
     pub data: T,
@@ -324,8 +324,8 @@ where
 }
 
 /// OCaml reference: src/lib/mina_base/fee_transfer.ml L:76-80
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(Debug, Clone, PartialEq)]
 pub struct SingleFeeTransfer {
     pub receiver_pk: CompressedPubKey,
@@ -351,8 +351,8 @@ impl SingleFeeTransfer {
 }
 
 /// OCaml reference: src/lib/mina_base/fee_transfer.ml L:68-69
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(Debug, Clone, PartialEq)]
 pub struct FeeTransfer(pub(super) OneOrTwo<SingleFeeTransfer>);
 
@@ -432,8 +432,8 @@ impl CoinbaseFeeTransfer {
 }
 
 /// OCaml reference: src/lib/mina_base/coinbase.ml L:17-21
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(Debug, Clone, PartialEq)]
 pub struct Coinbase {
     pub receiver: CompressedPubKey,
@@ -1087,8 +1087,8 @@ impl GenericTransaction for Transaction {
 /// [`MinaTransactionTransactionStableV2`].
 ///
 /// OCaml reference: src/lib/transaction/transaction.ml L:8-11
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(Clone, Debug, derive_more::From)]
 pub enum Transaction {
     /// User-initiated transaction: signed command or zkApp command

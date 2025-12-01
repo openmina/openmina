@@ -1283,8 +1283,8 @@ pub struct PermsConst {
 /// - Zero-knowledge application state and verification
 ///
 /// OCaml reference: src/lib/mina_base/account.ml L:201-224
-/// Commit: fc6be4c58091c761f827c858229c2edf9519e941
-/// Last verified: 2025-10-13
+/// Commit: e1773fa9ec36af722c636f7b45ed10c1e7f21d79
+/// Last verified: 2025-12-01
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(into = "v2::MinaBaseAccountBinableArgStableV2")]
 #[serde(try_from = "v2::MinaBaseAccountBinableArgStableV2")]
