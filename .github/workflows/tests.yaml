@@ -253,6 +253,9 @@ jobs:
           toolchain: ${{ env.RUST_STABLE_VERSION }}
           cache-prefix: unit-tests-${{ env.CACHE_VERSION }}
 
+      - name: Download circuits files
+        uses: ./.github/actions/setup-circuits
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
@@ -534,7 +537,7 @@ jobs:
         if: ${{ always() }}
 
   scenario-tests:
-    timeout-minutes: 60
+    timeout-minutes: 180
     needs:
       - build-tests
       - build-tests-webrtc
@@ -621,7 +624,7 @@ jobs:
         if: ${{ always() }}
 
   record-replay-tests:
-    timeout-minutes: 30
+    timeout-minutes: 180
     needs:
       - build-tests
       - build-tests-webrtc

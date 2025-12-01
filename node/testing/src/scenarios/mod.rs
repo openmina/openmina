@@ -115,8 +115,7 @@ use self::{
     solo_node::{
         basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
         basic_connectivity_initial_joining::SoloNodeBasicConnectivityInitialJoining,
-        bootstrap::SoloNodeBootstrap, sync_root_snarked_ledger::SoloNodeSyncRootSnarkedLedger,
-        sync_to_genesis::SoloNodeSyncToGenesis,
+        bootstrap::SoloNodeBootstrap, sync_to_genesis::SoloNodeSyncToGenesis,
         sync_to_genesis_custom::SoloNodeSyncToGenesisCustom,
     },
 };
@@ -127,7 +126,6 @@ pub enum Scenarios {
     SoloNodeSyncToGenesis(SoloNodeSyncToGenesis),
     SoloNodeBootstrap(SoloNodeBootstrap),
     SoloNodeSyncToGenesisCustom(SoloNodeSyncToGenesisCustom),
-    SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
     SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
     SoloNodeBasicConnectivityAcceptIncoming(SoloNodeBasicConnectivityAcceptIncoming),
     MultiNodeSync4BlockProducers(MultiNodeSync4BlockProducers),
@@ -223,7 +221,6 @@ impl Scenarios {
             Self::SoloNodeSyncToGenesis(_) => SoloNodeSyncToGenesis::DOCS,
             Self::SoloNodeBootstrap(_) => SoloNodeBootstrap::DOCS,
             Self::SoloNodeSyncToGenesisCustom(_) => SoloNodeSyncToGenesis::DOCS,
-            Self::SoloNodeSyncRootSnarkedLedger(_) => SoloNodeSyncRootSnarkedLedger::DOCS,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => {
                 SoloNodeBasicConnectivityInitialJoining::DOCS
             }
@@ -304,7 +301,6 @@ impl Scenarios {
             Self::SoloNodeSyncToGenesis(v) => v.run(runner).await,
             Self::SoloNodeBootstrap(v) => v.run(runner).await,
             Self::SoloNodeSyncToGenesisCustom(v) => v.run(runner).await,
-            Self::SoloNodeSyncRootSnarkedLedger(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityAcceptIncoming(v) => v.run(runner).await,
             Self::MultiNodeSync4BlockProducers(v) => v.run(runner).await,

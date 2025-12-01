@@ -245,7 +245,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_threshold_nonzero() {
         // let total_currency = BigInt::from_str("1157953132840039233").unwrap();
         // let initial_stake = BigInt::zero();
@@ -276,7 +275,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_threshold_increase() {
         // let total_currency = BigInt::from_str("1157953132840039233").unwrap();
         // let mut stake_nanomina = BigInt::from_str("1104310162392").unwrap();
