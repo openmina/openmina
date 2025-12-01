@@ -556,7 +556,9 @@ jobs:
     strategy:
       matrix:
         test:
-          - single_node
+          - single_node_bootstrap_from_replayer
+          - single_node_accept_incoming
+          - single_node_initial_joining
           - multi_node_initial_joining
           - multi_node_peer_discovery
           - multi_node_propagate_block
@@ -636,7 +638,11 @@ jobs:
       MINA_DISCOVERY_FILTER_ADDR: false
     strategy:
       matrix:
-        test: [record_replay, webrtc_record_replay]
+        test:
+          [
+            record_replay_record_replay_block_production,
+            record_replay_record_replay_bootstrap,
+          ]
       fail-fast: false
 
     steps:

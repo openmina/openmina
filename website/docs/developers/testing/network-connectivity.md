@@ -190,8 +190,7 @@ execution of test scenarios on a cluster of nodes.
 
 **Scenarios Enumeration**: `Scenarios` is an enum with derived traits to support
 iterating over the scenarios, converting them to strings, etc. It lists
-different test scenarios such as `SoloNodeSyncRootSnarkedLedger`,
-`SoloNodeBasicConnectivityInitialJoining`, and
+different test scenarios such as `SoloNodeBasicConnectivityInitialJoining`, and
 `MultiNodeBasicConnectivityInitialJoining`.
 
 Each scenario has a related module (e.g.,

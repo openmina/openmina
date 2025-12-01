@@ -171,7 +171,7 @@ Tests related to outgoing connections
 - `ConnectToInitialPeersBecomeReady`: Node should be able to connect to all
   initial peers after they become ready.
 
-### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/single_node.rs):
+### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/single_node_accept_incoming.rs):
 
 We want to test whether the Rust node is compatible with the OCaml node. We
 achieve this by attempting to connect the Mina Rust node to the existing OCaml
@@ -185,11 +185,12 @@ cluster.
 - `SoloNodeBasicConnectivityAcceptIncoming`: Local test to ensure that the Mina
   Rust node can accept a connection from an existing OCaml node.
 
+### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/single_node_initial_joining.rs):
+
 - `SoloNodeBasicConnectivityInitialJoining`: Local test to ensure that the Mina
   Rust node can connect to an existing OCaml testnet.
 
-- `SoloNodeSyncRootSnarkedLedger`: Set up single Rust node and sync up root
-  snarked ledger.
+### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/single_node_bootstrap_from_replayer.rs):
 
 - `SoloNodeBootstrap`: Set up single Rust node and bootstrap snarked ledger,
   bootstrap ledger and blocks.
@@ -209,10 +210,12 @@ the testing is completely local and under our control.
 - `MultiNodeBasicConnectivityInitialJoining`: Tests that node maintains number
   of peers between minimum and maximum allowed peers.
 
-### [Record/Replay](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/record_replay.rs)
+### [Record/Replay Bootstrap](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/record_replay_record_replay_bootstrap.rs)
 
 - `RecordReplayBootstrap`: Bootstrap a rust node while recorder of state and
   input actions is enabled and make sure we can successfully replay it.
+
+### [Record/Replay Block Production](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/record_replay_record_replay_block_production.rs)
 
 - `RecordReplayBlockProduction`: Makes sure we can successfully record and
   replay multiple nodes in the cluster + block production.
