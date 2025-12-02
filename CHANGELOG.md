@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependency**: use tag instead of references of o1-labs/proof-systems, fix
   [[#1674](https://github.com/o1-labs/mina-rust/issues/1674)]
   ([#1673](https://github.com/o1-labs/mina-rust/pull/1673))
+- Remove ocaml-interop dependency, fix
+  [#1235](https://github.com/o1-labs/mina-rust/issues/1235)
+  ([#1646](https://github.com/o1-labs/mina-rust/pull/1646))
 
 ### Removed
 
