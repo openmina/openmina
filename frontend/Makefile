@@ -93,7 +93,7 @@ start-bundle: ## Serve the built bundle
 
 .PHONY: start-dev-mobile
 start-dev-mobile: ## Start the development server for mobile (accessible on network)
-	npx ng serve --configuration local --host 0.0.0.0
+	npx ng serve --configuration development --host 0.0.0.0
 
 .PHONY: start-fuzzing
 start-fuzzing: install-deps ## Start the fuzzing build and serve
