@@ -470,7 +470,7 @@ jobs:
   p2p-scenario-tests:
     needs: [build-tests, build-tests-webrtc]
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     container:
       image: gcr.io/o1labs-192920/mina-daemon:3.3.0-alpha1-6929a7e-noble-devnet
       options: --volume debugger_data:/tmp/db
@@ -537,7 +537,7 @@ jobs:
         if: ${{ always() }}
 
   scenario-tests:
-    timeout-minutes: 180
+    timeout-minutes: 60
     needs:
       - build-tests
       - build-tests-webrtc
@@ -626,7 +626,7 @@ jobs:
         if: ${{ always() }}
 
   record-replay-tests:
-    timeout-minutes: 180
+    timeout-minutes: 70
     needs:
       - build-tests
       - build-tests-webrtc
@@ -639,10 +639,8 @@ jobs:
     strategy:
       matrix:
         test:
-          [
-            record_replay_record_replay_block_production,
-            record_replay_record_replay_bootstrap,
-          ]
+          - record_replay_record_replay_block_production
+          - record_replay_record_replay_bootstrap
       fail-fast: false
 
     steps:
@@ -668,7 +666,7 @@ jobs:
           ./${{ matrix.test }} --test-threads=1
 
   bootstrap-test:
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [build, build-tests]
     runs-on: ubuntu-24.04
     env:
