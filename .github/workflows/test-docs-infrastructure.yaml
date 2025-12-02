@@ -30,9 +30,13 @@ jobs:
 
       - name: Test seed node connectivity
         run: ./.github/scripts/test-seed-node-connectivity.sh
+        max_attempts: 3
+        retry_wait_seconds: 10
 
       - name: Test seed node response headers
         run: ./.github/scripts/test-seed-node-headers.sh
+        max_attempts: 3
+        retry_wait_seconds: 10
 
   verify-seed-node-format:
     name: Verify Seed Node Address Format
@@ -45,6 +49,8 @@ jobs:
 
       - name: Verify seed nodes are subset of official seeds
         run: ./.github/scripts/test-seed-node-format.sh
+        max_attempts: 3
+        retry_wait_seconds: 10
 
   test-plain-nodes:
     name: Test Plain Node Connectivity
@@ -60,12 +66,18 @@ jobs:
 
       - name: Test plain node GraphQL endpoints
         run: ./.github/scripts/test-plain-node-connectivity.sh
+        max_attempts: 3
+        retry_wait_seconds: 10
 
       - name: Test plain node API capabilities
         run: ./.github/scripts/test-plain-node-capabilities.sh
+        max_attempts: 3
+        retry_wait_seconds: 10
 
       - name: Test infrastructure scripts
         run: ./.github/scripts/test-infrastructure-scripts.sh
+        max_attempts: 3
+        retry_wait_seconds: 10
 
   test-block-producer-nodes:
     name: Test Block Producer Node Connectivity
@@ -81,7 +93,10 @@ jobs:
 
       - name: Test block producer node GraphQL endpoints
         run: ./.github/scripts/test-block-producer-node-connectivity.sh
+        max_attempts: 3
+        retry_wait_seconds: 10
 
       - name: Test block producer node API capabilities
         run: ./.github/scripts/test-block-producer-node-capabilities.sh
-
+        max_attempts: 3
+        retry_wait_seconds: 10
