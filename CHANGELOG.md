@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [[#1674](https://github.com/o1-labs/mina-rust/issues/1674)]
   ([#1673](https://github.com/o1-labs/mina-rust/pull/1673))
 
+### Removed
+
+- **CI**: remove network debugger from CI
+  ([#1700](https://github.com/o1-labs/mina-rust/pull/1700))
+
 ## [0.18.1] - 2025-11-20
 
 ### Added
