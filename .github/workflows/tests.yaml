@@ -473,7 +473,6 @@ jobs:
     timeout-minutes: 30
     container:
       image: gcr.io/o1labs-192920/mina-daemon:3.3.0-alpha1-6929a7e-noble-devnet
-      options: --volume debugger_data:/tmp/db
     env:
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
@@ -488,18 +487,6 @@ jobs:
             webrtc_p2p_basic_connections,
           ]
       fail-fast: false
-
-    services:
-      network-debugger:
-        image: openmina/mina-network-debugger:23385c61
-        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
-        env:
-          SERVER_PORT: 80
-          FIREWALL_INTERFACE: lo
-          RUST_LOG: info
-          DB_PATH: /tmp/db
-        ports:
-          - 80:80
 
     steps:
       - name: Install libssl3t64 # Our binaries are built on a newer ubuntu and require libssl3t64
@@ -519,22 +506,9 @@ jobs:
         run: |
           chmod +x ./${{ matrix.test }}
 
-      # TODO: use curl
-      - name: Wait for the debugger
-        run: |
-          sleep 5
-
       - name: Run the test
         run: |
           ./${{ matrix.test }} --test-threads=1
-
-      - name: Archive network debugger database
-        uses: actions/upload-artifact@v5
-        with:
-          name: network-debugger-${{ matrix.test }}-${{ github.sha }}
-          path: /tmp/db
-          retention-days: 3
-        if: ${{ always() }}
 
   scenario-tests:
     timeout-minutes: 60
@@ -544,7 +518,6 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: gcr.io/o1labs-192920/mina-daemon:3.3.0-alpha1-6929a7e-noble-devnet
-      options: --volume debugger_data:/tmp/db
     env:
       # to allow local addrs discovery
       MINA_DISCOVERY_FILTER_ADDR: false
@@ -572,18 +545,6 @@ jobs:
           # - webrtc_multi_node
       fail-fast: false
 
-    services:
-      network-debugger:
-        image: openmina/mina-network-debugger:23385c61
-        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
-        env:
-          SERVER_PORT: 80
-          FIREWALL_INTERFACE: lo
-          RUST_LOG: info
-          DB_PATH: /tmp/db
-        ports:
-          - 80:80
-
     steps:
       - name: Install libssl3t64 # Our binaries are built on a newer ubuntu and require libssl3t64
         run: |
@@ -608,22 +569,9 @@ jobs:
         run: |
           chmod +x ./${{ matrix.test }}
 
-      # TODO: use curl
-      - name: Wait for the debugger
-        run: |
-          sleep 5
-
       - name: Run the test
         run: |
           ./${{ matrix.test }} --test-threads=1
-
-      - name: Archive network debugger database
-        uses: actions/upload-artifact@v5
-        with:
-          name: network-debugger-${{ matrix.test }}-${{ github.sha }}
-          path: /tmp/db
-          retention-days: 3
-        if: ${{ always() }}
 
   record-replay-tests:
     timeout-minutes: 70
@@ -673,18 +621,6 @@ jobs:
       MINA_HOME: data
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
 
-    services:
-      network-debugger:
-        image: openmina/mina-network-debugger:23385c61
-        options: --privileged --init --volume /tmp/db:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
-        env:
-          SERVER_PORT: 80
-          FIREWALL_INTERFACE: lo
-          RUST_LOG: info
-          DB_PATH: /tmp/db
-        ports:
-          - 80:80
-
     steps:
       - name: Download binary
         uses: actions/download-artifact@v6
@@ -700,11 +636,6 @@ jobs:
       - name: Fix permissions
         run: |
           chmod +x bootstrap mina
-
-      # TODO: use curl
-      - name: Wait for the debugger
-        run: |
-          sleep 5
 
       - name: Bootstrap node
         env:
@@ -736,11 +667,3 @@ jobs:
           path: ${{ env.MINA_HOME }}/recorder/*
           retention-days: 7
         if: ${{ failure() }}
-
-      - name: Archive network debugger database
-        uses: actions/upload-artifact@v5
-        with:
-          name: network-debugger-test-bootstrap-${{ github.sha }}
-          path: /tmp/db
-          retention-days: 3
-        if: ${{ always() }}
