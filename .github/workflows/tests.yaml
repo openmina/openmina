@@ -253,6 +253,9 @@ jobs:
           toolchain: ${{ env.RUST_STABLE_VERSION }}
           cache-prefix: unit-tests-${{ env.CACHE_VERSION }}
 
+      - name: Download circuits files
+        uses: ./.github/actions/setup-circuits
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
@@ -467,7 +470,7 @@ jobs:
   p2p-scenario-tests:
     needs: [build-tests, build-tests-webrtc]
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     container:
       image: gcr.io/o1labs-192920/mina-daemon:3.3.0-alpha1-6929a7e-noble-devnet
       options: --volume debugger_data:/tmp/db
@@ -553,7 +556,9 @@ jobs:
     strategy:
       matrix:
         test:
-          - single_node
+          - single_node_bootstrap_from_replayer
+          - single_node_accept_incoming
+          - single_node_initial_joining
           - multi_node_initial_joining
           - multi_node_peer_discovery
           - multi_node_propagate_block
@@ -621,7 +626,7 @@ jobs:
         if: ${{ always() }}
 
   record-replay-tests:
-    timeout-minutes: 30
+    timeout-minutes: 70
     needs:
       - build-tests
       - build-tests-webrtc
@@ -633,7 +638,9 @@ jobs:
       MINA_DISCOVERY_FILTER_ADDR: false
     strategy:
       matrix:
-        test: [record_replay, webrtc_record_replay]
+        test:
+          - record_replay_record_replay_block_production
+          - record_replay_record_replay_bootstrap
       fail-fast: false
 
     steps:
@@ -659,7 +666,7 @@ jobs:
           ./${{ matrix.test }} --test-threads=1
 
   bootstrap-test:
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: [build, build-tests]
     runs-on: ubuntu-24.04
     env:

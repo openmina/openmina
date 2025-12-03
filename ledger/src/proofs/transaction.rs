@@ -4435,7 +4435,6 @@ pub(super) mod tests {
 
     #[allow(unused)]
     #[test]
-    #[ignore]
     fn test_convert_requests() {
         use binprot::BinProtWrite;
         use mina_p2p_messages::v2::*;
@@ -4694,7 +4693,6 @@ pub(super) mod tests {
     /// Print requests types
     #[allow(unused)]
     #[test]
-    #[ignore]
     fn test_read_requests() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join(devnet_circuit_directory())
@@ -4929,7 +4927,6 @@ pub(super) mod tests {
     }
 
     #[test]
-    #[ignore]
     fn make_rsa_key() {
         use rsa::{
             pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey},

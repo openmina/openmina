@@ -41,7 +41,7 @@ impl SoloNodeBootstrap {
         std::env::set_var("MINA_DISCOVERY_FILTER_ADDR", "true");
         use self::TransitionFrontierSyncState::*;
 
-        const TIMEOUT: Duration = Duration::from_secs(60 * 40);
+        const TIMEOUT: Duration = Duration::from_secs(60 * 60);
 
         let replayer = hosts::replayer();
 

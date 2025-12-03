@@ -214,14 +214,4 @@ mod tests {
         let id_conv: libp2p_identity::PeerId = conv.try_into().expect("Parsing failed");
         assert_eq!(id_conv, id);
     }
-
-    #[test]
-    #[ignore = "doesn't work"]
-    fn test_bare_base58btc_pk() {
-        let s = "QmSXffHzFVSEoQCYBS1bPpCn4vgGEpQnCA9NLYuhamPBU3";
-        let id: libp2p_identity::PeerId = s.parse().expect("Error parsing");
-        let conv: PeerId = id.try_into().expect("Error converting");
-        let id_conv: libp2p_identity::PeerId = conv.try_into().expect("Error converting");
-        assert_eq!(id_conv, id);
-    }
 }

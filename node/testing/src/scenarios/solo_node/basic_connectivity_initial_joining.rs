@@ -27,6 +27,7 @@ pub struct SoloNodeBasicConnectivityInitialJoining;
 
 impl SoloNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
+        std::env::set_var("MINA_DISCOVERY_FILTER_ADDR", "true");
         const MAX_PEERS_PER_NODE: usize = 100;
         const KNOWN_PEERS: usize = 5; // current devnet network
         const STEPS: usize = 3_000;

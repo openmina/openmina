@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dependencies/proof-systems**: bump up proof-systems to 282faf5
   ([#1662](https://github.com/o1-labs/mina-rust/pull/1662))
+- **Tests**: removed unused tests and fixed tests
+  ([#1682](https://github.com/o1-labs/mina-rust/pull/1682))
 
 ## [0.18.0] - 2025-11-04
 

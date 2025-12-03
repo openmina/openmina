@@ -2,17 +2,13 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     io::Write,
-    path::PathBuf,
 };
 
-use binprot::BinProtRead;
 use mina_p2p_messages::{
     rpc,
-    rpc_kernel::{BinprotTag, Message, MessageHeader, RpcMethod},
+    rpc_kernel::{Message, MessageHeader, RpcMethod},
     utils::get_sized_slice,
-    versioned::Ver,
 };
-use utils::for_all_with_path;
 
 use crate::utils::files_path;
 
@@ -147,35 +143,5 @@ fn make_rpc_v2() {
                 *c += 1;
             }
         }
-    }
-}
-
-#[test]
-#[ignore]
-fn debugger_to_wire() {
-    for d in [
-        "v1/rpc/menu",
-        "v1/rpc/get-best-tip",
-        "v1/rpc/get-staged-ledger-aux",
-        "v1/rpc/answer-sync-ledger",
-        "v1/rpc/get-transition-chain",
-        "v1/rpc/get-transition-chain-proof",
-        "v1/rpc/get-transition-knowledge",
-        "v1/rpc/get-ancestry",
-    ] {
-        for_all_with_path(PathBuf::from(d).join("response"), |encoded, path| {
-            let mut p = &encoded[1..];
-            let tag = BinprotTag::binprot_read(&mut p).unwrap().to_string_lossy();
-            let ver = Ver::binprot_read(&mut p).unwrap();
-            println!("{tag}:{ver}");
-            File::create(path)
-                .and_then(|mut f| {
-                    f.write_all(&encoded[..1])?;
-                    f.write_all(p)?;
-                    Ok(f)
-                })
-                .unwrap();
-        })
-        .unwrap()
     }
 }
