@@ -1,3 +1,44 @@
+//! # Statistics Module
+//!
+//! This module collects and manages runtime statistics for the node. It tracks
+//! three main categories of statistics that can be queried via RPC endpoints.
+//!
+//! ## Components
+//!
+//! | Sub-module        | Purpose                                              |
+//! |-------------------|------------------------------------------------------|
+//! | [`actions`]       | Tracks action dispatch frequency and timing          |
+//! | [`sync`]          | Tracks blockchain synchronization progress           |
+//! | [`block_producer`]| Tracks block production attempts and outcomes        |
+//!
+//! ## Architecture
+//!
+//! The [`Stats`] struct is held by the [`Service`](crate::Service) trait
+//! implementation and is accessed via `store.service.stats()` in effects.
+//! Statistics are updated during effect execution, not in reducers, since
+//! they are side-effects that don't affect the core state machine.
+//!
+//! ## Usage
+//!
+//! Statistics are collected in effects throughout the codebase:
+//!
+//! - **Action stats**: Updated in [`effects()`](crate::effects()) for every
+//!   dispatched action
+//! - **Sync stats**: Updated in [`transition_frontier`](crate::transition_frontier)
+//!   effects during synchronization
+//! - **Block producer stats**: Updated in
+//!   [`block_producer_effectful`](crate::block_producer_effectful) during block
+//!   production
+//!
+//! ## RPC Endpoints
+//!
+//! Statistics are exposed via RPC for monitoring and debugging. These endpoints
+//! are consumed by the frontend dashboard to display node health and performance:
+//!
+//! - `ActionStatsGet` - Returns action dispatch statistics
+//! - `SyncStatsGet` - Returns synchronization statistics
+//! - `BlockProducerStatsGet` - Returns block production statistics
+
 mod stats_actions;
 pub mod actions {
     pub use super::stats_actions::*;
