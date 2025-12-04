@@ -1,12 +1,11 @@
 //! Base58check encoding/decoding.
 
-use std::{fmt, marker::PhantomData, str::FromStr};
-
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
 use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
+use std::{fmt, marker::PhantomData, str::FromStr};
 
 /// Before encoding, data is prepended with the version byte.
 pub fn encode(b: &[u8], v: u8) -> String {

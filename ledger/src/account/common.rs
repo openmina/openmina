@@ -1,10 +1,3 @@
-use std::str::FromStr;
-
-use ark_ff::{UniformRand, Zero};
-use mina_curves::pasta::Fp;
-use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
-use serde::{Deserialize, Serialize};
-
 use crate::{
     proofs::{
         field::{Boolean, FieldWitness, ToBoolean},
@@ -17,6 +10,11 @@ use crate::{
     scan_state::currency::{Amount, Balance, Magnitude, Slot, SlotSpan},
     ControlTag, ToInputs,
 };
+use ark_ff::{UniformRand, Zero};
+use mina_curves::pasta::Fp;
+use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VotingFor(pub Fp);

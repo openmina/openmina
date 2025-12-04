@@ -1,13 +1,10 @@
-use std::borrow::Cow;
-
+use super::common::*;
+use crate::scan_state::currency::{Balance, Magnitude, Nonce};
 use ark_ff::Zero;
 use mina_hasher::{create_legacy, Fp, Hashable, Hasher, ROInput};
 use mina_signer::CompressedPubKey;
 use o1_utils::FieldHelpers;
-
-use crate::scan_state::currency::{Balance, Magnitude, Nonce};
-
-use super::common::*;
+use std::borrow::Cow;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TokenIdLegacy(pub u64);

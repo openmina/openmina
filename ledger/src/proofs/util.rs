@@ -1,5 +1,10 @@
-use std::fmt::Debug;
-
+use super::{
+    public_input::scalar_challenge::ScalarChallenge,
+    step::{Opt, OptFlag},
+    transaction::InnerCurve,
+    witness::Witness,
+};
+use crate::proofs::field::{field, Boolean, FieldWitness};
 use ark_ff::{BigInteger256, Field};
 use kimchi::proof::{PointEvaluations, ProofEvaluations};
 use mina_p2p_messages::{
@@ -7,15 +12,7 @@ use mina_p2p_messages::{
     pseq::PaddedSeq,
     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
 };
-
-use crate::proofs::field::{field, Boolean, FieldWitness};
-
-use super::{
-    public_input::scalar_challenge::ScalarChallenge,
-    step::{Opt, OptFlag},
-    transaction::InnerCurve,
-    witness::Witness,
-};
+use std::fmt::Debug;
 
 pub fn extract_polynomial_commitment<
     'a,

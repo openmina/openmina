@@ -1,4 +1,4 @@
-use ark_ff::BigInteger256;
+use ark_ff::{BigInteger256, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use malloc_size_of::MallocSizeOf;
 use rsexp::{OfSexp, SexpOf};
@@ -100,34 +100,31 @@ impl AsRef<BigInteger256> for BigInt {
 
 impl From<mina_curves::pasta::Fp> for BigInt {
     fn from(field: mina_curves::pasta::Fp) -> Self {
-        use ark_ff::PrimeField;
         Self(field.into_bigint())
     }
 }
 
 impl From<mina_curves::pasta::Fq> for BigInt {
     fn from(field: mina_curves::pasta::Fq) -> Self {
-        use ark_ff::PrimeField;
         Self(field.into_bigint())
     }
 }
 
 impl From<&mina_curves::pasta::Fp> for BigInt {
     fn from(field: &mina_curves::pasta::Fp) -> Self {
-        use ark_ff::PrimeField;
         Self(field.into_bigint())
     }
 }
 
 impl From<&mina_curves::pasta::Fq> for BigInt {
     fn from(field: &mina_curves::pasta::Fq) -> Self {
-        use ark_ff::PrimeField;
         Self(field.into_bigint())
     }
 }
 
 impl TryFrom<BigInt> for mina_curves::pasta::Fp {
     type Error = InvalidBigInt;
+
     fn try_from(bigint: BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
@@ -135,6 +132,7 @@ impl TryFrom<BigInt> for mina_curves::pasta::Fp {
 
 impl TryFrom<BigInt> for mina_curves::pasta::Fq {
     type Error = InvalidBigInt;
+
     fn try_from(bigint: BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
@@ -142,6 +140,7 @@ impl TryFrom<BigInt> for mina_curves::pasta::Fq {
 
 impl TryFrom<&BigInt> for mina_curves::pasta::Fp {
     type Error = InvalidBigInt;
+
     fn try_from(bigint: &BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
@@ -149,6 +148,7 @@ impl TryFrom<&BigInt> for mina_curves::pasta::Fp {
 
 impl TryFrom<&BigInt> for mina_curves::pasta::Fq {
     type Error = InvalidBigInt;
+
     fn try_from(bigint: &BigInt) -> Result<Self, Self::Error> {
         bigint.to_field()
     }
@@ -333,9 +333,8 @@ impl mina_hasher::Hashable for BigInt {
 
 #[cfg(test)]
 mod tests {
-    use binprot::{BinProtRead, BinProtWrite};
-
     use super::BigInt;
+    use binprot::{BinProtRead, BinProtWrite};
 
     fn to_binprot(v: &BigInt) -> Vec<u8> {
         let mut w = Vec::new();
@@ -347,10 +346,9 @@ mod tests {
         BigInt::binprot_read(&mut b).unwrap()
     }
 
-    fn from_byte(b: u8) -> BigInt {
-        BigInt::from_bytes([b; 32])
-    }
-
+    /// Build a BigInt from a sequence of bytes.
+    /// If the input contains less than 32 bytes, the sequence is repeated until reaching 32 bytes
+    /// and filling the BigInt buffer.
     fn from_bytes<'a, I>(it: I) -> BigInt
     where
         I: IntoIterator<Item = &'a u8>,
@@ -365,9 +363,9 @@ mod tests {
     #[test]
     fn serialize_bigint() {
         let bigints = [
-            from_byte(0),
-            from_byte(1),
-            from_byte(0xff),
+            BigInt::from_bytes([0; 32]),
+            BigInt::from_bytes([1; 32]),
+            BigInt::from_bytes([0xff; 32]),
             from_bytes(&[0, 1, 2, 3, 4]),
         ];
 
@@ -380,9 +378,9 @@ mod tests {
     #[test]
     fn deserialize_bigint() {
         let bigints = [
-            from_byte(0),
-            from_byte(1),
-            from_byte(0xff),
+            BigInt::from_bytes([0; 32]),
+            BigInt::from_bytes([1; 32]),
+            BigInt::from_bytes([0xff; 32]),
             from_bytes(&[0, 1, 2, 3, 4]),
         ];
 
@@ -395,9 +393,9 @@ mod tests {
     #[test]
     fn to_json() {
         let bigints = [
-            from_byte(0),
-            from_byte(1),
-            from_byte(0xff),
+            BigInt::from_bytes([0; 32]),
+            BigInt::from_bytes([1; 32]),
+            BigInt::from_bytes([0xff; 32]),
             from_bytes(&[0, 1, 2, 3, 4]),
         ];
 
@@ -413,9 +411,9 @@ mod tests {
     #[test]
     fn from_json() {
         let bigints = [
-            from_byte(0),
-            from_byte(1),
-            from_byte(0xff),
+            BigInt::from_bytes([0; 32]),
+            BigInt::from_bytes([1; 32]),
+            BigInt::from_bytes([0xff; 32]),
             from_bytes(&[0, 1, 2, 3, 4]),
         ];
 

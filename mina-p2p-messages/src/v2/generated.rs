@@ -1,3 +1,5 @@
+use super::manual::*;
+use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
 use malloc_size_of::MallocSizeOf;
@@ -6,10 +8,6 @@ use mina_macros::SerdeYojsonEnum;
 use rsexp_derive::{OfSexp, SexpOf};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-
-use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
-
-use super::manual::*;
 
 /// **OCaml name**: `Mina_block__Block.Stable.V2`
 ///

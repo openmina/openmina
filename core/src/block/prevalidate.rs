@@ -1,7 +1,6 @@
-use serde::{Deserialize, Serialize};
-
 use super::ArcBlockWithHash;
 use crate::constants::PROTOCOL_VERSION;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockPrevalidationError {

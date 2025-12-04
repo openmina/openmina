@@ -1,16 +1,14 @@
 use std::{borrow::Cow, str::FromStr};
 
+use super::{util::extract_bulletproof, ProverProof};
 use kimchi::{
     poly_commitment::PolyComm,
     proof::{PointEvaluations, ProofEvaluations, ProverCommitments, RecursionChallenge},
 };
-use mina_curves::pasta::{Fp, Pallas};
+use mina_curves::pasta::{Fp, Fq, Pallas};
+use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 use once_cell::sync::Lazy;
 use poly_commitment::{commitment::CommitmentCurve, ipa::OpeningProof};
-
-use super::{util::extract_bulletproof, ProverProof};
-use mina_curves::pasta::Fq;
-use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 
 fn get_challenge_polynomial_commitments_padding() -> (BigInt, BigInt) {
     static PADDING: Lazy<(BigInt, BigInt)> = Lazy::new(|| {
@@ -75,13 +73,6 @@ pub fn make_padded_proof_from_p2p(
 
     let evals = &proof.evaluations;
 
-    // let to_fields = |x: &Vec<BigInt>| x.iter().map(BigInt::to_field).collect();
-    // let to_pt_eval = |(first, second): &(Vec<BigInt>, Vec<BigInt>)| PointEvaluations {
-    //     zeta: to_fields(first),
-    //     zeta_omega: to_fields(second),
-    // };
-
-    // let to_fields = |x: &Vec<BigInt>| x.iter().map(BigInt::to_field).collect();
     let to_pt_eval = |(first, second): &(BigInt, BigInt)| -> anyhow::Result<_> {
         Ok(PointEvaluations {
             zeta: vec![first.to_field::<Fq>()?],

@@ -1,13 +1,12 @@
 //! Types from Janestreet's Core library.
 
-use std::net::IpAddr;
-
 use crate::{
     string::{ByteString, CharString},
     versioned::Versioned,
 };
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 
 /// This type corresponds to `Bounded_types.Wrapped_error` OCaml type, but the
 /// structure is different. It only refrects the data that is passed over the
