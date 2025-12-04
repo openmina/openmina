@@ -175,14 +175,6 @@ pub fn next_epoch_first_slot(global_slot: &v2::ConsensusGlobalSlotStableV1) -> u
         .expect("overflow")
 }
 
-// Returns the epoch number and whether it is the last slot of the epoch
-// pub fn epoch_with_bounds(global_slot: u32) -> (u32, bool) {
-//     // let epoch_bound = |global_slot| -> (u32, bool) {
-//     //     (global_slot / SLOTS_PER_EPOCH, (global_slot + 1) % SLOTS_PER_EPOCH == 0)
-//     // };
-
-// }
-
 impl BlockWithoutProof {
     pub fn with_hash_and_proof(
         self,

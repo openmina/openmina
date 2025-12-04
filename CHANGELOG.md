@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Node**: add top-level documentation for the crate `node`
+  ([#1736](https://github.com/o1-labs/mina-rust/pull/1736))
+
 ### Changes
 
 - **Dependency**: use tag instead of references of o1-labs/proof-systems, fix
