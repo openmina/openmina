@@ -27,15 +27,21 @@
 //!
 //! ## Key Components
 //!
-//! | Component           | Module                  | Purpose                             |
-//! |---------------------|-------------------------|-------------------------------------|
-//! | Block Producer      | [`block_producer`]      | Block creation on won slots         |
-//! | Ledger              | [`ledger`]              | Account state and transactions      |
-//! | P2P                 | [`p2p`]                 | Networking layer                    |
-//! | RPC                 | [`rpc`]                 | JSON-RPC API                        |
-//! | SNARK Pool          | [`snark_pool`]          | Proof work management               |
-//! | Transaction Pool    | [`transaction_pool`]    | Mempool for pending transactions    |
-//! | Transition Frontier | [`transition_frontier`] | Blockchain consensus and best chain |
+//! | Component              | Module                     | Purpose                             |
+//! |------------------------|----------------------------|-------------------------------------|
+//! | Block Producer         | [`block_producer`]         | Block creation on won slots         |
+//! | Event Source           | [`event_source`]           | External event ingestion            |
+//! | External SNARK Worker  | [`external_snark_worker`]  | External SNARK worker management    |
+//! | Ledger                 | [`ledger`]                 | Account state and transactions      |
+//! | Logger                 | [`logger`]                 | Logging utilities                   |
+//! | P2P                    | [`p2p`]                    | Networking layer                    |
+//! | Recorder               | [`recorder`]               | Action recording for replay         |
+//! | RPC                    | [`rpc`]                    | JSON-RPC API                        |
+//! | SNARK Pool             | [`snark_pool`]             | Proof work management               |
+//! | Stats                  | [`stats`]                  | Statistics tracking                 |
+//! | Transaction Pool       | [`transaction_pool`]       | Mempool for pending transactions    |
+//! | Transition Frontier    | [`transition_frontier`]    | Blockchain consensus and best chain |
+//! | Watched Accounts       | [`watched_accounts`]       | Account monitoring                  |
 
 #![allow(clippy::if_same_then_else)]
 
