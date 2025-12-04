@@ -48,5 +48,7 @@ google-cloud-storage = { workspace = true }
 google-cloud-auth = { workspace = true }
 
 [features]
+# won't compile without this on
+default = ["p2p-webrtc"]
 p2p-webrtc = ["node/p2p-webrtc"]
 p2p-libp2p = ["node/p2p-libp2p"]

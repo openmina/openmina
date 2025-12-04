@@ -66,7 +66,7 @@ This repository contains the complete Mina Rust Node implementation:
 - [node/](node) - Combines all the business logic of the node.
   - [native/](node/native) - OS specific pieces of the node, which is used to
     run the node natively (Linux/Mac/Windows).
-  - [testing/](node/testing) - Testing framework for Mina node.
+  - [testing/](tools/testing) - Testing framework for Mina node.
 - [cli/](cli) - Mina CLI.
 - [frontend/](frontend) - OpenMina frontend.
 

@@ -1,6 +1,6 @@
 ### P2p Testing Framework
 
-This is a lighter version of the [Testing Framework](../../node/testing/) that
+This is a lighter version of the [Testing Framework](../../tools/testing/) that
 is focused on peer-to-peer functionality of the Rust node.
 
 It allows to set up, run and observe clusters of peers that implement Mina p2p
