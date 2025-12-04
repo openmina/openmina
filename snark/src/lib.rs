@@ -118,6 +118,10 @@ pub trait SnarkStore<GlobalState>:
 }
 impl<S, T: SubStore<S, SnarkState, SubAction = SnarkAction>> SnarkStore<S> for T {}
 
+/// Returns the Structured Reference String (SRS) for SNARK verification.
+/// Delegates to `ledger::verifier::get_srs` with Fp field type.
+///
+/// TODO: Use directly from proof-systems (<https://github.com/o1-labs/mina-rust/issues/1749>)
 pub fn get_srs() -> std::sync::Arc<poly_commitment::ipa::SRS<Vesta>> {
     ledger::verifier::get_srs::<mina_curves::pasta::Fp>()
 }

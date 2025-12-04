@@ -171,9 +171,13 @@ async fn make_with_ext_cache(kind: Kind, data: &str) -> VerifierIndex<Fq> {
     make_with_ext_cache!(kind, data)
 }
 
+/// Verifier index for block proofs (consensus layer / block selection).
+/// Lazily initialized and cached globally.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockVerifier(Arc<VerifierIndex<Fq>>);
 
+/// Verifier index for transaction proofs (execution layer / transaction confirmation).
+/// Lazily initialized and cached globally.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransactionVerifier(Arc<VerifierIndex<Fq>>);
 
@@ -216,6 +220,8 @@ impl TransactionVerifier {
 
 #[cfg(not(target_family = "wasm"))]
 impl BlockVerifier {
+    /// Creates or returns cached block verifier index from embedded JSON data.
+    /// Network-specific (mainnet/devnet). Uses external cache for faster loading.
     pub fn make() -> Self {
         BLOCK_VERIFIER
             .get_or_init(|| {
@@ -244,6 +250,8 @@ impl BlockVerifier {
 
 #[cfg(not(target_family = "wasm"))]
 impl TransactionVerifier {
+    /// Creates or returns cached transaction verifier index from embedded JSON.
+    /// Network-specific (mainnet/devnet). Uses external cache for faster loading.
     pub fn make() -> Self {
         TX_VERIFIER
             .get_or_init(|| {

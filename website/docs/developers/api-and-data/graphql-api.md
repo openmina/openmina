@@ -90,19 +90,20 @@ MutationSendDelegation from
 "!!raw-loader!./scripts/graphql-api/mutations/curl/send-delegation.sh"; import
 MutationSendZkapp from
 "!!raw-loader!./scripts/graphql-api/mutations/curl/send-zkapp.sh"; import
-GraphqlList from "!!raw-loader!./scripts/cli/graphql-list.sh"; import
-GraphqlInspect from "!!raw-loader!./scripts/cli/graphql-inspect.sh"; import
+GraphqlList from "!!raw-loader!../scripts/cli/graphql-list.sh"; import
+GraphqlInspect from "!!raw-loader!../scripts/cli/graphql-inspect.sh"; import
 GraphqlInspectRemote from
-"!!raw-loader!./scripts/cli/graphql-inspect-remote.sh"; import GraphqlRunSimple
-from "!!raw-loader!./scripts/cli/graphql-run-simple.sh"; import GraphqlRunStdin
-from "!!raw-loader!./scripts/cli/graphql-run-stdin.sh"; import GraphqlRunFile
-from "!!raw-loader!./scripts/cli/graphql-run-file.sh"; import
-GraphqlRunVariables from "!!raw-loader!./scripts/cli/graphql-run-variables.sh";
-import GraphqlRunRemote from "!!raw-loader!./scripts/cli/graphql-run-remote.sh";
-import GraphqlInspectOcamlProtocolState from
-"!!raw-loader!./scripts/cli/graphql-inspect-ocaml-protocolstate.sh"; import
+"!!raw-loader!../scripts/cli/graphql-inspect-remote.sh"; import GraphqlRunSimple
+from "!!raw-loader!../scripts/cli/graphql-run-simple.sh"; import GraphqlRunStdin
+from "!!raw-loader!../scripts/cli/graphql-run-stdin.sh"; import GraphqlRunFile
+from "!!raw-loader!../scripts/cli/graphql-run-file.sh"; import
+GraphqlRunVariables from "!!raw-loader!../scripts/cli/graphql-run-variables.sh";
+import GraphqlRunRemote from
+"!!raw-loader!../scripts/cli/graphql-run-remote.sh"; import
+GraphqlInspectOcamlProtocolState from
+"!!raw-loader!../scripts/cli/graphql-inspect-ocaml-protocolstate.sh"; import
 GraphqlRunOcamlProtocolState from
-"!!raw-loader!./scripts/cli/graphql-run-ocaml-protocolstate.sh";
+"!!raw-loader!../scripts/cli/graphql-run-ocaml-protocolstate.sh";
 
 # GraphQL API Reference
 
@@ -112,7 +113,7 @@ is built using [Juniper](https://github.com/graphql-rust/juniper) and is
 available at `http://localhost:3000/graphql` when running a node.
 
 You can also use one of the nodes deployed by o1Labs. See the
-[Infrastructure](../node-operators/infrastructure/plain-nodes) section for
+[Infrastructure](../../node-operators/infrastructure/plain-nodes) section for
 available nodes and connection details.
 
 ## Quick Start
@@ -1036,9 +1037,9 @@ implemented. The Rust implementation focuses on core functionality needed for:
 
 ## Next Steps
 
-- [Node Architecture](./architecture) - Understanding the node's internal
+- [Node Architecture](../architecture) - Understanding the node's internal
   structure
 - [Archive Database Queries](./archive-database-queries) - SQL queries and
   database analysis
-- [Network Configuration](../node-operators/network-configuration) - Configuring
-  your node for different networks
+- [Network Configuration](../../node-operators/network-configuration) -
+  Configuring your node for different networks

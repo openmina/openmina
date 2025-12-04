@@ -22,7 +22,7 @@ fi
 echo "🔍 Testing GraphQL API command scripts..."
 
 # Dynamically discover all bash scripts in the queries/curl directory (only test queries, not mutations)
-script_dir="website/docs/developers/scripts/graphql-api/queries/curl"
+script_dir="website/docs/developers/api-and-data/scripts/graphql-api/queries/curl"
 
 if [ ! -d "$script_dir" ]; then
   echo "❌ Script directory not found: $script_dir"

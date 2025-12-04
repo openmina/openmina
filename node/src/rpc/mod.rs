@@ -518,76 +518,125 @@ impl From<Account> for AccountSlim {
     }
 }
 
+/// Comprehensive node status returned by the `/status` RPC endpoint.
+///
+/// Contains information about the node's current state including sync status,
+/// peer connections, resource usage, and block production configuration.
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatus {
+    /// Network chain identifier (e.g., "mainnet", "devnet").
     pub chain_id: Option<String>,
+    /// Transition frontier state including best tip and sync status.
     pub transition_frontier: RpcNodeStatusTransitionFrontier,
+    /// Ledger state and pending operations.
     pub ledger: RpcNodeStatusLedger,
+    /// SNARK pool statistics.
     pub snark_pool: RpcNodeStatusSnarkPool,
+    /// Transaction pool statistics.
     pub transaction_pool: RpcNodeStatusTransactionPool,
+    /// Current block production attempt, if any.
     pub current_block_production_attempt: Option<BlockProductionAttempt>,
+    /// Previous block production attempt, if any.
     pub previous_block_production_attempt: Option<BlockProductionAttempt>,
+    /// Connected peer information.
     pub peers: Vec<RpcPeerInfo>,
+    /// Resource usage statistics.
     pub resources_status: RpcNodeStatusResources,
+    /// Service queue statistics.
     pub service_queues: Queues,
+    /// Network configuration information.
     pub network_info: RpcNodeStatusNetworkInfo,
+    /// Block producer public key, if configured.
     pub block_producer: Option<AccountPublicKey>,
+    /// Coinbase receiver public key, if configured.
     pub coinbase_receiver: Option<AccountPublicKey>,
 }
 
+/// Network configuration information for the node.
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatusNetworkInfo {
+    /// IP address the node is bound to.
     pub bind_ip: String,
+    /// External IP address, if known.
     pub external_ip: Option<String>,
+    /// Client port for incoming connections.
     pub client_port: Option<u16>,
+    /// libp2p port for P2P communication.
     pub libp2p_port: Option<u16>,
 }
 
+/// Ledger state and pending operations.
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatusLedger {
+    /// Number of alive ledger masks after the last commit.
     pub alive_masks_after_last_commit: usize,
+    /// Pending ledger write operations with timestamps.
     pub pending_writes: Vec<(LedgerWriteKind, redux::Timestamp)>,
+    /// Pending ledger read operations with IDs, kinds, and timestamps.
     pub pending_reads: Vec<(LedgerReadId, LedgerReadKind, redux::Timestamp)>,
 }
 
+/// Resource usage statistics for the node.
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatusResources {
+    /// Memory allocated for P2P operations in bytes.
     pub p2p_malloc_size: usize,
+    /// Transition frontier resource usage.
     pub transition_frontier: serde_json::Value,
+    /// SNARK pool resource usage.
     pub snark_pool: serde_json::Value,
 }
 
+/// Transition frontier state including best tip and sync information.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontier {
+    /// Current best tip block summary.
     pub best_tip: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
+    /// Synchronization status.
     pub sync: RpcNodeStatusTransitionFrontierSync,
 }
 
+/// Synchronization status information.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontierSync {
+    /// Timestamp of the last sync update.
     pub time: Option<redux::Timestamp>,
+    /// Current sync status (e.g., "Synced", "Bootstrap", "Catchup").
     pub status: String,
+    /// Current sync phase.
     pub phase: String,
+    /// Target block for synchronization, if syncing.
     pub target: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
 }
 
+/// Summary of a block in the transition frontier.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcNodeStatusTransitionFrontierBlockSummary {
+    /// State hash of the block.
     pub hash: StateHash,
+    /// Block height.
     pub height: u32,
+    /// Global slot number.
     pub global_slot: u32,
 }
 
+/// Transaction pool statistics.
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusTransactionPool {
+    /// Total number of transactions in the pool.
     pub transactions: usize,
+    /// Number of transactions ready for propagation.
     pub transactions_for_propagation: usize,
+    /// Number of transaction candidates being processed.
     pub transaction_candidates: usize,
 }
 
+/// SNARK pool statistics.
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct RpcNodeStatusSnarkPool {
+    /// Total number of SNARK jobs in the pool.
     pub total_jobs: usize,
+    /// Number of completed SNARK proofs.
     pub snarks: usize,
 }
 
