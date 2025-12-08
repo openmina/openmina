@@ -163,7 +163,7 @@ object = "0.37.1"
 once_cell = "1"
 p256 = { version = "0.13", features = ["default", "ecdh", "ecdsa"] }
 p384 = "0.13"
-pcap = "2.3"
+pcap = "2.4"
 pin-project-lite = "0.2.10"
 poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 poseidon = { path = "poseidon" }
