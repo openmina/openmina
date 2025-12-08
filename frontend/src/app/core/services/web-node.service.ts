@@ -144,6 +144,13 @@ export class WebNodeService {
       return of(any(window).webnode).pipe(
         switchMap((wasm: any) => {
           this.wasm$.next(wasm);
+
+          // nb: this is RUSTFLAGS "-Clink-args=--max-memory=4294967296" (4GiB)
+          // nb: in .cargo/config.toml for the wasm32 target the div by 65536
+          // nb: is because the WASM web API requires memory size to be specified
+          // nb: in terms of 64KiB *pages*
+          // todo: move to wherever angular injects `this.memory`
+          this.memory.maximum = 4294967296 / 65536;
           return from(
             wasm.default(undefined, new WebAssembly.Memory(this.memory)),
           ).pipe(map(() => wasm));

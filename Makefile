@@ -10,7 +10,7 @@ NIGHTLY_RUST_VERSION = "nightly"
 NODE_VERSION := $(shell cat .nvmrc)
 
 # WebAssembly
-WASM_BINDGEN_CLI_VERSION = "0.2.99"
+WASM_BINDGEN_CLI_VERSION = "0.2.106"
 
 # TOML formatter
 TAPLO_CLI_VERSION = "0.9.3"
