@@ -10,5 +10,11 @@ keywords = ["mina", "blockchain", "cryptocurrency", "zkapp", "transaction"]
 categories = ["cryptography::cryptocurrencies"]
 
 [dependencies]
+ark-ff = { workspace = true }
+mina-curves = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
 
 [dev-dependencies]

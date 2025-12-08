@@ -25,9 +25,9 @@
 //! - Account state (balance, nonce, app state, etc.)
 //! - Time validity windows
 
-extern crate alloc;
-
-use alloc::vec::Vec;
+use crate::currency::{Amount, Balance, Fee, Length, Nonce, Signed, Slot, SlotSpan};
+use mina_curves::pasta::Fp;
+use mina_signer::{CompressedPubKey, Signature};
 
 /// A zkApp command representing a complex multi-account transaction.
 ///
@@ -60,20 +60,20 @@ use alloc::vec::Vec;
 ///
 /// OCaml: `src/lib/mina_base/zkapp_command.ml`
 #[derive(Debug, Clone, PartialEq)]
-pub struct ZkAppCommand<Pk, Fp, Auth> {
+pub struct ZkAppCommand {
     /// The account paying the transaction fee.
     ///
     /// The fee payer is always authorized by a signature and pays for all
     /// computation and storage costs of the transaction. The fee payer's
     /// nonce is incremented to prevent replay attacks.
-    pub fee_payer: FeePayer<Pk>,
+    pub fee_payer: FeePayer,
 
     /// A tree of account updates to apply atomically.
     ///
     /// Account updates are organized in a forest structure where updates can
     /// have child updates. This enables complex transaction patterns like
     /// token transfers that require updates to multiple accounts.
-    pub account_updates: CallForest<AccountUpdate<Pk, Fp, Auth>>,
+    pub account_updates: CallForest<AccountUpdate>,
 
     /// User-defined transaction memo.
     ///
@@ -95,9 +95,9 @@ pub struct ZkAppCommand<Pk, Fp, Auth> {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (FeePayer module)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FeePayer<Pk> {
+pub struct FeePayer {
     /// The fee payer's account details and fee information.
-    pub body: FeePayerBody<Pk>,
+    pub body: FeePayerBody,
 
     /// The signature authorizing the fee payment.
     ///
@@ -112,12 +112,12 @@ pub struct FeePayer<Pk> {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (FeePayerBody)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FeePayerBody<Pk> {
+pub struct FeePayerBody {
     /// The public key of the fee payer account.
     ///
     /// This identifies which account will pay the transaction fee and have
     /// its nonce incremented.
-    pub public_key: Pk,
+    pub public_key: CompressedPubKey,
 
     /// The fee to pay for the transaction.
     ///
@@ -155,14 +155,20 @@ pub struct FeePayerBody<Pk> {
 ///
 /// OCaml: `src/lib/mina_base/zkapp_command.ml` (CallForest)
 #[derive(Debug, Clone, PartialEq)]
-pub struct CallForest<AccUpdate>(pub Vec<WithStackHash<AccUpdate>>);
+pub struct CallForest<AccUpdate: Clone>(pub Vec<WithStackHash<AccUpdate>>);
+
+impl<AccUpdate: Clone> Default for CallForest<AccUpdate> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
 
 /// An account update wrapped with its stack hash for cryptographic commitment.
 ///
 /// The stack hash enables efficient verification of the account update tree
 /// without examining every node.
 #[derive(Debug, Clone, PartialEq)]
-pub struct WithStackHash<AccUpdate> {
+pub struct WithStackHash<AccUpdate: Clone> {
     /// The account update and its children.
     pub elt: Tree<AccUpdate>,
 
@@ -170,17 +176,17 @@ pub struct WithStackHash<AccUpdate> {
     ///
     /// This hash commits to this account update and all its descendants,
     /// enabling efficient Merkle-style proofs.
-    pub stack_hash: StackHash,
+    pub stack_hash: Fp,
 }
 
 /// A tree node containing an account update and its children.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Tree<AccUpdate> {
+pub struct Tree<AccUpdate: Clone> {
     /// The account update at this node.
     pub account_update: AccUpdate,
 
     /// The stack hash of just this account update (without children).
-    pub account_update_digest: AccountUpdateDigest,
+    pub account_update_digest: Fp,
 
     /// Child account updates that depend on this update.
     pub calls: CallForest<AccUpdate>,
@@ -207,14 +213,14 @@ pub struct Tree<AccUpdate> {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml`
 #[derive(Debug, Clone, PartialEq)]
-pub struct AccountUpdate<Pk, Fp, Auth> {
+pub struct AccountUpdate {
     /// The body containing all update details and preconditions.
-    pub body: AccountUpdateBody<Pk, Fp>,
+    pub body: AccountUpdateBody,
 
     /// The authorization for this update.
     ///
     /// Must match the `authorization_kind` specified in the body.
-    pub authorization: Auth,
+    pub authorization: Control,
 }
 
 /// The body of an account update containing all modification details.
@@ -226,20 +232,20 @@ pub struct AccountUpdate<Pk, Fp, Auth> {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (Body)
 #[derive(Debug, Clone, PartialEq)]
-pub struct AccountUpdateBody<Pk, Fp> {
+pub struct AccountUpdateBody {
     /// The public key of the account to update.
-    pub public_key: Pk,
+    pub public_key: CompressedPubKey,
 
     /// The token ID for this account.
     ///
     /// Combined with the public key, this uniquely identifies an account.
     /// The default token ID represents MINA.
-    pub token_id: TokenId<Fp>,
+    pub token_id: TokenId,
 
     /// The updates to apply to the account's state.
     ///
     /// Each field can be `Set` to a new value or `Keep` the existing value.
-    pub update: Update<Pk, Fp>,
+    pub update: Update,
 
     /// The change to the account's balance.
     ///
@@ -258,13 +264,13 @@ pub struct AccountUpdateBody<Pk, Fp> {
     /// Events are arbitrary field elements that are included in the
     /// transaction but don't affect account state. They can be used for
     /// off-chain indexing and logging.
-    pub events: Events<Fp>,
+    pub events: Events,
 
     /// Actions (sequenced events) emitted by this account update.
     ///
     /// Unlike events, actions are accumulated in the account's action state
     /// and can be processed by subsequent zkApp transactions.
-    pub actions: Actions<Fp>,
+    pub actions: Actions,
 
     /// Arbitrary field element for zkApp-specific data.
     ///
@@ -276,7 +282,7 @@ pub struct AccountUpdateBody<Pk, Fp> {
     ///
     /// Includes network state preconditions (blockchain length, slot, etc.)
     /// and account state preconditions (balance, nonce, app state, etc.).
-    pub preconditions: Preconditions<Pk, Fp>,
+    pub preconditions: Preconditions,
 
     /// Whether to use the full transaction commitment for signing.
     ///
@@ -300,7 +306,7 @@ pub struct AccountUpdateBody<Pk, Fp> {
     ///
     /// Must be consistent with the `authorization` field in the parent
     /// `AccountUpdate` structure.
-    pub authorization_kind: AuthorizationKind<Fp>,
+    pub authorization_kind: AuthorizationKind,
 }
 
 /// Updates to apply to an account's state.
@@ -313,7 +319,7 @@ pub struct AccountUpdateBody<Pk, Fp> {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (Update)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Update<Pk, Fp> {
+pub struct Update {
     /// Updates to the 8 app state field elements.
     ///
     /// zkApp accounts have 8 field elements of arbitrary state that can be
@@ -324,13 +330,13 @@ pub struct Update<Pk, Fp> {
     ///
     /// The delegate receives staking rewards on behalf of this account.
     /// Only applicable for accounts using the default MINA token.
-    pub delegate: SetOrKeep<Pk>,
+    pub delegate: SetOrKeep<CompressedPubKey>,
 
     /// Update to the account's verification key.
     ///
     /// The verification key is used to verify zero-knowledge proofs for
     /// account updates authorized by proof.
-    pub verification_key: SetOrKeep<VerificationKeyHash<Fp>>,
+    pub verification_key: SetOrKeep<VerificationKeyHash>,
 
     /// Update to the account's permissions.
     ///
@@ -359,7 +365,7 @@ pub struct Update<Pk, Fp> {
     ///
     /// Indicates which proposal or election this account is voting for
     /// in on-chain governance.
-    pub voting_for: SetOrKeep<VotingFor<Fp>>,
+    pub voting_for: SetOrKeep<VotingFor>,
 }
 
 /// A value that can be set to a new value or kept unchanged.
@@ -391,6 +397,16 @@ impl<T> SetOrKeep<T> {
     }
 }
 
+impl<T: Clone> SetOrKeep<T> {
+    /// Returns the set value or the provided default.
+    pub fn set_or_keep(&self, default: T) -> T {
+        match self {
+            Self::Set(v) => v.clone(),
+            Self::Keep => default,
+        }
+    }
+}
+
 /// Preconditions that must be satisfied for an account update to succeed.
 ///
 /// Preconditions enable conditional transaction execution, where updates
@@ -400,12 +416,12 @@ impl<T> SetOrKeep<T> {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (Preconditions)
 #[derive(Debug, Clone, PartialEq)]
-pub struct Preconditions<Pk, Fp> {
+pub struct Preconditions {
     /// Network state preconditions (blockchain length, slot, etc.).
-    pub network: NetworkPreconditions<Fp>,
+    pub network: NetworkPreconditions,
 
     /// Account state preconditions (balance, nonce, app state, etc.).
-    pub account: AccountPreconditions<Pk, Fp>,
+    pub account: AccountPreconditions,
 
     /// Slot range during which this update is valid.
     ///
@@ -422,7 +438,7 @@ pub struct Preconditions<Pk, Fp> {
 ///
 /// OCaml: `src/lib/mina_base/zkapp_precondition.ml` (Protocol_state)
 #[derive(Debug, Clone, PartialEq)]
-pub struct NetworkPreconditions<Fp> {
+pub struct NetworkPreconditions {
     /// Expected hash of the snarked ledger.
     pub snarked_ledger_hash: OrIgnore<Fp>,
 
@@ -439,10 +455,10 @@ pub struct NetworkPreconditions<Fp> {
     pub global_slot_since_genesis: Numeric<Slot>,
 
     /// Preconditions on the current staking epoch.
-    pub staking_epoch_data: EpochData<Fp>,
+    pub staking_epoch_data: EpochData,
 
     /// Preconditions on the next staking epoch.
-    pub next_epoch_data: EpochData<Fp>,
+    pub next_epoch_data: EpochData,
 }
 
 /// Epoch data preconditions.
@@ -451,9 +467,9 @@ pub struct NetworkPreconditions<Fp> {
 ///
 /// OCaml: `src/lib/mina_base/zkapp_precondition.ml` (EpochData)
 #[derive(Debug, Clone, PartialEq)]
-pub struct EpochData<Fp> {
+pub struct EpochData {
     /// Expected epoch ledger hash.
-    pub ledger: EpochLedger<Fp>,
+    pub ledger: EpochLedger,
 
     /// Expected epoch seed.
     pub seed: OrIgnore<Fp>,
@@ -470,7 +486,7 @@ pub struct EpochData<Fp> {
 
 /// Epoch ledger preconditions.
 #[derive(Debug, Clone, PartialEq)]
-pub struct EpochLedger<Fp> {
+pub struct EpochLedger {
     /// Expected ledger hash.
     pub hash: OrIgnore<Fp>,
 
@@ -487,7 +503,7 @@ pub struct EpochLedger<Fp> {
 ///
 /// OCaml: `src/lib/mina_base/zkapp_precondition.ml` (Account)
 #[derive(Debug, Clone, PartialEq)]
-pub struct AccountPreconditions<Pk, Fp> {
+pub struct AccountPreconditions {
     /// Expected account balance range.
     pub balance: Numeric<Balance>,
 
@@ -498,7 +514,7 @@ pub struct AccountPreconditions<Pk, Fp> {
     pub receipt_chain_hash: OrIgnore<Fp>,
 
     /// Expected delegate public key.
-    pub delegate: OrIgnore<Pk>,
+    pub delegate: OrIgnore<CompressedPubKey>,
 
     /// Expected app state values (8 field elements).
     pub state: [OrIgnore<Fp>; 8],
@@ -559,7 +575,7 @@ pub struct ClosedInterval<T> {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (AuthorizationKind)
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AuthorizationKind<Fp> {
+pub enum AuthorizationKind {
     /// No authorization provided.
     ///
     /// Only valid for operations that don't require authorization
@@ -595,6 +611,32 @@ pub enum MayUseToken {
     InheritFromParent,
 }
 
+/// Authorization methods for zkApp account updates.
+///
+/// Defines how an account update is authorized to modify an account's state.
+///
+/// # References
+///
+/// OCaml: `src/lib/mina_base/control.ml`
+#[derive(Debug, Clone, PartialEq)]
+pub enum Control {
+    /// Verified by a zero-knowledge proof against the account's verification
+    /// key.
+    Proof(SideLoadedProof),
+
+    /// Signed by the account's private key.
+    Signature(Signature),
+
+    /// No authorization (only valid for certain operations).
+    NoneGiven,
+}
+
+/// A side-loaded proof for zkApp authorization.
+///
+/// This is a placeholder type - the actual proof structure is complex
+/// and defined in the proof-systems crate.
+pub type SideLoadedProof = Vec<u8>;
+
 /// Events emitted by an account update.
 ///
 /// Events are arbitrary data included in the transaction for off-chain
@@ -604,7 +646,19 @@ pub enum MayUseToken {
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (Events)
 #[derive(Debug, Clone, PartialEq)]
-pub struct Events<Fp>(pub Vec<Event<Fp>>);
+pub struct Events(pub Vec<Event>);
+
+impl Events {
+    /// Create an empty events list.
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Check if the events list is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 /// A single event, consisting of field elements.
 ///
@@ -612,7 +666,24 @@ pub struct Events<Fp>(pub Vec<Event<Fp>>);
 ///
 /// OCaml: `src/lib/mina_base/account_update.ml` (Event)
 #[derive(Debug, Clone, PartialEq)]
-pub struct Event<Fp>(pub Vec<Fp>);
+pub struct Event(pub Vec<Fp>);
+
+impl Event {
+    /// Create an empty event.
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Get the number of field elements in this event.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Check if this event is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 /// Actions (sequenced events) emitted by an account update.
 ///
@@ -623,7 +694,19 @@ pub struct Event<Fp>(pub Vec<Fp>);
 ///
 /// OCaml: `src/lib/mina_base/zkapp_account.ml` (Actions)
 #[derive(Debug, Clone, PartialEq)]
-pub struct Actions<Fp>(pub Vec<Event<Fp>>);
+pub struct Actions(pub Vec<Event>);
+
+impl Actions {
+    /// Create an empty actions list.
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Check if the actions list is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 /// Timing information for token vesting schedules.
 ///
@@ -685,78 +768,16 @@ impl core::fmt::Debug for Memo {
     }
 }
 
-/// A cryptographic signature (r, s components as field elements).
-///
-/// Signatures in Mina use the Schnorr signature scheme over the Pallas curve.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Signature {
-    /// The r component of the signature.
-    pub rx: [u8; 32],
-
-    /// The s component of the signature.
-    pub s: [u8; 32],
-}
-
-/// Transaction fee in nanomina (1 MINA = 10^9 nanomina).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Fee(pub u64);
-
-/// Token amount in the smallest unit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Amount(pub u64);
-
-/// Account balance in the smallest unit.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Balance(pub u64);
-
-/// Account nonce (transaction sequence number).
-///
-/// Incremented with each transaction from the account to prevent replay attacks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Nonce(pub u32);
-
-/// Global slot number since genesis.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Slot(pub u32);
-
-/// A span of slots (duration).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SlotSpan(pub u32);
-
-/// Blockchain length (block height).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Length(pub u32);
-
-/// A signed value with magnitude and sign.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signed<T> {
-    /// The absolute value.
-    pub magnitude: T,
-
-    /// The sign (positive or negative).
-    pub sgn: Sgn,
-}
-
-/// Sign of a value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Sgn {
-    /// Positive value.
-    Pos,
-
-    /// Negative value.
-    Neg,
-}
-
 /// Token identifier.
 ///
 /// The default token ID represents MINA. Custom tokens have unique IDs
 /// derived from the token owner's account.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TokenId<Fp>(pub Fp);
+pub struct TokenId(pub Fp);
 
 /// Hash of a verification key.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VerificationKeyHash<Fp>(pub Fp);
+pub struct VerificationKeyHash(pub Fp);
 
 /// zkApp URI for off-chain resources.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -768,7 +789,7 @@ pub struct TokenSymbol(pub Vec<u8>);
 
 /// Voting-for field (governance).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct VotingFor<Fp>(pub Fp);
+pub struct VotingFor(pub Fp);
 
 /// Account permissions controlling operation authorization.
 ///
@@ -853,12 +874,6 @@ pub enum AuthRequired {
     Impossible,
 }
 
-/// Stack hash for call forest commitment.
-pub type StackHash = [u8; 32];
-
-/// Account update digest for commitment.
-pub type AccountUpdateDigest = [u8; 32];
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -883,7 +898,7 @@ mod tests {
         memo_bytes[2..7].copy_from_slice(b"hello");
 
         let memo = Memo(memo_bytes);
-        let debug_str = alloc::format!("{:?}", memo);
+        let debug_str = format!("{:?}", memo);
         assert!(debug_str.contains("hello"));
     }
 }

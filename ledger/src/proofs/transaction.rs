@@ -52,6 +52,10 @@ use crate::{
 use super::{
     constants::ProofConstants,
     field::{field, Boolean, CircuitVar, FieldWitness, GroupAffine, ToBoolean},
+    numbers::{
+        AmountToChecked, BalanceToChecked, FeeToChecked, NonceToChecked, SignedAmountToChecked,
+        SignedFeeToChecked, SlotToChecked,
+    },
     public_input::messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
     step,
     step::{InductiveRule, OptFlag, StepProof},

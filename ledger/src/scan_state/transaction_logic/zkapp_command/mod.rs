@@ -14,7 +14,8 @@ use crate::{
     },
     scan_state::{
         currency::{
-            Amount, Balance, Fee, Length, Magnitude, MinMax, Nonce, Sgn, Signed, Slot, SlotSpan,
+            Amount, Balance, Fee, Length, Magnitude, MinMax, Nonce, Sgn, Signed, SignedRandExt,
+            Slot, SlotSpan,
         },
         fee_excess::FeeExcess,
         GenesisConstant, GENESIS_CONSTANT,

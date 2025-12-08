@@ -8,7 +8,7 @@ use super::{
 use crate::{
     proofs::{
         field::{field, Boolean, ToBoolean},
-        numbers::nat::CheckedNat,
+        numbers::{nat::CheckedNat, IndexToChecked, SignedAmountToChecked},
         to_field_elements::ToFieldElements,
         witness::Witness,
     },

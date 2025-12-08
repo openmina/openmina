@@ -1,8 +1,8 @@
 //! Transaction types for the Mina Protocol
 //!
 //! This crate provides standalone data structures representing Mina Protocol
-//! transaction types. It is designed to be `no_std` compatible for use in
-//! constrained environments such as hardware wallets and WebAssembly.
+//! transaction types. It can be used by external projects to work with Mina
+//! transactions without depending on the full ledger crate.
 //!
 //! # Overview
 //!
@@ -31,16 +31,13 @@
 //! For detailed information about zkApp transaction signing, see:
 //! - TODO: Issue #1748 - zkApp transaction signing documentation
 //! - <https://mina-rust.o1labs.org/researchers/zkapp-signing>
-//!
-//! # no_std Support
-//!
-//! This crate is `no_std` by design to support embedded and constrained
-//! environments such as hardware wallets and WebAssembly.
 
-#![no_std]
-
-extern crate alloc;
-
+pub mod currency;
 pub mod zkapp;
 
+pub use currency::*;
 pub use zkapp::*;
+
+// Re-export the field type for convenience
+pub use mina_curves::pasta::Fp;
+pub use mina_signer::{CompressedPubKey, Signature};

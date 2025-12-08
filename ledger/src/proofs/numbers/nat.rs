@@ -204,7 +204,7 @@ impl CheckedSlot<Fp> {
         w: &mut Witness<Fp>,
     ) -> Boolean {
         // constant
-        let c = |n: u32| Length::from_u32(n).to_checked();
+        let c = |n: u32| LengthToChecked::to_checked::<Fp>(&Length::from_u32(n));
         let third_epoch = {
             let (q, _r) = constants.slots_per_epoch.div_mod(&c(3), w);
             q
@@ -257,12 +257,6 @@ macro_rules! impl_nat {
         impl<F: FieldWitness> ToInputs for $name<F> {
             fn to_inputs(&self, inputs: &mut ::poseidon::hash::Inputs) {
                 self.to_inner().to_inputs(inputs)
-            }
-        }
-
-        impl $unchecked {
-            pub fn to_checked<F: FieldWitness>(&self) -> $name<F> {
-                $name::from_inner(*self)
             }
         }
 
@@ -347,5 +341,87 @@ impl<F: FieldWitness> CheckedN32<F> {
     pub fn constant(n: usize) -> Self {
         let n: u32 = n.try_into().unwrap();
         Self::from_field(n.into())
+    }
+}
+
+// Extension traits for to_checked conversion
+
+pub trait TxnVersionToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedTxnVersion<F>;
+}
+
+impl TxnVersionToChecked for TxnVersion {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedTxnVersion<F> {
+        CheckedTxnVersion::from_inner(*self)
+    }
+}
+
+pub trait SlotToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSlot<F>;
+}
+
+impl SlotToChecked for Slot {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSlot<F> {
+        CheckedSlot::from_inner(*self)
+    }
+}
+
+pub trait SlotSpanToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSlotSpan<F>;
+}
+
+impl SlotSpanToChecked for SlotSpan {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedSlotSpan<F> {
+        CheckedSlotSpan::from_inner(*self)
+    }
+}
+
+pub trait LengthToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedLength<F>;
+}
+
+impl LengthToChecked for Length {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedLength<F> {
+        CheckedLength::from_inner(*self)
+    }
+}
+
+pub trait NonceToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedNonce<F>;
+}
+
+impl NonceToChecked for Nonce {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedNonce<F> {
+        CheckedNonce::from_inner(*self)
+    }
+}
+
+pub trait IndexToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedIndex<F>;
+}
+
+impl IndexToChecked for Index {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedIndex<F> {
+        CheckedIndex::from_inner(*self)
+    }
+}
+
+pub trait BlockTimeToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedBlockTime<F>;
+}
+
+impl BlockTimeToChecked for BlockTime {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedBlockTime<F> {
+        CheckedBlockTime::from_inner(*self)
+    }
+}
+
+pub trait BlockTimeSpanToChecked {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedBlockTimeSpan<F>;
+}
+
+impl BlockTimeSpanToChecked for BlockTimeSpan {
+    fn to_checked<F: FieldWitness>(&self) -> CheckedBlockTimeSpan<F> {
+        CheckedBlockTimeSpan::from_inner(*self)
     }
 }

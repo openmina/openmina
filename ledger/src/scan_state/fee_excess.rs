@@ -38,7 +38,10 @@ use poseidon::hash::Inputs;
 use crate::{
     proofs::{
         field::{field, Boolean, FieldWitness},
-        numbers::currency::{CheckedFee, CheckedSigned},
+        numbers::{
+            currency::{CheckedFee, CheckedSigned},
+            SignedFeeToChecked,
+        },
         witness::Witness,
     },
     AppendToInputs, ToInputs, TokenId,

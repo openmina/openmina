@@ -117,9 +117,18 @@ mod consensus {
         }
     }
 
-    // Consensus epoch
-    impl Epoch {
-        fn of_time_exn(constants: &Constants, time: BlockTime) -> Result<Self, String> {
+    // Extension trait for consensus epoch methods
+    pub trait EpochConsensusExt {
+        fn of_time_exn(constants: &Constants, time: BlockTime) -> Result<Epoch, String>;
+        fn start_time(constants: &Constants, epoch: Epoch) -> BlockTime;
+        fn epoch_and_slot_of_time_exn(
+            constants: &Constants,
+            time: BlockTime,
+        ) -> Result<(Epoch, Slot), String>;
+    }
+
+    impl EpochConsensusExt for Epoch {
+        fn of_time_exn(constants: &Constants, time: BlockTime) -> Result<Epoch, String> {
             if time < constants.genesis_state_timestamp {
                 return Err(
                     "Epoch.of_time: time is earlier than genesis block timestamp".to_string(),
@@ -130,10 +139,10 @@ mod consensus {
             let epoch = time_since_genesis.to_ms() / constants.epoch_duration.to_ms();
             let epoch: u32 = epoch.try_into().unwrap();
 
-            Ok(Self::from_u32(epoch))
+            Ok(Epoch::from_u32(epoch))
         }
 
-        fn start_time(constants: &Constants, epoch: Self) -> BlockTime {
+        fn start_time(constants: &Constants, epoch: Epoch) -> BlockTime {
             let ms = constants
                 .genesis_state_timestamp
                 .to_span_since_epoch()
@@ -142,12 +151,13 @@ mod consensus {
             BlockTime::of_span_since_epoch(BlockTimeSpan::of_ms(ms))
         }
 
-        pub fn epoch_and_slot_of_time_exn(
+        fn epoch_and_slot_of_time_exn(
             constants: &Constants,
             time: BlockTime,
-        ) -> Result<(Self, Slot), String> {
-            let epoch = Self::of_time_exn(constants, time)?;
-            let time_since_epoch = time.diff(Self::start_time(constants, epoch));
+        ) -> Result<(Epoch, Slot), String> {
+            let epoch = <Epoch as EpochConsensusExt>::of_time_exn(constants, time)?;
+            let time_since_epoch =
+                time.diff(<Epoch as EpochConsensusExt>::start_time(constants, epoch));
 
             let slot: u64 = time_since_epoch.to_ms() / constants.slot_duration_ms.to_ms();
             let slot = Slot::from_u32(slot.try_into().unwrap());

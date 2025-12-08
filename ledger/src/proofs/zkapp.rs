@@ -65,6 +65,7 @@ use super::{
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedSlot},
+        IndexToChecked, SignedAmountToChecked, SlotToChecked,
     },
     provers::devnet_circuit_directory,
     to_field_elements::ToFieldElements,
