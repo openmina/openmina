@@ -1,0 +1,14 @@
+[package]
+name = "mina-tx-type"
+version = "0.18.1"
+edition = "2021"
+description = "Transaction types for the Mina Protocol"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/o1-labs/mina-rust"
+keywords = ["mina", "blockchain", "cryptocurrency", "zkapp", "transaction"]
+categories = ["cryptography::cryptocurrencies"]
+
+[dependencies]
+
+[dev-dependencies]

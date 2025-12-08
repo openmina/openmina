@@ -7,6 +7,7 @@ members = [
   "ledger",
   "macros",
   "mina-p2p-messages",
+  "mina-tx-type",
   "node",
   "node/account",
   "node/common",
@@ -147,6 +148,7 @@ mina-p2p-messages = { path = "mina-p2p-messages" }
 mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-signer = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 mina-transport = { path = "tools/transport" }
+mina-tx-type = { path = "mina-tx-type" }
 mio = { version = "1.0.4", features = ["os-poll", "net"] }
 multiaddr = "0.18.1"
 multihash = { version = "0.18.1", features = ["blake2b"] }
