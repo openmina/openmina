@@ -141,6 +141,36 @@ pub trait MinMax {
     fn max() -> Self;
 }
 
+/// Trait for converting currency types to their checked (circuit) representation.
+///
+/// This trait enables conversion from unchecked currency types (like [`Amount`],
+/// [`Fee`], [`Balance`]) to their checked equivalents used in zero-knowledge
+/// proof circuits.
+///
+/// The checked types are parameterized by a field type `F` that represents the
+/// field used in the proof system (typically `Fp` for the Pallas curve).
+///
+/// # Type Parameters
+///
+/// - `F`: The field type used in the proof circuit (must implement `FieldLike`)
+/// - `Checked`: The checked type returned by the conversion
+///
+/// # Example
+///
+/// ```ignore
+/// use mina_tx_type::currency::{Amount, ToChecked};
+///
+/// let amount = Amount::of_mina(10).unwrap();
+/// let checked: CheckedAmount<Fp> = amount.to_checked();
+/// ```
+pub trait ToChecked<F: FieldLike> {
+    /// The checked type that this converts to.
+    type Checked;
+
+    /// Converts to the checked representation for use in proof circuits.
+    fn to_checked(&self) -> Self::Checked;
+}
+
 /// A signed value with magnitude and sign.
 ///
 /// Used to represent balance changes in transactions where the value
@@ -993,8 +1023,170 @@ impl From<BlockTimeTimeStableV1> for BlockTime {
 }
 
 // ============================================================================
+// Generic number type N
+// ============================================================================
+
+/// A generic 64-bit number type for proof computations.
+///
+/// This type is used in various proof-related computations where a generic
+/// 64-bit unsigned integer is needed. Unlike the specialized currency types,
+/// `N` doesn't represent any specific unit.
+#[derive(
+    Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Deserialize, serde::Serialize,
+)]
+pub struct N(pub(crate) u64);
+
+impl std::fmt::Debug for N {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("N({:?})", self.0))
+    }
+}
+
+impl Magnitude for N {
+    const NBITS: usize = 64;
+
+    fn zero() -> Self {
+        Self(0)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
+
+    fn wrapping_add(&self, rhs: &Self) -> Self {
+        Self(self.0.wrapping_add(rhs.0))
+    }
+
+    fn wrapping_mul(&self, rhs: &Self) -> Self {
+        Self(self.0.wrapping_mul(rhs.0))
+    }
+
+    fn wrapping_sub(&self, rhs: &Self) -> Self {
+        Self(self.0.wrapping_sub(rhs.0))
+    }
+
+    fn checked_add(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_add(rhs.0).map(Self)
+    }
+
+    fn checked_mul(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_mul(rhs.0).map(Self)
+    }
+
+    fn checked_sub(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    fn checked_div(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_div(rhs.0).map(Self)
+    }
+
+    fn checked_rem(&self, rhs: &Self) -> Option<Self> {
+        self.0.checked_rem(rhs.0).map(Self)
+    }
+
+    fn abs_diff(&self, rhs: &Self) -> Self {
+        Self(self.0.abs_diff(rhs.0))
+    }
+
+    fn to_field<F: FieldLike>(&self) -> F {
+        F::from(self.0)
+    }
+
+    fn of_field<F: FieldLike>(field: F) -> Self {
+        use ark_ff::BigInteger256;
+        let bigint: BigInteger256 = field.into();
+        Self(bigint.0[0])
+    }
+}
+
+impl MinMax for N {
+    fn min() -> Self {
+        Self(0)
+    }
+    fn max() -> Self {
+        Self(u64::MAX)
+    }
+}
+
+impl N {
+    /// Number of bits in this type.
+    pub const NBITS: usize = 64;
+
+    /// Returns the inner value as u64.
+    pub fn as_u64(&self) -> u64 {
+        self.0
+    }
+
+    /// Creates from a u64 value.
+    pub const fn from_u64(value: u64) -> Self {
+        Self(value)
+    }
+
+    /// Multiplies by a scalar, returning None on overflow.
+    pub const fn scale(&self, n: u64) -> Option<Self> {
+        match self.0.checked_mul(n) {
+            Some(n) => Some(Self(n)),
+            None => None,
+        }
+    }
+}
+
+impl rand::distributions::Distribution<N> for rand::distributions::Standard {
+    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> N {
+        N(rng.next_u64())
+    }
+}
+
+// ============================================================================
 // Random generation implementations
 // ============================================================================
+
+/// Extension trait for random generation of [`Signed`] values.
+///
+/// This trait provides a convenient method for generating random signed values
+/// for testing purposes.
+pub trait SignedRandExt<T: Magnitude> {
+    /// Generates a random signed value.
+    fn gen() -> Signed<T>;
+}
+
+impl<T> SignedRandExt<T> for Signed<T>
+where
+    T: Magnitude + PartialOrd + Ord + Clone,
+    rand::distributions::Standard: rand::distributions::Distribution<T>,
+{
+    fn gen() -> Signed<T> {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        let magnitude: T = rng.gen();
+        let sgn = if rng.gen::<bool>() {
+            Sgn::Pos
+        } else {
+            Sgn::Neg
+        };
+
+        Signed::create(magnitude, sgn)
+    }
+}
+
+/// Extension trait for generating small random [`Slot`] values.
+///
+/// This trait provides a method for generating random slot values within
+/// a small range, useful for testing scenarios.
+pub trait SlotRandExt {
+    /// Generates a random slot value in the range [0, 10000).
+    fn gen_small() -> Slot;
+}
+
+impl SlotRandExt for Slot {
+    fn gen_small() -> Slot {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        Slot::from_u32(rng.gen::<u32>() % 10_000)
+    }
+}
 
 macro_rules! impl_rand_distribution {
     (32: { $($name32:ident,)* }, 64: { $($name64:ident,)* },) => {

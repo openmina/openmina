@@ -16,5 +16,3 @@ mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
-
-[dev-dependencies]

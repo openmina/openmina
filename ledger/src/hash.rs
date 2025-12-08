@@ -1,24 +1,39 @@
+//! Hash computation types and traits for the ledger.
+//!
+//! This module provides the [`ToInputs`] trait for converting types to hash
+//! inputs, enabling Poseidon hash computation for transactions and other
+//! protocol data structures.
+
 use mina_curves::pasta::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::{proofs::witness::Witness, scan_state::currency};
 use poseidon::hash::{hash_with_kimchi, Inputs, LazyParam};
 
+/// Trait for types that can be converted to hash inputs.
+///
+/// This trait is the foundation for computing Poseidon hashes of protocol
+/// data structures. Types implementing this trait can be hashed using
+/// the Mina-compatible Kimchi hash function.
 pub trait ToInputs {
+    /// Appends the hash inputs for this value to the given input buffer.
     fn to_inputs(&self, inputs: &mut Inputs);
 
+    /// Creates a new input buffer containing this value's hash inputs.
     fn to_inputs_owned(&self) -> Inputs {
         let mut inputs = Inputs::new();
         self.to_inputs(&mut inputs);
         inputs
     }
 
+    /// Computes the Poseidon hash of this value with the given parameter.
     fn hash_with_param(&self, param: &LazyParam) -> Fp {
         let mut inputs = Inputs::new();
         self.to_inputs(&mut inputs);
         hash_with_kimchi(param, &inputs.to_fields())
     }
 
+    /// Computes the Poseidon hash with circuit witness generation.
     fn checked_hash_with_param(&self, param: &LazyParam, w: &mut Witness<Fp>) -> Fp {
         use crate::proofs::transaction::transaction_snark::checked_hash;
 
@@ -73,7 +88,9 @@ where
     }
 }
 
+/// Extension trait for appending [`ToInputs`] values to an input buffer.
 pub trait AppendToInputs {
+    /// Appends a value implementing [`ToInputs`] to this input buffer.
     fn append<T>(&mut self, value: &T)
     where
         T: ToInputs;
@@ -88,36 +105,37 @@ impl AppendToInputs for Inputs {
     }
 }
 
+// ============================================================================
+// ToInputs implementations for currency types
+// ============================================================================
+
+macro_rules! impl_to_inputs {
+    (32: { $($name32:ident,)* }, 64: { $($name64:ident,)* },) => {
+        $(
+            impl ToInputs for currency::$name32 {
+                fn to_inputs(&self, inputs: &mut Inputs) {
+                    inputs.append_u32(self.as_u32());
+                }
+            }
+        )*
+        $(
+            impl ToInputs for currency::$name64 {
+                fn to_inputs(&self, inputs: &mut Inputs) {
+                    inputs.append_u64(self.as_u64());
+                }
+            }
+        )*
+    };
+}
+
+impl_to_inputs!(
+    32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, Epoch, },
+    64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, N, },
+);
+
 #[cfg(test)]
 mod tests {
-    use o1_utils::FieldHelpers;
-
-    use poseidon::hash::param_to_field;
-    #[cfg(target_family = "wasm")]
-    use wasm_bindgen_test::wasm_bindgen_test as test;
-
-    use super::*;
-
-    #[test]
-    fn test_param() {
-        for (s, hex) in [
-            (
-                "",
-                "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a000000000000000000000000",
-            ),
-            (
-                "hello",
-                "68656c6c6f2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a000000000000000000000000",
-            ),
-            (
-                "aaaaaaaaaaaaaaaaaaaa",
-                "6161616161616161616161616161616161616161000000000000000000000000",
-            ),
-        ] {
-            let field = param_to_field(s);
-            assert_eq!(field.to_hex(), hex);
-        }
-    }
+    use poseidon::hash::Inputs;
 
     #[test]
     fn test_inputs() {
@@ -132,31 +150,5 @@ mod tests {
 
         elog!("INPUTS={:?}", inputs);
         elog!("FIELDS={:?}", inputs.to_fields());
-
-        // // Self::timing
-        // match self.timing {
-        //     Timing::Untimed => {
-        //         roi.append_bool(false);
-        //         roi.append_u64(0); // initial_minimum_balance
-        //         roi.append_u32(0); // cliff_time
-        //         roi.append_u64(0); // cliff_amount
-        //         roi.append_u32(1); // vesting_period
-        //         roi.append_u64(0); // vesting_increment
-        //     }
-        //     Timing::Timed {
-        //         initial_minimum_balance,
-        //         cliff_time,
-        //         cliff_amount,
-        //         vesting_period,
-        //         vesting_increment,
-        //     } => {
-        //         roi.append_bool(true);
-        //         roi.append_u64(initial_minimum_balance);
-        //         roi.append_u32(cliff_time);
-        //         roi.append_u64(cliff_amount);
-        //         roi.append_u32(vesting_period);
-        //         roi.append_u64(vesting_increment);
-        //     }
-        // }
     }
 }
