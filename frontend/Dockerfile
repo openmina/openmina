@@ -140,8 +140,8 @@ COPY frontend/httpd.conf /usr/local/apache2/conf/httpd.conf
 COPY --from=wasm_files . /usr/local/apache2/htdocs/assets/webnode/pkg/
 
 # Copy circuit blobs for devnet and mainnet from local directory
-COPY circuit-blobs/3.0.1devnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/3.0.1devnet
 COPY circuit-blobs/3.0.0mainnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/3.0.0mainnet
+COPY circuit-blobs/berkeley-devnet /usr/local/apache2/htdocs/assets/webnode/circuit-blobs/berkeley-devnet
 
 # Create startup script and setup directories
 COPY ./frontend/docker/startup.sh /usr/local/bin/startup.sh
