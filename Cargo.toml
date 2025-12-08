@@ -84,7 +84,7 @@ datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1
 ] }
 dataloader = "0.18"
 derive_more = "0.99.17"
-dialoguer = "0.10.4"
+dialoguer = "0.12.0"
 documented = { version = "0.6" }
 dotenv = "0.15"
 dotenvy = "0.15"
