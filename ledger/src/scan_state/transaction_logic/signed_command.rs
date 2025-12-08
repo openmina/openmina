@@ -15,8 +15,8 @@ use super::{zkapp_command::AccessedOrNot, Memo, TransactionStatus};
 /// Common fields shared by all signed command payloads.
 ///
 /// OCaml reference: src/lib/mina_base/signed_command_payload.ml L:34-48
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c
+/// Last verified: 2025-12-08
 #[derive(Debug, Clone, PartialEq)]
 pub struct Common {
     /// Fee paid to the block producer
@@ -43,8 +43,8 @@ pub struct PaymentPayload {
 /// Stake delegation payload for delegating stake to another account.
 ///
 /// OCaml reference: src/lib/mina_base/stake_delegation.ml L:11-13
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c
+/// Last verified: 2025-12-08
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StakeDelegationPayload {
     /// Delegate stake to a new delegate
@@ -76,8 +76,8 @@ impl StakeDelegationPayload {
 /// delegation.
 ///
 /// OCaml reference: src/lib/mina_base/signed_command_payload.ml L:179-181
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c
+/// Last verified: 2025-12-08
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Body {
     /// Transfer MINA tokens from fee payer to receiver
@@ -89,8 +89,8 @@ pub enum Body {
 /// Signed command payload containing common fields and the transaction body.
 ///
 /// OCaml reference: src/lib/mina_base/signed_command_payload.ml L:239-243
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c
+/// Last verified: 2025-12-08
 #[derive(Debug, Clone, PartialEq)]
 pub struct SignedCommandPayload {
     /// Common fields (fee, fee payer, nonce, valid_until, memo)
@@ -122,8 +122,8 @@ impl SignedCommandPayload {
 }
 
 /// OCaml reference: src/lib/mina_base/signed_command_payload.ml L:352-362
-/// Commit: 5da42ccd72e791f164d4d200cf1ce300262873b3
-/// Last verified: 2025-10-10
+/// Commit: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c
+/// Last verified: 2025-12-08
 mod weight {
     use super::*;
 

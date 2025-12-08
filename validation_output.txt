@@ -1,0 +1,48 @@
+Checking OCaml references against https://github.com/MinaProtocol/mina.git (branch: compatible)
+Fetching current commit from compatible...
+Current OCaml commit: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c
+
+Validating references...
+========================
+✓ VALID: ledger/src/account/account.rs -> src/lib/mina_base/account.ml L:201-224
+  ⚠ STALE COMMIT: fc6be4c58091c761f827c858229c2edf9519e941 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/for_tests.rs -> src/lib/transaction_logic/mina_transaction_logic.ml L:2285-2285
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/for_tests.rs -> src/lib/transaction_logic/mina_transaction_logic.ml L:2351-2356
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/for_tests.rs -> src/lib/transaction_logic/mina_transaction_logic.ml L:2407
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/mod.rs -> src/lib/mina_base/transaction_status.ml L:9-51
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/mod.rs -> src/lib/mina_base/transaction_status.ml L:452-454
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/mod.rs -> src/lib/mina_base/with_status.ml L:6-10
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/mod.rs -> src/lib/mina_base/fee_transfer.ml L:76-80
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/mod.rs -> src/lib/mina_base/fee_transfer.ml L:68-69
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/mod.rs -> src/lib/mina_base/coinbase.ml L:17-21
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/mod.rs -> src/lib/transaction/transaction.ml L:8-11
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/signed_command.rs -> src/lib/mina_base/signed_command_payload.ml L:34-48
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/signed_command.rs -> src/lib/mina_base/stake_delegation.ml L:11-13
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/signed_command.rs -> src/lib/mina_base/signed_command_payload.ml L:179-181
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/signed_command.rs -> src/lib/mina_base/signed_command_payload.ml L:239-243
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+✓ VALID: ledger/src/scan_state/transaction_logic/signed_command.rs -> src/lib/mina_base/signed_command_payload.ml L:352-362
+  ⚠ STALE COMMIT: 5da42ccd72e791f164d4d200cf1ce300262873b3 (current: ecbf1132c1c05dddc4629dd1ecf0a31c1af6682c)
+
+Summary
+=======
+Total references found: 16
+Valid references: 16
+Invalid references: 0
+Stale commits: 16
+
+⚠ Warning: 16 reference(s) have stale commits
+Run with --update to update them automatically
