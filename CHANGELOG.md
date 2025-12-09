@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#1736](https://github.com/o1-labs/mina-rust/pull/1736))
 - **CI**: automatically push Docker images for `vX.Y.Z` and `vX.Y` when tag `vX.Y.Z` is created
   ([#1838](https://github.com/o1-labs/mina-rust/pull/1838))
+- **Web Node**: fix webnode build, add quality-of-life improvements when running
+  webnode in Docker. ([#1778](https://github.com/o1-labs/mina-rust/pull/1778))
 
 ### Changes
 
