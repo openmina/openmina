@@ -36,5 +36,8 @@ docker-compose*.yml
 *.so
 *.dylib
 
+# Vendored dependencies (keep as upstream)
+vendor/
+
 # Documentation that should not be auto-formatted
 CHANGELOG.md
