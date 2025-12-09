@@ -8,7 +8,6 @@ brew install \
     openssl \
     pkg-config \
     protobuf \
-    sqlite \
     git \
     curl \
     shellcheck

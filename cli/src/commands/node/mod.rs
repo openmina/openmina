@@ -1,24 +1,18 @@
-use std::{fs::File, path::PathBuf, sync::Arc};
-
 use anyhow::Context;
 use ledger::proofs::provers::BlockProver;
+use mina_node_account::AccountPublicKey;
+use mina_node_native::{archive::config::ArchiveStorageOptions, tracing, NodeBuilder};
 use node::{
     account::AccountSecretKey,
-    snark::{BlockVerifier, TransactionVerifier},
-    transition_frontier::genesis::GenesisConfig,
-};
-
-use mina_node_account::AccountPublicKey;
-use reqwest::Url;
-
-use node::{
     core::log::inner::Level,
     p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, identity::SecretKey},
     service::Recorder,
+    snark::{BlockVerifier, TransactionVerifier},
+    transition_frontier::genesis::GenesisConfig,
     SnarkerStrategy,
 };
-
-use mina_node_native::{archive::config::ArchiveStorageOptions, tracing, NodeBuilder};
+use reqwest::Url;
+use std::{fs::File, path::PathBuf, sync::Arc};
 
 /// Mina node configuration and runtime options
 ///
@@ -216,6 +210,28 @@ pub struct Node {
     #[arg(long, requires = "producer")]
     pub coinbase_receiver: Option<AccountPublicKey>,
 
+    /// Enable recording of node state and actions for debugging and replay
+    ///
+    /// Recording captures the node's state transitions and input actions,
+    /// enabling deterministic replay for debugging and testing purposes.
+    ///
+    /// Available modes:
+    /// - `none`: No recording (default)
+    /// - `state-with-input-actions`: Records initial state and all input
+    ///   actions to the `recorder/` directory within the working directory
+    ///
+    /// Recorded data can be replayed using the `mina replay` command to
+    /// reproduce the exact sequence of state transitions for debugging.
+    ///
+    /// # Example
+    ///
+    /// ```bash
+    /// # Record node execution
+    /// mina node --network devnet --record state-with-input-actions
+    ///
+    /// # Replay recorded execution
+    /// mina replay state-with-input-actions ~/.mina/recorder
+    /// ```
     #[arg(long, default_value = "none", env)]
     pub record: String,
 

@@ -62,10 +62,10 @@ Ensure Docker and Docker Compose are installed on your system -
 
    # Download the archive node docker-compose file (choose one method)
    # Using wget:
-   wget https://raw.githubusercontent.com/o1-labs/mina-rust/v0.17.0/docker-compose.archive.devnet.yml
+   wget https://raw.githubusercontent.com/o1-labs/mina-rust/v0.18.0/docker-compose.archive.devnet.yml
 
    # Or using curl:
-   curl -O https://raw.githubusercontent.com/o1-labs/mina-rust/v0.17.0/docker-compose.archive.devnet.yml
+   curl -O https://raw.githubusercontent.com/o1-labs/mina-rust/v0.18.0/docker-compose.archive.devnet.yml
 
    # Create required .env file with PostgreSQL settings
    cat > .env << EOF
@@ -76,7 +76,7 @@ Ensure Docker and Docker Compose are installed on your system -
    EOF
    ```
 
-   For the latest development version, replace `v0.17.0` with `develop` in the
+   For the latest development version, replace `v0.18.0` with `develop` in the
    URL.
 
    <!-- prettier-ignore-start -->

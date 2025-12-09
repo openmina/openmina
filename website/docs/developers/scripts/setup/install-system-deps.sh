@@ -4,7 +4,6 @@ sudo apt install -y \
     libssl-dev \
     pkg-config \
     protobuf-compiler \
-    sqlite3 \
     git \
     curl \
     shellcheck

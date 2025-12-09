@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
-use binprot::BinProtRead;
-
 use super::{MinaBaseProofStableV2, TransactionSnarkProofStableV2};
+use binprot::BinProtRead;
+use std::sync::Arc;
 
 /// Value of `Proof.transaction_dummy` when we run `dune runtest src/lib/staged_ledger -f`
 /// The file was generated this way:

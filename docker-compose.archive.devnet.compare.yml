@@ -56,7 +56,7 @@ services:
       psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-mina-rust:${PG_PORT}/${PG_DB} -f /sql/archive_schema.sql;
       '
     volumes:
-      - ./producer-dashboard/src/archive/sql:/sql
+      - ./sql/archive:/sql
     depends_on:
       postgres-ocaml:
         condition: service_healthy

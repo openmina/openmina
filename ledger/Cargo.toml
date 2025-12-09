@@ -1,6 +1,6 @@
 [package]
 name = "mina-tree"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -17,62 +17,49 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # https://stackoverflow.com/a/73023306
 
 [dependencies]
-juniper = { workspace = true }
-kimchi = { workspace = true }
-mina-core = { path = "../core" }
-mina-curves = { workspace = true }
-mina-hasher = { workspace = true }
-mina-macros = { path = "../macros" }
-mina-poseidon = { workspace = true }
-mina-signer = { workspace = true }
-o1-utils = { workspace = true }
-poly-commitment = { workspace = true }
-poseidon = { workspace = true }
-redux = { workspace = true }
-strum = { workspace = true }
-strum_macros = { workspace = true }
-
-bs58 = { workspace = true }
-mina-p2p-messages = { workspace = true }
-
-base64 = { workspace = true }
-lazy_static = { workspace = true }
-libc = { workspace = true }
-sha2 = { workspace = true }
-
-# oracle = { path = "../oracle" }
-# mina-curves = { path = "../curves" }
-# o1-utils = { path = "../utils" }
-
-itertools = { workspace = true }
-
+anyhow = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 ark-poly = { workspace = true }
 ark-serialize = { workspace = true }
-
-rayon = { workspace = true }
-
-bitvec = { workspace = true }
-hex = { workspace = true }
-num-bigint = { workspace = true }
-
-once_cell = { workspace = true }
-rand = { workspace = true, features = ["small_rng"] }
-uuid = { workspace = true }
-
-postcard = { workspace = true }
-serde = { workspace = true, features = ["rc"] }
-serde_json = { workspace = true, features = ["float_roundtrip"] }
-
-anyhow = { workspace = true }
 backtrace = { workspace = true }
+base64 = { workspace = true }
+bitvec = { workspace = true }
 blake2 = { workspace = true }
+bs58 = { workspace = true }
 crc32fast = { workspace = true }
 derive_more = { workspace = true }
 fraction = { workspace = true }
+hex = { workspace = true }
+itertools = { workspace = true }
+juniper = { workspace = true }
+kimchi = { workspace = true }
+lazy_static = { workspace = true }
+libc = { workspace = true }
+mina-core = { workspace = true }
+mina-curves = { workspace = true }
+mina-hasher = { workspace = true }
+mina-macros = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-poseidon = { workspace = true }
+mina-signer = { workspace = true }
+num-bigint = { workspace = true }
+o1-utils = { workspace = true }
+once_cell = { workspace = true }
+poly-commitment = { workspace = true }
+poseidon = { workspace = true }
+postcard = { workspace = true }
+rand = { workspace = true, features = ["small_rng"] }
+rayon = { workspace = true }
+redux = { workspace = true }
+serde = { workspace = true, features = ["rc"] }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 serde_with = { workspace = true }
+sha2 = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
 thiserror = { workspace = true }
+uuid = { workspace = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { workspace = true, features = ["js"] }
@@ -81,9 +68,6 @@ wasm-bindgen-futures = { workspace = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 zstd = { workspace = true, optional = true }
-# ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
-ocaml-interop = { workspace = true, optional = true }
-# ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
 reqwest = { workspace = true, features = ["blocking"] }
 
 [dev-dependencies]

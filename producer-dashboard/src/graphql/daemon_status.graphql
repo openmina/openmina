@@ -1,5 +1,0 @@
-query DaemonStatus {
-  daemonStatus {
-    syncStatus
-  }
-}

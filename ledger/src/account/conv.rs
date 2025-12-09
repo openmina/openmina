@@ -1,5 +1,15 @@
 #![allow(clippy::type_complexity)]
 
+use super::{Account, AccountId, AuthRequired, TokenId, VerificationKeyWire};
+use crate::{
+    proofs::{
+        field::FieldWitness,
+        transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
+    },
+    scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan, TxnVersion},
+    AccountIndex, Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing,
+    TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
+};
 use ark_ec::short_weierstrass::Affine;
 use ark_ff::{Field, PrimeField};
 use mina_curves::pasta::Fp;
@@ -16,18 +26,6 @@ use mina_p2p_messages::{
         PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
     },
 };
-
-use crate::{
-    proofs::{
-        field::FieldWitness,
-        transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
-    },
-    scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan, TxnVersion},
-    AccountIndex, Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing,
-    TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
-};
-
-use super::{Account, AccountId, AuthRequired, TokenId, VerificationKeyWire};
 
 impl binprot::BinProtRead for TokenId {
     fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>

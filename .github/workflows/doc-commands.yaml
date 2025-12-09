@@ -4,11 +4,6 @@ on:
   push:
     branches: [ main, develop ]
   pull_request:
-    paths:
-      - 'Makefile'
-      - 'docs/**'
-      - 'CLAUDE.md'
-      - '.github/workflows/doc-commands.yml'
   workflow_dispatch:
 
 env:
@@ -22,12 +17,12 @@ concurrency:
 jobs:
   test-doc-commands:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        ocaml_version: [4.14.2]
     steps:
       - name: Git checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
+
+      - name: Load versions
+        uses: ./.github/actions/load-versions
 
       - name: Setup build dependencies
         uses: ./.github/actions/setup-build-deps
@@ -36,13 +31,13 @@ jobs:
         uses: ./.github/actions/setup-rust
         with:
           components: rustfmt
-          toolchain: 1.84
+          toolchain: ${{ env.RUST_STABLE_VERSION }}
           cache-prefix: test-doc-commands-v0
 
       - name: Use shared OCaml setting up steps
         uses: ./.github/actions/setup-ocaml
         with:
-          ocaml_version: ${{ matrix.ocaml_version }}
+          ocaml_version: ${{ env.OCAML_VERSION }}
 
       - name: Download circuits files
         uses: ./.github/actions/setup-circuits

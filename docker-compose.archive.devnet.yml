@@ -33,13 +33,12 @@ services:
       psql postgres://postgres:${POSTGRES_PASSWORD}@postgres-mina-rust:${PG_PORT}/${PG_DB} -f /sql/archive_schema.sql;
       '
     volumes:
-      - ./producer-dashboard/src/archive/sql:/sql
+      - ./sql/archive:/sql
     depends_on:
       postgres-mina-rust:
         condition: service_healthy
 
   archive-mina-rust:
-    # Note: Modified with patch ./docker/producer-dashboard/output_binprot_breadcrumbs.patch to output binprot breadcrumbs
     image: adrnagy/mina-archive
     container_name: archive-mina-rust
     env_file:

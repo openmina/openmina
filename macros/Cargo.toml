@@ -1,6 +1,6 @@
 [package]
 name = "mina-macros"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["Alexander Koptelov <alexandre.koptelov@gmail.com>"]
@@ -14,7 +14,7 @@ quote = { workspace = true }
 syn = { workspace = true }
 
 [dev-dependencies]
-mina-core = { path = "../core" }
+mina-core = { workspace = true }
 tracing = { workspace = true }
 rust-format = { workspace = true, features = ["token_stream"] }
 anyhow = { workspace = true }

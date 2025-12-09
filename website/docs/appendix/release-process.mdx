@@ -96,8 +96,12 @@ Copy and paste this checklist when announcing a release in progress:
 
 - [ ] Main branch merged back to develop
 - [ ] Documentation updated
-- [ ] Release announced in #announcements
-- [ ] Platform lead contacted for infrastructure updates
+- [ ] Release announced in #releases
+- [ ] Release announced in Discord (#rust-node-testing, #mina-web-node,
+      #mina-web-node-testing, #rust-node-questions-and-feedback)
+- [ ] Platform lead contacted for infrastructure updates and a PR on
+      gitops-infrastructure has been opened and merged to update to the latest
+      release
 - [ ] Known issues documented (if any)
 
 **Tracking:** [Link to PR/Issue] **Status:** 🟡 In Progress
@@ -142,7 +146,39 @@ _Updates will be posted in this thread_
 
 ## Release Steps
 
-### 1. Create Release Branch (for major/minor releases)
+### 1. Update Version Numbers
+
+```bash
+# Update all Cargo.toml version fields
+make release-update-version VERSION=1.5.0
+```
+
+<!-- prettier-ignore-start -->
+
+<details>
+<summary>Script contents (click to expand)</summary>
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/release/update-version.sh"
+>
+  {UpdateVersionScript}
+</CodeBlock>
+
+</details>
+<!-- prettier-ignore-stop -->
+
+This automatically updates version references in:
+
+- All `Cargo.toml` files in the workspace
+- Excludes target directory files
+
+You may also need to manually update:
+
+- Documentation examples
+- Any hardcoded version references in other files
+
+### 2. Create Release Branch (for major/minor releases)
 
 <!-- prettier-ignore-start -->
 
@@ -163,8 +199,11 @@ Release branches **must** follow the format `release/vX.Y.Z` where:
 **Invalid examples:**
 
 - `release/1.5.0` ❌ (missing 'v' prefix)
-- `release/v1.5` ❌ (missing patch version)
 - `release/V1.5.0` ❌ (uppercase 'V')
+
+Note: `release/vX.Y` (e.g., `release/v1.5`) is valid for minor release branches
+that track the latest patch version. See the
+[minor release branch](#5-create-and-push-git-tag) section.
 
 This naming convention is enforced by CI checks. Any push to a branch starting
 with `release/` that doesn't follow this format will fail validation.
@@ -208,38 +247,6 @@ docker run -p 8302:8302 o1labs/mina-rust:v1.5.0
 
 <!-- prettier-ignore-stop -->
 
-### 2. Update Version Numbers
-
-```bash
-# Update all Cargo.toml version fields
-make release-update-version VERSION=1.5.0
-```
-
-<!-- prettier-ignore-start -->
-
-<details>
-<summary>Script contents (click to expand)</summary>
-
-<CodeBlock
-  language="bash"
-  title="website/docs/developers/scripts/release/update-version.sh"
->
-  {UpdateVersionScript}
-</CodeBlock>
-
-</details>
-<!-- prettier-ignore-stop -->
-
-This automatically updates version references in:
-
-- All `Cargo.toml` files in the workspace
-- Excludes target directory files
-
-You may also need to manually update:
-
-- Documentation examples
-- Any hardcoded version references in other files
-
 ### 3. Create Release PR
 
 ```bash
@@ -280,6 +287,28 @@ git pull origin main
 # Create and push annotated tag
 make release-create-tag TAG=v1.5.0 MESSAGE="Release v1.5.0. See CHANGELOG.md for complete details."
 ```
+
+<!-- prettier-ignore-start -->
+
+:::info Minor release branch
+
+For an initial minor release (x.y.0), you must also create a minor release
+branch `release/vX.Y` pointing to the same commit. This branch will be used to
+track the latest patch version and receive hotfix updates.
+
+```bash
+# After creating the tag, also create the minor release branch
+git checkout main
+git checkout -b release/v1.5
+git push -u origin release/v1.5
+```
+
+This ensures that the `release/vX.Y` branch always points to the latest `vX.Y.Z`
+release, making it easy to find the most recent patch for any minor version.
+
+:::
+
+<!-- prettier-ignore-stop -->
 
 <!-- prettier-ignore-start -->
 
@@ -423,7 +452,7 @@ For urgent patches to released versions:
 
    ```bash
    git checkout v1.5.0
-   git checkout -b hotfix/v1.5.1
+   git checkout -b release/v1.5.1
    ```
 
 2. **Apply minimal fix**
@@ -436,12 +465,49 @@ For urgent patches to released versions:
    - Verify Docker builds
    - Create GitHub release
 
+4. **Update the minor release branch**
+
+   After the hotfix is released, update the minor release branch
+   (`release/vX.Y`) to include the hotfix changes. This ensures the branch
+   always points to the latest patch version.
+
+   ```bash
+   # Create a PR from the hotfix branch to the minor release branch
+   gh pr create --base release/v1.5 --head release/v1.5.1 \
+     --title "Update release/v1.5 branch with v1.5.1 hotfix" \
+     --body "Updates the release/v1.5 branch to include the v1.5.1 hotfix."
+   ```
+
+   After the PR is reviewed and merged, the `release/v1.5` branch will reflect
+   the latest `v1.5.1` release.
+
+<!-- prettier-ignore-start -->
+
+:::important Keep minor release branches current
+
+The minor release branch (`release/vX.Y`) must always point to the latest patch
+release in that series. After every hotfix release (`vX.Y.Z` where `Z > 0`),
+create a PR to merge the hotfix branch into the corresponding `release/vX.Y`
+branch.
+
+For example:
+
+- After releasing `v1.5.1`, merge `release/v1.5.1` into `release/v1.5`
+- After releasing `v1.5.2`, merge `release/v1.5.2` into `release/v1.5`
+
+This allows users to track the `release/vX.Y` branch to always get the latest
+stable patch version.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
 ## Addressing Release problems
 
 If issues are discovered after release:
 
 1. **Immediate mitigation**
-   - Remove problematic Docker tags if possible
+   - Yank problematic Docker tags if the issue is critical.
    - Update release notes with known issues
 
 2. **Create hotfix release**

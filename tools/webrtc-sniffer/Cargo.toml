@@ -1,26 +1,25 @@
 [package]
 name = "webrtc-sniffer"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 
 [dependencies]
+aes = { workspace = true }
+aes-gcm = { workspace = true }
+cbc = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 ctrlc = { workspace = true }
 env_logger = { workspace = true }
 etherparse = { workspace = true }
 hex = { workspace = true }
-log = { workspace = true }
-nom = { workspace = true }
-pcap = { workspace = true }
-sudo = { workspace = true }
-thiserror = { workspace = true }
-
-aes = { workspace = true }
-aes-gcm = { workspace = true }
-cbc = { workspace = true }
 hkdf = { workspace = true }
 hmac = { workspace = true }
+log = { workspace = true }
+nom = { workspace = true }
 p256 = { workspace = true }
 p384 = { workspace = true }
+pcap = { workspace = true }
 rand = { workspace = true }
 sha2 = { workspace = true }
+sudo = { workspace = true }
+thiserror = { workspace = true }

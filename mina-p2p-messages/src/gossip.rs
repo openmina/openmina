@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
+use crate::{number::Int32, v2};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::{From, TryInto};
 use serde::{Deserialize, Serialize};
-
-use crate::{number::Int32, v2};
+use std::sync::Arc;
 
 #[derive(
     Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, From, TryInto,

@@ -35,9 +35,6 @@ export interface MinaEnv {
   /** Show the WebNode landing page */
   showWebNodeLandingPage?: boolean;
 
-  /** Show the leaderboard/uptime tracking feature */
-  showLeaderboard?: boolean;
-
   /** Hide the peers pill in the status bar */
   hidePeersPill?: boolean;
 
@@ -58,10 +55,6 @@ export interface MinaEnv {
     features?: FeaturesConfig;
     /** GraphQL endpoint URL for blockchain queries */
     graphQL?: string;
-    /** Firebase configuration for leaderboard and hosting */
-    firebase?: any;
-    /** Enable heartbeat/uptime tracking functionality */
-    heartbeats?: boolean;
   };
 }
 
@@ -74,7 +67,7 @@ export interface MinaNode {
   name: string;
 
   /** Type of Mina node implementation (rust or ocaml) */
-  type: MinaNodeType;
+  type?: MinaNodeType;
 
   /** Base URL for the node's API endpoint (e.g., "http://127.0.0.1:3000") */
   url?: string;

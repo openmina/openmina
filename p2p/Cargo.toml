@@ -1,6 +1,6 @@
 [package]
 name = "p2p"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -49,14 +49,14 @@ mina-p2p-messages = { workspace = true }
 redux = { workspace = true }
 
 crypto-bigint = { workspace = true }
-mina-core = { path = "../core" }
-mina-macros = { path = "../macros" }
+mina-core = { workspace = true }
+mina-macros = { workspace = true }
 quick-protobuf = { workspace = true }
-salsa-simple = { path = "../tools/salsa-simple" }
+salsa-simple = { workspace = true }
 
 prost = { workspace = true }
 
-mina-fuzzer = { path = "../fuzzer", optional = true }
+mina-fuzzer = { workspace = true, optional = true }
 
 [build-dependencies]
 prost-build = { workspace = true }

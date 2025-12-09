@@ -1,6 +1,6 @@
 [package]
 name = "mina-node-common"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -12,10 +12,13 @@ binprot_derive = { workspace = true }
 bitflags = { workspace = true }
 jsonpath-rust = { workspace = true }
 ledger = { workspace = true }
+mina-core = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
+node = { workspace = true, features = ["replay"] }
 rand = { workspace = true }
 rayon = { workspace = true }
+rsa = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha3 = { workspace = true }
@@ -23,10 +26,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time", "macros"] }
 tracing = { workspace = true }
 vrf = { workspace = true }
-
-mina-core = { path = "../../core" }
-node = { path = "../../node", features = ["replay"] }
-rsa = { workspace = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }
@@ -48,7 +47,8 @@ aws-sdk-s3 = { workspace = true }
 google-cloud-storage = { workspace = true }
 google-cloud-auth = { workspace = true }
 
-
 [features]
+# won't compile without this on
+default = ["p2p-webrtc"]
 p2p-webrtc = ["node/p2p-webrtc"]
 p2p-libp2p = ["node/p2p-libp2p"]

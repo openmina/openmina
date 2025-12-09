@@ -31,7 +31,7 @@ deterministically across different environments.
 
 ### mina-node-testing framework
 
-#### Test library (`node/testing/src/`)
+#### Test library (`tools/testing/src/`)
 
 The `mina-node-testing` library provides the core runtime infrastructure:
 
@@ -44,7 +44,7 @@ The `mina-node-testing` library provides the core runtime infrastructure:
 - **Recording/replay**: Captures and reproduces test scenarios with complete
   fidelity
 
-#### Test runner (`node/testing/src/bin/runner.rs`)
+#### Test runner (`tools/testing/src/bin/runner.rs`)
 
 The test runner provides comprehensive scenario management:
 
@@ -395,18 +395,18 @@ isolation.
 ### Workflow Requirements
 
 - **scenarios-run**: Expects pre-existing scenario files in
-  `node/testing/res/scenarios/`
+  `tools/testing/res/scenarios/`
 - **scenarios-generate**:
   - Default (`--output=stdout`): Runs scenarios and outputs to stdout, no JSON
     files created
   - With `--output=json`: Runs scenarios and saves them as JSON files in
-    `node/testing/res/scenarios/`
+    `tools/testing/res/scenarios/`
 
 #### Understanding Scenario Load/Save Implementation
 
 For detailed technical information about how scenarios are loaded and saved, see
 the
-[scenario module source code](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/src/scenario/mod.rs).
+[scenario module source code](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/src/scenario/mod.rs).
 
 ### Scenario generation and replay
 
@@ -450,7 +450,7 @@ For network connectivity in testing environments, you may need to configure:
 
 ```bash
 # Enable connection to replayer service (used in CI)
-export REPLAYER_MULTIADDR="/dns4/primary-tcp-proxy.hz.minaprotocol.network/tcp/40110/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv"
+export REPLAYER_MULTIADDR="/dns4/mina-rust-ci-1-libp2p.gcp.o1test.net/tcp/8302/p2p/12D3KooWQi9rSWT2kmEavbEc5eP13nG1FRStMiERKZB3wPJSkNrE"
 
 # Allow local address discovery
 export MINA_DISCOVERY_FILTER_ADDR=false

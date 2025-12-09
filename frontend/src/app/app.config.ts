@@ -31,16 +31,7 @@ import {
   safelyExecuteInBrowser,
   THEME_PROVIDER,
 } from '@openmina/shared';
-import { SETTINGS } from '@angular/fire/compat/firestore';
-import { initializeApp, provideFirebaseApp } from '@angular/fire/app';
 import { CONFIG } from '@shared/constants/config';
-import {
-  getAnalytics,
-  provideAnalytics,
-  ScreenTrackingService,
-} from '@angular/fire/analytics';
-import { getPerformance, providePerformance } from '@angular/fire/performance';
-import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import localeFr from '@angular/common/locales/fr';
 import localeEn from '@angular/common/locales/en';
 import { metaReducers, reducers } from '@app/app.setup';
@@ -147,24 +138,6 @@ export class AppGlobalErrorhandler implements ErrorHandler {
   }
 }
 
-const firebaseProviders = [
-  {
-    provide: SETTINGS,
-    useValue: { experimentalForceLongPolling: true },
-  },
-  provideFirebaseApp(() => initializeApp(CONFIG.globalConfig.firebase)),
-  provideAnalytics(() => getAnalytics()),
-  ScreenTrackingService,
-  // provideAppCheck(() => {
-  //   // TODO get a reCAPTCHA Enterprise here https://console.cloud.google.com/security/recaptcha?project=_
-  //   const app = getApp();
-  //   const provider = new ReCaptchaV3Provider('6LfAB-QqAAAAAEu9BO6upFj6Sewd08lf0UtFC16c');
-  //   return initializeAppCheck(app, { provider, isTokenAutoRefreshEnabled: true });
-  // }),
-  providePerformance(() => getPerformance()),
-  provideFirestore(() => getFirestore()),
-];
-
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(generateRoutes()),
@@ -207,6 +180,5 @@ export const appConfig: ApplicationConfig = {
       multi: false,
     },
     { provide: Sentry.TraceService, deps: [Router] },
-    ...(CONFIG.globalConfig.firebase ? firebaseProviders : []),
   ],
 };

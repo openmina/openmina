@@ -74,16 +74,12 @@ The archive database contains these primary tables:
 The complete database schema definitions can be found in the repository:
 
 - **Schema file**:
-  [`producer-dashboard/docker/init-db/create_schema.sql`](https://github.com/o1-labs/mina-rust/blob/develop/producer-dashboard/docker/init-db/create_schema.sql)
-- **Indexes**:
-  [`producer-dashboard/docker/init-db/add_indexes.sql`](https://github.com/o1-labs/mina-rust/blob/develop/producer-dashboard/docker/init-db/add_indexes.sql)
-- **Unique constraints**:
-  [`producer-dashboard/docker/init-db/add_unique_constraints.sql`](https://github.com/o1-labs/mina-rust/blob/develop/producer-dashboard/docker/init-db/add_unique_constraints.sql)
-- **zkApp tables**:
-  [`producer-dashboard/docker/init-db/zkapp_tables.sql`](https://github.com/o1-labs/mina-rust/blob/develop/producer-dashboard/docker/init-db/zkapp_tables.sql)
+  [`sql/archive/archive_schema.sql`](https://github.com/o1-labs/mina-rust/blob/develop/sql/archive/archive_schema.sql) -
+  Complete PostgreSQL database schema for the archive node
 - **Query examples**:
-  [`producer-dashboard/src/archive/sql/`](https://github.com/o1-labs/mina-rust/tree/develop/producer-dashboard/src/archive/sql) -
-  Pre-built queries for common operations
+  [`sql/archive/`](https://github.com/o1-labs/mina-rust/tree/develop/sql/archive) -
+  Pre-built queries for common operations such as querying blocks in slot
+  ranges, canonical chain, latest blocks, and producer-specific blocks
 
 ## Common SQL Queries
 

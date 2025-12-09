@@ -29,7 +29,6 @@
 
             curl
             git
-            sqlite
             nodejs
 
             shellcheck

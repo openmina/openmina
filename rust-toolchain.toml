@@ -2,5 +2,6 @@
 channel = "1.84"
 
 # NOTE: When updating the Rust version here, also update:
+# - .github/config/versions.yaml (rust.stable)
 # - website/scripts/setup/install-rust.sh
 # - website/docs/developers/getting-started.mdx (references the install-rust.sh script)

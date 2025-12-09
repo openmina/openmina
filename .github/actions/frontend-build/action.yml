@@ -15,8 +15,7 @@ inputs:
     default: 'false'
   node-version:
     description: 'Node.js version to use'
-    required: false
-    default: '23'
+    required: true
 
 runs:
   using: 'composite'
@@ -64,15 +63,6 @@ runs:
         rm -rf dist
         make build-fuzzing
         [ -d "dist/frontend" ] || { echo "Error: make build-fuzzing failed"; exit 1; }
-      working-directory: frontend
-      shell: bash
-
-    - name: Test make build-leaderboard
-      if: inputs.test-build-commands == 'true'
-      run: |
-        rm -rf dist
-        make build-leaderboard
-        [ -d "dist/frontend" ] || { echo "Error: make build-leaderboard failed"; exit 1; }
       working-directory: frontend
       shell: bash
 

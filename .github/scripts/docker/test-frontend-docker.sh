@@ -17,7 +17,7 @@ set -euo pipefail
 if [ $# -lt 2 ]; then
     echo "Usage: $0 <image> <environment> [port]"
     echo ""
-    echo "Supported environments: local, webnode, production, fuzzing, leaderboard, staging"
+    echo "Supported environments: local, webnode, production, fuzzing, staging"
     echo ""
     echo "Examples:"
     echo "  $0 o1labs/mina-rust-frontend:latest production"
@@ -31,7 +31,7 @@ PORT="${3:-8080}"
 CONTAINER_NAME="test-frontend-${ENVIRONMENT}-$$"
 
 # Supported environments
-SUPPORTED_ENVS="local webnode production fuzzing leaderboard staging"
+SUPPORTED_ENVS="local webnode production fuzzing staging"
 if [[ ! " $SUPPORTED_ENVS " =~ \ $ENVIRONMENT\  ]]; then
     echo "❌ Unsupported environment: $ENVIRONMENT"
     echo "Supported environments: $SUPPORTED_ENVS"

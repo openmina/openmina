@@ -4,8 +4,6 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from '@app/app.component';
 import { appConfig } from '@app/app.config';
 
-// (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = 'A4B7AFB5-1534-4D5A-A02E-BCF5847C07F0';
-
 if (CONFIG.production) {
   initSentry();
 }

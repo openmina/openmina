@@ -23,14 +23,6 @@ cli/bin
 cli/tests
 !cli/bin/snark-worker
 
-# Heartbeats processor
-tools/heartbeats-processor/.env
-tools/heartbeats-processor/data/
-tools/heartbeats-processor/credentials/
-tools/heartbeats-processor/*.db
-# Ensure .sqlx files are included
-!tools/heartbeats-processor/.sqlx/
-
 # GH workflows
 .claude
 .github

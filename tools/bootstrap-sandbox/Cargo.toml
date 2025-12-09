@@ -1,29 +1,25 @@
 [package]
 name = "mina-bootstrap-sandbox"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 
 [dependencies]
+base64 = { workspace = true }
+binprot = { workspace = true }
+bs58 = { workspace = true, features = ["check"] }
 env_logger = { workspace = true }
+ledger = { workspace = true, package = "mina-tree" }
+libp2p = { workspace = true, features = ["identify", "macros"] }
+libp2p-rpc-behaviour = { path = "../../p2p/libp2p-rpc-behaviour" }
 log = { workspace = true }
+mina-core = { workspace = true }
+mina-curves = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+mina-transport = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["preserve_order"] }
 structopt = { workspace = true }
 thiserror = { workspace = true }
-
-base64 = { workspace = true }
-bs58 = { workspace = true, features = ["check"] }
-rand = { workspace = true }
-
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-
-binprot = { workspace = true }
-ledger = { path = "../../ledger", package = "mina-tree" }
-libp2p-rpc-behaviour = { path = "../../p2p/libp2p-rpc-behaviour" }
-mina-core = { path = "../../core" }
-mina-transport = { path = "../transport" }
-
-libp2p = { workspace = true, features = ["identify", "macros"] }
-mina-curves = { workspace = true }
-mina-p2p-messages = { workspace = true }
-mina-signer = { workspace = true }

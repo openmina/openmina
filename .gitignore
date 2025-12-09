@@ -19,4 +19,4 @@ website/static/api-docs/
 ledger/3.0.0mainnet
 ledger/berkeley-devnet
 mina-workdir
-/.idea/**
+.idea/

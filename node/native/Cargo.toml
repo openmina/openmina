@@ -1,6 +1,6 @@
 [package]
 name = "mina-node-native"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -17,9 +17,12 @@ juniper = { workspace = true }
 juniper_warp = { workspace = true }
 ledger = { workspace = true }
 libp2p-identity = { workspace = true, features = ["peerid"] }
+mina-core = { path = "../../core" }
+mina-node-common = { path = "../common" }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
 nix = { workspace = true, features = ["signal"] }
+node = { path = "../../node", features = ["replay"] }
 o1-utils = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
@@ -36,13 +39,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 vrf = { workspace = true }
 warp = { workspace = true }
-
-mina-core = { path = "../../core" }
-mina-node-common = { path = "../common" }
-node = { path = "../../node", features = ["replay"] }
-
-[dev-dependencies]
-mina-producer-dashboard = { workspace = true }
 
 [features]
 default = ["p2p-libp2p"]

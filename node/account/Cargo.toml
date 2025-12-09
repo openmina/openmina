@@ -1,6 +1,6 @@
 [package]
 name = "mina-node-account"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "Account management for Mina nodes, including key generation, encryption, and address handling"
@@ -10,7 +10,7 @@ anyhow = { workspace = true }
 bs58 = { workspace = true }
 hex = { workspace = true }
 lazy_static = { workspace = true }
-mina-core = { path = "../../core" }
+mina-core = { workspace = true }
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }

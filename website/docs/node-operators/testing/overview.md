@@ -66,7 +66,7 @@
 
 ## Scenarios
 
-### [Connection Discovery](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/src/scenarios/multi_node/connection_discovery.rs)
+### [Connection Discovery](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/src/scenarios/multi_node/connection_discovery.rs)
 
 We want to test whether the Rust node can connect and discover peers from Ocaml
 node, and vice versa
@@ -104,7 +104,7 @@ node, and vice versa
   these nodes connect to the Rust node, the test makes sure that they also have
   each other’s addresses as their peers.
 
-### [P2P Connections](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/p2p_basic_connections.rs)
+### [P2P Connections](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/p2p_basic_connections.rs)
 
 - `SimultaneousConnections`: Tests if two nodes are connecting to each other at
   the same time, they should be connected, so each one has exactly one
@@ -123,20 +123,20 @@ node, and vice versa
 
 - `MaxNumberOfPeersIs1` Two nodes with max peers = 1 can connect to each other.
 
-### [P2P Kademlia](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/p2p_kad.rs)
+### [P2P Kademlia](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/p2p_kad.rs)
 
 Test related to kademlia layer.
 
 - `KademliaBootstrap`: Test that node discovers peers another rust node and is
   able to bootstrap
 
-### [P2P Pubsub](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/p2p_pubsub.rs)
+### [P2P Pubsub](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/p2p_pubsub.rs)
 
 Tests related to pubsub layer.
 
 - `P2pReceiveMessage` Test that node receives message over meshsub from node
 
-### [P2P Incoming](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/p2p_basic_incoming.rs)
+### [P2P Incoming](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/p2p_basic_incoming.rs)
 
 Tests related to handling incoming connections.
 
@@ -144,7 +144,7 @@ Tests related to handling incoming connections.
 - `AcceptMultipleIncomingConnections`: Node should accept multiple incoming
   connections.
 
-### [P2P Outgoing](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/p2p_basic_outgoing.rs)
+### [P2P Outgoing](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/p2p_basic_outgoing.rs)
 
 Tests related to outgoing connections
 
@@ -171,7 +171,7 @@ Tests related to outgoing connections
 - `ConnectToInitialPeersBecomeReady`: Node should be able to connect to all
   initial peers after they become ready.
 
-### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/single_node.rs):
+### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/single_node_accept_incoming.rs):
 
 We want to test whether the Rust node is compatible with the OCaml node. We
 achieve this by attempting to connect the Mina Rust node to the existing OCaml
@@ -185,16 +185,17 @@ cluster.
 - `SoloNodeBasicConnectivityAcceptIncoming`: Local test to ensure that the Mina
   Rust node can accept a connection from an existing OCaml node.
 
+### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/single_node_initial_joining.rs):
+
 - `SoloNodeBasicConnectivityInitialJoining`: Local test to ensure that the Mina
   Rust node can connect to an existing OCaml testnet.
 
-- `SoloNodeSyncRootSnarkedLedger`: Set up single Rust node and sync up root
-  snarked ledger.
+### [Single Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/single_node_bootstrap_from_replayer.rs):
 
 - `SoloNodeBootstrap`: Set up single Rust node and bootstrap snarked ledger,
   bootstrap ledger and blocks.
 
-### [Multi Node](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/multi_node.rs):
+### [Multi Node](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/multi_node.rs):
 
 We also want to test a scenario in which the network consists only of Mina Rust
 nodes. If the Mina Rust node is using a functionality that is implemented only
@@ -209,10 +210,12 @@ the testing is completely local and under our control.
 - `MultiNodeBasicConnectivityInitialJoining`: Tests that node maintains number
   of peers between minimum and maximum allowed peers.
 
-### [Record/Replay](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/record_replay.rs)
+### [Record/Replay Bootstrap](https://github.com/o1-labs/mina-rust/blob/develop/tools/testing/tests/record_replay_record_replay_bootstrap.rs)
 
 - `RecordReplayBootstrap`: Bootstrap a rust node while recorder of state and
   input actions is enabled and make sure we can successfully replay it.
+
+### [Record/Replay Block Production](https://github.com/o1-labs/mina-rust/blob/develop/node/testing/tests/record_replay_record_replay_block_production.rs)
 
 - `RecordReplayBlockProduction`: Makes sure we can successfully record and
   replay multiple nodes in the cluster + block production.

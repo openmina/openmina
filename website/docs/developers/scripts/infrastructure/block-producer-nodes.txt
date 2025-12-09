@@ -1,0 +1,2 @@
+https://mina-rust-bp-1.gcp.o1test.net/
+https://mina-rust-bp-2.gcp.o1test.net/

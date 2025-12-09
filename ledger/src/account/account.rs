@@ -1,17 +1,3 @@
-use std::{io::Cursor, str::FromStr, sync::Arc};
-
-use ark_ff::{BigInteger256, One, UniformRand, Zero};
-use mina_core::constants::PROTOCOL_VERSION;
-use mina_curves::pasta::Fp;
-use mina_p2p_messages::{
-    binprot::{BinProtRead, BinProtWrite},
-    v2,
-};
-use mina_signer::CompressedPubKey;
-use once_cell::sync::{Lazy, OnceCell};
-use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
-use serde::{Deserialize, Serialize};
-
 use crate::{
     gen_compressed,
     proofs::{
@@ -31,6 +17,15 @@ use crate::{
     zkapps::snark::FlaggedOption,
     AppendToInputs as _, MerklePath, MyCow, ToInputs,
 };
+use ark_ff::{BigInteger256, One, UniformRand, Zero};
+use mina_core::constants::PROTOCOL_VERSION;
+use mina_curves::pasta::Fp;
+use mina_p2p_messages::{
+    binprot::{BinProtRead, BinProtWrite},
+    v2,
+};
+use mina_signer::CompressedPubKey;
+use once_cell::sync::{Lazy, OnceCell};
 use poseidon::hash::{
     hash_noinputs, hash_with_kimchi,
     params::{
@@ -39,6 +34,9 @@ use poseidon::hash::{
     },
     Inputs,
 };
+use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
+use serde::{Deserialize, Serialize};
+use std::{io::Cursor, str::FromStr, sync::Arc};
 
 use super::common::*;
 
@@ -423,12 +421,6 @@ pub struct VerificationKey {
     // `wrap_vk` is not used for hash inputs
     pub wrap_vk: Option<()>,
 }
-
-// impl From<VerificationKey> for MinaBaseVerificationKeyWireStableV1Base64 {
-//     fn from(value: VerificationKey) -> Self {
-//         MinaBaseVerificationKeyWireStableV1Base64((&value).into())
-//     }
-// }
 
 impl Check<Fp> for VerificationKey {
     fn check(&self, w: &mut Witness<Fp>) {

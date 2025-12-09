@@ -7,70 +7,67 @@ on:
 
 jobs:
   lint:
-    timeout-minutes: 10
-    name: Lint - ${{ matrix.os }} - Rust ${{ matrix.toolchain }}
+    timeout-minutes: 15
+    name: Lint - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        ocaml_version: [4.14.2]
         os: [ubuntu-24.04]
-        toolchain: [1.84]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+
+      - name: Load versions
+        uses: ./.github/actions/load-versions
+
       - name: Setup build dependencies
         uses: ./.github/actions/setup-build-deps
-        with:
-          include-sqlite: true
+
       - name: Use shared OCaml setting up steps
         uses: ./.github/actions/setup-ocaml
         with:
-          ocaml_version: ${{ matrix.ocaml_version }}
-      - name: Setup SQLite database for SQLx
-        run: |
-          sqlite3 /tmp/heartbeats.db < tools/heartbeats-processor/schema.sql
+          ocaml_version: ${{ env.OCAML_VERSION }}
+
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: ${{ env.RUST_STABLE_VERSION }}
           components: clippy, rustfmt
-          cache-prefix: lint-${{ matrix.toolchain }}-v0
+          cache-prefix: lint-${{ env.RUST_STABLE_VERSION }}-v0
+
       - name: Run make check
         run: make check
-        env:
-          DATABASE_URL: "sqlite:///tmp/heartbeats.db"
+
       - name: Run make lint
         run: make lint
-        env:
-          DATABASE_URL: "sqlite:///tmp/heartbeats.db"
 
   lint-tx-fuzzing:
     timeout-minutes: 10
-    name: Lint transaction Fuzzing - ${{ matrix.os }} - Rust ${{ matrix.toolchain }}
+    name: Lint transaction Fuzzing - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-24.04]
-          # This should be in line with the verison in:
-          # - Makefile
-          # - ./github/workflows/docs.yaml
-          # - ./github/workflows/fmt.yaml
-          # - ./github/workflows/lint.yaml
-        toolchain: [nightly]
-        ocaml_version: [4.14.2]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+
+      - name: Load versions
+        uses: ./.github/actions/load-versions
+
       - name: Setup build dependencies
         uses: ./.github/actions/setup-build-deps
+
       - name: Use shared OCaml setting up steps
         uses: ./.github/actions/setup-ocaml
         with:
-          ocaml_version: ${{ matrix.ocaml_version }}
+          ocaml_version: ${{ env.OCAML_VERSION }}
+
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: ${{ env.RUST_NIGHTLY_VERSION }}
           components: clippy, rustfmt
-          cache-prefix: lint-tx-fuzzing-${{ matrix.toolchain }}-v0
+          cache-prefix: lint-tx-fuzzing-${{ env.RUST_NIGHTLY_VERSION }}-v0
+
       - name: Run transaction Fuzzing check
         run: make check-tx-fuzzing
 
@@ -82,11 +79,13 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+
       - name: Install shellcheck
         run: |
           sudo apt update || true
           sudo apt install -y shellcheck || true
+
       - name: Run shellcheck
         run: make lint-bash
 
@@ -98,11 +97,13 @@ jobs:
       matrix:
         os: [ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+
       - name: Install hadolint
         run: |
           wget -O /tmp/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
           chmod +x /tmp/hadolint
           sudo mv /tmp/hadolint /usr/local/bin/hadolint
+
       - name: Run hadolint
         run: make lint-dockerfiles

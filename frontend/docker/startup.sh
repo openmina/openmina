@@ -32,17 +32,13 @@ build_frontend() {
             # Uses Angular webnode-local configuration and webnode.js runtime
             make build-webnode
             ;;
-        "leaderboard")
-            # Uses Angular production configuration and leaderboard.js runtime
-            make build-leaderboard
-            ;;
         "staging")
             # Uses Angular production configuration with staging.js runtime
             make build-staging
             ;;
         *)
             echo "Error: Unknown environment '$environment'"
-            echo "Available environments: local, fuzzing, production, webnode, leaderboard, staging"
+            echo "Available environments: local, fuzzing, production, webnode, staging"
             exit 1
             ;;
     esac
@@ -58,7 +54,7 @@ build_frontend() {
 # Validate that MINA_FRONTEND_ENVIRONMENT is set
 if [ -z "$MINA_FRONTEND_ENVIRONMENT" ]; then
     echo "Error: MINA_FRONTEND_ENVIRONMENT environment variable is required."
-    echo "Available environments: local, fuzzing, production, webnode, leaderboard, staging"
+    echo "Available environments: local, fuzzing, production, webnode, staging"
     echo "Example: docker run -e MINA_FRONTEND_ENVIRONMENT=webnode mina-frontend"
     exit 1
 fi

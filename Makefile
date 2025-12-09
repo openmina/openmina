@@ -7,9 +7,13 @@
 # - ./github/workflows/fmt.yaml
 # - ./github/workflows/lint.yaml
 NIGHTLY_RUST_VERSION = "nightly"
+NODE_VERSION := $(shell cat .nvmrc)
 
 # WebAssembly
 WASM_BINDGEN_CLI_VERSION = "0.2.99"
+
+# TOML formatter
+TAPLO_CLI_VERSION = "0.9.3"
 
 # Docker
 DOCKER_ORG ?= o1labs
@@ -113,10 +117,6 @@ build-tests-webrtc: ## Build tests for WebRTC
 		cp -a $$FILE target/release/tests/webrtc_$$NAME; \
 	done < tests.tsv
 
-.PHONY: build-vrf
-build-vrf: ## Build the VRF package
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) build --release --tests
-
 .PHONY: build-wasm
 build-wasm: ## Build WebAssembly node
 	@cd node/web && cargo +${NIGHTLY_RUST_VERSION} build \
@@ -177,7 +177,7 @@ fix-trailing-whitespace: ## Remove trailing whitespaces from all files
 		-not -path "./website/static/api-docs/*" \
 		-not -path "./website/.docusaurus/*" \
 		-not -path "./.git/*" \
-		-exec sh -c 'echo "Processing: $$1"; sed -i"" -e "s/[[:space:]]*$$//" "$$1"' _ {} \; && \
+		-exec sh -c 'echo "Processing: $$1"; sed -i'\'''\'' -e "s/[[:space:]]*$$//" "$$1"' _ {} \; && \
 		echo "Trailing whitespaces removed."
 
 .PHONY: check-trailing-whitespace
@@ -287,6 +287,17 @@ setup-wasm: ## Setup the WebAssembly toolchain, using nightly
 		rustup target add wasm32-unknown-unknown --toolchain ${NIGHTLY_RUST_VERSION}-$$TARGET; \
 		cargo install wasm-bindgen-cli --version ${WASM_BINDGEN_CLI_VERSION}
 
+.PHONY: setup-taplo
+setup-taplo: ## Install taplo TOML formatter
+	@if taplo --version 2>/dev/null | grep -q ${TAPLO_CLI_VERSION}; then \
+		echo "taplo ${TAPLO_CLI_VERSION} already installed"; \
+	else \
+		cargo +nightly install taplo-cli --version ${TAPLO_CLI_VERSION} --force; \
+	fi
+
+.PHONY: setup
+setup: setup-taplo setup-wasm ## Setup development environment
+
 .PHONY: test
 test: ## Run tests
 	cargo test
@@ -302,11 +313,6 @@ test-p2p: ## Run P2P tests
 .PHONY: test-release
 test-release: ## Run tests in release mode
 	cargo test --release
-
-.PHONY: test-vrf
-test-vrf: ## Run VRF tests, requires nightly Rust
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) test --release -- \
-		-Z unstable-options --report-time
 
 .PHONY: test-account
 test-account: ## Run account tests
@@ -345,17 +351,13 @@ nextest-p2p: ## Run P2P tests with cargo-nextest
 nextest-ledger: build-ledger ## Run ledger tests with cargo-nextest, requires nightly Rust
 	@cd ledger && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
 
-.PHONY: nextest-vrf
-nextest-vrf: ## Run VRF tests with cargo-nextest, requires nightly Rust
-	@cd vrf && cargo +$(NIGHTLY_RUST_VERSION) nextest run --release
-
 # Docker build targets
 
 .PHONY: docker-build-all
 docker-build-all: docker-build-bootstrap-sandbox docker-build-debugger \
-	docker-build-frontend docker-build-fuzzing docker-build-heartbeats-processor \
+	docker-build-frontend docker-build-fuzzing \
 	docker-build-light docker-build-light-focal docker-build-mina \
-	docker-build-mina-testing docker-build-producer-dashboard \
+	docker-build-mina-testing \
 	docker-build-test ## Build all Docker images
 
 .PHONY: docker-build-bootstrap-sandbox
@@ -366,10 +368,12 @@ docker-build-bootstrap-sandbox: ## Build bootstrap sandbox Docker image
 .PHONY: docker-build-debugger
 docker-build-debugger: ## Build debugger Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-debugger:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.debugger node/testing/docker/
+		-f tools/testing/docker/Dockerfile.debugger tools/testing/docker/
 
 .PHONY: docker-build-frontend
 docker-build-frontend: ## Build frontend Docker image
+	@echo "Generating .env.docker file..."
+	@bash ./frontend/docker/generate-docker-env.sh
 	@ARCH=$$(uname -m); \
 	case $$ARCH in \
 		x86_64) PLATFORM="linux/amd64" ;; \
@@ -378,28 +382,25 @@ docker-build-frontend: ## Build frontend Docker image
 	esac; \
 	echo "Building for platform: $$PLATFORM"; \
 	docker buildx build \
+		--build-arg NODE_VERSION=$(NODE_VERSION) \
 		--platform $$PLATFORM \
 		--tag $(DOCKER_ORG)/mina-rust-frontend:$(GIT_COMMIT) \
-		frontend/
+		--file ./frontend/Dockerfile \
+		./
 
 .PHONY: docker-build-fuzzing
 docker-build-fuzzing: ## Build fuzzing Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-fuzzing:$(GIT_COMMIT) tools/fuzzing/
 
-.PHONY: docker-build-heartbeats-processor
-docker-build-heartbeats-processor: ## Build heartbeats processor Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-heartbeats-processor:$(GIT_COMMIT) \
-		tools/heartbeats-processor/
-
 .PHONY: docker-build-light
 docker-build-light: ## Build light Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-light:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.light node/testing/docker/
+		-f tools/testing/docker/Dockerfile.light tools/testing/docker/
 
 .PHONY: docker-build-light-focal
 docker-build-light-focal: ## Build light focal Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-light-focal:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.light.focal node/testing/docker/
+		-f tools/testing/docker/Dockerfile.light.focal tools/testing/docker/
 
 .PHONY: docker-build-mina
 docker-build-mina: ## Build main Mina Docker image
@@ -418,17 +419,12 @@ docker-build-mina: ## Build main Mina Docker image
 .PHONY: docker-build-mina-testing
 docker-build-mina-testing: ## Build Mina testing Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-testing:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.mina node/testing/docker/
-
-.PHONY: docker-build-producer-dashboard
-docker-build-producer-dashboard: ## Build producer dashboard Docker image
-	docker build -t $(DOCKER_ORG)/mina-rust-producer-dashboard:$(GIT_COMMIT) \
-		-f docker/producer-dashboard/Dockerfile .
+		-f tools/testing/docker/Dockerfile.mina tools/testing/docker/
 
 .PHONY: docker-build-test
 docker-build-test: ## Build test Docker image
 	docker build -t $(DOCKER_ORG)/mina-rust-test:$(GIT_COMMIT) \
-		-f node/testing/docker/Dockerfile.test node/testing/docker/
+		-f tools/testing/docker/Dockerfile.test tools/testing/docker/
 
 # Docker push targets
 
@@ -557,11 +553,10 @@ docs-rust: ## Generate Rust API documentation
 	@echo "Generating Rust API documentation..."
 	# Using nightly with --enable-index-page to generate workspace index
 	# See: https://github.com/rust-lang/cargo/issues/8229
-	@DATABASE_URL="sqlite::memory:" \
-		RUSTDOCFLAGS="--enable-index-page -Zunstable-options -D warnings" \
+	RUSTDOCFLAGS="--enable-index-page -Zunstable-options -D warnings" \
 		cargo +$(NIGHTLY_RUST_VERSION) doc --no-deps \
 		--document-private-items --workspace \
-		--exclude heartbeats-processor --lib
+		--lib
 	@echo "Rust documentation generated in target/doc/"
 	@echo "Entry point: target/doc/index.html"
 

@@ -4,6 +4,7 @@
 //!
 //! Tests the first pass of two-phase transaction application, covering:
 //! - Successful payment transactions
+//! - Payment creating receiver account
 //! - Insufficient balance errors
 //! - Invalid nonce errors
 //! - Nonexistent fee payer errors
@@ -437,5 +438,128 @@ fn test_apply_payment_nonexistent_fee_payer() {
     assert!(
         ledger.location_of_account(&alice_id).is_none(),
         "Alice's account should still not exist after transaction error"
+    );
+}
+
+/// Test payment that creates a new receiver account.
+///
+/// When the receiver account doesn't exist, a new account is created
+/// automatically. The account creation fee is deducted from the payment amount,
+/// not from the sender's balance.
+///
+/// Ledger state: Sender's balance decreased by amount + fee, receiver account
+/// created with balance = amount - account_creation_fee.
+#[test]
+fn test_apply_payment_creates_receiver_account() {
+    let db = Database::create(15);
+    let mut ledger = Mask::new_root(db);
+
+    let alice_pk = mina_signer::PubKey::from_address(
+        "B62qmnY6m4c6bdgSPnQGZriSaj9vuSjsfh6qkveGTsFX3yGA5ywRaja",
+    )
+    .unwrap()
+    .into_compressed();
+    let bob_pk = mina_signer::PubKey::from_address(
+        "B62qjVQLxt9nYMWGn45mkgwYfcz8e8jvjNCBo11VKJb7vxDNwv5QLPS",
+    )
+    .unwrap()
+    .into_compressed();
+
+    // Create only Alice's account
+    let alice_id = AccountId::new(alice_pk.clone(), Default::default());
+    let alice_account = Account::create_with(alice_id.clone(), Balance::from_u64(5_000_000_000));
+    ledger
+        .get_or_create_account(alice_id.clone(), alice_account)
+        .unwrap();
+
+    let bob_id = AccountId::new(bob_pk.clone(), Default::default());
+
+    // Verify Bob's account does not exist before the transaction
+    assert!(
+        ledger.location_of_account(&bob_id).is_none(),
+        "Bob's account should not exist before transaction"
+    );
+
+    // Record initial state
+    let alice_location = ledger.location_of_account(&alice_id).unwrap();
+    let alice_before = ledger.get(alice_location).unwrap();
+    let initial_alice_balance = alice_before.balance;
+    let initial_alice_nonce = alice_before.nonce;
+    let initial_alice_receipt_hash = alice_before.receipt_chain_hash;
+
+    let amount = 2_000_000_000; // 2 MINA
+    let fee = 10_000_000; // 0.01 MINA
+    let nonce = 0;
+    let payment = create_payment(&alice_pk, &bob_pk, amount, fee, nonce);
+
+    let constraint_constants = &test_constraint_constants();
+    let account_creation_fee = constraint_constants.account_creation_fee; // 1 MINA
+
+    let state_view = ProtocolStateView {
+        snarked_ledger_hash: Fp::zero(),
+        blockchain_length: Length::from_u32(0),
+        min_window_density: Length::from_u32(0),
+        total_currency: Amount::zero(),
+        global_slot_since_genesis: Slot::from_u32(0),
+        staking_epoch_data: dummy_epoch_data(),
+        next_epoch_data: dummy_epoch_data(),
+    };
+    let result = apply_transaction_first_pass(
+        constraint_constants,
+        Slot::from_u32(0),
+        &state_view,
+        &mut ledger,
+        &Transaction::Command(UserCommand::SignedCommand(Box::new(payment))),
+    );
+
+    assert!(result.is_ok());
+
+    // Verify Alice's balance decreased by fee + payment amount
+    let alice_location = ledger.location_of_account(&alice_id).unwrap();
+    let alice_after = ledger.get(alice_location).unwrap();
+    let expected_alice_balance = initial_alice_balance
+        .sub_amount(Amount::from_u64(fee))
+        .unwrap()
+        .sub_amount(Amount::from_u64(amount))
+        .unwrap();
+    assert_eq!(
+        alice_after.balance, expected_alice_balance,
+        "Alice's balance should decrease by fee + payment amount"
+    );
+
+    // Verify Alice's nonce incremented
+    assert_eq!(
+        alice_after.nonce,
+        initial_alice_nonce.incr(),
+        "Alice's nonce should be incremented"
+    );
+
+    // Verify Alice's receipt chain hash updated
+    assert_ne!(
+        alice_after.receipt_chain_hash, initial_alice_receipt_hash,
+        "Alice's receipt chain hash should be updated"
+    );
+
+    // Verify Bob's account was created
+    let bob_location = ledger.location_of_account(&bob_id);
+    assert!(
+        bob_location.is_some(),
+        "Bob's account should now exist after transaction"
+    );
+
+    // Verify Bob's balance is payment amount minus account creation fee
+    let bob_location = bob_location.unwrap();
+    let bob_after = ledger.get(bob_location).unwrap();
+    let expected_bob_balance = Balance::from_u64(amount - account_creation_fee);
+    assert_eq!(
+        bob_after.balance, expected_bob_balance,
+        "Bob's balance should be payment amount minus account creation fee"
+    );
+
+    // Verify Bob's nonce is 0 (new account)
+    assert_eq!(
+        bob_after.nonce,
+        Nonce::zero(),
+        "Bob's nonce should be 0 for new account"
     );
 }

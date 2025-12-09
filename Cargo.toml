@@ -1,41 +1,34 @@
 [workspace]
 members = [
+  "cli",
+  "cli/replay_dynamic_effects",
   "core",
-  "macros",
+  "fuzzer",
   "ledger",
-  "snark",
-  "p2p",
-  "p2p/testing",
-  "p2p/libp2p-rpc-behaviour",
+  "macros",
+  "mina-p2p-messages",
   "node",
   "node/account",
   "node/common",
-  "node/native",
-  "node/web",
   "node/invariants",
-  "node/testing",
-  "cli",
-  "cli/replay_dynamic_effects",
-  "vrf",
-
-  "mina-p2p-messages",
-  "ledger",
+  "node/native",
+  "tools/testing",
+  "node/web",
+  "p2p",
+  "p2p/libp2p-rpc-behaviour",
+  "p2p/testing",
   "poseidon",
-
-  "tools/transport",
+  "snark",
+  "tools/archive-breadcrumb-compare",
   "tools/bootstrap-sandbox",
+  "tools/fuzzing",
   "tools/gossipsub-sandbox",
   "tools/hash-tool",
   "tools/ledger-tool",
-  "tools/salsa-simple",
-  "tools/fuzzing",
-  "tools/archive-breadcrumb-compare",
-  "tools/heartbeats-processor",
+  "tools/transport",
   "tools/webrtc-sniffer",
-
-  "producer-dashboard",
-
-  "fuzzer",
+  "vendor/salsa-simple",
+  "vrf",
 ]
 
 resolver = "2"
@@ -91,7 +84,7 @@ datachannel = { git = "https://github.com/openmina/datachannel-rs.git", rev = "1
 ] }
 dataloader = "0.18"
 derive_more = "0.99.17"
-dialoguer = "0.10.4"
+dialoguer = "0.12.0"
 documented = { version = "0.6" }
 dotenv = "0.15"
 dotenvy = "0.15"
@@ -128,7 +121,7 @@ js-sys = "0.3.64"
 jsonpath-rust = "0.5.0"
 juniper = { version = "0.16" }
 juniper_warp = "0.8.0"
-kimchi = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 lazy_static = "1.4.0"
 leb128 = "0.2.1"
 ledger = { path = "ledger", package = "mina-tree" }
@@ -139,32 +132,40 @@ linkme = "0.3.22"
 local-ip-address = "0.6.1"
 log = "0.4.25"
 md5 = "0.7.0"
-mina-curves = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
-mina-hasher = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+mina-bootstrap-sandbox = { path = "tools/bootstrap-sandbox" }
+mina-core = { path = "core" }
+mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-fuzzer = { path = "fuzzer" }
+mina-hasher = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-macros = { path = "macros" }
 mina-node-account = { path = "node/account" }
+mina-node-common = { path = "node/common" }
+mina-node-invariants = { path = "node/invariants" }
+mina-node-native = { path = "node/native" }
+mina-node-testing = { path = "tools/testing" }
 mina-p2p-messages = { path = "mina-p2p-messages" }
-mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
-mina-producer-dashboard = { path = "producer-dashboard" }
-mina-signer = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-signer = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-transport = { path = "tools/transport" }
 mio = { version = "1.0.4", features = ["os-poll", "net"] }
 multiaddr = "0.18.1"
 multihash = { version = "0.18.1", features = ["blake2b"] }
 nix = { version = "0.27.1", features = ["process", "signal"] }
+node = { path = "node" }
 nom = "8.0.0"
 num = { version = "0.4", features = ["std"] }
 num-bigint = { git = "https://github.com/openmina/num-bigint", branch = "rebase-onstack" }
 num-traits = "0.2"
 num_cpus = "1.0"
 num_enum = "0.5.7"
-o1-utils = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+o1-utils = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 object = "0.37.1"
-ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values" }
 once_cell = "1"
 p256 = { version = "0.13", features = ["default", "ecdh", "ecdsa"] }
 p384 = "0.13"
-pcap = "2.3"
+pcap = "2.4"
 pin-project-lite = "0.2.10"
-poly-commitment = { git = "https://github.com/o1-labs/proof-systems", rev = "0b0fd5fe73964d2a3628c788e40ead819a8a806d" }
+poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
 poseidon = { path = "poseidon" }
 postcard = { version = "1.0.9", features = ["use-std"] }
 proc-macro2 = "1.0.95"
@@ -189,6 +190,7 @@ rsexp = "0.2.3"
 rsexp-derive = "0.2.3"
 rsprocmaps = "0.3.2"
 rust-format = "0.3"
+salsa-simple = { path = "vendor/salsa-simple" }
 salsa20 = "0.10.2"
 serde = { version = "1.0.190", features = ["derive", "rc"] }
 serde_bytes = "0.11"

@@ -1,12 +1,11 @@
 //! Base58check encoding/decoding.
 
-use std::{fmt, marker::PhantomData, str::FromStr};
-
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
 use malloc_size_of_derive::MallocSizeOf;
 use serde::{Deserialize, Serialize};
+use std::{fmt, marker::PhantomData, str::FromStr};
 
 /// Before encoding, data is prepended with the version byte.
 pub fn encode(b: &[u8], v: u8) -> String {
@@ -373,7 +372,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "fix or remove"]
     fn binable_base58check() {
         #[derive(Clone, BinProtRead, BinProtWrite)]
         struct Binable(BigInt);
@@ -386,10 +384,7 @@ mod tests {
             "fc630629c6a1a237a3dc1d95fd54fbf9cca062486e9f57852ebc64e4042ceb3d",
         ));
         let b58c = b.to_base58check().unwrap();
-        assert_eq!(
-            &b58c,
-            "3NLx3eBDTvYmP27bUmYANzmhjL5rGe36nGW6N5XhGcuStF6Zv7ZD"
-        )
+        assert_eq!(&b58c, "a24htZ9FGiBmD2D9vBdX4uN7aeghG7K1852UEVrsgACMBHnL58")
     }
 
     #[test]

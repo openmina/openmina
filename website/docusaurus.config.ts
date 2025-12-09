@@ -26,7 +26,6 @@ const config: Config = {
   projectName: 'mina-rust', // Usually your repo name.
 
   onBrokenLinks: 'throw', // Throw error on broken links to enforce link integrity
-  onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'warn',
 
   // Markdown configuration

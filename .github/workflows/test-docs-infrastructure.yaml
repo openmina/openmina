@@ -4,7 +4,8 @@ name: Test Documentation Scripts - Infrastructure
 # This workflow validates:
 # 1. Seed node connectivity and format verification
 # 2. Plain node GraphQL endpoints and API capabilities
-# 3. Infrastructure script functionality
+# 3. Block producer node GraphQL endpoints and API capabilities
+# 4. Infrastructure script functionality
 # Scripts can be run locally for development and debugging
 on:
   schedule:
@@ -25,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test seed node connectivity
         run: ./.github/scripts/test-seed-node-connectivity.sh
@@ -40,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Verify seed nodes are subset of official seeds
         run: ./.github/scripts/test-seed-node-format.sh
@@ -55,7 +56,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test plain node GraphQL endpoints
         run: ./.github/scripts/test-plain-node-connectivity.sh
@@ -65,4 +66,22 @@ jobs:
 
       - name: Test infrastructure scripts
         run: ./.github/scripts/test-infrastructure-scripts.sh
+
+  test-block-producer-nodes:
+    name: Test Block Producer Node Connectivity
+    timeout-minutes: 2
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Test block producer node GraphQL endpoints
+        run: ./.github/scripts/test-block-producer-node-connectivity.sh
+
+      - name: Test block producer node API capabilities
+        run: ./.github/scripts/test-block-producer-node-capabilities.sh
 

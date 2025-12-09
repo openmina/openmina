@@ -1,0 +1,1 @@
+{ bestChain(maxLength: 1) { stateHash protocolState { consensusState { blockHeight } } creator } }

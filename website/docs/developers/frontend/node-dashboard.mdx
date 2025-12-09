@@ -191,9 +191,6 @@ and configured:
   operation. Enables WASM integration and WebRTC networking for in-browser
   execution.
 
-- **`leaderboard`** - Leaderboard configuration for community participation
-  tracking. Optimized for testnet participation metrics and rankings.
-
 ### Build Docker image
 
 ```bash
@@ -221,9 +218,6 @@ docker run -p 4200:80 -e MINA_FRONTEND_ENVIRONMENT=producer mina-frontend
 
 # Run Node Dashboard with fuzzing configuration (stress testing)
 docker run -p 4200:80 -e MINA_FRONTEND_ENVIRONMENT=fuzzing mina-frontend
-
-# Run Node Dashboard with leaderboard configuration (community tracking)
-docker run -p 4200:80 -e MINA_FRONTEND_ENVIRONMENT=leaderboard mina-frontend
 ```
 
 <!-- prettier-ignore-start -->

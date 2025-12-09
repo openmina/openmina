@@ -1,0 +1,1661 @@
+---
+title: API endpoints
+description:
+  Reference of API endpoints and the specific data fields the Node Dashboard
+  uses
+sidebar_position: 4
+---
+
+# API endpoints
+
+This document provides a reference of all API endpoints that the Mina Node
+Dashboard uses, focusing on **what specific data fields the dashboard actually
+reads and uses** from each endpoint response.
+
+The purpose is to document the data requirements of the Node Dashboard, not the
+complete API response structure. For each endpoint, we show only the fields that
+the frontend application accesses.
+
+## API base URLs
+
+The frontend connects to multiple services with configurable endpoints:
+
+### Node API
+
+- **Base URL**: Configured per node (e.g., `http://127.0.0.1:3000`)
+- **Configuration**: Set in environment files or via node selection in the UI
+- **Purpose**: Primary REST API for node status, state, and operations
+
+### Optional services
+
+- **Memory profiler URL**: Separate endpoint for memory analysis (e.g.
+  `http://127.0.0.1:3001`)
+- **Debugger URL**: Separate endpoint for detailed network debugging and message
+  inspection (e.g. `http://127.0.0.1:3002`)
+- **GraphQL endpoint**: External MinaScan API (e.g.
+  `https://api.minascan.io/node/devnet/v1/graphql`)
+
+#### Further, let's examine the used endpoints
+
+### Node status and information
+
+#### GET `/status`
+
+Get node status and operational details for dashboard display.
+
+**Frontend usage**
+([`app.service.ts:48`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/app.service.ts#L48)):
+
+The dashboard extracts the following fields from the `/status` response:
+
+```typescript
+{
+  // Chain identification
+  chain_id: string | undefined,  // Used to determine network and display
+
+  // Blockchain state
+  transition_frontier: {
+    best_tip: {
+      height: number  // Current block height for display
+    },
+    sync: {
+      time: number,   // Last block time for display
+      phase: "Bootstrap" | "Catchup" | "Synced"  // Sync status indicator
+    }
+  },
+
+  // Peer connection statistics
+  peers: [
+    {
+      connection_status: "Connected" | "Connecting" | "Disconnected"
+      // Filtered and counted to show peer statistics
+    }
+  ],
+
+  // Pool statistics for dashboard
+  snark_pool: {
+    snarks: number  // Number of SNARKs in pool
+  },
+  transaction_pool: {
+    transactions: number  // Number of transactions in pool
+  },
+
+  // Current block production (if producing)
+  current_block_production_attempt: {
+    won_slot: {
+      slot_time: number,      // When the block will be produced (nanoseconds)
+      global_slot: number     // Global slot number
+    },
+    status: "Scheduled" | "StagedLedgerDiffCreatePending" |
+            "StagedLedgerDiffCreateSuccess" | "Produced" |
+            "ProofCreatePending" | "ProofCreateSuccess" |
+            "BlockApplyPending" | "BlockApplySuccess" |
+            "Committed" | "Discarded" | "Canonical" | "Orphaned"
+  } | undefined
+}
+```
+
+**Dashboard displays:**
+
+- **Node status badge**: Derived from `transition_frontier.sync.phase`
+  - Bootstrap → "BOOTSTRAP"
+  - Catchup → "CATCHUP"
+  - Synced → "SYNCED"
+- **Block height**: From `transition_frontier.best_tip.height`
+- **Last block time**: From `transition_frontier.sync.time`
+- **Network**: Derived from `chain_id` (mainnet/devnet/berkeley)
+- **Peer counts**: Peers filtered by `connection_status` and counted
+- **SNARK pool size**: From `snark_pool.snarks`
+- **Transaction pool size**: From `transaction_pool.transactions`
+- **Block production indicator**: From `current_block_production_attempt`
+
+**Used by:** Dashboard overview, node selection dropdown
+
+#### GET `/build_env`
+
+Get build environment information and version details for the running node.
+
+**Frontend usage**
+([`app.service.ts:44`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/app.service.ts#L44)):
+
+**Note**: Unlike other endpoints, the frontend displays this data as-is in a
+JSON viewer without extracting specific fields. The response format can be any
+valid JSON structure.
+
+The current response structure includes:
+
+```typescript
+{
+  // Build timestamp
+  time: string,  // ISO 8601 formatted build time
+
+  // Git information
+  git: {
+    commit_time: string,  // Timestamp of the git commit
+    commit_hash: string,  // Full git commit SHA
+    branch: string        // Git branch name
+  },
+
+  // Cargo build configuration
+  cargo: {
+    features: string,     // Enabled Cargo features
+    opt_level: number,    // Optimization level (0-3)
+    target: string,       // Build target triple (e.g., "x86_64-unknown-linux-gnu")
+    is_debug: boolean     // Whether this is a debug build
+  },
+
+  // Rust compiler information
+  rustc: {
+    channel: string,      // Rust channel (stable/beta/nightly)
+    commit_date: string,  // Rustc commit date
+    commit_hash: string,  // Rustc commit hash
+    host: string,         // Host triple
+    version: string,      // Rust version (e.g., "1.84.0")
+    llvm_version: string  // LLVM version used by rustc
+  }
+}
+```
+
+**Dashboard displays:**
+
+- **Build details modal**: All fields displayed as JSON viewer when user clicks
+  build info
+- Shows complete build environment for debugging and version tracking
+- Helps identify exact build configuration and compiler version
+
+**Used by:** Menu build details modal, node version identification
+
+### State and synchronization
+
+#### GET `/state/peers`
+
+Retrieve list of all connected peers with their connection status and sync
+information.
+
+**Frontend usage**
+([`dashboard.service.ts:24`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/dashboard/dashboard.service.ts#L24)):
+
+The dashboard extracts the following fields from the `/state/peers` response:
+
+```typescript
+[
+  {
+    // Peer identification
+    peer_id: string, // Unique peer identifier
+    address: string | null, // Network address (IP:port or multiaddr)
+
+    // Peer's best tip information
+    best_tip: string | null, // Block hash of peer's best tip
+    best_tip_height: number, // Block height at peer's best tip
+    best_tip_global_slot: number, // Global slot number of best tip
+    best_tip_timestamp: number, // Timestamp of best tip (nanoseconds)
+
+    // Connection information
+    connection_status: "Connected" | "Connecting" | "Disconnected",
+    time: number, // Last update time (nanoseconds since epoch)
+  },
+];
+```
+
+**Dashboard displays:**
+
+- **Peer table**: Shows all peers with their connection status
+- **Peer ID**: Truncated peer identifier for display
+- **Best tip hash**: Block hash the peer is synced to
+- **Height**: Current block height at peer
+- **Global slot**: Slot number for timing information
+- **Status badge**: Connection status
+- **Last seen**: Formatted timestamp from `time` field
+- **Tip timestamp**: Formatted timestamp from `best_tip_timestamp`
+
+**Used by:** Dashboard peers table and peer statistics
+
+#### GET `/state/message-progress`
+
+Get message synchronization progress and ledger sync status for all peers and
+ledgers.
+
+**Frontend usage**
+([`dashboard.service.ts:73`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/dashboard/dashboard.service.ts#L73)):
+
+The dashboard extracts the following fields from the `/state/message-progress`
+response:
+
+```typescript
+{
+  // Per-peer message statistics
+  messages_stats: {
+    [peerId: string]: {
+      // RPC response counts per peer
+      responses: {
+        [rpcName: string]: number  // Count of responses for each RPC type
+      }
+    }
+  },
+
+  // Ledger synchronization progress
+  staking_ledger_sync: {
+    fetched: number,      // Number of accounts fetched
+    estimation: number    // Estimated total accounts
+  },
+
+  next_epoch_ledger_sync: {
+    fetched: number,      // Number of accounts fetched
+    estimation: number    // Estimated total accounts
+  },
+
+  root_ledger_sync: {
+    fetched: number,      // Number of accounts fetched
+    estimation: number,   // Estimated total accounts
+
+    // Additional staged ledger info
+    staged: {
+      fetched: number,    // Staged accounts fetched
+      total: number       // Total staged accounts
+    }
+  }
+}
+```
+
+**Dashboard displays:**
+
+- **Peer RPC statistics**: Total requests made per peer
+  - Sums all response counts across RPC types for each peer
+- **Ledger sync progress bars**: Visual progress for each ledger type
+  - Staking ledger: Shows `fetched / estimation` ratio
+  - Next epoch ledger: Shows `fetched / estimation` ratio
+  - Snarked root ledger: Shows base `fetched / estimation` ratio
+  - Staged root ledger: Shows `staged.fetched / staged.total` ratio
+
+**Used by:** Dashboard RPC statistics, ledger sync indicators, network sync
+monitoring
+
+#### GET `/stats/sync`
+
+Get detailed synchronization statistics including block sync progress and ledger
+fetch timing for all ledger types.
+
+**Query parameters:**
+
+- `limit` (optional): Maximum number of sync entries to return
+
+**Frontend usage**
+([`nodes-overview.service.ts:37`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/nodes/overview/nodes-overview.service.ts#L37)):
+
+The dashboard extracts the following fields from the `/stats/sync` response:
+
+```typescript
+[
+  {
+    // Sync metadata
+    best_tip_received: number, // Timestamp of best tip receipt (nanoseconds)
+    synced: boolean | null, // Whether node is fully synced
+    kind: "Synced" | "Catchup" | "Bootstrap", // Sync state
+
+    // Block sync progress
+    blocks: [
+      {
+        global_slot: number, // Global slot number
+        height: number, // Block height
+        hash: string, // Block hash
+        pred_hash: string, // Predecessor block hash
+        status: "Applied" | "Applying" | "Fetched" | "Fetching" | "Missing",
+
+        // Block fetch timing (nanoseconds since epoch)
+        fetch_start: number | null,
+        fetch_end: number | null,
+        apply_start: number | null,
+        apply_end: number | null,
+      },
+    ],
+
+    // Ledger sync progress with timing
+    ledgers: {
+      root: {
+        snarked: {
+          fetch_hashes_start: number | null,
+          fetch_hashes_end: number | null,
+          fetch_accounts_start: number | null,
+          fetch_accounts_end: number | null,
+        },
+        staged: {
+          fetch_parts_start: number | null,
+          fetch_parts_end: number | null,
+          reconstruct_start: number | null,
+          reconstruct_end: number | null,
+        },
+      },
+      next_epoch: {
+        snarked: {
+          fetch_hashes_start: number | null,
+          fetch_hashes_end: number | null,
+          fetch_accounts_start: number | null,
+          fetch_accounts_end: number | null,
+        },
+      },
+      staking_epoch: {
+        snarked: {
+          fetch_hashes_start: number | null,
+          fetch_hashes_end: number | null,
+          fetch_accounts_start: number | null,
+          fetch_accounts_end: number | null,
+        },
+      },
+    },
+  },
+];
+```
+
+**Dashboard displays:**
+
+- **Node sync status**: Shows sync state (Synced/Catchup/Bootstrap)
+- **Best tip timing**: Formatted timestamp from `best_tip_received`
+- **Block status counts**: Groups blocks by status
+  - Applied blocks count
+  - Applying blocks count
+  - Fetched blocks count
+  - Fetching blocks count
+  - Missing blocks count
+- **Block timing**: Calculates durations for fetch and apply operations
+- **Ledger sync progress**: Visual timeline for each ledger type
+  - Root snarked ledger: fetch hashes → fetch accounts progress
+  - Root staged ledger: fetch parts → reconstruct progress
+  - Next epoch ledger: fetch hashes → fetch accounts progress
+  - Staking epoch ledger: fetch hashes → fetch accounts progress
+- **Duration calculations**: Computes elapsed time between start/end timestamps
+- **Passed time tracking**: Shows time elapsed for in-progress operations
+
+**Used by:** Nodes overview table, sync monitoring dashboard, block sync
+visualization
+
+#### GET `/stats/actions`
+
+Get action statistics from the state machine for a specific slot.
+
+**Query parameters:**
+
+- `id`: Slot number or `latest` for most recent slot
+
+**Frontend usage**
+([`state-actions.service.ts:30`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/state/actions/state-actions.service.ts#L30)):
+
+The dashboard extracts the following fields from the `/stats/actions` response:
+
+```typescript
+{
+  // Slot metadata
+  id: number,              // Slot number
+  block_hash: string,      // Block hash for this slot
+  block_level: number,     // Block height/level
+  time: number,            // Timestamp (nanoseconds since epoch)
+
+  // CPU metrics
+  cpu_busy: number,        // CPU busy time
+  cpu_idle: number,        // CPU idle time
+
+  // Action statistics per action type
+  stats: {
+    [actionName: string]: {
+      [timeRange: string]: {
+        total_calls: number,      // Number of times action was called
+        total_duration: number,   // Total time spent (nanoseconds)
+        max_duration: number,     // Maximum duration (nanoseconds)
+      }
+    }
+  }
+}
+```
+
+**Dashboard displays:**
+
+- **Slot information**: Block hash, height, and timestamp
+- **CPU usage**: Displays busy vs idle CPU metrics
+- **Action groups**: Actions automatically grouped by common prefixes
+- **Per-action statistics**:
+  - Total call count
+  - Total time spent (converted to seconds)
+  - Maximum duration (converted to seconds)
+  - Mean time (calculated from total_duration / total_calls)
+- **Time range breakdowns**: Statistics for different time windows
+- **Visual representation**: Square count indicator based on call frequency
+
+**Used by:** State machine debugging, performance monitoring, action analysis
+
+### Block production
+
+#### GET `/stats/block_producer`
+
+Get block production statistics, production attempts, and future won slots with
+detailed timing information.
+
+**Frontend usage**
+([`block-production-won-slots.service.ts:29`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/block-production/won-slots/block-production-won-slots.service.ts#L29)):
+
+The dashboard extracts the following fields from the `/stats/block_producer`
+response:
+
+```typescript
+{
+  // Current epoch and timing
+  current_epoch: number,         // Current epoch number
+  current_global_slot: number,   // Current global slot number
+  current_time: number,          // Current timestamp (milliseconds)
+  epoch_start: number,           // Epoch start time
+  epoch_end: number,             // Epoch end time
+  public_key: string,            // Block producer public key
+
+  // VRF statistics
+  current_epoch_vrf_stats: {
+    evaluated_slots: number,     // Number of evaluated slots
+    total_slots: number,         // Total slots in epoch
+  },
+  vrf_stats: {
+    [epochNumber: string]: {
+      evaluated_slots: number,
+      total_slots: number,
+    }
+  },
+
+  // Production attempts (past and current)
+  attempts: [
+    {
+      won_slot: {
+        slot_time: number,         // Slot timestamp (nanoseconds)
+        global_slot: number,       // Global slot number
+        epoch: number,             // Epoch number
+        delegator: Array<string | number>,
+        value_with_threshold: number[]  // VRF value with threshold
+      },
+      status: "Scheduled" | "Canonical" | "Orphaned" | "Discarded" | "Committed",
+      discard_reason?: "BestTipStakingLedgerDifferent" | "BestTipGlobalSlotHigher" | "BestTipSuperior",
+      last_observed_confirmations?: number,
+      orphaned_by?: string,
+
+      // Block details (if produced)
+      block?: {
+        hash: string,
+        height: number,
+        transactions: {
+          payments: number,
+          delegations: number,
+          zkapps: number,
+        },
+        coinbase: number,          // Coinbase rewards (nanomina)
+        fees: number,              // Transaction fees (nanomina)
+        snark_fees: number,        // SNARK fees (nanomina)
+        completed_works_count: number,
+      },
+
+      // Production timing (nanoseconds since epoch)
+      times: {
+        scheduled: number,
+        staged_ledger_diff_create_start?: number,
+        staged_ledger_diff_create_end?: number,
+        produced?: number,
+        proof_create_start?: number,
+        proof_create_end?: number,
+        block_apply_start?: number,
+        block_apply_end?: number,
+        discarded?: number,
+        committed?: number,
+      }
+    }
+  ],
+
+  // Future won slots
+  future_won_slots: [
+    {
+      slot_time: number,
+      global_slot: number,
+      epoch: number,
+      delegator: Array<string | number>,
+      value_with_threshold: number[]
+    }
+  ]
+}
+```
+
+**Dashboard displays:**
+
+- **Epoch information**: Current epoch number, start/end times
+- **VRF statistics**: Evaluated vs total slots ratio
+- **Won slots table**: Combined view of attempts and future slots
+- **Per-slot details**:
+  - Slot timing and age calculation (relative to now)
+  - Status (Scheduled/Producing/Canonical/Orphaned/Discarded/Confirming)
+  - VRF value with threshold
+- **Block details** (for produced blocks):
+  - Height and hash
+  - Transaction counts (payments, delegations, zkapps)
+  - Rewards (coinbase, transaction fees, SNARK fees)
+  - Completed works count
+- **Production timing phases**:
+  - Staged ledger diff creation duration
+  - Block production duration
+  - Proof creation duration
+  - Block apply duration
+  - Commit/discard timing
+- **Progress indicator**: Percentage based on completed phases
+
+**Used by:** Block production won slots table, production monitoring, VRF
+statistics
+
+#### GET `/epoch/summary/<epoch_number>`
+
+Get comprehensive summary for a specific epoch including block production
+statistics, rewards, and balance information.
+
+**Path parameters:**
+
+- `epoch_number`: The epoch to query, or `latest` for current epoch
+
+**Query parameters:**
+
+- `limit` (optional): Number of epochs to return (for pagination)
+
+**Frontend usage**
+([`block-production-overview.service.ts:24`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/block-production/overview/block-production-overview.service.ts#L24)):
+
+The dashboard extracts the following fields from the `/epoch/summary/` response:
+
+```typescript
+// Returns single object or array based on limit parameter
+{
+  epoch_number: number,        // Epoch identifier
+
+  // Balance information (in nanomina)
+  balance_delegated: string,   // Delegated balance
+  balance_producer: string,    // Producer balance
+  balance_staked: string,      // Staked balance
+
+  // Epoch summary statistics
+  summary: {
+    max: number,               // Maximum slots
+    won_slots: number,         // Total won slots
+    canonical: number,         // Canonical blocks produced
+    orphaned: number,          // Orphaned blocks
+    missed: number,            // Missed slots
+    future_rights: number,     // Future rights (upcoming slots)
+    slot_start: number,        // Starting slot
+    slot_end: number,          // Ending slot
+    expected_rewards: number,  // Expected rewards (nanomina)
+    earned_rewards: number,    // Actual earned rewards (nanomina)
+    is_current: boolean,       // Whether this is current epoch
+  },
+
+  // Sub-window breakdown (detailed statistics per time window)
+  sub_windows: [
+    {
+      max: number,
+      won_slots: number,
+      canonical: number,
+      orphaned: number,
+      missed: number,
+      future_rights: number,
+      slot_start: number,
+      slot_end: number,
+      expected_rewards: number,
+      earned_rewards: number,
+      is_current: boolean,
+    }
+  ]
+}
+```
+
+**Dashboard displays:**
+
+- **Epoch statistics**:
+  - Total won slots
+  - Canonical blocks count
+  - Orphaned blocks count
+  - Missed slots count
+  - Future rights (scheduled productions)
+- **Reward information**:
+  - Expected rewards (formatted from nanomina to mina)
+  - Earned rewards (formatted from nanomina to mina)
+- **Balance display**:
+  - Delegated balance (formatted to mina with 2 decimal places)
+  - Producer balance (formatted to mina)
+  - Staked balance (formatted to mina)
+- **Time window visualization**:
+  - Each sub-window shows progress through epoch
+  - Current window highlighted based on `is_current` flag
+- **Historical comparison**: When limit parameter used, returns multiple epochs
+  for trend analysis
+
+**Used by:** Block production overview, epoch performance analysis, rewards
+tracking
+
+#### GET `/epoch/<epoch_number>`
+
+Get detailed slot information for all slots in a specific epoch.
+
+**Path parameters:**
+
+- `epoch_number`: The epoch to query, or `latest` for current epoch
+
+**Frontend usage**
+([`block-production-overview.service.ts:97`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/block-production/overview/block-production-overview.service.ts#L97)):
+
+The dashboard extracts the following fields from the `/epoch/` response:
+
+```typescript
+[
+  {
+    slot: number, // Slot number within epoch
+    global_slot: number, // Global slot number across all epochs
+    block_status:
+      "Empty" |
+      "ToBeProduced" |
+      "Orphaned" |
+      "OrphanedPending" |
+      "Canonical" |
+      "CanonicalPending" |
+      "Foreign" |
+      "Missed",
+    timestamp: number, // Slot timestamp (milliseconds)
+    state_hash: string | null, // Block hash if produced
+    height: number | null, // Block height if produced
+    is_current_slot: boolean, // Whether this is the current active slot
+  },
+];
+```
+
+**Dashboard displays:**
+
+- **Slot timeline visualization**: Shows all slots in the epoch
+- **Slot status indicators**:
+  - Canonical/CanonicalPending: Green (successfully produced)
+  - Orphaned/OrphanedPending: Yellow (orphaned blocks)
+  - Missed: Red (slot was won but not produced)
+  - ToBeProduced: Blue (future won slot)
+  - Empty: Gray (no block produced)
+  - Foreign: Purple (block produced by another validator)
+- **Current slot highlighting**: Active slot marked based on `is_current_slot`
+- **Block details**: Height and hash shown for produced blocks
+- **Timestamp display**: Formatted slot timing
+
+**Used by:** Block production epoch viewer, slot timeline visualization
+
+#### GET `/node/current_slot`
+
+Get current slot information for real-time synchronization.
+
+**Frontend usage**
+([`block-production-overview.service.ts:98`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/block-production/overview/block-production-overview.service.ts#L98)):
+
+The dashboard extracts the following fields from the `/node/current_slot`
+response:
+
+```typescript
+{
+  slot: number,                    // Current slot number within epoch
+  global_slot: number,             // Current global slot number
+  global_slot_since_genesis: number, // Total slots since genesis
+}
+```
+
+**Dashboard displays:**
+
+- **Active slot identification**: Used to highlight the current slot in epoch
+  viewer
+- **Synchronization marker**: Determines which slot is currently active for
+  production
+- **Timeline positioning**: Centers the slot timeline view on current slot
+
+**Used by:** Block production epoch viewer for current slot highlighting, slot
+timeline synchronization
+
+#### GET `/summary`
+
+Get all-time block production statistics across all epochs.
+
+**Frontend usage**
+([`block-production-overview.service.ts:169`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/block-production/overview/block-production-overview.service.ts#L169)):
+
+The dashboard extracts the following fields from the `/summary` response:
+
+```typescript
+{
+  won_slots: number,         // Total number of won slots
+  canonical: number,         // Total canonical blocks produced
+  orphaned: number,          // Total orphaned blocks
+  missed: number,            // Total missed slots
+  future_rights: number,     // Total future won slots (scheduled)
+  expected_rewards: string,  // Expected total rewards (nanomina)
+  earned_rewards: string,    // Actual earned rewards (nanomina)
+}
+```
+
+**Dashboard displays:**
+
+- **Lifetime statistics**:
+  - Total slots: Sum of canonical + orphaned + missed + future_rights
+  - Won slots count
+  - Canonical blocks count
+  - Orphaned blocks count
+  - Missed slots count
+  - Future rights (scheduled productions)
+- **Reward totals**:
+  - Expected rewards (formatted from nanomina to mina with 2 decimals)
+  - Earned rewards (formatted from nanomina to mina with 2 decimals)
+- **Performance metrics**: Calculated from the ratios of
+  canonical/orphaned/missed
+
+**Used by:** Block production overview all-time statistics panel
+
+### SNARK endpoints
+
+#### GET `/scan-state/summary/<height_or_hash>`
+
+Get scan state summary for a specific block including tree structure and job
+details.
+
+**Path parameters:**
+
+- `height_or_hash`: Block height, hash, or empty for current block
+
+**Frontend usage**
+([`scan-state.service.ts:35`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/snarks/scan-state/scan-state.service.ts#L35)):
+
+The dashboard extracts the following fields from the `/scan-state/summary/`
+response:
+
+```typescript
+{
+  block: {
+    hash: string,              // Block hash
+    height: number,            // Block height
+    global_slot: number,       // Global slot number
+    completed_works: number,   // Number of completed SNARK works
+    transactions: number,      // Transaction count
+  },
+
+  scan_state: [
+    [
+      {
+        // Leaf status and progress
+        status: "Todo" | "Pending" | "Done",
+
+        // Job information
+        job?: {
+          kind: "Coinbase" | "FeeTransfer" | "Payment" | "Zkapp" | "Merge",
+        },
+
+        // Commitment details (for in-progress jobs)
+        commitment?: {
+          commitment: {
+            snarker: string,      // Snarker public key
+            timestamp: number,    // Commitment timestamp
+          },
+          received_t: number,     // When commitment was received
+          sender: string,         // Sender public key
+        },
+
+        // SNARK proof (for completed jobs)
+        snark?: {
+          snarker: string,        // Prover public key
+          received_t: number,     // When proof was received
+          sender: string,         // Sender public key
+        }
+      }
+    ]
+  ]
+}
+```
+
+**Dashboard displays:**
+
+- **Block information**: Hash, height, global slot, completed works,
+  transactions
+- **Tree statistics per tree**:
+  - Available jobs (Todo status)
+  - Ongoing jobs (have commitment but no snark)
+  - Not included SNARKs (have snark but Pending status)
+  - Completed SNARKs (have snark and Done status)
+  - Job type distribution (Coinbase, FeeTransfer, Payment, Zkapp, Merge)
+- **Working snarkers**: List of snarkers with their active leafs
+- **Leaf details**: Status, job kind, commitment and SNARK information
+
+**Used by:** Scan state visualization, SNARK work monitoring
+
+#### GET `/snarker/config`
+
+Get snarker configuration and public key for the node.
+
+**Frontend usage**
+([`scan-state.service.ts:45`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/snarks/scan-state/scan-state.service.ts#L45),
+[`snarks-work-pool.service.ts:56`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/snarks/work-pool/snarks-work-pool.service.ts#L56)):
+
+The dashboard extracts the following fields from the `/snarker/config` response:
+
+```typescript
+{
+  public_key: string,  // Snarker's public key
+}
+```
+
+**Note**: Returns `null` if the node is not configured as a snarker.
+
+**Dashboard displays:**
+
+- **Snarker identification**: Used to identify which snarker is "local" in scan
+  state view
+- **Work attribution**: Determines if commitments/SNARKs originated from local
+  or remote snarkers
+- **Working snarker list**: Associates public keys with node names in the UI
+
+**Used by:** Scan state working snarkers identification, SNARK work pool local
+vs remote attribution
+
+#### GET `/snark-pool/jobs`
+
+Get all SNARK work pool jobs with commitment and proof information.
+
+**Frontend usage**
+([`snarks-work-pool.service.ts:28`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/snarks/work-pool/snarks-work-pool.service.ts#L28)):
+
+The dashboard extracts the following fields from the `/snark-pool/jobs`
+response:
+
+```typescript
+[
+  {
+    id: string,              // Job identifier
+    time: number,            // Job creation timestamp (nanoseconds)
+
+    // Commitment information
+    commitment?: {
+      commitment: {
+        snarker: string,     // Snarker public key who made commitment
+        timestamp: number,   // Commitment creation timestamp (milliseconds)
+      },
+      received_t: number,    // When commitment was received (nanoseconds)
+      sender: string,        // Sender public key
+    },
+
+    // SNARK proof information
+    snark?: {
+      snarker: string,       // Prover public key
+      received_t: number,    // When proof was received (nanoseconds)
+      sender: string,        // Sender public key
+    }
+  }
+]
+```
+
+**Dashboard displays:**
+
+- **Job listing**: Table of all work pool jobs
+- **Timestamps**: Formatted job creation and commitment dates
+- **Latency calculations**:
+  - Commitment received latency: `(commitment.received_t - time) / 1e9` seconds
+  - Commitment created latency: `(commitment.timestamp / 1000 - time / 1e9)`
+    seconds
+  - SNARK received latency: `(snark.received_t - time) / 1e9` seconds
+- **Origin tracking**: Local vs Remote based on snarker/sender public keys
+- **Conflict detection**: Flags when commitment snarker differs from SNARK
+  snarker
+
+**Used by:** SNARK work pool dashboard, job monitoring
+
+#### GET `/snark-pool/job/<id>`
+
+Get detailed information for a specific work pool job.
+
+**Path parameters:**
+
+- `id`: Job identifier
+
+**Frontend usage**
+([`snarks-work-pool.service.ts:43`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/snarks/work-pool/snarks-work-pool.service.ts#L43)):
+
+**Note**: The frontend displays this data as-is without extracting specific
+fields. The response format can be any valid JSON structure containing detailed
+job information.
+
+**Dashboard displays:**
+
+- **Job details**: Full job information displayed in structured format
+- **Raw data view**: All fields from response shown in the details panel
+
+**Used by:** SNARK work pool job details view
+
+#### GET `/snarker/job/spec`
+
+Get job specifications for a specific SNARK work job.
+
+**Query parameters:**
+
+- `id`: Job ID to get specifications for
+
+**Frontend usage**
+([`snarks-work-pool.service.ts:49`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/snarks/work-pool/snarks-work-pool.service.ts#L49)):
+
+**Note**: The frontend displays this data as-is without extracting specific
+fields. The response format can be any valid JSON structure containing job
+specification details.
+
+**Dashboard displays:**
+
+- **Job specifications**: Full specification information displayed in structured
+  format
+- **Raw data view**: All fields from response shown in the specifications panel
+
+**Used by:** SNARK work pool job specifications display
+
+### Transaction and mempool
+
+#### GET `/transaction-pool`
+
+Get current contents of the transaction pool (mempool) including payments and
+zkApp transactions.
+
+**Frontend usage**
+([`mempool.service.ts:27`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/mempool/mempool.service.ts#L27)):
+
+The dashboard extracts the following fields from the `/transaction-pool`
+response:
+
+```typescript
+[
+  {
+    hash: string, // Transaction hash
+    data: ["Signed_command" | "Zkapp_command", SignedCommand | ZkappCommand],
+  },
+];
+
+// For Signed_command (payments):
+interface SignedCommand {
+  payload: {
+    common: {
+      fee_payer_pk: string; // Sender public key
+      fee: string; // Fee in nanomina
+      nonce: string; // Nonce
+      memo: string; // Base64 encoded memo
+    };
+    body: [
+      "Payment",
+      {
+        amount: string; // Amount in nanomina
+      },
+    ];
+  };
+}
+
+// For Zkapp_command:
+interface ZkappCommand {
+  fee_payer: {
+    body: {
+      public_key: string; // Fee payer public key
+      fee: string; // Fee in nanomina
+      nonce: string; // Nonce
+    };
+  };
+  memo: string; // Base64 encoded memo
+  account_updates: any[]; // zkApp account updates (not used by dashboard)
+}
+```
+
+**Note**: zkApp transactions include `account_updates` field which can have any
+structure. The dashboard does not extract or use these fields.
+
+**Dashboard displays:**
+
+- **Transaction list**: All transactions in mempool
+- **Transaction type**: Payment or ZK_APP
+- **Transaction hash**: Unique identifier
+- **Sender**: Extracted from fee_payer_pk (payments) or
+  fee_payer.body.public_key (zkApps)
+- **Fee**: Converted from nanomina to mina
+- **Amount**: Payment amount (payments only, null for zkApps)
+- **Nonce**: Transaction nonce
+- **Memo**: Decoded from base64 with unicode escape removal
+- **Special markers**:
+  - Stress tool detection (memo contains "S.T.")
+  - Browser origin tracking (memo contains browser ID)
+
+**Used by:** Mempool transaction viewer, transaction monitoring
+
+#### POST `/send-payment`
+
+Submit a signed payment transaction to the network.
+
+**Frontend usage**
+([`benchmarks-wallets.service.ts:4102`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/benchmarks/wallets/benchmarks-wallets.service.ts#L4102)):
+
+**Request body** (array of signed transactions):
+
+```typescript
+[
+  {
+    signature_field: string, // Signature field component
+    signature_scalar: string, // Signature scalar component
+    valid_until: number, // Transaction validity limit
+    amount: number, // Payment amount (nanomina)
+    fee: number, // Transaction fee (nanomina)
+    from: string, // Sender public key
+    to: string, // Receiver public key
+    nonce: number, // Transaction nonce
+    memo: string, // Transaction memo
+  },
+];
+```
+
+**Response:** Transaction submission result (void on success)
+
+**Used by:** Benchmarks wallet stress testing, payment submission
+
+### Network discovery and DHT
+
+#### GET `/discovery/routing_table`
+
+Get DHT (Distributed Hash Table) routing table with buckets and peer
+information.
+
+**Frontend usage**
+([`network-node-dht.service.ts:22`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/node-dht/network-node-dht.service.ts#L22)):
+
+The dashboard extracts the following fields from the `/discovery/routing_table`
+response:
+
+```typescript
+{
+  this_key: string,  // This node's DHT key
+
+  buckets: [
+    {
+      max_dist: string,  // Maximum distance for this bucket (hex)
+      entries: [
+        {
+          peer_id: string,           // Peer identifier
+          libp2p: string,            // Libp2p peer ID
+          key: string,               // Peer's DHT key
+          dist: string,              // XOR distance from this node (hex)
+          addrs: string[],           // Peer addresses (multiaddr format)
+          connection: "CannotConnect" | "Connected" | "NotConnected" | "CanConnect",
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Dashboard displays:**
+
+- **DHT buckets visualization**: Shows bucket distribution and capacity
+  - Bucket capacity: 20 peers max per bucket
+  - Peers per bucket count
+- **Peer list**: All peers across all buckets
+  - Peer ID and libp2p ID
+  - DHT key
+  - Connection status (formatted with spaces)
+  - Addresses count and list
+  - XOR distance (calculated as leading zeros in binary representation)
+  - Bucket index
+- **This node**: Origin node highlighted at top of list
+
+**Used by:** Network node DHT visualization, peer distance analysis
+
+#### GET `/discovery/bootstrap_stats`
+
+Get bootstrap statistics for DHT network discovery including request history and
+timing.
+
+**Frontend usage**
+([`network-bootstrap-stats.service.ts:18`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/bootstrap-stats/network-bootstrap-stats.service.ts#L18)):
+
+The dashboard extracts the following fields from the
+`/discovery/bootstrap_stats` response:
+
+```typescript
+{
+  requests: [
+    {
+      type: string, // Request type
+      address: string, // Peer address
+      start: number, // Start timestamp (nanoseconds)
+      finish: number, // Finish timestamp (nanoseconds)
+      peer_id: string, // Peer ID
+      error: string | undefined, // Error message if failed
+      closest_peers: [
+        // Discovered peers
+        [string, "Existing" | "New"], // [peer_id, peer_type]
+      ],
+    },
+  ];
+}
+```
+
+**Dashboard displays:**
+
+- **Bootstrap requests table**: All bootstrap requests with timing
+- **Request type**: Bootstrap request category
+- **Address**: Target peer address
+- **Duration**: Calculated in seconds: `ceil((finish - start) / 1e9)`
+- **Peer discovery**:
+  - Existing peers count: Peers already in routing table
+  - New peers count: Newly discovered peers
+  - Closest peers list with type indicators
+- **Error tracking**: Request error messages
+- **Status indication**: Type + error combined display
+
+**Used by:** Network bootstrap monitoring, DHT peer discovery tracking
+
+### Memory profiler
+
+#### GET `<memoryProfiler>/v1/tree`
+
+Get hierarchical memory resource allocation tree from the memory profiler
+service.
+
+**Query parameters:**
+
+- `threshold`: Minimum size threshold for display (in KB)
+- `reverse`: Reverse sort order (boolean)
+
+**Frontend usage**
+([`memory-resources.service.ts:19`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/resources/memory/memory-resources.service.ts#L19)):
+
+The dashboard extracts the following fields from the `/v1/tree` response:
+
+```typescript
+{
+  name: {
+    offset: string,          // Memory offset
+    executable: string,      // Executable name
+    functionName: string,    // Function name
+    functionCategory: string,// Function category
+  } | string,                // Or string for special names
+  value: number,             // Memory size (KB)
+  cacheValue: number,        // Cache value
+  frames: [                  // Child frames (recursive structure)
+    // ... same structure
+  ]
+}
+```
+
+**Dashboard displays:**
+
+- **Memory tree visualization**: Hierarchical treemap of memory allocation
+  - Root node with total memory
+  - Nested children sorted by size (descending)
+- **Frame details**:
+  - Executable name and offset formatted as `executable@offset`
+  - Function name
+  - Memory size (rounded to 2 decimal places)
+- **Threshold handling**: Items below threshold grouped as "below X KB"
+- **Interactive navigation**: Drill down into memory allocation hierarchy
+
+**Used by:** Memory resources analyzer, memory profiling visualization
+
+## Debugger API endpoints
+
+These endpoints are available when a debugger URL is configured for network
+analysis and debugging.
+
+### Block analysis
+
+#### GET `<debugger>/block/<height>`
+
+Get all messages related to a specific block height for network analysis.
+
+**Path parameters:**
+
+- `height`: Block height to analyze
+
+**Frontend usage**
+([`network-blocks.service.ts:24`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/blocks/network-blocks.service.ts#L24)):
+
+The dashboard extracts the following fields from the `<debugger>/block/`
+response:
+
+```typescript
+{
+  events: [
+    {
+      message_kind: string, // Type of message
+      producer_id: string, // Block producer ID
+      hash: string, // Block hash
+      time: {
+        secs_since_epoch: number, // Seconds since epoch
+        nanos_since_epoch: number, // Nanoseconds component
+      },
+      sender_addr: string, // Sender address
+      receiver_addr: string, // Receiver address
+      block_height: number, // Block height
+      global_slot: number, // Global slot number
+      message_id: number, // Message identifier
+      incoming: boolean, // Whether incoming or outgoing
+    },
+  ];
+}
+```
+
+**Dashboard displays:**
+
+- **Block messages table**: All messages related to the block
+- **Message details**:
+  - Message kind/type
+  - Producer ID
+  - Block hash and height
+  - Global slot
+- **Timing information**:
+  - Formatted timestamp
+  - Latency calculation: Time difference from fastest message to this message
+  - Received latency (for incoming) or Sent latency (for outgoing)
+- **Network info**: Sender and receiver addresses
+- **Direction**: Incoming or Outgoing indicator
+
+**Used by:** Network block message analysis, block propagation monitoring
+
+#### GET `<debugger>/block/latest`
+
+Get the latest block height available in the debugger.
+
+**Frontend usage**
+([`network-blocks.service.ts:29`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/blocks/network-blocks.service.ts#L29)):
+
+The dashboard extracts the following fields from the `<debugger>/block/latest`
+response:
+
+```typescript
+{
+  height: number,  // Latest block height
+}
+```
+
+**Dashboard displays:**
+
+- **Latest block height**: Used for pagination and synchronization
+
+**Used by:** Block height synchronization, pagination control
+
+### Message inspection
+
+#### GET `<debugger>/messages`
+
+Get network messages with advanced filtering and pagination.
+
+**Query parameters:**
+
+- `limit`: Maximum number of messages (required)
+- `direction`: `forward` or `reverse` pagination (required)
+- `id`: Starting message ID (optional)
+- `timestamp`: Filter by timestamp from (optional, nanoseconds)
+- `timestamp_limit`: Filter by timestamp to (optional, nanoseconds)
+- `stream_kind`: Filter by stream type (optional, comma-separated)
+- `message_kind`: Filter by message type (optional, comma-separated)
+- `address`: Filter by peer address (optional, comma-separated)
+- `connection_id`: Filter by connection (optional, comma-separated)
+
+**Frontend usage**
+([`network-messages.service.ts:29`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/messages/network-messages.service.ts#L29)):
+
+The dashboard extracts the following fields from the `<debugger>/messages`
+response:
+
+```typescript
+[
+  [
+    number,  // Message ID (index 0)
+    {
+      timestamp: {
+        secs_since_epoch: number,  // Seconds since epoch
+        nanos_since_epoch: number, // Nanoseconds component
+      },
+      incoming: boolean,          // Direction (true=incoming, false=outgoing)
+      connection_id: number,      // Connection identifier
+      remote_addr: string,        // Remote peer address
+      size: number,               // Message size in bytes
+      stream_kind: string,        // Stream type
+      message: string | {         // Message content or decryption stats
+        total_failed?: number,    // Failed decryptions count
+        total_decrypted?: number, // Successful decryptions count
+      }
+    }
+  ]
+]
+```
+
+**Dashboard displays:**
+
+- **Messages table**: All network messages with filtering
+- **Message details**:
+  - Message ID
+  - Formatted timestamp
+  - Direction (Incoming/Outgoing)
+  - Connection ID
+  - Remote address
+  - Message size
+  - Stream kind
+- **Decryption stats** (if applicable):
+  - Failed to decrypt percentage:
+    `(total_failed / (total_decrypted + total_failed)) * 100`
+- **Message kind**: Extracted from message content or displayed as-is
+
+**Used by:** Network message viewer, message debugging, traffic analysis
+
+#### GET `<debugger>/message/<message_id>`
+
+Get complete details and full content for a specific message.
+
+**Path parameters:**
+
+- `message_id`: Message identifier
+
+**Frontend usage**
+([`network-messages.service.ts:60`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/messages/network-messages.service.ts#L60)):
+
+The dashboard extracts the following fields from the `<debugger>/message/`
+response:
+
+```typescript
+{
+  message: any,  // Full message content (displayed as-is)
+}
+```
+
+**Note**: The frontend displays this data as-is without extracting specific
+fields. Progress tracking is used to detect large messages (>10MB) and show
+download progress.
+
+**Dashboard displays:**
+
+- **Full message content**: Complete message data in structured format
+- **Download progress**: For large messages (>10MB)
+- **Raw data view**: All fields from response shown in the details panel
+
+**Used by:** Message detail view, deep message inspection
+
+#### GET `<debugger>/message_hex/<message_id>`
+
+Get hexadecimal representation of a message for low-level debugging.
+
+**Path parameters:**
+
+- `message_id`: Message identifier
+
+**Frontend usage**
+([`network-messages.service.ts:92`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/messages/network-messages.service.ts#L92)):
+
+**Response**: Raw hexadecimal string representation of the message
+
+**Dashboard displays:**
+
+- **Hex dump**: Raw hexadecimal message data
+- **Low-level view**: Used for protocol-level debugging
+
+**Used by:** Low-level message debugging, protocol analysis
+
+### Connection management
+
+#### GET `<debugger>/connections`
+
+Get all network connections with pagination support.
+
+**Query parameters:**
+
+- `limit`: Maximum number of connections (required)
+- `direction`: `forward` or `reverse` pagination (required)
+- `id`: Starting connection ID (optional)
+
+**Frontend usage**
+([`network-connections.service.ts:23`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/connections/network-connections.service.ts#L23)):
+
+The dashboard extracts the following fields from the `<debugger>/connections`
+response:
+
+```typescript
+[
+  [
+    number, // Connection ID (index 0)
+    {
+      timestamp: {
+        secs_since_epoch: number, // Seconds since epoch
+        nanos_since_epoch: number, // Nanoseconds component
+      },
+      incoming: boolean, // Direction (true=incoming, false=outgoing)
+      info: {
+        addr: string, // Connection address
+        pid: number, // Process ID
+        fd: number, // File descriptor
+      },
+      alias: string, // Connection alias
+      stats_in: any, // Incoming statistics
+      stats_out: any, // Outgoing statistics
+    },
+  ],
+];
+```
+
+**Dashboard displays:**
+
+- **Connections table**: All network connections with pagination
+- **Connection details**:
+  - Connection ID
+  - Formatted timestamp
+  - Direction (Incoming/Outgoing)
+  - Address
+  - Process ID and File descriptor
+  - Connection alias
+- **Statistics**: Incoming and outgoing stats
+
+**Used by:** Network connections viewer, connection monitoring
+
+#### GET `<debugger>/connection/<connection_id>`
+
+Get detailed information for a specific connection.
+
+**Path parameters:**
+
+- `connection_id`: Connection identifier
+
+**Frontend usage**
+([`network-messages.service.ts:84`](https://github.com/o1-labs/mina-rust/blob/main/frontend/src/app/features/network/messages/network-messages.service.ts#L84)):
+
+The dashboard extracts the following fields from the `<debugger>/connection/`
+response:
+
+```typescript
+{
+  info: {
+    addr: string,  // Connection address
+    pid: number,   // Process ID
+    fd: number,    // File descriptor
+  },
+  incoming: boolean,  // Direction (true=incoming, false=outgoing)
+  timestamp: {
+    secs_since_epoch: number,  // Seconds since epoch
+  },
+}
+```
+
+**Dashboard displays:**
+
+- **Connection details panel**: Full connection information
+- **Address and identifiers**: Address, PID, file descriptor
+- **Direction**: Incoming or Outgoing
+- **Timestamp**: Formatted connection establishment time
+
+**Used by:** Connection detail view, message filtering by connection
+
+### Network testing (deprecated)
+
+#### POST `<debugger>/firewall/whitelist/enable`
+
+Enable firewall whitelist for network split testing.
+
+**Request body:**
+
+```json
+{
+  "ips": ["string"],
+  "ports": [3000]
+}
+```
+
+**Response:** Success/failure status
+
+**Used by:** Dashboard network splits (deprecated feature)
+
+#### POST `<debugger>/firewall/whitelist/disable`
+
+Disable firewall whitelist to restore network connectivity.
+
+**Response:** Success/failure status
+
+**Used by:** Dashboard network merging (deprecated feature)
+
+## GraphQL endpoints
+
+### POST `<graphql>/graphql`
+
+Query external Mina GraphQL API for blockchain data.
+
+**Request body:**
+
+```graphql
+query Peers {
+  daemonStatus {
+    addrsAndPorts {
+      peer {
+        peerId
+      }
+      externalIp
+      libp2pPort
+    }
+  }
+  getPeers {
+    host
+    libp2pPort
+    peerId
+  }
+}
+```
+
+**Response:** GraphQL response matching query structure
+
+**Used by:** External peer queries, zkApp updates
+
+## External services
+
+### Firebase Cloud Function
+
+#### POST `https://us-central1-webnode-gtm-test.cloudfunctions.net/handleValidationAndStore`
+
+Store WebNode heartbeat data for analytics.
+
+**Request body:**
+
+```json
+{
+  "data": {
+    "timestamp": "number",
+    "nodeId": "string",
+    "metrics": {}
+  }
+}
+```
+
+**Response:** Success/error status
+
+**Used by:** WebNode heartbeat service
+
+## Static asset endpoints
+
+### GET `/assets/reports/index.json`
+
+Get fuzzing report directory listing.
+
+**Response:** Array of directory names
+
+**Used by:** Fuzzing report browser
+
+### GET `/assets/reports/<directory>/rustindex.json`
+
+Get file list for a fuzzing report directory.
+
+**Path parameters:**
+
+- `directory`: Report directory name
+
+**Response:** Array of file information with coverage data
+
+**Used by:** Fuzzing file browser
+
+### GET `/assets/reports/<directory>/<filename>`
+
+Get fuzzing file details and coverage.
+
+**Path parameters:**
+
+- `directory`: Report directory name
+- `filename`: File name
+
+**Response:** File content with line-by-line coverage
+
+**Used by:** Fuzzing file viewer
+
+### GET `/assets/webnode/web-node-secrets.json`
+
+Load WebNode key pair for development.
+
+**Response:**
+
+```json
+{
+  "publicKey": "string",
+  "privateKey": "string"
+}
+```
+
+**Used by:** WebNode WASM initialization
+
+## WebNode WASM API
+
+When running WebNode, the frontend interacts with a WebAssembly module instead
+of making HTTP requests. These are method calls on the WASM instance:
+
+- `webnode.status()` - Get node status
+- `webnode.stats().block_producer()` - Get block producer statistics
+- `webnode.state().peers()` - Get peers state
+- `webnode.state().message_progress()` - Get message progress
+- `webnode.stats().sync()` - Get sync statistics
+- `webnode.stats().actions(slot)` - Get action statistics for slot
+- `webnode.ledger().latest().accounts().all()` - Get all accounts
+- `webnode.transition_frontier().best_chain().user_commands()` - Get user
+  commands
+- `webnode.transaction_pool().inject().payment(payment)` - Inject payment
+  transaction
+- `webnode.transaction_pool().get()` - Get transaction pool
+
+## Summary
+
+### Endpoint count by category
+
+- **Node status**: 2 endpoints
+- **State and sync**: 4 endpoints
+- **Block production**: 5 endpoints
+- **SNARKs**: 5 endpoints
+- **Transactions**: 2 endpoints
+- **Network discovery**: 2 endpoints
+- **Memory profiler**: 1 endpoint
+- **Network debugger**: 9 endpoints
+- **GraphQL**: 1 endpoint
+- **Firebase**: 1 endpoint
+- **Static assets**: 4 endpoints
+- **WebNode WASM**: 10+ methods
+
+**Total**: 40+ API endpoints
+
+### HTTP methods
+
+- **GET**: ~35 endpoints (read operations)
+- **POST**: ~5 endpoints (write operations)
+
+### Communication patterns
+
+The frontend uses HTTP polling through RxJS observables rather than WebSocket
+connections. The `RustService` acts as a central HTTP client wrapper with
+special handling for WebNode (WASM-based) versus regular Rust node backends.

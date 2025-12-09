@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test system dependencies installation
         run: |
@@ -67,7 +67,6 @@ jobs:
           node --version
           npm --version
           protoc --version
-          sqlite3 --version
           wasm-pack --version
           shellcheck --version
 
@@ -83,7 +82,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test system dependencies installation
         run: |
@@ -124,7 +123,6 @@ jobs:
           node --version
           npm --version
           protoc --version
-          sqlite3 --version
           wasm-pack --version
           shellcheck --version
 
@@ -138,10 +136,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v20
+        uses: DeterminateSystems/nix-installer-action@v21
 
       - name: Setup Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v13
@@ -171,7 +169,7 @@ jobs:
       - name: Verify installations
         run: |
           echo "Verifying installed tools..."
-          nix develop --command bash -c "rustc --version && cargo --version && node --version && npm --version && protoc --version && sqlite3 --version && wasm-pack --version"
+          nix develop --command bash -c "rustc --version && cargo --version && node --version && npm --version && protoc --version && wasm-pack --version"
 
 
   docker-ubuntu:
@@ -186,7 +184,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test Docker installation
         run: |
@@ -209,7 +207,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Test Docker installation
         run: |
@@ -228,7 +226,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Verify benchmark scripts and commands
         run: |
@@ -254,7 +252,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Fetch all history
 

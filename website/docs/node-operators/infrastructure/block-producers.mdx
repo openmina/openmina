@@ -1,12 +1,197 @@
 ---
 title: Block Producers
-description: o1Labs block producer infrastructure on dev-net
+description: o1Labs block producer infrastructure on devnet
 sidebar_position: 5
 ---
 
+import CodeBlock from "@theme/CodeBlock";
+import BlockProducerNodesList from "!!raw-loader!../../developers/scripts/infrastructure/block-producer-nodes.txt";
+import QueryBestChainBlock from "!!raw-loader!../../developers/scripts/infrastructure/query-best-chain-block.sh";
+import QueryBestChainTransactions from "!!raw-loader!../../developers/scripts/infrastructure/query-best-chain-transactions.sh";
+import TestGraphQLEndpoint from "!!raw-loader!../../developers/scripts/infrastructure/test-graphql-endpoint.sh";
+
 # Block Producers
 
-This section is still a work in progress. It will cover the block producers that
-the o1Labs team runs on dev-net.
+o1Labs maintains block producer node infrastructure that actively participates
+in the Mina Rust network consensus. These nodes provide HTTP endpoints for
+network interaction.
 
-Track progress: [Issue #1463](https://github.com/o1-labs/mina-rust/issues/1463)
+<!-- prettier-ignore-start -->
+
+:::info Block Production Under Development
+
+Block production functionality is currently under development and pending
+testing and release. These nodes currently operate as network participants with
+GraphQL API access.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+## Available Block Producer Nodes
+
+The following block producer nodes are officially maintained by o1Labs:
+
+<CodeBlock
+  language="text"
+  title="website/docs/developers/scripts/infrastructure/block-producer-nodes.txt"
+>
+  {BlockProducerNodesList}
+</CodeBlock>
+
+## Node Information
+
+- **Availability**: Maintained 24/7 by o1Labs
+- **Purpose**: Network consensus participation (block production under
+  development)
+- **Location**: Google Cloud Platform (GCP)
+- **Additional Features**: GraphQL API access for network queries
+
+## Using Block Producer Nodes
+
+### Latest canonical block information
+
+Query the latest canonical block to get block height, state hash, and block
+creator:
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/infrastructure/query-best-chain-block.sh"
+>
+  {QueryBestChainBlock}
+</CodeBlock>
+
+### Transaction information
+
+Check transactions in the latest block:
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/infrastructure/query-best-chain-transactions.sh"
+>
+  {QueryBestChainTransactions}
+</CodeBlock>
+
+## API Capabilities
+
+### Blockchain Queries
+
+- **Block information**: Current and historical blocks
+- **Transaction data**: Transaction status and history
+- **Account balances**: Account information and balances
+- **Network state**: Consensus and sync status
+
+### Network Monitoring
+
+- **Peer connections**: Current peer list and status
+- **Sync progress**: Blockchain synchronization state
+- **Protocol information**: Network protocol version and chain ID
+
+<!-- prettier-ignore-start -->
+
+:::info API Documentation
+
+For complete API documentation, see the
+[GraphQL API](../../developers/graphql-api) documentation which provides
+detailed information about available queries and mutations.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+## Troubleshooting
+
+### Connection Issues
+
+If you cannot connect to block producer nodes:
+
+1. **Check network connectivity**: Ensure internet access and HTTPS traffic is
+   allowed
+2. **Verify URLs**: Confirm you're using the correct node URLs
+3. **Test manually**: Try accessing the URLs in a browser
+4. **Check node status**: Verify the node is responding to queries
+
+### API Errors
+
+Common API issues:
+
+<!-- prettier-ignore-start -->
+
+:::caution GraphQL Endpoint URL Format
+
+When using block producer node endpoints, **always include `/graphql` at the end
+of the URL**. The endpoint will return "HTTP method not allowed" if you omit the
+`/graphql` path.
+
+**Correct**: `https://mina-rust-bp-1.gcp.o1test.net/graphql`
+
+**Incorrect**: `https://mina-rust-bp-1.gcp.o1test.net/`
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+<CodeBlock
+  language="bash"
+  title="website/docs/developers/scripts/infrastructure/test-graphql-endpoint.sh"
+>
+  {TestGraphQLEndpoint}
+</CodeBlock>
+
+## Updates and Maintenance
+
+### Infrastructure Updates
+
+o1Labs maintains these block producer nodes with:
+
+- **Regular updates**: Nodes are kept current with latest releases
+- **Monitoring**: 24/7 health monitoring and alerting
+- **Load balancing**: Multiple nodes ensure continuous availability
+- **Performance optimization**: Regular performance tuning
+
+### Communication
+
+Infrastructure maintenance and updates are communicated through:
+
+- GitHub release notes
+- Project documentation updates
+- Community announcements
+
+## Deployment (o1Labs Employees Only)
+
+<!-- prettier-ignore-start -->
+
+:::caution o1Labs Employees Only
+
+This section is for o1Labs employees only. If you do not have access to the
+required repositories, contact the platform lead.
+
+:::
+
+<!-- prettier-ignore-stop -->
+
+o1Labs uses [ArgoCD](https://argo-cd.readthedocs.io/) to maintain the
+infrastructure through GitOps.
+
+To update the block producer nodes infrastructure:
+
+1. Access the private repository:
+   `https://github.com/o1-labs/gitops-infrastructure`
+2. Create a new branch for your changes
+3. Edit: `applications/auto-deployed/mina-rust-standard-bps.yaml`
+4. Update the `MINA_RUST_TAG` variable to the desired commit or release tag
+   (must be available as a Docker image on
+   [DockerHub](https://hub.docker.com/r/o1labs/mina-rust))
+5. Create a pull request with your changes
+6. Ask the platform lead or rust node team lead to review and merge the PR
+7. Once merged, ArgoCD will automatically deploy the update
+
+## Reference Information
+
+### Related Documentation
+
+- [Plain Nodes](./plain-nodes) - API access nodes
+- [Seed Nodes](./seed-nodes) - P2P network bootstrap nodes
+- [Archive Nodes](./archive-nodes) - Historical data access
+- [Frontend](./frontend) - Web interface deployment
+- [GraphQL API](../../developers/graphql-api) - Complete API documentation

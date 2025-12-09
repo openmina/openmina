@@ -34,37 +34,6 @@ pub fn incoming_rpc() {
     }
 }
 
-// #[test]
-// #[ignore = "Memory allocation benches should be run individually"]
-// fn incoming_rpc_one_by_one() {
-//     static STREAM: &[u8] = include_bytes!("files/v2/rpc/catchup_in.bin");
-//     let mut p = STREAM;
-//     let mut max: Option<(f64, usize, MemoryStats, Tag, Ver)> = None;
-//     while !p.is_empty() {
-//         let (tag, version) = read_rpc_tag_version(&mut p).unwrap();
-//         let pp = p;
-//         let (_, stats) =
-//             trace_allocs(|| read_rpc_response_untyped(&tag, &version, &mut p).unwrap());
-//         let encoded = pp.len() - p.len();
-//         let ratio = (stats.peak as f64) / (encoded as f64);
-//         if ratio > 1.5 {
-//             println!("{}:{}", tag.to_string_lossy(), version);
-//             println!("Ratio: {}", ratio);
-//             println!("Encoded size (B): {}", encoded);
-//             println!("{stats}");
-//         }
-//         if matches!(&max, Some((r, ..)) if ratio > *r) || max.is_none() {
-//             max = Some((ratio, encoded, stats, tag, version));
-//         }
-//     }
-//     if let Some((ratio, encoded, stats, tag, version)) = max {
-//         println!("{}:{}", tag.to_string_lossy(), version);
-//         println!("Ratio: {}", ratio);
-//         println!("Encoded size (B): {}", encoded);
-//         println!("{stats}");
-//     }
-// }
-
 pub fn staged_ledger() {
     static ENCODED: &[u8] = include_bytes!("files/v2/rpc/get-staged-ledger-aux/response/00.bin");
     let mut p = ENCODED;

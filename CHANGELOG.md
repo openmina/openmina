@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Node**: add top-level documentation for the crate `node`
+  ([#1736](https://github.com/o1-labs/mina-rust/pull/1736))
+
+### Changes
+
+- **Dependency**: use tag instead of references of o1-labs/proof-systems, fix
+  [[#1674](https://github.com/o1-labs/mina-rust/issues/1674)]
+  ([#1673](https://github.com/o1-labs/mina-rust/pull/1673))
+- Remove ocaml-interop dependency, fix
+  [#1235](https://github.com/o1-labs/mina-rust/issues/1235)
+  ([#1646](https://github.com/o1-labs/mina-rust/pull/1646))
+
+### Removed
+
+- **CI**: remove network debugger from CI
+  ([#1700](https://github.com/o1-labs/mina-rust/pull/1700))
+
+## [0.18.1] - 2025-11-20
+
+### Added
+
+- **Documentation**: Add comprehensive API endpoints reference for the Node
+  Dashboard, documenting all endpoints and specific data fields used by the
+  frontend ([#1566](https://github.com/o1-labs/mina-rust/issues/1566))
+
+### Fixed
+
+- **Docker Compose**: Fix frontend black screen issue by changing environment
+  from `compose` to `local` and exposing port 3000 for rust node HTTP API (hotfix `v0.18.1`)
+  from `compose` to `local` and exposing port 3000 for mina-node HTTP API
+  ([#1649](https://github.com/o1-labs/mina-rust/pull/1649))
+
+### Changed
+
+- **Dependencies/proof-systems**: bump up proof-systems to 282faf5
+  ([#1662](https://github.com/o1-labs/mina-rust/pull/1662))
+- **Tests**: removed unused tests and fixed tests
+  ([#1682](https://github.com/o1-labs/mina-rust/pull/1682))
+
+## [0.18.0] - 2025-11-04
+
 ### OCaml node
 
 - Update the CI and code to compare with the latest release 3.3.0-alpha1-6929a7e
@@ -14,6 +57,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Website**: Update Docusaurus to version 3.9.2 from 3.9.1 for latest
+  features and bug fixes
+  ([#1583](https://github.com/o1-labs/mina-rust/pull/1583))
+- **Website**: Migrate deprecated `onBrokenMarkdownLinks` configuration option
+  to the new `markdown.hooks.onBrokenMarkdownLinks` format for Docusaurus v4
+  compatibility ([#1583](https://github.com/o1-labs/mina-rust/pull/1583))
+- **Development Tools**: Add `setup-taplo` and `setup` Makefile targets to
+  simplify development environment setup. Update `release-validate` script to
+  test only packages that are tested in CI, avoiding untested packages with
+  failing tests
+  ([#1573](https://github.com/o1-labs/mina-rust/pull/1573))
+- **CI**: Add validation workflows for block producer nodes infrastructure,
+  including connectivity and API capability testing similar to plain nodes
+  ([#1571](https://github.com/o1-labs/mina-rust/pull/1571))
+- **Website**: Add block producer nodes documentation page with GraphQL query
+  examples for latest canonical block and transaction information. Include note
+  that block production functionality is under development
+  ([#1571](https://github.com/o1-labs/mina-rust/pull/1571))
 - **CLI**: add GraphQL introspection and execution commands under `mina
   internal graphql`. Three new commands enable dynamic endpoint discovery
   (`list`), detailed schema inspection (`inspect <endpoint>`), and arbitrary
@@ -67,9 +128,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mina-node-native` ([#1549](https://github.com/o1-labs/mina-rust/pull/1549))
 - **CI**: add a step in tests to run the unit/integration tests of the package
   `mina-node-native` ([#1549](https://github.com/o1-labs/mina-rust/pull/1549))
+- **Tests**: add account creation test cases for payment and coinbase
+  transactions, verifying correct handling of account creation fees during
+  the first pass of transaction application
+  ([#1581](https://github.com/o1-labs/mina-rust/pull/1581))
+- **tools**: remove stack allocation from tools
+  ([#1576](https://github.com/o1-labs/mina-rust/pull/1576))
 
 ### Changed
 
+- **Development Tools**: Update taplo configuration to exclude `node_modules` and
+  `target` directories from TOML formatting checks
+  ([#1573](https://github.com/o1-labs/mina-rust/pull/1573))
+- **Build System**: Move salsa-simple from tools/ to vendor/ and alphabetize
+  workspace members. salsa-simple is a vendored XSalsa20 implementation with
+  serde support, not a command-line tool
+  ([#1580](https://github.com/o1-labs/mina-rust/pull/1580))
 - **CI**: Speed up CI by decoupling test runs from full build completion.
   Created dedicated single-platform build jobs that run only on ubuntu-22.04
   to produce artifacts needed for testing, allowing tests to start as soon as
@@ -107,15 +181,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reusing build caches for efficiency
   ([#1539](https://github.com/o1-labs/mina-rust/pull/1539))
 - **Ledger**: document, clean and add tests for the crate `mina-tree`
-  ([#1531](https://github.com/o1-labs/mina-rust/pull/1531)).
+  ([#1531](https://github.com/o1-labs/mina-rust/pull/1531).
 - **GraphQL**: fixed parsing when neither signature nor proof is given.
   See issue [#1464](https://github.com/o1-labs/mina-rust/issues/1464).
   Fixed in [#1546](https://github.com/o1-labs/mina-rust/pull/1546/)
   ([#1546](https://github.com/o1-labs/mina-rust/pull/1546))
 - **transactions**: fixed a typo in `p2p_request_transactions_if_needed` where snark count was used instead of transaction count
   ([#1563](https://github.com/o1-labs/mina-rust/pull/1563)).
+- **tools**: remove heartbeat-processors
+  ([#1577](https://github.com/o1-labs/mina-rust/pull/1577))
+- **tools**: remove producer-dashboard
+  ([#1578](https://github.com/o1-labs/mina-rust/pull/1578))
+- **CI**: build benches for each PR with the workflow `tests`, and fix the step
+  in the workflow `build` by adding the missing SQLx/SQLite setup
+  ([#1548](https://github.com/o1-labs/mina-rust/pull/1548))
+- **frontend**: remove leaderboard from the frontend
+  ([#1579](https://github.com/o1-labs/mina-rust/pull/1579)
 
-## v0.17.0
+### Fixed
+
+- **Development Tools**: Fix `fix-trailing-whitespace` Makefile target to work
+  correctly on macOS by removing conflicting `-e` flag in sed command
+  ([#1573](https://github.com/o1-labs/mina-rust/pull/1573))
+
+## [0.17.0] - 2025-04-08
 
 ### OCaml node
 
@@ -634,7 +723,10 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.16.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.18.1...develop
+[0.18.1]: https://github.com/openmina/openmina/compare/v0.18.0...v0.18.1
+[0.18.0]: https://github.com/openmina/openmina/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/openmina/openmina/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/openmina/openmina/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/openmina/openmina/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/openmina/openmina/compare/v0.13.0...v0.14.0

@@ -74,7 +74,7 @@ impl P2pState {
             mina_core::log::info!(
                 mina_core::log::system_time();
                 kind = "P2pState new",
-                summary = format!("Current node's id: {peer_id_str}"),
+                summary = format!("Current node's id: {my_id}"),
                 peer_id_str = peer_id_str,
             );
         }

@@ -1,10 +1,6 @@
 name: 'Setup Build Dependencies'
 description: 'Install system dependencies required for building Mina'
 inputs:
-  include-sqlite:
-    description: 'Include SQLite3 in the installation'
-    required: false
-    default: 'false'
   install-nextest:
     description: 'Install cargo-nextest for faster test execution'
     required: false
@@ -17,17 +13,13 @@ runs:
       shell: bash
       run: |
         sudo apt update || true
-        if [ "${{ inputs.include-sqlite }}" = "true" ]; then
-          sudo apt install -y protobuf-compiler sqlite3 || true
-        else
-          sudo apt install -y protobuf-compiler || true
-        fi
+        sudo apt install -y protobuf-compiler libpcap-dev || true
 
     - name: Setup build dependencies (macOS)
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install protobuf ocaml opam
+        brew install protobuf ocaml opam libpcap
 
     - name: Install cargo-nextest
       if: inputs.install-nextest == 'true'

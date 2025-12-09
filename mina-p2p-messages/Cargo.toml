@@ -1,12 +1,13 @@
 [package]
 name = "mina-p2p-messages"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2021"
 license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-ff = { workspace = true }
 ark-serialize = { workspace = true }
 base64 = { workspace = true }
 binprot = { workspace = true }
@@ -14,9 +15,19 @@ binprot_derive = { workspace = true }
 blake2 = { workspace = true }
 bs58 = { workspace = true, features = ["check"] }
 derive_more = { workspace = true }
+graphannis-malloc_size_of = { workspace = true }
+graphannis-malloc_size_of_derive = { workspace = true }
 hex = { workspace = true }
 lazy_static = { workspace = true }
+mina-curves = { workspace = true }
+mina-hasher = { workspace = true }
+mina-macros = { workspace = true }
+mina-signer = { workspace = true }
 num-bigint = { workspace = true }
+o1-utils = { workspace = true }
+poseidon = { workspace = true }
+rsexp = { workspace = true }
+rsexp-derive = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
@@ -25,21 +36,6 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }
-
-mina-macros = { path = "../macros" }
-
-mina-curves = { workspace = true }
-mina-hasher = { workspace = true }
-mina-signer = { workspace = true }
-o1-utils = { workspace = true }
-poseidon = { workspace = true }
-
-ark-ff = { workspace = true }
-rsexp = { workspace = true }
-rsexp-derive = { workspace = true }
-
-graphannis-malloc_size_of = { workspace = true }
-graphannis-malloc_size_of_derive = { workspace = true }
 
 [target.'cfg(fuzzing)'.dev-dependencies]
 fuzzcheck = { workspace = true }
