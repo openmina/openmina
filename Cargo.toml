@@ -30,6 +30,22 @@ members = [
   "vendor/alloc-test",
   "vendor/redux",
   "vendor/salsa-simple",
+  "vendor/webrtc/constraints",
+  "vendor/webrtc/data",
+  "vendor/webrtc/dtls",
+  "vendor/webrtc/ice",
+  "vendor/webrtc/interceptor",
+  "vendor/webrtc/mdns",
+  "vendor/webrtc/media",
+  "vendor/webrtc/rtcp",
+  "vendor/webrtc/rtp",
+  "vendor/webrtc/sctp",
+  "vendor/webrtc/sdp",
+  "vendor/webrtc/srtp",
+  "vendor/webrtc/stun",
+  "vendor/webrtc/turn",
+  "vendor/webrtc/util",
+  "vendor/webrtc/webrtc",
   "vrf",
 ]
 
@@ -242,7 +258,7 @@ wasm-bindgen-futures = "0.4"
 wasm-bindgen-test = "0.3.33"
 wasm_thread = { version = "0.3", features = ["es_modules"] }
 web-sys = { version = "0.3.64" }
-webrtc = { git = "https://github.com/openmina/webrtc.git", rev = "aeaa62682b97f6984627bedd6e6811fe17af18eb" }
+webrtc = { path = "vendor/webrtc/webrtc" }
 x25519-dalek = { version = "2.0.1", features = ["static_secrets"] }
 zeroize = "1.8"
 zstd = "0.12"
