@@ -8,7 +8,10 @@ pub fn perf_benchmark<F: Fn() -> O, O>(id: &str, f: F) -> PerfStats {
 
 pub fn perf_log_toml<F: Fn() -> O, O>(id: &str, f: F) -> PerfStats {
     let stats = super::measure::bench(f);
-    log!("\nperformance stats for `{id}`:\n{stats}", stats = toml::to_string(&stats).unwrap());
+    log!(
+        "\nperformance stats for `{id}`:\n{stats}",
+        stats = toml::to_string(&stats).unwrap()
+    );
     stats
 }
 
